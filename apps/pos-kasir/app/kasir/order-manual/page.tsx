@@ -19,7 +19,7 @@ import { printReceipt, type ReceiptData } from '@/lib/printReceipt'
 import { useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
-import { createLocalOrder } from '@/lib/offline'
+import { createLocalOrder, estimateOrderNumber, isNetworkError, type OfflineIngestPayload } from '@/lib/offline'
 import { QRCodeSVG } from 'qrcode.react'
 
 type Mode = 'walkin' | 'online' | 'endorse' | 'website'
@@ -70,7 +70,7 @@ export default function OrderManualPage() {
   const [aiEnabled, setAiEnabled] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   const [showInfo, setShowInfo] = useState(true)
-  const [success, setSuccess] = useState<{ orderNumber: number; method: Payment | null; change: number | null } | null>(null)
+  const [success, setSuccess] = useState<{ orderNumber: number | null; method: Payment | null; change: number | null } | null>(null)
   const [onlineQrisOpen, setOnlineQrisOpen] = useState(false)
   const [paymentProofUrl, setPaymentProofUrl] = useState<string | null>(null)
 
@@ -85,7 +85,7 @@ export default function OrderManualPage() {
   const [walkInSubmitting, setWalkInSubmitting] = useState(false)
   const [walkInError, setWalkInError] = useState<string | null>(null)
   const [walkInSuccess, setWalkInSuccess] = useState<
-    { orderNumber: number; method: WalkInPayment; change: number | null; receipt: ReceiptData } | null
+    { orderNumber: number | null; method: WalkInPayment; change: number | null; receipt: ReceiptData } | null
   >(null)
   // Bumped setelah transaksi sukses untuk me-remount panel (reset input tunai).
   const [walkInPanelKey, setWalkInPanelKey] = useState(0)
@@ -468,6 +468,21 @@ export default function OrderManualPage() {
   const activeChannel = mode === 'website' ? 'website' : channel
   const canSubmit = lineList.length > 0 && !!activeChannel && !!payment && !!customerName.trim() && (mode !== 'website' || !!pickupTime.trim()) && !submitting
 
+  // Nomor perkiraan untuk struk offline: nomor server tertinggi yang device
+  // ketahui hari ini, ditambah jumlah order offline yang sudah antre.
+  async function nextEstimatedNumber(outlet: string): Promise<number> {
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const [cached, pending] = await Promise.all([
+      db.orders_cache.where('outlet_id').equals(outlet).toArray(),
+      db.local_orders.where('outlet_id').equals(outlet).toArray(),
+    ])
+    const knownNumbers = cached
+      .filter((r) => new Date(r.created_at) >= today)
+      .map((r) => r.data.order_number)
+    const pendingToday = pending.filter((r) => new Date(r.created_at) >= today).length
+    return estimateOrderNumber(knownNumbers, pendingToday)
+  }
+
   // ── Submit ────────────────────────────────────────────────────────────────
   async function handleSubmit(amountReceived: number | null, proofUrl?: string | null) {
     if (!canSubmit) return
@@ -503,131 +518,146 @@ export default function OrderManualPage() {
       })),
     }
 
+    const buildManualReceipt = (orderNumber: number, changeAmount: number | null): ReceiptData => ({
+      outletName: outletName || 'SUKA SHAWARMA',
+      orderNumber,
+      dateISO: new Date().toISOString(),
+      customerName: customerName.trim() || null,
+      items: lineList.map((l) => {
+        const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
+        return {
+          name: l.item.name,
+          note: l.note?.trim() || undefined,
+          quantity: l.quantity,
+          unit_price: unit,
+          subtotal: unit * l.quantity,
+          isChild: !!l.parentId,
+        }
+      }),
+      subtotal: subtotalAmount,
+      discount: globalDiscount,
+      total: totalPrice,
+      paymentMethod: payment as 'cash' | 'qris',
+      amountReceived: payment === 'cash' ? amountReceived : null,
+      changeAmount,
+      receiptType: 'kitchen',
+    })
+
+    const clientOrderId = crypto.randomUUID()
+    let receipt: ReceiptData | null = null
+    let successState: { orderNumber: number; method: WalkInPayment | null; change: number | null } | null = null
+
     try {
       const res = await fetch('/api/orders/manual', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, client_order_id: clientOrderId }),
       })
       const data = await res.json().catch(() => ({}))
+
       if (!res.ok) {
-        if (res.status >= 500) {
-          throw new Error('Server error, fallback to offline')
-        }
         postToNative({ type: 'haptic', style: 'error' })
-        setError(data.error ?? 'Gagal membuat pesanan')
+        setError(data.error ?? `Gagal membuat pesanan (${res.status})`)
         setSubmitting(false)
         return
       }
-      postToNative({ type: 'haptic', style: 'success' })
 
-      const receipt: ReceiptData = {
-        outletName: outletName || 'SUKA SHAWARMA',
+      postToNative({ type: 'haptic', style: 'success' })
+      receipt = buildManualReceipt(data.order_number, data.change_amount ?? null)
+      successState = {
         orderNumber: data.order_number,
-        dateISO: new Date().toISOString(),
-        customerName: customerName.trim() || null,
-        items: lineList.map((l) => {
-          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
-          return {
-            name: l.item.name,
-            note: l.note?.trim() || undefined,
-            quantity: l.quantity,
-            unit_price: unit,
-            subtotal: unit * l.quantity,
-          }
-        }),
-        subtotal: subtotalAmount,
-        discount: globalDiscount,
-        total: totalPrice,
-        paymentMethod: payment as 'cash' | 'qris',
-        amountReceived: payment === 'cash' ? amountReceived : null,
-        changeAmount: data.change_amount ?? null,
-        receiptType: 'kitchen'
+        method: payment as WalkInPayment | null,
+        change: data.change_amount ?? null,
+      }
+    } catch (err) {
+      if (!isNetworkError(err)) {
+        console.error('handleSubmit gagal (bukan masalah jaringan):', err)
+        postToNative({ type: 'haptic', style: 'error' })
+        setError('Terjadi kesalahan saat membuat pesanan. Coba lagi.')
+        setSubmitting(false)
+        return
       }
 
-      await printReceipt(receipt)
-
-      setSuccess({
-        orderNumber: data.order_number,
-        method: payment,
-        change: data.change_amount ?? null
-      })
-      // invalidate cache
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-      // reset untuk order berikutnya
-      setLines([])
-      setChannel(null)
-      setPayment(null)
-      setCustomerName('')
-      setPromoSubsidy('')
-      setCartOpen(false)
-    } catch (err) {
-      console.warn('Network error during handleSubmit, simpan sebagai order offline (IndexedDB):', err)
-      const { orderNumber } = await createLocalOrder({
-        outletId: outletId as string,
-        items: lineList.map((l) => ({
+      const estimated = await nextEstimatedNumber(outletId as string)
+      const items = lineList.map((l) => {
+        const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
+        return {
           menu_item_id: l.item.id,
           name: l.item.name,
           note: l.note,
           quantity: l.quantity,
-          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
-          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
-          package_choices: l.package_choices
-        })),
+          unit_price: unit,
+          subtotal: unit * l.quantity,
+        }
+      })
+      const promoSubsidyValue = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(reqChannel || '')
+        ? Number(promoSubsidy) || 0
+        : 0
+
+      const ingestPayload: OfflineIngestPayload = {
+        client_order_id: clientOrderId,
+        outlet_id: outletId as string,
+        created_at: new Date().toISOString(),
+        source: 'manual',
+        channel: reqChannel,
         payment_method: payment as string,
-        customer_name: customerName.trim() || null,
+        customer_name: finalCustomerName || null,
+        total_amount: totalPrice,
+        discount_amount: globalDiscount > 0 ? globalDiscount : null,
+        promo_subsidy: promoSubsidyValue,
+        amount_received: payment === 'cash' ? amountReceived : null,
+        change_amount: payment === 'cash' && amountReceived !== null ? amountReceived - totalPrice : null,
+        payment_proof_url: typeof proofUrl === 'string' ? proofUrl : null,
+        items: items.map((it) => ({
+          menu_item_id: it.menu_item_id,
+          menu_item_name: it.note?.trim() ? `${it.name}|NOTE|${it.note.trim()}` : it.name,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          subtotal: it.subtotal,
+        })),
+      }
+
+      const { orderNumber } = await createLocalOrder({
+        outletId: outletId as string,
+        items,
+        payment_method: payment as string,
+        customer_name: finalCustomerName || null,
         total_amount: totalPrice,
         discount_amount: globalDiscount > 0 ? globalDiscount : null,
         source: 'manual',
-        channel,
-        promo_subsidy: ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? Number(promoSubsidy) : 0,
+        channel: reqChannel,
+        promo_subsidy: promoSubsidyValue,
         payment_proof_url: (typeof proofUrl === 'string' ? proofUrl : undefined) as string | undefined,
-        apiUrl: '/api/orders/manual',
-        apiPayload: payload,
+        estimatedOrderNumber: estimated,
+        clientOrderId,
+        ingestPayload,
       })
 
       postToNative({ type: 'haptic', style: 'success' })
+      receipt = buildManualReceipt(orderNumber, ingestPayload.change_amount)
+      successState = { orderNumber, method: payment as WalkInPayment | null, change: ingestPayload.change_amount }
+    } finally {
+      setSubmitting(false)
+    }
 
-      const receipt: ReceiptData = {
-        outletName: outletName || 'SUKA SHAWARMA',
-        orderNumber: orderNumber,
-        dateISO: new Date().toISOString(),
-        customerName: customerName.trim() || null,
-        items: lineList.map((l) => {
-          const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
-          return {
-            name: l.item.name,
-            note: l.note?.trim() || undefined,
-            quantity: l.quantity,
-            unit_price: unit,
-            subtotal: unit * l.quantity,
-            isChild: !!l.parentId
-          }
-        }),
-        subtotal: subtotalAmount,
-        discount: globalDiscount,
-        total: totalPrice,
-        paymentMethod: payment as 'cash' | 'qris',
-        amountReceived: payment === 'cash' ? amountReceived : null,
-        changeAmount: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null,
-        receiptType: 'kitchen'
+    if (receipt) {
+      try {
+        await printReceipt(receipt)
+      } catch (printErr) {
+        console.error('Gagal mencetak struk (pesanan tetap tersimpan):', printErr)
+        setError('Pesanan tersimpan, tapi struk gagal dicetak. Cek koneksi printer.')
       }
+    }
 
-      await printReceipt(receipt)
-
-      setSuccess({
-        orderNumber,
-        method: payment,
-        change: payment === 'cash' ? (amountReceived !== null ? amountReceived - totalPrice : 0) : null
-      })
+    if (successState) {
+      setSuccess(successState)
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
       setLines([])
       setChannel(null)
       setPayment(null)
       setCustomerName('')
       setPromoSubsidy('')
       setCartOpen(false)
-    } finally {
-      setSubmitting(false)
     }
   }
 
@@ -669,102 +699,114 @@ export default function OrderManualPage() {
       })),
     }
 
+    const clientOrderId = crypto.randomUUID()
+    const totalAmount = snapSubtotal - snapDiscount
+    let receipt: ReceiptData | null = null
+    let successState: { orderNumber: number; method: WalkInPayment; change: number | null; receipt: ReceiptData } | null = null
+
+    const buildWalkInReceipt = (orderNumber: number, changeAmount: number | null): ReceiptData => ({
+      outletName: outletName || 'SUKA SHAWARMA',
+      orderNumber,
+      dateISO: new Date().toISOString(),
+      customerName: snapCustomer,
+      items: receiptItems,
+      subtotal: snapSubtotal,
+      discount: snapDiscount,
+      total: totalAmount,
+      paymentMethod: method,
+      amountReceived: amountReceived ?? null,
+      changeAmount,
+      receiptType: 'kitchen',
+    })
+
     try {
       const res = await fetch('/api/orders/walk-in', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, client_order_id: clientOrderId }),
       })
       const data = await res.json().catch(() => ({}))
+
       if (!res.ok) {
-        if (res.status >= 500) {
-          throw new Error('Server error, fallback to offline')
-        }
         postToNative({ type: 'haptic', style: 'error' })
-        setWalkInError(data.error ?? 'Gagal membuat pesanan')
+        setWalkInError(data.error ?? `Gagal membuat pesanan (${res.status})`)
         setWalkInSubmitting(false)
         return
       }
-      
-      // Upload QRIS proof if it's a file
+
       if (proofFile instanceof File && data.order_id) {
         try {
-          const ext = proofFile.name.split('.').pop() || 'jpg';
-          const d = new Date();
-          const y = d.getFullYear();
-          const m = String(d.getMonth() + 1).padStart(2, '0');
-          const day = String(d.getDate()).padStart(2, '0');
-          const dateStr = `${y}-${m}-${day}`;
-          
-          const cleanOutlet = (outletName || 'OUTLET').replace(/[^a-zA-Z0-9]/g, '_').toUpperCase();
-          const fileName = `${cleanOutlet}_${data.order_number}_${dateStr}.${ext}`;
-          
+          const ext = proofFile.name.split('.').pop() || 'jpg'
+          const d = new Date()
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+          const cleanOutlet = (outletName || 'OUTLET').replace(/[^a-zA-Z0-9]/g, '_').toUpperCase()
+          const fileName = `${cleanOutlet}_${data.order_number}_${dateStr}.${ext}`
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('payment_proofs')
-            .upload(fileName, proofFile, { upsert: true });
-            
+            .upload(fileName, proofFile, { upsert: true })
           if (!uploadError && uploadData) {
-            const { data: publicUrlData } = supabase.storage.from('payment_proofs').getPublicUrl(uploadData.path);
-            await supabase.from('orders').update({ payment_proof_url: publicUrlData.publicUrl }).eq('id', data.order_id);
+            const { data: publicUrlData } = supabase.storage.from('payment_proofs').getPublicUrl(uploadData.path)
+            await supabase.from('orders').update({ payment_proof_url: publicUrlData.publicUrl }).eq('id', data.order_id)
           } else {
-            console.error('Failed to upload proof:', uploadError);
+            console.error('Failed to upload proof:', uploadError)
           }
-        } catch (err) {
-          console.error('Error uploading proof:', err);
+        } catch (uploadErr) {
+          console.error('Error uploading proof:', uploadErr)
         }
       }
 
       postToNative({ type: 'haptic', style: 'success' })
-
-      const receipt: ReceiptData = {
-        outletName: outletName || 'SUKA SHAWARMA',
-        orderNumber: data.order_number,
-        dateISO: new Date().toISOString(),
-        customerName: snapCustomer,
-        items: receiptItems,
-        subtotal: snapSubtotal,
-        discount: snapDiscount,
-        total: data.total_amount,
-        paymentMethod: method,
-        amountReceived: data.amount_received ?? null,
-        changeAmount: data.change_amount ?? null,
-        receiptType: 'kitchen'
+      receipt = buildWalkInReceipt(data.order_number, data.change_amount ?? null)
+      successState = { orderNumber: data.order_number, method, change: data.change_amount ?? null, receipt }
+    } catch (err) {
+      if (!isNetworkError(err)) {
+        console.error('handleWalkInPay gagal (bukan masalah jaringan):', err)
+        postToNative({ type: 'haptic', style: 'error' })
+        setWalkInError('Terjadi kesalahan saat membuat pesanan. Coba lagi.')
+        setWalkInSubmitting(false)
+        return
       }
 
-      // Cetak struk otomatis (hanya dapur)
-      await printReceipt(receipt)
-
-      setWalkInSuccess({
-        orderNumber: data.order_number,
-        method,
-        change: data.change_amount ?? null,
-        receipt,
-      })
-
-      // invalidate cache
-      queryClient.invalidateQueries({ queryKey: ['orders'] })
-
-      // Reset keranjang untuk transaksi berikutnya
-      setLines([])
-      setCustomerName('')
-      setCartOpen(false)
-      setWalkInPanelKey((k) => k + 1)
-    } catch (err) {
-      console.warn('Network error during handleWalkInPay, simpan sebagai order offline (IndexedDB):', err)
-      const totalAmount = snapSubtotal - snapDiscount
-      const { orderNumber: offlineOrderNumber } = await createLocalOrder({
-        outletId: outletId as string,
-        items: lineList.map((l) => ({
+      const estimated = await nextEstimatedNumber(outletId as string)
+      const changeAmount = method === 'cash' && amountReceived !== null ? amountReceived - totalAmount : null
+      const items = lineList.map((l) => {
+        const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
+        return {
           menu_item_id: l.item.id,
           name: l.item.name,
           note: l.note,
           quantity: l.quantity,
-          unit_price: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices),
-          subtotal: wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity,
-          parent_id: l.parentId,
-          cartItemId: l.cartItemId,
-          package_choices: l.package_choices
+          unit_price: unit,
+          subtotal: unit * l.quantity,
+        }
+      })
+
+      const ingestPayload: OfflineIngestPayload = {
+        client_order_id: clientOrderId,
+        outlet_id: outletId as string,
+        created_at: new Date().toISOString(),
+        source: 'pos',
+        channel: null,
+        payment_method: method,
+        customer_name: snapCustomer,
+        total_amount: totalAmount,
+        discount_amount: snapDiscount > 0 ? snapDiscount : null,
+        promo_subsidy: 0,
+        amount_received: amountReceived ?? null,
+        change_amount: changeAmount,
+        payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
+        items: items.map((it) => ({
+          menu_item_id: it.menu_item_id,
+          menu_item_name: it.note?.trim() ? `${it.name}|NOTE|${it.note.trim()}` : it.name,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          subtotal: it.subtotal,
         })),
+      }
+
+      const { orderNumber } = await createLocalOrder({
+        outletId: outletId as string,
+        items,
         payment_method: method,
         customer_name: snapCustomer,
         total_amount: totalAmount,
@@ -772,45 +814,34 @@ export default function OrderManualPage() {
         source: 'pos',
         channel: null,
         payment_proof_url: (typeof proofFile === 'string' ? proofFile : undefined) as string | undefined,
-        apiUrl: '/api/orders/walk-in',
-        apiPayload: payload,
+        estimatedOrderNumber: estimated,
+        clientOrderId,
+        ingestPayload,
       })
-      const changeAmount = method === 'cash' && amountReceived !== null ? amountReceived - totalAmount : null
 
       postToNative({ type: 'haptic', style: 'success' })
+      receipt = buildWalkInReceipt(orderNumber, changeAmount)
+      successState = { orderNumber, method, change: changeAmount, receipt }
+    } finally {
+      setWalkInSubmitting(false)
+    }
 
-      const receipt: ReceiptData = {
-        outletName: outletName || 'SUKA SHAWARMA',
-        orderNumber: offlineOrderNumber,
-        dateISO: new Date().toISOString(),
-        customerName: snapCustomer,
-        items: receiptItems,
-        subtotal: snapSubtotal,
-        discount: snapDiscount,
-        total: totalAmount,
-        paymentMethod: method,
-        amountReceived: amountReceived ?? null,
-        changeAmount: changeAmount ?? null,
-        receiptType: 'kitchen'
+    if (receipt) {
+      try {
+        await printReceipt(receipt)
+      } catch (printErr) {
+        console.error('Gagal mencetak struk walkin (pesanan tetap tersimpan):', printErr)
+        setWalkInError('Pesanan tersimpan, tapi struk gagal dicetak. Cek koneksi printer.')
       }
+    }
 
-      // Cetak struk otomatis (hanya dapur)
-      await printReceipt(receipt)
-
-      setWalkInSuccess({
-        orderNumber: offlineOrderNumber,
-        method,
-        change: changeAmount ?? null,
-        receipt,
-      })
-
-      // Reset keranjang untuk transaksi berikutnya
+    if (successState) {
+      setWalkInSuccess(successState)
+      queryClient.invalidateQueries({ queryKey: ['orders'] })
       setLines([])
       setCustomerName('')
       setCartOpen(false)
       setWalkInPanelKey((k) => k + 1)
-    } finally {
-      setWalkInSubmitting(false)
     }
   }
 

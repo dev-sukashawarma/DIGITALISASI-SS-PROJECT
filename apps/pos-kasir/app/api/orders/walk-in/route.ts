@@ -25,7 +25,7 @@ interface WalkInPayload {
   amount_received?: number // wajib untuk cash
   is_endorse?: boolean
   items: WalkInItem[]
-  order_number?: number
+  client_order_id?: string
 }
 
 export async function POST(request: Request) {
@@ -214,6 +214,7 @@ export async function POST(request: Request) {
 
   const baseOrder = {
     outlet_id,
+    client_order_id: body.client_order_id ?? null,
     customer_name: customerName || null,
     cashier_name: profile.name || null,
     payment_method: body.payment_method,
@@ -226,7 +227,6 @@ export async function POST(request: Request) {
     source: 'pos',
     channel: null,
     sales_source: 'pos',
-    order_number: body.order_number,
   }
 
   // Kolom audit kas (amount_received/change_amount) ditambahkan lewat migrasi

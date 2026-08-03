@@ -28,7 +28,7 @@ interface ManualPayload {
   promo_subsidy?: number
   outlet_id?: string
   items: ManualItem[]
-  order_number?: number
+  client_order_id?: string
 }
 
 const VALID_CHANNELS = new Set(CHANNELS.map((c) => c.id))
@@ -257,7 +257,7 @@ export async function POST(request: Request) {
     sales_source: validSalesSource,
     kitchen_receipt_printed: true,
     promo_subsidy: promoSubsidy,
-    order_number: body.order_number,
+    client_order_id: body.client_order_id ?? null,
   }
 
   let order: { id: string; order_number: number } | null = null

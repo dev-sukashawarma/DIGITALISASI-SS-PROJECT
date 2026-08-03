@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { patchCachedOrder } from '@/lib/offline';
 import { createClient } from '@/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
+import { classifySyncFailure, backoffDelayMs } from '@/lib/syncClassify';
 
 /**
  * Menyinkronkan semua pekerjaan offline dari IndexedDB ke server saat online:
@@ -20,9 +21,11 @@ export default function OfflineSyncManager() {
 
   useEffect(() => {
     const syncOrderCreations = async (): Promise<boolean> => {
-      const pendingOrders = await db.sync_queue_orders
+      const now = Date.now();
+      const pendingOrders = (await db.sync_queue_orders
         .where('status').equals('pending')
-        .sortBy('created_at');
+        .sortBy('created_at'))
+        .filter((e) => !e.next_attempt_at || e.next_attempt_at <= now);
 
       if (pendingOrders.length === 0) return false;
 
@@ -30,14 +33,12 @@ export default function OfflineSyncManager() {
       let hasSuccess = false;
 
       for (const entry of pendingOrders) {
+        const attempts = (entry.attempts ?? 0) + 1;
         try {
           const { url, ...options } = entry.payload;
           const res = await fetch(url, {
             ...options,
-            headers: {
-              ...options.headers,
-              'Content-Type': 'application/json',
-            },
+            headers: { ...options.headers, 'Content-Type': 'application/json' },
           });
 
           if (res.ok) {
@@ -46,14 +47,12 @@ export default function OfflineSyncManager() {
 
             if (entry.local_order_id) {
               const serverId: string | undefined = data.order_id;
-              // Remap mutasi status yang dicatat saat order masih lokal
               const localMutations = await db.sync_queue_mutations
                 .where('order_id').equals(entry.local_order_id).toArray();
               for (const m of localMutations) {
                 if (serverId) {
                   await db.sync_queue_mutations.update(m.id, { order_id: serverId, is_local: 0 });
                 } else {
-                  // Tidak bisa remap tanpa id server — buang agar tidak macet
                   await db.sync_queue_mutations.delete(m.id);
                 }
               }
@@ -61,32 +60,45 @@ export default function OfflineSyncManager() {
             }
 
             await db.sync_queue_orders.delete(entry.id);
-            console.log(`[SyncManager] Pesanan offline ${entry.id} berhasil dikirim.`);
-          } else if (res.status >= 500 || res.status === 429 || res.status === 401) {
-            // Server error sementara atau token expired (401) -> biarkan pending agar di-retry nanti
-            console.warn(`[SyncManager] Server error / auth expired ${res.status} untuk pesanan ${entry.id}, akan di-retry.`);
+            console.log(`[SyncManager] Pesanan offline ${entry.id} berhasil dikirim (order #${data.order_number}).`);
+            continue;
+          }
+
+          const data = await res.json().catch(() => ({} as any));
+          const message = data.error || data.message || `HTTP ${res.status}`;
+
+          if (classifySyncFailure(res.status) === 'retry') {
+            // Bisa pulih sendiri: mundur sejenak, jangan matikan antrean.
             await db.sync_queue_orders.update(entry.id, {
-              error_message: `Menunggu retry (Server Error ${res.status})`,
+              attempts,
+              next_attempt_at: Date.now() + backoffDelayMs(attempts),
+              error_message: `Menunggu percobaan ulang (${message})`,
             });
-          } else {
-            const data = await res.json().catch(() => ({} as any));
-            console.error(`[SyncManager] Gagal sinkron pesanan ${entry.id}:`, data);
-            await db.sync_queue_orders.update(entry.id, {
-              status: 'error',
-              error_message: data.error || data.message || `Client Error ${res.status}`,
+            console.warn(`[SyncManager] ${res.status} untuk ${entry.id}, dicoba lagi nanti.`);
+            continue;
+          }
+
+          // Penolakan yang tidak akan berubah dengan sendirinya. JANGAN dihapus
+          // -- uangnya sudah diterima kasir. Serahkan ke daftar Perlu Perhatian.
+          console.error(`[SyncManager] Ditolak permanen ${entry.id}:`, message);
+          await db.sync_queue_orders.update(entry.id, {
+            status: 'error',
+            attempts,
+            error_message: message,
+          });
+          if (entry.local_order_id) {
+            await db.local_orders.update(entry.local_order_id, {
+              sync_error: message,
+              needs_attention: 1,
             });
-            if (entry.local_order_id) {
-              const local = await db.local_orders.get(entry.local_order_id);
-              if (local) {
-                await db.local_orders.update(entry.local_order_id, {
-                  sync_error: data.error || data.message || `Client Error ${res.status}`,
-                });
-              }
-            }
           }
         } catch (error) {
-          // Jaringan masih bermasalah / fetch error -> biarkan pending, lanjut ke entry berikutnya
-          console.warn(`[SyncManager] Network error saat sinkron pesanan ${entry.id}, lanjut...`, error);
+          // Jaringan masih bermasalah: biarkan pending, coba lagi siklus berikutnya.
+          console.warn(`[SyncManager] Network error saat sinkron ${entry.id}, lanjut...`, error);
+          await db.sync_queue_orders.update(entry.id, {
+            attempts,
+            next_attempt_at: Date.now() + backoffDelayMs(attempts),
+          });
           continue;
         }
       }
@@ -135,46 +147,16 @@ export default function OfflineSyncManager() {
       return hasSuccess;
     };
 
-    const cleanupStaleOrders = async () => {
-      try {
-        const twelveHoursAgo = Date.now() - (12 * 60 * 60 * 1000);
-        
-        // 1. Hapus antrean order yang nyangkut > 12 jam
-        const staleOrders = await db.sync_queue_orders
-          .where('created_at').below(twelveHoursAgo)
-          .toArray();
-          
-        for (const entry of staleOrders) {
-          if (entry.local_order_id) {
-            await db.local_orders.delete(entry.local_order_id);
-            // Hapus mutasi yatim
-            const mutations = await db.sync_queue_mutations
-              .where('order_id').equals(entry.local_order_id).toArray();
-            for (const m of mutations) await db.sync_queue_mutations.delete(m.id);
-          }
-          await db.sync_queue_orders.delete(entry.id);
-          console.log(`[SyncManager] Auto-deleted stale offline order: ${entry.id}`);
-        }
-
-        // 2. Hapus mutasi lokal yang nyangkut > 12 jam tanpa parent order
-        const staleMutations = await db.sync_queue_mutations
-          .where('created_at').below(twelveHoursAgo)
-          .toArray();
-        for (const m of staleMutations) {
-          await db.sync_queue_mutations.delete(m.id);
-        }
-      } catch (err) {
-        console.error('[SyncManager] Error cleaning up stale orders:', err);
-      }
-    };
-
     const runSync = async () => {
       if (typeof navigator !== 'undefined' && !navigator.onLine) return;
       if (isSyncingRef.current) return;
       isSyncingRef.current = true;
 
       try {
-        await cleanupStaleOrders();
+        // Tidak ada pembersihan otomatis. Order offline yang gagal sinkron
+        // TIDAK boleh dihapus diam-diam -- uangnya sudah diterima kasir.
+        // Order bermasalah muncul di panel "Perlu Perhatian" (KasirOrderClient)
+        // dan hanya hilang lewat tindakan sadar kasir.
         
         const createdAny = await syncOrderCreations();
         const mutatedAny = await syncStatusMutations();

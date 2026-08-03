@@ -65,22 +65,29 @@ export async function patchCachedOrder(orderId: string, patch: Record<string, an
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Pesanan lokal (dibuat saat offline)
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
- * Nomor antrian lokal per outlet per hari, mulai dari 9001 — sengaja di range
- * tinggi supaya tidak bentrok/tertukar dengan nomor antrian resmi dari server.
+ * Perkiraan nomor antrian untuk order yang dibuat saat offline.
+ *
+ * Server tetap satu-satunya yang membagi nomor final (trigger
+ * assign_order_number). Fungsi ini hanya menebak angka yang WAJAR untuk
+ * dicetak di struk, berdasarkan nomor server tertinggi yang diketahui
+ * device hari ini ditambah jumlah order offline yang sudah antre.
+ *
+ * Dengan satu device per outlet dan offline hitungan menit, tebakan ini
+ * hampir selalu tepat. Kalau meleset (ada order online masuk selagi
+ * offline), papan kasir memperbarui nomornya begitu tersinkron.
+ *
+ * Nomor 9000-an dari build lama sengaja diabaikan supaya cache basi tidak
+ * menyeret nomor hari ini ke range itu lagi.
  */
-export async function nextLocalOrderNumber(outletId: string): Promise<number> {
-  const dateKey = new Date().toISOString().slice(0, 10);
-  const key = `local_order_counter:${outletId}:${dateKey}`;
-  return db.transaction('rw', db.app_state, async () => {
-    const row = await db.app_state.get(key);
-    const next = (row?.value ?? 9000) + 1;
-    await db.app_state.put({ key, value: next, synced_at: Date.now() });
-    return next;
-  });
+const LEGACY_LOCAL_NUMBER_FLOOR = 9000;
+
+export function estimateOrderNumber(knownNumbers: number[], pendingLocalCount: number): number {
+  const valid = knownNumbers.filter(
+    (n) => Number.isFinite(n) && n > 0 && n < LEGACY_LOCAL_NUMBER_FLOOR
+  );
+  const highest = valid.length > 0 ? Math.max(...valid) : 0;
+  return highest + pendingLocalCount + 1;
 }
 
 export interface LocalOrderItemInput {
@@ -90,6 +97,31 @@ export interface LocalOrderItemInput {
   quantity: number;
   unit_price: number;
   subtotal: number;
+}
+
+/** Snapshot transaksi apa adanya — harga TIDAK dihitung ulang di server. */
+export interface OfflineIngestPayload {
+  client_order_id: string;
+  outlet_id: string;
+  created_at: string;
+  source: 'pos' | 'manual';
+  channel: string | null;
+  payment_method: string;
+  customer_name: string | null;
+  total_amount: number;
+  discount_amount: number | null;
+  promo_subsidy: number;
+  amount_received: number | null;
+  change_amount: number | null;
+  payment_proof_url: string | null;
+  items: Array<{
+    menu_item_id: string | null;
+    menu_item_name: string;
+    quantity: number;
+    unit_price: number;
+    subtotal: number;
+    package_choices?: Record<string, string> | null;
+  }>;
 }
 
 export interface CreateLocalOrderInput {
@@ -103,8 +135,12 @@ export interface CreateLocalOrderInput {
   channel: string | null;
   promo_subsidy?: number;
   payment_proof_url?: string;
-  apiUrl: string; // endpoint yang akan dipanggil ulang saat online
-  apiPayload: any; // body yang dikirim ke endpoint tersebut
+  /** Nomor perkiraan dari estimateOrderNumber — hanya untuk tampilan & struk. */
+  estimatedOrderNumber: number;
+  /** Kunci idempotensi; dipakai ulang di setiap percobaan kirim. */
+  clientOrderId: string;
+  /** Snapshot lengkap yang dikirim ke /api/orders/offline-ingest saat online. */
+  ingestPayload: OfflineIngestPayload;
 }
 
 /**
@@ -112,9 +148,11 @@ export interface CreateLocalOrderInput {
  * 1. `local_orders` → tampil langsung di papan order kasir
  * 2. `sync_queue_orders` → dikirim ulang ke server saat online
  */
-export async function createLocalOrder(input: CreateLocalOrderInput): Promise<{ localId: string; orderNumber: number }> {
-  const localId = crypto.randomUUID();
-  const orderNumber = await nextLocalOrderNumber(input.outletId);
+export async function createLocalOrder(
+  input: CreateLocalOrderInput
+): Promise<{ localId: string; orderNumber: number }> {
+  const localId = input.clientOrderId;
+  const orderNumber = input.estimatedOrderNumber;
   const nowISO = new Date().toISOString();
 
   const orderItems: OrderItem[] = input.items.map((it) => ({
@@ -154,6 +192,7 @@ export async function createLocalOrder(input: CreateLocalOrderInput): Promise<{ 
       id: localId,
       outlet_id: input.outletId,
       order_number: orderNumber,
+      is_estimated_number: true,
       status: 'preparing',
       created_at: nowISO,
       data: order,
@@ -162,14 +201,12 @@ export async function createLocalOrder(input: CreateLocalOrderInput): Promise<{ 
       id: crypto.randomUUID(),
       local_order_id: localId,
       payload: {
-        url: input.apiUrl,
+        url: '/api/orders/offline-ingest',
         method: 'POST',
-        body: JSON.stringify({
-          ...input.apiPayload,
-          order_number: orderNumber
-        }),
+        body: JSON.stringify(input.ingestPayload),
       },
       status: 'pending',
+      attempts: 0,
       created_at: Date.now(),
     });
   });

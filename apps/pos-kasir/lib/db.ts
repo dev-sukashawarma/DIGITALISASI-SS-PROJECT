@@ -25,6 +25,8 @@ export interface SyncQueueOrder {
   status: 'pending' | 'error';
   created_at: number;
   error_message?: string;
+  attempts?: number;
+  next_attempt_at?: number;
   // Menghubungkan antrean ke pesanan lokal (local_orders) agar bisa
   // di-remap ke id server setelah sinkron sukses.
   local_order_id?: string;
@@ -69,13 +71,15 @@ export interface ShiftCache {
 // Pesanan yang DIBUAT saat offline. Tampil di papan order dengan badge offline
 // dan dihapus setelah berhasil dikirim ke server.
 export interface LocalOrderRow {
-  id: string; // uuid lokal
+  id: string; // = client_order_id, sekaligus kunci idempotensi ke server
   outlet_id: string;
-  order_number: number; // nomor antrian lokal (9000+)
+  order_number: number; // nomor PERKIRAAN; final ditetapkan server saat sinkron
+  is_estimated_number?: boolean;
   status: string;
   created_at: string; // ISO
   data: OrderWithItems;
   sync_error?: string;
+  needs_attention?: number; // 1 = gagal permanen, tunggu tindakan kasir
 }
 
 // Antrean perubahan status pesanan (Mulai Masak / Selesai / Batal) saat offline.
@@ -140,6 +144,19 @@ class SukaPOSDB extends Dexie {
       // Bentuk row orders_cache berubah (order_data → data + kolom ter-index);
       // buang cache lama agar tidak tercampur — akan terisi ulang saat online.
       return tx.table('orders_cache').clear();
+    });
+
+    // v4: index tambahan untuk backoff antrean & daftar "Perlu Perhatian".
+    this.version(4).stores({
+      menu_items: 'id, category, is_available',
+      categories: 'id, sort_order',
+      sync_queue_orders: 'id, status, created_at, next_attempt_at',
+      kiosk_settings: 'id',
+      orders_cache: 'id, outlet_id, status, created_at',
+      shifts_cache: 'id',
+      local_orders: 'id, outlet_id, status, created_at, needs_attention',
+      sync_queue_mutations: 'id, order_id, status, is_local, created_at',
+      app_state: 'key'
     });
   }
 }

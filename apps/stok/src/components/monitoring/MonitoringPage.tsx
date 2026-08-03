@@ -19,10 +19,19 @@ export function MonitoringPage() {
   }
 
   const role = outletStaff.role;
-  // leader/korlap/area_manager: multi-outlet via staff_outlets (lihat
-  // useOutletScope), TIDAK otomatis akses semua outlet -- perlu allowedOutletIds
-  // supaya SPVDashboard tak menampilkan outlet di luar scope-nya.
-  const isMultiOutletScoped = role === 'leader' || role === 'korlap' || role === 'area_manager';
+  // leader/area_manager: multi-outlet via staff_outlets (lihat useOutletScope),
+  // TIDAK otomatis akses semua outlet -- perlu allowedOutletIds supaya
+  // SPVDashboard tak menampilkan outlet di luar scope-nya.
+  //
+  // CATATAN: 'korlap' juga multi-outlet via staff_outlets di accessible_outlet_ids()
+  // (lihat CLAUDE.md), TAPI tidak ada di union type Role (packages/auth) --
+  // dan belum diverifikasi/diuji malam ini (fokus perbaikan cuma area_manager).
+  // Sengaja TIDAK ditambahkan di sini supaya tidak menyentuh package auth
+  // bersama tanpa verifikasi. Kalau korlap juga kena bug serupa (jatuh ke
+  // CrewDashboard), itu perbaikan terpisah -- perlu tambah 'korlap' ke Role
+  // union di packages/auth (butuh rebuild dist, lihat memori suka-auth-dist-gotcha)
+  // baru aman ditambahkan ke check ini.
+  const isMultiOutletScoped = role === 'leader' || role === 'area_manager';
 
   if (role === 'spv' || role === 'kitchen' || role === 'admin' || role === 'admin_hr' || role === 'regional_manager') {
     return <SPVDashboard />;

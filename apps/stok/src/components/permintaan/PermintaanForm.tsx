@@ -29,6 +29,11 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
   const [searchQuery, setSearchQuery] = useState('')
   const [isCartView, setIsCartView] = useState(false)
   const [manualPickId, setManualPickId] = useState('')
+  // Nudge batch: muncul saat keranjang cuma 1 item DAN ada permintaan lain
+  // yang masih menunggu -- bukan sekadar "1 item" (itu bisa jadi memang
+  // wajar cuma butuh 1 bahan hari itu). Lihat
+  // docs/superpowers/specs/2026-08-03-permintaan-batch-nudge-design.md §3.
+  const [showBatchNudge, setShowBatchNudge] = useState(false)
 
   const pendingItemIds = useMemo(() => new Set(
     existingList
@@ -200,6 +205,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
       setMenuTargets({})
       setManualBahan({})
       setIsCartView(false)
+      setShowBatchNudge(false)
       setSuccessMsg(`Permintaan berhasil dikirim (${itemsToRequest.length} item bahan baku). Menunggu persetujuan.`)
       refreshExisting()
       if (onSubmitSuccess) onSubmitSuccess()
@@ -335,12 +341,47 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
           <div className="p-4 bg-suka-gray-50 border-t border-suka-gray-200">
             <button
               disabled={busy || finalCart.length === 0 || calculating}
-              onClick={submit}
+              onClick={() => {
+                if (finalCart.length === 1 && pendingItemIds.size > 0) {
+                  setShowBatchNudge(true)
+                } else {
+                  submit()
+                }
+              }}
               className="w-full bg-suka-brown hover:bg-suka-ink text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all disabled:opacity-50"
             >
               {busy ? 'Mengirim...' : `Kirim ${finalCart.length} Permintaan`}
             </button>
           </div>
+
+          {showBatchNudge && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+              <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5 space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                <h3 className="font-extrabold text-suka-brown text-base flex items-center gap-2">
+                  ⏳ Masih ada permintaan yang menunggu
+                </h3>
+                <p className="text-sm text-suka-gray-600 leading-relaxed">
+                  Anda punya <span className="font-bold text-suka-ink">{pendingItemIds.size} item bahan baku</span> lain
+                  yang masih menunggu persetujuan admin_kitchen. Mau kirim yang ini
+                  sekarang, atau kembali dulu untuk gabungkan dengan bahan lain?
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => { setShowBatchNudge(false); setIsCartView(false) }}
+                    className="flex-1 border-2 border-suka-gray-200 text-suka-ink font-bold text-xs py-2.5 rounded-xl hover:border-suka-orange hover:text-suka-orange transition-colors"
+                  >
+                    Kembali, Tambah Dulu
+                  </button>
+                  <button
+                    onClick={() => { setShowBatchNudge(false); submit() }}
+                    className="flex-1 bg-suka-brown hover:bg-suka-ink text-white font-bold text-xs py-2.5 rounded-xl transition-colors"
+                  >
+                    Kirim Sekarang
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     )
@@ -351,7 +392,7 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
     <div className="space-y-5 pb-24">
       {pendingItemIds.size > 0 && (
         <div className="text-xs font-bold text-suka-brown bg-orange-100 border border-suka-orange/30 p-3 rounded-xl">
-          ⏳ {pendingItemIds.size} item bahan baku sudah menunggu persetujuan SPV.
+          ⏳ {pendingItemIds.size} item bahan baku sudah menunggu persetujuan admin_kitchen.
         </div>
       )}
       {successMsg && (

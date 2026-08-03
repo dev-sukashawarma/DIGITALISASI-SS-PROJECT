@@ -851,6 +851,37 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return b.grossRevenue - a.grossRevenue
     })
 
+    // 4. Hitung Official Gross Revenue dan selisihnya
+    const totalDeductionsAll = validOrders.reduce((s, o) => {
+      const disc = Number((o as any).discount_amount) || 0
+      const promo = Number((o as any).promo_subsidy) || 0
+      if (disc > 0 || promo > 0) return s + disc + promo
+      const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
+      return s + itemDiff
+    }, 0)
+    
+    const actualNetRevenueAll = computeNetRevenueVoidAware(validOrders as any)
+    const officialGrossRevenueAll = actualNetRevenueAll + totalDeductionsAll
+    const totalPdfMenuRevenue = categories.reduce((sum, cat) => sum + cat.grossRevenue, 0)
+    const difference = officialGrossRevenueAll - totalPdfMenuRevenue
+
+    if (difference !== 0) {
+      categories.push({
+        categoryName: 'Penyesuaian Sistem (Lain-lain / Biaya Tambahan)',
+        grossRevenue: difference,
+        totalQty: 0,
+        totalHpp: 0,
+        bestSellers: [{
+          name: 'Selisih Pembulatan / Ekstra / Custom Amount',
+          qty: 0,
+          revenue: difference,
+          hppTotal: 0,
+          unitPrice: difference
+        }]
+      })
+    }
+
     generateCategorizedReportPDF({
       outletName: selectedOutletName,
       dateRangeLabel: dateRangeText,

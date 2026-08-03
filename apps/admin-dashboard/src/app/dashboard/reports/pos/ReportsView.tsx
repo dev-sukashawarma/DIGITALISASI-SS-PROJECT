@@ -735,7 +735,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     if (itemBreakdownSortColumn !== col) return <ChevronDown className="w-4 h-4 opacity-0 group-hover:opacity-30 transition-opacity" />
     return itemBreakdownSortDirection === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />
   }
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (analytics.completedOrders.length === 0) return
 
     let dateRangeText = RANGE_LABELS[range]
@@ -750,7 +750,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
         ? 'Semua Food Apps' 
         : (channelObj?.label || selectedChannel)
 
-    generateExecutiveItemReportPDF({
+    await generateExecutiveItemReportPDF({
       outletName: selectedOutletName,
       dateRangeLabel: dateRangeText,
       channelLabel: channelLabelText,
@@ -760,7 +760,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     })
   }
 
-  const downloadPDFAllChannels = () => {
+  const downloadPDFAllChannels = async () => {
     // 1. Dapatkan semua valid orders dari state 'orders' (tanpa filter channel)
     const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'settled')
     if (validOrders.length === 0) return
@@ -882,7 +882,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       })
     }
 
-    generateCategorizedReportPDF({
+    await generateCategorizedReportPDF({
       outletName: selectedOutletName,
       dateRangeLabel: dateRangeText,
       categories

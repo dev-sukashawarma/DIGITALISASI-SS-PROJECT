@@ -1,6 +1,16 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
+const loadImage = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(new Error('Load image error: ' + url));
+    img.src = url;
+  });
+}
+
 export interface ExecutiveReportData {
   outletName: string
   dateRangeLabel: string
@@ -39,7 +49,7 @@ const formatRupiah = (amount: number): string => {
   }).format(amount)
 }
 
-export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void => {
+export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData): Promise<void> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -55,15 +65,31 @@ export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void 
   doc.setFillColor(79, 70, 229) // Indigo-600
   doc.rect(margin, currentY, 4, 18, 'F')
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(30, 41, 59) // Slate-800
-  doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+  try {
+    const logoImg = await loadImage('/logo.png')
+    doc.addImage(logoImg, 'PNG', margin + 7, currentY - 2, 20, 20)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59) // Slate-800
+    doc.text('SS SHAWARMA', margin + 31, currentY + 6)
 
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(79, 70, 229)
-  doc.text('LAPORAN EKSEKUTIF - RINCIAN ITEM TERJUAL', margin + 8, currentY + 12)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(79, 70, 229)
+    doc.text('LAPORAN EKSEKUTIF - RINCIAN ITEM TERJUAL', margin + 31, currentY + 12)
+  } catch (err) {
+    console.warn('Failed to load logo for PDF:', err)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59) // Slate-800
+    doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(79, 70, 229)
+    doc.text('LAPORAN EKSEKUTIF - RINCIAN ITEM TERJUAL', margin + 8, currentY + 12)
+  }
 
   // Right-aligned Metadata Box
   doc.setFontSize(8)
@@ -193,7 +219,7 @@ export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void 
   doc.save(filename)
 }
 
-export const generateCategorizedReportPDF = (data: CategorizedReportData): void => {
+export const generateCategorizedReportPDF = async (data: CategorizedReportData): Promise<void> => {
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -208,15 +234,31 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
   doc.setFillColor(245, 158, 11) // Amber-500
   doc.rect(margin, currentY, 4, 18, 'F')
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(30, 41, 59) // Slate-800
-  doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+  try {
+    const logoImg = await loadImage('/logo.png')
+    doc.addImage(logoImg, 'PNG', margin + 7, currentY - 2, 20, 20)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59) // Slate-800
+    doc.text('SS SHAWARMA', margin + 31, currentY + 6)
 
-  doc.setFontSize(11)
-  doc.setFont('helvetica', 'bold')
-  doc.setTextColor(245, 158, 11) // Amber-500
-  doc.text('LAPORAN RINCIAN ITEM TERJUAL PER KATEGORI', margin + 8, currentY + 12)
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(245, 158, 11) // Amber-500
+    doc.text('LAPORAN RINCIAN ITEM TERJUAL PER KATEGORI', margin + 31, currentY + 12)
+  } catch (err) {
+    console.warn('Failed to load logo for PDF:', err)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59) // Slate-800
+    doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(245, 158, 11) // Amber-500
+    doc.text('LAPORAN RINCIAN ITEM TERJUAL PER KATEGORI', margin + 8, currentY + 12)
+  }
 
   // Right-aligned Metadata Box
   doc.setFontSize(8)

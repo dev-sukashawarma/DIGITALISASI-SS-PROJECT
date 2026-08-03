@@ -9,6 +9,7 @@ export interface ExecutiveReportData {
   totalOrders: number
   bestSellers: Array<{
     name: string
+    channel?: string
     qty: number
     revenue: number
   }>

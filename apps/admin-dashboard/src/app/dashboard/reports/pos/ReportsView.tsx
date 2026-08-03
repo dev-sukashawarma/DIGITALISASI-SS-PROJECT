@@ -488,16 +488,24 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     // Best sellers & Category Breakdown
     const itemMap: Record<string, { name: string; qty: number; revenue: number }> = {}
+    const itemPdfMap: Record<string, { name: string; channel: string; qty: number; revenue: number }> = {}
     let mainFoodQty = 0
     let addOnsQty = 0
 
     completed.forEach(o => {
+      const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name).label
+
       o.order_items.forEach(oi => {
         const key = cleanItemName(oi.menu_item_name)
         if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, revenue: 0 }
         itemMap[key].qty += oi.quantity
         itemMap[key].revenue += oi.subtotal
         
+        const pdfKey = `${key}__${channelName}`
+        if (!itemPdfMap[pdfKey]) itemPdfMap[pdfKey] = { name: key, channel: channelName, qty: 0, revenue: 0 }
+        itemPdfMap[pdfKey].qty += oi.quantity
+        itemPdfMap[pdfKey].revenue += oi.subtotal
+
         // Simple logic to detect Category: if parentId exists or "Extra" in name -> Add-on
         if (oi.menu_item_name.includes('|PARENT|') || oi.menu_item_name.toLowerCase().includes('extra')) {
           addOnsQty += oi.quantity
@@ -508,6 +516,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     })
     
     const bestSellers = Object.values(itemMap).sort((a, b) => b.qty - a.qty)
+    const bestSellersPdf = Object.values(itemPdfMap).sort((a, b) => b.qty - a.qty)
     const categoryData = [
       { name: 'Menu Utama', value: mainFoodQty, color: '#f59e0b' },
       { name: 'Ekstra / Topping', value: addOnsQty, color: '#10b981' }
@@ -558,6 +567,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       completedOrders: completed,
       paymentBreakdown,
       bestSellers,
+      bestSellersPdf,
       categoryData,
       totalOrders,
       successRate,
@@ -746,7 +756,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       channelLabel: channelLabelText,
       grossRevenue: analytics.grossRevenue,
       totalOrders: analytics.completedOrders.length,
-      bestSellers: analytics.bestSellers
+      bestSellers: (analytics as any).bestSellersPdf || analytics.bestSellers
     })
   }
 

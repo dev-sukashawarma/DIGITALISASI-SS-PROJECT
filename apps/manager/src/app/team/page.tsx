@@ -477,9 +477,17 @@ export default function MonitoringPage() {
     if (crewStatusFilter !== 'ALL' && visibleStaff.length === 0) return null
 
     // Multi-day filter: if multi-day view, only show crew who actually attended on that day
-    const displayedStaff = isMultiDay 
+    const roleOrder: Record<string, number> = { spv: 1, leader: 2, crew: 3 };
+    const getRoleRank = (role: string) => roleOrder[role.toLowerCase()] || 99;
+
+    const displayedStaff = (isMultiDay 
       ? visibleStaff.filter(s => staffAttMap.has(s.id)) 
-      : visibleStaff
+      : visibleStaff).sort((a, b) => {
+        const rankA = getRoleRank(a.role);
+        const rankB = getRoleRank(b.role);
+        if (rankA !== rankB) return rankA - rankB;
+        return a.name.localeCompare(b.name);
+      })
 
     if (isMultiDay && displayedStaff.length === 0) return null
 

@@ -336,7 +336,15 @@ export const generateCategorizedReportPDF = (data: CategorizedReportData): void 
   autoTable(doc, {
     startY: finalY,
     head: [['', '', '', 'GRAND TOTAL', `${grandTotalQty}`, formatRupiah(grandTotalHpp), formatRupiah(grandTotalRev)]],
-    body: [],
+    body: [
+      [
+        { content: '* Keterangan: Total Revenue - Total HPP = Gross Net (Laba kotor sebelum dikurangi biaya Admin Platform)', colSpan: 3, styles: { halign: 'left', fontStyle: 'italic', textColor: [100, 100, 100], fontSize: 7 } },
+        { content: 'GROSS NET', styles: { fontStyle: 'bold', halign: 'right' } },
+        '',
+        '',
+        { content: formatRupiah(grandTotalRev - grandTotalHpp), styles: { fontStyle: 'bold', halign: 'right', textColor: [22, 163, 74] } }
+      ]
+    ],
     theme: 'grid',
     margin: { left: margin, right: margin },
     headStyles: {

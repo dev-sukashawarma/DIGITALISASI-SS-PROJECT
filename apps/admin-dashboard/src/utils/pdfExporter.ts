@@ -15,6 +15,20 @@ export interface ExecutiveReportData {
   }>
 }
 
+export interface CategorizedReportData {
+  outletName: string
+  dateRangeLabel: string
+  categories: Array<{
+    categoryName: string
+    grossRevenue: number
+    bestSellers: Array<{
+      name: string
+      qty: number
+      revenue: number
+    }>
+  }>
+}
+
 const formatRupiah = (amount: number): string => {
   return new Intl.NumberFormat('id-ID', {
     style: 'currency',
@@ -155,28 +169,134 @@ export const generateExecutiveItemReportPDF = (data: ExecutiveReportData): void 
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252]
-    },
-    didDrawPage: (dataArg) => {
-      // Footer Page Numbering
-      const totalPages = (doc.internal as any).getNumberOfPages()
-      const currentPage = dataArg.pageNumber
-
-      doc.setFont('helvetica', 'normal')
-      doc.setFontSize(7.5)
-      doc.setTextColor(148, 163, 184)
-      doc.text(
-        `SS Digital POS System — Halaman ${currentPage} dari ${totalPages}`,
-        pageWidth / 2,
-        doc.internal.pageSize.getHeight() - 8,
-        { align: 'center' }
-      )
     }
   })
 
-  // Format clean filename: Laporan_Rincian_Item_[Outlet]_[Tanggal].pdf
-  const sanitizedOutlet = data.outletName.replace(/[^a-zA-Z0-9]/g, '_')
-  const dateStamp = new Date().toISOString().slice(0, 10)
-  const filename = `Laporan_Rincian_Item_${sanitizedOutlet}_${dateStamp}.pdf`
+  // ── Footer ──
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(7)
+    doc.setTextColor(156, 163, 175) // Gray-400
+    doc.text(
+      `Dicetak pada: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
+      105,
+      287,
+      { align: 'center' }
+    )
+  }
 
+  // ── Simpan File ──
+  const filename = `Laporan_Eksekutif_${data.outletName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+  doc.save(filename)
+}
+
+export const generateCategorizedReportPDF = (data: CategorizedReportData): void => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const margin = 15
+  let currentY = 20
+
+  // ── Kop / Header Laporan ──
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.setTextColor(15, 23, 42) // Slate-900
+  doc.text('LAPORAN RINCIAN ITEM TERJUAL (PER KATEGORI CHANNEL)', 105, currentY, { align: 'center' })
+  
+  currentY += 8
+  
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.setTextColor(71, 85, 105) // Slate-600
+  doc.text(`Outlet: ${data.outletName}`, 105, currentY, { align: 'center' })
+  currentY += 5
+  doc.text(`Periode: ${data.dateRangeLabel}`, 105, currentY, { align: 'center' })
+  currentY += 5
+  doc.text(`Channel: Semua Channel`, 105, currentY, { align: 'center' })
+  currentY += 10
+
+  // ── Data Tables per Category ──
+  data.categories.forEach((cat, idx) => {
+    // Add space before next table (except the first one)
+    if (idx > 0) {
+      currentY = (doc as any).lastAutoTable.finalY + 15
+      
+      // If we are close to the bottom of the page, add a new page
+      if (currentY > 250) {
+        doc.addPage()
+        currentY = 20
+      }
+    }
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(30, 41, 59)
+    doc.text(`Kategori: ${cat.categoryName}`, margin, currentY)
+    currentY += 4
+
+    const tableHead = [['#', 'Nama Menu / Item', 'Qty Terjual', 'Total Revenue (Rp)', '% Kontribusi Kategori']]
+    const totalRevenue = cat.grossRevenue > 0 ? cat.grossRevenue : 1
+
+    const tableBody = cat.bestSellers.map((item, index) => {
+      const contributionPct = ((item.revenue / totalRevenue) * 100).toFixed(1)
+      return [
+        (index + 1).toString(),
+        item.name,
+        `${item.qty} Pcs`,
+        formatRupiah(item.revenue),
+        `${contributionPct}%`
+      ]
+    })
+
+    autoTable(doc, {
+      startY: currentY,
+      head: tableHead,
+      body: tableBody,
+      theme: 'striped',
+      margin: { left: margin, right: margin },
+      headStyles: {
+        fillColor: [30, 41, 59], // Slate-800
+        textColor: [255, 255, 255],
+        fontStyle: 'bold',
+        fontSize: 8.5,
+        halign: 'left'
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [51, 65, 85] // Slate-700
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 'auto' },
+        2: { cellWidth: 30, halign: 'right' },
+        3: { cellWidth: 40, halign: 'right' },
+        4: { cellWidth: 35, halign: 'right' }
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      }
+    })
+  })
+
+  // ── Footer ──
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(7)
+    doc.setTextColor(156, 163, 175) // Gray-400
+    doc.text(
+      `Dicetak pada: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
+      105,
+      287,
+      { align: 'center' }
+    )
+  }
+
+  // ── Simpan File ──
+  const filename = `Laporan_Eksekutif_Kategori_${data.outletName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
   doc.save(filename)
 }

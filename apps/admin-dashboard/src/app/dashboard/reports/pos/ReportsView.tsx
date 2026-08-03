@@ -17,7 +17,7 @@ import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReport
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
-import { generateExecutiveItemReportPDF } from '@/utils/pdfExporter'
+import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
 
 interface ShiftRow {
   id: string
@@ -760,6 +760,65 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     })
   }
 
+  const downloadPDFAllChannels = () => {
+    // 1. Dapatkan semua valid orders dari state 'orders' (tanpa filter channel)
+    const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'settled')
+    if (validOrders.length === 0) return
+
+    let dateRangeText = RANGE_LABELS[range]
+    if (range === 'custom' && (customStartDate || customEndDate)) {
+      dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
+    }
+
+    // 2. Kelompokkan per channel
+    const categoryMap: Record<string, {
+      categoryName: string,
+      grossRevenue: number,
+      itemMap: Record<string, { name: string; qty: number; revenue: number }>
+    }> = {}
+
+    validOrders.forEach(o => {
+      const categoryName = resolveOrderSource(o.channel, o.sales_source, o.customer_name).label
+      
+      if (!categoryMap[categoryName]) {
+        categoryMap[categoryName] = { categoryName, grossRevenue: 0, itemMap: {} }
+      }
+
+      const catData = categoryMap[categoryName]
+
+      o.order_items.forEach(oi => {
+        const key = cleanItemName(oi.menu_item_name)
+        if (!catData.itemMap[key]) catData.itemMap[key] = { name: key, qty: 0, revenue: 0 }
+        
+        catData.itemMap[key].qty += oi.quantity
+        catData.itemMap[key].revenue += oi.subtotal
+        catData.grossRevenue += oi.subtotal
+      })
+    })
+
+    // 3. Ubah ke array dan sort
+    const categories = Object.values(categoryMap).map(cat => ({
+      categoryName: cat.categoryName,
+      grossRevenue: cat.grossRevenue,
+      bestSellers: Object.values(cat.itemMap).sort((a, b) => b.qty - a.qty)
+    }))
+
+    // Sort kategori: POS Kasir di atas, sisanya berdasarkan revenue
+    categories.sort((a, b) => {
+      const aIsKasir = a.categoryName.toLowerCase().includes('kasir')
+      const bIsKasir = b.categoryName.toLowerCase().includes('kasir')
+      if (aIsKasir && !bIsKasir) return -1
+      if (!aIsKasir && bIsKasir) return 1
+      return b.grossRevenue - a.grossRevenue
+    })
+
+    generateCategorizedReportPDF({
+      outletName: selectedOutletName,
+      dateRangeLabel: dateRangeText,
+      categories
+    })
+  }
+
   return (
     <div className="space-y-8 pb-12 animate-fade-in" id="report-content">
 
@@ -848,10 +907,22 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               onClick={downloadPDF}
               disabled={analytics.completedOrders.length === 0}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title="Download Laporan PDF Rincian Item Terjual"
+              title="Download Laporan PDF Rincian Item Terjual (Filter Aktif)"
             >
               <Printer className="w-4 h-4" />
-              <span>Download PDF Eksekutif</span>
+              <span className="hidden sm:inline">PDF Eksekutif</span>
+              <span className="sm:hidden">PDF 1</span>
+            </button>
+
+            <button
+              onClick={downloadPDFAllChannels}
+              disabled={orders.length === 0}
+              className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Download Laporan PDF Semua Channel (Dipisah per Kategori)"
+            >
+              <FileText className="w-4 h-4" />
+              <span className="hidden sm:inline">PDF (Semua Channel)</span>
+              <span className="sm:hidden">PDF 2</span>
             </button>
           </div>
         </div>

@@ -23,7 +23,7 @@ export function TransaksiView({
   const { locations } = useCashOverview(initialLocations, initialBalances)
   const { data: txs = [], isLoading } = useCashTransactions(100, initialTxs)
   const { submit, approve, reject, markPaid } = useCashMutations()
-  const { isChecker } = useFinanceRole()
+  const { isChecker, userId } = useFinanceRole()
 
   const [showForm, setShowForm] = useState(false)
   const [location, setLocation] = useState('')
@@ -149,7 +149,7 @@ export function TransaksiView({
                     <td className="py-3 px-3"><TxStatusBadge status={t.status} /></td>
                     <td className="py-3 px-3">
                       <div className="flex justify-end gap-1">
-                        {isChecker && t.status === 'pending_approval' && (
+                        {isChecker && t.status === 'pending_approval' && t.created_by !== userId && (
                           <>
                             <button onClick={() => onApprove(t.id)} title="Setujui"
                               className="rounded-lg bg-emerald-50 p-2 text-emerald-600 hover:bg-emerald-100"><Check size={16} /></button>

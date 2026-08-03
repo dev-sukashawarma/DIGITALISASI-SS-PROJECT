@@ -781,7 +781,26 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     }> = {}
 
     validOrders.forEach(o => {
-      const categoryName = resolveOrderSource(o.channel, o.sales_source, o.customer_name).label
+      const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
+      const srcKey = srcInfo.key.toLowerCase()
+      const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps'].includes(srcKey)
+      
+      let categoryName = srcInfo.label
+      if (srcKey === 'pos_kasir') {
+        categoryName = 'POS KASIR (Internal)'
+      } else if (isFoodApp) {
+        categoryName = 'Food Apps (GoFood/Grab/Shopee/dll)'
+      } else if (srcKey === 'online') {
+        categoryName = 'Website Online'
+      } else if (srcKey === 'pos_pawoon' || srcKey === 'pos') {
+        const hasFA = o.order_items.some(item => item.menu_item_name.includes('FA'))
+        if (hasFA) {
+          categoryName = 'POS Pawoon (Food Apps)'
+        } else {
+          categoryName = 'POS Pawoon (Offline/Kasir)'
+        }
+      }
+
       const outletType = outletTypeMap.get(o.outlet_id)
       
       if (!categoryMap[categoryName]) {

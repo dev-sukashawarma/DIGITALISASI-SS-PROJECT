@@ -56,17 +56,17 @@ export default async function LauncherPage() {
 
   const APP_URL = await getAppUrls()
 
-  // Admin, Owner, Area Manager, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
-  if (['admin', 'owner', 'mitra', 'area_manager', 'korlap', 'purchasing'].includes(staff.role)) {
+  // Admin, Owner, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
+  if (['admin', 'owner', 'mitra', 'korlap', 'purchasing'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
   const apps = accessibleApps(staff.role)
 
   const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
     'admin-dashboard': { 
-      label: staff.role === 'area_manager' ? 'Area Manager Dashboard' : staff.role === 'leader' ? 'Leader Dashboard' : 'Admin Dashboard',  
+      label: staff.role === 'leader' ? 'Leader Dashboard' : 'Admin Dashboard',  
       url: APP_URL['admin-dashboard'], 
-      desc: staff.role === 'area_manager' ? 'Approval petty cash & monitoring cabang' : staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : 'Administrasi staff, akun & sistem' 
+      desc: staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : 'Administrasi staff, akun & sistem' 
     },
     stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
     absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
@@ -88,6 +88,7 @@ export default async function LauncherPage() {
           ringColor: 'ring-amber-500/50 shadow-amber-500/10'
         }
       case 'regional_manager':
+      case 'area_manager':
       case 'spv':
       case 'leader':
       case 'kitchen':

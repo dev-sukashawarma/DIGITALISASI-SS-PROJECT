@@ -7,13 +7,15 @@ import { resolveOrderSource } from '@/lib/order-source'
 export default function OrderSourceBadge({
   channel,
   salesSource,
+  customerName,
   size = 'sm',
 }: {
   channel?: string | null
   salesSource?: string | null
+  customerName?: string | null
   size?: 'sm' | 'md'
 }) {
-  const src = resolveOrderSource(channel, salesSource)
+  const src = resolveOrderSource(channel, salesSource, customerName)
   const isMd = size === 'md'
   const iconBox = isMd ? 'w-4 h-4' : 'w-3.5 h-3.5'
 

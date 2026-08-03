@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       .eq("outlet_id", outletId);
       
     const allowedStaffIds = (allowedStaffData || []).map((row: any) => row.staff_id);
-    let orQuery = `outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager)`;
+    let orQuery = `outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`;
     if (allowedStaffIds.length > 0) {
       orQuery += `,id.in.(${allowedStaffIds.join(',')})`;
     }

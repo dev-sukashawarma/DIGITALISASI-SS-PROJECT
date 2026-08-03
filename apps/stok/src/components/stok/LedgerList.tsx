@@ -362,7 +362,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                   </h4>
                   {isManual && t.single_catatan && (
                     <p className="text-xs text-gray-500 font-medium truncate flex items-center gap-1.5">
-                      <FileText className="w-3 h-3" /> {t.single_catatan}
+                      <FileText className="w-3 h-3" /> {t.single_catatan.replace(/\|ID\|[^|)]+/g, '').replace(/\|NOTE\|[^|)]+/g, '').replace(/\s+\)/g, ')').trim()}
                     </p>
                   )}
                 </div>

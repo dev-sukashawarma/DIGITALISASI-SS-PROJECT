@@ -23,6 +23,7 @@ export interface OrderSourceInfo {
 export function resolveOrderSource(
   channel?: string | null,
   salesSource?: string | null,
+  customerName?: string | null,
 ): OrderSourceInfo {
   // Try resolving channel first
   let ch = getChannel(channel)
@@ -38,5 +39,11 @@ export function resolveOrderSource(
   if (salesSource === 'online') {
     return { key: 'online', label: 'Website Online', bg: '#f29744', fg: '#ffffff', lucide: 'globe' }
   }
-  return { key: 'pos', label: 'POS Kasir', bg: '#701604', fg: '#ffffff', lucide: 'monitor' }
+
+  // Direct check for POS Kasir internal
+  if (salesSource === 'pos_kasir' || channel === 'pos_kasir' || (customerName && customerName !== 'Pawoon Import')) {
+    return { key: 'pos_kasir', label: 'POS KASIR', bg: '#2563eb', fg: '#ffffff', lucide: 'monitor' }
+  }
+
+  return { key: 'pos_pawoon', label: 'POS PAWOON', bg: '#701604', fg: '#ffffff', lucide: 'monitor' }
 }

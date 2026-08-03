@@ -215,7 +215,12 @@ export async function buatPermintaan(
     p_dibuat_oleh: currentUserId,
     p_target_metadata: targetMetadata ?? []
   })
-  if (error) throw new Error(error.message)
+  if (error) {
+    // Next.js menyembunyikan message asli dari Server Action error di production
+    // (redacted jadi "digest"-only) — log di server supaya masih bisa ditelusuri.
+    console.error('[buatPermintaan] RPC buat_permintaan_svc gagal:', error)
+    throw new Error(error.message)
+  }
 }
 
 // ---------------------------------------------------------------------------

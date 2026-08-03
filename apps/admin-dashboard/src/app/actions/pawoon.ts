@@ -152,11 +152,23 @@ export async function previewPawoonFile(formData: FormData) {
             
             let isoDate = new Date().toISOString();
             if (dateStr) {
-                const parts = dateStr.split(' ');
-                if (parts.length === 2) {
-                    const dparts = parts[0].split('-');
+                const cleanDateStr = dateStr.trim();
+                const parts = cleanDateStr.split(/\s+/);
+                if (parts.length >= 1) {
+                    const datePart = parts[0];
+                    const timePart = parts[1] || '00:00:00';
+                    const sep = datePart.includes('/') ? '/' : '-';
+                    const dparts = datePart.split(sep);
                     if (dparts.length === 3) {
-                        isoDate = `${dparts[2]}-${dparts[1]}-${dparts[0]}T${parts[1]}+07:00`;
+                        let year = dparts[0];
+                        let month = dparts[1];
+                        let day = dparts[2];
+                        if (year.length === 2 || parseInt(year) < 100) {
+                            day = dparts[0];
+                            month = dparts[1];
+                            year = dparts[2];
+                        }
+                        isoDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${timePart}+07:00`;
                     }
                 }
             }
@@ -318,6 +330,8 @@ export async function previewPawoonFile(formData: FormData) {
 
         const ordersToInsert: any[] = [];
         const itemsToInsert: any[] = [];
+        const postSystemOrdersToInsert: any[] = [];
+        const postSystemItemsToInsert: any[] = [];
         const ordersToVoid: string[] = []; // DB order IDs that need to be updated to cancelled
         let duplicateCount = 0;
         let postSystemSkippedCount = 0;
@@ -398,11 +412,6 @@ export async function previewPawoonFile(formData: FormData) {
             summaryByDate[dateKey].totalOmset += dateFinalTotal;
 
             // Void PER TANGGAL — rumusnya harus identik dengan totalOmsetVoid global
-            // di atas. Tanpa ini, kartu ringkasan menghitung
-            // `totalOmsetGross - (totalOmsetVoid || 0)` dan jatuh ke 0 saat sebuah
-            // tanggal dipilih, sehingga void tidak pernah dikurangkan dan angkanya
-            // tidak cocok dengan Grand Total Excel (kasus nyata: EMPANG 1 Juli 2026,
-            // void Rp 38.000, kartu 5.613.500 vs Excel 5.575.500).
             if (isCancelled && !isRefund) {
                 summaryByDate[dateKey].totalVoids++;
                 summaryByDate[dateKey].totalOmsetVoid +=
@@ -418,23 +427,14 @@ export async function previewPawoonFile(formData: FormData) {
                 if (!summaryByDate[dateKey].itemSalesTrackerMap[sName]) {
                     summaryByDate[dateKey].itemSalesTrackerMap[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0 };
                 }
-                // Bug C+D fix: item.quantity dan item.subtotal di-simpan sebagai Math.abs().
-                // Void order harus MENGURANGI qty dan revenue, bukan menambah.
                 const qtyEffect = (isCancelled || order._isRefund) ? -item.quantity : item.quantity;
                 const revenueEffect = (isCancelled || order._isRefund) ? -item.subtotal : item.subtotal;
-                // PENTING: pakai item.channel (dihitung per-baris Excel saat item di-push), BUKAN
-                // order.sales_source (field level-order yang bisa ke-override "baris terakhir menang"
-                // untuk struk yang campur channel dalam 1 transaksi — lihat bug yang sama persis di
-                // docs/superpowers/specs/2026-07-29-pawoon-data-discrepancy-analysis.md section 6).
                 if (item.channel === 'offline') summaryByDate[dateKey].itemSalesTrackerMap[sName].offline += qtyEffect;
                 else if (item.channel === 'food_apps') summaryByDate[dateKey].itemSalesTrackerMap[sName].food_apps += qtyEffect;
                 else if (item.channel === 'tiktok_go') summaryByDate[dateKey].itemSalesTrackerMap[sName].tiktok += qtyEffect;
 
                 summaryByDate[dateKey].itemSalesTrackerMap[sName].totalRevenue += revenueEffect;
 
-                // "Completed Only" = metodologi sama dengan Laporan Laba Kotor (profit page):
-                // pakai status FINAL order (setelah semua baris receipt diproses, termasuk Bug E fix),
-                // exclude cancelled/refund sepenuhnya (bukan netting).
                 if (isCompleted) {
                     if (!itemSalesTracker[sName]) {
                         itemSalesTracker[sName] = { systemName: sName, offline: 0, food_apps: 0, tiktok: 0, totalRevenue: 0, offlineCompleted: 0, food_appsCompleted: 0, tiktokCompleted: 0 };
@@ -464,14 +464,24 @@ export async function previewPawoonFile(formData: FormData) {
                     postSystemSkippedOmset += order.raw_total;
                 }
                 
-                // If it's post-system, we do not want to void it either because it shouldn't have been synced in the first place,
-                // but just in case it was synced manually, we don't do anything to it here.
+                // Simpan transaksi yang belum ada di DB ke postSystemOrdersToInsert agar bisa di-force sync jika crew lupa input
+                if (!existingReceipts.has(receipt)) {
+                    const { items, gross_amount, _hasExplicitTotal, raw_total, _isRefund, ...orderData } = order;
+                    postSystemOrdersToInsert.push(orderData);
+                    const itemClones = items.map((i: any) => {
+                        const { _systemName, ...itemData } = i;
+                        return itemData;
+                    });
+                    postSystemItemsToInsert.push(...itemClones);
+                }
             } else if (!existingReceipts.has(receipt)) {
                 const { items, gross_amount, _hasExplicitTotal, raw_total, _isRefund, ...orderData } = order;
                 ordersToInsert.push(orderData);
-                // Remove _systemName before insert
-                items.forEach((i: any) => delete i._systemName);
-                itemsToInsert.push(...items);
+                const itemClones = items.map((i: any) => {
+                    const { _systemName, ...itemData } = i;
+                    return itemData;
+                });
+                itemsToInsert.push(...itemClones);
             } else {
                 duplicateCount++;
                 summaryByDate[dateKey].duplicatesSkipped++;
@@ -716,7 +726,9 @@ export async function previewPawoonFile(formData: FormData) {
             data: {
                 orders: ordersToInsert,
                 items: itemsToInsert,
-                ordersToVoid: ordersToVoid
+                ordersToVoid: ordersToVoid,
+                postSystemOrders: postSystemOrdersToInsert,
+                postSystemItems: postSystemItemsToInsert
             }
         };
 

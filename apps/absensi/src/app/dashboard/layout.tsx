@@ -26,14 +26,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen, setMoreOpen] = useState(false);
   const { unreadCount } = useLeaveNotifications();
 
-  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager"].includes(outletStaff?.role || "");
+  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/rekap", label: "Rekap & Riwayat", icon: <ClipboardList size={20} /> },
-    { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
+    { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={20} /> },
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
+    { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
     { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
     { href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> },

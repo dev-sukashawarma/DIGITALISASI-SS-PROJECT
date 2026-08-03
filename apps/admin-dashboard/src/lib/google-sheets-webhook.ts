@@ -5,6 +5,7 @@ export interface GoogleSheetsItemPayload {
   quantity: number
   unit_price: number
   subtotal: number
+  channel: string
 }
 
 export interface GoogleSheetsPayload {
@@ -40,6 +41,7 @@ export interface WebhookOrderItemInput {
   price?: number
   subtotal?: number
   total?: number
+  channel?: string
 }
 
 /**
@@ -78,12 +80,15 @@ export function formatGoogleSheetsPayload(
     const unitPrice = item.unit_price ?? item.price ?? 0
     const subtotal =
       item.subtotal ?? item.total ?? quantity * unitPrice
+    
+    const itemChannel = item.channel || channel
 
     return {
       menu_item_name: name,
       quantity,
       unit_price: unitPrice,
-      subtotal
+      subtotal,
+      channel: itemChannel
     }
   })
 

@@ -9,6 +9,8 @@ export default function PawoonImportPage() {
     const [previewResult, setPreviewResult] = useState<any>(null);
     const [errorMsg, setErrorMsg] = useState('');
     const [syncSuccess, setSyncSuccess] = useState(false);
+    const [syncSuccessMsg, setSyncSuccessMsg] = useState('');
+    const [syncedDatesMap, setSyncedDatesMap] = useState<Record<string, string>>({});
     const [selectedDate, setSelectedDate] = useState<string>('ALL');
     const [menuItems, setMenuItems] = useState<any[]>([]);
     const [newMappings, setNewMappings] = useState<Record<string, string>>({});
@@ -95,9 +97,6 @@ export default function PawoonImportPage() {
                 clearDateTo || undefined
             );
             if (res.success) {
-                // Verifikasi setelah hapus: hitung ulang dengan filter yang sama.
-                // Ini yang akan menangkap penghapusan yang berhenti separuh jalan
-                // (mis. kena batas max-rows) alih-alih melaporkannya sebagai sukses.
                 const after = await countPawoonDataForOutlet(
                     selectedOutletToClear,
                     clearDateFrom || undefined,
@@ -112,7 +111,6 @@ export default function PawoonImportPage() {
                 } else if (sisa === null) {
                     setClearSuccess(msg + ' (verifikasi sisa gagal dijalankan)');
                 } else {
-                    // Jangan tampilkan sebagai sukses penuh kalau masih bersisa.
                     setClearSuccess('');
                     setErrorMsg(
                         `${msg} TAPI masih tersisa ${sisa.toLocaleString('id-ID')} transaksi yang belum terhapus` +
@@ -158,6 +156,8 @@ export default function PawoonImportPage() {
             setPreviewResult(null);
             setErrorMsg('');
             setSyncSuccess(false);
+            setSyncSuccessMsg('');
+            setSyncedDatesMap({});
             setSelectedDate('ALL');
         }
     };
@@ -175,6 +175,7 @@ export default function PawoonImportPage() {
             if (result.success) {
                 setPreviewResult(result);
                 setSelectedDate('ALL');
+                setSyncedDatesMap({});
             } else {
                 setErrorMsg(result.error || 'Unknown error occurred');
                 if (result.unmappedItems || result.unmappedOutlets) {
@@ -188,17 +189,67 @@ export default function PawoonImportPage() {
         }
     };
 
-    const handleSync = async () => {
+    const handleSync = async (customOrders?: any[], customItems?: any[], customSuccessMsg?: string, targetDate?: string) => {
         if (!previewResult || !previewResult.data) return;
         setIsLoading(true);
         setErrorMsg('');
         
+        const ordersToSync = customOrders || previewResult.data.orders || [];
+        const itemsToSync = customItems || previewResult.data.items || [];
+        const voidToSync = previewResult.data.ordersToVoid || [];
+
+        if (ordersToSync.length === 0 && voidToSync.length === 0) {
+            setErrorMsg('Tidak ada transaksi untuk disinkronkan.');
+            setIsLoading(false);
+            return;
+        }
+
         try {
-            const result = await syncPawoonData(previewResult.data.orders, previewResult.data.items, previewResult.data.ordersToVoid || []);
+            const result = await syncPawoonData(ordersToSync, itemsToSync, voidToSync);
             if (result.success) {
+                const msg = customSuccessMsg || `✅ Berhasil menyinkronkan ${ordersToSync.length} transaksi Pawoon ke Database Real!`;
                 setSyncSuccess(true);
-                setPreviewResult(null);
-                setFile(null);
+                setSyncSuccessMsg(msg);
+                
+                const syncedDateKey = targetDate || (selectedDate !== 'ALL' ? selectedDate : 'ALL');
+                setSyncedDatesMap(prev => ({ ...prev, [syncedDateKey]: msg }));
+
+                // Update previewResult locally so preview STAYS active without reuploading file
+                setPreviewResult((prev: any) => {
+                    if (!prev) return null;
+                    const syncedOrderIds = new Set(ordersToSync.map((o: any) => o.id));
+                    
+                    const newOrders = (prev.data?.orders || []).filter((o: any) => !syncedOrderIds.has(o.id));
+                    const newItems = (prev.data?.items || []).filter((i: any) => !syncedOrderIds.has(i.order_id));
+                    const newPostSystemOrders = (prev.data?.postSystemOrders || []).filter((o: any) => !syncedOrderIds.has(o.id));
+                    const newPostSystemItems = (prev.data?.postSystemItems || []).filter((i: any) => !syncedOrderIds.has(i.order_id));
+
+                    const newByDate = (prev.summary?.byDate || []).map((d: any) => {
+                        if (syncedDateKey === 'ALL' || d.date === syncedDateKey) {
+                            return {
+                                ...d,
+                                duplicatesSkipped: d.transactionsCount,
+                                postSystemCount: 0
+                            };
+                        }
+                        return d;
+                    });
+
+                    return {
+                        ...prev,
+                        summary: {
+                            ...prev.summary,
+                            byDate: newByDate
+                        },
+                        data: {
+                            ...prev.data,
+                            orders: newOrders,
+                            items: newItems,
+                            postSystemOrders: newPostSystemOrders,
+                            postSystemItems: newPostSystemItems
+                        }
+                    };
+                });
             } else {
                 setErrorMsg(result.error || 'Sync failed');
             }
@@ -243,7 +294,7 @@ export default function PawoonImportPage() {
                 )}
                 {syncSuccess && (
                     <div className="mt-4 p-4 bg-green-50 text-green-700 rounded-lg font-medium">
-                        ✅ Data berhasil disinkronkan ke Database Real!
+                        {syncSuccessMsg || '✅ Data berhasil disinkronkan ke Database Real!'}
                     </div>
                 )}
             </div>
@@ -405,15 +456,8 @@ export default function PawoonImportPage() {
                                 >
                                     <option value="ALL">Semua Tanggal (Total)</option>
                                     {previewResult.summary.byDate.map((d: any) => {
-                                        const isSynced = d.transactionsCount > 0 && d.duplicatesSkipped >= d.transactionsCount * 0.9;
-                                        // Tanggal yang sepenuhnya lewat cutoff ditandai terpisah — kalau
-                                        // tidak, tanggal itu tampil "🔴 N struk baru" padahal tidak
-                                        // satu pun akan disimpan.
-                                        const allPostCutoff = d.postSystemCount > 0 && d.postSystemCount >= d.transactionsCount;
-                                        // Tanggal tanpa baris Pawoon sama sekali (diisi otomatis di server
-                                        // supaya tetap bisa dipilih untuk validasi terhadap data sistem) —
-                                        // beda dari "🔴 struk baru", jangan sampai kelihatan seperti ada
-                                        // yang perlu disimpan.
+                                        const isSynced = syncedDatesMap[d.date] || (d.transactionsCount > 0 && d.duplicatesSkipped >= d.transactionsCount * 0.9);
+                                        const allPostCutoff = !syncedDatesMap[d.date] && d.postSystemCount > 0 && d.postSystemCount >= d.transactionsCount;
                                         const noPawoonData = d.transactionsCount === 0;
                                         return (
                                             <option key={d.date} value={d.date}>
@@ -506,7 +550,7 @@ export default function PawoonImportPage() {
 
                         {/* Sync Status Banner */}
                         {selectedDate !== 'ALL' && (() => {
-                            const synced = displayedSummary.duplicatesSkipped >= displayedSummary.transactionsCount * 0.9 && displayedSummary.transactionsCount > 0;
+                            const synced = (syncedDatesMap[selectedDate] || (displayedSummary.duplicatesSkipped >= displayedSummary.transactionsCount * 0.9 && displayedSummary.transactionsCount > 0));
                             const partial = displayedSummary.duplicatesSkipped > 0 && !synced;
                             if (!synced && !partial) return null;
                             return (
@@ -521,6 +565,111 @@ export default function PawoonImportPage() {
                                             ? `Data tanggal ${selectedDate} sudah tersinkron ke sistem (${displayedSummary.duplicatesSkipped}/${displayedSummary.transactionsCount} struk terdeteksi di database).`
                                             : `Import sebagian: ${displayedSummary.duplicatesSkipped} dari ${displayedSummary.transactionsCount} struk sudah ada di sistem, ${displayedSummary.transactionsCount - displayedSummary.duplicatesSkipped} struk baru akan diimport.`
                                         }
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        {/* Force Sync Banner (Fitur untuk Kasus Crew Lupa Input Data ke Sistem Baru pada Tanggal Tertentu) */}
+                        {selectedDate !== 'ALL' && (() => {
+                            if (syncedDatesMap[selectedDate]) {
+                                return (
+                                    <div className="mb-6 p-4 bg-green-50 border border-green-300 rounded-xl flex items-center justify-between gap-4 shadow-sm text-green-900">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-2xl">✅</span>
+                                            <div>
+                                                <h4 className="font-bold text-base">Berhasil Disinkronkan ke Database Real!</h4>
+                                                <p className="text-xs text-green-800 mt-0.5 leading-relaxed">{syncedDatesMap[selectedDate]}</p>
+                                            </div>
+                                        </div>
+                                        <span className="bg-green-100 text-green-800 border border-green-300 px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap">
+                                            ✓ Sudah Tersinkron
+                                        </span>
+                                    </div>
+                                );
+                            }
+
+                            const selectedDateClean = selectedDate.trim();
+
+                            const datePostSystemOrders = (previewResult?.data?.postSystemOrders || []).filter((o: any) => {
+                                if (!o.created_at) return false;
+                                return o.created_at.startsWith(selectedDateClean) || o.created_at.split('T')[0] === selectedDateClean;
+                            });
+                            const datePostSystemOrderIds = new Set(datePostSystemOrders.map((o: any) => o.id));
+                            const datePostSystemItems = (previewResult?.data?.postSystemItems || []).filter((i: any) =>
+                                datePostSystemOrderIds.has(i.order_id)
+                            );
+
+                            const dateNormalOrders = (previewResult?.data?.orders || []).filter((o: any) => {
+                                if (!o.created_at) return false;
+                                return o.created_at.startsWith(selectedDateClean) || o.created_at.split('T')[0] === selectedDateClean;
+                            });
+                            const dateNormalOrderIds = new Set(dateNormalOrders.map((o: any) => o.id));
+                            const dateNormalItems = (previewResult?.data?.items || []).filter((i: any) =>
+                                dateNormalOrderIds.has(i.order_id)
+                            );
+
+                            const postCount = datePostSystemOrders.length > 0 ? datePostSystemOrders.length : (displayedSummary.postSystemCount || 0);
+                            const normalCount = dateNormalOrders.length > 0 ? dateNormalOrders.length : Math.max(0, (displayedSummary.transactionsCount || 0) - (displayedSummary.duplicatesSkipped || 0));
+
+                            if (postCount === 0 && normalCount === 0) return null;
+
+                            return (
+                                <div className="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+                                    <div>
+                                        <h4 className="font-bold text-amber-900 flex items-center gap-2 text-base">
+                                            <span>⚡</span> Opsi Sync Khusus Tanggal {selectedDate}
+                                        </h4>
+                                        <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                                            {postCount > 0 && (
+                                                <>Terdapat <strong>{postCount} struk</strong> pada tanggal {selectedDate} yang dilewati aturan Cutoff. Jika crew <strong>lupa menginput data Pawoon</strong> ke sistem baru pada tanggal ini, Anda dapat memaksa menyimpan data tanggal ini ke database real.</>
+                                            )}
+                                            {normalCount > 0 && postCount === 0 && (
+                                                <>Terdapat <strong>{normalCount} struk baru</strong> yang siap disinkronkan khusus untuk tanggal {selectedDate}.</>
+                                            )}
+                                        </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 self-start md:self-auto flex-wrap">
+                                        {postCount > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    const targetOrders = datePostSystemOrders.length > 0 ? datePostSystemOrders : (previewResult?.data?.postSystemOrders || []);
+                                                    const targetItems = datePostSystemOrders.length > 0 ? datePostSystemItems : (previewResult?.data?.postSystemItems || []);
+                                                    if (confirm(`PAKSA SYNC TANGGAL ${selectedDate}:\n\nSimpan ${postCount} transaksi Pawoon tanggal ${selectedDate} ke database real?\n(Fitur ini digunakan jika crew lupa input manual di sistem baru)`)) {
+                                                        handleSync(
+                                                            targetOrders,
+                                                            targetItems,
+                                                            `✅ Berhasil memaksa sync ${postCount} transaksi Pawoon tanggal ${selectedDate} ke Database Real!`,
+                                                            selectedDate
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={isLoading}
+                                                className="bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow flex items-center gap-2 whitespace-nowrap transition-all disabled:opacity-50"
+                                            >
+                                                <span>⚡ Paksa Sync Tanggal Ini ({postCount} Struk)</span>
+                                            </button>
+                                        )}
+                                        {normalCount > 0 && (
+                                            <button
+                                                onClick={() => {
+                                                    const targetOrders = dateNormalOrders.length > 0 ? dateNormalOrders : (previewResult?.data?.orders || []);
+                                                    const targetItems = dateNormalOrders.length > 0 ? dateNormalItems : (previewResult?.data?.items || []);
+                                                    if (confirm(`SYNC HANYA TANGGAL ${selectedDate}:\n\nSimpan ${normalCount} transaksi tanggal ${selectedDate} ke database real?`)) {
+                                                        handleSync(
+                                                            targetOrders,
+                                                            targetItems,
+                                                            `✅ Berhasil menyinkronkan ${normalCount} transaksi tanggal ${selectedDate} ke Database Real!`,
+                                                            selectedDate
+                                                        );
+                                                    }
+                                                }}
+                                                disabled={isLoading}
+                                                className="bg-green-600 hover:bg-green-700 active:scale-95 text-white px-5 py-2.5 rounded-lg text-sm font-bold shadow flex items-center gap-2 whitespace-nowrap transition-all disabled:opacity-50"
+                                            >
+                                                <span>Simpan Tanggal Ini ({normalCount} Struk)</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             );

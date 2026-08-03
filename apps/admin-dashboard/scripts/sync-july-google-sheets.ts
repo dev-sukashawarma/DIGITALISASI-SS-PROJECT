@@ -49,6 +49,7 @@ async function runBulkSync() {
       .eq('status', 'completed')
       .gte('created_at', '2026-07-01T00:00:00+07:00')
       .lt('created_at', '2026-08-01T00:00:00+07:00')
+      .order('created_at', { ascending: true })
       .range(from, from + step)
 
     if (ordersError) {
@@ -67,6 +68,15 @@ async function runBulkSync() {
   const orders = allOrders
   console.log(`Fetched ${orders.length} completed orders for July.`)
 
+  // 2. Fetch Outlets for Mapping
+  const { data: outletsData } = await supabase.from('outlets').select('id, name, slug')
+  const outletMap: Record<string, string> = {}
+  if (outletsData) {
+    for (const out of outletsData) {
+      outletMap[out.id] = out.name
+    }
+  }
+
   // 3. Aggregate quantities per Day, per Outlet, per Channel, per Item
   // Structure: aggregated[outletName][dayOfMonth][channel][menuItemName] = { quantity, unit_price, subtotal }
   const aggregated: Record<string, Record<number, Record<string, Record<string, { quantity: number, unit_price: number, subtotal: number }>>>> = {}
@@ -79,7 +89,7 @@ async function runBulkSync() {
       day: 'numeric'
     }).format(dateObj)
     const dayOfMonth = Number(dayOfMonthStr) || dateObj.getDate()
-    const outletName = order.outlet_name || 'Cabang Pusat'
+    const outletName = (order.outlet_id && outletMap[order.outlet_id]) || order.outlet_name || 'SUKA SHAWARMA EMPANG'
 
     if (!aggregated[outletName]) aggregated[outletName] = {}
     if (!aggregated[outletName][dayOfMonth]) aggregated[outletName][dayOfMonth] = {}
@@ -115,7 +125,19 @@ async function runBulkSync() {
   let totalRequests = 0
   let successRequests = 0
 
+  const targetOutlet = process.argv[2]
+
   for (const outlet of Object.keys(aggregated)) {
+    // Explicitly exclude BNR as per user request earlier
+    if (outlet.toUpperCase().includes('BNR')) {
+      console.log(`Skipping outlet ${outlet} (BNR) as requested...`)
+      continue
+    }
+
+    if (targetOutlet && !outlet.toLowerCase().includes(targetOutlet.toLowerCase())) {
+      continue
+    }
+
     for (const dayStr of Object.keys(aggregated[outlet])) {
       const day = Number(dayStr)
       const itemsList: GoogleSheetsItemPayload[] = []
@@ -160,15 +182,26 @@ async function runBulkSync() {
           successRequests++;
           
           try {
-            const respJson = await response.json()
-            if (respJson && respJson.unmatched_items && respJson.unmatched_items.length > 0) {
-              console.warn(`[WARNING] Unmatched Menus on ${outlet} day ${day}:`)
-              respJson.unmatched_items.forEach((un: any) => {
-                console.warn(`  - Menu: "${un.menu_item_name}" | Channel: ${un.channel} | Qty: ${un.quantity}`)
-              })
+            const text = await response.text()
+            try {
+              const respJson = JSON.parse(text)
+              if (respJson && respJson.unmatched_items && respJson.unmatched_items.length > 0) {
+                console.warn(`\x1b[33m[WARNING] Unmatched Menus on ${outlet} day ${day}:\x1b[0m`)
+                respJson.unmatched_items.forEach((un: any) => {
+                  console.warn(`  - Menu: "${un.menu_item_name}" | Channel: ${un.channel} | Qty: ${un.quantity}`)
+                })
+              } else if (respJson && respJson.result === 'success') {
+                console.log(`\x1b[32m[SUCCESS] All items matched and synced perfectly for ${outlet} day ${day}.\x1b[0m`)
+              } else {
+                console.log(`\x1b[32m[SUCCESS] Sync request accepted for ${outlet} day ${day}.\x1b[0m`)
+              }
+            } catch (parseErr) {
+              console.error(`\x1b[31m[ERROR] Failed to sync ${outlet} day ${day}: Webhook URL returned an HTML error page (Check Deployment Settings / URL!).\x1b[0m`)
+              console.error(`Response Preview: ${text.substring(0, 100)}...`)
+              process.exit(1) // Stop immediately if URL is fundamentally broken
             }
-          } catch (parseErr) {
-            // Response might not be JSON if CORS or opaque
+          } catch (readErr) {
+            console.error(`Failed to read response for ${outlet} day ${day}`)
           }
         } else {
           console.error(`Failed to sync ${outlet} day ${day}: ${response.status} ${response.statusText}`)
@@ -177,8 +210,8 @@ async function runBulkSync() {
         console.error(`Error sending payload for ${outlet} day ${day}:`, err)
       }
 
-      // 500ms delay to prevent Google Apps Script rate limiting
-      await new Promise(r => setTimeout(r, 500))
+      // 2000ms delay to prevent Google Apps Script rate limiting (HTML error pages)
+      await new Promise(r => setTimeout(r, 2000))
     }
   }
 

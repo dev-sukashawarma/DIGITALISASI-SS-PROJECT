@@ -23,6 +23,13 @@ interface GoogleSheetsSettingsModalProps {
 }
 
 const APPS_SCRIPT_CODE = `function doPost(e) {
+  var lock = LockService.getDocumentLock();
+  try {
+    lock.waitLock(15000); // Tunggu maks 15 detik jika ada request bersamaan
+  } catch (lockError) {
+    return ContentService.createTextOutput(JSON.stringify({ result: "error", error: "System busy" })).setMimeType(ContentService.MimeType.JSON);
+  }
+
   try {
     var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
     var data = JSON.parse(e.postData.contents);
@@ -96,8 +103,8 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
     if (data.items && data.items.length > 0) {
       data.items.forEach(function(item) {
         var rawName = (item.menu_item_name || '').trim().toLowerCase();
-        // Hapus prefix 'FA ' jika ada, dan ambil hanya nama menu sebelum karakter '|' (jika kebetulan masih ada)
-        var cleanName = rawName.replace(/^fa\s+/, '').split('|')[0].trim();
+        // Hapus prefix 'FA ' atau 'FA-' jika ada, dan ambil hanya nama menu sebelum karakter '|' (jika kebetulan masih ada)
+        var cleanName = rawName.replace(/^fa[\s-]*\s*/, '').split('|')[0].trim();
         
         // Terapkan perbaikan typo secara otomatis
         if (TYPO_MAPPINGS[cleanName]) {
@@ -130,7 +137,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
         for (var r = startR - 1; r < endR; r++) {
           if (r >= menuColumnValues.length) break;
           var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
-          var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+          var cleanCellVal = cellVal.replace(/^fa[\s-]*\s*/, '').trim();
           if (cellVal && cleanCellVal === cleanName) {
             matchedRow = r + 1;
             break;
@@ -142,7 +149,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
           for (var r = startR - 1; r < endR; r++) {
             if (r >= menuColumnValues.length) break;
             var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
-            var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+            var cleanCellVal = cellVal.replace(/^fa[\s-]*\s*/, '').trim();
             if (cellVal && (cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
               matchedRow = r + 1;
               break;
@@ -155,7 +162,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
           // Pass 1 Fallback: EXACT MATCH
           for (var r = 0; r < menuColumnValues.length; r++) {
             var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
-            var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+            var cleanCellVal = cellVal.replace(/^fa[\s-]*\s*/, '').trim();
             if (cellVal && cleanCellVal === cleanName) {
               matchedRow = r + 1;
               break;
@@ -165,7 +172,7 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
           if (matchedRow === -1) {
             for (var r = 0; r < menuColumnValues.length; r++) {
               var cellVal = String(menuColumnValues[r][0] || '').trim().toLowerCase();
-              var cleanCellVal = cellVal.replace(/^fa\s+/, '').trim();
+              var cleanCellVal = cellVal.replace(/^fa[\s-]*\s*/, '').trim();
               if (cellVal && (cleanCellVal.includes(cleanName) || cleanName.includes(cleanCellVal))) {
                 matchedRow = r + 1;
                 break;
@@ -209,6 +216,8 @@ const APPS_SCRIPT_CODE = `function doPost(e) {
   } catch (error) {
     return ContentService.createTextOutput(JSON.stringify({ result: "error", error: error.message }))
       .setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
   }
 }`
 

@@ -138,6 +138,7 @@ export async function POST(request: Request) {
     // Waktu transaksi ASLI, bukan waktu sinkron -- kalau tidak, laporan
     // penjualan dan tutup shift ikut melenceng.
     created_at: body.created_at,
+    updated_at: body.created_at,
   }
 
   let order: { id: string; order_number: number } | null = null

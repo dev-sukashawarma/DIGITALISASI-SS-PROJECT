@@ -1,4 +1,4 @@
-﻿# Suka Shawarma Outlet Suite — Claude Code Project Guide
+# Suka Shawarma Outlet Suite — Claude Code Project Guide
 
 ## Overview
 Digitalisasi operasional 19 outlet Suka Shawarma. Stack: Supabase + Next.js (app router), TypeScript, TailwindCSS.
@@ -1040,5 +1040,19 @@ Logika pemotongan bertingkat (Waterfall Deduction) untuk bahan baku yang bervari
 
 ---
 
-**Last updated:** 2026-08-01  
+## Session 2026-08-03: POS-Kasir — Nomor Antrian Atomik & Sinkronisasi Offline
+
+**Status:** ✅ Kode selesai. ⚠️ Perlu **redeploy `pos-kasir`**; migration sudah applied & diverifikasi ground-truth.
+
+### Akar masalah (diverifikasi langsung ke DB produksi, bukan dari kode)
+1. **DUA trigger `BEFORE INSERT` berebut mengisi `order_number`** — `trg_fill_order_number` (sequence `pos_sync_order_number_seq`, dari migrasi POS sales sync) dan `trigger_generate_order_number` (`SELECT MAX(order_number)+1`). Trigger dieksekusi urut abjad, jadi yang kedua selalu menang dan menimpa tanpa syarat — termasuk menimpa nomor dari sequence sync, yang membuat sequence itu efektif mati.
+2. **`MAX+1` tidak atomik** dan `orders` **tidak punya constraint unik apa pun** di `order_number` (hanya `orders_pkey`). Nomor kembar tidak akan ditolak. Belum terjadi (traffic rendah), tapi ranjau aktif.
+3. **Angka "9000-an" berasal dari client, bukan DB.** `lib/offline.ts` `nextLocalOrderNumber()` memberi 9001+ ke order offline; angka itu tercetak di struk pelanggan dan tampil di papan, sementara server selalu menimpanya. Terverifikasi: **0 baris `order_number >= 9000`** sepanjang riwayat.
+4. **`catch` buta di `order-manual/page.tsx`** — `printReceipt()` berada DI DALAM blok `try`, dan `catch` tidak memakai `isNetworkError()` yang sudah tersedia. Printer Bluetooth gagal → order sudah sukses di server → catch tetap membuat order lokal + antrean kirim → **order dobel**. Respons 5xx juga sengaja di-`throw` sebagai "fallback to offline" padahal bukan kondisi offline.
+5. **`cleanupStaleOrders()` menghapus order offline >12 jam** beserta antreannya, tanpa konfirmasi — penjualan hilang diam-diam padahal uangnya sudah diterima kasir.
+6. **Ingest pesanan online 100% bergantung tab browser kasir** (`OnlineOrderSync`), dengan pemulihan awal `limit(10)` saja. Tidak ada cron sisi server.
+
+---
+
+**Last updated:** 2026-08-03  
 **Owner:** Dev Suka Shawarma

@@ -5,6 +5,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/pull-online-orders",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/cancel-expired",
       "schedule": "0 * * * *"
     }

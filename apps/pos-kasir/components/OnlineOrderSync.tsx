@@ -97,14 +97,19 @@ export default function OnlineOrderSync() {
       })
 
     // Lakukan sinkronisasi awal saat komponen di-mount untuk pesanan yang "tersangkut"
+    // Jalur browser dipertahankan untuk latensi rendah, tapi bukan lagi
+    // satu-satunya jalur -- cron server /api/cron/pull-online-orders yang
+    // menjamin tidak ada pesanan terlewat. Karena itu di sini cukup ambil
+    // yang terbaru, bukan mencoba menutup seluruh celah dengan limit(10).
     async function syncPendingPaidOrders() {
       try {
+        const since = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
         const { data: orders } = await ssOrderDb
           .from('orders')
           .select('id')
           .eq('status', 'paid')
+          .gte('created_at', since)
           .order('created_at', { ascending: false })
-          .limit(10)
 
         if (orders) {
           for (const o of orders) {

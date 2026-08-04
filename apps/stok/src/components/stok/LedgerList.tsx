@@ -104,7 +104,9 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
   }
   if (t.ref_shipment_id) {
     const shortId = t.ref_shipment_id.split('-')[0].toUpperCase();
-    return { title: (t.single_qty && t.single_qty < 0) ? 'Kirim SJ' : 'Terima Kiriman', subtitle: `Surat Jalan #${shortId}` };
+    const isKirim = !!(t.single_qty && t.single_qty < 0);
+    const dest = isKirim && t.shipment_dest_outlet_name ? ` ke ${t.shipment_dest_outlet_name}` : '';
+    return { title: isKirim ? `Kirim SJ${dest}` : 'Terima Kiriman', subtitle: `Surat Jalan #${shortId}` };
   }
   if (t.ref_transfer_id) {
     return { title: 'Transfer Stok', subtitle: null };

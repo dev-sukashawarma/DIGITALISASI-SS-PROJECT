@@ -77,6 +77,7 @@ export interface LedgerTransaksiSummary {
   order_items_names?: string | null
   opname_tanggal?: string | null
   opname_tipe?: OpnameTipe | null
+  shipment_dest_outlet_name?: string | null
 }
 
 export interface LedgerTransaksiDetailRow {

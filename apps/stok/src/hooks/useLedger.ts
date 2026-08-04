@@ -51,14 +51,21 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
 
       const orderIds = [...new Set(summaries.map((s) => s.ref_order_id).filter((v): v is string => !!v))]
       const opnameIds = [...new Set(summaries.map((s) => s.ref_opname_id).filter((v): v is string => !!v))]
+      const shipmentIds = [...new Set(summaries.map((s) => s.ref_shipment_id).filter((v): v is string => !!v))]
 
-      const [ordersRes, opnameRes] = await Promise.all([
+      const [ordersRes, opnameRes, shipmentRes] = await Promise.all([
         orderIds.length
           ? supabase.from('orders').select('id, order_number, order_items(menu_item_name)').in('id', orderIds)
           : Promise.resolve({ data: [] as { id: string; order_number: number; order_items: { menu_item_name: string }[] }[] }),
         opnameIds.length
           ? supabase.from('opname').select('id, tanggal, tipe').in('id', opnameIds)
           : Promise.resolve({ data: [] as { id: string; tanggal: string; tipe: string }[] }),
+        // Ledger `outlet_id` di baris transfer_keluar = outlet GUDANG (pengirim);
+        // tujuan (outlet peminta) cuma ada di surat_jalan.outlet_id -- perlu
+        // lookup terpisah supaya judul "Kirim SJ" bisa sebut nama outlet tujuan.
+        shipmentIds.length
+          ? supabase.from('surat_jalan').select('id, outlets(name)').in('id', shipmentIds)
+          : Promise.resolve({ data: [] as { id: string; outlets: { name: string } | null }[] }),
       ])
 
       const orderMap = new Map((ordersRes.data ?? []).map((o) => [o.id, {
@@ -66,6 +73,7 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
         items_names: (o as any).order_items?.map((i: any) => i.menu_item_name).join(', ') ?? null
       }]))
       const opnameMap = new Map((opnameRes.data ?? []).map((o) => [o.id, o]))
+      const shipmentMap = new Map((shipmentRes.data ?? []).map((s: any) => [s.id, s.outlets?.name ?? null]))
 
       return summaries.map((s) => ({
         ...s,
@@ -73,6 +81,7 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
         order_items_names: s.ref_order_id ? orderMap.get(s.ref_order_id)?.items_names ?? null : null,
         opname_tanggal: s.ref_opname_id ? opnameMap.get(s.ref_opname_id)?.tanggal ?? null : null,
         opname_tipe: s.ref_opname_id ? (opnameMap.get(s.ref_opname_id)?.tipe as LedgerTransaksiSummary['opname_tipe']) ?? null : null,
+        shipment_dest_outlet_name: s.ref_shipment_id ? shipmentMap.get(s.ref_shipment_id) ?? null : null,
       }))
     },
     enabled: !!outletId,

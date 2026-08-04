@@ -11,10 +11,10 @@ import { Receipt, FileText, ExternalLink, Store } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 
 export default function PettyCashExpensesTab() {
-  const [preset, setPreset] = useState('bulan_ini')
+  const [preset, setPreset] = useState('hari_ini')
   const [startDate, setStartDate] = useState(() => {
     const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+    return d.toISOString().slice(0, 10)
   })
   const [endDate, setEndDate] = useState(() => {
     const d = new Date()
@@ -252,14 +252,14 @@ export default function PettyCashExpensesTab() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Date Range Selector Card */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center h-full">
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Pilih Periode Pengeluaran</p>
             <div className="flex flex-col gap-2">
               <select 
                 value={preset} 
                 onChange={handlePresetChange}
-                className="w-full border border-suka-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
+                className="w-full border border-suka-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
               >
                 <option value="hari_ini">Hari Ini</option>
                 <option value="kemarin">Kemarin</option>
@@ -291,13 +291,13 @@ export default function PettyCashExpensesTab() {
         </div>
 
         {/* Outlet Selector Card */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-between">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center h-full">
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
             <select 
               value={selectedOutletId} 
               onChange={e => setSelectedOutletId(e.target.value)}
-              className="w-full border border-suka-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
+              className="w-full border border-suka-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
             >
               <option value="all">Semua Outlet</option>
               {outlets.map(o => (
@@ -308,9 +308,9 @@ export default function PettyCashExpensesTab() {
         </div>
 
         {/* Total Expenses Card */}
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 relative overflow-hidden group hover:shadow-xl hover:shadow-suka-orange/10 transition-all">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 relative overflow-hidden group hover:shadow-xl hover:shadow-suka-orange/10 transition-all h-full">
           <div className="absolute right-0 top-0 w-32 h-32 bg-orange-50 rounded-bl-full -z-0 transition-transform group-hover:scale-110"></div>
-          <div className="relative z-10 flex flex-col justify-between h-full">
+          <div className="relative z-10 flex flex-col justify-center h-full">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="bg-orange-100 p-2 rounded-xl text-suka-orange">

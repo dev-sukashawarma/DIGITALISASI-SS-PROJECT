@@ -1,6 +1,6 @@
 import { getVoidOrders } from '@/app/actions/cancellations'
 import VoidOrderClient from './VoidOrderClient'
-import { PageHeader } from '@/components/PageHeader'
+import { PageHeader } from '@/components/ui'
 
 export const dynamic = 'force-dynamic'
 

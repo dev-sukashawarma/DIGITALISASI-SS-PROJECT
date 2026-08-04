@@ -16,6 +16,11 @@ export type VoidRequest = {
   total_amount: number
   outlet_name: string
   requester_name: string
+  order_items?: {
+    menu_item_name: string;
+    quantity: number;
+    subtotal: number;
+  }[];
 }
 
 interface ApprovalsContextType {

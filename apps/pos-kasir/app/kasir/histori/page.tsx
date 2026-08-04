@@ -180,19 +180,19 @@ export default function AdminOrdersPage() {
   });
 
   const totalRevenue = filteredOrders
-    .filter((o) => o.status !== 'cancelled')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval')
     .reduce((s, o) => s + o.total_amount, 0)
 
   const revenueCash = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'cash')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'cash')
     .reduce((s, o) => s + o.total_amount, 0)
 
   const revenueQris = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'qris')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'qris')
     .reduce((s, o) => s + o.total_amount, 0)
 
   const revenueDebit = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'card')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'card')
     .reduce((s, o) => s + o.total_amount, 0)
 
   return (

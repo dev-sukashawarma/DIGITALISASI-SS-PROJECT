@@ -84,7 +84,7 @@ export async function fetchAnalyticsData(
     const totalRevenue = netRevenue + totalDeductions
     const totalOrders = completedOrders.length
     const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length
-    const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length
+    const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled' || o.cancellation_status === 'pending_approval').length
     const avgOrderValue = totalOrders > 0 ? Math.round(netRevenue / totalOrders) : 0
 
     const paymentBreakdown: Record<string, { count: number; revenue: number }> = {}

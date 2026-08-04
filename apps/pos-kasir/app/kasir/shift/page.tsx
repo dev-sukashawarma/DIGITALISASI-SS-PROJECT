@@ -152,7 +152,9 @@ export default function ShiftPage() {
   }, [searchParams])
 
   const shiftSalesTotal = useMemo(
-    () => cashOrders.reduce((s, o) => s + Number(o.total_amount), 0),
+    () => cashOrders
+      .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval')
+      .reduce((s, o) => s + Number(o.total_amount), 0),
     [cashOrders],
   )
 
@@ -250,7 +252,7 @@ export default function ShiftPage() {
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time}`),
-          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_user_name, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_status, cancellation_user_name, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
         ])
 
         const [processedExpenses, processedTopups] = await Promise.all([
@@ -878,7 +880,7 @@ export default function ShiftPage() {
                         )
                       } else {
                         const sale = item.data as CashOrder & { status?: string, cancellation_user_name?: string, void_reason?: string, cancellation_reason?: string }
-                        const isCancelled = sale.status === 'cancelled'
+                        const isCancelled = sale.status === 'cancelled' || (sale as any).cancellation_status === 'pending_approval'
                         return (
                           <div key={`sale-${sale.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${isCancelled ? 'opacity-60 bg-gray-50/80' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">

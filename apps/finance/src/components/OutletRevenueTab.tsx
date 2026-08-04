@@ -73,7 +73,7 @@ export default function OutletRevenueTab() {
 
       let q = supabase
         .from('sales_hourly_spv')
-        .select('outlet_id, omzet, jumlah_order_completed')
+        .select('outlet_id, sales_source, omzet, jumlah_order_completed')
         .gte('sales_date', from)
         .lte('sales_date', to)
       
@@ -94,19 +94,23 @@ export default function OutletRevenueTab() {
       const nameMap = new Map<string, string>()
       outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
 
-      const aggMap = new Map<string, { outletId: string; outletName: string; totalRevenue: number; totalOrders: number }>()
+      const aggMap = new Map<string, { outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
 
       salesRes.data?.forEach(s => {
         const outletId = s.outlet_id
+        const channel = s.sales_source || 'Offline'
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
-        const existing = aggMap.get(outletId)
+        const key = `${outletId}-${channel}`
+        
+        const existing = aggMap.get(key)
         if (existing) {
           existing.totalRevenue += Number(s.omzet || 0)
           existing.totalOrders += Number(s.jumlah_order_completed || 0)
         } else {
-          aggMap.set(outletId, {
+          aggMap.set(key, {
             outletId,
             outletName,
+            channel,
             totalRevenue: Number(s.omzet || 0),
             totalOrders: Number(s.jumlah_order_completed || 0)
           })
@@ -116,10 +120,11 @@ export default function OutletRevenueTab() {
       // Tampilkan juga semua outlet terdaftar meskipun 0 omzet (jika filter "Semua Outlet")
       if (selectedOutletId === 'all') {
         outletsRes.data?.forEach(o => {
-          if (!aggMap.has(o.id)) {
-            aggMap.set(o.id, {
+          if (!Array.from(aggMap.values()).some(a => a.outletId === o.id)) {
+            aggMap.set(`${o.id}-offline`, {
               outletId: o.id,
               outletName: o.name,
+              channel: 'Offline',
               totalRevenue: 0,
               totalOrders: 0
             })
@@ -129,9 +134,10 @@ export default function OutletRevenueTab() {
         // Jika filter ke satu outlet dan tidak ada transaksi
         if (aggMap.size === 0) {
           const outletName = nameMap.get(selectedOutletId) || 'Outlet'
-          aggMap.set(selectedOutletId, {
+          aggMap.set(`${selectedOutletId}-offline`, {
             outletId: selectedOutletId,
             outletName: outletName,
+            channel: 'Offline',
             totalRevenue: 0,
             totalOrders: 0
           })
@@ -150,7 +156,7 @@ export default function OutletRevenueTab() {
 
       let q = supabase
         .from('sales_items_spv')
-        .select('outlet_id, menu_item_name, total_qty, total_revenue')
+        .select('outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
         .gte('sales_date', from)
         .lte('sales_date', to)
 
@@ -171,10 +177,11 @@ export default function OutletRevenueTab() {
       const nameMap = new Map<string, string>()
       outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
       
-      const aggMap = new Map<string, { outletId: string; outletName: string; itemName: string; totalQty: number; totalRevenue: number }>()
+      const aggMap = new Map<string, { outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
 
       itemsRes.data?.forEach(s => {
         const outletId = s.outlet_id
+        const channel = s.sales_source || 'Offline'
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
         
         // Bersihkan nama item (hapus |ID|... dan variannya)
@@ -184,7 +191,7 @@ export default function OutletRevenueTab() {
           cleanName = cleanName.substring(0, idIndex).trim()
         }
 
-        const key = `${outletId}-${cleanName}`
+        const key = `${outletId}-${channel}-${cleanName}`
         
         const existing = aggMap.get(key)
         if (existing) {
@@ -194,6 +201,7 @@ export default function OutletRevenueTab() {
           aggMap.set(key, {
             outletId,
             outletName,
+            channel,
             itemName: cleanName,
             totalQty: Number(s.total_qty || 0),
             totalRevenue: Number(s.total_revenue || 0)
@@ -364,6 +372,7 @@ export default function OutletRevenueTab() {
                 <thead>
                   <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
                     <th className="py-3 px-5 font-semibold">Nama Outlet</th>
+                    <th className="py-3 px-5 font-semibold">Channel</th>
                     <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
                     <th className="py-3 px-5 font-semibold text-right">Total Omzet</th>
                   </tr>
@@ -383,11 +392,14 @@ export default function OutletRevenueTab() {
                         hidden: { opacity: 0, y: 10 },
                         visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
                       }}
-                      key={item.outletId} 
+                      key={`${item.outletId}-${item.channel}`} 
                       className="hover:bg-orange-50/20 transition-colors"
                     >
                       <td className="py-4 px-5 font-bold text-suka-ink">
                         {item.outletName}
+                      </td>
+                      <td className="py-4 px-5 font-medium text-suka-ink/70 uppercase text-xs">
+                        {item.channel}
                       </td>
                       <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
                         {item.totalOrders.toLocaleString('id-ID')}
@@ -412,6 +424,7 @@ export default function OutletRevenueTab() {
                 <thead>
                   <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
                     <th className="py-3 px-5 font-semibold">Nama Outlet</th>
+                    <th className="py-3 px-5 font-semibold">Channel</th>
                     <th className="py-3 px-5 font-semibold">Nama Item</th>
                     <th className="py-3 px-5 font-semibold text-right">Qty Terjual</th>
                     <th className="py-3 px-5 font-semibold text-right">Total Omzet Item</th>
@@ -434,11 +447,14 @@ export default function OutletRevenueTab() {
                           hidden: { opacity: 0, y: 10 },
                           visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
                         }}
-                        key={`${item.outletId}-${item.itemName}`} 
+                        key={`${item.outletId}-${item.channel}-${item.itemName}`} 
                         className={`hover:bg-orange-50/20 transition-colors ${isNewOutlet ? 'border-t-2 border-suka-brown/10' : ''}`}
                       >
                         <td className="py-3 px-5 font-bold text-suka-ink/70">
                           {isNewOutlet ? item.outletName : ''}
+                        </td>
+                        <td className="py-3 px-5 font-medium text-suka-ink/70 uppercase text-xs">
+                          {item.channel}
                         </td>
                         <td className="py-3 px-5 font-medium text-suka-ink">
                           {item.itemName}

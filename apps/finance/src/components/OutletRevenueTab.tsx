@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { useOutlets } from '@/hooks/useOutlets'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, formatNumber } from '@/lib/format'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -21,8 +22,10 @@ export default function OutletRevenueTab() {
   })
   
   const [viewMode, setViewMode] = useState<'ringkasan' | 'item'>('ringkasan')
+  const [selectedOutletId, setSelectedOutletId] = useState('all')
 
   const supabase = useMemo(() => createClient(), [])
+  const { data: outlets = [] } = useOutlets()
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
@@ -68,12 +71,18 @@ export default function OutletRevenueTab() {
       const from = startDate
       const to = endDate
 
+      let q = supabase
+        .from('sales_hourly_spv')
+        .select('outlet_id, omzet, jumlah_order_completed')
+        .gte('sales_date', from)
+        .lte('sales_date', to)
+      
+      if (selectedOutletId !== 'all') {
+        q = q.eq('outlet_id', selectedOutletId)
+      }
+
       const [salesRes, outletsRes] = await Promise.all([
-        supabase
-          .from('sales_hourly_spv')
-          .select('outlet_id, omzet, jumlah_order_completed')
-          .gte('sales_date', from)
-          .lte('sales_date', to),
+        q,
         supabase
           .from('outlets')
           .select('id, name')
@@ -104,17 +113,30 @@ export default function OutletRevenueTab() {
         }
       })
 
-      // Tampilkan juga semua outlet terdaftar meskipun 0 omzet
-      outletsRes.data?.forEach(o => {
-        if (!aggMap.has(o.id)) {
-          aggMap.set(o.id, {
-            outletId: o.id,
-            outletName: o.name,
+      // Tampilkan juga semua outlet terdaftar meskipun 0 omzet (jika filter "Semua Outlet")
+      if (selectedOutletId === 'all') {
+        outletsRes.data?.forEach(o => {
+          if (!aggMap.has(o.id)) {
+            aggMap.set(o.id, {
+              outletId: o.id,
+              outletName: o.name,
+              totalRevenue: 0,
+              totalOrders: 0
+            })
+          }
+        })
+      } else {
+        // Jika filter ke satu outlet dan tidak ada transaksi
+        if (aggMap.size === 0) {
+          const outletName = nameMap.get(selectedOutletId) || 'Outlet'
+          aggMap.set(selectedOutletId, {
+            outletId: selectedOutletId,
+            outletName: outletName,
             totalRevenue: 0,
             totalOrders: 0
           })
         }
-      })
+      }
 
       return Array.from(aggMap.values()).sort((a, b) => b.totalRevenue - a.totalRevenue)
     }
@@ -126,12 +148,18 @@ export default function OutletRevenueTab() {
       const from = startDate
       const to = endDate
 
+      let q = supabase
+        .from('sales_items_spv')
+        .select('outlet_id, menu_item_name, total_qty, total_revenue')
+        .gte('sales_date', from)
+        .lte('sales_date', to)
+
+      if (selectedOutletId !== 'all') {
+        q = q.eq('outlet_id', selectedOutletId)
+      }
+
       const [itemsRes, outletsRes] = await Promise.all([
-        supabase
-          .from('sales_items_spv')
-          .select('outlet_id, menu_item_name, total_qty, total_revenue')
-          .gte('sales_date', from)
-          .lte('sales_date', to),
+        q,
         supabase
           .from('outlets')
           .select('id, name')
@@ -193,7 +221,7 @@ export default function OutletRevenueTab() {
   return (
     <div className="space-y-6">
       {/* Filter & Summary Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         
         {/* Date Range Selector Card */}
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center">
@@ -231,6 +259,23 @@ export default function OutletRevenueTab() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Outlet Selector Card */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center">
+          <div>
+            <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
+            <select 
+              value={selectedOutletId} 
+              onChange={e => setSelectedOutletId(e.target.value)}
+              className="w-full border border-suka-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
+            >
+              <option value="all">Semua Outlet</option>
+              {outlets.map(o => (
+                <option key={o.id} value={o.id}>{o.name}</option>
+              ))}
+            </select>
           </div>
         </div>
 

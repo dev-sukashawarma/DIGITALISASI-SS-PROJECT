@@ -193,7 +193,7 @@ export default function PettyCashExpensesTab() {
   // Calculate Outlet Petty Cash Balances
   const outletBalances = useMemo(() => {
     const filteredOutlets = outlets.filter(o => 
-      !['KANTOR PUSAT', 'GUDANG PUSAT (HQ)', 'GLOBAL OUTLET (SYSTEM)'].includes(o.name)
+      !['KANTOR PUSAT', 'GUDANG PUSAT (HQ)', 'GLOBAL OUTLET (SYSTEM)', 'outlet tes', 'MITRA CITAYAM'].includes(o.name)
     )
 
     return filteredOutlets.map(o => ({
@@ -300,8 +300,8 @@ export default function PettyCashExpensesTab() {
               className="w-full border border-suka-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
             >
               <option value="all">-- Pilih Outlet Dulu --</option>
-              {outlets.map(o => (
-                <option key={o.id} value={o.id}>{o.name}</option>
+              {outletBalances.map(o => (
+                <option key={o.id} value={o.id}>{o.label}</option>
               ))}
             </select>
           </div>

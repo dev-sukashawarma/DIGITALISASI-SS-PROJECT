@@ -54,11 +54,6 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
     refreshApprovals()
     
     if (!supabase) return;
-
-    // Polling fallback to ensure we never miss updates
-    const interval = setInterval(() => {
-      refreshApprovals()
-    }, 15000)
     
     // Subscribe to realtime changes in cancellation_requests table
     const channel = supabase
@@ -74,7 +69,6 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
       .subscribe()
 
     return () => {
-      clearInterval(interval)
       supabase.removeChannel(channel)
     }
   }, [refreshApprovals, supabase])

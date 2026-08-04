@@ -4,7 +4,6 @@ import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
-import { useCashOverview } from '@/hooks/useCashData'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, tanggal } from '@/lib/format'
 import { motion } from 'framer-motion'
@@ -24,8 +23,7 @@ export default function PettyCashExpensesTab() {
   const [selectedOutletId, setSelectedOutletId] = useState('all')
 
   const supabase = useMemo(() => createClient(), [])
-  const { data: outlets = [] } = useOutlets()
-  const { locations, isLoading: loadingOverview } = useCashOverview()
+  const { data: outlets = [], isLoading: loadingOutlets } = useOutlets()
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
@@ -134,35 +132,41 @@ export default function PettyCashExpensesTab() {
     }
   }
 
+  // Fetch real petty cash balances from latest shifts
+  const { data: realBalances = {}, isLoading: loadingRealBalances } = useQuery({
+    queryKey: ['petty_cash_real_balances'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_all_latest_petty_cash_balances')
+      if (error) throw error
+      const map: Record<string, number> = {}
+      if (data) {
+        for (const r of data) {
+          if (r.outlet_id) {
+            map[r.outlet_id] = Number(r.balance || 0)
+          }
+        }
+      }
+      return map
+    },
+    refetchInterval: 30000 // Refresh every 30s
+  })
+
   // Calculate Outlet Petty Cash Balances
   const outletBalances = useMemo(() => {
-    const dbLocs = locations.filter(loc => loc.outlet_id !== null && loc.scope === 'outlet');
-    const dbLocOutletIds = new Set(dbLocs.map(l => l.outlet_id));
+    const filteredOutlets = outlets.filter(o => 
+      !['KANTOR PUSAT', 'GUDANG PUSAT (HQ)', 'GLOBAL OUTLET (SYSTEM)'].includes(o.name)
+    )
 
-    const missingOutlets = outlets
-      .filter(o => !['KANTOR PUSAT', 'GUDANG PUSAT (HQ)', 'GLOBAL OUTLET (SYSTEM)'].includes(o.name) && !dbLocOutletIds.has(o.id))
-      .map(o => ({
-        id: o.id,
-        label: o.name,
-        kind: 'cash' as const,
-        bank_name: null,
-        account_no: null,
-        holder_name: 'PIC Outlet',
-        scope: 'outlet' as const,
-        outlet_id: o.id,
-        is_active: true,
-        opening_balance: 0,
-        opening_date: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-        saldo: 0
-      }));
-
-    return [...dbLocs, ...missingOutlets].sort((a, b) => {
+    return filteredOutlets.map(o => ({
+      id: o.id,
+      label: o.name,
+      saldo: realBalances[o.id] ?? 0
+    })).sort((a, b) => {
       const nameA = a.label.replace('Kas Kecil ', '').replace('Petty Cash ', '')
       const nameB = b.label.replace('Kas Kecil ', '').replace('Petty Cash ', '')
       return nameA.localeCompare(nameB)
     })
-  }, [locations, outlets])
+  }, [outlets, realBalances])
 
   if (error) {
     return (
@@ -184,7 +188,7 @@ export default function PettyCashExpensesTab() {
           <h3 className="font-display text-xl text-suka-brown">Saldo Petty Cash Outlet Saat Ini</h3>
         </div>
         
-        {loadingOverview ? (
+        {loadingRealBalances || loadingOutlets ? (
            <div className="flex justify-center py-6"><Spinner size={24} /></div>
         ) : outletBalances.length === 0 ? (
            <EmptyState title="Tidak ada saldo outlet" />

@@ -80,6 +80,13 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+
+  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+  let resolvedPortalUrl = portalUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedPortalUrl = 'http://localhost:3010'
+  }
 
   const { data: pettyCashRequests } = usePettyCashRequests('forwarded_to_finance')
   const { data: pendingPos } = usePendingPos()
@@ -211,33 +218,59 @@ export function CashLayout({ children }: { children: ReactNode }) {
               {currentLink?.label ?? 'Dashboard'}
             </h1>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {outletStaff && (
-              <div className="hidden sm:flex items-center gap-2 bg-white px-3.5 py-2 rounded-2xl border border-suka-brown/5 shadow-sm">
-                <div className="w-6 h-6 rounded-lg bg-suka-orange/20 text-suka-orange flex items-center justify-center text-[10px] font-black">
-                  {outletStaff.name.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-xs font-bold text-suka-brown">{outletStaff.name}</span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-suka-brown/5 text-suka-brown/60 font-bold uppercase tracking-wider">{outletStaff.role}</span>
-              </div>
-            )}
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              disabled={isLoggingOut}
-              onClick={async () => {
-                setIsLoggingOut(true)
-                try {
-                  await signOut()
-                } finally {
-                  setIsLoggingOut(false)
-                }
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-white hover:bg-red-50 text-suka-gray-600 hover:text-red-600 border border-suka-brown/5 font-bold text-xs transition-colors cursor-pointer disabled:opacity-50 shadow-sm"
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 relative">
+            <button 
+              onClick={() => setIsProfileOpen(!isProfileOpen)}
+              className="flex items-center gap-2 bg-white p-1.5 pr-3 rounded-2xl border border-suka-brown/5 shadow-sm hover:border-suka-orange/30 transition-colors cursor-pointer"
             >
-              {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
-              <span className="hidden sm:inline">{isLoggingOut ? 'Keluar...' : 'Keluar'}</span>
-            </motion.button>
+              <div className="w-8 h-8 rounded-xl bg-suka-orange/20 text-suka-orange flex items-center justify-center text-xs font-black">
+                {outletStaff ? outletStaff.name.charAt(0).toUpperCase() : 'U'}
+              </div>
+              {outletStaff && (
+                <div className="hidden sm:flex flex-col items-start justify-center gap-0.5">
+                  <span className="text-xs font-bold text-suka-brown leading-none">{outletStaff.name}</span>
+                  <span className="text-[9px] text-suka-brown/60 font-bold uppercase tracking-wider leading-none">{outletStaff.role}</span>
+                </div>
+              )}
+            </button>
+            
+            <AnimatePresence>
+              {isProfileOpen && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setIsProfileOpen(false)}></div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-suka-brown/10 overflow-hidden z-50 flex flex-col"
+                  >
+                    <a 
+                      href={resolvedPortalUrl}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-suka-brown hover:bg-suka-orange/5 transition-colors"
+                    >
+                      <LayoutDashboard className="w-4 h-4" />
+                      Kembali ke Portal
+                    </a>
+                    <div className="h-px bg-suka-brown/5 w-full"></div>
+                    <button
+                      disabled={isLoggingOut}
+                      onClick={async () => {
+                        setIsLoggingOut(true)
+                        try {
+                          await signOut()
+                        } finally {
+                          setIsLoggingOut(false)
+                        }
+                      }}
+                      className="flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 text-left w-full"
+                    >
+                      {isLoggingOut ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogOut className="w-4 h-4" />}
+                      Keluar
+                    </button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </header>
 

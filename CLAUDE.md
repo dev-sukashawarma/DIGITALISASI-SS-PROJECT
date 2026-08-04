@@ -1054,5 +1054,19 @@ Logika pemotongan bertingkat (Waterfall Deduction) untuk bahan baku yang bervari
 
 ---
 
-**Last updated:** 2026-08-03  
+## Session 2026-08-04: Satuan Gram/Besar — Konflik Arsitektur, ApprovalModal, Auto-Cancel, Bug DB Layer Baru
+
+**Status:** Kode selesai & di-push ke `main`. ⚠️ Perlu **redeploy `stok`**. Bug DB layer di poin 4 **belum diperbaiki**, menunggu prioritas.
+
+**📄 Detail lengkap:** `docs/SESSION-2026-08-04-STOK-SATUAN-GRAM-BESAR-AUDIT.md`
+
+1. **Konflik arsitektur dengan sesi paralel diresolusi.** Sesi lain push `b450047a` yang membalik `OpnameForm.tsx` ke satuan besar — kebalikan mekanisme `saldo_is_gram` semalam. Ground-truth: kode itu **belum ter-deploy** (opname baru setelah commit-nya masih gram-scale), dan bug analisis menunjukkan kalau di-deploy akan merusak baris gram-scale (bandingkan besar vs gram tanpa cek skala). Keputusan user: *"jangan rusak yang sudah berjalan baik"* → `b450047a` di-`git revert`.
+2. **§5 Nudge Batch selesai** (`docs/superpowers/specs/2026-08-03-permintaan-batch-nudge-design.md`): permintaan `menunggu` >12 jam otomatis dibebaskan dari hide + `buat_permintaan_svc` auto-set status `dibatalkan` pada request lama yang stale saat diajukan ulang (migration `20300105000011`, applied & diverifikasi).
+3. **ApprovalModal.tsx** — instance lain bug gram/besar (masih pakai `formatTriUnitSaldo` bukan `Adaptive`) + bug arithmetic tersembunyi: perbandingan "melebihi stok gudang" membandingkan besar-scale vs saldo mentah tanpa konversi skala. Fix + `convertGramToBesar()` baru.
+4. **🔴 Temuan besar, belum diperbaiki:** `sj_on_dikirim_kurangi_kitchen` (trigger transfer surat jalan) menulis delta `ledger_stok` **selalu satuan besar**, tanpa pernah cek `saldo_is_gram` outlet tujuan — kirim 1 Pack ke baris gram-scale bisa tercatat sebagai -0.2 alih-alih -1 (salah sebesar faktor konversi bahan). **11 fungsi lain** yang menulis `ledger_stok` (termasuk `process_waterfall_deduction`/BOM — jalan tiap order) berpotensi bug sama, **belum diaudit satu-satu**.
+5. **Audit lapangan:** dari 1517 baris `stok_balance`, 708 gram-scale — **141 "Berisiko"** (sudah kena tulisan besar-scale sejak baseline gram, kemungkinan korup), 567 "Aman". Per bahan baku (61 total): **config `satuan_distribusi` 61/61 OK** (bukan salah setting unit); 25 bahan punya ≥1 outlet berisiko.
+
+---
+
+**Last updated:** 2026-08-04  
 **Owner:** Dev Suka Shawarma

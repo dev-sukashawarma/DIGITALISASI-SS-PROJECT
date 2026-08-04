@@ -219,10 +219,10 @@ export default function DashboardClient() {
                 <div className="space-y-4">
                   {isLoading ? (
                     <div className="flex justify-center py-8"><Spinner size={28} /></div>
-                  ) : locations.length === 0 ? (
+                  ) : locations.filter(l => l.scope !== 'outlet').length === 0 ? (
                     <EmptyState title="Belum ada rekening/kas" description="Tambahkan di menu Rekening & Kas." />
                   ) : (
-                    locations.map((l) => (
+                    locations.filter(l => l.scope !== 'outlet').map((l) => (
                       <motion.div 
                         key={l.id} 
                         whileHover={{ x: 4 }}

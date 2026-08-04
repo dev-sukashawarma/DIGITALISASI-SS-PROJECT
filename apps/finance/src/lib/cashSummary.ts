@@ -14,11 +14,12 @@ export interface NetCashSummary {
  * mengendap (belum masuk bank); dipisah agar terlihat jelas di dashboard.
  */
 export function summarizeBalances(
-  rows: Array<{ kind: CashKind; saldo: number }>
+  rows: Array<{ kind: CashKind; saldo: number; scope: string }>
 ): NetCashSummary {
   let totalBank = 0
   let totalCash = 0
   for (const r of rows) {
+    if (r.scope === 'outlet') continue
     if (r.kind === 'bank') totalBank += r.saldo
     else totalCash += r.saldo
   }

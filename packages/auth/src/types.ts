@@ -13,6 +13,7 @@ export type Role =
   | 'admin_finance'
   | 'area_manager'
   | 'purchasing'
+  | 'developer'
 
 export type AppName =
   | 'pos-kasir'

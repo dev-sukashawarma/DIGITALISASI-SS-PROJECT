@@ -167,10 +167,13 @@ export default function DashboardClient() {
               initial="hidden"
               animate="show"
               exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6"
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start"
             >
+              {/* Left Column Container */}
+              <div className="md:col-span-2 flex flex-col gap-6">
+                
               {/* Main Metric Cards */}
-              <motion.div variants={itemAnim} className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <motion.div variants={itemAnim} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 relative overflow-hidden group hover:shadow-xl hover:shadow-suka-green/10 transition-all">
                   <div className="absolute right-0 top-0 w-32 h-32 bg-blue-50 rounded-bl-full -z-0 transition-transform group-hover:scale-110"></div>
@@ -211,7 +214,7 @@ export default function DashboardClient() {
               </motion.div>
 
               {/* Saldo per Lokasi */}
-              <motion.div variants={itemAnim} className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 md:row-span-2">
+              <motion.div variants={itemAnim} className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-display text-xl text-suka-brown">Saldo per Lokasi</h3>
                 </div>
@@ -246,8 +249,10 @@ export default function DashboardClient() {
                 </div>
               </motion.div>
 
+              </div> {/* End Left Column */}
+
               {/* Aktivitas Terbaru */}
-              <motion.div variants={itemAnim} className="md:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
+              <motion.div variants={itemAnim} className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-display text-xl text-suka-brown">Aktivitas Terbaru</h3>
                   <button className="text-suka-primary hover:text-suka-primary/80 transition-colors">
@@ -261,18 +266,18 @@ export default function DashboardClient() {
                   ) : txs.length === 0 ? (
                     <EmptyState title="Belum ada transaksi" />
                   ) : (
-                    txs.slice(0, 5).map((t) => (
-                      <div key={t.id} className="flex items-center justify-between py-3 border-b border-suka-brown/5 last:border-0">
-                        <div className="min-w-0">
+                    txs.slice(0, 7).map((t) => (
+                      <div key={t.id} className="flex flex-col py-3 border-b border-suka-brown/5 last:border-0 gap-1.5">
+                        <div className="flex items-center justify-between">
                           <p className="truncate font-bold text-suka-brown text-sm">
-                            {t.cash_location?.label ?? '—'} · <span className="text-suka-gray-400 font-semibold">{t.category ?? t.source_type}</span>
+                            {t.cash_location?.label ?? '—'}
                           </p>
-                          <p className="text-[10px] font-black tracking-wider uppercase text-suka-gray-400 mt-0.5">{tanggal(t.occurred_at)}</p>
-                        </div>
-                        <div className="flex items-center gap-3">
                           <span className={`font-bold text-sm ${t.direction === 'in' ? 'text-emerald-600' : 'text-red-600'}`}>
                             {t.direction === 'in' ? '+' : '−'}{rupiah(t.amount)}
                           </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className="text-[10px] font-black tracking-wider uppercase text-suka-gray-400">{tanggal(t.occurred_at)}</p>
                           <TxStatusBadge status={t.status} />
                         </div>
                       </div>
@@ -280,7 +285,6 @@ export default function DashboardClient() {
                   )}
                 </div>
               </motion.div>
-
 
             </motion.div>
           )}

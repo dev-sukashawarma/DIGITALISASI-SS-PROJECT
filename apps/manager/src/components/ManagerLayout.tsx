@@ -21,6 +21,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Manajemen',
     items: [
+      { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
       { href: '/team', label: 'Tim / Kru', icon: Users },
       { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
     ]

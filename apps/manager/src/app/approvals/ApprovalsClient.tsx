@@ -18,6 +18,11 @@ type VoidRequest = {
   total_amount: number
   outlet_name: string
   requester_name: string
+  order_items: {
+    menu_item_name: string;
+    quantity: number;
+    subtotal: number;
+  }[];
 }
 
 const formatRupiah = (amount: number) => {
@@ -126,7 +131,7 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
                     <span className="text-sm font-bold text-suka-gray-700">{req.requester_name}</span>
                   </div>
 
-                  <div className="bg-suka-brown/5 rounded-xl p-3.5 border border-suka-brown/10 relative">
+                  <div className="bg-suka-brown/5 rounded-xl p-3.5 border border-suka-brown/10 relative mb-4">
                     <div className="absolute -top-2.5 left-4 px-2 bg-white text-[10px] font-black tracking-widest text-suka-brown uppercase">
                       Alasan Pembatalan
                     </div>
@@ -134,6 +139,29 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
                       "{req.reason}"
                     </p>
                   </div>
+
+                  {/* Order Items Table - Industrial Style */}
+                  {req.order_items && req.order_items.length > 0 && (
+                    <div className="border-t border-suka-gray-100 pt-3">
+                      <div className="text-[10px] font-bold text-suka-gray-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <span>Rincian Pesanan</span>
+                        <div className="h-px bg-suka-gray-200 flex-1"></div>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        {req.order_items.map((item, idx) => (
+                          <div key={idx} className="flex justify-between items-baseline text-sm">
+                            <div className="flex gap-2 items-baseline">
+                              <span className="font-bold text-suka-gray-500 w-5">{item.quantity}x</span>
+                              <span className="font-semibold text-suka-gray-700">{item.menu_item_name}</span>
+                            </div>
+                            <span className="font-bold text-suka-gray-500 text-xs tabular-nums">
+                              {formatRupiah(item.subtotal || 0)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="flex flex-col sm:flex-row md:flex-col lg:flex-row items-center md:items-end lg:items-center justify-between md:justify-start gap-5 sm:gap-6 pt-4 md:pt-0 border-t md:border-t-0 border-suka-gray-100">

@@ -55,6 +55,11 @@ export async function getVoidOrders() {
           outlets (
             id,
             name
+          ),
+          order_items (
+            menu_item_name,
+            quantity,
+            subtotal
           )
         ),
         outlet_staff!requested_by (
@@ -93,7 +98,8 @@ export async function getVoidOrders() {
       customer_name: r.orders?.customer_name,
       total_amount: r.orders?.total_amount,
       outlet_name: r.orders?.outlets?.name || 'Unknown Outlet',
-      requester_name: r.outlet_staff?.name || 'Unknown Staff'
+      requester_name: r.outlet_staff?.name || 'Unknown Staff',
+      order_items: r.orders?.order_items || []
     }))
 
     return { success: true, data: formattedData }

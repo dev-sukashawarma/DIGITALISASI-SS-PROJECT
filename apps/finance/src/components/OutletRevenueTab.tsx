@@ -10,7 +10,25 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { TrendingUp, ShoppingBag, PackageSearch, Download, FileText, FileSpreadsheet } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 import { exportToCSV, exportToPDF } from '@/lib/exportUtils'
+import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
+
+interface SalesHourlyRow {
+  sales_date: string | null
+  outlet_id: string
+  sales_source: string | null
+  omzet: number | null
+  jumlah_order_completed: number | null
+}
+
+interface SalesItemRow {
+  sales_date: string | null
+  outlet_id: string
+  sales_source: string | null
+  menu_item_name: string | null
+  total_qty: number | null
+  total_revenue: number | null
+}
 
 export default function OutletRevenueTab() {
   const [preset, setPreset] = useState('bulan_ini')
@@ -75,28 +93,37 @@ export default function OutletRevenueTab() {
       const from = startDate
       const to = endDate
 
-      let q = supabase
-        .from('sales_hourly_spv')
-        .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed')
-        .gte('sales_date', from)
-        .lte('sales_date', to)
-      
-      if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
-      }
-      
-      if (selectedChannel !== 'all') {
-        q = q.eq('sales_source', selectedChannel)
+      // Paginasi wajib: hasilnya bisa >1.000 baris dan PostgREST memotongnya
+      // diam-diam. Urutan eksplisit = grain unik view (outlet × sumber × tanggal × jam).
+      const buildSalesQuery = () => {
+        let q = supabase
+          .from('sales_hourly_spv')
+          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed', { count: 'exact' })
+          .gte('sales_date', from)
+          .lte('sales_date', to)
+          .order('sales_date')
+          .order('outlet_id')
+          .order('sales_source')
+          .order('sales_hour')
+
+        if (selectedOutletId !== 'all') {
+          q = q.eq('outlet_id', selectedOutletId)
+        }
+
+        if (selectedChannel !== 'all') {
+          q = q.eq('sales_source', selectedChannel)
+        }
+
+        return q
       }
 
-      const [salesRes, outletsRes] = await Promise.all([
-        q,
+      const [salesRows, outletsRes] = await Promise.all([
+        fetchAllRows<SalesHourlyRow>(buildSalesQuery, 'Omzet outlet'),
         supabase
           .from('outlets')
           .select('id, name')
       ])
 
-      if (salesRes.error) throw salesRes.error
       if (outletsRes.error) throw outletsRes.error
 
       const nameMap = new Map<string, string>()
@@ -104,7 +131,7 @@ export default function OutletRevenueTab() {
 
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
 
-      salesRes.data?.forEach(s => {
+      salesRows.forEach(s => {
         const date = s.sales_date || 'Unknown Date'
         const outletId = s.outlet_id
         const channel = s.sales_source || 'Offline'
@@ -140,40 +167,53 @@ export default function OutletRevenueTab() {
   
   const { data: itemsData = [], isLoading: loadingItems, error: errorItems } = useQuery({
     queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId, selectedChannel],
+    // Hanya jalan saat tab-nya dibuka. Query ini bisa menembus 20 halaman
+    // (19.616 baris untuk 30 hari) — dulu ikut jalan tiap mount walau tab
+    // "Ringkasan" yang aktif.
+    enabled: viewMode === 'item',
     queryFn: async () => {
       const from = startDate
       const to = endDate
 
-      let q = supabase
-        .from('sales_items_spv')
-        .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
-        .gte('sales_date', from)
-        .lte('sales_date', to)
+      // Paginasi wajib: 1–4 Agu 2026 saja sudah 4.375 baris — dulu terpotong di
+      // 1.000 sehingga cuma 4 dari 21 outlet yang tampil.
+      const buildItemsQuery = () => {
+        let q = supabase
+          .from('sales_items_spv')
+          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue', { count: 'exact' })
+          .gte('sales_date', from)
+          .lte('sales_date', to)
+          .order('sales_date')
+          .order('outlet_id')
+          .order('sales_source')
+          .order('menu_item_name')
 
-      if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
+        if (selectedOutletId !== 'all') {
+          q = q.eq('outlet_id', selectedOutletId)
+        }
+
+        if (selectedChannel !== 'all') {
+          q = q.eq('sales_source', selectedChannel)
+        }
+
+        return q
       }
 
-      if (selectedChannel !== 'all') {
-        q = q.eq('sales_source', selectedChannel)
-      }
-
-      const [itemsRes, outletsRes] = await Promise.all([
-        q,
+      const [itemRows, outletsRes] = await Promise.all([
+        fetchAllRows<SalesItemRow>(buildItemsQuery, 'Penjualan per item'),
         supabase
           .from('outlets')
           .select('id, name')
       ])
 
-      if (itemsRes.error) throw itemsRes.error
       if (outletsRes.error) throw outletsRes.error
 
       const nameMap = new Map<string, string>()
       outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
-      
+
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
 
-      itemsRes.data?.forEach(s => {
+      itemRows.forEach(s => {
         const date = s.sales_date || 'Unknown Date'
         const outletId = s.outlet_id
         const channel = s.sales_source || 'Offline'

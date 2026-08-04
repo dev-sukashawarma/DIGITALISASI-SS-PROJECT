@@ -220,28 +220,29 @@ export default function PettyCashExpensesTab() {
       
       {/* Petty Cash Balances Summary */}
       {selectedOutletId !== 'all' && (
-        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="bg-suka-brown/10 p-2.5 rounded-xl text-suka-brown">
-              <Store size={20} />
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="bg-suka-brown/10 p-4 rounded-2xl text-suka-brown">
+              <Store size={28} />
             </div>
-            <h3 className="font-display text-xl text-suka-brown">Saldo Petty Cash Outlet Saat Ini</h3>
+            <div>
+              <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-1">Sisa Saldo Petty Cash</p>
+              <h3 className="font-display text-xl text-suka-brown">
+                {outlets.find(o => o.id === selectedOutletId)?.name || 'Outlet'}
+              </h3>
+            </div>
           </div>
           
           {loadingRealBalances || loadingOutlets ? (
-             <div className="flex justify-center py-6"><Spinner size={24} /></div>
-          ) : outletBalances.length === 0 ? (
-             <EmptyState title="Tidak ada saldo outlet" />
+             <div className="flex justify-end pr-4"><Spinner size={28} /></div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-              {outletBalances.filter(loc => loc.id === selectedOutletId).map(loc => (
-                <div key={loc.id} className="bg-suka-cream/30 border border-suka-brown/5 p-4 rounded-2xl flex flex-col items-center text-center">
-                  <span className="text-xs font-bold text-suka-ink/70 mb-2 truncate w-full">{loc.label.replace('Kas Kecil ', '').replace('Petty Cash ', '')}</span>
-                  <span className={`text-base font-black ${loc.saldo < 0 ? 'text-red-600' : 'text-suka-brown'}`}>
-                    {rupiah(loc.saldo)}
-                  </span>
-                </div>
-              ))}
+            <div className="md:text-right bg-suka-cream/30 border border-suka-brown/5 px-6 py-4 rounded-2xl">
+              <span className={`font-display text-3xl flex items-baseline ${
+                (outletBalances.find(l => l.id === selectedOutletId)?.saldo ?? 0) < 0 ? 'text-red-600' : 'text-suka-brown'
+              }`}>
+                <span className="text-lg mr-1 font-sans font-bold">Rp</span>
+                <NumberFlow value={outletBalances.find(l => l.id === selectedOutletId)?.saldo ?? 0} />
+              </span>
             </div>
           )}
         </div>

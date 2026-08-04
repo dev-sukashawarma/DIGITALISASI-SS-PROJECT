@@ -109,12 +109,27 @@ export function useLedgerTransaksiDetail(outletId: string | null | undefined, tr
       const supabase = createClient()
       const { data, error: err } = await supabase
         .from('ledger_stok')
-        .select('id, tipe, qty, catatan, saldo_sebelum, saldo_sesudah, created_at, bahan_baku(nama, satuan, satuan_kecil, faktor_tampilan)')
+        .select('id, tipe, qty, catatan, saldo_sebelum, saldo_sesudah, created_at, bahan_baku_id, bahan_baku(nama, satuan, satuan_kecil, faktor_tampilan)')
         .eq('outlet_id', outletId)
         .or(`ref_order_id.eq.${transaksiKey},ref_opname_id.eq.${transaksiKey},ref_shipment_id.eq.${transaksiKey},ref_transfer_id.eq.${transaksiKey},id.eq.${transaksiKey}`)
         .order('created_at', { ascending: true })
       if (err) throw err
-      return (data as unknown as LedgerTransaksiDetailRow[]) ?? []
+      const rows = (data as unknown as LedgerTransaksiDetailRow[]) ?? []
+      if (rows.length === 0) return rows
+
+      // saldo_is_gram = computed column di stok_balance (per outlet+bahan SAAT
+      // INI), tidak tersedia langsung di ledger_stok -- perlu lookup terpisah
+      // supaya delta/saldo di layar ini tak lagi salah dikonversi (lihat
+      // memory ledger-writers-scale-blind-to-saldo-is-gram).
+      const bahanIds = [...new Set(rows.map(r => r.bahan_baku_id))]
+      const { data: balances } = await supabase
+        .from('stok_balance')
+        .select('bahan_baku_id, saldo_is_gram')
+        .eq('outlet_id', outletId)
+        .in('bahan_baku_id', bahanIds)
+      const gramMap = new Map((balances ?? []).map((b: any) => [b.bahan_baku_id, b.saldo_is_gram]))
+
+      return rows.map(r => ({ ...r, saldo_is_gram: gramMap.get(r.bahan_baku_id) ?? false }))
     },
     enabled: enabled && !!outletId && !!transaksiKey,
     staleTime: 60000,

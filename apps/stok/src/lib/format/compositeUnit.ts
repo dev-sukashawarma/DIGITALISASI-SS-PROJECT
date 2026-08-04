@@ -132,6 +132,38 @@ export function formatCompositeDelta(
 }
 
 /**
+ * Pasangan gram-scale dari formatCompositeDelta -- dipakai bila ledger_stok.qty
+ * SUDAH dalam satuan kecil (gram-scale, lihat saldo_is_gram()). Berbeda dari
+ * formatCompositeDelta yang MENGALIKAN qty (diasumsikan besar-scale) dengan
+ * faktorTampilan, di sini qty sudah smallest-unit -- tinggal dibulatkan &
+ * dilabeli, TANPA perkalian lagi (mengalikan lagi = bug "5296940 Gram" yang
+ * ditemukan di LedgerList 2026-08-04: delta gram-scale 5296.94 dikira
+ * besar-scale lalu dikali faktor 1000 lagi jadi 5296940).
+ */
+export function formatCompositeDeltaFromGram(
+  qty: number,
+  satuan: string,
+  satuanKecil: string | null
+): string {
+  const rounded = round2(qty)
+  const unit = satuanKecil ?? satuan
+  return `${rounded > 0 ? '+' : ''}${rounded} ${unit}`
+}
+
+/** Pemilih: pakai qty apa adanya (gram-scale) kalau saldo_is_gram, kalau tidak pakai formatCompositeDelta lama (besar-scale, dikali faktor). */
+export function formatCompositeDeltaAdaptive(
+  qty: number,
+  saldoIsGram: boolean,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null
+): string {
+  return saldoIsGram
+    ? formatCompositeDeltaFromGram(qty, satuan, satuanKecil)
+    : formatCompositeDelta(qty, satuan, satuanKecil, faktorTampilan)
+}
+
+/**
  * Gabung input 2-field opname (kontainer utuh + sisa dalam satuan kecil)
  * jadi satu qty_fisik desimal dalam satuan besar.
  *

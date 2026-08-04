@@ -87,6 +87,8 @@ export interface LedgerTransaksiDetailRow {
   saldo_sebelum: number
   saldo_sesudah: number
   created_at: string
+  bahan_baku_id: string
+  saldo_is_gram: boolean
   bahan_baku: { nama: string; satuan: Satuan; satuan_tengah: string | null; faktor_tengah: number | null; satuan_kecil: SatuanKecil | null; faktor_tampilan: number | null } | null
 }
 

@@ -2,11 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import type { LedgerTransaksiSummary } from '@/types/stok';
 import { useBahanBaku } from '@/hooks/useBahanBaku';
 import { useLedgerTransaksiDetail, useOrderDetails } from '@/hooks/useLedger';
 import { useOutletScope } from '@/hooks/useOutletScope';
-import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
+import { createClient } from '@/lib/supabase';
+import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit';
 import { 
   Search, Download, Upload, Receipt, Trash2, Scale, FileText, 
   Clock, Package, PackageOpen, ChevronDown, ChevronUp, CheckCircle2 
@@ -204,10 +206,10 @@ function TransaksiExpandedDetail({ outletId, transaksiKey, isDelivery }: { outle
                   <span className="font-semibold text-gray-700 uppercase truncate pr-3">{bahan?.nama ?? 'Bahan'}</span>
                   <span className="text-right flex-shrink-0">
                     <span className={r.qty > 0 ? 'text-emerald-600 font-bold' : 'text-rose-600 font-bold'}>
-                      {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.qty, bahan.nama, false) ?? formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeDelta(r.qty, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+                      {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.qty, bahan.nama, false) ?? formatCompositeDeltaAdaptive(r.qty, r.saldo_is_gram, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeDeltaAdaptive(r.qty, r.saldo_is_gram, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
                     </span>
                     <span className="text-gray-400 font-medium ml-1.5">
-                      {' '}→ sisa {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.saldo_sesudah, bahan.nama, true) ?? formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeSaldo(r.saldo_sesudah, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
+                      {' '}→ sisa {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(r.saldo_sesudah, bahan.nama, true) ?? formatCompositeSaldoAdaptive(r.saldo_sesudah, r.saldo_is_gram, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)) : formatCompositeSaldoAdaptive(r.saldo_sesudah, r.saldo_is_gram, satuan, bahan?.satuan_kecil ?? null, bahan?.faktor_tampilan ?? null)}
                     </span>
                   </span>
                 </div>
@@ -260,6 +262,29 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
     }
     return map;
   }, [bahanBaku]);
+
+  // saldo_is_gram per bahan di outlet ini -- ledger_transaksi_ringkas tidak
+  // membawa kolom ini (bukan bahan_baku), jadi di-lookup terpisah dari
+  // stok_balance untuk baris manual (single_*) di daftar ringkas ini.
+  const manualBahanIds = useMemo(
+    () => [...new Set(items.map(t => t.single_bahan_baku_id).filter((id): id is string => !!id))],
+    [items]
+  );
+  const { data: gramMap } = useQuery({
+    queryKey: ['ledger-list-saldo-is-gram', selectedOutletId, manualBahanIds],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data } = await supabase
+        .from('stok_balance')
+        .select('bahan_baku_id, saldo_is_gram')
+        .eq('outlet_id', selectedOutletId as string)
+        .in('bahan_baku_id', manualBahanIds);
+      return new Map((data ?? []).map((b: any) => [b.bahan_baku_id, b.saldo_is_gram as boolean]));
+    },
+    enabled: !!selectedOutletId && manualBahanIds.length > 0,
+    staleTime: 60000,
+    gcTime: 5 * 60000,
+  });
 
   const filteredItems = useMemo(() => {
     return items.filter((t) => {
@@ -335,6 +360,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           const relativeTime = getRelativeTimeString(t.created_at);
           const isExpanded = expandedKey === t.transaksi_key;
           const detailId = `transaksi-detail-${t.transaksi_key}`;
+          const isGram = t.single_bahan_baku_id ? (gramMap?.get(t.single_bahan_baku_id) ?? false) : false;
 
           const { icon: TransIcon, iconColor, bgClass } = transaksiVisual(t);
           const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;
@@ -372,7 +398,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                 {isManual ? (
                   <>
                     <p className={`font-black text-sm ${(t.single_qty ?? 0) > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_qty ?? 0, bahan.nama, false) ?? formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeDelta(t.single_qty ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                      {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_qty ?? 0, bahan.nama, false) ?? formatCompositeDeltaAdaptive(t.single_qty ?? 0, isGram, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeDeltaAdaptive(t.single_qty ?? 0, isGram, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                     </p>
                     {isPending ? (
                       <p className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block">
@@ -380,7 +406,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                       </p>
                     ) : (
                       <p className="text-[10px] text-gray-500 font-bold bg-gray-50 px-2 py-0.5 rounded border border-gray-200 inline-block">
-                        Saldo: {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_saldo_sesudah ?? 0, bahan.nama, true) ?? formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeSaldo(t.single_saldo_sesudah ?? 0, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
+                        Saldo: {(isDelivery && bahan?.nama) ? (formatDeliveryUnit(t.single_saldo_sesudah ?? 0, bahan.nama, true) ?? formatCompositeSaldoAdaptive(t.single_saldo_sesudah ?? 0, isGram, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)) : formatCompositeSaldoAdaptive(t.single_saldo_sesudah ?? 0, isGram, satuan, bahan?.satuanKecil ?? null, bahan?.faktorTampilan ?? null)}
                       </p>
                     )}
                   </>

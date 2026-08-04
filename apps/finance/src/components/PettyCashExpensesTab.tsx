@@ -68,8 +68,9 @@ export default function PettyCashExpensesTab() {
     queryFn: async () => {
       const from = startDate
       const to = endDate
+      const toDateTime = `${to}T23:59:59.999Z`
 
-      let q = supabase
+      const expensesQuery = supabase
         .from('petty_cash_expenses')
         .select(`
           id,
@@ -83,30 +84,62 @@ export default function PettyCashExpensesTab() {
         `)
         .gte('expense_date', from)
         .lte('expense_date', to)
-        .order('expense_date', { ascending: false })
+
+      const topupsQuery = supabase
+        .from('petty_cash_topups')
+        .select(`
+          id,
+          outlet_id,
+          amount,
+          description,
+          created_at,
+          outlets(name)
+        `)
+        .gte('created_at', `${from}T00:00:00.000Z`)
+        .lte('created_at', toDateTime)
 
       if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
+        expensesQuery.eq('outlet_id', selectedOutletId)
+        topupsQuery.eq('outlet_id', selectedOutletId)
       }
 
-      const { data: resData, error: resError } = await q
-      if (resError) throw resError
+      const [resExpenses, resTopups] = await Promise.all([expensesQuery, topupsQuery])
+      if (resExpenses.error) throw resExpenses.error
+      if (resTopups.error) throw resTopups.error
 
-      return (resData as any[]).map(row => ({
+      const mappedExpenses = (resExpenses.data || []).map(row => ({
         id: row.id,
+        type: 'expense' as const,
         outletId: row.outlet_id,
         outletName: row.outlets?.name ?? 'Outlet Tidak Dikenal',
         category: row.category,
         amount: Number(row.amount || 0),
         description: row.description || '',
-        expenseDate: row.expense_date,
+        date: row.expense_date,
         receiptUrl: row.receipt_url
       }))
+
+      const mappedTopups = (resTopups.data || []).map(row => ({
+        id: row.id,
+        type: 'topup' as const,
+        outletId: row.outlet_id,
+        outletName: row.outlets?.name ?? 'Outlet Tidak Dikenal',
+        category: 'topup',
+        amount: Number(row.amount || 0),
+        description: row.description || 'Topup Petty Cash',
+        date: row.created_at,
+        receiptUrl: null
+      }))
+
+      const combined = [...mappedExpenses, ...mappedTopups]
+      combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+      return combined
     }
   })
 
   const totalExpenses = useMemo(() => {
-    return data.reduce((sum, item) => sum + item.amount, 0)
+    return data.filter(d => d.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
   }, [data])
 
   const getCategoryBadge = (category: string) => {
@@ -121,6 +154,12 @@ export default function PettyCashExpensesTab() {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
             Utilitas
+          </span>
+        )
+      case 'topup':
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200">
+            Topup
           </span>
         )
       default:
@@ -289,7 +328,7 @@ export default function PettyCashExpensesTab() {
       {/* Table Section */}
       <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-display text-xl text-suka-brown">Rincian Pengeluaran</h3>
+          <h3 className="font-display text-xl text-suka-brown">Rincian Riwayat (Pengeluaran & Topup)</h3>
         </div>
 
         {isLoading ? (
@@ -328,7 +367,7 @@ export default function PettyCashExpensesTab() {
                     className="hover:bg-orange-50/20 transition-colors"
                   >
                     <td className="py-4 px-5 text-suka-gray-500">
-                      {tanggal(item.expenseDate)}
+                      {tanggal(item.date)}
                     </td>
                     <td className="py-4 px-5 font-bold text-suka-ink">
                       {item.outletName}
@@ -339,8 +378,8 @@ export default function PettyCashExpensesTab() {
                     <td className="py-4 px-5 text-suka-gray-600 max-w-xs truncate" title={item.description}>
                       {item.description}
                     </td>
-                    <td className="py-4 px-5 text-right font-black text-suka-brown">
-                      {rupiah(item.amount)}
+                    <td className={`py-4 px-5 text-right font-black ${item.type === 'topup' ? 'text-indigo-600' : 'text-suka-brown'}`}>
+                      {item.type === 'topup' ? '+' : ''}{rupiah(item.amount)}
                     </td>
                     <td className="py-4 px-5 text-center">
                       {item.receiptUrl ? (

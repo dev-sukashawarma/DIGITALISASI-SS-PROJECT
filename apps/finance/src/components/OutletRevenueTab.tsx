@@ -284,30 +284,43 @@ export default function OutletRevenueTab() {
       const from = startDate
       const to = endDate
 
-      let q = supabase
-        .from('orders')
-        .select('created_at, outlet_id, sales_source, total_amount, discount_amount, promo_subsidy, order_items(subtotal)')
-        .eq('status', 'completed')
-        .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-        .gte('created_at', `${from}T00:00:00+07:00`)
-        .lte('created_at', `${to}T23:59:59+07:00`)
-      
-      if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
-      }
-      
-      if (selectedChannel !== 'all') {
-        q = q.eq('sales_source', selectedChannel)
+      const fetchAllSales = async () => {
+        let allSales: any[] = []
+        let offset = 0
+        const limit = 1000
+        while (true) {
+          let q = supabase
+            .from('orders')
+            .select('created_at, outlet_id, sales_source, total_amount, discount_amount, promo_subsidy, order_items(subtotal)')
+            .eq('status', 'completed')
+            .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+            .gte('created_at', `${from}T00:00:00+07:00`)
+            .lte('created_at', `${to}T23:59:59+07:00`)
+            .range(offset, offset + limit - 1)
+          
+          if (selectedOutletId !== 'all') {
+            q = q.eq('outlet_id', selectedOutletId)
+          }
+          if (selectedChannel !== 'all') {
+            q = q.eq('sales_source', selectedChannel)
+          }
+          
+          const { data, error } = await q
+          if (error) throw error
+          if (data) allSales = allSales.concat(data)
+          if (!data || data.length < limit) break
+          offset += limit
+        }
+        return allSales
       }
 
-      const [salesRes, outletsRes] = await Promise.all([
-        q,
+      const [salesData, outletsRes] = await Promise.all([
+        fetchAllSales(),
         supabase
           .from('outlets')
           .select('id, name')
       ])
 
-      if (salesRes.error) throw salesRes.error
       if (outletsRes.error) throw outletsRes.error
 
       const nameMap = new Map<string, string>()
@@ -315,7 +328,7 @@ export default function OutletRevenueTab() {
 
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number; totalPotongan: number; netRevenue: number; potonganSource: string }>()
 
-      salesRes.data?.forEach(s => {
+      salesData.forEach(s => {
         const d = new Date(s.created_at)
         const date = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
         const outletId = s.outlet_id
@@ -391,29 +404,42 @@ export default function OutletRevenueTab() {
       const from = startDate
       const to = endDate
 
-      let q = supabase
-        .from('sales_items_spv')
-        .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
-        .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-        .gte('sales_date', from)
-        .lte('sales_date', to)
+      const fetchAllItems = async () => {
+        let allItems: any[] = []
+        let offset = 0
+        const limit = 1000
+        while (true) {
+          let q = supabase
+            .from('sales_items_spv')
+            .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
+            .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+            .gte('sales_date', from)
+            .lte('sales_date', to)
+            .range(offset, offset + limit - 1)
 
-      if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
+          if (selectedOutletId !== 'all') {
+            q = q.eq('outlet_id', selectedOutletId)
+          }
+          if (selectedChannel !== 'all') {
+            q = q.eq('sales_source', selectedChannel)
+          }
+
+          const { data, error } = await q
+          if (error) throw error
+          if (data) allItems = allItems.concat(data)
+          if (!data || data.length < limit) break
+          offset += limit
+        }
+        return allItems
       }
 
-      if (selectedChannel !== 'all') {
-        q = q.eq('sales_source', selectedChannel)
-      }
-
-      const [itemsRes, outletsRes] = await Promise.all([
-        q,
+      const [itemsDataRaw, outletsRes] = await Promise.all([
+        fetchAllItems(),
         supabase
           .from('outlets')
           .select('id, name')
       ])
 
-      if (itemsRes.error) throw itemsRes.error
       if (outletsRes.error) throw outletsRes.error
 
       const nameMap = new Map<string, string>()
@@ -421,7 +447,7 @@ export default function OutletRevenueTab() {
       
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
 
-      itemsRes.data?.forEach(s => {
+      itemsDataRaw.forEach(s => {
         const date = s.sales_date || 'Unknown Date'
         const outletId = s.outlet_id
         const channel = s.sales_source || 'Offline'

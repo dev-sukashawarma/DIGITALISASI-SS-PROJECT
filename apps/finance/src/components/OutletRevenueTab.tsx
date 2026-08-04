@@ -66,7 +66,7 @@ export default function OutletRevenueTab() {
   }
 
   const { data: revenueData = [], isLoading: loadingRevenue, error: errorRevenue } = useQuery({
-    queryKey: ['outlet_revenue', startDate, endDate],
+    queryKey: ['outlet_revenue', startDate, endDate, selectedOutletId],
     queryFn: async () => {
       const from = startDate
       const to = endDate
@@ -143,7 +143,7 @@ export default function OutletRevenueTab() {
   })
   
   const { data: itemsData = [], isLoading: loadingItems, error: errorItems } = useQuery({
-    queryKey: ['sales_items_spv', startDate, endDate],
+    queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId],
     queryFn: async () => {
       const from = startDate
       const to = endDate

@@ -22,6 +22,9 @@ const nextConfig = {
     },
     // Tree-shake barrel imports → smaller client bundles
     optimizePackageImports: ['recharts', 'lucide-react'],
+    // Limit workers to fix EAGAIN on cPanel shared hosting
+    cpus: 1,
+    workerThreads: false,
   },
   turbopack: {},
 }

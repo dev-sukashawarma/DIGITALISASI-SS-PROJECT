@@ -7,7 +7,7 @@ import { LogOut, User, Loader2 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 
-export type NavItem = { href: string; label: string; icon: any }
+export type NavItem = { href: string; label: string; icon: any; badge?: number }
 export type NavGroup = { title: string; items: NavItem[] }
 
 interface RoleLayoutProps {
@@ -48,7 +48,7 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
                 {group.title}
               </h3>
               <div className="space-y-1">
-                {group.items.map(({ href, label, icon: Icon }) => {
+                {group.items.map(({ href, label, icon: Icon, badge }) => {
                   const active = currentNavPath === href
                   return (
                     <Link
@@ -62,7 +62,12 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
                     >
                       <Icon className={`w-5 h-5 transition-colors ${active ? 'text-suka-orange' : 'text-suka-gray-400 group-hover:text-suka-brown'}`} />
                       <span className="flex-1 truncate">{label}</span>
-                      {active && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse" />}
+                      {badge && badge > 0 && (
+                        <div className="flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full min-w-[20px] h-5 px-1.5 shadow-sm">
+                          {badge}
+                        </div>
+                      )}
+                      {active && (!badge || badge <= 0) && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse" />}
                     </Link>
                   )
                 })}
@@ -124,16 +129,21 @@ export function RoleLayout({ brand, brandAccent, navGroups, homePath, defaultTit
 
         {/* Mobile Bottom Navigation */}
         <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/90 backdrop-blur-xl rounded-full border border-suka-brown/10 shadow-[0_8px_30px_rgba(44,24,16,0.12)] flex items-center justify-around px-2 py-1.5 print:hidden">
-          {allLinks.map(({ href, label, icon: Icon }) => {
+          {allLinks.map(({ href, label, icon: Icon, badge }) => {
             const active = currentNavPath === href
             return (
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center w-full py-1 gap-1 transition-all ${
+                className={`relative flex flex-col items-center justify-center w-full py-1 gap-1 transition-all ${
                   active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
                 }`}
               >
+                {badge && badge > 0 && (
+                  <div className="absolute top-0 right-1/4 translate-x-1/2 -translate-y-1 bg-red-500 text-white text-[9px] font-black rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border-2 border-white z-10 shadow-sm">
+                    {badge}
+                  </div>
+                )}
                 <div className={`p-1.5 rounded-full transition-all ${active ? 'bg-suka-orange/10 text-suka-orange' : 'bg-transparent'}`}>
                   <Icon size={18} strokeWidth={active ? 2.5 : 2} />
                 </div>

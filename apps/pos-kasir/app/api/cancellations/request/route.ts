@@ -44,28 +44,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 })
     }
 
-    // 2. Cari Leader untuk outlet tersebut
-    let leaderPhone: string | null = null;
-    let outletName = 'Outlet';
-
-    // Ambil nama outlet
-    const { data: outletData } = await supabase
-      .from('outlets')
-      .select('name')
-      .eq('id', order.outlet_id)
-      .single()
-    
-    if (outletData) {
-      outletName = outletData.name;
-    }
-
-    // Semua verifikasi pembatalan (void) diarahkan ke nomor terpusat
-    leaderPhone = '085218446637';
-
-    if (!leaderPhone) {
-      return NextResponse.json({ error: 'Leader not found or no WhatsApp number set for this outlet' }, { status: 404 })
-    }
-
     // 3. Hitung waktu kedaluwarsa token (misal 24 jam dari sekarang)
     const expiresAt = new Date()
     expiresAt.setHours(expiresAt.getHours() + 24)
@@ -99,20 +77,7 @@ export async function POST(req: Request) {
       })
       .eq('id', order_id)
 
-    // 5. Generate Magic Link
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://pos.sukashawarma.com' // Ganti jika perlu
-    const magicLink = `${baseUrl}/cancellations/approve?token=${request.token}`
-
-    // 6. Generate WA URL
-    const message = `*PERMINTAAN PEMBATALAN PESANAN*\n\nOutlet: ${outletName}\nNo Order: ${order.order_number}\nPelanggan: ${order.customer_name}\nTotal: Rp ${order.total_amount.toLocaleString('id-ID')}\nAlasan: ${reason}\nDiajukan Oleh: ${staffName}\n\nSilakan klik link berikut untuk *MENYETUJUI* atau *MENOLAK* pembatalan ini (link hanya berlaku 1 kali):\n\n${magicLink}`
-    
-    // Format WA number: Ensure starts with 62 or +62
-    let phone = leaderPhone.replace(/\D/g, '')
-    if (phone.startsWith('0')) phone = '62' + phone.substring(1)
-
-    const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
-
-    return NextResponse.json({ waUrl })
+    return NextResponse.json({ success: true, message: 'Menunggu persetujuan Area Manager' })
   } catch (error: any) {
     console.error('Cancellation Request Error:', error)
     return NextResponse.json({ error: error.message }, { status: 500 })

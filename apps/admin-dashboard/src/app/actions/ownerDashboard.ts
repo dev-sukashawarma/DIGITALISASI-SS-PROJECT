@@ -299,8 +299,30 @@ export async function getPettyCashData(
     }
   })
 
+  // Filter topupEntries and expenseEntries to only include those that fall WITHIN a shift
+  // Interim transactions are already rolled into the starting_petty_cash of the next shift
+  const activeTopupEntries = topupEntries.filter(t => {
+    return (shiftRows || []).some((s: any) => {
+      if (s.outlet_id !== t.outlet_id) return false
+      const sStart = new Date(s.start_time).getTime()
+      const sEnd = s.end_time ? new Date(s.end_time).getTime() : Date.now() + 86400000 * 365 // Future if open
+      const tTime = new Date(t.transaction_date).getTime()
+      return tTime >= sStart && tTime <= sEnd
+    })
+  })
+
+  const activeExpenseEntries = expenseEntries.filter(e => {
+    return (shiftRows || []).some((s: any) => {
+      if (s.outlet_id !== e.outlet_id) return false
+      const sStart = new Date(s.start_time).getTime()
+      const sEnd = s.end_time ? new Date(s.end_time).getTime() : Date.now() + 86400000 * 365
+      const eTime = new Date(e.transaction_date).getTime()
+      return eTime >= sStart && eTime <= sEnd
+    })
+  })
+
   // Combine and sort all transactions by transaction_date DESC
-  const allTransactions = [...shiftEntries, ...expenseEntries, ...topupEntries].sort((a, b) =>
+  const allTransactions = [...shiftEntries, ...activeExpenseEntries, ...activeTopupEntries].sort((a, b) =>
     b.transaction_date.localeCompare(a.transaction_date)
   )
 

@@ -4,6 +4,7 @@ ALTER TABLE public.system_guides DROP CONSTRAINT IF EXISTS system_guides_system_
 -- 2. Add category and sort_order to system_guides
 ALTER TABLE public.system_guides ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'Umum';
 ALTER TABLE public.system_guides ADD COLUMN IF NOT EXISTS sort_order INTEGER DEFAULT 0;
+ALTER TABLE public.system_guides ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 -- 3. Delete the dummy 'pos' guide we created in system_guides to avoid duplicates with the real data
 DELETE FROM public.system_guides WHERE system_code = 'pos' AND title = 'Panduan Sistem POS (Kasir)';

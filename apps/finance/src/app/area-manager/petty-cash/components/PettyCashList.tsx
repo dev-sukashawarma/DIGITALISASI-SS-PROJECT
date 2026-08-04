@@ -63,10 +63,17 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
     <div className="space-y-4">
       <div className="flex space-x-2 border-b border-suka-gray-200">
         <button
-          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'review' ? 'border-suka-brown text-suka-brown' : 'border-transparent text-suka-gray-500 hover:text-suka-gray-700'}`}
+          className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'review' ? 'border-suka-brown text-suka-brown' : 'border-transparent text-suka-gray-500 hover:text-suka-gray-700'}`}
           onClick={() => setActiveTab('review')}
         >
-          Butuh Tindakan ({reviewRequests.length})
+          <span>Butuh Tindakan</span>
+          {reviewRequests.length > 0 ? (
+            <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full min-w-[20px] h-5 px-1.5 shadow-sm">
+              {reviewRequests.length}
+            </span>
+          ) : (
+            <span>(0)</span>
+          )}
         </button>
         <button
           className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === 'history' ? 'border-suka-brown text-suka-brown' : 'border-transparent text-suka-gray-500 hover:text-suka-gray-700'}`}

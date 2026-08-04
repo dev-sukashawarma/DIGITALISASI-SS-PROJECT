@@ -1,4 +1,18 @@
--- Set RLS policies for bahan_baku_sku
+CREATE TABLE IF NOT EXISTS public.bahan_baku_sku (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bahan_baku_id UUID REFERENCES public.bahan_baku(id) ON DELETE CASCADE,
+    nama_kemasan TEXT NOT NULL,
+    qty_isi NUMERIC NOT NULL DEFAULT 1,
+    harga_beli NUMERIC DEFAULT 0,
+    is_default BOOLEAN DEFAULT false,
+    is_active BOOLEAN DEFAULT true,
+    tingkatan_satuan TEXT,
+    satuan_tengah TEXT,
+    faktor_tengah NUMERIC,
+    image_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 ALTER TABLE public.bahan_baku_sku ENABLE ROW LEVEL SECURITY;
 

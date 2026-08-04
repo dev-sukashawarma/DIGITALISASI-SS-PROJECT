@@ -40,12 +40,7 @@ SELECT
                   -- 1b. Resep menggunakan sinonim Satuan Kecil (pcs/lembar/bungkus/pack)
                   WHEN lower(ri.satuan) IN ('pcs', 'lembar', 'bungkus', 'pack') AND lower(b.satuan_kecil) IN ('pcs', 'lembar', 'bungkus', 'pack') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
                   
-                  -- 1c. Resep persis sama dengan Satuan Tengah
-                  WHEN lower(ri.satuan) = lower(b.satuan_tengah) AND COALESCE(b.faktor_tengah, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tengah::numeric
-                  
-                  -- 1d. Resep menggunakan sinonim Satuan Tengah
-                  WHEN lower(ri.satuan) IN ('pcs', 'lembar', 'bungkus', 'pack') AND lower(b.satuan_tengah) IN ('pcs', 'lembar', 'bungkus', 'pack') AND COALESCE(b.faktor_tengah, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tengah::numeric
-
+                  -- 1c/1d (REMOVED: satuan_tengah does not exist on bahan_baku)
                   -- 2. Resep menggunakan gram/ml, tapi master data kebalik (Toleransi gram <-> ml)
                   WHEN lower(ri.satuan) IN ('gram', 'gr', 'g') AND lower(b.satuan_kecil) IN ('ml', 'mili') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
                   WHEN lower(ri.satuan) IN ('ml', 'mili') AND lower(b.satuan_kecil) IN ('gram', 'gr', 'g') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
@@ -132,8 +127,7 @@ SELECT
               CASE 
                   WHEN lower(ri.satuan) = lower(b.satuan_kecil) AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
                   WHEN lower(ri.satuan) IN ('pcs', 'lembar', 'bungkus', 'pack') AND lower(b.satuan_kecil) IN ('pcs', 'lembar', 'bungkus', 'pack') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
-                  WHEN lower(ri.satuan) = lower(b.satuan_tengah) AND COALESCE(b.faktor_tengah, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tengah::numeric
-                  WHEN lower(ri.satuan) IN ('pcs', 'lembar', 'bungkus', 'pack') AND lower(b.satuan_tengah) IN ('pcs', 'lembar', 'bungkus', 'pack') AND COALESCE(b.faktor_tengah, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tengah::numeric
+                  -- 1c/1d (REMOVED: satuan_tengah does not exist on bahan_baku)
                   WHEN lower(ri.satuan) IN ('gram', 'gr', 'g') AND lower(b.satuan_kecil) IN ('ml', 'mili') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
                   WHEN lower(ri.satuan) IN ('ml', 'mili') AND lower(b.satuan_kecil) IN ('gram', 'gr', 'g') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
                   WHEN lower(ri.satuan) = 'liter' AND lower(b.satuan_kecil) IN ('ml', 'mili') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN (ri.qty_per_porsi * 1000.0) / b.faktor_tampilan::numeric
@@ -169,8 +163,7 @@ SELECT
       CASE 
           WHEN lower(ri.satuan) = lower(b.satuan_kecil) AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
           WHEN lower(ri.satuan) IN ('pcs', 'lembar', 'bungkus', 'pack') AND lower(b.satuan_kecil) IN ('pcs', 'lembar', 'bungkus', 'pack') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
-          WHEN lower(ri.satuan) = lower(b.satuan_tengah) AND COALESCE(b.faktor_tengah, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tengah::numeric
-          WHEN lower(ri.satuan) IN ('pcs', 'lembar', 'bungkus', 'pack') AND lower(b.satuan_tengah) IN ('pcs', 'lembar', 'bungkus', 'pack') AND COALESCE(b.faktor_tengah, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tengah::numeric
+          -- 1c/1d (REMOVED: satuan_tengah does not exist on bahan_baku)
           WHEN lower(ri.satuan) IN ('gram', 'gr', 'g') AND lower(b.satuan_kecil) IN ('ml', 'mili') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
           WHEN lower(ri.satuan) IN ('ml', 'mili') AND lower(b.satuan_kecil) IN ('gram', 'gr', 'g') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN ri.qty_per_porsi / b.faktor_tampilan::numeric
           WHEN lower(ri.satuan) = 'liter' AND lower(b.satuan_kecil) IN ('ml', 'mili') AND COALESCE(b.faktor_tampilan, 1) > 0 THEN (ri.qty_per_porsi * 1000.0) / b.faktor_tampilan::numeric

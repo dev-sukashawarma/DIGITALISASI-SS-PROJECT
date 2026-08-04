@@ -1126,7 +1126,7 @@ export default function KasirOrderClient({
 
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
-    // 2. Request Magic Link & WA URL ke Leader
+    // 2. Request ke backend untuk pembatalan (sekarang tanpa WA, langsung ke dashboard AM)
     try {
       const res = await fetch('/api/cancellations/request', {
         method: 'POST',
@@ -1136,17 +1136,15 @@ export default function KasirOrderClient({
       const data = await res.json()
       
       if (!res.ok) {
-        showAlert('Pesanan menunggu pembatalan, tapi gagal membuat link WA: ' + (data.error || 'Unknown error'))
+        showAlert('Gagal mengajukan pembatalan: ' + (data.error || 'Unknown error'))
         return
       }
 
-      // 3. Arahkan otomatis ke WA Leader
-      if (data.waUrl) {
-        window.open(data.waUrl, '_blank')
-      }
+      // 3. Tampilkan pesan sukses
+      showAlert('Permintaan pembatalan berhasil dikirim ke Area Manager.')
     } catch (err) {
       console.error('Request cancellation error:', err)
-      showAlert('Koneksi terputus. Gagal meminta persetujuan pembatalan ke Leader.')
+      showAlert('Koneksi terputus. Gagal meminta persetujuan pembatalan ke Area Manager.')
     }
   }
 

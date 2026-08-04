@@ -62,7 +62,15 @@ CREATE TRIGGER trg_outlets_set_slug
 
 -- 1. Tambahkan tabel attendance ke Realtime publication
 -- (Ini yang sebelumnya corrupt dan tidak jalan)
-ALTER PUBLICATION supabase_realtime ADD TABLE attendance;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'attendance'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE attendance;
+  END IF;
+END $$;
 
 -- 2. Pastikan kasir bisa membaca attendance untuk outlet mereka
 -- (diperlukan agar Realtime postgres_changes bisa berfungsi)

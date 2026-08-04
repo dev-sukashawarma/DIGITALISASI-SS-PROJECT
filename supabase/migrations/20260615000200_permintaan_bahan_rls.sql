@@ -11,7 +11,7 @@ CREATE OR REPLACE FUNCTION is_kitchen_staff()
 RETURNS BOOLEAN
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public
 AS $$
-  SELECT '550e8400-e29b-41d4-a716-446655440001'::uuid = ANY (accessible_outlet_ids());
+  SELECT '550e8400-e29b-41d4-a716-446655440001'::uuid IN (SELECT accessible_outlet_ids());
 $$;
 
 -- RLS policies for permintaan_bahan

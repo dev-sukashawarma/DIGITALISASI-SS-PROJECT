@@ -1,19 +1,43 @@
 const { createClient } = require('@supabase/supabase-js');
-const url = 'https://khpkoreaaucvyqfhynfq.supabase.co';
-const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk2MzI5MiwiZXhwIjoyMDk2NTM5MjkyfQ.Dy0QMAHfB8EU9BK-JuyRrBidpG6iM94t9RtiJ_viZz8';
+require('dotenv').config();
 
-const admin = createClient(url, serviceKey);
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-async function run() {
-  const cicurugId = 'd9a2ef93-c298-4501-a471-1c5e2b3dff08';
-
-  const { data: shifts } = await admin
-    .from('shifts')
-    .select('*')
-    .eq('outlet_id', cicurugId)
-    .order('start_time', { ascending: false })
-    .limit(2);
+async function checkTriggers() {
+    const { data, error } = await supabase.rpc('query_triggers', {});
+    // Since we don't have a known RPC for triggers, we can query the pg_trigger table directly using a standard query if it works,
+    // or just fetch orders for cirendeu and see their shift_id compared to created_at.
     
-  console.log("Last 2 Shifts:", shifts);
+    // Fetch recent orders for Cirendeu with their shift_id
+    const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, created_at, shift_id, outlet_id, cashier_name, total_amount')
+        .eq('outlet_id', '550e8400-e29b-41d4-a716-446655440011')
+        .order('created_at', { ascending: false })
+        .limit(10);
+        
+    if (ordersError) {
+        console.error("Error:", ordersError);
+        return;
+    }
+    
+    console.table(orders);
+    
+    // Let's also fetch the shifts for this outlet
+    const { data: shifts, error: shiftsError } = await supabase
+        .from('shifts')
+        .select('id, outlet_id, start_time, end_time, status')
+        .eq('outlet_id', '550e8400-e29b-41d4-a716-446655440011')
+        .order('start_time', { ascending: false })
+        .limit(5);
+        
+    if (shiftsError) {
+        console.error("Error fetching shifts:", shiftsError);
+        return;
+    }
+    
+    console.log("\nRecent Shifts:");
+    console.table(shifts);
 }
-run();
+
+checkTriggers();

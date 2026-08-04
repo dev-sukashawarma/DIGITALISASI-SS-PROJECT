@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS public.pos_outlet_map (
 
 -- Seed pemetaan (22 outlet; 2 outlet uji 'cabang baru buka' & 'test' sengaja
 -- tidak dipetakan → otomatis dilewati saat sync). Cibubur ganda → 1 outlet utama.
+
+INSERT INTO public.outlets (id, slug, name, type) VALUES
+  ('3f38c41d-11e3-49ce-a189-d7303e45f9ad', 'cibubur', 'SUKA Shawarma Cibubur', 'outlet'),
+  ('d23e11b3-23f1-4f9a-b428-cc73e1aa9b90', 'hq', 'SUKA SHAWARMA HQ', 'outlet')
+ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.pos_outlet_map (source_outlet_id, main_outlet_id, source_name) VALUES
   ('0dbe64fd-5019-4d24-ae1a-0a7f977790ac','550e8400-e29b-41d4-a716-446655440007','SUKA Shawarma Beji'),
   ('f03b9742-f19f-431d-b278-6885c12434ac','550e8400-e29b-41d4-a716-446655440014','SUKA Shawarma Cibinong (MITRA)'),
@@ -48,6 +53,8 @@ ON CONFLICT (source_outlet_id) DO UPDATE
 
 -- 2. Index unik untuk UPSERT idempoten berdasarkan order asal.
 --    (NULL boleh berulang di Postgres, jadi baris non-sync tak terganggu.)
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS external_order_id uuid;
+
 CREATE UNIQUE INDEX IF NOT EXISTS orders_external_order_id_uq
   ON public.orders (external_order_id);
 

@@ -9,10 +9,11 @@ import { useLedgerTransaksiDetail, useOrderDetails } from '@/hooks/useLedger';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { createClient } from '@/lib/supabase';
 import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit';
-import { 
-  Search, Download, Upload, Receipt, Trash2, Scale, FileText, 
-  Clock, Package, PackageOpen, ChevronDown, ChevronUp, CheckCircle2 
+import {
+  Search, Download, Upload, Receipt, Trash2, Scale, FileText,
+  Clock, Package, PackageOpen, ChevronDown, ChevronUp, CheckCircle2, BookOpen
 } from 'lucide-react';
+import { GlosariumSatuanModal } from './GlosariumSatuanModal';
 
 const DELIVERY_UNITS: Record<string, { label: string; factorFromLarge: number }> = {
   'SAOS CABE': { label: 'kg', factorFromLarge: 16.5 },
@@ -254,6 +255,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
+  const [showGlosarium, setShowGlosarium] = useState(false);
 
   const bahanMap = useMemo(() => {
     const map: Record<string, { nama: string; satuan: string; satuanKecil: string | null; faktorTampilan: number | null }> = {};
@@ -348,8 +350,20 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
               </button>
             );
           })}
+          <button
+            type="button"
+            onClick={() => setShowGlosarium(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold tracking-wide transition-all border whitespace-nowrap cursor-pointer shadow-sm bg-white border-[#f29744]/40 text-[#f29744] hover:bg-orange-50"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            Glosarium
+          </button>
         </div>
       </div>
+
+      {showGlosarium && (
+        <GlosariumSatuanModal bahanBaku={bahanBaku} onClose={() => setShowGlosarium(false)} />
+      )}
 
       <div className="space-y-3">
         {filteredItems.map((t) => {

@@ -4,15 +4,25 @@ import { Package, AlertTriangle, AlertCircle, Search, Filter } from 'lucide-reac
 import { Spinner, EmptyState } from '@suka/design-system'
 import { useStokData } from '@/hooks/useStokData'
 import { formatNumber } from '@/lib/format'
+import { useOutlets } from '@/hooks/useOutlets'
 
 export default function StokMonitoringTab() {
   const { data: stokList, isLoading, error } = useStokData()
+  const { data: outlets = [] } = useOutlets()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'kritis' | 'habis'>('all')
+  const [selectedOutletId, setSelectedOutletId] = useState('all')
 
   const filteredStok = useMemo(() => {
     if (!stokList) return []
     let result = stokList
+
+    if (selectedOutletId !== 'all') {
+      const selectedOutletName = outlets.find(o => o.id === selectedOutletId)?.name
+      if (selectedOutletName) {
+        result = result.filter((s) => s.outlet_name === selectedOutletName)
+      }
+    }
 
     if (searchTerm) {
       const lower = searchTerm.toLowerCase()
@@ -29,7 +39,7 @@ export default function StokMonitoringTab() {
     }
 
     return result
-  }, [stokList, searchTerm, statusFilter])
+  }, [stokList, searchTerm, statusFilter, selectedOutletId, outlets])
 
   // Group by outlet for better presentation
   const groupedByOutlet = useMemo(() => {
@@ -73,6 +83,21 @@ export default function StokMonitoringTab() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 pr-4 py-2 rounded-xl border border-suka-brown/10 bg-white focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange text-sm w-full sm:w-64 transition-all shadow-sm"
             />
+          </div>
+          <div className="relative group hidden sm:block">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-ink/40" size={16} />
+            <select
+              value={selectedOutletId}
+              onChange={(e) => setSelectedOutletId(e.target.value)}
+              className="pl-9 pr-8 py-2 rounded-xl border border-suka-brown/10 bg-white focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange text-sm appearance-none cursor-pointer hover:bg-suka-cream/20 transition-colors shadow-sm"
+            >
+              <option value="all">Semua Outlet</option>
+              {outlets.map((outlet: any) => (
+                <option key={outlet.id} value={outlet.id}>
+                  {outlet.name}
+                </option>
+              ))}
+            </select>
           </div>
           <div className="flex bg-white rounded-xl shadow-sm border border-suka-brown/10 p-1">
             <button

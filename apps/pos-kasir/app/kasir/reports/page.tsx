@@ -963,10 +963,9 @@ export default function ReportsPage() {
                           <div title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
                             {(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}
                           </div>
-                          {order.status === 'cancelled' && (order.cancellation_user_name || order.cancellation_reason || order.void_reason) && (
+                          {order.status === 'cancelled' && (order.cancellation_reason || order.void_reason) && (
                             <div className="text-[10px] mt-1 text-red-500 font-bold whitespace-normal leading-tight">
-                              [BATAL] {order.cancellation_user_name ? `Oleh: ${order.cancellation_user_name}` : ''}
-                              {order.cancellation_reason || order.void_reason ? ` - Alasan: ${order.cancellation_reason || order.void_reason}` : ''}
+                              [BATAL] {order.cancellation_reason || order.void_reason ? `Alasan: ${order.cancellation_reason || order.void_reason}` : ''}
                             </div>
                           )}
                         </td>

@@ -72,8 +72,7 @@ export async function POST(req: Request) {
     await supabase
       .from('orders')
       .update({ 
-        cancellation_user_name: staffName,
-        cancellation_reason: reason 
+        cancellation_reason: reason ? `${reason} [Diajukan oleh: ${staffName}]` : `[Diajukan oleh: ${staffName}]`
       })
       .eq('id', order_id)
 

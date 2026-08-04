@@ -252,7 +252,7 @@ export default function ShiftPage() {
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time}`),
-          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_status, cancellation_user_name, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_status, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
         ])
 
         const [processedExpenses, processedTopups] = await Promise.all([
@@ -879,7 +879,7 @@ export default function ShiftPage() {
                           </div>
                         )
                       } else {
-                        const sale = item.data as CashOrder & { status?: string, cancellation_user_name?: string, void_reason?: string, cancellation_reason?: string }
+                        const sale = item.data as CashOrder & { status?: string, void_reason?: string, cancellation_reason?: string }
                         const isCancelled = sale.status === 'cancelled' || (sale as any).cancellation_status === 'pending_approval'
                         return (
                           <div key={`sale-${sale.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${isCancelled ? 'opacity-60 bg-gray-50/80' : ''}`}>
@@ -895,8 +895,8 @@ export default function ShiftPage() {
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(sale.created_at)}</span>
                                 </div>
-                                {isCancelled && sale.cancellation_user_name && (
-                                  <p className="text-[10px] font-medium text-red-500 mt-1 italic">Dibatalkan oleh: {sale.cancellation_user_name}</p>
+                                {isCancelled && sale.cancellation_reason && (
+                                  <p className="text-[10px] font-medium text-red-500 mt-1 italic">{sale.cancellation_reason}</p>
                                 )}
                               </div>
                             </div>

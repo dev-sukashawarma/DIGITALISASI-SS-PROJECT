@@ -493,11 +493,6 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Menunggu Persetujuan Batal
                 </div>
-                {(order as any).cancellation_user_name && (
-                  <span className="text-[10px] font-medium opacity-80">
-                    Oleh: {(order as any).cancellation_user_name}
-                  </span>
-                )}
               </div>
             ) : isPending ? (
               <>

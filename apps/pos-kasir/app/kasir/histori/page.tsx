@@ -433,21 +433,12 @@ export default function AdminOrdersPage() {
                         )}
                       </p>
                       
-                      {order.status === 'cancelled' && (order as any).cancellation_user_name && (
-                        <p className="text-xs text-red-500 font-medium mt-1">
-                          Dibatalkan oleh: {(order as any).cancellation_user_name}
-                        </p>
-                      )}
+                      {/* Removed cancellation_user_name render */}
                       {order.status !== 'cancelled' && (order as any).cancellation_status === 'pending_approval' && (
                         <div className="mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="text-[10px] font-bold uppercase bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded border border-yellow-200">
                             Menunggu Persetujuan Batal
                           </span>
-                          {(order as any).cancellation_user_name && (
-                            <span className="text-[10px] text-yellow-700 font-medium">
-                              (Oleh: {(order as any).cancellation_user_name})
-                            </span>
-                          )}
                         </div>
                       )}
                     </div>
@@ -575,9 +566,6 @@ export default function AdminOrdersPage() {
                     {order.status === 'cancelled' && ((order as any).cancellation_reason || (order as any).void_reason) && (
                       <div className="bg-red-50 border border-red-100 rounded-2xl px-4 py-3 text-sm text-red-800 break-words whitespace-pre-wrap">
                         <span className="font-semibold">Alasan Batal: </span>{(order as any).cancellation_reason || (order as any).void_reason}
-                        {(order as any).cancellation_user_name && (
-                          <div className="text-xs text-red-600 mt-1">Diajukan oleh: {(order as any).cancellation_user_name}</div>
-                        )}
                       </div>
                     )}
 
@@ -586,9 +574,6 @@ export default function AdminOrdersPage() {
                         <div className="font-semibold mb-1">Permintaan Batal (Menunggu Persetujuan)</div>
                         {((order as any).cancellation_reason || (order as any).void_reason) && (
                           <div><span className="font-medium">Alasan: </span>{(order as any).cancellation_reason || (order as any).void_reason}</div>
-                        )}
-                        {(order as any).cancellation_user_name && (
-                          <div className="text-xs text-yellow-700 mt-1">Diajukan oleh: {(order as any).cancellation_user_name}</div>
                         )}
                       </div>
                     )}

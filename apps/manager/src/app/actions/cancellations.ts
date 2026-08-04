@@ -147,14 +147,14 @@ export async function processVoidOrder(tokenId: string, action: 'approve' | 'rej
 
     if (updateReqErr) throw updateReqErr
 
-    // Dapatkan order untuk melihat cancellation_user_name saat ini
+    // Dapatkan order untuk melihat cancellation_reason saat ini
     const { data: orderData } = await supabaseAdmin
       .from('orders')
-      .select('cancellation_user_name')
+      .select('cancellation_reason')
       .eq('id', request.order_id)
       .single()
 
-    const currentUserName = orderData?.cancellation_user_name || ''
+    const currentReason = orderData?.cancellation_reason || ''
     
     const updatePayload: any = {
       cancellation_status: newStatus,
@@ -162,8 +162,8 @@ export async function processVoidOrder(tokenId: string, action: 'approve' | 'rej
     }
 
     if (newStatus === 'approved') {
-      updatePayload.cancellation_user_name = currentUserName
-        ? `${currentUserName} (Disetujui AM: ${staff.name})`
+      updatePayload.cancellation_reason = currentReason
+        ? `${currentReason} (Disetujui AM: ${staff.name})`
         : `Disetujui AM: ${staff.name}`
     }
 

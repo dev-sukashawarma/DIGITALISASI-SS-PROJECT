@@ -174,7 +174,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
               <Link
                 key={href}
                 href={href}
-                className={`flex flex-col items-center justify-center min-h-[48px] min-w-[64px] gap-1 transition-all rounded-xl ${
+                className={`flex flex-col items-center justify-center min-h-[48px] min-w-[64px] gap-1 transition-all rounded-xl relative ${
                   active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
                 }`}
               >

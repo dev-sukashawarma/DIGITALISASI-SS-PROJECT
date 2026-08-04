@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { getVoidOrders } from '../app/actions/cancellations'
-import { createClient } from '@supabase/supabase-js'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 export type VoidRequest = {
   id: string
@@ -33,6 +33,7 @@ const ApprovalsContext = createContext<ApprovalsContextType>({
 export const useApprovals = () => useContext(ApprovalsContext)
 
 export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
+  const [supabase] = useState(() => createSupabaseBrowserClient())
   const [pendingRequests, setPendingRequests] = useState<VoidRequest[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -52,12 +53,14 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     refreshApprovals()
     
-    // Subscribe to realtime changes in cancellation_requests table
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
+    if (!supabase) return;
+
+    // Polling fallback to ensure we never miss updates
+    const interval = setInterval(() => {
+      refreshApprovals()
+    }, 15000)
     
+    // Subscribe to realtime changes in cancellation_requests table
     const channel = supabase
       .channel('manager-approvals')
       .on(
@@ -71,9 +74,10 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
       .subscribe()
 
     return () => {
+      clearInterval(interval)
       supabase.removeChannel(channel)
     }
-  }, [refreshApprovals])
+  }, [refreshApprovals, supabase])
 
   return (
     <ApprovalsContext.Provider value={{ pendingRequests, loading, refreshApprovals }}>

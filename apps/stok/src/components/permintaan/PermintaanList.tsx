@@ -8,9 +8,10 @@ const STATUS_STYLE: Record<PermintaanStatus, string> = {
   menunggu: 'bg-amber-50 text-amber-700 border-amber-200 px-2.5 py-1 rounded-lg border uppercase',
   disetujui: 'bg-green-50 text-green-700 border-green-200 px-2.5 py-1 rounded-lg border uppercase',
   ditolak: 'bg-red-50 text-red-700 border-red-200 px-2.5 py-1 rounded-lg border uppercase',
+  dibatalkan: 'bg-gray-100 text-gray-500 border-gray-300 px-2.5 py-1 rounded-lg border uppercase',
 }
 const STATUS_LABEL: Record<PermintaanStatus, string> = {
-  menunggu: 'Menunggu', disetujui: 'Disetujui', ditolak: 'Ditolak',
+  menunggu: 'Menunggu', disetujui: 'Disetujui', ditolak: 'Ditolak', dibatalkan: 'Dibatalkan',
 }
 
 export function PermintaanList({ outletId }: { outletId: string }) {
@@ -82,6 +83,12 @@ export function PermintaanList({ outletId }: { outletId: string }) {
             {p.status === 'ditolak' && p.catatan_kitchen && (
               <p className="text-[11px] font-medium text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-2.5 rounded-xl">
                 Alasan: {p.catatan_kitchen}
+              </p>
+            )}
+
+            {p.status === 'dibatalkan' && p.catatan_kitchen && (
+              <p className="text-[11px] font-medium text-gray-500 bg-gray-50 border border-gray-200 p-2.5 rounded-xl">
+                {p.catatan_kitchen}
               </p>
             )}
           </div>

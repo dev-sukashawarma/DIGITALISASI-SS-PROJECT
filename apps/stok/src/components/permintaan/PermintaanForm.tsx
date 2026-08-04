@@ -35,11 +35,19 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
   // docs/superpowers/specs/2026-08-03-permintaan-batch-nudge-design.md §3.
   const [showBatchNudge, setShowBatchNudge] = useState(false)
 
-  const pendingItemIds = useMemo(() => new Set(
-    existingList
-      .filter(p => p.status === 'menunggu')
-      .flatMap(p => p.items.map(it => it.bahan_baku_id))
-  ), [existingList])
+  // Permintaan 'menunggu' yang sudah >12 jam dibebaskan dari daftar hide --
+  // crew boleh minta ulang bahan itu. buat_permintaan_svc otomatis membatalkan
+  // request lama yang stale saat request baru untuk bahan sama diajukan (lihat
+  // spec 2026-08-03 batch-nudge §5, keputusan: auto-batalkan bukan label).
+  const STALE_HOURS = 12
+  const pendingItemIds = useMemo(() => {
+    const cutoff = Date.now() - STALE_HOURS * 60 * 60 * 1000
+    return new Set(
+      existingList
+        .filter(p => p.status === 'menunggu' && new Date(p.created_at).getTime() >= cutoff)
+        .flatMap(p => p.items.map(it => it.bahan_baku_id))
+    )
+  }, [existingList])
 
   // Fetch Menus
   useEffect(() => {

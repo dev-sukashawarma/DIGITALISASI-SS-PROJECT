@@ -1,4 +1,4 @@
-export type PermintaanStatus = 'menunggu' | 'disetujui' | 'ditolak'
+export type PermintaanStatus = 'menunggu' | 'disetujui' | 'ditolak' | 'dibatalkan'
 
 export interface PermintaanItem {
   id: string

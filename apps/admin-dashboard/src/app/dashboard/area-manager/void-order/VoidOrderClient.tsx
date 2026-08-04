@@ -1,12 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Card } from '@/components/ui'
+import { Button, Badge } from '@suka/design-system'
 import { Loader2, Check, X } from 'lucide-react'
 import { processVoidOrder } from '@/app/actions/cancellations'
-import { formatRupiah } from '@/lib/utils'
+import { formatRupiah } from '@/lib/validations'
 
 type VoidRequest = {
   id: string
@@ -52,9 +51,9 @@ export default function VoidOrderClient({ initialRequests }: { initialRequests: 
   if (requests.length === 0) {
     return (
       <Card>
-        <CardContent className="p-6 text-center text-muted-foreground">
+        <div className="p-6 text-center text-muted-foreground">
           Tidak ada pengajuan pembatalan pesanan saat ini.
-        </CardContent>
+        </div>
       </Card>
     )
   }
@@ -63,18 +62,18 @@ export default function VoidOrderClient({ initialRequests }: { initialRequests: 
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
       {requests.map(req => (
         <Card key={req.id}>
-          <CardHeader className="pb-2">
+          <div className="pb-2">
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="text-lg">{req.order_number}</CardTitle>
-                <div className="text-sm text-muted-foreground mt-1">{req.outlet_name}</div>
+                <h3 className="text-lg font-semibold">{req.order_number}</h3>
+                <div className="text-sm text-gray-500 mt-1">{req.outlet_name}</div>
               </div>
               <Badge variant="outline" className="bg-yellow-50 text-yellow-600 border-yellow-200">
                 Menunggu
               </Badge>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
+          </div>
+          <div className="space-y-4 pt-4 border-t border-gray-100">
             <div className="text-sm space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Kasir:</span>
@@ -118,7 +117,7 @@ export default function VoidOrderClient({ initialRequests }: { initialRequests: 
                 Setujui
               </Button>
             </div>
-          </CardContent>
+          </div>
         </Card>
       ))}
     </div>

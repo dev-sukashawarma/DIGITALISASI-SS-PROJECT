@@ -574,6 +574,8 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
     );
 }, (prev, next) => prev.order === next.order && prev.isLocal === next.isLocal && prev.isEstimatedFuture === next.isEstimatedFuture);
 
+type Toast = { type: 'success' | 'error'; message: string } | null;
+
 export default function KasirOrderClient({ 
   initialOrders,
   serverOutletId
@@ -582,6 +584,13 @@ export default function KasirOrderClient({
   serverOutletId: string
 }) {
   const { showConfirm, showAlert, showPrompt } = useDialogStore()
+  const [toast, setToast] = useState<Toast>(null)
+  
+  const showToast = useCallback((t: Toast) => {
+    setToast(t)
+    if (t) setTimeout(() => setToast(null), 3500)
+  }, [])
+
   const [expandedId, setExpand] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState<'all' | 'online' | 'offline'>('all')
@@ -1136,15 +1145,15 @@ export default function KasirOrderClient({
       const data = await res.json()
       
       if (!res.ok) {
-        showAlert('Gagal mengajukan pembatalan: ' + (data.error || 'Unknown error'))
+        showToast({ type: 'error', message: 'Gagal mengajukan pembatalan: ' + (data.error || 'Unknown error') })
         return
       }
 
       // 3. Tampilkan pesan sukses
-      showAlert('Permintaan pembatalan berhasil dikirim ke Area Manager.')
+      showToast({ type: 'success', message: 'Permintaan pembatalan berhasil dikirim ke Area Manager.' })
     } catch (err) {
       console.error('Request cancellation error:', err)
-      showAlert('Koneksi terputus. Gagal meminta persetujuan pembatalan ke Area Manager.')
+      showToast({ type: 'error', message: 'Koneksi terputus. Gagal meminta persetujuan pembatalan ke Area Manager.' })
     }
   }
 
@@ -2083,6 +2092,16 @@ export default function KasirOrderClient({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`fixed bottom-4 right-4 z-[9999] flex items-center gap-2 px-4 py-3 rounded-xl shadow-xl ${
+          toast.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+        }`}>
+          {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
+          {toast.message}
         </div>
       )}
     </div>

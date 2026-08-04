@@ -32,8 +32,8 @@ export function OutletScopeProvider({ children }: { children: ReactNode }) {
   const { outletStaff } = useAuth()
   const staffId = outletStaff?.id
   const isLeader = outletStaff?.role === 'leader'
-  const isPrivileged = ['admin', 'admin_hr', 'spv', 'kitchen', 'regional_manager'].includes(outletStaff?.role ?? '')
-  const isKitchen = outletStaff?.role === 'kitchen'
+  const isPrivileged = ['admin', 'admin_hr', 'spv', 'kitchen', 'regional_manager', 'admin_finance'].includes(outletStaff?.role ?? '')
+  const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin_finance'
 
   const { data: fetchedOutlets = [] } = useQuery({
     queryKey: ['staff_outlets', staffId, isKitchen, isPrivileged, isLeader],

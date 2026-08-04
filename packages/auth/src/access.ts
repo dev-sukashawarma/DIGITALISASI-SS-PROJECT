@@ -13,7 +13,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   kiosk: ['pos-kasir'],
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
-  admin_finance: ['finance'],
+  admin_finance: ['finance', 'stok'],
   area_manager: ['manager', 'absensi', 'stok', 'distribusi'],
   purchasing: ['admin-dashboard'],
 }

@@ -271,7 +271,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     if (visibleOutlets.length > 0 && !selectedOutletId) {
       let defaultOutletId = visibleOutlets[0].outlet_id;
       
-      const isKitchenRole = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'admin_hr';
+      const isKitchenRole = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'admin_hr' || outletStaff?.role === 'admin_finance';
       if (isKitchenRole) {
         const gudang = visibleOutlets.find(o => o.outlet_name.toUpperCase().includes('GUDANG'));
         if (gudang) {
@@ -919,7 +919,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               {isRightSidebarCollapsed ? (
                 /* Collapsed Icon Action Bar */
                 <div className="hidden lg:flex flex-col items-center gap-3 py-2 w-full">
-                  {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
+                  {(outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin_finance') && currentOutletItems.length > 0 && (
                     <button 
                       onClick={() => setIsRightSidebarCollapsed(false)}
                       className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all"
@@ -952,7 +952,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                 /* Expanded Content */
                 <>
                   {/* Widget: Estimasi Produksi (khusus kitchen) */}
-                  {outletStaff?.role === 'kitchen' && currentOutletItems.length > 0 && (
+                  {(outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin_finance') && currentOutletItems.length > 0 && (
                     <ProductionEstimateWidget items={currentOutletItems} />
                   )}
 

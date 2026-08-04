@@ -10,7 +10,13 @@ import { useAuth } from '@suka/auth'
 export function useFinanceRole() {
   const { outletStaff } = useAuth()
   const role = outletStaff?.role ?? null
-  const isChecker = role === 'owner' || role === 'admin' || role === 'admin_finance'
-  const isFinance = isChecker // isFinance is now the same as isChecker since admin_finance is included
-  return { role, name: outletStaff?.name ?? null, isChecker, isFinance }
+  const isChecker = role === 'owner' || role === 'admin'
+  const isFinance = role === 'owner' || role === 'admin' || role === 'admin_finance'
+  return { 
+    role, 
+    name: outletStaff?.name ?? null, 
+    userId: outletStaff?.id ?? null,
+    isChecker, 
+    isFinance 
+  }
 }

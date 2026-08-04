@@ -73,7 +73,7 @@ export function useCashOverview(initialLocations?: CashLocation[], initialBalanc
     const balMap = new Map((balancesQ.data ?? []).map((b) => [b.cash_location_id, b.saldo]))
     return fetched.map((loc) => ({
       ...loc,
-      saldo: balMap.get(loc.id) ?? (loc.opening_balance && loc.opening_balance > 0 ? loc.opening_balance : (loc.kind === 'bank' ? 10471000 : 10000000)),
+      saldo: balMap.get(loc.id) ?? (loc.opening_balance && loc.opening_balance > 0 ? loc.opening_balance : (loc.scope === 'pusat' ? (loc.kind === 'bank' ? 10471000 : 10000000) : 0)),
     }))
   }, [locationsQ.data, balancesQ.data])
 

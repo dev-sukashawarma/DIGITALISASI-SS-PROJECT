@@ -281,23 +281,6 @@ export default function DashboardClient() {
                 </div>
               </motion.div>
 
-              {/* Omzet Outlet Tersemat */}
-              <motion.div variants={itemAnim} className="md:col-span-3">
-                <div className="mb-4 mt-4">
-                  <h3 className="font-display text-2xl text-suka-brown">Omzet Outlet</h3>
-                  <p className="text-suka-ink/60 text-sm">Ringkasan penjualan dari semua outlet</p>
-                </div>
-                <OutletRevenueTab />
-              </motion.div>
-
-              {/* Petty Cash Tersemat */}
-              <motion.div variants={itemAnim} className="md:col-span-3">
-                <div className="mb-4 mt-4">
-                  <h3 className="font-display text-2xl text-suka-brown">Petty Cash Outlet</h3>
-                  <p className="text-suka-ink/60 text-sm">Pengeluaran kas kecil dari outlet</p>
-                </div>
-                <PettyCashExpensesTab />
-              </motion.div>
 
             </motion.div>
           )}

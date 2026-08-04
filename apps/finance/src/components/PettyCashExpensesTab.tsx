@@ -299,7 +299,7 @@ export default function PettyCashExpensesTab() {
               onChange={e => setSelectedOutletId(e.target.value)}
               className="w-full border border-suka-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
             >
-              <option value="all">Semua Outlet</option>
+              <option value="all">-- Pilih Outlet Dulu --</option>
               {outlets.map(o => (
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}
@@ -334,7 +334,9 @@ export default function PettyCashExpensesTab() {
           <h3 className="font-display text-xl text-suka-brown">Rincian Riwayat (Pengeluaran & Topup)</h3>
         </div>
 
-        {isLoading ? (
+        {selectedOutletId === 'all' ? (
+          <EmptyState title="Pilih Outlet" description="Silakan pilih outlet terlebih dahulu pada filter di atas untuk melihat rincian riwayat." />
+        ) : isLoading ? (
           <div className="flex justify-center py-12"><Spinner size={32} /></div>
         ) : data.length === 0 ? (
           <EmptyState title="Tidak ada rincian transaksi" description="Belum ada transaksi pengeluaran kas kecil pada periode ini." />

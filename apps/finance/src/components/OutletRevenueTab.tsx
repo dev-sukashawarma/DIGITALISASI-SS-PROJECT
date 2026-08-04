@@ -176,7 +176,15 @@ export default function OutletRevenueTab() {
       itemsRes.data?.forEach(s => {
         const outletId = s.outlet_id
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
-        const key = `${outletId}-${s.menu_item_name}`
+        
+        // Bersihkan nama item (hapus |ID|... dan variannya)
+        let cleanName = s.menu_item_name || 'Unknown Item'
+        const idIndex = cleanName.indexOf('|ID|')
+        if (idIndex !== -1) {
+          cleanName = cleanName.substring(0, idIndex).trim()
+        }
+
+        const key = `${outletId}-${cleanName}`
         
         const existing = aggMap.get(key)
         if (existing) {
@@ -186,7 +194,7 @@ export default function OutletRevenueTab() {
           aggMap.set(key, {
             outletId,
             outletName,
-            itemName: s.menu_item_name,
+            itemName: cleanName,
             totalQty: Number(s.total_qty || 0),
             totalRevenue: Number(s.total_revenue || 0)
           })

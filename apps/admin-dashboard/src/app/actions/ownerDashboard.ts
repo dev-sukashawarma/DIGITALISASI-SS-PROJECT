@@ -40,32 +40,17 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
 
-  const fetchAllOrders = async () => {
-    let allOrders: any[] = []
-    let offset = 0
-    const limit = 1000
-    while (true) {
-      let ordersQ = supabase
-        .from('orders')
-        .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
-        .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-        .eq('status', 'completed')
-        .gte('created_at', fromStart.toISOString())
-        .lte('created_at', toEnd.toISOString())
-        .range(offset, offset + limit - 1)
+  let ordersQ = supabase
+    .from('orders')
+    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
+    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    .eq('status', 'completed')
+    .gte('created_at', fromStart.toISOString())
+    .lte('created_at', toEnd.toISOString())
 
-      if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
+  if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
 
-      const { data, error } = await ordersQ
-      if (error) throw new Error(error.message)
-      if (data) allOrders = allOrders.concat(data)
-      if (!data || data.length < limit) break
-      offset += limit
-    }
-    return allOrders
-  }
-
-  const [{ data, error }, ordersData] = await Promise.all([q, fetchAllOrders()])
+  const [{ data, error }, { data: ordersData }] = await Promise.all([q, ordersQ])
   if (error) throw new Error(error.message)
 
   // Map deductions per `${outlet_id}|${sales_source}|${sales_date}`

@@ -9,9 +9,6 @@ export type RingkasanData = {
   channel: string
   totalRevenue: number
   totalOrders: number
-  totalPotongan: number
-  netRevenue: number
-  potonganSource: string
 }
 
 export type ItemData = {
@@ -38,12 +35,11 @@ export function exportToCSV(
   csvContent += `Channel: ${channelName}\n\n`
 
   if (mode === 'ringkasan') {
-    csvContent += 'Tanggal,Nama Outlet,Channel,Jumlah Order,Total Omzet,Total Potongan,Sumber Potongan,Pendapatan Bersih\n'
+    csvContent += 'Tanggal,Nama Outlet,Channel,Jumlah Order,Total Omzet\n'
     data.forEach((row: RingkasanData) => {
       const name = `"${row.outletName}"`
       const channel = `"${row.channel}"`
-      const src = `"${row.potonganSource || '-'}"`
-      csvContent += `${row.date},${name},${channel},${row.totalOrders},${row.totalRevenue},${row.totalPotongan},${src},${row.netRevenue}\n`
+      csvContent += `${row.date},${name},${channel},${row.totalOrders},${row.totalRevenue}\n`
     })
   } else {
     csvContent += 'Tanggal,Nama Outlet,Channel,Nama Item,Qty Terjual,Total Omzet Item\n'
@@ -106,39 +102,29 @@ export async function exportToPDF(
       row.outletName,
       row.channel,
       formatNumber(row.totalOrders),
-      rupiah(row.totalRevenue),
-      rupiah(row.totalPotongan),
-      row.potonganSource || '-',
-      rupiah(row.netRevenue)
+      rupiah(row.totalRevenue)
     ])
     
     const totalOmzet = data.reduce((acc, r) => acc + r.totalRevenue, 0)
     const totalOrder = data.reduce((acc, r) => acc + r.totalOrders, 0)
-    const totalPotong = data.reduce((acc, r) => acc + r.totalPotongan, 0)
-    const totalNet = data.reduce((acc, r) => acc + r.netRevenue, 0)
 
     tableData.push([
       'TOTAL',
       '',
       '',
       formatNumber(totalOrder),
-      rupiah(totalOmzet),
-      rupiah(totalPotong),
-      '-',
-      rupiah(totalNet)
+      rupiah(totalOmzet)
     ])
 
     autoTable(doc, {
       startY: 40,
-      head: [['Tanggal', 'Nama Outlet', 'Channel', 'Jumlah Order', 'Total Omzet', 'Potongan', 'Sumber Potongan', 'Pendapatan Bersih']],
+      head: [['Tanggal', 'Nama Outlet', 'Channel', 'Jumlah Order', 'Total Omzet']],
       body: tableData,
       theme: 'grid',
       headStyles: { fillColor: [249, 115, 22] },
       columnStyles: {
         3: { halign: 'right' },
-        4: { halign: 'right' },
-        5: { halign: 'right' },
-        7: { halign: 'right' }
+        4: { halign: 'right' }
       },
       didParseCell: function (data) {
         if (data.row.index === tableData.length - 1) {

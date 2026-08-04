@@ -4,10 +4,11 @@ import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
+import { useCashOverview } from '@/hooks/useCashData'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, tanggal } from '@/lib/format'
 import { motion } from 'framer-motion'
-import { Receipt, FileText, ExternalLink } from 'lucide-react'
+import { Receipt, FileText, ExternalLink, Store } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 
 export default function PettyCashExpensesTab() {
@@ -24,6 +25,7 @@ export default function PettyCashExpensesTab() {
 
   const supabase = useMemo(() => createClient(), [])
   const { data: outlets = [] } = useOutlets()
+  const { locations, isLoading: loadingOverview } = useCashOverview()
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value
@@ -132,6 +134,11 @@ export default function PettyCashExpensesTab() {
     }
   }
 
+  // Calculate Outlet Petty Cash Balances
+  const outletBalances = useMemo(() => {
+    return locations.filter(loc => loc.outlet_id !== null && loc.scope === 'outlet').sort((a, b) => a.label.localeCompare(b.label))
+  }, [locations])
+
   if (error) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
@@ -142,13 +149,41 @@ export default function PettyCashExpensesTab() {
 
   return (
     <div className="space-y-6">
+      
+      {/* Petty Cash Balances Summary */}
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="bg-suka-brown/10 p-2.5 rounded-xl text-suka-brown">
+            <Store size={20} />
+          </div>
+          <h3 className="font-display text-xl text-suka-brown">Saldo Petty Cash Outlet Saat Ini</h3>
+        </div>
+        
+        {loadingOverview ? (
+           <div className="flex justify-center py-6"><Spinner size={24} /></div>
+        ) : outletBalances.length === 0 ? (
+           <EmptyState title="Tidak ada saldo outlet" />
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {outletBalances.map(loc => (
+              <div key={loc.id} className="bg-suka-cream/30 border border-suka-brown/5 p-4 rounded-2xl flex flex-col items-center text-center">
+                <span className="text-xs font-bold text-suka-ink/70 mb-2 truncate w-full">{loc.label.replace('Kas Kecil ', '').replace('Petty Cash ', '')}</span>
+                <span className={`text-base font-black ${loc.saldo < 0 ? 'text-red-600' : 'text-suka-brown'}`}>
+                  {rupiah(loc.saldo)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Filter & Summary Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Date Range Selector Card */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center">
           <div>
-            <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Pilih Periode</p>
+            <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Pilih Periode Pengeluaran</p>
             <div className="flex flex-col gap-2">
               <select 
                 value={preset} 
@@ -185,7 +220,7 @@ export default function PettyCashExpensesTab() {
         </div>
 
         {/* Outlet Selector Card */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-between">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-between">
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
             <select 
@@ -202,7 +237,7 @@ export default function PettyCashExpensesTab() {
         </div>
 
         {/* Total Expenses Card */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 relative overflow-hidden group hover:shadow-xl hover:shadow-suka-orange/10 transition-all">
+        <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 relative overflow-hidden group hover:shadow-xl hover:shadow-suka-orange/10 transition-all">
           <div className="absolute right-0 top-0 w-32 h-32 bg-orange-50 rounded-bl-full -z-0 transition-transform group-hover:scale-110"></div>
           <div className="relative z-10 flex flex-col justify-between h-full">
             <div>
@@ -223,9 +258,9 @@ export default function PettyCashExpensesTab() {
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
+      <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-display text-xl text-suka-brown">Rincian Pemakaian Petty Cash</h3>
+          <h3 className="font-display text-xl text-suka-brown">Rincian Pengeluaran</h3>
         </div>
 
         {isLoading ? (

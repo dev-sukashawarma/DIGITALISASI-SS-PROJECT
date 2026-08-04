@@ -14,6 +14,7 @@ import { tanggal, rupiah } from '@/lib/format'
 import { TxStatusBadge } from '@/components/ui'
 import OutletRevenueTab from '@/components/OutletRevenueTab'
 import PettyCashExpensesTab from '@/components/PettyCashExpensesTab'
+import StokMonitoringTab from '@/components/StokMonitoringTab'
 
 const container = {
   hidden: { opacity: 0 },
@@ -46,6 +47,37 @@ export default function DashboardClient() {
   const summary = summarizeBalances(locations)
   const pending = countPendingApproval(txs)
   const pettyPending = pettyCashRequests?.length || 0
+  const totalTasks = pending + pettyPending
+
+  // Notification flag & sound on new tasks
+  const prevTasksRef = React.useRef(totalTasks)
+  useEffect(() => {
+    if (totalTasks > 0) {
+      document.title = `(${totalTasks}) SS Digital`
+    } else {
+      document.title = 'SS Digital Dashboard'
+    }
+
+    if (totalTasks > prevTasksRef.current) {
+      try {
+        // Play simple notification beep
+        const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+        const oscillator = audioCtx.createOscillator()
+        const gainNode = audioCtx.createGain()
+        oscillator.connect(gainNode)
+        gainNode.connect(audioCtx.destination)
+        oscillator.type = 'sine'
+        oscillator.frequency.setValueAtTime(880, audioCtx.currentTime)
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime)
+        oscillator.start()
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.5)
+        oscillator.stop(audioCtx.currentTime + 0.5)
+      } catch (e) {
+        console.warn("Could not play notification sound", e)
+      }
+    }
+    prevTasksRef.current = totalTasks
+  }, [totalTasks])
 
   if (error) {
     return (
@@ -98,7 +130,8 @@ export default function DashboardClient() {
             { id: 'transaksi', label: 'Transaksi' },
             { id: 'tugas', label: 'Tugas', badge: pending + pettyPending > 0 ? pending + pettyPending : undefined },
             { id: 'omzet', label: 'Omzet Outlet' },
-            { id: 'petty-cash', label: 'Petty Cash Outlet' }
+            { id: 'petty-cash', label: 'Petty Cash Outlet' },
+            { id: 'stok', label: 'Stok & Persediaan' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -250,6 +283,24 @@ export default function DashboardClient() {
                 </div>
               </motion.div>
 
+              {/* Omzet Outlet Tersemat */}
+              <motion.div variants={itemAnim} className="md:col-span-3">
+                <div className="mb-4 mt-4">
+                  <h3 className="font-display text-2xl text-suka-brown">Omzet Outlet</h3>
+                  <p className="text-suka-ink/60 text-sm">Ringkasan penjualan dari semua outlet</p>
+                </div>
+                <OutletRevenueTab />
+              </motion.div>
+
+              {/* Petty Cash Tersemat */}
+              <motion.div variants={itemAnim} className="md:col-span-3">
+                <div className="mb-4 mt-4">
+                  <h3 className="font-display text-2xl text-suka-brown">Petty Cash Outlet</h3>
+                  <p className="text-suka-ink/60 text-sm">Pengeluaran kas kecil dari outlet</p>
+                </div>
+                <PettyCashExpensesTab />
+              </motion.div>
+
             </motion.div>
           )}
 
@@ -296,6 +347,18 @@ export default function DashboardClient() {
               transition={{ type: 'spring', stiffness: 120, damping: 15 }}
             >
               <OutletRevenueTab />
+            </motion.div>
+          )}
+
+          {activeTab === 'stok' && (
+            <motion.div
+              key="stok"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+              transition={{ type: 'spring', stiffness: 120, damping: 15 }}
+            >
+              <StokMonitoringTab />
             </motion.div>
           )}
 

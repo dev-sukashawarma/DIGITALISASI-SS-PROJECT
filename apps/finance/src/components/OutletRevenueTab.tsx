@@ -4,9 +4,9 @@ import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { Spinner, EmptyState } from '@suka/design-system'
-import { rupiah } from '@/lib/format'
-import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingBag } from 'lucide-react'
+import { rupiah, formatNumber } from '@/lib/format'
+import { motion, AnimatePresence } from 'framer-motion'
+import { TrendingUp, ShoppingBag, PackageSearch } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 
 export default function OutletRevenueTab() {
@@ -19,6 +19,9 @@ export default function OutletRevenueTab() {
     const d = new Date()
     return d.toISOString().slice(0, 10)
   })
+  
+  const [viewMode, setViewMode] = useState<'ringkasan' | 'item'>('ringkasan')
+
   const supabase = useMemo(() => createClient(), [])
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -59,7 +62,7 @@ export default function OutletRevenueTab() {
     else setEndDate(val)
   }
 
-  const { data = [], isLoading, error } = useQuery({
+  const { data: revenueData = [], isLoading: loadingRevenue, error: errorRevenue } = useQuery({
     queryKey: ['outlet_revenue', startDate, endDate],
     queryFn: async () => {
       const from = startDate
@@ -116,19 +119,73 @@ export default function OutletRevenueTab() {
       return Array.from(aggMap.values()).sort((a, b) => b.totalRevenue - a.totalRevenue)
     }
   })
+  
+  const { data: itemsData = [], isLoading: loadingItems, error: errorItems } = useQuery({
+    queryKey: ['sales_items_spv', startDate, endDate],
+    queryFn: async () => {
+      const from = startDate
+      const to = endDate
+
+      const [itemsRes, outletsRes] = await Promise.all([
+        supabase
+          .from('sales_items_spv')
+          .select('outlet_id, menu_item_name, total_qty, total_revenue')
+          .gte('sales_date', from)
+          .lte('sales_date', to),
+        supabase
+          .from('outlets')
+          .select('id, name')
+      ])
+
+      if (itemsRes.error) throw itemsRes.error
+      if (outletsRes.error) throw outletsRes.error
+
+      const nameMap = new Map<string, string>()
+      outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
+      
+      const aggMap = new Map<string, { outletId: string; outletName: string; itemName: string; totalQty: number; totalRevenue: number }>()
+
+      itemsRes.data?.forEach(s => {
+        const outletId = s.outlet_id
+        const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
+        const key = `${outletId}-${s.menu_item_name}`
+        
+        const existing = aggMap.get(key)
+        if (existing) {
+          existing.totalQty += Number(s.total_qty || 0)
+          existing.totalRevenue += Number(s.total_revenue || 0)
+        } else {
+          aggMap.set(key, {
+            outletId,
+            outletName,
+            itemName: s.menu_item_name,
+            totalQty: Number(s.total_qty || 0),
+            totalRevenue: Number(s.total_revenue || 0)
+          })
+        }
+      })
+      
+      return Array.from(aggMap.values()).sort((a, b) => {
+        if (a.outletName === b.outletName) {
+           return b.totalQty - a.totalQty
+        }
+        return a.outletName.localeCompare(b.outletName)
+      })
+    }
+  })
 
   const totalOmzetAllOutlets = useMemo(() => {
-    return data.reduce((sum, item) => sum + item.totalRevenue, 0)
-  }, [data])
+    return revenueData.reduce((sum, item) => sum + item.totalRevenue, 0)
+  }, [revenueData])
 
   const totalOrdersAllOutlets = useMemo(() => {
-    return data.reduce((sum, item) => sum + item.totalOrders, 0)
-  }, [data])
+    return revenueData.reduce((sum, item) => sum + item.totalOrders, 0)
+  }, [revenueData])
 
-  if (error) {
+  if (errorRevenue || errorItems) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
-        Gagal memuat data omzet: {(error as Error).message}
+        Gagal memuat data omzet: {((errorRevenue || errorItems) as Error).message}
       </div>
     )
   }
@@ -219,56 +276,133 @@ export default function OutletRevenueTab() {
 
       {/* Table Section */}
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-display text-xl text-suka-brown">Laporan Omzet Penjualan Outlet</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <h3 className="font-display text-xl text-suka-brown">Laporan Omzet & Penjualan Outlet</h3>
+          
+          <div className="flex bg-suka-cream rounded-xl p-1 shadow-sm border border-suka-brown/5 self-start">
+            <button
+              onClick={() => setViewMode('ringkasan')}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                viewMode === 'ringkasan' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
+              }`}
+            >
+              Ringkasan Outlet
+            </button>
+            <button
+              onClick={() => setViewMode('item')}
+              className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 ${
+                viewMode === 'item' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
+              }`}
+            >
+              <PackageSearch size={16} />
+              Penjualan per Item
+            </button>
+          </div>
         </div>
 
-        {isLoading ? (
-          <div className="flex justify-center py-12"><Spinner size={32} /></div>
-        ) : data.length === 0 ? (
-          <EmptyState title="Tidak ada data penjualan" description="Belum ada transaksi terekam pada periode ini." />
+        {viewMode === 'ringkasan' ? (
+          loadingRevenue ? (
+            <div className="flex justify-center py-12"><Spinner size={32} /></div>
+          ) : revenueData.length === 0 ? (
+            <EmptyState title="Tidak ada data penjualan" description="Belum ada transaksi terekam pada periode ini." />
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+                <thead>
+                  <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                    <th className="py-3 px-5 font-semibold">Nama Outlet</th>
+                    <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
+                    <th className="py-3 px-5 font-semibold text-right">Total Omzet</th>
+                  </tr>
+                </thead>
+                <motion.tbody 
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    visible: { transition: { staggerChildren: 0.05 } },
+                    hidden: {},
+                  }}
+                  className="divide-y divide-suka-brown/5"
+                >
+                  {revenueData.map((item) => (
+                    <motion.tr 
+                      variants={{
+                        hidden: { opacity: 0, y: 10 },
+                        visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+                      }}
+                      key={item.outletId} 
+                      className="hover:bg-orange-50/20 transition-colors"
+                    >
+                      <td className="py-4 px-5 font-bold text-suka-ink">
+                        {item.outletName}
+                      </td>
+                      <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
+                        {item.totalOrders.toLocaleString('id-ID')}
+                      </td>
+                      <td className="py-4 px-5 text-right font-black text-suka-brown">
+                        {rupiah(item.totalRevenue)}
+                      </td>
+                    </motion.tr>
+                  ))}
+                </motion.tbody>
+              </table>
+            </div>
+          )
         ) : (
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-sm border-collapse min-w-[500px]">
-              <thead>
-                <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
-                  <th className="py-3 px-5 font-semibold">Nama Outlet</th>
-                  <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
-                  <th className="py-3 px-5 font-semibold text-right">Total Omzet</th>
-                </tr>
-              </thead>
-              <motion.tbody 
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  visible: { transition: { staggerChildren: 0.05 } },
-                  hidden: {},
-                }}
-                className="divide-y divide-suka-brown/5"
-              >
-                {data.map((item) => (
-                  <motion.tr 
-                    variants={{
-                      hidden: { opacity: 0, y: 10 },
-                      visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                    }}
-                    key={item.outletId} 
-                    className="hover:bg-orange-50/20 transition-colors"
-                  >
-                    <td className="py-4 px-5 font-bold text-suka-ink">
-                      {item.outletName}
-                    </td>
-                    <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
-                      {item.totalOrders.toLocaleString('id-ID')}
-                    </td>
-                    <td className="py-4 px-5 text-right font-black text-suka-brown">
-                      {rupiah(item.totalRevenue)}
-                    </td>
-                  </motion.tr>
-                ))}
-              </motion.tbody>
-            </table>
-          </div>
+          loadingItems ? (
+            <div className="flex justify-center py-12"><Spinner size={32} /></div>
+          ) : itemsData.length === 0 ? (
+            <EmptyState title="Tidak ada data item penjualan" description="Belum ada item yang terjual pada periode ini." />
+          ) : (
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                <thead>
+                  <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                    <th className="py-3 px-5 font-semibold">Nama Outlet</th>
+                    <th className="py-3 px-5 font-semibold">Nama Item</th>
+                    <th className="py-3 px-5 font-semibold text-right">Qty Terjual</th>
+                    <th className="py-3 px-5 font-semibold text-right">Total Omzet Item</th>
+                  </tr>
+                </thead>
+                <motion.tbody 
+                  initial="hidden"
+                  animate="visible"
+                  variants={{
+                    visible: { transition: { staggerChildren: 0.05 } },
+                    hidden: {},
+                  }}
+                  className="divide-y divide-suka-brown/5"
+                >
+                  {itemsData.map((item, index) => {
+                    const isNewOutlet = index === 0 || itemsData[index - 1].outletName !== item.outletName;
+                    return (
+                      <motion.tr 
+                        variants={{
+                          hidden: { opacity: 0, y: 10 },
+                          visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+                        }}
+                        key={`${item.outletId}-${item.itemName}`} 
+                        className={`hover:bg-orange-50/20 transition-colors ${isNewOutlet ? 'border-t-2 border-suka-brown/10' : ''}`}
+                      >
+                        <td className="py-3 px-5 font-bold text-suka-ink/70">
+                          {isNewOutlet ? item.outletName : ''}
+                        </td>
+                        <td className="py-3 px-5 font-medium text-suka-ink">
+                          {item.itemName}
+                        </td>
+                        <td className="py-3 px-5 text-right font-medium text-suka-gray-600">
+                          {formatNumber(item.totalQty)}
+                        </td>
+                        <td className="py-3 px-5 text-right font-black text-suka-brown">
+                          {rupiah(item.totalRevenue)}
+                        </td>
+                      </motion.tr>
+                    )
+                  })}
+                </motion.tbody>
+              </table>
+            </div>
+          )
         )}
       </div>
     </div>

@@ -54,3 +54,7 @@ export function relativeTime(iso: string | null | undefined): string {
 
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
+
+export function formatNumber(n: number): string {
+  return Math.abs(Math.round(n)).toLocaleString('id-ID')
+}

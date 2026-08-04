@@ -6,6 +6,7 @@ import { Button } from '@suka/design-system'
 import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3 } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
+import { useApprovals } from '../lib/ApprovalsContext'
 
 export type NavItem = { href: string; label: string; icon: any }
 export type NavGroup = { title: string; items: NavItem[] }
@@ -38,6 +39,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const { pendingRequests } = useApprovals()
 
   const brand = "SS"
   const brandAccent = "Manager"
@@ -77,7 +79,12 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                     >
                       <Icon className={`w-5 h-5 transition-colors ${active ? 'text-suka-orange' : 'text-suka-gray-400 group-hover:text-suka-brown'}`} />
                       <span className="flex-1 truncate">{label}</span>
-                      {active && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse" />}
+                      {href === '/approvals' && pendingRequests.length > 0 && (
+                        <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[10px] font-black rounded-full shadow-sm ml-2">
+                          {pendingRequests.length}
+                        </span>
+                      )}
+                      {active && <div className="w-1.5 h-1.5 rounded-full bg-suka-orange animate-pulse ml-2" />}
                     </Link>
                   )
                 })}
@@ -177,6 +184,11 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                 <span className={`text-[10px] ${active ? 'font-black text-suka-orange' : 'font-semibold'}`}>
                   {label}
                 </span>
+                {href === '/approvals' && pendingRequests.length > 0 && (
+                  <div className="absolute top-1 right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
+                    <span className="text-[8px] font-bold text-white">{pendingRequests.length > 9 ? '9+' : pendingRequests.length}</span>
+                  </div>
+                )}
               </Link>
             )
           })}

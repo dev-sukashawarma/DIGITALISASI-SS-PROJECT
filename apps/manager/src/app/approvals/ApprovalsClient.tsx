@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Check, X, Clock, Loader2 } from 'lucide-react';
 import { processVoidOrder } from '../actions/cancellations';
+import { useApprovals } from '../../lib/ApprovalsContext';
 
 type VoidRequest = {
   id: string
@@ -37,7 +38,7 @@ const getTimeAgo = (dateString: string) => {
 }
 
 export default function ApprovalsClient({ initialRequests }: { initialRequests: any[] }) {
-  const [requests, setRequests] = useState<VoidRequest[]>(initialRequests)
+  const { pendingRequests: requests, refreshApprovals } = useApprovals()
   const [loadingIds, setLoadingIds] = useState<string[]>([])
 
   const handleAction = async (token: string, action: 'approve' | 'reject', requestId: string) => {
@@ -50,7 +51,7 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
     try {
       const res = await processVoidOrder(token, action)
       if (res.success) {
-        setRequests(prev => prev.filter(r => r.id !== requestId))
+        await refreshApprovals()
         alert(`Berhasil ${action === 'approve' ? 'menyetujui' : 'menolak'} pembatalan pesanan.`)
       } else {
         alert('Gagal memproses pembatalan: ' + res.error)

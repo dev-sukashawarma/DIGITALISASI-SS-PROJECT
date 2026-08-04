@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AuthProvider, createSupabaseBrowserClient } from '@suka/auth'
 import type { OutletStaffProfile } from '@suka/auth'
+import { ApprovalsProvider } from '../lib/ApprovalsContext'
 
 export function Providers({
   children,
@@ -15,7 +16,9 @@ export function Providers({
 
   return (
     <AuthProvider supabase={supabase} initialStaff={initialStaff}>
-      {children}
+      <ApprovalsProvider>
+        {children}
+      </ApprovalsProvider>
     </AuthProvider>
   )
 }

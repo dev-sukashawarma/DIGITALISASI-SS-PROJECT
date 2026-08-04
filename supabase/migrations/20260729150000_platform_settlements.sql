@@ -74,9 +74,9 @@ AS $$
   WHERE o.status = 'completed'
     AND (o.created_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN p_from AND p_to
     AND (
-      oi.channel = p_channel
-      OR (p_channel = 'food_apps' AND o.channel IN ('gofood', 'grabfood', 'shopeefood'))
-      OR (p_channel = 'tiktok_go' AND o.channel IN ('tiktokgo', 'tiktok'))
+      o.sales_source = p_channel
+      OR (p_channel = 'food_apps' AND o.sales_source IN ('gofood', 'grabfood', 'shopeefood'))
+      OR (p_channel = 'tiktok_go' AND o.sales_source IN ('tiktokgo', 'tiktok'))
     )
   GROUP BY o.outlet_id;
 $$;

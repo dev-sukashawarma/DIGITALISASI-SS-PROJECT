@@ -1,8 +1,13 @@
 -- Drop existing restrictive policies if they exist
 drop policy if exists surat_jalan_spv_select on surat_jalan;
 drop policy if exists surat_jalan_crew_select on surat_jalan;
+drop policy if exists surat_jalan_select on surat_jalan;
 drop policy if exists surat_jalan_insert on surat_jalan;
+drop policy if exists surat_jalan_update on surat_jalan;
 drop policy if exists surat_jalan_item_crew_update on surat_jalan_item;
+drop policy if exists surat_jalan_item_select on surat_jalan_item;
+drop policy if exists surat_jalan_item_insert on surat_jalan_item;
+drop policy if exists surat_jalan_item_update on surat_jalan_item;
 
 -- Authenticated users can read all surat jalan (master data visibility)
 create policy surat_jalan_select

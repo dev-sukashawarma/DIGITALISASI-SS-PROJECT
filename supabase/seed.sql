@@ -20,7 +20,8 @@ INSERT INTO outlets (id, slug, name, lat, lng, address, is_active) VALUES
 ('550e8400-e29b-41d4-a716-446655440016', 'outlet-bka-02', 'Suka Shawarma Karawang', -6.3050, 107.2850, 'Karawang, Jawa Barat', true),
 ('550e8400-e29b-41d4-a716-446655440017', 'outlet-bntr-01', 'Suka Shawarma Bintaro', -6.3229, 106.7372, 'Bintaro, Tangerang', true),
 ('550e8400-e29b-41d4-a716-446655440018', 'outlet-jkt-11', 'Suka Shawarma Scbd', -6.2277, 106.8160, 'SCBD, Jakarta', true),
-('550e8400-e29b-41d4-a716-446655440019', 'outlet-jkt-12', 'Suka Shawarma Semanggi', -6.2361, 106.8110, 'Semanggi, Jakarta', true);
+('550e8400-e29b-41d4-a716-446655440019', 'outlet-jkt-12', 'Suka Shawarma Semanggi', -6.2361, 106.8110, 'Semanggi, Jakarta', true)
+ON CONFLICT (id) DO NOTHING;
 
 -- Insert sample outlet_staff (1 crew per outlet for testing)
 INSERT INTO outlet_staff (outlet_id, name, role, status) VALUES

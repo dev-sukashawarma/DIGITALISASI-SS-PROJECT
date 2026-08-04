@@ -1,4 +1,5 @@
 -- Monitoring view untuk SPV (multi-outlet)
+DROP VIEW IF EXISTS monitoring_view_spv CASCADE;
 CREATE OR REPLACE VIEW monitoring_view_spv AS
 SELECT 
   sb.outlet_id,
@@ -17,14 +18,12 @@ SELECT
   FALSE as is_flagged,
   sb.updated_at as last_updated,
   (
-    SELECT MAX(oi.created_at)
+    SELECT MAX(op.created_at)
     FROM opname_item oi
     JOIN opname op ON oi.opname_id = op.id
     WHERE oi.bahan_baku_id = sb.bahan_baku_id
       AND op.outlet_id = sb.outlet_id
       AND op.status = 'finalized'
-    ORDER BY op.created_at DESC
-    LIMIT 1
   ) as last_opname_date
 FROM stok_balance sb
 JOIN outlets o ON sb.outlet_id = o.id
@@ -32,6 +31,7 @@ JOIN bahan_baku b ON sb.bahan_baku_id = b.id
 ORDER BY o.name, b.nama;
 
 -- Monitoring view untuk Crew (single outlet, RLS enforced)
+DROP VIEW IF EXISTS monitoring_view_crew CASCADE;
 CREATE OR REPLACE VIEW monitoring_view_crew AS
 SELECT 
   sb.outlet_id,
@@ -50,14 +50,12 @@ SELECT
   FALSE as is_flagged,
   sb.updated_at as last_updated,
   (
-    SELECT MAX(oi.created_at)
+    SELECT MAX(op.created_at)
     FROM opname_item oi
     JOIN opname op ON oi.opname_id = op.id
     WHERE oi.bahan_baku_id = sb.bahan_baku_id
       AND op.outlet_id = sb.outlet_id
       AND op.status = 'finalized'
-    ORDER BY op.created_at DESC
-    LIMIT 1
   ) as last_opname_date
 FROM stok_balance sb
 JOIN outlets o ON sb.outlet_id = o.id

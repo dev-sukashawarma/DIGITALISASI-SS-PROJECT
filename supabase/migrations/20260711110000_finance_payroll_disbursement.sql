@@ -3,6 +3,17 @@
 -- arus kas treasury. Aditif — hanya menambah kolom nullable/berdefault + RPC + trigger.
 -- Tak mengubah kolom existing yang dipakai admin-dashboard.
 
+-- Create missing table payroll_records if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.payroll_records (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    staff_id UUID REFERENCES public.outlet_staff(id),
+    period_month INT NOT NULL,
+    period_year INT NOT NULL,
+    total_salary NUMERIC DEFAULT 0,
+    status TEXT DEFAULT 'draft',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 1. Kolom status pembayaran di payroll_records (aditif, idempotent).
 ALTER TABLE public.payroll_records
   ADD COLUMN IF NOT EXISTS payment_status text NOT NULL DEFAULT 'unpaid';

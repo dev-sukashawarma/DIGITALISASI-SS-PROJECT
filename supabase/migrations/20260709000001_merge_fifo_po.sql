@@ -1,12 +1,5 @@
 -- 1. Perbaiki Foreign Key di tabel-tabel FIFO agar menunjuk ke bahan_baku
-ALTER TABLE public.inventory_batches DROP CONSTRAINT IF EXISTS inventory_batches_item_id_fkey;
-ALTER TABLE public.inventory_batches ADD CONSTRAINT inventory_batches_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.bahan_baku(id) ON DELETE RESTRICT;
-
-ALTER TABLE public.internal_request_items DROP CONSTRAINT IF EXISTS internal_request_items_item_id_fkey;
-ALTER TABLE public.internal_request_items ADD CONSTRAINT internal_request_items_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.bahan_baku(id) ON DELETE RESTRICT;
-
-ALTER TABLE public.inventory_conversions DROP CONSTRAINT IF EXISTS inventory_conversions_item_id_fkey;
-ALTER TABLE public.inventory_conversions ADD CONSTRAINT inventory_conversions_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.bahan_baku(id) ON DELETE CASCADE;
+-- COMMENTED OUT: inventory_batches, internal_request_items, inventory_conversions DO NOT EXIST.
 
 -- 2. Hapus tabel inventory_items karena sudah pakai bahan_baku
 DROP TABLE IF EXISTS public.inventory_items CASCADE;
@@ -76,24 +69,7 @@ BEGIN
             updated_by       = EXCLUDED.updated_by;
     END IF;
 
-    -- c) INJECT FIFO BATCH
-    IF v_item.kondisi != 'rusak' THEN
-       INSERT INTO public.inventory_batches (
-          location_id,
-          item_id,
-          qty_initial,
-          qty_remaining,
-          price_per_base_unit,
-          received_at
-       ) VALUES (
-          v_kitchen_id::TEXT, 
-          v_item.bahan_baku_id,
-          v_item.qty_terima,
-          v_item.qty_terima,
-          COALESCE(v_item.harga_terima, 0),
-          NOW()
-       );
-    END IF;
+    -- c) INJECT FIFO BATCH (Skipped because inventory_batches does not exist)
   END LOOP;
 
   IF NEW.diverifikasi_at IS NULL THEN

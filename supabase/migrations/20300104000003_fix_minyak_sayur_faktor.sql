@@ -18,7 +18,6 @@
 -- no-negative di ledger_stamp_saldo. Saldo benar ditetapkan ulang oleh opname.
 
 UPDATE public.bahan_baku
-SET faktor_tengah   = 16,
-    faktor_tampilan = 16000,
+SET faktor_tampilan = 16000,
     faktor_konversi = 1000
 WHERE nama = 'MINYAK SAYUR';

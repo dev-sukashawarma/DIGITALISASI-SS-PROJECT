@@ -7,7 +7,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-const CANCELLATION_APPROVER_ROLES = ['leader', 'regional_manager', 'admin']
+const CANCELLATION_APPROVER_ROLES = ['leader', 'area_manager', 'regional_manager', 'admin']
 
 export async function POST(req: Request) {
   try {

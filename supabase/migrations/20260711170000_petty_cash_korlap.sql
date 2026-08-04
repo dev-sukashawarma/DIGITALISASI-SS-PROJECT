@@ -38,7 +38,7 @@ ALTER TABLE public.outlets
   ADD COLUMN IF NOT EXISTS requires_korlap_review BOOLEAN NOT NULL DEFAULT true;
 
 UPDATE public.outlets
-SET requires_korlap_review = NOT (address ILIKE '%bogor%' OR name ILIKE '%bogor%');
+SET requires_korlap_review = NOT (COALESCE(address, '') ILIKE '%bogor%' OR name ILIKE '%bogor%');
 
 -- Update existing RPC review_petty_cash_topup to route via outlets.requires_korlap_review
 CREATE OR REPLACE FUNCTION public.review_petty_cash_topup(

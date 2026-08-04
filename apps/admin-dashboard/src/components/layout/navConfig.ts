@@ -29,6 +29,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['AREA_MANAGER'],
     items: [
       { href: '/dashboard/area-manager/petty-cash', label: 'Approval Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['AREA_MANAGER'] },
+      { href: '/dashboard/area-manager/void-order', label: 'Void Order', shortLabel: 'Void Order', icon: AlertTriangle, roles: ['AREA_MANAGER'] },
     ],
   },
   {

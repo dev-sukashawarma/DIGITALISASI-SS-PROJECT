@@ -141,14 +141,21 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-suka-gray-200/90 shadow-2xs">
         <div className="flex border-b sm:border-b-0 border-suka-gray-200 space-x-1">
           <button
-            className={`px-4 py-2.5 font-bold text-xs sm:text-sm rounded-xl transition-all ${
+            className={`px-4 py-2.5 font-bold text-xs sm:text-sm rounded-xl transition-all flex items-center gap-2 ${
               activeTab === 'review' 
                 ? 'bg-suka-orange/10 text-suka-orange border border-suka-orange/20 shadow-2xs' 
                 : 'text-suka-gray-500 hover:text-suka-gray-800 hover:bg-suka-gray-50'
             }`}
             onClick={() => setActiveTab('review')}
           >
-            Aktif / Butuh Serah Terima ({reviewRequests.length})
+            <span>Aktif / Butuh Serah Terima</span>
+            {reviewRequests.length > 0 ? (
+              <span className="inline-flex items-center justify-center bg-red-500 text-white text-[10px] font-black rounded-full min-w-[20px] h-5 px-1.5 shadow-sm">
+                {reviewRequests.length}
+              </span>
+            ) : (
+              <span>(0)</span>
+            )}
           </button>
           <button
             className={`px-4 py-2.5 font-bold text-xs sm:text-sm rounded-xl transition-all ${

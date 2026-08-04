@@ -39,7 +39,8 @@ BEGIN
   END IF;
 
   IF v_baru IS NULL THEN
-    RAISE EXCEPTION 'MAYONAISE tidak ditemukan atau tidak aktif -- batalkan';
+    RAISE NOTICE 'MAYONAISE tidak ditemukan atau tidak aktif -- batalkan';
+    RETURN;
   END IF;
 
   UPDATE public.resep_item SET bahan_baku_id = v_baru WHERE bahan_baku_id = v_lama;

@@ -14,7 +14,6 @@ import { tanggal, rupiah } from '@/lib/format'
 import { TxStatusBadge } from '@/components/ui'
 import OutletRevenueTab from '@/components/OutletRevenueTab'
 import PettyCashExpensesTab from '@/components/PettyCashExpensesTab'
-import StokMonitoringTab from '@/components/StokMonitoringTab'
 
 const container = {
   hidden: { opacity: 0 },
@@ -130,8 +129,7 @@ export default function DashboardClient() {
             { id: 'transaksi', label: 'Transaksi' },
             { id: 'tugas', label: 'Tugas', badge: pending + pettyPending > 0 ? pending + pettyPending : undefined },
             { id: 'omzet', label: 'Omzet Outlet' },
-            { id: 'petty-cash', label: 'Petty Cash Outlet' },
-            { id: 'stok', label: 'Stok & Persediaan' }
+            { id: 'petty-cash', label: 'Petty Cash Outlet' }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -347,18 +345,6 @@ export default function DashboardClient() {
               transition={{ type: 'spring', stiffness: 120, damping: 15 }}
             >
               <OutletRevenueTab />
-            </motion.div>
-          )}
-
-          {activeTab === 'stok' && (
-            <motion.div
-              key="stok"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
-              transition={{ type: 'spring', stiffness: 120, damping: 15 }}
-            >
-              <StokMonitoringTab />
             </motion.div>
           )}
 

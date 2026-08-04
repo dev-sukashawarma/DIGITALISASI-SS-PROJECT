@@ -1,9 +1,10 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Check, X, Clock, Loader2 } from 'lucide-react';
+import { Check, X, Clock, Loader2, AlertTriangle } from 'lucide-react';
 import { processVoidOrder } from '../actions/cancellations';
 import { useApprovals } from '../../lib/ApprovalsContext';
+import { toast } from 'sonner';
 
 type VoidRequest = {
   id: string
@@ -41,23 +42,34 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
   const { pendingRequests: requests, refreshApprovals } = useApprovals()
   const [loadingIds, setLoadingIds] = useState<string[]>([])
 
-  const handleAction = async (token: string, action: 'approve' | 'reject', requestId: string) => {
-    if (!confirm(`Apakah Anda yakin ingin ${action === 'approve' ? 'MENYETUJUI' : 'MENOLAK'} pembatalan ini?`)) {
-      return
-    }
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    action: 'approve' | 'reject' | null;
+    token: string;
+    requestId: string;
+  }>({ isOpen: false, action: null, token: '', requestId: '' })
 
+  const requestAction = (token: string, action: 'approve' | 'reject', requestId: string) => {
+    setConfirmDialog({ isOpen: true, action, token, requestId })
+  }
+
+  const handleAction = async () => {
+    const { token, action, requestId } = confirmDialog;
+    if (!action) return;
+
+    setConfirmDialog({ isOpen: false, action: null, token: '', requestId: '' });
     setLoadingIds(prev => [...prev, requestId])
     
     try {
       const res = await processVoidOrder(token, action)
       if (res.success) {
         await refreshApprovals()
-        alert(`Berhasil ${action === 'approve' ? 'menyetujui' : 'menolak'} pembatalan pesanan.`)
+        toast.success(`Berhasil ${action === 'approve' ? 'menyetujui' : 'menolak'} pembatalan pesanan.`)
       } else {
-        alert('Gagal memproses pembatalan: ' + res.error)
+        toast.error('Gagal memproses pembatalan: ' + res.error)
       }
     } catch (err: any) {
-      alert('Terjadi kesalahan: ' + err.message)
+      toast.error('Terjadi kesalahan: ' + err.message)
     } finally {
       setLoadingIds(prev => prev.filter(id => id !== requestId))
     }
@@ -102,14 +114,14 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
                   <span className="text-2xl sm:text-xl font-black text-suka-brown">{formatRupiah(req.total_amount || 0)}</span>
                   <div className="flex gap-3 sm:gap-2">
                     <button 
-                      onClick={() => handleAction(req.token, 'reject', req.id)}
+                      onClick={() => requestAction(req.token, 'reject', req.id)}
                       disabled={loadingIds.includes(req.id)}
                       className="flex items-center justify-center w-12 h-12 sm:w-10 sm:h-10 bg-white border border-red-200 text-red-500 hover:bg-red-50 hover:border-red-300 rounded-full transition-all shadow-sm shrink-0 disabled:opacity-50"
                     >
                       {loadingIds.includes(req.id) ? <Loader2 size={20} className="animate-spin" /> : <X size={20} strokeWidth={3} />}
                     </button>
                     <button 
-                      onClick={() => handleAction(req.token, 'approve', req.id)}
+                      onClick={() => requestAction(req.token, 'approve', req.id)}
                       disabled={loadingIds.includes(req.id)}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 sm:px-5 py-3 sm:py-2.5 bg-suka-orange text-white hover:bg-suka-orange/90 rounded-full text-sm sm:text-xs font-black uppercase tracking-wider transition-all shadow-sm shadow-suka-orange/20 hover:shadow-md hover:shadow-suka-orange/30 min-h-[48px] disabled:opacity-50"
                     >
@@ -123,6 +135,43 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
           </div>
         )}
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-suka-brown/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className={`p-6 ${confirmDialog.action === 'approve' ? 'bg-suka-orange/10' : 'bg-red-50'} flex flex-col items-center text-center`}>
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-4 ${confirmDialog.action === 'approve' ? 'bg-suka-orange text-white' : 'bg-red-500 text-white'}`}>
+                {confirmDialog.action === 'approve' ? <Check size={24} strokeWidth={3} /> : <AlertTriangle size={24} />}
+              </div>
+              <h3 className={`text-lg font-black mb-1 ${confirmDialog.action === 'approve' ? 'text-suka-orange' : 'text-red-600'}`}>
+                Konfirmasi {confirmDialog.action === 'approve' ? 'Persetujuan' : 'Penolakan'}
+              </h3>
+              <p className="text-sm text-suka-gray-600 font-medium">
+                Apakah Anda yakin ingin {confirmDialog.action === 'approve' ? 'MENYETUJUI' : 'MENOLAK'} pembatalan ini?
+              </p>
+            </div>
+            <div className="p-4 bg-white flex gap-3">
+              <button
+                onClick={() => setConfirmDialog({ isOpen: false, action: null, token: '', requestId: '' })}
+                className="flex-1 py-2.5 rounded-xl border-2 border-suka-gray-200 text-suka-gray-600 font-bold hover:bg-suka-gray-50 transition-colors"
+              >
+                Kembali
+              </button>
+              <button
+                onClick={handleAction}
+                className={`flex-1 py-2.5 rounded-xl text-white font-bold transition-all shadow-sm ${
+                  confirmDialog.action === 'approve' 
+                    ? 'bg-suka-orange hover:bg-suka-orange/90 shadow-suka-orange/20 hover:shadow-suka-orange/30' 
+                    : 'bg-red-500 hover:bg-red-600 shadow-red-500/20 hover:shadow-red-500/30'
+                }`}
+              >
+                Ya, Lanjutkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

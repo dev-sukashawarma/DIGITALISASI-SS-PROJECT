@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet
@@ -258,7 +258,18 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     setLoadingShiftExpenses(false)
   }
 
+  const fetchOrdersRequestId = useRef(0)
+
   const fetchOrders = useCallback(async () => {
+    // Kustom Tanggal butuh KEDUA input terisi — kalau salah satu masih kosong
+    // (state transisi normal saat user baru pindah ke "Kustom Tanggal" atau
+    // baru isi satu input), jangan fetch sama sekali. Selain sia-sia, fetch
+    // ini tanpa bound tanggal akan menarik SELURUH riwayat order 19 outlet.
+    if (range === 'custom' && (!customStartDate || !customEndDate)) {
+      return
+    }
+
+    const requestId = ++fetchOrdersRequestId.current
     setLoading(true)
     const supabase = createClient()
 
@@ -373,6 +384,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
 
     const [ordersData, { data: shiftsData }, { data: menuItemsData }] = await Promise.all([fetchAllOrders(), qShifts, menuItemsQuery])
+
+    // Abaikan hasil fetch basi — request lebih baru (mis. user selesai memilih
+    // custom date setelah sebelumnya sempat fire fetch tanpa bound tanggal)
+    // bisa resolve lebih dulu; tanpa guard ini, respons lama yang telat datang
+    // akan menimpa balik data yang sudah benar dengan hasil unbounded.
+    if (requestId !== fetchOrdersRequestId.current) return
+
     setOrders(ordersData)
     setShifts(shiftsData ?? [])
     setMenuItems(menuItemsData ?? [])

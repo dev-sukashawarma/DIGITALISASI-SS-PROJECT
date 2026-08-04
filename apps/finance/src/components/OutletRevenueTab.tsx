@@ -23,6 +23,7 @@ export default function OutletRevenueTab() {
   
   const [viewMode, setViewMode] = useState<'ringkasan' | 'item'>('ringkasan')
   const [selectedOutletId, setSelectedOutletId] = useState('all')
+  const [selectedChannel, setSelectedChannel] = useState('all')
 
   const supabase = useMemo(() => createClient(), [])
   const { data: outlets = [] } = useOutlets()
@@ -66,7 +67,7 @@ export default function OutletRevenueTab() {
   }
 
   const { data: revenueData = [], isLoading: loadingRevenue, error: errorRevenue } = useQuery({
-    queryKey: ['outlet_revenue', startDate, endDate, selectedOutletId],
+    queryKey: ['outlet_revenue', startDate, endDate, selectedOutletId, selectedChannel],
     queryFn: async () => {
       const from = startDate
       const to = endDate
@@ -79,6 +80,10 @@ export default function OutletRevenueTab() {
       
       if (selectedOutletId !== 'all') {
         q = q.eq('outlet_id', selectedOutletId)
+      }
+      
+      if (selectedChannel !== 'all') {
+        q = q.eq('sales_source', selectedChannel)
       }
 
       const [salesRes, outletsRes] = await Promise.all([
@@ -149,7 +154,7 @@ export default function OutletRevenueTab() {
   })
   
   const { data: itemsData = [], isLoading: loadingItems, error: errorItems } = useQuery({
-    queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId],
+    queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId, selectedChannel],
     queryFn: async () => {
       const from = startDate
       const to = endDate
@@ -162,6 +167,10 @@ export default function OutletRevenueTab() {
 
       if (selectedOutletId !== 'all') {
         q = q.eq('outlet_id', selectedOutletId)
+      }
+
+      if (selectedChannel !== 'all') {
+        q = q.eq('sales_source', selectedChannel)
       }
 
       const [itemsRes, outletsRes] = await Promise.all([
@@ -278,8 +287,8 @@ export default function OutletRevenueTab() {
           </div>
         </div>
 
-        {/* Outlet Selector Card */}
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center">
+        {/* Filter Card */}
+        <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center gap-4">
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
             <select 
@@ -291,6 +300,22 @@ export default function OutletRevenueTab() {
               {outlets.map(o => (
                 <option key={o.id} value={o.id}>{o.name}</option>
               ))}
+            </select>
+          </div>
+          <div>
+            <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Channel</p>
+            <select 
+              value={selectedChannel} 
+              onChange={e => setSelectedChannel(e.target.value)}
+              className="w-full border border-suka-gray-200 rounded-xl px-4 py-2 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
+            >
+              <option value="all">Semua Channel</option>
+              <option value="offline">Offline</option>
+              <option value="gofood">GoFood</option>
+              <option value="grabfood">GrabFood</option>
+              <option value="shopeefood">ShopeeFood</option>
+              <option value="tiktok">TikTok</option>
+              <option value="tiktokgo">TikTok Go</option>
             </select>
           </div>
         </div>

@@ -16,6 +16,9 @@ export function useHppByChannel(from: string, to: string) {
   const query = useQuery<HppByChannelRow[]>({
     queryKey: ['hpp-by-channel', from, to],
     staleTime: 2 * 60_000,
+    // Rentang belum lengkap (mis. custom date baru terisi sebagian) — jangan
+    // query, karena tanpa batas tanggal RPC mengembalikan HPP sepanjang masa.
+    enabled: Boolean(from && to),
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_hpp_periode_by_channel', {
         p_from: from,

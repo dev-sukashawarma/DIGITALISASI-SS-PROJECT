@@ -208,7 +208,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       s.setDate(1)
       return { from: fmt(s), to: fmt(today) }
     }
-    if (range === 'custom' && customStartDate && customEndDate) {
+    if (range === 'custom') {
+      // Salah satu input masih kosong = rentang belum valid. Kembalikan kosong
+      // supaya query HPP di-skip; JANGAN jatuh ke fallback all-time di bawah,
+      // karena itu bikin kartu Total COGS menampilkan HPP sepanjang masa.
+      if (!customStartDate || !customEndDate) return { from: '', to: '' }
       return { from: customStartDate, to: customEndDate }
     }
     return { from: '2000-01-01', to: fmt(today) }
@@ -265,11 +269,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     // (state transisi normal saat user baru pindah ke "Kustom Tanggal" atau
     // baru isi satu input), jangan fetch sama sekali. Selain sia-sia, fetch
     // ini tanpa bound tanggal akan menarik SELURUH riwayat order 19 outlet.
+    const requestId = ++fetchOrdersRequestId.current
+
     if (range === 'custom' && (!customStartDate || !customEndDate)) {
       return
     }
 
-    const requestId = ++fetchOrdersRequestId.current
     setLoading(true)
     const supabase = createClient()
 

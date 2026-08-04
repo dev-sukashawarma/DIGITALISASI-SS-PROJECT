@@ -85,7 +85,13 @@ async function fetchHistoriOrders(
       .eq('outlet_id', outletId)
       .order('created_at', { ascending: false })
       
-    if (filter !== 'all') q = q.eq('status', filter)
+    if (filter !== 'all') {
+      if (filter === 'cancelled') {
+        q = q.or('status.eq.cancelled,cancellation_status.eq.pending_approval')
+      } else {
+        q = q.eq('status', filter)
+      }
+    }
     
     if (paymentFilter !== 'all') q = q.eq('payment_method', paymentFilter)
     if (channelFilter !== 'all') {
@@ -115,7 +121,11 @@ async function fetchHistoriOrders(
     const localList = localOrderRowsToOrders(localRows)
     const localIds = new Set(localList.map(o => o.id))
     const merged = [...localList, ...cached.filter(o => !localIds.has(o.id))]
-    let result = filter === 'all' ? merged : merged.filter(o => o.status === filter)
+    let result = filter === 'all' 
+      ? merged 
+      : (filter === 'cancelled' 
+          ? merged.filter(o => o.status === 'cancelled' || (o as any).cancellation_status === 'pending_approval')
+          : merged.filter(o => o.status === filter))
     
     if (startIso) result = result.filter(o => o.created_at >= startIso!)
     if (endIso) result = result.filter(o => o.created_at <= endIso!)
@@ -170,19 +180,19 @@ export default function AdminOrdersPage() {
   });
 
   const totalRevenue = filteredOrders
-    .filter((o) => o.status !== 'cancelled')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval')
     .reduce((s, o) => s + o.total_amount, 0)
 
   const revenueCash = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'cash')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'cash')
     .reduce((s, o) => s + o.total_amount, 0)
 
   const revenueQris = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'qris')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'qris')
     .reduce((s, o) => s + o.total_amount, 0)
 
   const revenueDebit = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && o.payment_method === 'card')
+    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'card')
     .reduce((s, o) => s + o.total_amount, 0)
 
   return (

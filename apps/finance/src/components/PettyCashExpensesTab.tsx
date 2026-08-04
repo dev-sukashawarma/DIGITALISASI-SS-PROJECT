@@ -136,8 +136,33 @@ export default function PettyCashExpensesTab() {
 
   // Calculate Outlet Petty Cash Balances
   const outletBalances = useMemo(() => {
-    return locations.filter(loc => loc.outlet_id !== null && loc.scope === 'outlet').sort((a, b) => a.label.localeCompare(b.label))
-  }, [locations])
+    const dbLocs = locations.filter(loc => loc.outlet_id !== null && loc.scope === 'outlet');
+    const dbLocOutletIds = new Set(dbLocs.map(l => l.outlet_id));
+
+    const missingOutlets = outlets
+      .filter(o => !['KANTOR PUSAT', 'GUDANG PUSAT (HQ)', 'GLOBAL OUTLET (SYSTEM)'].includes(o.name) && !dbLocOutletIds.has(o.id))
+      .map(o => ({
+        id: o.id,
+        label: o.name,
+        kind: 'cash' as const,
+        bank_name: null,
+        account_no: null,
+        holder_name: 'PIC Outlet',
+        scope: 'outlet' as const,
+        outlet_id: o.id,
+        is_active: true,
+        opening_balance: 0,
+        opening_date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        saldo: 0
+      }));
+
+    return [...dbLocs, ...missingOutlets].sort((a, b) => {
+      const nameA = a.label.replace('Kas Kecil ', '').replace('Petty Cash ', '')
+      const nameB = b.label.replace('Kas Kecil ', '').replace('Petty Cash ', '')
+      return nameA.localeCompare(nameB)
+    })
+  }, [locations, outlets])
 
   if (error) {
     return (

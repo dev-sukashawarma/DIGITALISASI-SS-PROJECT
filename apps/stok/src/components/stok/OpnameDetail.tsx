@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
+import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
 
 const TIPE_LABEL: Record<string, string> = {
   harian: 'Harian 📅',
@@ -17,9 +18,17 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const { bahanBaku, loading: bahanLoading } = useBahanBaku()
 
   const bahanMap = useMemo(() => {
-    const map: Record<string, { nama: string; satuan: string; kategori: string }> = {}
+    const map: Record<string, {
+      nama: string; satuan: string; kategori: string
+      satuan_tengah: string | null; faktor_tengah: number | null
+      satuan_kecil: string | null; faktor_tampilan: number | null
+    }> = {}
     for (const b of bahanBaku) {
-      map[b.id] = { nama: b.nama, satuan: b.satuan, kategori: b.kategori }
+      map[b.id] = {
+        nama: b.nama, satuan: b.satuan, kategori: b.kategori,
+        satuan_tengah: b.satuan_tengah, faktor_tengah: b.faktor_tengah,
+        satuan_kecil: b.satuan_kecil, faktor_tampilan: b.faktor_tampilan,
+      }
     }
     return map
   }, [bahanBaku])
@@ -148,8 +157,19 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
             const name = bahan ? bahan.nama : `Bahan ${it.bahan_baku_id.slice(0, 8)}`;
             const unit = bahan ? bahan.satuan : '';
             const category = bahan ? bahan.kategori : '';
-            
-            let qtyFisikText = it.qty_fisik !== null ? `${it.qty_fisik} ${unit}` : '-';
+
+            // qty_fisik/qty_system/selisih SELALU dalam satuan kecil (gram) --
+            // OpnameForm.calculateTotalFisik menghitungnya begitu, tanpa
+            // pengecualian (beda dari stok_balance.saldo yang campur besar/gram).
+            // Jangan tempel `unit` (satuan besar) langsung ke angka mentahnya --
+            // itu bug yang sama dengan SPVTable/CrewList sebelum diperbaiki
+            // (mis. 11278 gram tampil "11278 Kg" alih-alih "11 Kg + 278 Gram").
+            const formatGram = (qty: number) =>
+              bahan
+                ? formatTriUnitSaldoFromGram(qty, bahan.satuan, bahan.satuan_tengah, bahan.faktor_tengah, bahan.satuan_kecil, bahan.faktor_tampilan)
+                : `${qty} ${unit}`
+
+            let qtyFisikText = it.qty_fisik !== null ? formatGram(it.qty_fisik) : '-';
 
             return (
               <div
@@ -176,7 +196,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                     {name}
                   </h4>
                   <p className="text-[9px] text-[#544437]/65">
-                    Fisik: <span className="font-bold text-[#1e1b15]">{qtyFisikText}</span> • Sistem: <span className="font-semibold">{it.qty_system} {unit}</span>
+                    Fisik: <span className="font-bold text-[#1e1b15]">{qtyFisikText}</span> • Sistem: <span className="font-semibold">{formatGram(it.qty_system)}</span>
                   </p>
                   {it.catatan && (
                     <p className="text-[8px] text-gray-500 font-medium italic mt-0.5">
@@ -201,7 +221,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                           ? 'bg-orange-50 text-orange-700 border-orange-100'
                           : 'bg-green-50 text-green-700 border-green-100'
                     }`}>
-                      {it.selisih > 0 ? '+' : ''}{it.selisih} {unit}
+                      {it.selisih > 0 ? '+' : ''}{formatGram(it.selisih)}
                     </span>
                   )}
                 </div>

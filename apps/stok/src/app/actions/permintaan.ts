@@ -263,7 +263,7 @@ export async function tolakPermintaan(
 export async function fetchCrosscheckStok(
   outletId: string,
   bahanBakuIds: string[]
-): Promise<Record<string, { outletStok: number; gudangStok: number }>> {
+): Promise<Record<string, { outletStok: number; outletSaldoIsGram: boolean; gudangStok: number; gudangSaldoIsGram: boolean }>> {
   // Dipakai dari ApprovalModal yang dibuka oleh viewer maupun approver.
   // Cukup viewer-level (spv/leader/kitchen/admin/owner); approve/tolak
   // sendiri tetap memanggil requirePermintaanApprover di action-nya.
@@ -271,9 +271,9 @@ export async function fetchCrosscheckStok(
 
   if (!bahanBakuIds.length) return {}
 
-  const result: Record<string, { outletStok: number; gudangStok: number }> = {}
+  const result: Record<string, { outletStok: number; outletSaldoIsGram: boolean; gudangStok: number; gudangSaldoIsGram: boolean }> = {}
   for (const id of bahanBakuIds) {
-    result[id] = { outletStok: 0, gudangStok: 0 }
+    result[id] = { outletStok: 0, outletSaldoIsGram: false, gudangStok: 0, gudangSaldoIsGram: false }
   }
 
   const supabase = makeServiceClient()
@@ -292,10 +292,12 @@ export async function fetchCrosscheckStok(
 
     const gudangId = gudang?.id
 
-    // 2. Fetch stok outlet peminta
+    // 2. Fetch stok outlet peminta (saldo_is_gram = computed column, lihat
+    //    migration 20300105000003 -- wajib disertakan supaya modal ini tidak
+    //    menampilkan angka gram-scale seolah-olah besar-scale)
     const { data: outletStok, error: outletStokError } = await supabase
       .from('stok_balance')
-      .select('bahan_baku_id, saldo')
+      .select('bahan_baku_id, saldo, saldo_is_gram')
       .eq('outlet_id', outletId)
       .in('bahan_baku_id', bahanBakuIds)
 
@@ -304,11 +306,11 @@ export async function fetchCrosscheckStok(
     }
 
     // 3. Fetch stok gudang pusat
-    let gudangStok: { bahan_baku_id: string; saldo: number }[] = []
+    let gudangStok: { bahan_baku_id: string; saldo: number; saldo_is_gram: boolean }[] = []
     if (gudangId) {
       const { data, error: gudangStokError } = await supabase
         .from('stok_balance')
-        .select('bahan_baku_id, saldo')
+        .select('bahan_baku_id, saldo, saldo_is_gram')
         .eq('outlet_id', gudangId)
         .in('bahan_baku_id', bahanBakuIds)
 
@@ -320,11 +322,17 @@ export async function fetchCrosscheckStok(
 
     // 4. Map hasil
     outletStok?.forEach(s => {
-      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].outletStok = s.saldo
+      if (result[s.bahan_baku_id]) {
+        result[s.bahan_baku_id].outletStok = s.saldo
+        result[s.bahan_baku_id].outletSaldoIsGram = s.saldo_is_gram
+      }
     })
 
     gudangStok.forEach(s => {
-      if (result[s.bahan_baku_id]) result[s.bahan_baku_id].gudangStok = s.saldo
+      if (result[s.bahan_baku_id]) {
+        result[s.bahan_baku_id].gudangStok = s.saldo
+        result[s.bahan_baku_id].gudangSaldoIsGram = s.saldo_is_gram
+      }
     })
 
     return result

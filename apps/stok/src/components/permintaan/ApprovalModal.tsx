@@ -5,7 +5,7 @@ import { useBahanBaku } from '@/hooks/useBahanBaku'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { fetchCrosscheckStok } from '@/app/actions/permintaan'
 import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
-import { convertToDistribusiUnit, convertToBaseUnit, formatTriUnitSaldo } from '@/lib/format/compositeUnit'
+import { convertToDistribusiUnit, convertToBaseUnit, convertGramToBesar, formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -31,7 +31,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
       })))
     }
   }, [permintaan.items, bahanBaku])
-  const [crosscheckData, setCrosscheckData] = useState<Record<string, { outletStok: number; gudangStok: number }> | null>(null)
+  const [crosscheckData, setCrosscheckData] = useState<Record<string, { outletStok: number; outletSaldoIsGram: boolean; gudangStok: number; gudangSaldoIsGram: boolean }> | null>(null)
   const [isFetchingCrosscheck, setIsFetchingCrosscheck] = useState(true)
   const [calculatedMap, setCalculatedMap] = useState<Record<string, number>>({})
 
@@ -75,7 +75,9 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
       if (!crosscheckData || !crosscheckData[it.bahan_baku_id]) return false
       const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
       const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
-      return qtyDisetujuiBase > crosscheckData[it.bahan_baku_id].gudangStok
+      const cc = crosscheckData[it.bahan_baku_id]
+      const gudangStokBase = (b && cc.gudangSaldoIsGram) ? convertGramToBesar(cc.gudangStok, b) : cc.gudangStok
+      return qtyDisetujuiBase > gudangStokBase
     }
   )
   const [alasan, setAlasan] = useState('')
@@ -203,7 +205,8 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
               const distUnit = b?.satuan_distribusi || it.satuan || ''
               const qtyDiminta = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta, b)) : it.qty_diminta
               const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
-              const gudangStokBase = crosscheckData?.[it.bahan_baku_id]?.gudangStok ?? 0
+              const gudangCc = crosscheckData?.[it.bahan_baku_id]
+              const gudangStokBase = gudangCc ? ((b && gudangCc.gudangSaldoIsGram) ? convertGramToBesar(gudangCc.gudangStok, b) : gudangCc.gudangStok) : 0
               const isOverStock = crosscheckData && crosscheckData[it.bahan_baku_id] && qtyDisetujuiBase > gudangStokBase
 
               return (
@@ -221,7 +224,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
                     <p className="text-[10px] text-[#544437]/60 mt-0.5 animate-pulse">Memuat stok...</p>
                   ) : crosscheckData && crosscheckData[it.bahan_baku_id] ? (
                     <p className="text-[10px] text-[#544437] mt-0.5 font-medium">
-                      Stok Outlet: {b ? formatTriUnitSaldo(crosscheckData[it.bahan_baku_id].outletStok, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan) : `${Math.round(crosscheckData[it.bahan_baku_id].outletStok * 100) / 100} ${it.satuan ?? ''}`} | Stok Gudang: {b ? formatTriUnitSaldo(crosscheckData[it.bahan_baku_id].gudangStok, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan) : `${Math.round(crosscheckData[it.bahan_baku_id].gudangStok * 100) / 100} ${it.satuan ?? ''}`}
+                      Stok Outlet: {b ? formatTriUnitSaldoAdaptive(crosscheckData[it.bahan_baku_id].outletStok, crosscheckData[it.bahan_baku_id].outletSaldoIsGram, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan) : `${Math.round(crosscheckData[it.bahan_baku_id].outletStok * 100) / 100} ${it.satuan ?? ''}`} | Stok Gudang: {b ? formatTriUnitSaldoAdaptive(crosscheckData[it.bahan_baku_id].gudangStok, crosscheckData[it.bahan_baku_id].gudangSaldoIsGram, b.satuan, b.satuan_tengah, b.faktor_tengah, b.satuan_kecil, b.faktor_tampilan) : `${Math.round(crosscheckData[it.bahan_baku_id].gudangStok * 100) / 100} ${it.satuan ?? ''}`}
                     </p>
                   ) : (
                     <p className="text-[10px] text-[#544437]/60 mt-0.5">(Stok tidak dapat dimuat)</p>

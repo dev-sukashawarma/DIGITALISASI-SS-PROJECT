@@ -165,6 +165,19 @@ export function convertToBaseUnit(qtyDistribusi: number, b: { satuan: string; sa
 }
 
 /**
+ * stok_balance.saldo gram-scale (saldo_is_gram=true) ke satuan besar --
+ * dipakai untuk membandingkan saldo mentah terhadap qty_diminta/qty_disetujui
+ * (permintaan_bahan_item SELALU dalam satuan besar, skala berbeda dari
+ * saldo gram). faktor_tampilan = jumlah satuan_kecil dalam 1 satuan_besar
+ * (lihat formatTriUnitSaldoFromGram). Tanpa satuan_kecil, gram DAN besar
+ * adalah satuan yang sama -- tak perlu konversi.
+ */
+export function convertGramToBesar(qtyGram: number, b: { satuan_kecil?: string | null; faktor_tampilan?: number | null }): number {
+  if (b.satuan_kecil && b.faktor_tampilan) return qtyGram / b.faktor_tampilan
+  return qtyGram
+}
+
+/**
  * Root cause (2026-08-02/03): stok_balance.saldo tidak punya penanda satuan
  * per baris. formatCompositeSaldo/formatTriUnitSaldo DI ATAS mengasumsikan
  * qty sudah dalam satuan besar (Math.trunc(qty) = satuan besar) -- itu benar

@@ -121,10 +121,6 @@ export default function ShiftPage() {
   const [expAmount, setExpAmount] = useState<string>('')
   const [expDesc, setExpDesc] = useState<string>('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
-  // Topup Form
-  const [showTopupModal, setShowTopupModal] = useState(false)
-  const [topupAmount, setTopupAmount] = useState<string>('')
-  const [topupDesc, setTopupDesc] = useState<string>('')
 
   // UI State
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -165,9 +161,13 @@ export default function ShiftPage() {
     [activeShift, shiftSalesTotal],
   )
 
+  // Dana dianggap masuk laci begitu Leader menyerahkan ke crew
+  // (forwarded_by_leader), tanpa menunggu crew menekan "Terima Dana".
+  const SUDAH_DI_LACI = ['forwarded_by_leader', 'approved', 'completed']
+
   const approvedTopupsTotal = useMemo(() => {
     return topups
-      .filter((t) => t.status === 'approved' || t.status === 'completed')
+      .filter((t) => SUDAH_DI_LACI.includes(t.status))
       .reduce((sum, t) => sum + Number(t.amount), 0)
   }, [topups])
 
@@ -253,7 +253,7 @@ export default function ShiftPage() {
 
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time}`),
+          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time},leader_forwarded_at.gte.${shiftData.start_time}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_status, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('updated_at', shiftData.start_time)
         ])
 
@@ -268,10 +268,10 @@ export default function ShiftPage() {
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
 
-        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp Diterima (Sudah Tekan Terima Dana) - Pengeluaran Shift Ini
+        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp yang sudah diserahkan Leader - Pengeluaran Shift Ini
         const startPetty = Number(shiftData.starting_petty_cash) || 0
         const topupsTotal = snapTopups
-          .filter(t => t.status === 'completed' || t.status === 'approved')
+          .filter(t => SUDAH_DI_LACI.includes(t.status))
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotal = snapExpenses
           .filter(e => !e.deleted_at)
@@ -303,11 +303,13 @@ export default function ShiftPage() {
           const refTime = lastShift.end_time || lastShift.updated_at
           if (refTime) {
             const [interimTopRes, interimExpRes] = await Promise.all([
+              // completed_at kosong untuk topup yang baru diserahkan Leader,
+              // jadi patokan waktunya leader_forwarded_at.
               supabase.from('petty_cash_topups')
-                .select('amount')
+                .select('amount, completed_at, leader_forwarded_at')
                 .eq('outlet_id', outletId)
-                .in('status', ['completed', 'approved'])
-                .gt('completed_at', refTime),
+                .in('status', SUDAH_DI_LACI)
+                .or(`completed_at.gt.${refTime},leader_forwarded_at.gt.${refTime}`),
               supabase.from('petty_cash_expenses')
                 .select('amount')
                 .eq('outlet_id', outletId)
@@ -472,41 +474,6 @@ export default function ShiftPage() {
       await fetchCurrentState()
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal membatalkan pengeluaran.')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  async function handleAddTopup(e: React.FormEvent) {
-    e.preventDefault()
-    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    setErrorMsg('')
-    setSuccessMsg('')
-    setIsSubmitting(true)
-    try {
-      const amount = parseFloat(topupAmount)
-      if (isNaN(amount) || amount <= 0) throw new Error('Nominal top-up tidak valid')
-      if (!topupDesc.trim()) throw new Error('Keterangan harus diisi')
-      
-      const approvalToken = crypto.randomUUID()
-      const { data: insertedData, error } = await supabase.from('petty_cash_topups').insert({
-        outlet_id: outletId,
-        amount,
-        description: topupDesc.trim(),
-        approval_token: approvalToken,
-        created_by: (await supabase.auth.getUser()).data.user?.id
-      }).select('id').single()
-
-      if (error) throw error
-
-      setSuccessMsg('Pengajuan berhasil dikirim ke Dashboard Leader. Menunggu persetujuan.')
-
-      setTopupAmount('')
-      setTopupDesc('')
-      setShowTopupModal(false)
-      await fetchCurrentState()
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal mencatat top up')
     } finally {
       setIsSubmitting(false)
     }
@@ -850,6 +817,19 @@ export default function ShiftPage() {
                         )
                       } else if (item.type === 'topup') {
                         const top = item.data as PettyCashTopup
+                        const siapDiterima = top.status === 'forwarded_by_leader'
+                        const labelStatus: Record<string, string> = {
+                          pending: '⏳ Menunggu Review Leader',
+                          forwarded_to_area_manager: '⏳ Menunggu Review Area Manager',
+                          forwarded_to_finance: '⏳ Menunggu Pencairan Finance',
+                          approved_by_finance: `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}`,
+                          forwarded_by_finance: '🟢 Dana dipegang Area Manager',
+                          forwarded_by_area_manager: '🟢 Dana dipegang Leader',
+                          forwarded_by_leader: '✅ Sudah masuk laci — konfirmasi bila uang diterima',
+                          rejected: '❌ Ditolak',
+                        }
+                        const teksStatus = labelStatus[top.status]
+                          ?? `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`
                         return (
                           <div key={`top-${top.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${top.status === 'rejected' ? 'opacity-50' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">
@@ -859,7 +839,7 @@ export default function ShiftPage() {
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-900 truncate">{top.description}</p>
                                 <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
-                                  Top Up Petty Cash ({top.status === 'pending' ? '⏳ Menunggu Review Leader' : top.status === 'forwarded_to_area_manager' ? '⏳ Menunggu Review Area Manager' : top.status === 'forwarded_to_finance' ? '⏳ Menunggu Pencairan Finance' : top.status === 'rejected' ? '❌ Ditolak' : top.status === 'approved_by_finance' ? `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}` : `✅ Selesai${(top as any).disbursement_method ? ` - ${(top as any).disbursement_method.replace('_', ' ').toUpperCase()}` : ''}`})
+                                  Top Up Petty Cash ({teksStatus})
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{top.creator?.name ?? '—'}</span>
@@ -869,6 +849,16 @@ export default function ShiftPage() {
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
                               <span className={`text-sm font-black ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
+                              {siapDiterima && (
+                                <button
+                                  data-tour="terima-dana-btn"
+                                  onClick={() => handleReceiveFunds(top.id)}
+                                  disabled={isSubmitting}
+                                  className="text-[11px] font-bold text-white bg-emerald-600 px-3 py-1.5 rounded-md hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
+                                >
+                                  <ArrowDownToLine className="w-3 h-3" /> Terima Dana
+                                </button>
+                              )}
                               {top.proof_of_transfer_url && (
                                 <button
                                   onClick={() => setSelectedReceiptUrl(top.proof_of_transfer_url || null)}

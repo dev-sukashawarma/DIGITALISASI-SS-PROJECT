@@ -1073,7 +1073,7 @@ Logika pemotongan bertingkat (Waterfall Deduction) untuk bahan baku yang bervari
 **Status:** ✅ Kode COMPLETED — `yarn test` 23/24 (satu kegagalan pre-existing `posReportKpi.test.ts` tak terkait, jumlah sama dengan baseline sebelum fitur ini), `yarn type-check` 0 error, `yarn build` sukses (route `/dashboard/reports/pos` muncul). Migration **applied & live** di remote DB. ⚠️ Perlu **redeploy `admin-dashboard`**.
 
 ### Fitur
-Dropdown **"SS Online"** (TikTok Shop, Shopee) ditambahkan di Rangkuman Penjualan (`/dashboard/reports/pos`), didukung 2 outlet virtual (`type='marketplace'` di tabel `outlets`) yang reuse skema `orders`/`order_items` existing — logika KPI/tabel identik dengan outlet fisik. Saat ini kosong (belum ada pipeline import).
+Dropdown **"SS Online"** (TikTok Shop, Shopee) ditambahkan di Rangkuman Penjualan (`/dashboard/reports/pos`), didukung 2 outlet virtual (`type='marketplace'` di tabel `outlets`) yang reuse skema `orders`/`order_items` existing — logika KPI/tabel identik dengan outlet fisik. Kedua outlet virtual ini sudah ada & bisa di-query, tapi nol baris `orders` sampai ada mekanisme import.
 
 ### Implementasi
 - **Migration `20260805100000_marketplace_virtual_outlets.sql`** — applied & live di remote.
@@ -1084,9 +1084,12 @@ Dropdown **"SS Online"** (TikTok Shop, Shopee) ditambahkan di Rangkuman Penjuala
 Value `sales_source` untuk Shopee adalah **`'shopee_shop'`**, bukan `'shopee'` seperti di spec awal — `'shopee'` sudah dipakai sebagai alias `getChannel()` untuk channel delivery ShopeeFood, jadi dipakai nama berbeda untuk hindari tabrakan.
 
 ### ⚠️ Belum dikerjakan (sengaja di luar scope sesi ini)
-1. **Audit lintas-app** — `stok`/`absensi`/`distribusi` query tabel `outlets` bersama tanpa filter `type != 'marketplace'`; berpotensi 2 outlet virtual ini bocor ke dropdown outlet app lain. Belum diverifikasi.
+1a. **admin-dashboard sendiri — RESOLVED** (final review fix pass, sesi sama): `useOutlets.ts` dipakai ~14 halaman/komponen operasional (manajemen outlet, staff, absensi, target-harian, dll) tanpa filter `type` → 2 outlet virtual live sempat bocor ke sana. **Fix:** tambah `.neq('type', 'marketplace')` di `useOutlets.ts`.
+1b. **App lain — MASIH TERBUKA, belum diaudit.** `stok`/`absensi`/`distribusi`/`pos-kasir`/`finance`/`manager`/`owner-dashboard` masing-masing punya `useOutlets.ts`/kode query outlet SENDIRI (tidak disentuh fix di atas) — risiko bocor 2 outlet virtual ke dropdown outlet app lain tetap ada & belum diverifikasi satu per satu.
 2. **Halaman `/dashboard/marketplace-import`** + parser Excel/CSV per-platform belum dibuat — menunggu contoh file laporan asli dari Seller Center TikTok Shop & Shopee.
 3. **Smoke test browser manual** dropdown "SS Online" — belum dijalankan sesi ini (tak ada browser tersedia); langkah manual sudah terdokumentasi di plan.
+4. **Keputusan terbuka untuk sesi import:** apakah revenue marketplace boleh ikut ke KPI Owner Dashboard / Target Harian / outlet leaderboard. Saat ini semua itu agregasi `orders` by `outlet_id` TANPA filter `type` — begitu import jalan, revenue marketplace OTOMATIS ikut ke situ kecuali ada keputusan eksplisit sebaliknya. Belum diputuskan, jangan diasumsikan salah satu arah.
+5. **Constraint wajib untuk importer masa depan:** tulis `orders.channel` = NULL atau eksplisit `'shopee_shop'`/`'tiktok_shop'` saja. Kalau importer menulis `channel = 'shopee'`, `resolveOrderSource()` (`src/lib/order-source.ts`) resolve `channel` SEBELUM `sales_source` → kena alias `'shopee'` lama → order salah label jadi ShopeeFood delivery, menghidupkan lagi tabrakan nama yang justru dihindari dengan memilih nama `shopee_shop`.
 
 ### Artefak
 - Spec: `docs/superpowers/specs/2026-08-05-marketplace-sales-outlet-design.md`

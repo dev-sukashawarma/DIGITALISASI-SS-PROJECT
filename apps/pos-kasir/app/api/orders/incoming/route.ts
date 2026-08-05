@@ -125,9 +125,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Outlet tidak ditemukan' }, { status: 400 })
   }
 
-  const { data: order, error: orderError } = await supabaseService
-    .from('orders')
-    .insert({
+  // Buat order dan items secara atomic
+  const { data: order, error: orderError } = await supabaseService.rpc('atomic_insert_order', {
+    p_order: {
       outlet_id: pos_outlet_id,
       customer_name,
       customer_phone,
@@ -138,9 +138,15 @@ export async function POST(request: Request) {
       source: 'online',
       sales_source: 'online',
       external_order_id,
-    })
-    .select('id, order_number')
-    .single()
+    },
+    p_items: items.map((item) => ({
+      menu_item_id: null,
+      menu_item_name: item.menu_item_name,
+      quantity: item.quantity,
+      unit_price: item.unit_price,
+      subtotal: item.subtotal,
+    }))
+  })
 
   if (orderError || !order) {
     if ((orderError as any)?.code === '23505') {
@@ -160,23 +166,6 @@ export async function POST(request: Request) {
     }
     console.error('Gagal membuat order dari order-system:', orderError)
     return NextResponse.json({ error: 'Gagal membuat pesanan' }, { status: 500 })
-  }
-
-  const { error: itemsError } = await supabaseService.from('order_items').insert(
-    items.map((item) => ({
-      order_id: order.id,
-      menu_item_id: null,
-      menu_item_name: item.menu_item_name,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      subtotal: item.subtotal,
-    }))
-  )
-
-  if (itemsError) {
-    console.error('Gagal menyimpan item order online:', itemsError)
-    await supabaseService.from('orders').delete().eq('id', order.id)
-    return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
   }
 
   return NextResponse.json({

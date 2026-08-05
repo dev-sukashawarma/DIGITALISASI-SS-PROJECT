@@ -141,53 +141,18 @@ export async function POST(request: Request) {
     updated_at: body.created_at,
   }
 
-  let order: { id: string; order_number: number } | null = null
-  let orderError: any = null
-
-  {
-    const res = await supabaseService
-      .from('orders')
-      .insert(fullPayload)
-      .select('id, order_number')
-      .single()
-    order = res.data
-    orderError = res.error
-  }
-
-  if (orderError && (orderError.code === '42703' || orderError.code === 'PGRST204')) {
-    const errorMsg = orderError.message || ''
-    const fallbackPayload = { ...fullPayload }
-    let shouldRetry = false
-
-    if (/amount_received/i.test(errorMsg) || /change_amount/i.test(errorMsg)) {
-      delete (fallbackPayload as any).amount_received
-      delete (fallbackPayload as any).change_amount
-      shouldRetry = true
-    }
-    
-    if (/client_order_id/i.test(errorMsg)) {
-      delete (fallbackPayload as any).client_order_id
-      shouldRetry = true
-    }
-
-    if (orderError.code === 'PGRST204' && !shouldRetry) {
-      delete (fallbackPayload as any).amount_received
-      delete (fallbackPayload as any).change_amount
-      delete (fallbackPayload as any).client_order_id
-      shouldRetry = true
-    }
-
-    if (shouldRetry) {
-      console.warn('offline-ingest: Kolom baru belum ada di DB atau schema cache usang. Insert dengan fallback payload.')
-      const retryRes = await supabaseService
-        .from('orders')
-        .insert(fallbackPayload)
-        .select('id, order_number')
-        .single()
-      order = retryRes.data
-      orderError = retryRes.error
-    }
-  }
+  // Buat order dan items secara atomic
+  const { data: order, error: orderError } = await supabaseService.rpc('atomic_insert_order', {
+    p_order: fullPayload,
+    p_items: body.items.map((it) => ({
+      menu_item_id: it.menu_item_id,
+      menu_item_name: it.menu_item_name,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+      subtotal: it.subtotal,
+      package_choices: it.package_choices ?? null,
+    }))
+  })
 
   if (orderError || !order) {
     // 23505 = unique_violation. Bisa terjadi kalau dua percobaan berlomba;
@@ -209,24 +174,6 @@ export async function POST(request: Request) {
     }
     console.error('offline-ingest: gagal insert order', orderError)
     return NextResponse.json({ error: 'Gagal menyimpan pesanan offline' }, { status: 500 })
-  }
-
-  const { error: itemsError } = await supabaseService.from('order_items').insert(
-    body.items.map((it) => ({
-      order_id: order.id,
-      menu_item_id: it.menu_item_id,
-      menu_item_name: it.menu_item_name,
-      quantity: it.quantity,
-      unit_price: it.unit_price,
-      subtotal: it.subtotal,
-      package_choices: it.package_choices ?? null,
-    }))
-  )
-
-  if (itemsError) {
-    console.error('offline-ingest: gagal insert items', itemsError)
-    await supabaseService.from('orders').delete().eq('id', order.id)
-    return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
   }
 
   return NextResponse.json({

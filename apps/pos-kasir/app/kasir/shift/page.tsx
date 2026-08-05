@@ -777,7 +777,6 @@ export default function CashierShiftPage() {
                           approved_by_finance: `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}`,
                           forwarded_by_finance: '🟢 Dana dipegang Area Manager',
                           forwarded_by_area_manager: '🟢 Dana dipegang Leader',
-                          forwarded_by_leader: '✅ Sudah masuk laci',
                           rejected: '❌ Ditolak',
                         }
                         const teksStatus = labelStatus[top.status]
@@ -785,12 +784,12 @@ export default function CashierShiftPage() {
                         return (
                           <div key={`top-${top.id}-${idx}`} className={`p-4 flex items-start justify-between gap-3 hover:bg-gray-50 ${top.status === 'rejected' ? 'opacity-50' : ''}`}>
                             <div className="flex items-start gap-3 min-w-0">
-                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'bg-amber-50 text-amber-500' : top.status === 'rejected' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-500'}`}>
+                              <div className={`shrink-0 w-11 h-11 rounded-lg flex items-center justify-center ${top.status === 'pending' || (top.status.startsWith('forwarded_') && top.status !== 'forwarded_by_leader') || top.status === 'approved_by_finance' ? 'bg-amber-50 text-amber-500' : top.status === 'rejected' ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-500'}`}>
                                 <ArrowDownToLine className="w-5 h-5" />
                               </div>
                               <div className="min-w-0">
                                 <p className="text-sm font-bold text-gray-900 truncate">{top.description}</p>
-                                <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
+                                <p className={`text-[11px] font-semibold uppercase mt-0.5 ${top.status === 'pending' || (top.status.startsWith('forwarded_') && top.status !== 'forwarded_by_leader') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-red-500' : 'text-blue-500'}`}>
                                   Top Up Petty Cash ({teksStatus})
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">

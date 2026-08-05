@@ -718,6 +718,7 @@ function gagalText(reason: string): string {
     too_early_out: "Belum waktunya absen pulang",
     gps_accuracy_low: "Akurasi GPS terlalu rendah — aktifkan Lokasi Akurat",
     shift_not_closed: "Shift kasir belum ditutup",
+    unfinished_orders: "Masih ada pesanan yang belum selesai di outlet ini",
   };
   return map[reason] ?? `Gagal: ${reason}`;
 }

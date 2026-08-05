@@ -29,8 +29,8 @@ export default function MarketplaceFilter({
   }, [])
 
   const selectedName = selectedOutlet === 'all'
-    ? 'Semua Platform Online'
-    : platforms.find(p => p.id === selectedOutlet)?.name || 'Semua Platform Online'
+    ? 'SS Online'
+    : platforms.find(p => p.id === selectedOutlet)?.name || 'SS Online'
 
   return (
     <div className={`relative z-50 ${className}`} ref={dropdownRef}>

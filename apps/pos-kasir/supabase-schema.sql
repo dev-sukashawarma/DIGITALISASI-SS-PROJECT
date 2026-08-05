@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
 CREATE TABLE IF NOT EXISTS orders (
   id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   outlet_id      UUID          NOT NULL REFERENCES outlets(id) ON DELETE CASCADE,
-  order_number   SERIAL        UNIQUE,        -- nomor antrian otomatis
+  order_number   INT,                   -- nomor antrian otomatis per outlet (diisi via trigger)
   customer_name  TEXT,
   status         TEXT          DEFAULT 'pending'
                                CHECK (status IN ('pending','preparing','ready','completed','cancelled')),
@@ -236,3 +236,29 @@ DROP POLICY IF EXISTS "Admin can upload kiosk assets" ON storage.objects;
 
 CREATE POLICY "Public can view kiosk assets" ON storage.objects FOR SELECT USING (bucket_id = 'kiosk-assets');
 CREATE POLICY "Admin can upload kiosk assets" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'kiosk-assets' AND get_user_role() IN ('admin', 'crew', 'leader'));
+-- ============================================================
+-- TRIGGER: ASSIGN ORDER NUMBER PER OUTLET
+-- ============================================================
+CREATE OR REPLACE FUNCTION assign_order_number_fn()
+RETURNS TRIGGER AS $DO$
+DECLARE
+  next_num INT;
+BEGIN
+  IF NEW.order_number IS NULL THEN
+    SELECT COALESCE(MAX(order_number), 0) + 1 INTO next_num
+    FROM orders
+    WHERE outlet_id = NEW.outlet_id
+      AND DATE(created_at AT TIME ZONE 'Asia/Jakarta') = DATE(NEW.created_at AT TIME ZONE 'Asia/Jakarta');
+      
+    NEW.order_number := next_num;
+  END IF;
+  
+  RETURN NEW;
+END;
+$DO$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_assign_order_number ON orders;
+CREATE TRIGGER trigger_assign_order_number
+BEFORE INSERT ON orders
+FOR EACH ROW
+EXECUTE FUNCTION assign_order_number_fn();

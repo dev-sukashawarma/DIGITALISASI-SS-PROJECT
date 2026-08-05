@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "next dev -p 3005",
     "build": "next build",
+    "build:cpanel": "RAYON_NUM_THREADS=1 UV_THREADPOOL_SIZE=1 NEXT_PRIVATE_MAX_WORKERS=1 next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",

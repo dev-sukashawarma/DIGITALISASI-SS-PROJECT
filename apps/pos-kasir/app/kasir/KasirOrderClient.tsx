@@ -690,11 +690,14 @@ export default function KasirOrderClient({
 
   const orders = useMemo(() => {
     const rawOrders = [...localOrders, ...serverOrders.filter(o => !localOrderIds.has(o.id))];
+    const startOfToday = new Date().setHours(0, 0, 0, 0);
 
-    return rawOrders.map(o => {
-      if ((o as any)._parsedItems) return o as ParsedOrder;
-      return parseOrderData(o);
-    });
+    return rawOrders
+      .filter(o => new Date(o.created_at).getTime() >= startOfToday || o.status === 'pending' || o.status === 'preparing')
+      .map(o => {
+        if ((o as any)._parsedItems) return o as ParsedOrder;
+        return parseOrderData(o);
+      });
   }, [localOrders, localOrderIds, serverOrders])
 
   // Web Push Subscription

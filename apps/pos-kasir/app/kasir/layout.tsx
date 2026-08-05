@@ -7,6 +7,7 @@ import BriefingBanner from '@/components/BriefingBanner'
 import NetworkIndicator from '@/components/NetworkIndicator'
 import OfflineSyncManager from '@/components/OfflineSyncManager'
 import OfflineWarmup from '@/components/OfflineWarmup'
+import ShiftBlockerMount from '@/components/ShiftBlockerMount'
 import PrinterBlockerMount from '@/components/PrinterBlockerMount'
 import PrinterPresence from '@/components/PrinterPresence'
 import LocationPresence from '@/components/LocationPresence'
@@ -21,6 +22,7 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
       <OfflineSyncManager />
       <OfflineWarmup />
       <OnlineOrderSync />
+      <ShiftBlockerMount />
       <PrinterBlockerMount />
       <PrinterPresence />
       <LocationPresence />

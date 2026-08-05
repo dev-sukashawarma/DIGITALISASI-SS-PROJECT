@@ -64,7 +64,21 @@ Deno.serve(async (req) => {
       .select("outlet_id, face_descriptor")
       .eq("id", body.outlet_staff_id).single();
     if (!target) return json(404, { ok: false, reason: "staff_not_found" });
-    if (target.outlet_id !== body.outlet_id) return json(403, { ok: false, reason: "cross_outlet" });
+
+    if (target.outlet_id !== body.outlet_id) {
+      // Periksa apakah user memiliki akses ke outlet ini melalui staff_outlets
+      const { data: allowed } = await admin
+        .from("staff_outlets")
+        .select("outlet_id")
+        .eq("staff_id", body.outlet_staff_id)
+        .eq("outlet_id", body.outlet_id)
+        .maybeSingle();
+
+      if (!allowed) {
+        return json(403, { ok: false, reason: "cross_outlet" });
+      }
+    }
+    
     if (!target.face_descriptor) return json(422, { ok: false, reason: "not_enrolled" });
 
     // Validasi radius GPS server-side ketat 4 meter

@@ -9,6 +9,8 @@ const MAP: Record<SalesSource, ChannelGroup> = {
   shopeefood: 'foodapps',
   grabfood: 'foodapps',
   tiktok: 'tiktok',
+  tiktok_shop: 'tiktok',
+  shopee_shop: 'online',
 }
 
 /** Kelompokkan sales_source jadi 4 grup channel untuk laporan Rekap Bulanan. Nilai tak dikenal jatuh ke 'offline' (sama seperti default POS Kasir di resolveOrderSource). */

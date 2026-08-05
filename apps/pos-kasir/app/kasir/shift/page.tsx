@@ -799,7 +799,7 @@ export default function CashierShiftPage() {
                               </div>
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
-                              <span className={`text-sm font-black ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
+                              <span className={`text-sm font-black ${top.status === 'pending' || (top.status.startsWith('forwarded_') && top.status !== 'forwarded_by_leader') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
                               {top.proof_of_transfer_url && (
                                 <button
                                   onClick={() => setSelectedReceiptUrl(top.proof_of_transfer_url || null)}

@@ -9,7 +9,9 @@ const MAP: Record<SalesSource, ChannelGroup> = {
   shopeefood: 'foodapps',
   grabfood: 'foodapps',
   tiktok: 'tiktok',
-  tiktok_shop: 'tiktok',
+  // Marketplace (e-commerce) sales are a different revenue stream from food-delivery/POS
+  // channels — must NOT be conflated with the existing 'tiktok' (TikTok Go delivery) bucket.
+  tiktok_shop: 'online',
   shopee_shop: 'online',
 }
 

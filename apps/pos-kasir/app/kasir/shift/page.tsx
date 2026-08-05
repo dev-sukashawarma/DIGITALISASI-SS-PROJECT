@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Wallet, LogIn, LogOut, Receipt, PlusCircle, AlertTriangle, CheckCircle2, Loader2, User, Clock, Banknote, ArrowDownToLine, Calculator, Lock, X, Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -12,7 +12,6 @@ import { useDialogStore } from '@/lib/dialogStore'
 import { db } from '@/lib/db'
 import { useNetworkStatus } from '@/lib/useNetworkStatus'
 import { postToNative, isRunningInWebView, compressImageToWebP } from '@suka/design-system'
-import PettyCashSpotlightTour from '@/components/PettyCashSpotlightTour'
 
 interface Shift {
   id: string
@@ -92,12 +91,11 @@ const CATEGORY_LABEL: Record<string, string> = {
   lainnya: 'Lainnya',
 }
 
-export default function ShiftPage() {
+export default function CashierShiftPage() {
   const { showConfirm, showPrompt, showAlert } = useDialogStore()
   const { outletId, outletRegion } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const isOnline = useNetworkStatus()
   
   const [loading, setLoading] = useState(true)
@@ -108,10 +106,6 @@ export default function ShiftPage() {
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
   
-  // Spotlight Tour state
-  const [showSpotlightTour, setShowSpotlightTour] = useState(false)
-  const [tourTopupInfo, setTourTopupInfo] = useState<{ amount?: number; description?: string }>({})
-
   // Forms
   const [startingPettyCash, setStartingPettyCash] = useState<string>('')
   const [pettyCashLocked, setPettyCashLocked] = useState(false)
@@ -128,26 +122,6 @@ export default function ShiftPage() {
   const [successMsg, setSuccessMsg] = useState('')
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
   const [visibleLedgerCount, setVisibleLedgerCount] = useState(20)
-
-  useEffect(() => {
-    const tourParam = searchParams.get('tour')
-    if (tourParam === 'terima-dana') {
-      const timer = setTimeout(() => {
-        setShowSpotlightTour(true)
-      }, 600)
-      return () => clearTimeout(timer)
-    }
-
-    const handleCustomTourEvent = (e: any) => {
-      if (e.detail) {
-        setTourTopupInfo({ amount: e.detail.amount, description: e.detail.description })
-      }
-      setShowSpotlightTour(true)
-    }
-
-    window.addEventListener('start-petty-cash-tour', handleCustomTourEvent)
-    return () => window.removeEventListener('start-petty-cash-tour', handleCustomTourEvent)
-  }, [searchParams])
 
   const shiftSalesTotal = useMemo(
     () => cashOrders
@@ -479,27 +453,6 @@ export default function ShiftPage() {
     }
   }
 
-  async function handleReceiveFunds(id: string) {
-    if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    const confirmed = await showConfirm('Anda yakin telah menerima fisik uang tersebut sejumlah pengajuan?')
-    if (!confirmed) return
-
-    setErrorMsg('')
-    setSuccessMsg('')
-    setIsSubmitting(true)
-    try {
-      const { error } = await supabase.rpc('crew_receive_funds', { p_topup_id: id })
-      if (error) throw error
-
-      setSuccessMsg('Uang berhasil diterima dan Petty Cash bertambah.')
-      await fetchCurrentState()
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Gagal konfirmasi penerimaan dana')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto pb-12 animate-in fade-in">
@@ -817,7 +770,6 @@ export default function ShiftPage() {
                         )
                       } else if (item.type === 'topup') {
                         const top = item.data as PettyCashTopup
-                        const siapDiterima = top.status === 'forwarded_by_leader'
                         const labelStatus: Record<string, string> = {
                           pending: '⏳ Menunggu Review Leader',
                           forwarded_to_area_manager: '⏳ Menunggu Review Area Manager',
@@ -825,7 +777,7 @@ export default function ShiftPage() {
                           approved_by_finance: `🟢 Dana dipegang ${outletRegion?.toUpperCase() === 'BOGOR' ? 'Leader' : 'Area Manager'}`,
                           forwarded_by_finance: '🟢 Dana dipegang Area Manager',
                           forwarded_by_area_manager: '🟢 Dana dipegang Leader',
-                          forwarded_by_leader: '✅ Sudah masuk laci — konfirmasi bila uang diterima',
+                          forwarded_by_leader: '✅ Sudah masuk laci',
                           rejected: '❌ Ditolak',
                         }
                         const teksStatus = labelStatus[top.status]
@@ -849,16 +801,6 @@ export default function ShiftPage() {
                             </div>
                             <div className="flex flex-col items-end shrink-0 gap-1.5">
                               <span className={`text-sm font-black ${top.status === 'pending' || top.status.startsWith('forwarded_') || top.status === 'approved_by_finance' ? 'text-amber-500' : top.status === 'rejected' ? 'text-gray-400 line-through' : 'text-blue-600'}`}>+{formatRupiah(top.amount)}</span>
-                              {siapDiterima && (
-                                <button
-                                  data-tour="terima-dana-btn"
-                                  onClick={() => handleReceiveFunds(top.id)}
-                                  disabled={isSubmitting}
-                                  className="text-[11px] font-bold text-white bg-emerald-600 px-3 py-1.5 rounded-md hover:bg-emerald-700 disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
-                                >
-                                  <ArrowDownToLine className="w-3 h-3" /> Terima Dana
-                                </button>
-                              )}
                               {top.proof_of_transfer_url && (
                                 <button
                                   onClick={() => setSelectedReceiptUrl(top.proof_of_transfer_url || null)}
@@ -950,16 +892,6 @@ export default function ShiftPage() {
             </button>
           </div>
         </div>
-      )}
-
-      {/* Spotlight Tour for Terima Dana button */}
-      {showSpotlightTour && (
-        <PettyCashSpotlightTour
-          targetSelector='[data-tour="terima-dana-btn"]'
-          amount={tourTopupInfo.amount}
-          description={tourTopupInfo.description}
-          onClose={() => setShowSpotlightTour(false)}
-        />
       )}
     </div>
   )

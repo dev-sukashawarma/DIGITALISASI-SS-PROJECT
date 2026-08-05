@@ -435,6 +435,11 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                     </td>
                     <td className="py-3 px-5 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1.5">
+                        {req.status === 'forwarded_to_area_manager' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc AM
+                          </span>
+                        )}
                         {req.status === 'forwarded_to_finance' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
                             <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc Finance

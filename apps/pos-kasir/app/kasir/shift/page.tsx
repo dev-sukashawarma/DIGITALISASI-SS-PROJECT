@@ -62,6 +62,8 @@ interface CashOrder {
   created_at: string
   payment_method: string
   channel: string | null
+  status: string
+  cancellation_status?: string | null
 }
 
 type LedgerItem = 
@@ -91,7 +93,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 }
 
 export default function ShiftPage() {
-  const { showConfirm } = useDialogStore()
+  const { showConfirm, showPrompt, showAlert } = useDialogStore()
   const { outletId, outletRegion } = useMyOutlet()
   const supabase = createClient()
   const router = useRouter()
@@ -449,10 +451,10 @@ export default function ShiftPage() {
 
   async function handleVoidExpense(id: string) {
     if (!isOnline) { setErrorMsg(OFFLINE_MSG); return }
-    const reason = window.prompt('Masukkan alasan pembatalan pengeluaran:')
+    const reason = await showPrompt('Masukkan alasan pembatalan pengeluaran:', 'Pembatalan Pengeluaran')
     if (reason === null) return // User cancelled
     if (!reason.trim()) {
-      window.alert('Alasan pembatalan harus diisi!')
+      await showAlert('Alasan pembatalan harus diisi!', 'Peringatan')
       return
     }
 

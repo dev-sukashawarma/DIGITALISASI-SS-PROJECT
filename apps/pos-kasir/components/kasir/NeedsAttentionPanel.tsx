@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { AlertTriangle, RotateCw, Trash2 } from 'lucide-react';
 import { db } from '@/lib/db';
 import { deleteLocalOrder, retryLocalOrderSync } from '@/lib/offline';
+import { useDialogStore } from '@/lib/dialogStore';
 
 /**
  * Pesanan offline yang ditolak server secara permanen.
@@ -13,6 +14,7 @@ import { deleteLocalOrder, retryLocalOrderSync } from '@/lib/offline';
  * memutuskan mengirim ulang atau membatalkan.
  */
 export default function NeedsAttentionPanel({ outletId }: { outletId: string }) {
+  const { showConfirm } = useDialogStore();
   const stuck = useLiveQuery(
     () =>
       db.local_orders
@@ -59,8 +61,9 @@ export default function NeedsAttentionPanel({ outletId }: { outletId: string }) 
                 Coba Lagi
               </button>
               <button
-                onClick={() => {
-                  if (confirm('Hapus pesanan ini dari perangkat? Awas: riwayat transaksi ini akan hilang.')) {
+                onClick={async () => {
+                  const confirmed = await showConfirm('Hapus pesanan ini dari perangkat? Awas: riwayat transaksi ini akan hilang.', 'Perhatian');
+                  if (confirmed) {
                     deleteLocalOrder(order.id);
                   }
                 }}

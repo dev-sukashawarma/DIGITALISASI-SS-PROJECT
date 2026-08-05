@@ -239,7 +239,12 @@ export async function POST(request: Request) {
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
   const recordedDiscount = globalDiscount + itemDiscountTotal
-  const mappedSource = body.channel === 'tiktokgo' ? 'tiktok' : body.channel;
+  // 'tiktokgo' (id lokal) & 'website' (mode backup order website/WA) tidak ada di
+  // CHECK constraint sales_source — dipetakan ke nilai kanoniknya dulu. Tanpa ini
+  // order website backup jatuh ke 'pos' dan hilang dari filter/laporan Website Online.
+  const mappedSource = body.channel === 'tiktokgo' ? 'tiktok'
+    : body.channel === 'website' ? 'online'
+    : body.channel;
   const validSalesSource = ['pos','online','gofood','grabfood','shopeefood','tiktok'].includes(mappedSource) ? mappedSource : 'pos';
 
   const baseOrder = {

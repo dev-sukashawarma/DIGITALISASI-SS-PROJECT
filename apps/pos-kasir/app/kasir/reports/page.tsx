@@ -14,7 +14,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
-import ChannelBadge from '@/components/ChannelBadge'
+import OrderSourceBadge from '@/components/OrderSourceBadge'
+import { applyChannelFilter } from '@/lib/channel-filter'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import { fetchAnalyticsData } from './actions'
@@ -156,17 +157,7 @@ async function fetchPaginatedOrders(
     if (paymentFilter !== 'all') {
       q = q.eq('payment_method', paymentFilter)
     }
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'offline') {
-        q = q.is('channel', null)
-      } else if (channelFilter === 'food_apps') {
-        q = q.in('channel', ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go'])
-      } else if (channelFilter === 'tiktokgo' || channelFilter === 'tiktok') {
-        q = q.in('channel', ['tiktokgo', 'tiktok', 'tiktok_go'])
-      } else {
-        q = q.eq('channel', channelFilter)
-      }
-    }
+    q = applyChannelFilter(q, channelFilter)
 
     if (search.trim()) {
       const s = search.trim()
@@ -442,6 +433,7 @@ export default function ReportsPage() {
             <option value="all">Semua Channel</option>
             <option value="food_apps">Semua Food Apps</option>
             <option value="offline">POS Kasir (Walk-in)</option>
+            <option value="website">Website Online</option>
             <option value="gofood">GoFood</option>
             <option value="grabfood">GrabFood</option>
             <option value="shopeefood">ShopeeFood</option>
@@ -970,11 +962,11 @@ export default function ReportsPage() {
                           )}
                         </td>
                         <td className="px-5 py-4">
-                          {order.channel ? (
-                            <ChannelBadge channel={order.channel} size="sm" />
-                          ) : (
-                            <span className="text-gray-400 text-xs">-</span>
-                          )}
+                          <OrderSourceBadge
+                            channel={order.channel}
+                            salesSource={order.sales_source}
+                            size="sm"
+                          />
                         </td>
                         <td className="px-5 py-4">
                           <span className="px-2.5 py-1 bg-blue-50 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase">

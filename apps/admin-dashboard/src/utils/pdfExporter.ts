@@ -6,7 +6,7 @@ const loadImage = (url: string): Promise<HTMLImageElement> => {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => resolve(img);
-    img.onerror = (e) => reject(new Error('Load image error: ' + url));
+    img.onerror = () => reject(new Error('Load image error: ' + url));
     img.src = url;
   });
 }

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { fetchUsersGlobal, changeUserRoleGlobal, moveUserOutletGlobal } from '../actions/userActions'
-import { Search, ShieldAlert, UserCog, Building2, Save, Loader2, CheckCircle2 } from 'lucide-react'
+import { Search, UserCog, Building2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Role } from '@suka/auth'

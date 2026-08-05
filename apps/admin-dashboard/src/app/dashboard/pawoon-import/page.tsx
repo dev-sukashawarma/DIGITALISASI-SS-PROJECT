@@ -946,7 +946,7 @@ export default function PawoonImportPage() {
                     </div>
                     <div className="p-6 bg-gray-50 flex justify-end">
                         <button 
-                            onClick={handleSync}
+                            onClick={() => handleSync()}
                             disabled={isLoading || (previewResult.summary.transactionsToInsert === 0 && (previewResult.summary.voidStatusUpdates || 0) === 0)}
                             className={`${previewResult.summary.transactionsToInsert === 0 && (previewResult.summary.voidStatusUpdates || 0) === 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 shadow-sm shadow-green-200 active:scale-95'} text-white px-8 py-3 rounded-xl font-bold transition-all flex flex-col items-center justify-center`}
                         >

@@ -1,7 +1,7 @@
 'use client'
 
 import { ServerError } from '@suka/design-system'
-import { useEffect } from 'react'
+
 import './globals.css'
 
 export default function GlobalError({

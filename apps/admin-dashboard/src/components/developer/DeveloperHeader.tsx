@@ -1,7 +1,7 @@
 'use client'
 
 import { Bell, Search, Menu } from 'lucide-react'
-import { motion } from 'framer-motion'
+
 
 export const DeveloperHeader = () => {
   return (

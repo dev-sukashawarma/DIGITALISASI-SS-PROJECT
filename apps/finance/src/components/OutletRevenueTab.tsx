@@ -27,6 +27,7 @@ interface SalesItemRow {
   menu_item_name: string | null
   total_qty: number | null
   total_revenue: number | null
+  is_endorse: boolean | null
 }
 
 const ITEMS_PER_PAGE = 50;
@@ -185,7 +186,7 @@ export default function OutletRevenueTab() {
       const buildItemsQuery = () => {
         let q = supabase
           .from('sales_items_spv')
-          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue', { count: 'exact' })
+          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue, is_endorse', { count: 'exact' })
           .gte('sales_date', from)
           .lte('sales_date', to)
           .order('sales_date')
@@ -207,7 +208,7 @@ export default function OutletRevenueTab() {
       const nameMap = new Map<string, string>()
       outlets.forEach(o => nameMap.set(o.id, o.name))
 
-      const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
+      const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; isEndorse: boolean | null; totalQty: number; totalRevenue: number }>()
 
       itemRows.forEach(s => {
         const date = s.sales_date || 'Unknown Date'
@@ -221,7 +222,7 @@ export default function OutletRevenueTab() {
           cleanName = cleanName.substring(0, idIndex).trim()
         }
 
-        const key = `${date}-${outletId}-${channel}-${cleanName}`
+        const key = `${date}-${outletId}-${channel}-${cleanName}-${s.is_endorse}`
         
         const existing = aggMap.get(key)
         if (existing) {
@@ -234,6 +235,7 @@ export default function OutletRevenueTab() {
             outletName,
             channel,
             itemName: cleanName,
+            isEndorse: s.is_endorse,
             totalQty: Number(s.total_qty || 0),
             totalRevenue: Number(s.total_revenue || 0)
           })
@@ -588,7 +590,14 @@ export default function OutletRevenueTab() {
                             {item.channel}
                           </td>
                           <td className="py-3 px-5 font-medium text-suka-ink">
-                            {item.itemName}
+                            <div className="flex items-center gap-2">
+                              {item.itemName}
+                              {item.isEndorse && (
+                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-200">
+                                  ENDORSE
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="py-3 px-5 text-right font-medium text-suka-gray-600">
                             {formatNumber(item.totalQty)}

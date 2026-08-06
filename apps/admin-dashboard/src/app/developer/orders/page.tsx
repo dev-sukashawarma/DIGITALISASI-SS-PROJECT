@@ -121,9 +121,16 @@ export default function GlobalOrdersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-1">
-                        <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold w-fit">
-                          {order.payment_method || 'Unknown'}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold w-fit">
+                            {order.payment_method || 'Unknown'}
+                          </span>
+                          {order.is_endorse && (
+                            <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-bold w-fit border border-orange-200 shadow-sm whitespace-nowrap">
+                              ENDORSE
+                            </span>
+                          )}
+                        </div>
                         <span className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
                           {order.order_source || 'Unknown'}
                         </span>

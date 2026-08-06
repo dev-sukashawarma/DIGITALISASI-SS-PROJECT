@@ -227,6 +227,7 @@ export async function POST(request: Request) {
     source: 'pos',
     channel: null,
     sales_source: 'pos',
+    is_endorse: body.is_endorse,
   }
 
   // Payload insert lengkap

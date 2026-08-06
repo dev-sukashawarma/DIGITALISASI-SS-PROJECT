@@ -2,8 +2,9 @@
 
 import CountUp from 'react-countup'
 import { TrendingUp, DollarSign, Store, Activity, ShoppingBag, Clock, CheckCircle } from 'lucide-react'
-import { deltaPct, rupiah } from '@/lib/format'
+import { deltaPct } from '@/lib/format'
 import dynamic from 'next/dynamic'
+// @ts-ignore
 import { TopMenus } from '@/components/TopMenus'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 

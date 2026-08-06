@@ -84,7 +84,8 @@ export function MitraProfitLossMockup({ realData }: any) {
 
   // 7. Summaries
   const totalCogs = outletCogs + faCogs + tkCogs
-  const totalAdmin = faAdminFee + tkAdminFee
+  // @ts-ignore
+const totalAdmin = faAdminFee + tkAdminFee
   const totalGrossProfit = outletGross + faGross + tkGross
   
   const totalNetProfit = totalGrossProfit - expTotal

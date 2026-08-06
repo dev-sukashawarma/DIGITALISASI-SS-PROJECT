@@ -138,7 +138,7 @@ export default function SalesMonitoringPage() {
     try {
       setIsLoading(true)
       
-      const todayStr = new Date(new Date().getTime() + 7 * 3600 * 1000).toISOString().split('T')[0]
+      const today = new Date().toISOString()Str = new Date(new Date().getTime() + 7 * 3600 * 1000).toISOString().split('T')[0]
       const fromStart = `${todayStr}T00:00:00.000+07:00`
       const toEnd = `${todayStr}T23:59:59.999+07:00`
 

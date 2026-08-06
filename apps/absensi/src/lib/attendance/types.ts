@@ -13,6 +13,7 @@ export type AttendancePayload = {
   selfie_base64?: string;     // Optional: base64 data when syncing from offline queue
   ts_client: string;
   from_queue: boolean;
+  is_manual_button?: boolean;
 };
 
 export type SubmitResult =

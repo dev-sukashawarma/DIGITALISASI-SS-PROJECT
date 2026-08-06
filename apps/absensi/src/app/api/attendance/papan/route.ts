@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
       supabaseService
         .from('attendance')
-        .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit')
+        .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit, is_manual_button')
         .eq('outlet_id', outlet_id)
         .gte('ts_server', `${date}T00:00:00+07:00`)
         .lte('ts_server', `${date}T23:59:59+07:00`),

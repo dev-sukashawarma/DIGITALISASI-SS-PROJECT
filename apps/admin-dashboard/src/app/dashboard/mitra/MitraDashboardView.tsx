@@ -267,9 +267,11 @@ export function MitraDashboardView({
 
             {/* Laporan Laba Rugi Section */}
             <ProfitLoss realData={{
+              outletName: selectedOutlet?.name || 'Semua Outlet',
               curOutletKpi,
               hppRate: hppMap ? (hppMap[selectedOutletId] || 45) : 45,
-              expenses: expenses ? (selectedOutletId === 'all' ? expenses : expenses.filter((e: any) => e.outlet_id === selectedOutletId)) : []
+              expenses: expenses ? (selectedOutletId === 'all' ? expenses : expenses.filter((e: any) => e.outlet_id === selectedOutletId)) : [],
+              currentFilter // Pass current filter down to check the date
             }} />
           </div>
         )}

@@ -100,7 +100,8 @@ export default async function ReportsPage({
     .from('orders')
     .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, voided_by, void_reason, cancellation_reason, outlet_id, order_items(id, menu_item_name, quantity, subtotal)')
     .gte('created_at', p_start.toISOString())
-    .lte('created_at', p_end.toISOString());
+    .lte('created_at', p_end.toISOString())
+    .limit(10000);
 
   // Apply filters
   if (statusFilter !== 'all') {

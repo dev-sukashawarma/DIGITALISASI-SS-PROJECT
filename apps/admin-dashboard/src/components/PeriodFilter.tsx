@@ -145,19 +145,22 @@ export function PeriodFilter({
     const p30d = presetRange('30d')
     if (value.from === p30d.from && value.to === p30d.to) return '30d'
 
+    const pThisMonth = presetRange('this_month')
+    if (value.from === pThisMonth.from && value.to === pThisMonth.to) return 'this_month'
+
     return null
   }
 
   const currentPreset = activePreset()
 
   return (
-    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center w-full">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center w-full justify-end">
       {/* 1. Date Range Presets (Segmented control) — stack on mobile, inline on desktop */}
       <div className="bg-white/60 backdrop-blur-xl p-1.5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-stretch gap-1 text-xs font-bold w-full sm:w-auto flex-wrap sm:flex-nowrap">
-        {(['kemarin', 'today', '7d', '30d'] as const).map((pOrKemarin) => {
+        {(['kemarin', 'today', '7d', '30d', 'this_month'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
-          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : '30 Hari'
+          const label = p === 'today' ? 'Hari ini' : p === 'yesterday' ? 'Kemarin' : p === '7d' ? '7 Hari' : p === '30d' ? '30 Hari' : 'Bulan ini'
           return (
             <button
               key={p}
@@ -182,16 +185,7 @@ export function PeriodFilter({
 
       {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
       <div className="flex flex-col sm:flex-row gap-3">
-        {lockedOutletId ? (
-          <div className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-4 py-2.5 sm:py-2 bg-white/60 backdrop-blur-xl rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] text-xs font-bold text-suka-brown relative sm:min-w-[180px]">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
-              <Store className="w-4 h-4" />
-            </span>
-            <span className="truncate text-left flex-1">
-              {cleanOutletName(outlets.find((o) => o.id === lockedOutletId)?.name ?? 'Outlet Saya')}
-            </span>
-          </div>
-        ) : (
+        {!lockedOutletId && (
           <OutletCombobox
             value={value.outletId}
             outlets={outlets}

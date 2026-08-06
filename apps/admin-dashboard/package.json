@@ -37,6 +37,7 @@
     "next": "^16.1.6",
     "nextjs-toploader": "^3.9.17",
     "papaparse": "^5.5.4",
+    "pdf-parse": "^2.4.5",
     "react": "^19.0.0-rc.0",
     "react-countup": "^6.5.0",
     "react-dom": "^19.0.0-rc.0",

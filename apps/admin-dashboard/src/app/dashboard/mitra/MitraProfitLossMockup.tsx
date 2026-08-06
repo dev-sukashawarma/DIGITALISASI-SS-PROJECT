@@ -11,10 +11,119 @@ const formatRp = (num: number) => {
   }).format(num)
 }
 
+const MANUAL_OVERRIDES: Record<string, any> = {
+  'cibinong': {
+    modal: 125000000,
+    profitSebelumnya: 170547411,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 2088008 },
+      { name: 'Gaji Crew Outlet', amount: 6926414 },
+      { name: 'Bonus Korlap', amount: 478000 },
+      { name: 'Lembur', amount: 520905 },
+      { name: 'Endorsement', amount: 1155150 },
+      { name: 'PDAM', amount: 52100 },
+      { name: 'PLN', amount: 395994 },
+      { name: 'Internet', amount: 407850 }
+    ]
+  },
+  'ciseeng': {
+    modal: 200000000,
+    profitSebelumnya: 44765786,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 1075494 },
+      { name: 'Gaji Crew Outlet', amount: 4036414 },
+      { name: 'Bonus Korlap', amount: 198800 },
+      { name: 'Lembur', amount: 31905 },
+      { name: 'PLN', amount: 511300 },
+      { name: 'Internet', amount: 395940 }
+    ]
+  },
+  'citayam': {
+    modal: 200000000,
+    profitSebelumnya: 40153955,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 1722864 },
+      { name: 'Gaji Crew Outlet', amount: 2657568 },
+      { name: 'Bonus Korlap', amount: 167400 },
+      { name: 'Lembur', amount: 413810 },
+      { name: 'Promo', amount: 704000 }
+    ]
+  },
+  'kalisari': {
+    modal: 150000000,
+    profitSebelumnya: 24310366,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 1109125 },
+      { name: 'Gaji Crew Outlet', amount: 419271 },
+      { name: 'Bonus Korlap', amount: 169600 },
+      { name: 'Lembur', amount: 31905 },
+      { name: 'Endorsement', amount: 598090 },
+      { name: 'PLN', amount: 307000 },
+      { name: 'Internet', amount: 263000 }
+    ]
+  },
+  'kotwis': {
+    modal: 125000000,
+    profitSebelumnya: 0,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 283121 },
+      { name: 'Gaji Crew Outlet', amount: 4136538 },
+      { name: 'Bonus Korlap', amount: 176400 },
+      { name: 'Lembur', amount: 31905 },
+      { name: 'PLN', amount: 103500 }
+    ]
+  },
+  'pekayon': {
+    modal: 220000000,
+    profitSebelumnya: 64174953,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 1479559 },
+      { name: 'Gaji Crew Outlet', amount: 4019271 },
+      { name: 'Bonus Korlap', amount: 196800 },
+      { name: 'Lembur', amount: 31905 },
+      { name: 'Endorsement', amount: 723090 },
+      { name: 'PDAM', amount: 100000 },
+      { name: 'PLN', amount: 407900 },
+      { name: 'Internet', amount: 263850 }
+    ]
+  },
+  'tebet': {
+    modal: 250000000,
+    profitSebelumnya: 43899003,
+    pengeluaran: [
+      { name: 'Pengeluaran Outlet', amount: 1244295 },
+      { name: 'Gaji Crew Outlet', amount: 4019271 },
+      { name: 'Bonus Korlap', amount: 197600 },
+      { name: 'Lembur', amount: 31905 },
+      { name: 'Endorsement', amount: 1405345 },
+      { name: 'PDAM', amount: 103000 },
+      { name: 'PLN', amount: 416000 },
+      { name: 'Internet', amount: 263850 }
+    ]
+  }
+}
+
 export function MitraProfitLossMockup({ realData }: any) {
   const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null)
 
-  const { curOutletKpi = [], hppRate = 0, expenses = [] } = realData || {}
+  const { curOutletKpi = [], hppRate = 0, expenses = [], outletName = '' } = realData || {}
+
+  const isLegacyOutlet = [
+    'dramaga', 'paledang', 'ciseeng', 'pekayon', 'pajajaran', 'cibinong', 
+    'sukmajaya', 'citayam', 'kalisari', 'empang', 'jatiasih', 'jatiwaringin',
+    'cirendeu', 'beji', 'sawangan', 'jagakarsa', 'bnr', 'cimanggu',
+    // (fallback nama lama)
+    'sindang', 'yasmin', 'cikaret', 'ciomas', 'air mancur', 'bangbarung', 'tajur', 'pomad', 'semua'
+  ].some(legacy => outletName.toLowerCase().includes(legacy))
+
+  // Hanya Cibubur, Cicurug, Sentul dan setelahnya yang kena 50:50 & management fee
+  const isProfitSharing = !isLegacyOutlet && outletName.toLowerCase() !== 'semua outlet'
+
+  // Cari apakah ada data sinkronisasi manual untuk outlet ini
+  const overrideKey = Object.keys(MANUAL_OVERRIDES).find(key => outletName.toLowerCase().includes(key))
+  // Hanya terapkan override jika filternya adalah bulan Juni 2026 (atau tidak ada filter, untuk default, tapi lebih aman filter spesifik)
+  const isJune2026 = realData.currentFilter?.from?.startsWith('2026-06')
+  const overrideData = (overrideKey && isJune2026) ? MANUAL_OVERRIDES[overrideKey] : null
 
   // 1. Omzet (Net Revenue) & Deductions (Discounts)
   const posOmzet = curOutletKpi.filter((r: any) => r.sales_source === 'pos').reduce((sum: number, r: any) => sum + Number(r.omzet), 0)
@@ -72,15 +181,21 @@ export function MitraProfitLossMockup({ realData }: any) {
     return acc
   }, {})
 
-  const opexCategories = Object.entries(opexGrouped)
-    .map(([name, amount]) => ({
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      amount: amount as number
-    }))
-    .filter(c => c.amount > 0)
-    .sort((a, b) => b.amount - a.amount)
+  const opexCategories = overrideData
+    ? overrideData.pengeluaran.map((p: any) => ({ name: p.name, amount: p.amount }))
+    : Object.keys(opexGrouped)
+        .map(cat => ({ name: cat, amount: opexGrouped[cat] }))
+        .filter(c => c.amount > 0)
+        .sort((a, b) => b.amount - a.amount)
 
-  const expTotal = opexCategories.reduce((s, c) => s + c.amount, 0)
+  const expTotal = opexCategories.reduce((s: number, c: any) => s + c.amount, 0)
+  
+  // Management Fee (Misal: 5% dari Gross Profit) - Hanya jika isProfitSharing true
+  const managementFee = isProfitSharing ? totalRev * 0.05 : 0
+  if (managementFee > 0 && !overrideData) {
+    opexCategories.push({ name: 'Management Fee (5%)', amount: managementFee })
+  }
+  const finalExpTotal = expTotal + (overrideData ? 0 : managementFee)
 
   // 7. Summaries
   const totalCogs = outletCogs + faCogs + tkCogs
@@ -88,8 +203,11 @@ export function MitraProfitLossMockup({ realData }: any) {
 const totalAdmin = faAdminFee + tkAdminFee
   const totalGrossProfit = outletGross + faGross + tkGross
   
-  const totalNetProfit = totalGrossProfit - expTotal
-  const profitMitra = totalNetProfit > 0 ? totalNetProfit * 0.5 : 0 // 50:50 split
+  const totalNetProfit = totalGrossProfit - finalExpTotal
+  
+  // Kalau ada manual override, kita pake profit sementara dari override (kalo ada) 
+  // atau biarkan 0 untuk outlet lama, karena 50:50 sudah kita hide
+  const profitMitra = isProfitSharing ? (totalNetProfit > 0 ? totalNetProfit * 0.5 : 0) : 0 
 
   const data = {
     revenue: {
@@ -100,9 +218,14 @@ const totalAdmin = faAdminFee + tkAdminFee
     },
     expenses: {
       categories: opexCategories,
-      total: expTotal
+      total: finalExpTotal
     },
-    investment: {
+    investment: overrideData ? {
+      totalModal: overrideData.modal,
+      profitSebelumnya: overrideData.profitSebelumnya,
+      totalProfitSementara: profitMitra || (overrideData.profitSementara || 0),
+      roi: (overrideData.profitSebelumnya / overrideData.modal) * 100
+    } : {
       totalModal: 150000000,
       profitSebelumnya: 45000000,
       totalProfitSementara: profitMitra,
@@ -214,15 +337,17 @@ const totalAdmin = faAdminFee + tkAdminFee
                 </div>
                 <h3 className="text-5xl font-black mb-8 tracking-tight">{formatRp(data.revenue.total.netProfit)}</h3>
                 
-                <div className="pt-8 border-t border-white/10 mt-auto">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-suka-orange/20 flex items-center justify-center">
-                      <TrendingUp className="w-4 h-4 text-suka-orange" />
+                {isProfitSharing && (
+                  <div className="pt-8 border-t border-white/10 mt-auto">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-8 h-8 rounded-full bg-suka-orange/20 flex items-center justify-center">
+                        <TrendingUp className="w-4 h-4 text-suka-orange" />
+                      </div>
+                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Bagi Hasil Mitra (50%)</p>
                     </div>
-                    <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Bagi Hasil Mitra (50%)</p>
+                    <p className="text-4xl font-black text-suka-orange drop-shadow-lg">{formatRp(data.investment.totalProfitSementara)}</p>
                   </div>
-                  <p className="text-4xl font-black text-suka-orange drop-shadow-lg">{formatRp(data.investment.totalProfitSementara)}</p>
-                </div>
+                )}
               </div>
            </div>
 
@@ -287,7 +412,6 @@ const totalAdmin = faAdminFee + tkAdminFee
              {activeDrilldown === 'foodapps' && (
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Gross Revenue</span><span className="font-black text-suka-ink">{formatRp(data.revenue.foodApps.revenue)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Admin Fee (Est 20%)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.adminFee)}</span></div>
                  <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.cogs)}</span></div>
                  <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.discountMerchant)}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Gross Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.foodApps.grossProfit)}</span></div>
@@ -298,7 +422,6 @@ const totalAdmin = faAdminFee + tkAdminFee
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Gross Revenue</span><span className="font-black text-suka-ink">{formatRp(data.revenue.tiktokGo.revenue)}</span></div>
                  <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.cogs)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Admin Fee (Est 3%)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.adminFee)}</span></div>
                  <div className="flex justify-between p-4 bg-blue-50 rounded-2xl border border-blue-100 mt-2"><span className="font-bold text-blue-600">Settlement (Pencairan)</span><span className="font-black text-blue-700">{formatRp(data.revenue.tiktokGo.settlement)}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Gross Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.tiktokGo.grossProfit)}</span></div>
                </div>

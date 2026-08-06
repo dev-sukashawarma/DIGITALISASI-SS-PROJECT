@@ -541,7 +541,7 @@ export default function ReportsPage() {
         <>
           {/* ── KPI Cards (4 Spacious Cards) ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Net Revenue (Omzet Bersih) */}
+            {/* Net Revenue (Omzet Bersih) -> Changed to Gross Revenue (Omzet Kotor) per user request */}
             <div className="card p-5 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
               <div className="min-w-0">
@@ -549,9 +549,9 @@ export default function ReportsPage() {
                   <Banknote className="w-4 h-4 text-white" strokeWidth={1.5} />
                 </div>
                 <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet</p>
-                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.netRevenue)}</p>
+                <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Setelah potongan promo/diskon</p>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>
             </div>
 
             {/* Total Orders */}

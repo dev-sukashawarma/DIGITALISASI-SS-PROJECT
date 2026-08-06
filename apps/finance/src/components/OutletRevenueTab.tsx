@@ -6,9 +6,29 @@ import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, formatNumber } from '@/lib/format'
-import { motion, AnimatePresence } from 'framer-motion'
-import { TrendingUp, ShoppingBag, PackageSearch } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
+import { exportToCSV, exportToPDF } from '@/lib/exportUtils'
+import { fetchAllRows } from '@/lib/fetchAllRows'
+import { TargetCombobox } from '@/components/TargetCombobox'
+
+interface SalesHourlyRow {
+  sales_date: string | null
+  outlet_id: string
+  sales_source: string | null
+  omzet: number | null
+  jumlah_order_completed: number | null
+}
+
+interface SalesItemRow {
+  sales_date: string | null
+  outlet_id: string
+  sales_source: string | null
+  menu_item_name: string | null
+  total_qty: number | null
+  total_revenue: number | null
+}
 
 export default function OutletRevenueTab() {
   const [preset, setPreset] = useState('bulan_ini')
@@ -24,6 +44,7 @@ export default function OutletRevenueTab() {
   const [viewMode, setViewMode] = useState<'ringkasan' | 'item'>('ringkasan')
   const [selectedOutletId, setSelectedOutletId] = useState('all')
   const [selectedChannel, setSelectedChannel] = useState('all')
+  const [isExporting, setIsExporting] = useState(false)
 
   const supabase = useMemo(() => createClient(), [])
   const { data: outlets = [] } = useOutlets()
@@ -48,7 +69,7 @@ export default function OutletRevenueTab() {
       start.setDate(start.getDate() - 6)
       setStartDate(start.toISOString().slice(0, 10))
       setEndDate(today.toISOString().slice(0, 10))
-    } else if (val === '1_bulan') {
+    } else if (val === '30_hari') {
       const start = new Date(today)
       start.setDate(start.getDate() - 29)
       setStartDate(start.toISOString().slice(0, 10))
@@ -72,40 +93,50 @@ export default function OutletRevenueTab() {
       const from = startDate
       const to = endDate
 
-      let q = supabase
-        .from('sales_hourly_spv')
-        .select('outlet_id, sales_source, omzet, jumlah_order_completed')
-        .gte('sales_date', from)
-        .lte('sales_date', to)
-      
-      if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
-      }
-      
-      if (selectedChannel !== 'all') {
-        q = q.eq('sales_source', selectedChannel)
+      // Paginasi wajib: hasilnya bisa >1.000 baris dan PostgREST memotongnya
+      // diam-diam. Urutan eksplisit = grain unik view (outlet × sumber × tanggal × jam).
+      const buildSalesQuery = () => {
+        let q = supabase
+          .from('sales_hourly_spv')
+          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed', { count: 'exact' })
+          .gte('sales_date', from)
+          .lte('sales_date', to)
+          .order('sales_date')
+          .order('outlet_id')
+          .order('sales_source')
+          .order('sales_hour')
+
+        if (selectedOutletId !== 'all') {
+          q = q.eq('outlet_id', selectedOutletId)
+        }
+
+        if (selectedChannel !== 'all') {
+          q = q.eq('sales_source', selectedChannel)
+        }
+
+        return q
       }
 
-      const [salesRes, outletsRes] = await Promise.all([
-        q,
+      const [salesRows, outletsRes] = await Promise.all([
+        fetchAllRows<SalesHourlyRow>(buildSalesQuery, 'Omzet outlet'),
         supabase
           .from('outlets')
           .select('id, name')
       ])
 
-      if (salesRes.error) throw salesRes.error
       if (outletsRes.error) throw outletsRes.error
 
       const nameMap = new Map<string, string>()
       outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
 
-      const aggMap = new Map<string, { outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
+      const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
 
-      salesRes.data?.forEach(s => {
+      salesRows.forEach(s => {
+        const date = s.sales_date || 'Unknown Date'
         const outletId = s.outlet_id
         const channel = s.sales_source || 'Offline'
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
-        const key = `${outletId}-${channel}`
+        const key = `${date}-${outletId}-${channel}`
         
         const existing = aggMap.get(key)
         if (existing) {
@@ -113,6 +144,7 @@ export default function OutletRevenueTab() {
           existing.totalOrders += Number(s.jumlah_order_completed || 0)
         } else {
           aggMap.set(key, {
+            date,
             outletId,
             outletName,
             channel,
@@ -122,85 +154,78 @@ export default function OutletRevenueTab() {
         }
       })
 
-      // Tampilkan juga semua outlet terdaftar meskipun 0 omzet (jika filter "Semua Outlet")
-      if (selectedOutletId === 'all') {
-        outletsRes.data?.forEach(o => {
-          if (!Array.from(aggMap.values()).some(a => a.outletId === o.id)) {
-            aggMap.set(`${o.id}-offline`, {
-              outletId: o.id,
-              outletName: o.name,
-              channel: 'Offline',
-              totalRevenue: 0,
-              totalOrders: 0
-            })
-          }
-        })
-      } else {
-        // Jika filter ke satu outlet dan tidak ada transaksi
-        if (aggMap.size === 0) {
-          const outletName = nameMap.get(selectedOutletId) || 'Outlet'
-          aggMap.set(`${selectedOutletId}-offline`, {
-            outletId: selectedOutletId,
-            outletName: outletName,
-            channel: 'Offline',
-            totalRevenue: 0,
-            totalOrders: 0
-          })
-        }
+      if (selectedOutletId === 'all' && aggMap.size === 0) {
+        // Just empty if no data in that date range, no need to show dummy zeros for all dates
       }
 
-      return Array.from(aggMap.values()).sort((a, b) => b.totalRevenue - a.totalRevenue)
+      return Array.from(aggMap.values()).sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date) // Sort descending by date
+        return b.totalRevenue - a.totalRevenue
+      })
     }
   })
   
   const { data: itemsData = [], isLoading: loadingItems, error: errorItems } = useQuery({
     queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId, selectedChannel],
+    // Hanya jalan saat tab-nya dibuka. Query ini bisa menembus 20 halaman
+    // (19.616 baris untuk 30 hari) — dulu ikut jalan tiap mount walau tab
+    // "Ringkasan" yang aktif.
+    enabled: viewMode === 'item',
     queryFn: async () => {
       const from = startDate
       const to = endDate
 
-      let q = supabase
-        .from('sales_items_spv')
-        .select('outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
-        .gte('sales_date', from)
-        .lte('sales_date', to)
+      // Paginasi wajib: 1–4 Agu 2026 saja sudah 4.375 baris — dulu terpotong di
+      // 1.000 sehingga cuma 4 dari 21 outlet yang tampil.
+      const buildItemsQuery = () => {
+        let q = supabase
+          .from('sales_items_spv')
+          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue', { count: 'exact' })
+          .gte('sales_date', from)
+          .lte('sales_date', to)
+          .order('sales_date')
+          .order('outlet_id')
+          .order('sales_source')
+          .order('menu_item_name')
 
-      if (selectedOutletId !== 'all') {
-        q = q.eq('outlet_id', selectedOutletId)
+        if (selectedOutletId !== 'all') {
+          q = q.eq('outlet_id', selectedOutletId)
+        }
+
+        if (selectedChannel !== 'all') {
+          q = q.eq('sales_source', selectedChannel)
+        }
+
+        return q
       }
 
-      if (selectedChannel !== 'all') {
-        q = q.eq('sales_source', selectedChannel)
-      }
-
-      const [itemsRes, outletsRes] = await Promise.all([
-        q,
+      const [itemRows, outletsRes] = await Promise.all([
+        fetchAllRows<SalesItemRow>(buildItemsQuery, 'Penjualan per item'),
         supabase
           .from('outlets')
           .select('id, name')
       ])
 
-      if (itemsRes.error) throw itemsRes.error
       if (outletsRes.error) throw outletsRes.error
 
       const nameMap = new Map<string, string>()
       outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
-      
-      const aggMap = new Map<string, { outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
 
-      itemsRes.data?.forEach(s => {
+      const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
+
+      itemRows.forEach(s => {
+        const date = s.sales_date || 'Unknown Date'
         const outletId = s.outlet_id
         const channel = s.sales_source || 'Offline'
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
         
-        // Bersihkan nama item (hapus |ID|... dan variannya)
         let cleanName = s.menu_item_name || 'Unknown Item'
         const idIndex = cleanName.indexOf('|ID|')
         if (idIndex !== -1) {
           cleanName = cleanName.substring(0, idIndex).trim()
         }
 
-        const key = `${outletId}-${channel}-${cleanName}`
+        const key = `${date}-${outletId}-${channel}-${cleanName}`
         
         const existing = aggMap.get(key)
         if (existing) {
@@ -208,6 +233,7 @@ export default function OutletRevenueTab() {
           existing.totalRevenue += Number(s.total_revenue || 0)
         } else {
           aggMap.set(key, {
+            date,
             outletId,
             outletName,
             channel,
@@ -219,9 +245,8 @@ export default function OutletRevenueTab() {
       })
       
       return Array.from(aggMap.values()).sort((a, b) => {
-        if (a.outletName === b.outletName) {
-           return b.totalQty - a.totalQty
-        }
+        if (a.date !== b.date) return b.date.localeCompare(a.date)
+        if (a.outletName === b.outletName) return b.totalQty - a.totalQty
         return a.outletName.localeCompare(b.outletName)
       })
     }
@@ -234,6 +259,35 @@ export default function OutletRevenueTab() {
   const totalOrdersAllOutlets = useMemo(() => {
     return revenueData.reduce((sum, item) => sum + item.totalOrders, 0)
   }, [revenueData])
+
+  const handleExport = async (format: 'pdf' | 'csv') => {
+    setIsExporting(true)
+    
+    let outletName = 'Semua Outlet'
+    if (selectedOutletId !== 'all') {
+      outletName = outlets.find(o => o.id === selectedOutletId)?.name || outletName
+    }
+
+    let channelName = 'Semua Channel'
+    if (selectedChannel !== 'all') {
+      channelName = selectedChannel
+    }
+
+    try {
+      const dataToExport = viewMode === 'ringkasan' ? revenueData : itemsData
+      
+      if (format === 'csv') {
+        exportToCSV(dataToExport, viewMode, startDate, endDate, outletName, channelName)
+      } else {
+        await exportToPDF(dataToExport, viewMode, startDate, endDate, outletName, channelName)
+      }
+    } catch (error) {
+      console.error("Gagal export:", error)
+      alert("Gagal men-download laporan")
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   if (errorRevenue || errorItems) {
     return (
@@ -261,26 +315,31 @@ export default function OutletRevenueTab() {
                 <option value="hari_ini">Hari Ini</option>
                 <option value="kemarin">Kemarin</option>
                 <option value="7_hari">7 Hari Terakhir</option>
-                <option value="1_bulan">1 Bulan Terakhir</option>
+                <option value="30_hari">30 Hari Terakhir</option>
                 <option value="bulan_ini">Bulan Ini</option>
                 <option value="custom">Kustom...</option>
               </select>
               
               {preset === 'custom' && (
-                <div className="flex gap-2">
-                  <input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={e => handleCustomDateChange(true, e.target.value)}
-                    className="w-full border border-suka-gray-200 rounded-xl px-2 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
-                  />
-                  <span className="flex items-center text-suka-gray-400 font-bold">-</span>
-                  <input 
-                    type="date" 
-                    value={endDate} 
-                    onChange={e => handleCustomDateChange(false, e.target.value)}
-                    className="w-full border border-suka-gray-200 rounded-xl px-2 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
-                  />
+                <div className="flex flex-col gap-2 mt-1 pt-3 border-t border-suka-brown/10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-suka-gray-400 uppercase w-12">Dari</span>
+                    <input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={e => handleCustomDateChange(true, e.target.value)}
+                      className="flex-1 border border-suka-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-suka-gray-400 uppercase w-12">Sampai</span>
+                    <input 
+                      type="date" 
+                      value={endDate} 
+                      onChange={e => handleCustomDateChange(false, e.target.value)}
+                      className="flex-1 border border-suka-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -291,16 +350,15 @@ export default function OutletRevenueTab() {
         <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center gap-4">
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
-            <select 
+            <TargetCombobox 
               value={selectedOutletId} 
-              onChange={e => setSelectedOutletId(e.target.value)}
-              className="w-full border border-suka-gray-200 rounded-xl px-4 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
-            >
-              <option value="all">Semua Outlet</option>
-              {outlets.map(o => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </select>
+              onChange={setSelectedOutletId}
+              options={[
+                { value: 'all', label: 'Semua Outlet' },
+                ...outlets.map(o => ({ value: o.id, label: o.name }))
+              ]}
+              className="w-full"
+            />
           </div>
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Channel</p>
@@ -365,24 +423,45 @@ export default function OutletRevenueTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <h3 className="font-display text-xl text-suka-brown">Laporan Omzet & Penjualan Outlet</h3>
           
-          <div className="flex bg-suka-cream rounded-xl p-1 shadow-sm border border-suka-brown/5 self-start">
-            <button
-              onClick={() => setViewMode('ringkasan')}
-              className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
-                viewMode === 'ringkasan' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
-              }`}
-            >
-              Ringkasan Outlet
-            </button>
-            <button
-              onClick={() => setViewMode('item')}
-              className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 ${
-                viewMode === 'item' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
-              }`}
-            >
-              <PackageSearch size={16} />
-              Penjualan per Item
-            </button>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex bg-suka-cream rounded-xl p-1 shadow-sm border border-suka-brown/5">
+              <button
+                onClick={() => setViewMode('ringkasan')}
+                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
+                  viewMode === 'ringkasan' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
+                }`}
+              >
+                Ringkasan Outlet
+              </button>
+              <button
+                onClick={() => setViewMode('item')}
+                className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 ${
+                  viewMode === 'item' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
+                }`}
+              >
+                <PackageSearch size={16} />
+                Penjualan per Item
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => handleExport('pdf')}
+                disabled={isExporting || (viewMode === 'ringkasan' ? revenueData.length === 0 : itemsData.length === 0)}
+                className="flex items-center gap-2 bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+              >
+                {isExporting ? <Spinner size={16} /> : <FileText size={16} />}
+                PDF
+              </button>
+              <button
+                onClick={() => handleExport('csv')}
+                disabled={isExporting || (viewMode === 'ringkasan' ? revenueData.length === 0 : itemsData.length === 0)}
+                className="flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-sm font-bold transition-colors"
+              >
+                {isExporting ? <Spinner size={16} /> : <FileSpreadsheet size={16} />}
+                CSV
+              </button>
+            </div>
           </div>
         </div>
 
@@ -393,9 +472,10 @@ export default function OutletRevenueTab() {
             <EmptyState title="Tidak ada data penjualan" description="Belum ada transaksi terekam pada periode ini." />
           ) : (
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-sm border-collapse min-w-[500px]">
+              <table className="w-full text-left text-sm border-collapse min-w-[600px]">
                 <thead>
                   <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                    <th className="py-3 px-5 font-semibold">Tanggal</th>
                     <th className="py-3 px-5 font-semibold">Nama Outlet</th>
                     <th className="py-3 px-5 font-semibold">Channel</th>
                     <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
@@ -411,29 +491,35 @@ export default function OutletRevenueTab() {
                   }}
                   className="divide-y divide-suka-brown/5"
                 >
-                  {revenueData.map((item) => (
-                    <motion.tr 
-                      variants={{
-                        hidden: { opacity: 0, y: 10 },
-                        visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                      }}
-                      key={`${item.outletId}-${item.channel}`} 
-                      className="hover:bg-orange-50/20 transition-colors"
-                    >
-                      <td className="py-4 px-5 font-bold text-suka-ink">
-                        {item.outletName}
-                      </td>
-                      <td className="py-4 px-5 font-medium text-suka-ink/70 uppercase text-xs">
-                        {item.channel}
-                      </td>
-                      <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
-                        {item.totalOrders.toLocaleString('id-ID')}
-                      </td>
-                      <td className="py-4 px-5 text-right font-black text-suka-brown">
-                        {rupiah(item.totalRevenue)}
-                      </td>
-                    </motion.tr>
-                  ))}
+                  {revenueData.map((item, index) => {
+                    const isNewDate = index === 0 || revenueData[index - 1].date !== item.date
+                    return (
+                      <motion.tr 
+                        variants={{
+                          hidden: { opacity: 0, y: 10 },
+                          visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
+                        }}
+                        key={`${item.date}-${item.outletId}-${item.channel}`} 
+                        className={`hover:bg-orange-50/20 transition-colors ${isNewDate && index !== 0 ? 'border-t-2 border-suka-brown/10' : ''}`}
+                      >
+                        <td className="py-4 px-5 font-bold text-suka-ink/70">
+                          {isNewDate ? item.date : ''}
+                        </td>
+                        <td className="py-4 px-5 font-bold text-suka-ink">
+                          {item.outletName}
+                        </td>
+                        <td className="py-4 px-5 font-medium text-suka-ink/70 uppercase text-xs">
+                          {item.channel}
+                        </td>
+                        <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
+                          {item.totalOrders.toLocaleString('id-ID')}
+                        </td>
+                        <td className="py-4 px-5 text-right font-black text-suka-brown">
+                          {rupiah(item.totalRevenue)}
+                        </td>
+                      </motion.tr>
+                    )
+                  })}
                 </motion.tbody>
               </table>
             </div>
@@ -445,9 +531,10 @@ export default function OutletRevenueTab() {
             <EmptyState title="Tidak ada data item penjualan" description="Belum ada item yang terjual pada periode ini." />
           ) : (
             <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+              <table className="w-full text-left text-sm border-collapse min-w-[700px]">
                 <thead>
                   <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                    <th className="py-3 px-5 font-semibold">Tanggal</th>
                     <th className="py-3 px-5 font-semibold">Nama Outlet</th>
                     <th className="py-3 px-5 font-semibold">Channel</th>
                     <th className="py-3 px-5 font-semibold">Nama Item</th>
@@ -465,18 +552,23 @@ export default function OutletRevenueTab() {
                   className="divide-y divide-suka-brown/5"
                 >
                   {itemsData.map((item, index) => {
-                    const isNewOutlet = index === 0 || itemsData[index - 1].outletName !== item.outletName;
+                    const isNewDate = index === 0 || itemsData[index - 1].date !== item.date;
+                    const isNewOutletForDate = isNewDate || itemsData[index - 1].outletName !== item.outletName;
+                    
                     return (
                       <motion.tr 
                         variants={{
                           hidden: { opacity: 0, y: 10 },
                           visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
                         }}
-                        key={`${item.outletId}-${item.channel}-${item.itemName}`} 
-                        className={`hover:bg-orange-50/20 transition-colors ${isNewOutlet ? 'border-t-2 border-suka-brown/10' : ''}`}
+                        key={`${item.date}-${item.outletId}-${item.channel}-${item.itemName}`} 
+                        className={`hover:bg-orange-50/20 transition-colors ${isNewDate && index !== 0 ? 'border-t-[3px] border-suka-brown/20' : isNewOutletForDate && index !== 0 ? 'border-t border-suka-brown/10' : ''}`}
                       >
                         <td className="py-3 px-5 font-bold text-suka-ink/70">
-                          {isNewOutlet ? item.outletName : ''}
+                          {isNewDate ? item.date : ''}
+                        </td>
+                        <td className="py-3 px-5 font-bold text-suka-ink/70">
+                          {isNewOutletForDate ? item.outletName : ''}
                         </td>
                         <td className="py-3 px-5 font-medium text-suka-ink/70 uppercase text-xs">
                           {item.channel}
@@ -502,3 +594,4 @@ export default function OutletRevenueTab() {
     </div>
   )
 }
+

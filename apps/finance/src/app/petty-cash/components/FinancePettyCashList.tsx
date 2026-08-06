@@ -3,11 +3,11 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Wallet, Clock, History, Filter, Store, Building2, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search } from 'lucide-react'
+import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
-import { tanggalWaktu, relativeTime } from '@/lib/format'
+import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
@@ -103,7 +103,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const forwardTopup = useForwardPettyCashFinance()
   
   const [activeTab, setActiveTab] = useState<'review' | 'history'>('review')
-  const [reviewFilter, setReviewFilter] = useState<'all' | 'unprocessed' | 'ready_handover'>('all')
+  const [reviewFilter, setReviewFilter] = useState<'all' | 'waiting_am' | 'unprocessed' | 'ready_handover'>('all')
   const [selectedRequest, setSelectedRequest] = useState<PettyCashTopup | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [selectedProofUrl, setSelectedProofUrl] = useState<string | null>(null)
@@ -113,6 +113,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
   const allReviewRequests = React.useMemo(() => {
     return allRequests?.filter(r => 
+      r.status === 'forwarded_to_area_manager' ||
       r.status === 'forwarded_to_finance' || 
       r.status === 'approved_by_finance'
     ) || []
@@ -120,6 +121,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
   const allHistoryRequests = React.useMemo(() => {
     return allRequests?.filter(r => 
+      r.status !== 'forwarded_to_area_manager' &&
       r.status !== 'forwarded_to_finance' && 
       r.status !== 'approved_by_finance'
     ) || []
@@ -140,6 +142,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
 
     // Filter by Review Status
     if (activeTab === 'review') {
+      if (reviewFilter === 'waiting_am') source = source.filter(r => r.status === 'forwarded_to_area_manager')
       if (reviewFilter === 'unprocessed') source = source.filter(r => r.status === 'forwarded_to_finance')
       if (reviewFilter === 'ready_handover') source = source.filter(r => r.status === 'approved_by_finance')
     }
@@ -226,6 +229,7 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
     )
   }
 
+  const waitingAMCount = allReviewRequests.filter(r => r.status === 'forwarded_to_area_manager').length
   const unprocessedCount = allReviewRequests.filter(r => r.status === 'forwarded_to_finance').length
   const readyHandoverCount = allReviewRequests.filter(r => r.status === 'approved_by_finance').length
 
@@ -288,6 +292,17 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                 }`}
               >
                 Semua ({allReviewRequests.length})
+              </button>
+              <button
+                onClick={() => setReviewFilter('waiting_am')}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all border cursor-pointer ${
+                  reviewFilter === 'waiting_am'
+                    ? 'bg-amber-500 text-white border-amber-500 shadow-2xs'
+                    : 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5" />
+                Menunggu Acc AM ({waitingAMCount})
               </button>
               <button
                 onClick={() => setReviewFilter('unprocessed')}
@@ -435,6 +450,11 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                     </td>
                     <td className="py-3 px-5 whitespace-nowrap">
                       <div className="flex flex-col items-start gap-1.5">
+                        {req.status === 'forwarded_to_area_manager' && (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc AM
+                          </span>
+                        )}
                         {req.status === 'forwarded_to_finance' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
                             <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc Finance

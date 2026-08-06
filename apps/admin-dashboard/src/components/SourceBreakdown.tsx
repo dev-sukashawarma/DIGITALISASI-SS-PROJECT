@@ -9,6 +9,8 @@ const LABELS: Record<SalesSource, string> = {
   grabfood: 'GrabFood Delivery', 
   shopeefood: 'ShopeeFood Delivery', 
   tiktok: 'TikTok Shop / Social',
+  tiktok_shop: 'TikTok Shop (Marketplace)',
+  shopee_shop: 'Shopee (Marketplace)',
 }
 
 const BRAND_COLORS: Record<SalesSource, string> = {
@@ -18,6 +20,8 @@ const BRAND_COLORS: Record<SalesSource, string> = {
   grabfood: '#00b14f',    // Grab Green
   shopeefood: '#ee4d2d',  // Shopee Red-Orange
   tiktok: '#000000',      // TikTok Black
+  tiktok_shop: '#000000',  // TikTok Black
+  shopee_shop: '#ee4d2d',  // Shopee Red-Orange
 }
 
 import { getChannel } from '@/lib/channels'
@@ -57,6 +61,8 @@ const ICONS: Record<SalesSource, any> = {
       </svg>
     ) : <Globe className={className} style={style} />
   },
+  tiktok_shop: Globe,
+  shopee_shop: Globe,
 }
 
 export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {

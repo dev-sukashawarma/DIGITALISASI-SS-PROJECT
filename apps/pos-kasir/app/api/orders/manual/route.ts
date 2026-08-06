@@ -239,7 +239,12 @@ export async function POST(request: Request) {
   // ── Buat order langsung status 'preparing' (Diproses) ───────────────────
   const customerName = (body.customer_name ?? '').trim()
   const recordedDiscount = globalDiscount + itemDiscountTotal
-  const mappedSource = body.channel === 'tiktokgo' ? 'tiktok' : body.channel;
+  // 'tiktokgo' (id lokal) & 'website' (mode backup order website/WA) tidak ada di
+  // CHECK constraint sales_source — dipetakan ke nilai kanoniknya dulu. Tanpa ini
+  // order website backup jatuh ke 'pos' dan hilang dari filter/laporan Website Online.
+  const mappedSource = body.channel === 'tiktokgo' ? 'tiktok'
+    : body.channel === 'website' ? 'online'
+    : body.channel;
   const validSalesSource = ['pos','online','gofood','grabfood','shopeefood','tiktok'].includes(mappedSource) ? mappedSource : 'pos';
 
   const baseOrder = {
@@ -262,67 +267,15 @@ export async function POST(request: Request) {
 
   const fullPayload = { ...baseOrder, amount_received: amountReceived, change_amount: changeAmount }
 
-  let order: { id: string; order_number: number } | null = null
-  let orderError: { code?: string; message?: string } | null = null
-
-  {
-    const res = await supabaseService
-      .from('orders')
-      .insert(fullPayload)
-      .select('id, order_number')
-      .single()
-    order = res.data
-    orderError = res.error
-  }
-
-  if (orderError && (orderError.code === '42703' || orderError.code === 'PGRST204')) {
-    const errorMsg = orderError.message || ''
-    const fallbackPayload = { ...fullPayload }
-    let shouldRetry = false
-
-    if (/amount_received/i.test(errorMsg) || /change_amount/i.test(errorMsg)) {
-      delete (fallbackPayload as any).amount_received
-      delete (fallbackPayload as any).change_amount
-      shouldRetry = true
-    }
-    
-    if (/client_order_id/i.test(errorMsg)) {
-      delete (fallbackPayload as any).client_order_id
-      shouldRetry = true
-    }
-
-    if (orderError.code === 'PGRST204' && !shouldRetry) {
-      delete (fallbackPayload as any).amount_received
-      delete (fallbackPayload as any).change_amount
-      delete (fallbackPayload as any).client_order_id
-      shouldRetry = true
-    }
-
-    if (shouldRetry) {
-      console.warn('Kolom baru belum ada di DB atau schema cache usang. Insert dengan fallback payload.')
-      const retryRes = await supabaseService
-        .from('orders')
-        .insert(fallbackPayload)
-        .select('id, order_number')
-        .single()
-      order = retryRes.data
-      orderError = retryRes.error
-    }
-  }
+  // Buat order dan items secara atomic
+  const { data: order, error: orderError } = await supabaseService.rpc('atomic_insert_order', {
+    p_order: fullPayload,
+    p_items: validatedItems
+  })
 
   if (orderError || !order) {
     console.error('Gagal membuat order manual:', orderError)
     return NextResponse.json({ error: `Gagal membuat pesanan: ${orderError?.message || JSON.stringify(orderError)}` }, { status: 500 })
-  }
-
-  const { error: itemsError } = await supabaseService.from('order_items').insert(
-    validatedItems.map((item) => ({ ...item, order_id: order.id }))
-  )
-
-  if (itemsError) {
-    console.error('Gagal menyimpan item order manual:', itemsError)
-    await supabaseService.from('orders').delete().eq('id', order.id)
-    return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
   }
 
   // Increment usage for applied promos. RPC returns FALSE (bukan error) kalau

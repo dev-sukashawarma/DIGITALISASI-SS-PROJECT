@@ -167,10 +167,13 @@ export default function DashboardClient() {
               initial="hidden"
               animate="show"
               exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
-              className="grid grid-cols-1 md:grid-cols-3 gap-6"
+              className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start"
             >
+              {/* Left Column Container */}
+              <div className="md:col-span-2 flex flex-col gap-6">
+                
               {/* Main Metric Cards */}
-              <motion.div variants={itemAnim} className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <motion.div variants={itemAnim} className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 relative overflow-hidden group hover:shadow-xl hover:shadow-suka-green/10 transition-all">
                   <div className="absolute right-0 top-0 w-32 h-32 bg-blue-50 rounded-bl-full -z-0 transition-transform group-hover:scale-110"></div>
@@ -210,44 +213,8 @@ export default function DashboardClient() {
 
               </motion.div>
 
-              {/* Saldo per Lokasi */}
-              <motion.div variants={itemAnim} className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5 md:row-span-2">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-display text-xl text-suka-brown">Saldo per Lokasi</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  {isLoading ? (
-                    <div className="flex justify-center py-8"><Spinner size={28} /></div>
-                  ) : locations.filter(l => l.scope !== 'outlet').length === 0 ? (
-                    <EmptyState title="Belum ada rekening/kas" description="Tambahkan di menu Rekening & Kas." />
-                  ) : (
-                    locations.filter(l => l.scope !== 'outlet').map((l) => (
-                      <motion.div 
-                        key={l.id} 
-                        whileHover={{ x: 4 }}
-                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-suka-cream transition-colors cursor-pointer"
-                      >
-                        <div className="flex items-center gap-3">
-                          <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border ${l.kind === 'bank' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-orange-50 text-suka-orange border-orange-200'}`}>
-                            {l.kind === 'bank' ? 'BANK' : 'TUNAI'}
-                          </span>
-                          <div>
-                            <p className="font-bold text-sm text-suka-ink">{l.label}</p>
-                            {l.bank_name && <p className="text-[10px] font-semibold text-suka-gray-400 mt-0.5">{l.bank_name} · {l.account_no}</p>}
-                          </div>
-                        </div>
-                        <span className={`font-black text-sm ${l.saldo < 0 ? 'text-red-600' : 'text-suka-brown'}`}>
-                          {rupiah(l.saldo)}
-                        </span>
-                      </motion.div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
-
               {/* Aktivitas Terbaru */}
-              <motion.div variants={itemAnim} className="md:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
+              <motion.div variants={itemAnim} className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
                 <div className="flex items-center justify-between mb-6">
                   <h3 className="font-display text-xl text-suka-brown">Aktivitas Terbaru</h3>
                   <button className="text-suka-primary hover:text-suka-primary/80 transition-colors">
@@ -281,6 +248,43 @@ export default function DashboardClient() {
                 </div>
               </motion.div>
 
+              </div> {/* End Left Column */}
+
+              {/* Saldo per Lokasi */}
+              <motion.div variants={itemAnim} className="bg-white rounded-3xl p-6 shadow-sm border border-suka-brown/5">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-display text-xl text-suka-brown">Saldo per Lokasi</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  {isLoading ? (
+                    <div className="flex justify-center py-8"><Spinner size={28} /></div>
+                  ) : locations.length === 0 ? (
+                    <EmptyState title="Belum ada rekening/kas" description="Tambahkan di menu Rekening & Kas." />
+                  ) : (
+                    locations.map((l) => (
+                      <motion.div 
+                        key={l.id} 
+                        whileHover={{ x: 4 }}
+                        className="flex items-center justify-between p-3 rounded-2xl hover:bg-suka-cream transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`rounded-full px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest border ${l.kind === 'bank' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-orange-50 text-suka-orange border-orange-200'}`}>
+                            {l.kind === 'bank' ? 'BANK' : 'TUNAI'}
+                          </span>
+                          <div>
+                            <p className="font-bold text-sm text-suka-ink">{l.label}</p>
+                            {l.bank_name && <p className="text-[10px] font-semibold text-suka-gray-400 mt-0.5">{l.bank_name} · {l.account_no}</p>}
+                          </div>
+                        </div>
+                        <span className={`font-black text-sm ${l.saldo < 0 ? 'text-red-600' : 'text-suka-brown'}`}>
+                          {rupiah(l.saldo)}
+                        </span>
+                      </motion.div>
+                    ))
+                  )}
+                </div>
+              </motion.div>
 
             </motion.div>
           )}

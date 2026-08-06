@@ -9,6 +9,7 @@ import { rupiah, tanggal } from '@/lib/format'
 import { motion } from 'framer-motion'
 import { Receipt, FileText, ExternalLink, Store } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
+import { TargetCombobox } from '@/components/TargetCombobox'
 
 export default function PettyCashExpensesTab() {
   const [preset, setPreset] = useState('hari_ini')
@@ -270,20 +271,25 @@ export default function PettyCashExpensesTab() {
               </select>
               
               {preset === 'custom' && (
-                <div className="flex gap-2">
-                  <input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={e => handleCustomDateChange(true, e.target.value)}
-                    className="w-full border border-suka-gray-200 rounded-xl px-2 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
-                  />
-                  <span className="flex items-center text-suka-gray-400 font-bold">-</span>
-                  <input 
-                    type="date" 
-                    value={endDate} 
-                    onChange={e => handleCustomDateChange(false, e.target.value)}
-                    className="w-full border border-suka-gray-200 rounded-xl px-2 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
-                  />
+                <div className="flex flex-col gap-2 mt-1 pt-3 border-t border-suka-brown/10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-suka-gray-400 uppercase w-12">Dari</span>
+                    <input 
+                      type="date" 
+                      value={startDate} 
+                      onChange={e => handleCustomDateChange(true, e.target.value)}
+                      className="flex-1 border border-suka-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-suka-gray-400 uppercase w-12">Sampai</span>
+                    <input 
+                      type="date" 
+                      value={endDate} 
+                      onChange={e => handleCustomDateChange(false, e.target.value)}
+                      className="flex-1 border border-suka-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-suka-cream/10" 
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -294,16 +300,15 @@ export default function PettyCashExpensesTab() {
         <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5 flex flex-col justify-center h-full">
           <div>
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
-            <select 
+            <TargetCombobox 
               value={selectedOutletId} 
-              onChange={e => setSelectedOutletId(e.target.value)}
-              className="w-full border border-suka-gray-200 rounded-xl px-3 py-2.5 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
-            >
-              <option value="all">-- Pilih Outlet Dulu --</option>
-              {outletBalances.map(o => (
-                <option key={o.id} value={o.id}>{o.label}</option>
-              ))}
-            </select>
+              onChange={setSelectedOutletId}
+              options={[
+                { value: 'all', label: 'Semua Outlet' },
+                ...outlets.map(o => ({ value: o.id, label: o.name }))
+              ]}
+              className="w-full"
+            />
           </div>
         </div>
 

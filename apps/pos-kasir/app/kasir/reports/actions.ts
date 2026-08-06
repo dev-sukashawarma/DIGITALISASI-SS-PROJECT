@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { applyChannelFilter } from '@/lib/channel-filter'
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
 
@@ -58,17 +59,7 @@ export async function fetchAnalyticsData(
     if (paymentFilter !== 'all') {
       ordersQuery = ordersQuery.eq('payment_method', paymentFilter)
     }
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'offline') {
-        ordersQuery = ordersQuery.is('channel', null)
-      } else if (channelFilter === 'food_apps') {
-        ordersQuery = ordersQuery.in('channel', ['gofood', 'grabfood', 'shopeefood', 'tiktokgo', 'tiktok', 'tiktok_go'])
-      } else if (channelFilter === 'tiktokgo' || channelFilter === 'tiktok') {
-        ordersQuery = ordersQuery.in('channel', ['tiktokgo', 'tiktok', 'tiktok_go'])
-      } else {
-        ordersQuery = ordersQuery.eq('channel', channelFilter)
-      }
-    }
+    ordersQuery = applyChannelFilter(ordersQuery, channelFilter)
 
     const { data: ordersData, error } = await ordersQuery
     if (error) throw error

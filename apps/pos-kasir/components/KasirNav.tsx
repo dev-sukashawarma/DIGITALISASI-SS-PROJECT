@@ -14,6 +14,7 @@ import { useNetworkStatus } from '@/lib/useNetworkStatus'
 import { usePrinterStore } from '@/lib/printerStore'
 import { connectBluetoothPrinter, autoConnectBluetoothPrinter } from '@/lib/bluetooth-printer'
 import { Printer } from 'lucide-react'
+import { useDialogStore } from '@/lib/dialogStore'
 
 const links = [
   { 
@@ -44,6 +45,7 @@ export default function KasirNav() {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const { outletId } = useMyOutlet()
+  const { showAlert } = useDialogStore()
 
   let resolvedPortalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
@@ -129,7 +131,7 @@ export default function KasirNav() {
       const { db } = await import('@/lib/db')
       const pendingOrders = await db.sync_queue_orders.where('status').equals('pending').count()
       if (pendingOrders > 0) {
-        alert(`Peringatan: Ada ${pendingOrders} pesanan offline yang belum dikirim ke server.\n\nHarap tunggu hingga koneksi internet kembali dan pesanan tersinkronisasi sebelum keluar.`)
+        await showAlert(`Peringatan: Ada ${pendingOrders} pesanan offline yang belum dikirim ke server.\n\nHarap tunggu hingga koneksi internet kembali dan pesanan tersinkronisasi sebelum keluar.`, 'Perhatian')
         return
       }
     } catch (e) {

@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import * as dotenv from 'dotenv'
 import path from 'path'
-import { formatGoogleSheetsPayload, GoogleSheetsPayload, GoogleSheetsItemPayload } from '../src/lib/google-sheets-webhook'
+import { GoogleSheetsPayload, GoogleSheetsItemPayload } from '../src/lib/google-sheets-webhook'
 
 // Load environment variables from .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })

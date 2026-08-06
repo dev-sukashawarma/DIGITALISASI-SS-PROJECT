@@ -188,6 +188,19 @@ export async function POST(req: Request) {
       if (openShift) {
         return NextResponse.json({ ok: false, reason: "shift_not_closed" }, { status: 200 });
       }
+
+      // Blokir absen pulang selama masih ada pesanan yang belum selesai di outlet
+      // ini. Sama seperti shift: state milik OUTLET, berlaku untuk siapa pun yang
+      // absen pulang di outlet ini, tidak ada bypass.
+      const { data: unfinishedOrders } = await admin
+        .from("orders")
+        .select("id")
+        .eq("outlet_id", body.outlet_id)
+        .in("status", ["pending", "preparing", "ready"])
+        .limit(1);
+      if (unfinishedOrders && unfinishedOrders.length > 0) {
+        return NextResponse.json({ ok: false, reason: "unfinished_orders" }, { status: 200 });
+      }
     }
 
     let { data: cfg } = await admin

@@ -11,8 +11,9 @@ import { createClient } from '@/lib/supabase/client'
 import { db } from '@/lib/db'
 import { cacheOrders, readCachedOrders, localOrderRowsToOrders } from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
-import ChannelBadge from '@/components/ChannelBadge'
+import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { CHANNELS } from '@/lib/channels'
+import { applyChannelFilter, matchesChannelFilter } from '@/lib/channel-filter'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
@@ -94,11 +95,8 @@ async function fetchHistoriOrders(
     }
     
     if (paymentFilter !== 'all') q = q.eq('payment_method', paymentFilter)
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'offline') q = q.is('channel', null)
-      else q = q.eq('channel', channelFilter)
-    }
-    
+    q = applyChannelFilter(q, channelFilter)
+
     if (startIso) q = q.gte('created_at', startIso)
     if (endIso) q = q.lte('created_at', endIso)
     
@@ -131,11 +129,8 @@ async function fetchHistoriOrders(
     if (endIso) result = result.filter(o => o.created_at <= endIso!)
     
     if (paymentFilter !== 'all') result = result.filter(o => o.payment_method === paymentFilter)
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'offline') result = result.filter(o => !o.channel)
-      else result = result.filter(o => o.channel === channelFilter)
-    }
-    
+    result = result.filter(o => matchesChannelFilter(o as any, channelFilter))
+
     return result
   }
 }
@@ -172,11 +167,7 @@ export default function AdminOrdersPage() {
 
   const filteredOrders = orders.filter((order) => {
     if (paymentFilter !== 'all' && order.payment_method !== paymentFilter) return false;
-    if (channelFilter !== 'all') {
-      if (channelFilter === 'offline' && order.channel) return false;
-      if (channelFilter !== 'offline' && order.channel !== channelFilter) return false;
-    }
-    return true;
+    return matchesChannelFilter(order as any, channelFilter);
   });
 
   const totalRevenue = filteredOrders
@@ -410,9 +401,11 @@ export default function AdminOrdersPage() {
                           <Icon className="w-3 h-3" />
                           {conf.label}
                         </span>
-                        {order.channel && (
-                          <ChannelBadge channel={order.channel} size="sm" />
-                        )}
+                        <OrderSourceBadge
+                          channel={order.channel}
+                          salesSource={(order as any).sales_source}
+                          size="sm"
+                        />
                         {order.customer_name && (
                           <span className="text-sm font-semibold text-gray-700">{order.customer_name}</span>
                         )}

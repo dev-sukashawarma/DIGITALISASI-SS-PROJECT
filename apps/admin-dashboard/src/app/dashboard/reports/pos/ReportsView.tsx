@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet
@@ -17,6 +17,8 @@ import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReport
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
+import MarketplaceFilter from '@/components/MarketplaceFilter'
+import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
 
 interface ShiftRow {
@@ -159,6 +161,19 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
+  const { physical: physicalOutlets, marketplace: marketplaceOutlets } = useMemo(
+    () => splitOutletsByType(outlets),
+    [outlets]
+  )
+  const marketplaceOutletIds = useMemo(
+    () => new Set(marketplaceOutlets.map(o => o.id)),
+    [marketplaceOutlets]
+  )
+  // selectedOutlet menunjuk salah satu dari dua sumber ini (outlet fisik ATAU platform
+  // marketplace) -- tiap dropdown menampilkan default-nya sendiri saat state sedang
+  // menunjuk ke sumber yang lain, sehingga keduanya tampak "saling reset".
+  const branchFilterValue = marketplaceOutletIds.has(selectedOutlet) ? 'all' : selectedOutlet
+  const marketplaceFilterValue = marketplaceOutletIds.has(selectedOutlet) ? selectedOutlet : 'all'
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -208,7 +223,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       s.setDate(1)
       return { from: fmt(s), to: fmt(today) }
     }
-    if (range === 'custom' && customStartDate && customEndDate) {
+    if (range === 'custom') {
+      // Salah satu input masih kosong = rentang belum valid. Kembalikan kosong
+      // supaya query HPP di-skip; JANGAN jatuh ke fallback all-time di bawah,
+      // karena itu bikin kartu Total COGS menampilkan HPP sepanjang masa.
+      if (!customStartDate || !customEndDate) return { from: '', to: '' }
       return { from: customStartDate, to: customEndDate }
     }
     return { from: '2000-01-01', to: fmt(today) }
@@ -258,7 +277,19 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     setLoadingShiftExpenses(false)
   }
 
+  const fetchOrdersRequestId = useRef(0)
+
   const fetchOrders = useCallback(async () => {
+    // Kustom Tanggal butuh KEDUA input terisi — kalau salah satu masih kosong
+    // (state transisi normal saat user baru pindah ke "Kustom Tanggal" atau
+    // baru isi satu input), jangan fetch sama sekali. Selain sia-sia, fetch
+    // ini tanpa bound tanggal akan menarik SELURUH riwayat order 19 outlet.
+    const requestId = ++fetchOrdersRequestId.current
+
+    if (range === 'custom' && (!customStartDate || !customEndDate)) {
+      return
+    }
+
     setLoading(true)
     const supabase = createClient()
 
@@ -373,6 +404,13 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
 
     const [ordersData, { data: shiftsData }, { data: menuItemsData }] = await Promise.all([fetchAllOrders(), qShifts, menuItemsQuery])
+
+    // Abaikan hasil fetch basi — request lebih baru (mis. user selesai memilih
+    // custom date setelah sebelumnya sempat fire fetch tanpa bound tanggal)
+    // bisa resolve lebih dulu; tanpa guard ini, respons lama yang telat datang
+    // akan menimpa balik data yang sudah benar dengan hasil unbounded.
+    if (requestId !== fetchOrdersRequestId.current) return
+
     setOrders(ordersData)
     setShifts(shiftsData ?? [])
     setMenuItems(menuItemsData ?? [])
@@ -915,10 +953,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               <span>Integrasi Google Sheets</span>
             </button>
 
-            <BranchFilter 
-              outlets={outlets} 
-              selectedOutlet={selectedOutlet} 
-              onChange={setSelectedOutlet} 
+            <BranchFilter
+              outlets={physicalOutlets}
+              selectedOutlet={branchFilterValue}
+              onChange={setSelectedOutlet}
+            />
+
+            <MarketplaceFilter
+              platforms={marketplaceOutlets}
+              selectedOutlet={marketplaceFilterValue}
+              onChange={setSelectedOutlet}
             />
 
             <select

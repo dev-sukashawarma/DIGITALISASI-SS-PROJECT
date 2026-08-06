@@ -22,7 +22,7 @@ export function useFinanceRealtime() {
       { table: 'cash_balance', queryKeys: [['cash_balance']] },
       { table: 'cash_location', queryKeys: [['cash_location']] },
       { table: 'petty_cash_topups', queryKeys: [['petty_cash_topups']] },
-      { table: 'petty_cash_expenses', queryKeys: [['petty_cash_topups']] },
+      { table: 'petty_cash_expenses', queryKeys: [['petty_cash_expenses']] },
       { table: 'payroll_records', queryKeys: [['payroll_slips']] },
       { table: 'expenses', queryKeys: [['expenses']] },
       { table: 'purchase_order', queryKeys: [['po_payable']] },

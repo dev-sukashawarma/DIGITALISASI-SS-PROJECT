@@ -93,7 +93,7 @@ export function transaksiLabel(t: LedgerTransaksiSummary): { title: string; subt
   if (t.ref_order_id) {
     return { 
       title: t.order_number ? `Order #${t.order_number}` : 'Order Selesai', 
-      subtitle: cleanItemNames(t.order_items_names) ?? (t.order_number ? `Order #${t.order_number}` : null) 
+      subtitle: cleanItemNames(t.order_items_names ?? null) ?? (t.order_number ? `Order #${t.order_number}` : null) 
     };
   }
   if (t.ref_opname_id) {

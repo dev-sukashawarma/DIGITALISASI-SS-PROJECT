@@ -180,10 +180,9 @@ export async function POST(request: Request) {
 
   const finalTotal = subtotalAmount
 
-  // Buat order
-  const { data: order, error: orderError } = await supabaseService
-    .from('orders')
-    .insert({
+  // Buat order dan order items secara atomic
+  const { data: order, error: orderError } = await supabaseService.rpc('atomic_insert_order', {
+    p_order: {
       outlet_id: outlet_id,
       customer_name: payload.customer_name || null,
       notes: null,
@@ -193,28 +192,13 @@ export async function POST(request: Request) {
       // (harga sudah didiskon di unit_price/subtotal di atas).
       discount_amount: itemDiscountTotal > 0 ? itemDiscountTotal : null,
       status: 'pending',
-    })
-    .select('id, order_number')
-    .single()
+    },
+    p_items: validatedItems
+  })
 
   if (orderError || !order) {
     console.error('Order creation error:', orderError)
     return NextResponse.json({ error: 'Gagal membuat pesanan' }, { status: 500 })
-  }
-
-  // Buat order items
-  const { error: itemsError } = await supabaseService.from('order_items').insert(
-    validatedItems.map((item) => ({
-      ...item,
-      order_id: order.id,
-    }))
-  )
-
-  if (itemsError) {
-    console.error('Order items error:', itemsError)
-    // Rollback: hapus order jika items gagal
-    await supabaseService.from('orders').delete().eq('id', order.id)
-    return NextResponse.json({ error: 'Gagal menyimpan item pesanan' }, { status: 500 })
   }
 
   // Increment usage for applied promos. RPC returns FALSE (bukan error) kalau

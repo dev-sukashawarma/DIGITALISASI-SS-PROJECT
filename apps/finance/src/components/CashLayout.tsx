@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, Sparkles, TrendingUp, Store, Package } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -19,6 +19,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/?tab=omzet', label: 'Omzet Outlet', icon: TrendingUp, isSub: true },
       { href: '/?tab=petty-cash', label: 'Petty Cash Outlet', icon: Store, isSub: true },
+      { href: '/?tab=stok', label: 'Stok & Persediaan', icon: Package, isSub: true },
       { href: '/lokasi', label: 'Rekening & Kas', icon: Landmark },
     ],
   },
@@ -136,6 +137,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
   if (pathname === '/') {
     if (currentTab === 'omzet') currentNavPath = '/?tab=omzet'
     else if (currentTab === 'petty-cash') currentNavPath = '/?tab=petty-cash'
+    else if (currentTab === 'stok') currentNavPath = '/?tab=stok'
     else currentNavPath = '/'
   } else {
     currentNavPath = ALL_LINKS.find(l => l.href !== '/' && pathname.startsWith(l.href))?.href ?? '/'

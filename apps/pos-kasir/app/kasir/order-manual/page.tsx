@@ -21,6 +21,7 @@ import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import { createLocalOrder, estimateOrderNumber, isNetworkError, type OfflineIngestPayload } from '@/lib/offline'
 import { QRCodeSVG } from 'qrcode.react'
+import { useDialogStore } from '@/lib/dialogStore'
 
 type Mode = 'walkin' | 'online' | 'endorse' | 'website'
 
@@ -40,6 +41,7 @@ export default function OrderManualPage() {
   const queryClient = useQueryClient()
   const { outletId, outletName, loaded } = useMyOutlet()
   const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
+  const { showAlert, showConfirm } = useDialogStore()
 
   // Mode halaman: "walkin" (pelanggan datang langsung ke kasir), "online" (Food Apps), "website" (backup order website/WA), atau "endorse"
   const [mode, setMode] = useState<Mode>('walkin')
@@ -140,7 +142,7 @@ export default function OrderManualPage() {
         setLines(prev => [...prev, ...newLines])
       }
     } catch (err) {
-      alert('Gagal scan gambar')
+      await showAlert('Gagal scan gambar')
     } finally {
       setIsScanning(false)
     }
@@ -406,9 +408,10 @@ export default function OrderManualPage() {
     return newCartItemId
   }, [])
 
-  const setQty = useCallback((cartItemId: string, qty: number) => {
+  const setQty = useCallback(async (cartItemId: string, qty: number) => {
     if (qty >= 100) {
-      if (!window.confirm(`Anda memasukkan jumlah ${qty} porsi. Apakah sudah benar?`)) {
+      const confirmed = await showConfirm(`Anda memasukkan jumlah ${qty} porsi. Apakah sudah benar?`)
+      if (!confirmed) {
         return;
       }
     }

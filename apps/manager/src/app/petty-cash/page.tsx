@@ -55,22 +55,43 @@ interface TopupRequest {
 function parseFinanceNote(description?: string | null) {
   if (!description) return { mainReason: '', financeNote: null }
 
+  let mainReason = description
+  let financeNote = null
+
+  // 1. Check for 📌 [...]
   const splitMarker = '📌 ['
   if (description.includes(splitMarker)) {
     const parts = description.split(splitMarker)
-    const mainReason = parts[0].trim()
-    const financeNote = parts[1].replace(/\]$/, '').trim()
+    mainReason = parts[0].trim()
+    financeNote = parts[1].replace(/\]$/, '').trim()
     return { mainReason, financeNote }
   }
 
+  // 2. Regex to match [Catatan Finance: ...] or (Catatan Finance: ...)
+  const match = description.match(/(.*?)(?:\[|\()Catatan Finance:\s*(.*?)(?:\]|\))(.*)/i)
+  if (match) {
+    mainReason = (match[1] + match[3]).trim()
+    financeNote = match[2].trim()
+    return { mainReason, financeNote }
+  }
+
+  // 3. Fallback for unclosed bracket [Catatan Finance: ...
+  if (description.includes('[Catatan Finance:')) {
+    const parts = description.split('[Catatan Finance:')
+    mainReason = parts[0].trim()
+    financeNote = parts[1].replace(/\]$/, '').trim()
+    return { mainReason, financeNote }
+  }
+  
+  // 4. Fallback for unclosed parenthesis (Catatan Finance: ...
   if (description.includes('(Catatan Finance:')) {
     const parts = description.split('(Catatan Finance:')
-    const mainReason = parts[0].trim()
-    const financeNote = 'Catatan Finance:' + parts[1].replace(/\)$/, '').trim()
+    mainReason = parts[0].trim()
+    financeNote = parts[1].replace(/\)$/, '').trim()
     return { mainReason, financeNote }
   }
 
-  return { mainReason: description, financeNote: null }
+  return { mainReason, financeNote }
 }
 
 function ProofImageLightbox({ imageUrl, onClose }: { imageUrl: string | null; onClose: () => void }) {
@@ -581,9 +602,16 @@ function PettyCashContent() {
 
                     {/* Finance Note Alert */}
                     {financeNote && (
-                      <div className="mt-2 inline-flex items-start gap-1.5 bg-amber-50/50 text-amber-800 border border-amber-100/50 px-2.5 py-1.5 rounded text-xs">
-                        <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-500" />
-                        <span className="font-medium leading-relaxed">{financeNote}</span>
+                      <div className="mt-3.5 relative bg-slate-50 rounded-xl p-3.5 border border-slate-200/60 shadow-sm flex gap-3">
+                        <div className="mt-0.5 bg-white p-1.5 rounded-lg shadow-sm border border-slate-100 shrink-0 h-fit">
+                          <FileText className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Catatan dari Finance</span>
+                          <span className="text-sm font-medium text-slate-800 leading-relaxed">
+                            {financeNote.replace(/^(Catatan Finance:\s*)+/i, '')}
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>

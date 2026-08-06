@@ -78,7 +78,7 @@ function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
   return totalSmallestQty < 0 ? `-${formattedStr}` : formattedStr;
 }
 
-export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
+export function OpnameForm({ outletId, createdBy }: { outletId: string; createdBy: string; role?: string }) {
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
@@ -91,7 +91,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
 
   const [inputs, setInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>({});
-  const [pendingApproval] = useState(false);
+
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
 

@@ -154,23 +154,20 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  let qToday = supabaseAdmin.from('sales_hourly_spv')
-    .select('outlet_id, omzet, jumlah_order_completed')
-    .gte('sales_date', mainStartDate)
-    .lte('sales_date', mainEndDate);
-
-  let qYesterday = supabaseAdmin.from('sales_hourly_spv')
-    .select('omzet')
-    .gte('sales_date', prevStartDate)
-    .lte('sales_date', prevEndDate);
-
   let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region');
   
-  let qOrders = supabaseAdmin
+  let qOrdersToday = supabaseAdmin
     .from('orders')
-    .select('id, outlet_id, order_items(quantity)')
+    .select('id, outlet_id, total_amount, discount_amount, promo_subsidy, order_items(quantity)')
     .gte('created_at', new Date(`${mainStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${mainEndDate}T23:59:59+07:00`).toISOString())
+    .eq('status', 'completed');
+
+  let qOrdersYesterday = supabaseAdmin
+    .from('orders')
+    .select('total_amount, discount_amount, promo_subsidy')
+    .gte('created_at', new Date(`${prevStartDate}T00:00:00+07:00`).toISOString())
+    .lte('created_at', new Date(`${prevEndDate}T23:59:59+07:00`).toISOString())
     .eq('status', 'completed');
 
   let qAttendance = supabaseAdmin.from('attendance')
@@ -197,57 +194,53 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
   if (staff?.role === 'area_manager') {
     if (filterOutletId && filterOutletId !== 'all' && accessibleOutlets.includes(filterOutletId)) {
-      qToday = qToday.eq('outlet_id', filterOutletId);
-      qYesterday = qYesterday.eq('outlet_id', filterOutletId);
+      qOrdersToday = qOrdersToday.eq('outlet_id', filterOutletId);
+      qOrdersYesterday = qOrdersYesterday.eq('outlet_id', filterOutletId);
       qOutlets = qOutlets.eq('id', filterOutletId);
-      qOrders = qOrders.eq('outlet_id', filterOutletId);
       qAttendance = qAttendance.eq('outlet_id', filterOutletId);
       qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
     } else {
-      qToday = qToday.in('outlet_id', accessibleOutlets);
-      qYesterday = qYesterday.in('outlet_id', accessibleOutlets);
+      qOrdersToday = qOrdersToday.in('outlet_id', accessibleOutlets);
+      qOrdersYesterday = qOrdersYesterday.in('outlet_id', accessibleOutlets);
       qOutlets = qOutlets.in('id', accessibleOutlets);
-      qOrders = qOrders.in('outlet_id', accessibleOutlets);
       qAttendance = qAttendance.in('outlet_id', accessibleOutlets);
       qStaffOutlets = qStaffOutlets.in('outlet_id', accessibleOutlets);
     }
   } else if (!staff || staff.role === 'regional_manager') {
     if (filterOutletId && filterOutletId !== 'all') {
-      qToday = qToday.eq('outlet_id', filterOutletId);
-      qYesterday = qYesterday.eq('outlet_id', filterOutletId);
+      qOrdersToday = qOrdersToday.eq('outlet_id', filterOutletId);
+      qOrdersYesterday = qOrdersYesterday.eq('outlet_id', filterOutletId);
       qOutlets = qOutlets.eq('id', filterOutletId);
-      qOrders = qOrders.eq('outlet_id', filterOutletId);
       qAttendance = qAttendance.eq('outlet_id', filterOutletId);
       qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
     }
   } else if (staff?.outlet_id) {
-    qToday = qToday.eq('outlet_id', staff.outlet_id);
-    qYesterday = qYesterday.eq('outlet_id', staff.outlet_id);
+    qOrdersToday = qOrdersToday.eq('outlet_id', staff.outlet_id);
+    qOrdersYesterday = qOrdersYesterday.eq('outlet_id', staff.outlet_id);
     qOutlets = qOutlets.eq('id', staff.outlet_id);
-    qOrders = qOrders.eq('outlet_id', staff.outlet_id);
     qAttendance = qAttendance.eq('outlet_id', staff.outlet_id);
     qStaffOutlets = qStaffOutlets.eq('outlet_id', staff.outlet_id);
   }
 
   const [
-    { data: salesToday },
-    { data: salesYesterday },
-    { data: outlets },
     { data: ordersToday },
+    { data: ordersYesterday },
+    { data: outlets },
     { data: attendanceToday },
     { data: staffOutlets }
   ] = await Promise.all([
-    qToday,
-    qYesterday,
+    qOrdersToday,
+    qOrdersYesterday,
     qOutlets,
-    qOrders,
     qAttendance,
     qStaffOutlets
   ]);
 
-  const omzetToday = (salesToday || []).reduce((sum, r) => sum + Number(r.omzet), 0);
-  const txToday = (salesToday || []).reduce((sum, r) => sum + Number(r.jumlah_order_completed), 0);
-  const omzetYesterday = (salesYesterday || []).reduce((sum, r) => sum + Number(r.omzet), 0);
+  const getOrderRevenue = (o: any) => (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
+
+  const omzetToday = (ordersToday || []).reduce((sum, o) => sum + getOrderRevenue(o), 0);
+  const txToday = (ordersToday || []).length;
+  const omzetYesterday = (ordersYesterday || []).reduce((sum, o) => sum + getOrderRevenue(o), 0);
   
   const itemsSoldToday = (ordersToday || []).reduce((sum, order) => {
     const items = order.order_items || [];
@@ -284,9 +277,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   });
 
   const outletOmzetMap = new Map<string, number>();
-  (salesToday || []).forEach(sale => {
-    const current = outletOmzetMap.get(sale.outlet_id) || 0;
-    outletOmzetMap.set(sale.outlet_id, current + Number(sale.omzet));
+  (ordersToday || []).forEach(o => {
+    const current = outletOmzetMap.get(o.outlet_id) || 0;
+    outletOmzetMap.set(o.outlet_id, current + getOrderRevenue(o));
   });
 
   const amMap = new Map<string, string>();

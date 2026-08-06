@@ -916,6 +916,123 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     })
   }
 
+  const downloadCSVAllChannels = () => {
+    // 1. Dapatkan semua valid orders dari state 'orders' (tanpa filter channel)
+    const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'settled')
+    if (validOrders.length === 0) return
+
+    let dateRangeText = RANGE_LABELS[range]
+    if (range === 'custom' && (customStartDate || customEndDate)) {
+      dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
+    }
+
+    // 2. Kelompokkan per channel
+    const outletTypeMap = new Map<string, string>()
+    outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
+
+    const categoryMap: Record<string, {
+      categoryName: string,
+      grossRevenue: number,
+      itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
+    }> = {}
+
+    validOrders.forEach(o => {
+      const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
+      const srcKey = srcInfo.key.toLowerCase()
+      const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
+      const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
+      
+      let categoryName = srcInfo.label
+      const isPawoon = o.customer_name === 'Pawoon Import' || srcKey === 'pos_pawoon' || srcKey === 'pos'
+
+      if (isPawoon) {
+        const hasFA = o.order_items.some(item => item.menu_item_name.includes('FA') || item.menu_item_name.includes('FOOD APPS'))
+        const hasTikTok = o.order_items.some(item => item.menu_item_name.toLowerCase().includes('tiktok'))
+        
+        if (isTikTok || hasTikTok) {
+          categoryName = 'POS Pawoon (TikTok)'
+        } else if (hasFA || isFoodApp) {
+          categoryName = 'POS Pawoon (Food Apps)'
+        } else {
+          categoryName = 'POS Pawoon (Offline/Kasir)'
+        }
+      } else if (srcKey === 'pos_kasir') {
+        categoryName = 'POS KASIR (Internal)'
+      } else if (isTikTok) {
+        categoryName = 'TikTok'
+      } else if (isFoodApp) {
+        categoryName = 'Food Apps (GoFood/Grab/Shopee/dll)'
+      } else if (srcKey === 'online') {
+        categoryName = 'Website Online'
+      }
+
+      const outletType = outletTypeMap.get(o.outlet_id)
+      
+      if (!categoryMap[categoryName]) {
+        categoryMap[categoryName] = { categoryName, grossRevenue: 0, itemMap: {} }
+      }
+
+      const catData = categoryMap[categoryName]
+
+      o.order_items.forEach(oi => {
+        const key = cleanItemName(oi.menu_item_name)
+        if (!catData.itemMap[key]) {
+          catData.itemMap[key] = { 
+            name: key, 
+            qty: 0, 
+            revenue: 0, 
+            hppTotal: 0,
+            unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
+          }
+        }
+        
+        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap)
+        
+        catData.itemMap[key].qty += oi.quantity
+        catData.itemMap[key].revenue += oi.subtotal
+        catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
+        catData.grossRevenue += oi.subtotal
+      })
+    })
+
+    const categories = Object.values(categoryMap).map(cat => ({
+      categoryName: cat.categoryName,
+      grossRevenue: cat.grossRevenue,
+      totalQty: Object.values(cat.itemMap).reduce((acc, item) => acc + item.qty, 0),
+      totalHpp: Object.values(cat.itemMap).reduce((acc, item) => acc + item.hppTotal, 0),
+      bestSellers: Object.values(cat.itemMap).sort((a, b) => b.qty - a.qty)
+    }))
+
+    categories.sort((a, b) => {
+      const aIsKasir = a.categoryName.toLowerCase().includes('kasir')
+      const bIsKasir = b.categoryName.toLowerCase().includes('kasir')
+      if (aIsKasir && !bIsKasir) return -1
+      if (!aIsKasir && bIsKasir) return 1
+      return b.grossRevenue - a.grossRevenue
+    })
+
+    // Build CSV content
+    let csvContent = "Kategori/Channel,Nama Menu / Item,Harga Jual,HPP,Qty,Total HPP,Total Revenue\n";
+    categories.forEach(cat => {
+      cat.bestSellers.forEach(item => {
+        const catName = `"${cat.categoryName.replace(/"/g, '""')}"`
+        const itemName = `"${item.name.replace(/"/g, '""')}"`
+        const hargaJual = item.unitPrice || (item.qty > 0 ? item.revenue / item.qty : 0)
+        const hppSatuan = item.qty > 0 ? item.hppTotal / item.qty : 0
+        csvContent += `${catName},${itemName},${hargaJual},${hppSatuan},${item.qty},${item.hppTotal},${item.revenue}\n`
+      })
+    })
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', `Laporan_Per_Channel_${selectedOutletName}_${dateRangeText}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   return (
     <div className="space-y-8 pb-12 animate-fade-in" id="report-content">
 
@@ -1001,6 +1118,17 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             </div>
 
 
+
+            <button
+              onClick={downloadCSVAllChannels}
+              disabled={orders.length === 0}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              title="Download Laporan CSV Semua Channel (Dipisah per Kategori)"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span className="hidden sm:inline">CSV (Semua Channel)</span>
+              <span className="sm:hidden">CSV</span>
+            </button>
 
             <button
               onClick={downloadPDFAllChannels}

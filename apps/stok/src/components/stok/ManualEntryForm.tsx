@@ -9,7 +9,7 @@ import { useLedgerActions } from '@/hooks/useLedger'
 import { useStokBalance } from '@/hooks/useStokBalance'
 import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
-import { formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
+import { formatTriUnitSaldoAdaptive, convertBesarToGram } from '@/lib/format/compositeUnit'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -81,16 +81,19 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       unitName = (selectedBahan.satuan_tengah ?? selectedBahan.satuan) as string
     }
 
+    // finalQty di atas SELALU besar-scale (dibagi faktor_tampilan/faktor_tengah
+    // bila kecil/tengah dipilih). existingSaldo = bal?.saldo mentah -- kalau
+    // baris ini sudah "meloncat" ke gram (bal.saldo_is_gram=true), delta yang
+    // ditulis ke ledger_stok (dan dijumlahkan ke existingSaldo untuk preview
+    // "Target") HARUS ikut dikonversi ke gram-scale dulu, atau tersimpan
+    // dengan besaran salah faktor konversi (mis. "+350 Pack" tersimpan
+    // sebagai +350 baris gram = +350 Lembar, bukan +7000 Lembar).
+    const finalQtyLedgerScale = (bal?.saldo_is_gram)
+      ? convertBesarToGram(finalQty, selectedBahan)
+      : finalQty
+
     if (tipe === 'adjustment') {
-      // CATATAN: finalQty di atas dihitung dalam satuan BESAR (dibagi
-      // faktor_tampilan/faktor_tengah bila kecil/tengah dipilih), sementara
-      // existingSaldo = bal?.saldo mentah -- kalau baris ini sudah "meloncat"
-      // ke gram (bal.saldo_is_gram=true), penjumlahan existingSaldo+delta
-      // MENCAMPUR satuan sebelum sampai ke formatter, bukan cuma soal tampil.
-      // Formatter di bawah diperbaiki (saldo_is_gram-aware) supaya tak lebih
-      // buruk, tapi akar arithmetic ini belum ditutup -- lihat
-      // docs/superpowers/specs/2026-08-01-satuan-kanonik-stok-design.md.
-      const delta = adjDirection === 'in' ? finalQty : -finalQty
+      const delta = adjDirection === 'in' ? finalQtyLedgerScale : -finalQtyLedgerScale
       const targetSaldo = existingSaldo + delta
 
       const text = `Penyesuaian: ${adjDirection === 'in' ? 'Penambahan' : 'Pengurangan'} ${qty} ${unitName} -> Target: ${formatTriUnitSaldoAdaptive(
@@ -120,6 +123,9 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         adjDirection
       }
     } else {
+      // Waste/transfer_keluar sama-sama butuh finalQtyLedgerScale (bukan
+      // finalQty besar-scale mentah) sebagai qty yang benar-benar dikurangi --
+      // finalQty tetap dipakai apa adanya di teks ringkasan (murni tampilan).
       const text = `${qty} ${unitName} (${finalQty} ${selectedBahan.satuan})`
 
       return {
@@ -131,6 +137,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         qtyInput: qty,
         selectedUnitType,
         finalQty,
+        delta: finalQtyLedgerScale,
         file,
         summaryText: text,
         catatanItem: catatan,
@@ -203,7 +210,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
           await submitWasteReport({
             outlet_id: outletId,
             bahan_baku_id: w.bahanBakuId,
-            qty: w.finalQty ?? 0,
+            qty: w.delta ?? w.finalQty ?? 0,
             reason: w.catatanItem || catatan || 'Waste',
             photo_url: photoUrl
           })

@@ -12,7 +12,7 @@ import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { Avatar } from '@suka/design-system/src/components/Avatar';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { BottomNav } from '@/components/common/BottomNav';
-import { formatCompositeSaldo } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 
 export function CrewDashboard() {
   useMonitoringRealtime();
@@ -190,7 +190,7 @@ export function CrewDashboard() {
                           <div className="flex flex-col">
                             <span className="font-bold text-red-700 text-sm">{item.item_name}</span>
                             <span className="text-xs text-gray-600">
-                              {formatCompositeSaldo(item.current_qty, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-red-700">Reorder {item.threshold} {item.satuan}</span>
+                              {formatCompositeSaldoAdaptive(item.current_qty, item.saldo_is_gram, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-red-700">Reorder {item.threshold} {item.satuan}</span>
                             </span>
                           </div>
                           <span className="text-red-600 font-bold text-lg">↓</span>

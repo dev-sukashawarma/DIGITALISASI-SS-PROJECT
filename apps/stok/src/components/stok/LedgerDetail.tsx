@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Card } from '@suka/design-system/src/components/Card'
-import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit'
+import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit'
 import { getWasteReportDetailsForLedger, getStaffNameForLedger } from '@/app/actions/ledgerDetailServer'
 import Image from 'next/image'
 
@@ -33,7 +33,18 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
         if (err) throw err
         if (!data) throw new Error('Data ledger tidak ditemukan atau Anda tidak memiliki akses.')
         
-        let finalData = { ...data };
+        let finalData: any = { ...data };
+
+        // saldo_is_gram = computed column di stok_balance (per outlet+bahan),
+        // tidak tersedia di ledger_stok -- lihat memory
+        // ledger-writers-scale-blind-to-saldo-is-gram.
+        const { data: bal } = await supabase
+          .from('stok_balance')
+          .select('saldo_is_gram')
+          .eq('outlet_id', data.outlet_id)
+          .eq('bahan_baku_id', data.bahan_baku_id)
+          .maybeSingle()
+        finalData.saldo_is_gram = bal?.saldo_is_gram ?? false
 
         if (data.ref_waste_id) {
           const wasteReport = await getWasteReportDetailsForLedger(data.ref_waste_id)
@@ -176,14 +187,14 @@ export function LedgerDetail({ ledgerId }: { ledgerId: string }) {
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
           <span className="text-xs font-bold text-[#544437]/70">Jumlah Perubahan</span>
           <span className={`text-sm font-bold ${isPositive ? 'text-[#0a7d2c]' : 'text-[#ba1a1a]'}`}>
-            {formatCompositeDelta(l.qty, unit, satuanKecil, faktorTampilan)}
+            {formatCompositeDeltaAdaptive(l.qty, l.saldo_is_gram, unit, satuanKecil, faktorTampilan)}
           </span>
         </div>
 
         <div className="flex justify-between items-center border-b border-[#d9c2b2]/10 pb-3.5">
           <span className="text-xs font-bold text-[#544437]/70">Mutasi Saldo</span>
           <span className="text-xs font-semibold text-[#1e1b15]">
-            {formatCompositeSaldo(l.saldo_sebelum, unit, satuanKecil, faktorTampilan)} → <span className="font-bold">{formatCompositeSaldo(l.saldo_sesudah, unit, satuanKecil, faktorTampilan)}</span>
+            {formatCompositeSaldoAdaptive(l.saldo_sebelum, l.saldo_is_gram, unit, satuanKecil, faktorTampilan)} → <span className="font-bold">{formatCompositeSaldoAdaptive(l.saldo_sesudah, l.saldo_is_gram, unit, satuanKecil, faktorTampilan)}</span>
           </span>
         </div>
 

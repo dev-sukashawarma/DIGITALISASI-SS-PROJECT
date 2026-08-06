@@ -326,11 +326,40 @@ export interface LedgerFeedEntry {
   satuan: string | null;
   satuan_kecil: string | null;
   faktor_tampilan: number | null;
+  saldo_is_gram: boolean;
   tipe: LedgerFeedTipe;
   qty: number;
   catatan: string | null;
   saldo_sesudah: number;
   created_at: string;
+}
+
+/**
+ * saldo_is_gram = computed column di stok_balance, per (outlet, bahan) --
+ * ledger_feed_spv tidak membawanya (murni join ledger_stok+outlets+bahan_baku,
+ * tanpa stok_balance). Beda dari attachSatuanKecil (key: bahan_baku_id saja),
+ * ini WAJIB di-key per pasangan (outlet_id, bahan_baku_id) karena baris yang
+ * sama bisa gram-scale di satu outlet dan besar-scale di outlet lain.
+ */
+async function attachSaldoIsGram<T extends { outlet_id: string; bahan_baku_id: string }>(
+  supabase: SupabaseBrowserClient,
+  items: T[]
+): Promise<(T & { saldo_is_gram: boolean })[]> {
+  if (items.length === 0) return items as (T & { saldo_is_gram: boolean })[];
+  const outletIds = [...new Set(items.map((i) => i.outlet_id))];
+  const bahanIds = [...new Set(items.map((i) => i.bahan_baku_id))];
+
+  const { data } = await supabase
+    .from('stok_balance')
+    .select('outlet_id, bahan_baku_id, saldo_is_gram')
+    .in('outlet_id', outletIds)
+    .in('bahan_baku_id', bahanIds);
+
+  const map = new Map((data ?? []).map((b) => [`${b.outlet_id}:${b.bahan_baku_id}`, b.saldo_is_gram as boolean]));
+  return items.map((item) => ({
+    ...item,
+    saldo_is_gram: map.get(`${item.outlet_id}:${item.bahan_baku_id}`) ?? false,
+  }));
 }
 
 /**
@@ -347,7 +376,8 @@ export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> 
     .limit(limit);
 
   if (error) throw error;
-  return await attachSatuanKecil(supabase, (data || []) as LedgerFeedEntry[]);
+  const withSatuan = await attachSatuanKecil(supabase, (data || []) as LedgerFeedEntry[]);
+  return await attachSaldoIsGram(supabase, withSatuan) as LedgerFeedEntry[];
 }
 
 export interface StockoutForecastItem {

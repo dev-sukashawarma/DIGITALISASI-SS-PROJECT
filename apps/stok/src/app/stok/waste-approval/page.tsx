@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'
 import { useWasteApprovalList } from '@/hooks/useWaste'
 import { useAuth } from '@suka/auth'
-import { formatTriUnitSaldo } from '@/lib/format/compositeUnit'
+import { formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
 
 export default function WasteApprovalPage() {
   const { outletStaff } = useAuth()
@@ -105,13 +105,14 @@ export default function WasteApprovalPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-black text-lg text-[#ba1a1a] whitespace-pre-line">{formatTriUnitSaldo(
-                      r.qty, 
-                      r.bahan_baku?.satuan || '', 
-                      r.bahan_baku?.satuan_tengah, 
-                      r.bahan_baku?.faktor_tengah, 
-                      r.bahan_baku?.satuan_kecil, 
-                      r.bahan_baku?.faktor_tampilan, 
+                    <p className="font-black text-lg text-[#ba1a1a] whitespace-pre-line">{formatTriUnitSaldoAdaptive(
+                      r.qty,
+                      bal?.saldo_is_gram ?? false,
+                      r.bahan_baku?.satuan || '',
+                      r.bahan_baku?.satuan_tengah,
+                      r.bahan_baku?.faktor_tengah,
+                      r.bahan_baku?.satuan_kecil,
+                      r.bahan_baku?.faktor_tampilan,
                       true
                     )}</p>
                   </div>

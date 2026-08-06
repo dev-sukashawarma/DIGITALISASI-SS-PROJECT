@@ -14,7 +14,7 @@ import {
   useMonitoringRealtime
 } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { formatCompositeSaldo, formatCompositeDelta } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
@@ -374,7 +374,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       <div className="flex-1">
                         <p className="text-xs font-black text-red-950 uppercase tracking-wide">{alert.item_name}</p>
                         <p className="text-[10px] text-red-800 font-medium">
-                          Stok kritis di {alert.outlet_name.replace('SUKA SHAWARMA ', '')} ({formatCompositeSaldo(alert.current_qty, alert.satuan, alert.satuan_kecil, alert.faktor_tampilan)})
+                          Stok kritis di {alert.outlet_name.replace('SUKA SHAWARMA ', '')} ({formatCompositeSaldoAdaptive(alert.current_qty, alert.saldo_is_gram, alert.satuan, alert.satuan_kecil, alert.faktor_tampilan)})
                         </p>
                       </div>
                     </div>
@@ -1000,7 +1000,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                                   <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-black ${
                                     isAdd ? 'bg-suka-green/10 text-suka-green' : 'bg-red-50 text-[#ba1a1a]'
                                   }`}>
-                                    {formatCompositeDelta(l.qty, l.satuan ?? '', l.satuan_kecil, l.faktor_tampilan)}
+                                    {formatCompositeDeltaAdaptive(l.qty, l.saldo_is_gram, l.satuan ?? '', l.satuan_kecil, l.faktor_tampilan)}
                                   </span>
                                 </div>
                                 <div className="flex justify-between items-center text-[9px] text-suka-brown/50">

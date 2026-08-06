@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { StatusBadge } from './StatusBadge';
 import { fetchItemDetail } from '@/lib/queries/monitoring';
 import type { MonitoringItem, DetailItem } from '@/lib/types/monitoring';
-import { formatCompositeSaldoAdaptive, formatCompositeDelta } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit';
 import { WasteModal } from '../stok/WasteModal';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
@@ -184,7 +184,7 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                           </p>
                         </div>
                         <p className={`font-black text-sm ml-4 whitespace-nowrap ${ledger.qty > 0 ? 'text-[#006e24]' : 'text-[#ba1a1a]'}`}>
-                          {formatCompositeDelta(ledger.qty, detail.satuan ?? '', detail.satuan_kecil, detail.faktor_tampilan)}
+                          {formatCompositeDeltaAdaptive(ledger.qty, detail.saldo_is_gram, detail.satuan ?? '', detail.satuan_kecil, detail.faktor_tampilan)}
                         </p>
                       </div>
                     ))}

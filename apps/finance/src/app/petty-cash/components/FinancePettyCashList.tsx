@@ -384,16 +384,16 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
         </div>
       ) : (
         <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-sm border-collapse min-w-[750px] whitespace-nowrap">
+          <table className="w-full text-left text-sm border-collapse min-w-[800px] xl:min-w-full">
             <thead>
               <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
-                  <th className="py-3 px-5 font-semibold">Tanggal</th>
-                  <th className="py-3 px-5 font-semibold">Outlet</th>
-                  <th className="py-3 px-5 font-semibold">Rekening Tujuan</th>
-                  <th className="py-3 px-5 font-semibold">Nominal</th>
-                  <th className="py-3 px-5 font-semibold">Alasan / Keperluan</th>
-                  <th className="py-3 px-5 font-semibold">Status / Bukti</th>
-                  <th className="py-3 px-5 font-semibold text-right">Aksi</th>
+                  <th className="py-4 px-5 font-semibold w-[12%] whitespace-nowrap">Tanggal</th>
+                  <th className="py-4 px-5 font-semibold w-[15%]">Outlet</th>
+                  <th className="py-4 px-5 font-semibold w-[15%]">Rekening Tujuan</th>
+                  <th className="py-4 px-5 font-semibold w-[12%] whitespace-nowrap">Nominal</th>
+                  <th className="py-4 px-5 font-semibold w-[20%]">Alasan / Keperluan</th>
+                  <th className="py-4 px-5 font-semibold w-[16%]">Status / Bukti</th>
+                  <th className="py-4 px-5 font-semibold text-right w-[10%]">Aksi</th>
                 </tr>
               </thead>
               <motion.tbody 
@@ -414,26 +414,26 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                     key={req.id} 
                     className="hover:bg-orange-50/30 transition-colors group"
                   >
-                    <td className="py-3 px-5 whitespace-nowrap text-suka-gray-500" title={tanggalWaktu(req.created_at)}>
+                    <td className="py-4 px-5 whitespace-nowrap text-suka-gray-500" title={tanggalWaktu(req.created_at)}>
                       {tanggalWaktu(req.created_at)}
                     </td>
-                    <td className="py-3 px-5 font-semibold text-suka-ink">
+                    <td className="py-4 px-5 font-semibold text-suka-ink whitespace-normal">
                       {req.outlet?.name || '-'}
                     </td>
-                    <td className="py-3 px-5">
+                    <td className="py-4 px-5 whitespace-normal">
                       {req.bank_name ? (
                         <div className="flex flex-col">
-                          <span className="font-semibold text-suka-ink">{req.bank_name} - {req.bank_account_number}</span>
-                          <span className="text-xs text-suka-gray-500">a.n {req.bank_account_name || '-'}</span>
+                          <span className="font-semibold text-suka-ink break-words">{req.bank_name} - {req.bank_account_number}</span>
+                          <span className="text-xs text-suka-gray-500 break-words">a.n {req.bank_account_name || '-'}</span>
                         </div>
                       ) : (
                         <span className="text-suka-gray-400 italic">Belum ada</span>
                       )}
                     </td>
-                    <td className="py-3 px-5 font-bold text-suka-ink group-hover:scale-105 transition-transform origin-left">
+                    <td className="py-4 px-5 font-bold text-suka-ink whitespace-nowrap">
                       {formatRupiah(req.amount)}
                     </td>
-                    <td className="py-3 px-5 text-suka-gray-600 max-w-xs sm:max-w-md whitespace-pre-wrap break-words leading-relaxed">
+                    <td className="py-4 px-5 text-suka-gray-600 whitespace-pre-wrap break-words leading-relaxed">
                       {(() => {
                         const { mainReason, financeNote } = parseFinanceNote(req.reason || req.description)
                         return (
@@ -448,8 +448,8 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                         )
                       })()}
                     </td>
-                    <td className="py-3 px-5 whitespace-nowrap">
-                      <div className="flex flex-col items-start gap-1.5">
+                    <td className="py-4 px-5">
+                      <div className="flex flex-wrap items-start gap-1.5">
                         {req.status === 'forwarded_to_area_manager' && (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 text-amber-800 font-medium text-xs rounded-lg border border-amber-200/80">
                             <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Acc AM
@@ -502,23 +502,23 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                         )}
                       </div>
                     </td>
-                    <td className="py-3 px-5 text-right whitespace-nowrap">
+                    <td className="py-4 px-5 text-right whitespace-nowrap">
                       {req.status === 'forwarded_to_finance' && activeTab === 'review' && (
                         <button
                           onClick={() => handleOpenModal(req)}
-                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-lg font-medium text-sm transition-all shadow-sm active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white rounded-lg font-medium text-[13px] transition-all shadow-sm active:scale-95 cursor-pointer"
                         >
-                          <Wallet className="w-4 h-4" />
+                          <Wallet className="w-3.5 h-3.5" />
                           Proses / Acc
                         </button>
                       )}
                       {req.status === 'approved_by_finance' && activeTab === 'review' && (
                         <button
                           onClick={() => handleForwardToAreaManager(req)}
-                          className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-sm transition-all shadow-sm active:scale-95 cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-[13px] transition-all shadow-sm active:scale-95 cursor-pointer"
                         >
-                          <Send className="w-4 h-4" />
-                          Serahkan ke AM
+                          <Send className="w-3.5 h-3.5" />
+                          Serahkan AM
                         </button>
                       )}
                     </td>

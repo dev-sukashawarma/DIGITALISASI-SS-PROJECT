@@ -121,7 +121,7 @@ export default function OutletRevenueTab() {
       const buildSalesQuery = () => {
         let q = supabase
           .from('sales_daily_spv')
-          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed')
+          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed', { count: 'exact' })
           .gte('sales_date', from)
           .lte('sales_date', to)
           .order('sales_date')
@@ -185,7 +185,7 @@ export default function OutletRevenueTab() {
       const buildItemsQuery = () => {
         let q = supabase
           .from('sales_items_spv')
-          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
+          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue', { count: 'exact' })
           .gte('sales_date', from)
           .lte('sales_date', to)
           .order('sales_date')

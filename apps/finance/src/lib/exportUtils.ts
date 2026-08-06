@@ -144,7 +144,7 @@ export async function exportToExcel(
       pattern: 'solid',
       fgColor: { argb: 'FFFFEDD5' }
     }
-    if (cell.col === 1) {
+    if (Number(cell.col) === 1) {
       cell.alignment = { horizontal: 'center' }
     }
   })

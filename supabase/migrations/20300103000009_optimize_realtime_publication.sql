@@ -3,9 +3,15 @@
 -- Menghilangkan system_health_log dan tabel log internal yang tidak didengar oleh client,
 -- serta memastikan seluruh tabel operasional, katalog, dan finance tetap aktif di realtime.
 
--- 1) Drop dan create ulang publication agar bersih dari tabel lama yang tak terpakai
-DROP PUBLICATION IF EXISTS supabase_realtime;
-CREATE PUBLICATION supabase_realtime;
+-- 1) Pastikan publication ada. JANGAN di-DROP: file ini bertimestamp 2030 sehingga
+-- selalu jalan PALING AKHIR, jadi drop+rebuild akan menyapu tabel yang ditambahkan
+-- migration bertanggal wajar (mis. bypass_requests, cancellation_requests) tanpa error.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    CREATE PUBLICATION supabase_realtime;
+  END IF;
+END $$;
 
 -- 2) Tambahkan tabel operasional & katalog terpilih
 DO $$
@@ -29,7 +35,10 @@ DECLARE
   ];
 BEGIN
   FOREACH t IN ARRAY tables LOOP
-    IF to_regclass('public.'||t) IS NOT NULL THEN
+    IF to_regclass('public.'||t) IS NOT NULL AND NOT EXISTS (
+      SELECT 1 FROM pg_publication_tables
+      WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t
+    ) THEN
       EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
     END IF;
   END LOOP;

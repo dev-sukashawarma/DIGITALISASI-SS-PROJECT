@@ -161,14 +161,16 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .select('id, outlet_id, total_amount, discount_amount, promo_subsidy, order_items(quantity)')
     .gte('created_at', new Date(`${mainStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${mainEndDate}T23:59:59+07:00`).toISOString())
-    .eq('status', 'completed');
+    .eq('status', 'completed')
+    .limit(10000);
 
   let qOrdersYesterday = supabaseAdmin
     .from('orders')
     .select('total_amount, discount_amount, promo_subsidy')
     .gte('created_at', new Date(`${prevStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${prevEndDate}T23:59:59+07:00`).toISOString())
-    .eq('status', 'completed');
+    .eq('status', 'completed')
+    .limit(10000);
 
   let qAttendance = supabaseAdmin.from('attendance')
     .select('outlet_id, ts_server, type, outlet_staff_id')

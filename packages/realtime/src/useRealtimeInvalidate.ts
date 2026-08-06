@@ -27,6 +27,13 @@ export function useRealtimeInvalidate(opts: {
   useRealtimeChannel({
     channelName,
     enabled,
+    // Event selama socket putus tidak di-replay server → sinkronkan ulang
+    // begitu channel join lagi, supaya tak perlu refresh manual.
+    onResubscribe: () => {
+      subs.forEach((s) =>
+        s.queryKeys.forEach((qk) => qc.invalidateQueries({ queryKey: qk }))
+      )
+    },
     subs: subs.map((s) => ({
       table: s.table,
       event: s.event,

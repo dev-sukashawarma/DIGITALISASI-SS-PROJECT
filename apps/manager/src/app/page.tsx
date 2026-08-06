@@ -154,6 +154,22 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
+  // Supabase PostgREST max-rows default = 1000, cannot be overridden by .limit().
+  // Use manual pagination with .range() to fetch all rows beyond that limit.
+  const fetchAllPages = async (baseQuery: any): Promise<any[]> => {
+    const PAGE = 1000;
+    let all: any[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await baseQuery.range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      all = all.concat(data);
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+    return all;
+  };
+
   let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region');
   
   let qOrdersToday = supabaseAdmin
@@ -161,16 +177,14 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .select('id, outlet_id, total_amount, discount_amount, promo_subsidy, order_items(quantity)')
     .gte('created_at', new Date(`${mainStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${mainEndDate}T23:59:59+07:00`).toISOString())
-    .eq('status', 'completed')
-    .limit(10000);
+    .eq('status', 'completed');
 
   let qOrdersYesterday = supabaseAdmin
     .from('orders')
     .select('total_amount, discount_amount, promo_subsidy')
     .gte('created_at', new Date(`${prevStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${prevEndDate}T23:59:59+07:00`).toISOString())
-    .eq('status', 'completed')
-    .limit(10000);
+    .eq('status', 'completed');
 
   let qAttendance = supabaseAdmin.from('attendance')
     .select('outlet_id, ts_server, type, outlet_staff_id')
@@ -225,14 +239,14 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   }
 
   const [
-    { data: ordersToday },
-    { data: ordersYesterday },
+    ordersToday,
+    ordersYesterday,
     { data: outlets },
     { data: attendanceToday },
     { data: staffOutlets }
   ] = await Promise.all([
-    qOrdersToday,
-    qOrdersYesterday,
+    fetchAllPages(qOrdersToday),
+    fetchAllPages(qOrdersYesterday),
     qOutlets,
     qAttendance,
     qStaffOutlets

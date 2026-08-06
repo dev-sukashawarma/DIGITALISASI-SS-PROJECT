@@ -1,111 +1,95 @@
 'use client'
 
-import React from 'react'
+import { useState } from 'react'
+import { Store, Smartphone, Music, ChevronRight, X, TrendingDown } from 'lucide-react'
+
+const formatRp = (num: number) => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    minimumFractionDigits: 0
+  }).format(num)
+}
 
 export function MitraProfitLossMockup({ realData }: any) {
-  const { curOutletKpi, hppRate, expenses } = realData || {}
-  
-  // Hitung Omzet
-  const omzet = (curOutletKpi || []).reduce((sum: number, r: any) => sum + r.omzet, 0)
-  
-  // Hitung HPP
-  const hppValue = omzet * ((hppRate || 45) / 100)
-  
-  // Laba Kotor
-  const labaKotor = omzet - hppValue
+  const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null)
 
-  // Hitung Pengeluaran
-  const expList = expenses || []
-  let gaji = 0
-  let lembur = 0
-  let sewa = 0
-  let listrik = 0
-  let bahanBaku = 0
-  let marketing = 0
-  let lainnya = 0
+  const { curOutletKpi = [], hppRate = 0, expenses = [] } = realData || {}
 
-  expList.forEach((e: any) => {
-    const cat = (e.category || '').toLowerCase()
-    const amt = Number(e.amount) || 0
-    if (cat.includes('salary') || cat.includes('gaji')) {
-      gaji += amt
-    } else if (cat.includes('overtime') || cat.includes('lembur')) {
-      lembur += amt
-    } else if (cat.includes('outlet') || cat.includes('sewa')) {
-      sewa += amt
-    } else if (cat.includes('utilities') || cat.includes('listrik') || cat.includes('air')) {
-      listrik += amt
-    } else if (cat.includes('bb') || cat.includes('bahan')) {
-      bahanBaku += amt
-    } else if (cat.includes('ads') || cat.includes('marketing')) {
-      marketing += amt
-    } else {
-      lainnya += amt
+  // 1. Omzet (Net Revenue) & Deductions (Discounts)
+  const posOmzet = curOutletKpi.filter((r: any) => r.sales_source === 'pos').reduce((sum: number, r: any) => sum + Number(r.omzet), 0)
+  const posDeductions = curOutletKpi.filter((r: any) => r.sales_source === 'pos').reduce((sum: number, r: any) => sum + Number(r.total_deductions || 0), 0)
+  
+  const faOmzet = curOutletKpi.filter((r: any) => ['grabfood', 'gofood', 'shopeefood'].includes(r.sales_source)).reduce((sum: number, r: any) => sum + Number(r.omzet), 0)
+  const faDeductions = curOutletKpi.filter((r: any) => ['grabfood', 'gofood', 'shopeefood'].includes(r.sales_source)).reduce((sum: number, r: any) => sum + Number(r.total_deductions || 0), 0)
+  
+  const tkOmzet = curOutletKpi.filter((r: any) => r.sales_source === 'tiktok').reduce((sum: number, r: any) => sum + Number(r.omzet), 0)
+  const tkDeductions = curOutletKpi.filter((r: any) => r.sales_source === 'tiktok').reduce((sum: number, r: any) => sum + Number(r.total_deductions || 0), 0)
+
+  // 2. Gross Revenue Per Channel (Net Revenue + Discounts)
+  const outletRev = posOmzet + posDeductions
+  const faRev = faOmzet + faDeductions
+  const tkRev = tkOmzet + tkDeductions
+  const totalRev = outletRev + faRev + tkRev
+
+  // 3. COGS (HPP) Calculation
+  const totalHppValue = Number(hppRate) > 0 ? Number(hppRate) : (totalRev * 0.4)
+
+  const outletCogs = totalRev > 0 ? (outletRev / totalRev) * totalHppValue : 0
+  const faCogs = totalRev > 0 ? (faRev / totalRev) * totalHppValue : 0
+  const tkCogs = totalRev > 0 ? (tkRev / totalRev) * totalHppValue : 0
+
+  // 4. Admin Fees
+  const faAdminFee = faRev * 0.20
+  const tkAdminFee = tkRev * 0.03
+
+  // 5. Gross Profit = Net Revenue (Omzet) - COGS - Admin Fee
+  const outletGross = posOmzet - outletCogs
+  const faGross = faOmzet - faCogs - faAdminFee
+  const tkGross = tkOmzet - tkCogs - tkAdminFee
+
+  // Settlement (What goes to Bank Account)
+  const tkSettlement = tkOmzet - tkAdminFee
+
+  // 6. Expenses
+  const expGaji = expenses.filter((e: any) => ['Gaji', 'Salary', 'salary', 'overtime'].includes(e.category)).reduce((s: number, e: any) => s + Number(e.amount), 0)
+  const expOpr = expenses.filter((e: any) => ['Operasional', 'Operasional Outlet', 'Modal Awal Kasir', 'Peralatan', 'outlet', 'utilities', 'bb'].includes(e.category)).reduce((s: number, e: any) => s + Number(e.amount), 0)
+  const expMkt = expenses.filter((e: any) => ['Marketing', 'Iklan', 'Promo', 'ads'].includes(e.category)).reduce((s: number, e: any) => s + Number(e.amount), 0)
+  const expTotal = expGaji + expOpr + expMkt
+
+  // 7. Summaries
+  const totalCogs = outletCogs + faCogs + tkCogs
+  const totalAdmin = faAdminFee + tkAdminFee
+  const totalGrossProfit = outletGross + faGross + tkGross
+  
+  const totalNetProfit = totalGrossProfit - expTotal
+  const profitMitra = totalNetProfit > 0 ? totalNetProfit * 0.5 : 0
+
+  const data = {
+    revenue: {
+      outlet: { revenue: outletRev, cogs: outletCogs, grossProfit: outletGross },
+      foodApps: { revenue: faRev, cogs: faCogs, discountMerchant: faDeductions, adminFee: faAdminFee, grossProfit: faGross },
+      tiktokGo: { revenue: tkRev, cogs: tkCogs, adminFee: tkAdminFee, settlement: tkSettlement, grossProfit: tkGross },
+      total: { revenue: totalRev, cogs: totalCogs, grossProfit: totalGrossProfit, netProfit: totalNetProfit }
+    },
+    expenses: {
+      gaji: expGaji,
+      operasional: expOpr,
+      marketing: expMkt,
+      total: expTotal
+    },
+    investment: {
+      totalModal: 150000000,
+      profitSebelumnya: 45000000,
+      totalProfitSementara: profitMitra,
+      roi: 32.5
     }
-  })
-
-  const totalOpex = gaji + lembur + sewa + listrik + bahanBaku + marketing + lainnya
-  const labaBersih = labaKotor - totalOpex
-  
-  const formatRp = (num: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: 'IDR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(num)
   }
 
   return (
-    <div className="bg-white/70 backdrop-blur-md rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 p-6 sm:p-8 hover:bg-white/90 transition-colors duration-500 overflow-hidden relative">
-      <div className="absolute top-0 right-0 w-32 h-32 bg-suka-orange/5 rounded-bl-full -z-10"></div>
+    <div className="bg-white/70 backdrop-blur-xl border border-white p-6 sm:p-8 rounded-[32px] shadow-xl shadow-suka-orange/5 relative overflow-hidden mt-8 animate-fade-in">
+      <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-gradient-to-br from-suka-orange/10 via-suka-brown/5 to-transparent rounded-full blur-[80px] -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
       
-      <div className="flex items-center gap-3 mb-8">
-        <div className="w-2 h-8 rounded-full bg-suka-orange"></div>
-        <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Laporan Laba Rugi</h2>
-      </div>
-
-      <div className="space-y-6">
-        
-        {/* Pemasukan */}
-        <div>
-          <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-wider mb-3">Pendapatan</h3>
-          <div className="bg-white rounded-2xl p-4 border border-suka-gray-100 flex justify-between items-center shadow-sm">
-            <span className="font-semibold text-suka-brown">Omzet Penjualan</span>
-            <span className="font-black text-suka-brown text-lg">{formatRp(omzet)}</span>
-          </div>
-        </div>
-
-        {/* HPP */}
-        <div>
-          <div className="bg-orange-50 rounded-2xl p-4 border border-orange-100 flex justify-between items-center">
-            <div>
-              <span className="font-semibold text-suka-orange block">HPP (Harga Pokok Penjualan)</span>
-              <span className="text-xs text-orange-600/70 font-medium">Estimasi {hppRate}% dari Omzet</span>
-            </div>
-            <span className="font-black text-suka-orange text-lg">-{formatRp(hppValue)}</span>
-          </div>
-        </div>
-
-        {/* Laba Kotor */}
-        <div className="bg-gradient-to-r from-suka-brown to-suka-brown/90 rounded-2xl p-5 shadow-md flex justify-between items-center">
-          <span className="font-bold text-white/90 uppercase tracking-widest text-sm">Laba Kotor</span>
-          <span className="font-black text-white text-xl">{formatRp(labaKotor)}</span>
-        </div>
-
-        {/* OPEX */}
-        <div>
-          <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-wider mb-3 mt-6">Biaya Operasional (OPEX)</h3>
-          <div className="bg-white rounded-2xl border border-suka-gray-100 overflow-hidden shadow-sm divide-y divide-suka-gray-50">
-            <div className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-              <span className="text-sm font-medium text-slate-600">Gaji Karyawan</span>
-              <span className="font-bold text-suka-brown">{formatRp(gaji)}</span>
-            </div>
-            <div className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
-              <span className="text-sm font-medium text-slate-600">Lembur & Insentif</span>
-              <span className="font-bold text-suka-brown">{formatRp(lembur)}</span>
-            </div>
-            <div className="p-4 flex justify-between items-center hover:bg-slate-50 transition-colors">
               <span className="text-sm font-medium text-slate-600">Sewa Outlet / Lapak</span>
               <span className="font-bold text-suka-brown">{formatRp(sewa)}</span>
             </div>

@@ -1056,7 +1056,7 @@ Logika pemotongan bertingkat (Waterfall Deduction) untuk bahan baku yang bervari
 
 ## Session 2026-08-04: Satuan Gram/Besar — Konflik Arsitektur, ApprovalModal, Auto-Cancel, Bug DB Layer Baru
 
-**Status:** Kode selesai & di-push ke `main`. ⚠️ Perlu **redeploy `stok`**. Bug DB layer di poin 4 **belum diperbaiki**, menunggu prioritas.
+**Status:** Kode selesai & di-push ke `main`. ⚠️ Perlu **redeploy `stok`**. Bug DB layer (poin 4) **SUDAH diperbaiki** (§7 di dokumen detail) — 8 dari 11 fungsi penulis `ledger_stok` dibuat scale-aware, migration `20300105000017` applied & diverifikasi. 141 baris "Berisiko" dari audit lapangan masih perlu opname ulang manual (fix ini cegah kerusakan baru, tak otomatis koreksi yang sudah kadung salah).
 
 **📄 Detail lengkap:** `docs/SESSION-2026-08-04-STOK-SATUAN-GRAM-BESAR-AUDIT.md`
 

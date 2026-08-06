@@ -207,10 +207,18 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
           const photoUrl = supabase.storage.from('waste_evidence').getPublicUrl(uploadData.path).data.publicUrl
 
+          // qty SELALU besar-scale mentah (bukan w.delta) -- stok_waste_reports
+          // punya SATU-SATUNYA jalur ke ledger_stok (process_waste_report_approval
+          // trigger saat admin approve), dan WasteModal.tsx (jalur laporan waste
+          // lain, tak lewat form ini) JUGA mengirim besar-scale mentah tanpa
+          // konversi apa pun. Konversi skala HARUS terjadi sekali di trigger DB
+          // itu (titik temu kedua jalur), bukan di sini -- kalau di sini JUGA
+          // dikonversi, entri dari form ini akan dikonversi dua kali begitu
+          // trigger diperbaiki (2026-08-04 §4).
           await submitWasteReport({
             outlet_id: outletId,
             bahan_baku_id: w.bahanBakuId,
-            qty: w.delta ?? w.finalQty ?? 0,
+            qty: w.finalQty ?? 0,
             reason: w.catatanItem || catatan || 'Waste',
             photo_url: photoUrl
           })

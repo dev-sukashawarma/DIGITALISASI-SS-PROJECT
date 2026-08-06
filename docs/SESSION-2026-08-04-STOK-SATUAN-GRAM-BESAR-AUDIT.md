@@ -1,6 +1,6 @@
 # Session 2026-08-04: Satuan Gram/Besar — Konflik Arsitektur, ApprovalModal, Auto-Cancel, dan Bug DB Layer Baru
 
-**Status:** Kode selesai & di-push ke `main`. Migration applied & diverifikasi ground-truth. Audit DB terdokumentasi, **belum ada fix untuk bug DB layer yang ditemukan di bagian akhir** — itu menunggu keputusan/prioritas terpisah.
+**Status:** Kode selesai & di-push ke `main`. Migration applied & diverifikasi ground-truth. **§4 (bug DB layer) SUDAH diperbaiki** — lihat §7 untuk hasilnya (ditambahkan belakangan di sesi yang sama, setelah user minta lanjut ke situ).
 
 **Konteks:** kelanjutan langsung dari kerja semalam (2026-08-03) yang membangun mekanisme `saldo_is_gram()` untuk memperbaiki bug tampilan "8553 Blok" (SAPI 8.5kg tampil sebagai 17 ton). Lihat CLAUDE.md § "Session 2026-08-01: Waterfall BOM Deduction" dan seterusnya untuk histori penuh sebelum sesi ini.
 
@@ -86,14 +86,61 @@ Cross-check konfigurasi `satuan_distribusi` (satuan yang dipakai di form Permint
 
 ---
 
-## 6. Next steps (belum dikerjakan, perlu keputusan/prioritas user)
+## 6. Next steps (sebagian sudah selesai — lihat §7)
 
-1. **Audit 11 fungsi penulis `ledger_stok` lain** (daftar di §4) — cek satu-satu apakah sama-sama scale-blind seperti `sj_on_dikirim_kurangi_kitchen`. `process_waterfall_deduction`/`trg_process_bom_stok` prioritas tertinggi (jalan tiap order).
-2. **Perbaikan arsitektural** — pilihan: (a) semua fungsi penulis dibuat scale-aware (baca `saldo_is_gram` sebelum hitung delta), atau (b) migrasi satu kali semua baris gram-scale balik ke besar-scale lalu hentikan penulisan gram baru (kebalikan dari commit `b450047a` yang di-revert, tapi dieksekusi dengan benar — termasuk fix di titik yang mereka lewatkan).
-3. **141 baris "Berisiko"** (§5a) perlu opname ulang untuk dipastikan/dikoreksi — tidak bisa direkonstruksi dari ledger karena kerusakannya di titik penulisan, bukan di baca.
-4. Redeploy `stok.sukashawarma.com` — menumpuk beberapa fix sesi ini (auto-cancel, ApprovalModal, revert satuan besar) yang belum live.
+1. ~~Audit 11 fungsi penulis `ledger_stok` lain~~ — **selesai, lihat §7.**
+2. ~~Perbaikan arsitektural~~ — **selesai**: pilihan (a) diambil (semua fungsi penulis dibuat scale-aware), bukan (b). Konsisten dengan revert `b450047a` di §1 (gram-scale tetap arah yang dipertahankan).
+3. **141 baris "Berisiko"** (§5a) masih perlu opname ulang untuk dipastikan/dikoreksi — tidak bisa direkonstruksi dari ledger karena kerusakannya di titik penulisan, bukan di baca. **Belum dikerjakan.**
+4. Redeploy `stok.sukashawarma.com` — menumpuk banyak fix sesi ini yang belum live.
+
+---
+
+## 7. §4 diperbaiki: 11 fungsi penulis ledger_stok dibuat scale-aware
+
+Dikerjakan lanjutan di sesi yang sama setelah user konfirmasi "cek lagi coba permasalahnya yang sama di tempat berbeda" (systematic-debugging) lalu "lanjut situ dulu" untuk §4.
+
+### Audit per fungsi (`select proname from pg_proc where prosrc ilike '%ledger_stok%'`)
+
+| Fungsi | Status | Alasan |
+|---|---|---|
+| `finalize_opname` | ✅ Aman, tak diubah | Menulis `opname_item.selisih` — sudah dihitung gram-vs-gram oleh OpnameForm sendiri (ini justru mekanisme "gram writer"-nya, bukan bug). |
+| `hard_reset_outlet_data` | ✅ Aman, tak diubah | `saldo = 0`, skala tidak relevan. |
+| `trg_process_bom_stok` (cabang cancel/void) | ✅ Aman, tak diubah | Menjumlah ulang `ledger_stok.qty` historis (SUM), otomatis ikut skala baris asal — benar selama `process_waterfall_deduction` (penulis baris asal) sudah benar. |
+| `sj_on_dikirim_kurangi_kitchen` | 🔧 **Diperbaiki** | Root cause asli yang memicu audit ini (temuan awal §4) — kirim SJ ke kitchen. |
+| `po_on_verified` | 🔧 **Diperbaiki** | Terima PO dari supplier → kitchen, `qty_terima` besar-scale mentah. |
+| `process_waste_report_approval` | 🔧 **Diperbaiki** | **Dua jalur client masuk sini**: `ManualEntryForm.tsx` (tab Waste) DAN `WasteModal.tsx` (modal laporan waste terpisah, ditemukan saat audit ini) — keduanya kirim besar-scale mentah ke `stok_waste_reports.qty`. Trigger inilah satu-satunya titik konversi yang benar. **Konsekuensi:** fix client-side yang sempat ditambahkan ke `ManualEntryForm.tsx` pagi ini (commit `1c537a35`) untuk path waste **di-revert** — kalau tetap ada, entri dari form itu akan terkonversi dua kali begitu trigger diperbaiki. Path adjustment/transfer_keluar di form yang sama TETAP pakai konversi client-side (tidak lewat trigger apa pun, jadi itu satu-satunya titik yang benar untuk keduanya). |
+| `kirim_mutasi` / `terima_mutasi` | 🔧 **Diperbaiki** | Mutasi antar-outlet (`apps/stok/src/app/actions/mutasi.ts`), `qty_dikirim`/`qty_diterima` besar-scale dari JSON client. |
+| `finalize_surat_jalan` | 🔧 **Diperbaiki** | Legacy, dipanggil dari `apps/distribusi/src/hooks/useSuratJalan.ts` — awalnya dikira mati, ternyata masih dipakai (`grep` konfirmasi). |
+| `finalize_surat_jalan_and_ledger` | 🔧 **Diperbaiki** | Dipanggil dari `VerifikasiForm.tsx` (jalur utama verifikasi terima SJ). |
+| `process_waterfall_deduction` | 🔧 **Diperbaiki** | BOM per-order, **frekuensi tertinggi** — jalan di setiap order laku. Fix paling rumit (lihat di bawah). |
+
+### Helper baru: `to_ledger_scale(outlet_id, bahan_baku_id, qty_besar)`
+
+Fungsi SQL bersama: cek `saldo_is_gram(stok_balance)` baris tujuan, kalikan `qty_besar` dengan `faktor_tampilan` bila gram-scale, kalau tidak (atau baris belum pernah ada) kembalikan apa adanya. Dipakai di 7 dari 8 fungsi yang diperbaiki — pola "hitung delta besar-scale di client → tulis satu kali ke ledger" cocok dibungkus sekali panggil.
+
+**Diverifikasi manual:** `to_ledger_scale(<GUDANG>, <AYAM>, 5)` → `5000` (gram-scale, faktor 1000, benar) dan `to_ledger_scale(<outlet besar-scale>, <bahan>, 5)` → `5` (lolos apa adanya, benar).
+
+### `process_waterfall_deduction` — kenapa tidak cukup dibungkus sekali
+
+`p_total_deduction` (dari `trg_process_bom_stok`) adalah **satu angka kanonik besar-scale milik bahan utama**, tapi logika waterfall bisa pindah ke bahan **pengganti** yang skalanya beda (mis. SAOS CABE besar-scale, SAOS CABE POUCH sudah gram-scale). Tiap langkah waterfall sekarang:
+1. Ambil skala **lokal** bahan yang sedang diproses (utama atau pengganti saat ini).
+2. Konversi `v_remaining_deduction` (kanonik besar) → skala lokal untuk dibandingkan ke `v_current_stock` dan ditulis ke ledger.
+3. Kalau cuma sebagian yang bisa dipotong (lanjut ke pengganti berikutnya), konversi **balik** jumlah yang terpotong ke skala kanonik sebelum dikurangkan dari `v_remaining_deduction` — supaya bahan berikutnya membandingkan terhadap sisa yang benar.
+
+Saat semua bahan yang terlibat besar-scale (`saldo_is_gram=false`, masih mayoritas — 809/1517 baris), `v_local_needed = v_remaining_deduction` persis seperti kode lama → **perilaku identik, nol risiko regresi** untuk baris besar-scale. Diverifikasi lewat pembacaan logika baris-per-baris terhadap versi asli (bukan lewat automated test — tidak ada test harness untuk fungsi PL/pgSQL di repo ini).
+
+### Verifikasi ground-truth
+
+- Tak ada overload/signature ganda (`select proname, count(*) ... group by proname having count(*) > 1` → kosong untuk ke-8 fungsi).
+- `prosrc ilike '%to_ledger_scale%'` → `true` untuk 7 fungsi; `process_waterfall_deduction` diverifikasi terpisah via `prosrc ilike '%v_local_needed%'`/`'%saldo_is_gram(sb)%'` → `true` (memang tak pakai helper, logikanya inline).
+- `migration repair --status applied 20300105000017` sukses.
+
+### Yang TIDAK diubah / belum
+
+- **141 baris "Berisiko"** (§5a) tidak otomatis terkoreksi oleh fix ini — fix ini mencegah **kerusakan baru**, bukan memperbaiki yang sudah kadung salah. Tetap perlu opname ulang manual.
+- **`WasteModal.tsx`** sendiri tidak diubah (tetap kirim besar-scale mentah) — sengaja, karena sekarang itu justru kontrak yang benar (trigger yang mengonversi).
 
 ## Artefak
-- Migration: `supabase/migrations/20300105000011_permintaan_auto_cancel_stale.sql`
+- Migration: `supabase/migrations/20300105000011_permintaan_auto_cancel_stale.sql`, `supabase/migrations/20300105000017_scale_aware_ledger_writers.sql`
 - Spec: `docs/superpowers/specs/2026-08-03-permintaan-batch-nudge-design.md` (§5 kini terimplementasi)
-- Commits: `b501effa` (revert konflik satuan), `a44d862a` (auto-cancel), `d7217923` (ApprovalModal)
+- Commits: `b501effa` (revert konflik satuan), `a44d862a` (auto-cancel), `d7217923` (ApprovalModal), `1c537a35`+revert (ManualEntryForm), `436a3ce3` (sweep tampilan), migration `20300105000017` (§4 DB layer)

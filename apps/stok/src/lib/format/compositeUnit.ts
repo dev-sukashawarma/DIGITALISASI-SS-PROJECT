@@ -210,6 +210,19 @@ export function convertGramToBesar(qtyGram: number, b: { satuan_kecil?: string |
 }
 
 /**
+ * Kebalikan convertGramToBesar -- qty besar-scale (mis. input "350 Pack" di
+ * ManualEntryForm, selalu besar-scale apa pun unit yang dipilih user) ke
+ * gram-scale (satuan_kecil), supaya bisa dijumlahkan dengan existingSaldo
+ * yang gram-scale tanpa mencampur skala. Tanpa ini, "+350 Pack" ditulis
+ * mentah sebagai delta 350 ke baris yang satuan_kecil-nya Lembar -- tersimpan
+ * sebagai +350 Lembar (17.5 Pack), bukan +350 Pack (7000 Lembar).
+ */
+export function convertBesarToGram(qtyBesar: number, b: { satuan_kecil?: string | null; faktor_tampilan?: number | null }): number {
+  if (b.satuan_kecil && b.faktor_tampilan) return qtyBesar * b.faktor_tampilan
+  return qtyBesar
+}
+
+/**
  * Root cause (2026-08-02/03): stok_balance.saldo tidak punya penanda satuan
  * per baris. formatCompositeSaldo/formatTriUnitSaldo DI ATAS mengasumsikan
  * qty sudah dalam satuan besar (Math.trunc(qty) = satuan besar) -- itu benar

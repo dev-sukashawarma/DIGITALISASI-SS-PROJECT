@@ -79,10 +79,10 @@ export default async function ReportsPage({
     p_start = getJakartaBoundary(-1, true);
     p_end = getJakartaBoundary(-1, false);
   } else if (range === '7days') {
-    p_start = getJakartaBoundary(-7, true);
+    p_start = getJakartaBoundary(-6, true);
     p_end = getJakartaBoundary(0, false);
   } else if (range === '30days') {
-    p_start = getJakartaBoundary(-30, true);
+    p_start = getJakartaBoundary(-29, true);
     p_end = getJakartaBoundary(0, false);
   } else if (range === 'all') {
     p_start = new Date(0);

@@ -6,14 +6,13 @@ import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, formatNumber } from '@/lib/format'
-import { motion } from 'framer-motion'
-import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet } from 'lucide-react'
+import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 import { exportToCSV, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 
-interface SalesHourlyRow {
+interface SalesDailyRow {
   sales_date: string | null
   outlet_id: string
   sales_source: string | null
@@ -30,6 +29,8 @@ interface SalesItemRow {
   total_revenue: number | null
 }
 
+const ITEMS_PER_PAGE = 50;
+
 export default function OutletRevenueTab() {
   const [preset, setPreset] = useState('bulan_ini')
   const [startDate, setStartDate] = useState(() => {
@@ -45,6 +46,9 @@ export default function OutletRevenueTab() {
   const [selectedOutletId, setSelectedOutletId] = useState('all')
   const [selectedChannel, setSelectedChannel] = useState('all')
   const [isExporting, setIsExporting] = useState(false)
+  
+  const [pageRingkasan, setPageRingkasan] = useState(1)
+  const [pageItems, setPageItems] = useState(1)
 
   const supabase = useMemo(() => createClient(), [])
   const { data: outlets = [] } = useOutlets()
@@ -79,55 +83,64 @@ export default function OutletRevenueTab() {
       setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`)
       setEndDate(d.toISOString().slice(0, 10))
     }
+    setPageRingkasan(1)
+    setPageItems(1)
   }
 
   const handleCustomDateChange = (isStart: boolean, val: string) => {
     setPreset('custom')
     if (isStart) setStartDate(val)
     else setEndDate(val)
+    setPageRingkasan(1)
+    setPageItems(1)
+  }
+  
+  const handleOutletChange = (val: string) => {
+    setSelectedOutletId(val)
+    setPageRingkasan(1)
+    setPageItems(1)
+  }
+
+  const handleChannelChange = (val: string) => {
+    setSelectedChannel(val)
+    setPageRingkasan(1)
+    setPageItems(1)
+  }
+  
+  const handleViewModeChange = (mode: 'ringkasan' | 'item') => {
+    setViewMode(mode)
   }
 
   const { data: revenueData = [], isLoading: loadingRevenue, error: errorRevenue } = useQuery({
-    queryKey: ['outlet_revenue', startDate, endDate, selectedOutletId, selectedChannel],
+    queryKey: ['outlet_revenue', startDate, endDate, selectedOutletId, selectedChannel, outlets.length],
     queryFn: async () => {
+      if (outlets.length === 0) return []
       const from = startDate
       const to = endDate
 
-      // Paginasi wajib: hasilnya bisa >1.000 baris dan PostgREST memotongnya
-      // diam-diam. Urutan eksplisit = grain unik view (outlet × sumber × tanggal × jam).
       const buildSalesQuery = () => {
         let q = supabase
-          .from('sales_hourly_spv')
-          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed', { count: 'exact' })
+          .from('sales_daily_spv')
+          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed')
           .gte('sales_date', from)
           .lte('sales_date', to)
           .order('sales_date')
           .order('outlet_id')
           .order('sales_source')
-          .order('sales_hour')
 
         if (selectedOutletId !== 'all') {
           q = q.eq('outlet_id', selectedOutletId)
         }
-
         if (selectedChannel !== 'all') {
           q = q.eq('sales_source', selectedChannel)
         }
-
-        return q
+        return q as any // Type bypass for RangeableQuery matching
       }
 
-      const [salesRows, outletsRes] = await Promise.all([
-        fetchAllRows<SalesHourlyRow>(buildSalesQuery, 'Omzet outlet'),
-        supabase
-          .from('outlets')
-          .select('id, name')
-      ])
-
-      if (outletsRes.error) throw outletsRes.error
+      const salesRows = await fetchAllRows<SalesDailyRow>(buildSalesQuery, 'Omzet outlet')
 
       const nameMap = new Map<string, string>()
-      outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
+      outlets.forEach(o => nameMap.set(o.id, o.name))
 
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
 
@@ -154,33 +167,25 @@ export default function OutletRevenueTab() {
         }
       })
 
-      if (selectedOutletId === 'all' && aggMap.size === 0) {
-        // Just empty if no data in that date range, no need to show dummy zeros for all dates
-      }
-
       return Array.from(aggMap.values()).sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date) // Sort descending by date
         return b.totalRevenue - a.totalRevenue
       })
-    }
+    },
+    enabled: outlets.length > 0
   })
   
   const { data: itemsData = [], isLoading: loadingItems, error: errorItems } = useQuery({
-    queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId, selectedChannel],
-    // Hanya jalan saat tab-nya dibuka. Query ini bisa menembus 20 halaman
-    // (19.616 baris untuk 30 hari) — dulu ikut jalan tiap mount walau tab
-    // "Ringkasan" yang aktif.
-    enabled: viewMode === 'item',
+    queryKey: ['sales_items_spv', startDate, endDate, selectedOutletId, selectedChannel, outlets.length],
+    enabled: viewMode === 'item' && outlets.length > 0,
     queryFn: async () => {
       const from = startDate
       const to = endDate
 
-      // Paginasi wajib: 1–4 Agu 2026 saja sudah 4.375 baris — dulu terpotong di
-      // 1.000 sehingga cuma 4 dari 21 outlet yang tampil.
       const buildItemsQuery = () => {
         let q = supabase
           .from('sales_items_spv')
-          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue', { count: 'exact' })
+          .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue')
           .gte('sales_date', from)
           .lte('sales_date', to)
           .order('sales_date')
@@ -191,25 +196,16 @@ export default function OutletRevenueTab() {
         if (selectedOutletId !== 'all') {
           q = q.eq('outlet_id', selectedOutletId)
         }
-
         if (selectedChannel !== 'all') {
           q = q.eq('sales_source', selectedChannel)
         }
-
-        return q
+        return q as any // Type bypass for RangeableQuery matching
       }
 
-      const [itemRows, outletsRes] = await Promise.all([
-        fetchAllRows<SalesItemRow>(buildItemsQuery, 'Penjualan per item'),
-        supabase
-          .from('outlets')
-          .select('id, name')
-      ])
-
-      if (outletsRes.error) throw outletsRes.error
+      const itemRows = await fetchAllRows<SalesItemRow>(buildItemsQuery, 'Penjualan per item')
 
       const nameMap = new Map<string, string>()
-      outletsRes.data?.forEach(o => nameMap.set(o.id, o.name))
+      outlets.forEach(o => nameMap.set(o.id, o.name))
 
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; totalQty: number; totalRevenue: number }>()
 
@@ -289,6 +285,19 @@ export default function OutletRevenueTab() {
     }
   }
 
+  // Pagination derived state
+  const totalPagesRingkasan = Math.ceil(revenueData.length / ITEMS_PER_PAGE)
+  const currentRingkasanData = useMemo(() => {
+    const start = (pageRingkasan - 1) * ITEMS_PER_PAGE
+    return revenueData.slice(start, start + ITEMS_PER_PAGE)
+  }, [revenueData, pageRingkasan])
+
+  const totalPagesItems = Math.ceil(itemsData.length / ITEMS_PER_PAGE)
+  const currentItemsData = useMemo(() => {
+    const start = (pageItems - 1) * ITEMS_PER_PAGE
+    return itemsData.slice(start, start + ITEMS_PER_PAGE)
+  }, [itemsData, pageItems])
+
   if (errorRevenue || errorItems) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
@@ -352,7 +361,7 @@ export default function OutletRevenueTab() {
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
             <TargetCombobox 
               value={selectedOutletId} 
-              onChange={setSelectedOutletId}
+              onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
                 ...outlets.map(o => ({ value: o.id, label: o.name }))
@@ -364,7 +373,7 @@ export default function OutletRevenueTab() {
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Channel</p>
             <select 
               value={selectedChannel} 
-              onChange={e => setSelectedChannel(e.target.value)}
+              onChange={e => handleChannelChange(e.target.value)}
               className="w-full border border-suka-gray-200 rounded-xl px-4 py-2 text-sm font-bold text-suka-brown focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white"
             >
               <option value="all">Semua Channel</option>
@@ -426,7 +435,7 @@ export default function OutletRevenueTab() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex bg-suka-cream rounded-xl p-1 shadow-sm border border-suka-brown/5">
               <button
-                onClick={() => setViewMode('ringkasan')}
+                onClick={() => handleViewModeChange('ringkasan')}
                 className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors ${
                   viewMode === 'ringkasan' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
                 }`}
@@ -434,7 +443,7 @@ export default function OutletRevenueTab() {
                 Ringkasan Outlet
               </button>
               <button
-                onClick={() => setViewMode('item')}
+                onClick={() => handleViewModeChange('item')}
                 className={`px-4 py-2 text-sm font-bold rounded-lg transition-colors flex items-center gap-2 ${
                   viewMode === 'item' ? 'bg-white text-suka-brown shadow-sm' : 'text-suka-ink/60 hover:text-suka-ink'
                 }`}
@@ -468,125 +477,157 @@ export default function OutletRevenueTab() {
         {viewMode === 'ringkasan' ? (
           loadingRevenue ? (
             <div className="flex justify-center py-12"><Spinner size={32} /></div>
-          ) : revenueData.length === 0 ? (
+          ) : currentRingkasanData.length === 0 ? (
             <EmptyState title="Tidak ada data penjualan" description="Belum ada transaksi terekam pada periode ini." />
           ) : (
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-sm border-collapse min-w-[600px]">
-                <thead>
-                  <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
-                    <th className="py-3 px-5 font-semibold">Tanggal</th>
-                    <th className="py-3 px-5 font-semibold">Nama Outlet</th>
-                    <th className="py-3 px-5 font-semibold">Channel</th>
-                    <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
-                    <th className="py-3 px-5 font-semibold text-right">Total Omzet</th>
-                  </tr>
-                </thead>
-                <motion.tbody 
-                  initial="hidden"
-                  animate="visible"
-                  variants={{
-                    visible: { transition: { staggerChildren: 0.05 } },
-                    hidden: {},
-                  }}
-                  className="divide-y divide-suka-brown/5"
-                >
-                  {revenueData.map((item, index) => {
-                    const isNewDate = index === 0 || revenueData[index - 1].date !== item.date
-                    return (
-                      <motion.tr 
-                        variants={{
-                          hidden: { opacity: 0, y: 10 },
-                          visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                        }}
-                        key={`${item.date}-${item.outletId}-${item.channel}`} 
-                        className={`hover:bg-orange-50/20 transition-colors ${isNewDate && index !== 0 ? 'border-t-2 border-suka-brown/10' : ''}`}
-                      >
-                        <td className="py-4 px-5 font-bold text-suka-ink/70">
-                          {isNewDate ? item.date : ''}
-                        </td>
-                        <td className="py-4 px-5 font-bold text-suka-ink">
-                          {item.outletName}
-                        </td>
-                        <td className="py-4 px-5 font-medium text-suka-ink/70 uppercase text-xs">
-                          {item.channel}
-                        </td>
-                        <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
-                          {item.totalOrders.toLocaleString('id-ID')}
-                        </td>
-                        <td className="py-4 px-5 text-right font-black text-suka-brown">
-                          {rupiah(item.totalRevenue)}
-                        </td>
-                      </motion.tr>
-                    )
-                  })}
-                </motion.tbody>
-              </table>
+            <div className="flex flex-col gap-4">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-sm border-collapse min-w-[600px]">
+                  <thead>
+                    <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                      <th className="py-3 px-5 font-semibold">Tanggal</th>
+                      <th className="py-3 px-5 font-semibold">Nama Outlet</th>
+                      <th className="py-3 px-5 font-semibold">Channel</th>
+                      <th className="py-3 px-5 font-semibold text-right">Jumlah Order</th>
+                      <th className="py-3 px-5 font-semibold text-right">Total Omzet</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-suka-brown/5">
+                    {currentRingkasanData.map((item, index) => {
+                      const isNewDate = index === 0 || currentRingkasanData[index - 1].date !== item.date
+                      return (
+                        <tr 
+                          key={`${item.date}-${item.outletId}-${item.channel}`} 
+                          className={`hover:bg-orange-50/20 transition-colors ${isNewDate && index !== 0 ? 'border-t-2 border-suka-brown/10' : ''}`}
+                        >
+                          <td className="py-4 px-5 font-bold text-suka-ink/70">
+                            {isNewDate ? item.date : ''}
+                          </td>
+                          <td className="py-4 px-5 font-bold text-suka-ink">
+                            {item.outletName}
+                          </td>
+                          <td className="py-4 px-5 font-medium text-suka-ink/70 uppercase text-xs">
+                            {item.channel}
+                          </td>
+                          <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
+                            {item.totalOrders.toLocaleString('id-ID')}
+                          </td>
+                          <td className="py-4 px-5 text-right font-black text-suka-brown">
+                            {rupiah(item.totalRevenue)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalPagesRingkasan > 1 && (
+                <div className="flex items-center justify-between border-t border-suka-brown/5 pt-4">
+                  <div className="text-sm text-suka-gray-500 font-medium">
+                    Menampilkan <span className="font-bold text-suka-brown">{(pageRingkasan - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-suka-brown">{Math.min(pageRingkasan * ITEMS_PER_PAGE, revenueData.length)}</span> dari <span className="font-bold text-suka-brown">{revenueData.length}</span> data
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setPageRingkasan(p => Math.max(1, p - 1))}
+                      disabled={pageRingkasan === 1}
+                      className="p-1 rounded-lg border border-suka-gray-200 text-suka-brown disabled:opacity-50 disabled:cursor-not-allowed hover:bg-suka-cream transition-colors"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <span className="text-sm font-bold text-suka-brown px-2">{pageRingkasan} / {totalPagesRingkasan}</span>
+                    <button 
+                      onClick={() => setPageRingkasan(p => Math.min(totalPagesRingkasan, p + 1))}
+                      disabled={pageRingkasan === totalPagesRingkasan}
+                      className="p-1 rounded-lg border border-suka-gray-200 text-suka-brown disabled:opacity-50 disabled:cursor-not-allowed hover:bg-suka-cream transition-colors"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )
         ) : (
           loadingItems ? (
             <div className="flex justify-center py-12"><Spinner size={32} /></div>
-          ) : itemsData.length === 0 ? (
+          ) : currentItemsData.length === 0 ? (
             <EmptyState title="Tidak ada data item penjualan" description="Belum ada item yang terjual pada periode ini." />
           ) : (
-            <div className="overflow-x-auto w-full">
-              <table className="w-full text-left text-sm border-collapse min-w-[700px]">
-                <thead>
-                  <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
-                    <th className="py-3 px-5 font-semibold">Tanggal</th>
-                    <th className="py-3 px-5 font-semibold">Nama Outlet</th>
-                    <th className="py-3 px-5 font-semibold">Channel</th>
-                    <th className="py-3 px-5 font-semibold">Nama Item</th>
-                    <th className="py-3 px-5 font-semibold text-right">Qty Terjual</th>
-                    <th className="py-3 px-5 font-semibold text-right">Total Omzet Item</th>
-                  </tr>
-                </thead>
-                <motion.tbody 
-                  initial="hidden"
-                  animate="visible"
-                  variants={{
-                    visible: { transition: { staggerChildren: 0.05 } },
-                    hidden: {},
-                  }}
-                  className="divide-y divide-suka-brown/5"
-                >
-                  {itemsData.map((item, index) => {
-                    const isNewDate = index === 0 || itemsData[index - 1].date !== item.date;
-                    const isNewOutletForDate = isNewDate || itemsData[index - 1].outletName !== item.outletName;
-                    
-                    return (
-                      <motion.tr 
-                        variants={{
-                          hidden: { opacity: 0, y: 10 },
-                          visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                        }}
-                        key={`${item.date}-${item.outletId}-${item.channel}-${item.itemName}`} 
-                        className={`hover:bg-orange-50/20 transition-colors ${isNewDate && index !== 0 ? 'border-t-[3px] border-suka-brown/20' : isNewOutletForDate && index !== 0 ? 'border-t border-suka-brown/10' : ''}`}
-                      >
-                        <td className="py-3 px-5 font-bold text-suka-ink/70">
-                          {isNewDate ? item.date : ''}
-                        </td>
-                        <td className="py-3 px-5 font-bold text-suka-ink/70">
-                          {isNewOutletForDate ? item.outletName : ''}
-                        </td>
-                        <td className="py-3 px-5 font-medium text-suka-ink/70 uppercase text-xs">
-                          {item.channel}
-                        </td>
-                        <td className="py-3 px-5 font-medium text-suka-ink">
-                          {item.itemName}
-                        </td>
-                        <td className="py-3 px-5 text-right font-medium text-suka-gray-600">
-                          {formatNumber(item.totalQty)}
-                        </td>
-                        <td className="py-3 px-5 text-right font-black text-suka-brown">
-                          {rupiah(item.totalRevenue)}
-                        </td>
-                      </motion.tr>
-                    )
-                  })}
-                </motion.tbody>
-              </table>
+            <div className="flex flex-col gap-4">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left text-sm border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                      <th className="py-3 px-5 font-semibold">Tanggal</th>
+                      <th className="py-3 px-5 font-semibold">Nama Outlet</th>
+                      <th className="py-3 px-5 font-semibold">Channel</th>
+                      <th className="py-3 px-5 font-semibold">Nama Item</th>
+                      <th className="py-3 px-5 font-semibold text-right">Qty Terjual</th>
+                      <th className="py-3 px-5 font-semibold text-right">Total Omzet Item</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-suka-brown/5">
+                    {currentItemsData.map((item, index) => {
+                      const isNewDate = index === 0 || currentItemsData[index - 1].date !== item.date;
+                      const isNewOutletForDate = isNewDate || currentItemsData[index - 1].outletName !== item.outletName;
+                      
+                      return (
+                        <tr 
+                          key={`${item.date}-${item.outletId}-${item.channel}-${item.itemName}`} 
+                          className={`hover:bg-orange-50/20 transition-colors ${isNewDate && index !== 0 ? 'border-t-[3px] border-suka-brown/20' : isNewOutletForDate && index !== 0 ? 'border-t border-suka-brown/10' : ''}`}
+                        >
+                          <td className="py-3 px-5 font-bold text-suka-ink/70">
+                            {isNewDate ? item.date : ''}
+                          </td>
+                          <td className="py-3 px-5 font-bold text-suka-ink/70">
+                            {isNewOutletForDate ? item.outletName : ''}
+                          </td>
+                          <td className="py-3 px-5 font-medium text-suka-ink/70 uppercase text-xs">
+                            {item.channel}
+                          </td>
+                          <td className="py-3 px-5 font-medium text-suka-ink">
+                            {item.itemName}
+                          </td>
+                          <td className="py-3 px-5 text-right font-medium text-suka-gray-600">
+                            {formatNumber(item.totalQty)}
+                          </td>
+                          <td className="py-3 px-5 text-right font-black text-suka-brown">
+                            {rupiah(item.totalRevenue)}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPagesItems > 1 && (
+                <div className="flex items-center justify-between border-t border-suka-brown/5 pt-4">
+                  <div className="text-sm text-suka-gray-500 font-medium">
+                    Menampilkan <span className="font-bold text-suka-brown">{(pageItems - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-suka-brown">{Math.min(pageItems * ITEMS_PER_PAGE, itemsData.length)}</span> dari <span className="font-bold text-suka-brown">{itemsData.length}</span> data
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={() => setPageItems(p => Math.max(1, p - 1))}
+                      disabled={pageItems === 1}
+                      className="p-1 rounded-lg border border-suka-gray-200 text-suka-brown disabled:opacity-50 disabled:cursor-not-allowed hover:bg-suka-cream transition-colors"
+                    >
+                      <ChevronLeft size={20} />
+                    </button>
+                    <span className="text-sm font-bold text-suka-brown px-2">{pageItems} / {totalPagesItems}</span>
+                    <button 
+                      onClick={() => setPageItems(p => Math.min(totalPagesItems, p + 1))}
+                      disabled={pageItems === totalPagesItems}
+                      className="p-1 rounded-lg border border-suka-gray-200 text-suka-brown disabled:opacity-50 disabled:cursor-not-allowed hover:bg-suka-cream transition-colors"
+                    >
+                      <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )
         )}
@@ -594,4 +635,3 @@ export default function OutletRevenueTab() {
     </div>
   )
 }
-

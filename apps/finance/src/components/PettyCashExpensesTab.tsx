@@ -6,10 +6,11 @@ import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, tanggal } from '@/lib/format'
-import { motion } from 'framer-motion'
-import { Receipt, FileText, ExternalLink, Store } from 'lucide-react'
+import { Receipt, FileText, ExternalLink, Store, ChevronLeft, ChevronRight } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 import { TargetCombobox } from '@/components/TargetCombobox'
+
+const ITEMS_PER_PAGE = 50;
 
 export default function PettyCashExpensesTab() {
   const [preset, setPreset] = useState('hari_ini')
@@ -22,6 +23,7 @@ export default function PettyCashExpensesTab() {
     return d.toISOString().slice(0, 10)
   })
   const [selectedOutletId, setSelectedOutletId] = useState('all')
+  const [page, setPage] = useState(1)
 
   const supabase = useMemo(() => createClient(), [])
   const { data: outlets = [], isLoading: loadingOutlets } = useOutlets()
@@ -56,12 +58,19 @@ export default function PettyCashExpensesTab() {
       setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`)
       setEndDate(d.toISOString().slice(0, 10))
     }
+    setPage(1)
   }
 
   const handleCustomDateChange = (isStart: boolean, val: string) => {
     setPreset('custom')
     if (isStart) setStartDate(val)
     else setEndDate(val)
+    setPage(1)
+  }
+
+  const handleOutletChange = (val: string) => {
+    setSelectedOutletId(val)
+    setPage(1)
   }
 
   const { data = [], isLoading, error } = useQuery({
@@ -142,6 +151,12 @@ export default function PettyCashExpensesTab() {
   const totalExpenses = useMemo(() => {
     return data.filter(d => d.type === 'expense').reduce((sum, item) => sum + item.amount, 0)
   }, [data])
+
+  const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE)
+  const currentData = useMemo(() => {
+    const start = (page - 1) * ITEMS_PER_PAGE
+    return data.slice(start, start + ITEMS_PER_PAGE)
+  }, [data, page])
 
   const getCategoryBadge = (category: string) => {
     switch (category) {
@@ -302,7 +317,7 @@ export default function PettyCashExpensesTab() {
             <p className="text-suka-ink/60 text-xs font-bold uppercase tracking-wider mb-2">Filter Outlet</p>
             <TargetCombobox 
               value={selectedOutletId} 
-              onChange={setSelectedOutletId}
+              onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
                 ...outlets.map(o => ({ value: o.id, label: o.name }))
@@ -343,74 +358,90 @@ export default function PettyCashExpensesTab() {
           <EmptyState title="Pilih Outlet" description="Silakan pilih outlet terlebih dahulu pada filter di atas untuk melihat rincian riwayat." />
         ) : isLoading ? (
           <div className="flex justify-center py-12"><Spinner size={32} /></div>
-        ) : data.length === 0 ? (
+        ) : currentData.length === 0 ? (
           <EmptyState title="Tidak ada rincian transaksi" description="Belum ada transaksi pengeluaran kas kecil pada periode ini." />
         ) : (
-          <div className="overflow-x-auto w-full">
-            <table className="w-full text-left text-sm border-collapse min-w-[750px] whitespace-nowrap">
-              <thead>
-                <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
-                  <th className="py-3 px-5 font-semibold">Tanggal</th>
-                  <th className="py-3 px-5 font-semibold">Outlet</th>
-                  <th className="py-3 px-5 font-semibold">Kategori</th>
-                  <th className="py-3 px-5 font-semibold">Deskripsi</th>
-                  <th className="py-3 px-5 font-semibold text-right">Jumlah</th>
-                  <th className="py-3 px-5 font-semibold text-center">Bukti Nota</th>
-                </tr>
-              </thead>
-              <motion.tbody 
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  visible: { transition: { staggerChildren: 0.05 } },
-                  hidden: {},
-                }}
-                className="divide-y divide-suka-brown/5"
-              >
-                {data.map((item) => (
-                  <motion.tr 
-                    variants={{
-                      hidden: { opacity: 0, y: 10 },
-                      visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                    }}
-                    key={item.id} 
-                    className="hover:bg-orange-50/20 transition-colors"
+          <div className="flex flex-col gap-4">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full text-left text-sm border-collapse min-w-[750px] whitespace-nowrap">
+                <thead>
+                  <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
+                    <th className="py-3 px-5 font-semibold">Tanggal</th>
+                    <th className="py-3 px-5 font-semibold">Outlet</th>
+                    <th className="py-3 px-5 font-semibold">Kategori</th>
+                    <th className="py-3 px-5 font-semibold">Deskripsi</th>
+                    <th className="py-3 px-5 font-semibold text-right">Jumlah</th>
+                    <th className="py-3 px-5 font-semibold text-center">Bukti Nota</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-suka-brown/5">
+                  {currentData.map((item) => (
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-orange-50/20 transition-colors"
+                    >
+                      <td className="py-4 px-5 text-suka-gray-500">
+                        {tanggal(item.date)}
+                      </td>
+                      <td className="py-4 px-5 font-bold text-suka-ink">
+                        {item.outletName}
+                      </td>
+                      <td className="py-4 px-5">
+                        {getCategoryBadge(item.category)}
+                      </td>
+                      <td className="py-4 px-5 text-suka-gray-600 max-w-xs truncate" title={item.description}>
+                        {item.description}
+                      </td>
+                      <td className={`py-4 px-5 text-right font-black ${item.type === 'topup' ? 'text-indigo-600' : 'text-suka-brown'}`}>
+                        {item.type === 'topup' ? '+' : ''}{rupiah(item.amount)}
+                      </td>
+                      <td className="py-4 px-5 text-center">
+                        {item.receiptUrl ? (
+                          <a 
+                            href={item.receiptUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-suka-orange hover:text-suka-orange/80 transition-colors font-bold text-xs bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200"
+                          >
+                            <FileText size={14} />
+                            Lihat Nota
+                            <ExternalLink size={10} />
+                          </a>
+                        ) : (
+                          <span className="text-suka-gray-400 italic text-xs">Tidak ada</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between border-t border-suka-brown/5 pt-4">
+                <div className="text-sm text-suka-gray-500 font-medium">
+                  Menampilkan <span className="font-bold text-suka-brown">{(page - 1) * ITEMS_PER_PAGE + 1}</span> - <span className="font-bold text-suka-brown">{Math.min(page * ITEMS_PER_PAGE, data.length)}</span> dari <span className="font-bold text-suka-brown">{data.length}</span> data
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="p-1 rounded-lg border border-suka-gray-200 text-suka-brown disabled:opacity-50 disabled:cursor-not-allowed hover:bg-suka-cream transition-colors"
                   >
-                    <td className="py-4 px-5 text-suka-gray-500">
-                      {tanggal(item.date)}
-                    </td>
-                    <td className="py-4 px-5 font-bold text-suka-ink">
-                      {item.outletName}
-                    </td>
-                    <td className="py-4 px-5">
-                      {getCategoryBadge(item.category)}
-                    </td>
-                    <td className="py-4 px-5 text-suka-gray-600 max-w-xs truncate" title={item.description}>
-                      {item.description}
-                    </td>
-                    <td className={`py-4 px-5 text-right font-black ${item.type === 'topup' ? 'text-indigo-600' : 'text-suka-brown'}`}>
-                      {item.type === 'topup' ? '+' : ''}{rupiah(item.amount)}
-                    </td>
-                    <td className="py-4 px-5 text-center">
-                      {item.receiptUrl ? (
-                        <a 
-                          href={item.receiptUrl} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-suka-orange hover:text-suka-orange/80 transition-colors font-bold text-xs bg-orange-50 px-2.5 py-1 rounded-lg border border-orange-200"
-                        >
-                          <FileText size={14} />
-                          Lihat Nota
-                          <ExternalLink size={10} />
-                        </a>
-                      ) : (
-                        <span className="text-suka-gray-400 italic text-xs">Tidak ada</span>
-                      )}
-                    </td>
-                  </motion.tr>
-                ))}
-              </motion.tbody>
-            </table>
+                    <ChevronLeft size={20} />
+                  </button>
+                  <span className="text-sm font-bold text-suka-brown px-2">{page} / {totalPages}</span>
+                  <button 
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="p-1 rounded-lg border border-suka-gray-200 text-suka-brown disabled:opacity-50 disabled:cursor-not-allowed hover:bg-suka-cream transition-colors"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

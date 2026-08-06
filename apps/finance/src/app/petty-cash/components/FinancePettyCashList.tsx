@@ -111,6 +111,14 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOutletFilter, setSelectedOutletFilter] = useState('all')
 
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 50
+
+  // Reset pagination when filters change
+  React.useEffect(() => {
+    setCurrentPage(1)
+  }, [activeTab, reviewFilter, selectedOutletFilter, searchQuery])
+
   const allReviewRequests = React.useMemo(() => {
     return allRequests?.filter(r => 
       r.status === 'forwarded_to_area_manager' ||
@@ -167,7 +175,13 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
     return source
   }, [activeTab, allReviewRequests, allHistoryRequests, reviewFilter, selectedOutletFilter, searchQuery])
 
-  const requests = filteredRequests
+  const totalPages = Math.ceil(filteredRequests.length / ITEMS_PER_PAGE)
+  const paginatedRequests = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredRequests.slice(startIndex, startIndex + ITEMS_PER_PAGE)
+  }, [filteredRequests, currentPage])
+
+  const requests = paginatedRequests
 
   const handleOpenModal = (req: PettyCashTopup) => {
     setSelectedRequest(req)
@@ -383,8 +397,9 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
           </div>
         </div>
       ) : (
-        <div className="overflow-x-auto w-full">
-          <table className="w-full text-left text-sm border-collapse min-w-[800px] xl:min-w-full">
+        <div className="w-full flex flex-col">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full text-left text-sm border-collapse min-w-[800px] xl:min-w-full">
             <thead>
               <tr className="bg-suka-cream/20 text-suka-gray-500 border-b border-suka-brown/5">
                   <th className="py-4 px-5 font-semibold w-[12%] whitespace-nowrap">Tanggal</th>
@@ -396,21 +411,9 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                   <th className="py-4 px-5 font-semibold text-right w-[10%]">Aksi</th>
                 </tr>
               </thead>
-              <motion.tbody 
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  visible: { transition: { staggerChildren: 0.05 } },
-                  hidden: {},
-                }}
-                className="divide-y divide-suka-brown/5"
-              >
+              <tbody className="divide-y divide-suka-brown/5">
                 {requests.map((req) => (
-                  <motion.tr 
-                    variants={{
-                      hidden: { opacity: 0, y: 10 },
-                      visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
-                    }}
+                  <tr 
                     key={req.id} 
                     className="hover:bg-orange-50/30 transition-colors group"
                   >
@@ -522,11 +525,61 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
                         </button>
                       )}
                     </td>
-                  </motion.tr>
+                  </tr>
                 ))}
-              </motion.tbody>
+              </tbody>
             </table>
           </div>
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="p-4 border-t border-suka-brown/5 bg-white/40 flex items-center justify-between">
+              <span className="text-xs font-semibold text-suka-gray-500">
+                Menampilkan {((currentPage - 1) * ITEMS_PER_PAGE) + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredRequests.length)} dari {filteredRequests.length} data
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-suka-brown/20 text-suka-brown disabled:opacity-30 disabled:cursor-not-allowed hover:bg-suka-brown/5 transition-colors cursor-pointer"
+                >
+                  Prev
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5) {
+                      if (currentPage > 3) {
+                        pageNum = currentPage - 2 + i;
+                        if (pageNum > totalPages) return null;
+                      }
+                    }
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                          currentPage === pageNum
+                            ? 'bg-suka-orange text-white shadow-sm'
+                            : 'text-suka-brown hover:bg-suka-brown/10'
+                        }`}
+                      >
+                        {pageNum}
+                      </button>
+                    )
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-suka-brown/20 text-suka-brown disabled:opacity-30 disabled:cursor-not-allowed hover:bg-suka-brown/5 transition-colors cursor-pointer"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
       </div>
 

@@ -817,21 +817,27 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     validOrders.forEach(o => {
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
       const srcKey = srcInfo.key.toLowerCase()
-      const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps'].includes(srcKey)
+      const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
+      const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
       
       let categoryName = srcInfo.label
       const isPawoon = o.customer_name === 'Pawoon Import' || srcKey === 'pos_pawoon' || srcKey === 'pos'
 
       if (isPawoon) {
         const hasFA = o.order_items.some(item => item.menu_item_name.includes('FA') || item.menu_item_name.includes('FOOD APPS'))
-        // If it was mapped as food app or has FA in name
-        if (hasFA || isFoodApp) {
+        const hasTikTok = o.order_items.some(item => item.menu_item_name.toLowerCase().includes('tiktok'))
+        
+        if (isTikTok || hasTikTok) {
+          categoryName = 'POS Pawoon (TikTok)'
+        } else if (hasFA || isFoodApp) {
           categoryName = 'POS Pawoon (Food Apps)'
         } else {
           categoryName = 'POS Pawoon (Offline/Kasir)'
         }
       } else if (srcKey === 'pos_kasir') {
         categoryName = 'POS KASIR (Internal)'
+      } else if (isTikTok) {
+        categoryName = 'TikTok'
       } else if (isFoodApp) {
         categoryName = 'Food Apps (GoFood/Grab/Shopee/dll)'
       } else if (srcKey === 'online') {
@@ -900,21 +906,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const totalPdfMenuRevenue = categories.reduce((sum, cat) => sum + cat.grossRevenue, 0)
     const difference = officialGrossRevenueAll - totalPdfMenuRevenue
 
-    if (difference !== 0) {
-      categories.push({
-        categoryName: 'Penyesuaian Sistem (Lain-lain / Biaya Tambahan)',
-        grossRevenue: difference,
-        totalQty: 0,
-        totalHpp: 0,
-        bestSellers: [{
-          name: 'Selisih Pembulatan / Ekstra / Custom Amount',
-          qty: 0,
-          revenue: difference,
-          hppTotal: 0,
-          unitPrice: difference
-        }]
-      })
-    }
+    // Blok Penyesuaian Sistem telah dihapus sesuai permintaan
+
 
     await generateCategorizedReportPDF({
       outletName: selectedOutletName,

@@ -1,9 +1,15 @@
 'use client'
 
 import CountUp from 'react-countup'
-import { TrendingUp, DollarSign, Store, Activity } from 'lucide-react'
-import { deltaPct } from '@/lib/format'
+import { TrendingUp, DollarSign, Store, Activity, ShoppingBag, Clock, CheckCircle } from 'lucide-react'
+import { deltaPct, rupiah } from '@/lib/format'
 import dynamic from 'next/dynamic'
+import { TopMenus } from '@/components/TopMenus'
+import OrderSourceBadge from '@/components/OrderSourceBadge'
+
+import { useRouter } from 'next/navigation'
+import type { PeriodFilterValue } from '@/lib/types'
+import { PeriodFilter } from '@/components/PeriodFilter'
 
 import { useMitraOutlet } from './MitraOutletContext'
 import { TabInfoOutlet } from './MitraOutletInfo'
@@ -18,6 +24,7 @@ const ProfitLoss = dynamic(
   { ssr: false }
 )
 
+
 export function MitraDashboardView({ 
   mitra, 
   outlets,
@@ -26,9 +33,20 @@ export function MitraDashboardView({
   prevKpiRows,
   hppMap,
   expenses,
-  currentFilter
+  currentFilter,
+  topMenus = [],
+  recentOrders = []
 }: any) {
+  const router = useRouter()
   const { selectedOutlet, selectedOutletId, setSelectedOutletId } = useMitraOutlet()
+  
+  const handleFilterChange = (newFilter: PeriodFilterValue) => {
+    const params = new URLSearchParams()
+    if (newFilter.from) params.set('from', newFilter.from)
+    if (newFilter.to) params.set('to', newFilter.to)
+    // We ignore newFilter.outletId because we have our own dropdown in Context
+    router.push(`?${params.toString()}`)
+  }
   
   // Hitung Nilai Investasi
   const currentInvestasi = selectedOutletId && selectedOutletId !== 'all' ? (investasiMap[selectedOutletId] || 0) : 0
@@ -115,6 +133,17 @@ export function MitraDashboardView({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Global Filter Date Section */}
+        <div className="flex flex-col sm:flex-row items-center gap-2 justify-end mb-4 relative z-50">
+          <PeriodFilter 
+            value={currentFilter} 
+            onChange={handleFilterChange} 
+            outlets={[]} // We disable the builtin outlet dropdown
+            lockedOutletId="all" // lock outlet logic since we use a custom one
+            hideSource 
+          />
         </div>
 
         {!outlets || outlets.length === 0 ? (
@@ -233,6 +262,7 @@ export function MitraDashboardView({
                   className="w-full"
                />
             </div>
+
 
             {/* Laporan Laba Rugi Section */}
             <ProfitLoss realData={{

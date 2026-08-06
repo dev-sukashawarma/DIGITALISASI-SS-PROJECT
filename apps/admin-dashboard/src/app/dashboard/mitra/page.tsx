@@ -2,18 +2,21 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { presetRange, previousRange } from '@/lib/period'
 import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
+import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import { MitraDashboardView } from './MitraDashboardView'
 import type { PeriodFilterValue } from '@/lib/types'
 
 export const dynamic = 'force-dynamic'
 
-export default async function MitraDashboardPage() {
+export default async function MitraDashboardPage({ searchParams }: { searchParams: Promise<any> }) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: () => {},
   })
   
+  const sp = await searchParams
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return <div className="p-8 text-center text-gray-500">Akses ditolak. Sesi tidak valid.</div>
@@ -65,8 +68,8 @@ export default async function MitraDashboardPage() {
   // Kita gunakan preset '30d' sebagai default pandangan Mitra
   const defaultRange = presetRange('30d')
   const curFilter: PeriodFilterValue = {
-    from: defaultRange.from,
-    to: defaultRange.to,
+    from: sp.from || defaultRange.from,
+    to: sp.to || defaultRange.to,
     outletId: 'all',
     source: 'all'
   }
@@ -76,12 +79,25 @@ export default async function MitraDashboardPage() {
     ...previousRange({ from: curFilter.from, to: curFilter.to })
   }
 
-  // Aggregate current and previous data
-  const [curData, prevData] = await Promise.all([
+  // Fetch current data, previous data, and top menus
+  const [curData, prevData, topMenus] = await Promise.all([
     getOwnerDashboardData(curFilter, outlets),
-    getOwnerDashboardData(prevFilter, outlets)
+    getOwnerDashboardData(prevFilter, outlets),
+    getAggregatedMenuSales({ ...curFilter, outletId: outletIds.length > 0 ? outletIds[0] : 'all' }) // Default fetch for their outlets
   ])
   
+  // Fetch Recent Orders for Mitra
+  let recentOrders: any[] = []
+  if (outletIds.length > 0) {
+    const { data: ords } = await supabase
+      .from('orders')
+      .select('id, created_at, customer_name, total_amount, status, sales_source, receipt_number')
+      .in('outlet_id', outletIds)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (ords) recentOrders = ords
+  }
+
   // 5. Fetch HPP Rate for outlets
   const hppMap: Record<string, number> = {}
   if (outletIds.length > 0) {
@@ -92,7 +108,7 @@ export default async function MitraDashboardPage() {
     if (hppData) {
       hppData.forEach((h: any) => {
         if (outletIds.includes(h.outlet_id)) {
-           hppMap[h.outlet_id] = Number(h.hpp_percentage) || 45 // usually it's hpp_percentage
+           hppMap[h.outlet_id] = Number(h.hpp_percentage) || 45
         }
       })
     }
@@ -105,14 +121,15 @@ export default async function MitraDashboardPage() {
       supabase.from('petty_cash_expenses')
         .select('*')
         .in('outlet_id', outletIds)
-        .gte('date', curFilter.from)
-        .lte('date', curFilter.to),
+        .is('deleted_at', null)
+        .gte('expense_date', curFilter.from)
+        .lte('expense_date', curFilter.to),
       supabase.from('expenses')
         .select('*')
-        .eq('type', 'expense')
+        .eq('type', 'out')
         .in('outlet_id', outletIds)
-        .gte('date', curFilter.from)
-        .lte('date', curFilter.to)
+        .gte('expense_date', curFilter.from)
+        .lte('expense_date', curFilter.to)
     ])
     
     expenses = [...(petty || []), ...(regExp || [])]
@@ -129,6 +146,8 @@ export default async function MitraDashboardPage() {
       currentFilter={curFilter}
       hppMap={hppMap}
       expenses={expenses}
+      topMenus={topMenus}
+      recentOrders={recentOrders}
     />
   )
 }

@@ -1,6 +1,8 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { rupiah, formatNumber } from '@/lib/format'
+import ExcelJS from 'exceljs'
+import { saveAs } from 'file-saver'
 
 export type RingkasanData = {
   date: string
@@ -21,7 +23,7 @@ export type ItemData = {
   totalRevenue: number
 }
 
-export function exportToCSV(
+export async function exportToExcel(
   data: any[],
   mode: 'ringkasan' | 'item',
   startDate: string,
@@ -29,37 +31,127 @@ export function exportToCSV(
   outletName: string,
   channelName: string
 ) {
-  let csvContent = `Laporan Omzet Outlet\n`
-  csvContent += `Periode: ${startDate} s/d ${endDate}\n`
-  csvContent += `Outlet: ${outletName}\n`
-  csvContent += `Channel: ${channelName}\n\n`
+  const workbook = new ExcelJS.Workbook()
+  const worksheet = workbook.addWorksheet('Laporan Omzet')
+
+  worksheet.mergeCells('A1:F1')
+  const titleCell = worksheet.getCell('A1')
+  titleCell.value = 'Laporan Omzet Outlet - SukaShawarma'
+  titleCell.font = { size: 16, bold: true }
+
+  worksheet.getCell('A3').value = 'Periode:'
+  worksheet.getCell('B3').value = `${startDate} s/d ${endDate}`
+  worksheet.getCell('A4').value = 'Outlet:'
+  worksheet.getCell('B4').value = outletName
+  worksheet.getCell('A5').value = 'Channel:'
+  worksheet.getCell('B5').value = channelName
+
+  ;['A3', 'A4', 'A5'].forEach((cell) => {
+    worksheet.getCell(cell).font = { bold: true }
+  })
+
+  const headerRowIndex = 7
+  let headers: string[] = []
 
   if (mode === 'ringkasan') {
-    csvContent += 'Tanggal,Nama Outlet,Channel,Jumlah Order,Total Omzet\n'
-    data.forEach((row: RingkasanData) => {
-      const name = `"${row.outletName}"`
-      const channel = `"${row.channel}"`
-      csvContent += `${row.date},${name},${channel},${row.totalOrders},${row.totalRevenue}\n`
-    })
+    headers = ['Tanggal', 'Nama Outlet', 'Channel', 'Jumlah Order', 'Total Omzet']
+    worksheet.getColumn(1).width = 15
+    worksheet.getColumn(2).width = 30
+    worksheet.getColumn(3).width = 20
+    worksheet.getColumn(4).width = 15
+    worksheet.getColumn(5).width = 25
   } else {
-    csvContent += 'Tanggal,Nama Outlet,Channel,Nama Item,Qty Terjual,Total Omzet Item\n'
-    data.forEach((row: ItemData) => {
-      const oName = `"${row.outletName}"`
-      const cName = `"${row.channel}"`
-      const iName = `"${row.itemName}"`
-      csvContent += `${row.date},${oName},${cName},${iName},${row.totalQty},${row.totalRevenue}\n`
-    })
+    headers = ['Tanggal', 'Nama Outlet', 'Channel', 'Nama Item', 'Qty Terjual', 'Total Omzet Item']
+    worksheet.getColumn(1).width = 15
+    worksheet.getColumn(2).width = 30
+    worksheet.getColumn(3).width = 15
+    worksheet.getColumn(4).width = 35
+    worksheet.getColumn(5).width = 15
+    worksheet.getColumn(6).width = 25
   }
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.setAttribute('href', url)
-  link.setAttribute('download', `Laporan_Omzet_${mode}_${startDate}_${endDate}.csv`)
-  link.style.visibility = 'hidden'
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
+  const headerRow = worksheet.getRow(headerRowIndex)
+  headerRow.values = headers
+
+  headerRow.eachCell((cell) => {
+    cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFF97316' }
+    }
+    cell.alignment = { vertical: 'middle', horizontal: 'center' }
+  })
+
+  let totalOrder = 0
+  let totalOmzet = 0
+  let totalQty = 0
+
+  let currentRowIndex = headerRowIndex + 1
+
+  data.forEach((row) => {
+    const dataRow = worksheet.getRow(currentRowIndex)
+    if (mode === 'ringkasan') {
+      dataRow.values = [
+        row.date,
+        row.outletName,
+        row.channel,
+        row.totalOrders,
+        row.totalRevenue
+      ]
+      totalOrder += row.totalOrders
+      totalOmzet += row.totalRevenue
+      
+      dataRow.getCell(4).numFmt = '#,##0'
+      dataRow.getCell(5).numFmt = 'Rp #,##0'
+    } else {
+      dataRow.values = [
+        row.date,
+        row.outletName,
+        row.channel,
+        row.itemName,
+        row.totalQty,
+        row.totalRevenue
+      ]
+      totalQty += row.totalQty
+      totalOmzet += row.totalRevenue
+
+      dataRow.getCell(5).numFmt = '#,##0'
+      dataRow.getCell(6).numFmt = 'Rp #,##0'
+    }
+    currentRowIndex++
+  })
+
+  const totalRow = worksheet.getRow(currentRowIndex)
+  if (mode === 'ringkasan') {
+    totalRow.values = ['TOTAL KESELURUHAN', '', '', totalOrder, totalOmzet]
+    worksheet.mergeCells(`A${currentRowIndex}:C${currentRowIndex}`)
+    
+    totalRow.getCell(4).numFmt = '#,##0'
+    totalRow.getCell(5).numFmt = 'Rp #,##0'
+  } else {
+    totalRow.values = ['TOTAL KESELURUHAN', '', '', '', totalQty, totalOmzet]
+    worksheet.mergeCells(`A${currentRowIndex}:D${currentRowIndex}`)
+    
+    totalRow.getCell(5).numFmt = '#,##0'
+    totalRow.getCell(6).numFmt = 'Rp #,##0'
+  }
+
+  totalRow.eachCell({ includeEmpty: false }, (cell) => {
+    cell.font = { bold: true, color: { argb: 'FF000000' } }
+    cell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFFFEDD5' }
+    }
+    if (cell.col === 1) {
+      cell.alignment = { horizontal: 'center' }
+    }
+  })
+
+  const buffer = await workbook.xlsx.writeBuffer()
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  saveAs(blob, `Laporan_Omzet_${mode}_${startDate}_${endDate}.xlsx`)
 }
 
 export async function exportToPDF(

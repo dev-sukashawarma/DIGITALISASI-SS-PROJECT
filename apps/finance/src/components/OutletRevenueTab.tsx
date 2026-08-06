@@ -8,7 +8,7 @@ import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, formatNumber } from '@/lib/format'
 import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
-import { exportToCSV, exportToPDF } from '@/lib/exportUtils'
+import { exportToExcel, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 
@@ -256,7 +256,7 @@ export default function OutletRevenueTab() {
     return revenueData.reduce((sum, item) => sum + item.totalOrders, 0)
   }, [revenueData])
 
-  const handleExport = async (format: 'pdf' | 'csv') => {
+  const handleExport = async (format: 'pdf' | 'excel') => {
     setIsExporting(true)
     
     let outletName = 'Semua Outlet'
@@ -272,8 +272,8 @@ export default function OutletRevenueTab() {
     try {
       const dataToExport = viewMode === 'ringkasan' ? revenueData : itemsData
       
-      if (format === 'csv') {
-        exportToCSV(dataToExport, viewMode, startDate, endDate, outletName, channelName)
+      if (format === 'excel') {
+        await exportToExcel(dataToExport, viewMode, startDate, endDate, outletName, channelName)
       } else {
         await exportToPDF(dataToExport, viewMode, startDate, endDate, outletName, channelName)
       }
@@ -463,12 +463,12 @@ export default function OutletRevenueTab() {
                 PDF
               </button>
               <button
-                onClick={() => handleExport('csv')}
+                onClick={() => handleExport('excel')}
                 disabled={isExporting || (viewMode === 'ringkasan' ? revenueData.length === 0 : itemsData.length === 0)}
                 className="flex items-center gap-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-xl text-sm font-bold transition-colors"
               >
                 {isExporting ? <Spinner size={16} /> : <FileSpreadsheet size={16} />}
-                CSV
+                Excel
               </button>
             </div>
           </div>

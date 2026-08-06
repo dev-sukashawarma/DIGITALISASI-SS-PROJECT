@@ -18,7 +18,7 @@ import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAc
 export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
 
-type StaffRow = { id: string; name: string; face_descriptor: number[] | null };
+type StaffRow = { id: string; name: string; face_descriptor: number[] | null; allow_manual_button: boolean };
 
 const FUNCTION_URL = "/api/submit-attendance";
 
@@ -341,7 +341,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     if (!outletId) return;
     let query = supabase
       .from("outlet_staff")
-      .select("id,name,face_descriptor")
+      .select("id,name,face_descriptor,allow_manual_button")
       .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`)
       .not("face_descriptor", "is", null);
     // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
@@ -349,7 +349,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     const { data } = await query;
     candidatesRef.current = ((data as StaffRow[]) ?? [])
       .filter((s) => s.face_descriptor)
-      .map((s) => ({ id: s.id, name: s.name, descriptor: s.face_descriptor! }));
+      .map((s) => ({ id: s.id, name: s.name, descriptor: s.face_descriptor!, allow_manual_button: s.allow_manual_button }));
   }, [outletId, lockToStaffId, supabase]);
 
   /** Tentukan aksi IN/OUT dari record hari ini. */
@@ -671,6 +671,67 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     scheduleReset(res.ok ? 2500 : 1000);
   }
 
+  async function doSubmitManual(staffId: string, staffName: string) {
+    if (!outletId) return;
+    if (busyRef.current || (phase !== "idle" && phase !== "result" && phase !== "locating")) return;
+    busyRef.current = true;
+    try {
+      const nextAction = await decideAction(staffId);
+      if (nextAction === "done") {
+        setResult({ ok: true, message: `${staffName} sudah absen masuk & keluar hari ini` });
+        setPhase("result"); scheduleReset(2500); return;
+      }
+      
+      if (nextAction === "out" && !(await isClosingChecklistDone())) {
+        setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
+        setPhase("result"); scheduleReset(3500); return;
+      }
+      if (nextAction === "out" && !(await isShiftClosed())) {
+        setResult({ ok: false, message: "Shift kasir outlet ini belum ditutup (Petty Cash). Tidak bisa absen pulang." });
+        setPhase("result"); scheduleReset(3500); return;
+      }
+
+      setPhase("submitting");
+      const id = crypto.randomUUID();
+      const payload: AttendancePayload & { outlet_id: string } = {
+        id,
+        outlet_id: outletId,
+        outlet_staff_id: staffId,
+        type: nextAction,
+        gps_lat: deviceCoords?.lat ?? null,
+        gps_lng: deviceCoords?.lng ?? null,
+        gps_accuracy: deviceAccuracy ?? null,
+        is_mock: (deviceAccuracy === 1.0 || deviceAccuracy === 0.0),
+        match_distance: 0,
+        selfie_path: null,
+        ts_client: new Date().toISOString(),
+        from_queue: false,
+        is_manual_button: true,
+      };
+
+      if (!navigator.onLine) {
+        queue.enqueue(payload, "");
+        postToNative({ type: "haptic", style: "success" });
+        setResult({ ok: true, message: nextAction === "in" ? "Selamat bekerja! (Offline)" : "Hati-hati di jalan! (Offline)" });
+        setPhase("result"); scheduleReset(2500); return;
+      }
+
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token')
+        ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token
+        : null;
+      const token = authHeaderToken || anonKey;
+      const res = await submitAttendance(payload, { functionUrl: FUNCTION_URL, anonKey: token });
+      postToNative({ type: "haptic", style: res.ok ? "success" : "error" });
+      setResult(res.ok
+        ? { ok: true, message: nextAction === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
+        : { ok: false, message: gagalText(res.reason) });
+      setPhase("result"); scheduleReset(res.ok ? 2500 : 1000);
+    } finally {
+      busyRef.current = false;
+    }
+  }
+
   // Bersihkan Geolocation Watcher saat komponen unmount
   useEffect(() => {
     return () => {
@@ -704,7 +765,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
            checkLocation, gpsDistance, deviceCoords, deviceAccuracy,
            permissionState, permissionError, requestPermissions,
-           matchMode, setMatchMode };
+           matchMode, setMatchMode, doSubmitManual };
 }
 
 function gagalText(reason: string): string {

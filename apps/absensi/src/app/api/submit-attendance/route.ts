@@ -84,7 +84,8 @@ export async function POST(req: Request) {
           match_distance: body.match_distance || 0,
           selfie_url: body.selfie_path || null,
           status: "fake_gps_blocked",
-          telat_menit: null
+          telat_menit: null,
+          is_manual_button: body.is_manual_button || false
         }, { onConflict: "id", ignoreDuplicates: true });
 
         return NextResponse.json({
@@ -143,7 +144,8 @@ export async function POST(req: Request) {
                 match_distance: body.match_distance || 0,
                 selfie_url: body.selfie_path || null,
                 status: "teleportation_blocked",
-                telat_menit: null
+                telat_menit: null,
+                is_manual_button: body.is_manual_button || false
               }, { onConflict: "id", ignoreDuplicates: true });
 
               return NextResponse.json({
@@ -304,6 +306,7 @@ export async function POST(req: Request) {
       selfie_url: body.selfie_path,
       status,
       telat_menit,
+      is_manual_button: body.is_manual_button || false,
     }, { onConflict: "id", ignoreDuplicates: true });
 
     if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });

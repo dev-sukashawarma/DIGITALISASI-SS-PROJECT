@@ -400,12 +400,24 @@ export default function CashierShiftPage() {
         receiptUrl = publicUrlData.publicUrl
       }
 
-      // Try calling RPC first (assuming we updated it to accept p_receipt_url)
-      const { error } = await supabase.rpc('add_petty_cash', {
-        p_category: expCategory,
-        p_amount: amount,
-        p_description: expDesc.trim(),
-        p_receipt_url: receiptUrl
+      // Validasi saldo di sisi klien
+      if (amount > pettyCashBalance) {
+        throw new Error(`Saldo Petty Cash tidak mencukupi. Sisa saldo: ${pettyCashBalance}`)
+      }
+
+      const { data: userData } = await supabase.auth.getUser()
+
+      // Gunakan direct insert daripada RPC untuk mendukung user multi-outlet (seperti Area Manager)
+      // yang outlet_staff.outlet_id nya null. RLS petty_cash_expenses_insert akan memvalidasi aksesnya.
+      const { error } = await supabase.from('petty_cash_expenses').insert({
+        outlet_id: outletId,
+        category: expCategory,
+        amount: amount,
+        description: expDesc.trim(),
+        receipt_url: receiptUrl,
+        payment_source: 'petty_cash',
+        expense_date: today,
+        created_by: userData.user?.id
       })
 
       if (error) {

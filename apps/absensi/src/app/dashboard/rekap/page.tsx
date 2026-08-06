@@ -24,6 +24,7 @@ type Row = {
   outlet_staff: { name: string } | null;
   delay_minutes?: number | null;
   telat_menit?: number | null;
+  is_manual_button?: boolean;
 };
 
 type StaffSummary = {
@@ -447,13 +448,18 @@ export default function RekapPage() {
                                   </StatusPill>
                                 )}
                               </div>
-                              <div className="text-sm mt-0.5">
-                                {day.in ? (
-                                  <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(day.in.ts_server)}</span>
-                                ) : (
-                                  <span className="text-slate-400 italic text-xs">Belum / Tidak ada data</span>
-                                )}
-                              </div>
+                                <div className="text-sm mt-0.5 flex flex-wrap gap-2 items-center">
+                                  {day.in ? (
+                                    <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(day.in.ts_server)}</span>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-xs">Belum / Tidak ada data</span>
+                                  )}
+                                  {day.in?.is_manual_button && (
+                                    <span className="flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                                      Manual
+                                    </span>
+                                  )}
+                                </div>
                             </div>
                           </div>
 
@@ -485,13 +491,18 @@ export default function RekapPage() {
                                   </StatusPill>
                                 )}
                               </div>
-                              <div className="text-sm mt-0.5">
-                                {day.out ? (
-                                  <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(day.out.ts_server)}</span>
-                                ) : (
-                                  <span className="text-slate-400 italic text-xs">Belum Absen Pulang</span>
-                                )}
-                              </div>
+                                <div className="text-sm mt-0.5 flex flex-wrap gap-2 items-center">
+                                  {day.out ? (
+                                    <span className="font-mono text-slate-900 bg-slate-100 px-1.5 py-0.5 rounded-md">{jam(day.out.ts_server)}</span>
+                                  ) : (
+                                    <span className="text-slate-400 italic text-xs">Belum Absen Pulang</span>
+                                  )}
+                                  {day.out?.is_manual_button && (
+                                    <span className="flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
+                                      Manual
+                                    </span>
+                                  )}
+                                </div>
                             </div>
                           </div>
                         </div>

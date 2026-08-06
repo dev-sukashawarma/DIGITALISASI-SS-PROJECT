@@ -265,7 +265,14 @@ export default function PapanKehadiranPage() {
                     </div>
                     
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-semibold text-gray-900 truncate group-hover:text-suka-ink transition-colors">{r.name}</div>
+                      <div className="text-sm font-semibold text-gray-900 truncate group-hover:text-suka-ink transition-colors flex items-center gap-2">
+                        {r.name}
+                        {r.is_manual_button && (
+                          <span className="text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded shrink-0">
+                            Manual
+                          </span>
+                        )}
+                      </div>
                       <div className="text-xs font-medium text-gray-500 capitalize mt-0.5">{r.role}</div>
                     </div>
                     

@@ -6,6 +6,7 @@ export type BoardRecord = {
   ts_server: string;
   selfie_url?: string | null;
   telat_menit?: number | null;
+  is_manual_button?: boolean | null;
 };
 
 export type BoardConfig = {
@@ -23,6 +24,7 @@ export type BoardRow = {
   time: string | null;
   selfie_url: string | null;
   delay_minutes: number | null;
+  is_manual_button: boolean | null;
 };
 export type BoardSummary = { hadir: number; telat: number; telat_toleransi: number; belum: number; alpha: number; total: number };
 
@@ -74,22 +76,22 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
       if (config.jam_keluar && (state === "lebih_awal" || state === "pulang_telat")) {
         delay_minutes = outRec.telat_menit ?? Math.abs(calculateDelayMinutes(outRec.ts_server, config.jam_keluar));
       }
-      return { id: s.id, name: s.name, role: s.role, state, time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes };
+      return { id: s.id, name: s.name, role: s.role, state, time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes, is_manual_button: outRec.is_manual_button || false };
     }    
     if (inRec) {
       let state: BoardState = "masuk";
       if (inRec.status === "telat") state = "telat";
       if (inRec.status === "telat_toleransi") state = "telat_toleransi";
       const delay_minutes = (state === "telat" || state === "telat_toleransi") ? (inRec.telat_menit ?? calculateDelayMinutes(inRec.ts_server, config.jam_masuk)) : null;
-      return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes };
+      return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes, is_manual_button: inRec.is_manual_button || false };
     }
     
     // Belum absen
     if (isPastDeadline) {
-      return { id: s.id, name: s.name, role: s.role, state: "alpha", time: null, selfie_url: null, delay_minutes: null };
+      return { id: s.id, name: s.name, role: s.role, state: "alpha", time: null, selfie_url: null, delay_minutes: null, is_manual_button: false };
     }
     
-    return { id: s.id, name: s.name, role: s.role, state: "belum", time: null, selfie_url: null, delay_minutes: null };
+    return { id: s.id, name: s.name, role: s.role, state: "belum", time: null, selfie_url: null, delay_minutes: null, is_manual_button: false };
   });
 
   const summary: BoardSummary = {

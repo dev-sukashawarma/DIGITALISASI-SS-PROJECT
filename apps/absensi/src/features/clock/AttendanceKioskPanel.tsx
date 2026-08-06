@@ -733,6 +733,25 @@ export function AttendanceKioskPanel() {
         </div>
       </Card>
 
+      {/* Tombol Manual (Hanya untuk staff tertentu) */}
+      {outletStaff?.allow_manual_button && clockInWindowOpen && kiosk.phase !== "result" && kiosk.phase !== "submitting" && (
+        <Card className="p-4 rounded-3xl border border-suka-orange shadow-md bg-orange-50">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <p className="text-sm font-bold text-suka-brown text-center">Kamera bermasalah?</p>
+            <button
+              onClick={() => kiosk.doSubmitManual(outletStaff.id, outletStaff.name)}
+              disabled={kiosk.phase === "locating" || kiosk.permissionState !== "granted"}
+              className="w-full py-3 bg-suka-orange text-white font-extrabold rounded-xl shadow hover:bg-suka-brown transition-colors disabled:opacity-50"
+            >
+              Absen Manual Tanpa Kamera
+            </button>
+            <p className="text-[10px] font-bold text-suka-orange text-center">
+              Perhatian: Lokasi GPS Anda tetap akan divalidasi. Pilihan ini khusus untuk kamera yang bermasalah.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* Status Hari Ini - PINDAH DI BAWAH KAMERA */}
       <Card className={`p-5 rounded-3xl border transition-all duration-300 shadow-md ${
         loadingHistory 

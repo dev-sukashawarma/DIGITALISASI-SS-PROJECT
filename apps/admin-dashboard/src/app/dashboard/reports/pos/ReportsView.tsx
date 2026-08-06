@@ -17,7 +17,6 @@ import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReport
 
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
-import MarketplaceFilter from '@/components/MarketplaceFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
 
@@ -169,11 +168,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     () => new Set(marketplaceOutlets.map(o => o.id)),
     [marketplaceOutlets]
   )
-  // selectedOutlet menunjuk salah satu dari dua sumber ini (outlet fisik ATAU platform
-  // marketplace) -- tiap dropdown menampilkan default-nya sendiri saat state sedang
-  // menunjuk ke sumber yang lain, sehingga keduanya tampak "saling reset".
-  const branchFilterValue = marketplaceOutletIds.has(selectedOutlet) ? 'all' : selectedOutlet
-  const marketplaceFilterValue = marketplaceOutletIds.has(selectedOutlet) ? selectedOutlet : 'all'
+  // selectedOutlet menunjuk salah satu dari outlet fisik.
+  const branchFilterValue = selectedOutlet
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -956,12 +952,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             <BranchFilter
               outlets={physicalOutlets}
               selectedOutlet={branchFilterValue}
-              onChange={setSelectedOutlet}
-            />
-
-            <MarketplaceFilter
-              platforms={marketplaceOutlets}
-              selectedOutlet={marketplaceFilterValue}
               onChange={setSelectedOutlet}
             />
 

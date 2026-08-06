@@ -1,7 +1,7 @@
 'use client'
 // @ts-nocheck
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { 
   Building2, Send, Check, 
   Search, Camera, X, Download

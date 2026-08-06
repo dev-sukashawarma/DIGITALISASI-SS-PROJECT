@@ -23,7 +23,7 @@ export default async function ReportsPage({
   const channelFilter = (resolvedSearchParams.channel as string) || 'all';
   const paymentFilter = (resolvedSearchParams.payment as string) || 'all';
   const statusFilter = (resolvedSearchParams.status as string) || 'all';
-  const outletFilter = (resolvedSearchParams.outlet as string) || 'all';
+  const outletFilter = (resolvedSearchParams.outlet_id as string) || 'all';
 
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),

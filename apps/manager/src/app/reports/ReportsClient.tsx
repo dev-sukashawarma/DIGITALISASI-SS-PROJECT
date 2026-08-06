@@ -60,7 +60,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
   const channelFilter = searchParams.get('channel') || initialFilters.channelFilter
   const paymentFilter = searchParams.get('payment') || initialFilters.paymentFilter
   const statusFilter = searchParams.get('status') || initialFilters.statusFilter
-  const outletFilter = searchParams.get('outlet') || initialFilters.outletFilter
+  const outletFilter = searchParams.get('outlet_id') || initialFilters.outletFilter
 
   const updateFilters = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString())
@@ -113,20 +113,6 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
         {/* Filters Bar */}
         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
           
-          {/* Outlet Filter */}
-          {!isLockedOutlet && (
-            <select
-              value={outletFilter}
-              onChange={(e) => updateFilters('outlet', e.target.value)}
-              className="bg-white border border-suka-brown/20 hover:border-suka-brown/40 px-3.5 py-2.5 rounded-xl text-sm font-bold text-suka-brown transition-all shadow-sm outline-none cursor-pointer"
-            >
-              <option value="all">Semua Outlet</option>
-              {outlets.map(o => (
-                <option key={o.id} value={o.id}>{o.name}</option>
-              ))}
-            </select>
-          )}
-
           {/* Filter Channel / Food Apps */}
           <select
             value={channelFilter}

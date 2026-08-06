@@ -82,6 +82,42 @@ export default async function MitraDashboardPage() {
     getOwnerDashboardData(prevFilter, outlets)
   ])
   
+  // 5. Fetch HPP Rate for outlets
+  const hppMap: Record<string, number> = {}
+  if (outletIds.length > 0) {
+    const { data: hppData } = await supabase.rpc('get_hpp_periode', { 
+      start_date: curFilter.from, 
+      end_date: curFilter.to 
+    })
+    if (hppData) {
+      hppData.forEach((h: any) => {
+        if (outletIds.includes(h.outlet_id)) {
+           hppMap[h.outlet_id] = Number(h.hpp_percentage) || 45 // usually it's hpp_percentage
+        }
+      })
+    }
+  }
+
+  // 6. Fetch Expenses from petty_cash_expenses and expenses
+  let expenses: any[] = []
+  if (outletIds.length > 0) {
+    const [{ data: petty }, { data: regExp }] = await Promise.all([
+      supabase.from('petty_cash_expenses')
+        .select('*')
+        .in('outlet_id', outletIds)
+        .gte('date', curFilter.from)
+        .lte('date', curFilter.to),
+      supabase.from('expenses')
+        .select('*')
+        .eq('type', 'expense')
+        .in('outlet_id', outletIds)
+        .gte('date', curFilter.from)
+        .lte('date', curFilter.to)
+    ])
+    
+    expenses = [...(petty || []), ...(regExp || [])]
+  }
+  
   return (
     <MitraDashboardView 
       mitra={profile} 
@@ -90,6 +126,9 @@ export default async function MitraDashboardPage() {
       curKpiRows={curData.kpiRows}
       prevKpiRows={prevData.kpiRows}
       hourlyRows={curData.hourlyRows}
+      currentFilter={curFilter}
+      hppMap={hppMap}
+      expenses={expenses}
     />
   )
 }

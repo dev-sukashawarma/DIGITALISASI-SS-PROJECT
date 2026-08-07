@@ -68,6 +68,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
     ],
   },
@@ -154,6 +155,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN', 'OWNER'] },
       { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['ADMIN', 'OWNER'] },
     ],
   },
 ]

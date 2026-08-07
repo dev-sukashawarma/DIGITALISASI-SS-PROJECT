@@ -156,7 +156,10 @@ function parseRows(
     const cleanName = nameMap[rawClean] ?? rawClean
 
     // Buang item yang bukan menu channel ini
-    if (validNames && !validNames.has(cleanName)) continue
+    if (validNames && !validNames.has(cleanName)) {
+      console.log(`[TikTok GO Parser] ❌ SKIPPED: rawName="${rawName}" => cleanName="${cleanName}"`)
+      continue
+    }
 
     const cur = agg.get(cleanName) ?? { name: cleanName, qty: 0 }
     cur.qty += (qtyCol && row[qtyCol]) ? (Number(row[qtyCol]) || 1) : 1

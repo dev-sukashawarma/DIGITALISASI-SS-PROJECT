@@ -548,7 +548,7 @@ export default function ReportsPage() {
                 <div className="w-8 h-8 bg-white/20 rounded-xl flex items-center justify-center mb-2">
                   <Banknote className="w-4 h-4 text-white" strokeWidth={1.5} />
                 </div>
-                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet</p>
+                <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
                 <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
               <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>

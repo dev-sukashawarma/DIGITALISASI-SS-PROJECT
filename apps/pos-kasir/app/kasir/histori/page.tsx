@@ -172,7 +172,7 @@ export default function AdminOrdersPage() {
 
   const totalRevenue = filteredOrders
     .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval')
-    .reduce((s, o) => s + o.total_amount, 0)
+    .reduce((s, o) => s + o.total_amount + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0), 0)
 
   const revenueCash = filteredOrders
     .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'cash')
@@ -269,7 +269,7 @@ export default function AdminOrdersPage() {
           <div className="w-9 h-9 bg-white/20 rounded-2xl flex items-center justify-center mb-3">
             <Activity className="w-4.5 h-4.5 text-white" strokeWidth={1.5} />
           </div>
-          <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Total Revenue</p>
+          <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Omzet Kotor</p>
           <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(totalRevenue)}</p>
         </div>
       </div>

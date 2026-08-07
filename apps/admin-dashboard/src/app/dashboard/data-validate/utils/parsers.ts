@@ -15,6 +15,7 @@ const TIKTOK_GO_NAME_MAP: Record<string, string> = {
   'best seller':           'best seller (mix jumbo)',
   'best seller 2':         'best seller 2',
   'shawarma triple combo': 'triple combo',
+  'suka duo favorit':      'suka duo favorite',
 }
 
 /** TikTok Seller: nama panjang di file export → nama di menu_items DB */

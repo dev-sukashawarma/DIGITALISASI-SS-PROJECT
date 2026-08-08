@@ -17,13 +17,18 @@ export interface OrderSourceInfo {
   fg: string
   logoPath?: string
   mark?: string
-  lucide: 'globe' | 'monitor' | null
+  lucide: 'globe' | 'monitor' | 'gift' | null
 }
 
 export function resolveOrderSource(
   channel?: string | null,
   salesSource?: string | null,
+  isEndorse?: boolean
 ): OrderSourceInfo {
+  if (isEndorse || channel === 'endors' || salesSource === 'endors') {
+    return { key: 'endors', label: 'ENDORSE', bg: '#fdf4ff', fg: '#d946ef', lucide: 'gift' }
+  }
+
   // sales_source 'tiktok' (agregat) dipetakan ke id channel lokal 'tiktokgo'.
   const normalized = salesSource === 'tiktok' ? 'tiktokgo' : salesSource
   const chId = channel || (normalized && normalized !== 'pos' && normalized !== 'online' ? normalized : null)

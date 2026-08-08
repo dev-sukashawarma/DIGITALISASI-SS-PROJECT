@@ -1,4 +1,4 @@
-import { Globe, Monitor } from 'lucide-react'
+import { Globe, Monitor, Gift } from 'lucide-react'
 import { resolveOrderSource } from '@/lib/order-source'
 
 // Badge sumber pesanan untuk halaman admin (Laporan & Overview).
@@ -8,14 +8,16 @@ export default function OrderSourceBadge({
   channel,
   salesSource,
   customerName,
+  isEndorse,
   size = 'sm',
 }: {
   channel?: string | null
   salesSource?: string | null
   customerName?: string | null
+  isEndorse?: boolean | null
   size?: 'sm' | 'md'
 }) {
-  const src = resolveOrderSource(channel, salesSource, customerName)
+  const src = resolveOrderSource(channel, salesSource, customerName, isEndorse)
   const isMd = size === 'md'
   const iconBox = isMd ? 'w-4 h-4' : 'w-3.5 h-3.5'
 
@@ -32,6 +34,8 @@ export default function OrderSourceBadge({
             <path d={src.logoPath} />
           </svg>
         </span>
+      ) : src.lucide === 'gift' ? (
+        <Gift className={`${iconBox} flex-shrink-0`} strokeWidth={2.5} />
       ) : src.lucide === 'globe' ? (
         <Globe className={`${iconBox} flex-shrink-0`} strokeWidth={2.5} />
       ) : src.lucide === 'monitor' ? (

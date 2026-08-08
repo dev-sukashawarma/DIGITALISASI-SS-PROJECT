@@ -404,6 +404,7 @@ export default function AdminOrdersPage() {
                         <OrderSourceBadge
                           channel={order.channel}
                           salesSource={(order as any).sales_source}
+                          isEndorse={(order as any).is_endorse}
                           size="sm"
                         />
                         {order.customer_name && (

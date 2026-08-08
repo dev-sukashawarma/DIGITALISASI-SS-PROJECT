@@ -35,6 +35,8 @@ export interface OrderRow {
   outlet_id: string
   channel?: string | null
   sales_source?: string | null
+  customer_name?: string | null
+  is_endorse?: boolean | null
 }
 
 // Satu baris rincian kontribusi per sumber (channel/online/pos) untuk Overview.
@@ -167,7 +169,7 @@ export function computeAnalytics(
   // Kontribusi per sumber pesanan (channel eksternal / website online / POS).
   const sourceMap = new Map<string, { info: OrderSourceInfo; revenue: number; orders: number }>()
   periodOrders.forEach(o => {
-    const info = resolveOrderSource(o.channel, o.sales_source)
+    const info = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
     const cur = sourceMap.get(info.key) ?? { info, revenue: 0, orders: 0 }
     cur.revenue += o.total_amount
     cur.orders += 1

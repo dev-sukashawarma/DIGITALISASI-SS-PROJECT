@@ -129,7 +129,7 @@ export interface SystemHealthLogRow {
   checked_at: string
 }
 
-export type SalesSource = 'pos' | 'online' | 'gofood' | 'grabfood' | 'shopeefood' | 'tiktok' | 'tiktok_shop' | 'shopee_shop'
+export type SalesSource = 'pos' | 'online' | 'gofood' | 'grabfood' | 'shopeefood' | 'tiktok' | 'tiktok_shop' | 'shopee_shop' | 'endors'
 
 export interface SalesSummaryRow {
   outlet_id: string

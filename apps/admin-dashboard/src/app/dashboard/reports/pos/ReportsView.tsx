@@ -434,7 +434,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     defaults.forEach(d => map.set(d.key, d))
 
     orders.forEach(o => {
-      const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
+      const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       if (!map.has(src.key)) {
         map.set(src.key, { key: src.key, label: src.label })
       }
@@ -449,28 +449,28 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const filteredOrders = selectedChannel === 'all' 
       ? orders 
       : selectedChannel === 'food_apps'
-        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source, o.customer_name).key))
+        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key))
         : selectedChannel === 'pos_kasir'
-        ? orders.filter(o => resolveOrderSource(o.channel, o.sales_source, o.customer_name).key === 'pos_kasir')
+        ? orders.filter(o => resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key === 'pos_kasir')
         : selectedChannel === 'pos_pawoon_all'
         ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
             return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
           })
         : selectedChannel === 'pos_pawoon'
         ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
             if (src !== 'pos_pawoon' && src !== 'pos') return false
             return !o.order_items.some(item => item.menu_item_name.includes('FA'))
           })
         : selectedChannel === 'pos_fa'
         ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
             if (src !== 'pos_pawoon' && src !== 'pos') return false
             return o.order_items.some(item => item.menu_item_name.includes('FA'))
           })
         : orders.filter(o => {
-            const k = resolveOrderSource(o.channel, o.sales_source, o.customer_name).key.toLowerCase()
+            const k = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
             const target = selectedChannel.toLowerCase()
             if (target === 'tiktokgo' || target === 'tiktok') {
               return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(k)
@@ -527,7 +527,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     let addOnsQty = 0
 
     completed.forEach(o => {
-      const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name).label
+      const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
 
       o.order_items.forEach(oi => {
         const key = cleanItemName(oi.menu_item_name)
@@ -685,7 +685,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
       order.order_items.forEach(item => {
         const cleanName = cleanItemName(item.menu_item_name)
-        const src = resolveOrderSource(order.channel, order.sales_source)
+        const src = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse)
         
         let groupLabel = 'OFFLINE'
         if (['shopeefood', 'grabfood', 'gofood'].includes(src.key)) {
@@ -815,7 +815,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     }> = {}
 
     validOrders.forEach(o => {
-      const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
+      const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
       const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
       const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
@@ -937,7 +937,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     }> = {}
 
     validOrders.forEach(o => {
-      const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name)
+      const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
       const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
       const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
@@ -1579,14 +1579,14 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             <button
                               type="button"
                               onClick={() => {
-                                const srcKey = resolveOrderSource(order.channel, order.sales_source, order.customer_name).key
+                                const srcKey = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).key
                                 setSelectedChannel(prev => prev === srcKey ? 'all' : srcKey)
                                 setCurrentPage(1)
                               }}
                               className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
                               title="Klik untuk memfilter transaksi berdasarkan sumber ini"
                             >
-                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} customerName={order.customer_name} size="sm" />
+                              <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} customerName={order.customer_name} isEndorse={order.is_endorse} size="sm" />
                             </button>
                           </td>
                           <td className="px-5 py-4">
@@ -2167,4 +2167,5 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     </div>
   )
 }
+
 

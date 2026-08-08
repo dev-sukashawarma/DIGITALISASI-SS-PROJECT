@@ -1,4 +1,4 @@
-import { Globe, Monitor } from 'lucide-react'
+import { Globe, Monitor, Gift } from 'lucide-react'
 import { resolveOrderSource } from '@/lib/order-source'
 
 // Badge sumber pesanan untuk halaman admin (Laporan & Overview).
@@ -7,13 +7,15 @@ import { resolveOrderSource } from '@/lib/order-source'
 export default function OrderSourceBadge({
   channel,
   salesSource,
+  isEndorse,
   size = 'sm',
 }: {
   channel?: string | null
   salesSource?: string | null
+  isEndorse?: boolean
   size?: 'sm' | 'md'
 }) {
-  const src = resolveOrderSource(channel, salesSource)
+  const src = resolveOrderSource(channel, salesSource, isEndorse)
   const isMd = size === 'md'
   const iconBox = isMd ? 'w-4 h-4' : 'w-3.5 h-3.5'
 
@@ -22,7 +24,7 @@ export default function OrderSourceBadge({
       className={`inline-flex items-center gap-1.5 font-bold uppercase tracking-wider rounded-md ${
         isMd ? 'text-xs px-2.5 py-1' : 'text-[10px] px-2 py-0.5'
       }`}
-      style={{ backgroundColor: src.bg, color: src.fg }}
+      style={{ backgroundColor: src.bg, color: src.fg, ...(src.key === 'endors' ? { border: `1px solid ${src.fg}40` } : {}) }}
     >
       {src.logoPath ? (
         <span className={`inline-flex items-center justify-center flex-shrink-0 ${iconBox}`}>
@@ -34,6 +36,8 @@ export default function OrderSourceBadge({
         <Globe className={`${iconBox} flex-shrink-0`} strokeWidth={2.5} />
       ) : src.lucide === 'monitor' ? (
         <Monitor className={`${iconBox} flex-shrink-0`} strokeWidth={2.5} />
+      ) : src.lucide === 'gift' ? (
+        <Gift className={`${iconBox} flex-shrink-0`} strokeWidth={2.5} />
       ) : (
         <span
           className={`inline-flex items-center justify-center rounded-full bg-white/25 font-extrabold leading-none ${

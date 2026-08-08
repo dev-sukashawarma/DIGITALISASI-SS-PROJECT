@@ -21,23 +21,52 @@ export function useSalesHourlyRaw(filter: PeriodFilterValue) {
     queryKey: ['sales-hourly-raw', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,
     queryFn: async () => {
+      const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
+      const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
+
       let q = supabase
-        .from('sales_hourly_scoped')
-        .select('outlet_id, sales_source, sales_date, sales_hour, omzet, jumlah_order_completed')
-        .gte('sales_date', filter.from)
-        .lte('sales_date', filter.to)
+        .from('orders')
+        .select('outlet_id, sales_source, is_endorse, created_at, total_amount')
+        .eq('status', 'completed')
+        .gte('created_at', fromStart.toISOString())
+        .lte('created_at', toEnd.toISOString())
+      
       if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
-      if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
+      
       const { data, error } = await q
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
-        outlet_id: r.outlet_id,
-        sales_source: r.sales_source as SalesSource,
-        sales_date: r.sales_date,
-        sales_hour: r.sales_hour,
-        omzet: Number(r.omzet),
-        jumlah_order_completed: Number(r.jumlah_order_completed),
-      }))
+
+      const aggMap = new Map<string, SalesHourlyRawRow>()
+      
+      for (const o of data ?? []) {
+        const d = new Date(o.created_at)
+        const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
+        const dateStr = localDate.toISOString().split('T')[0]
+        const hourStr = localDate.getHours()
+        
+        const srcKey = (o.is_endorse ? 'endors' : (o.sales_source || 'pos')).toLowerCase() as SalesSource
+        
+        if (filter.source !== 'all' && srcKey !== filter.source.toLowerCase()) continue;
+        
+        const key = `${o.outlet_id}|${srcKey}|${dateStr}|${hourStr}`
+        
+        const existing = aggMap.get(key)
+        if (existing) {
+          existing.omzet += Number(o.total_amount || 0)
+          existing.jumlah_order_completed += 1
+        } else {
+          aggMap.set(key, {
+            outlet_id: o.outlet_id,
+            sales_source: srcKey,
+            sales_date: dateStr,
+            sales_hour: hourStr,
+            omzet: Number(o.total_amount || 0),
+            jumlah_order_completed: 1
+          })
+        }
+      }
+
+      return Array.from(aggMap.values())
     },
   })
 }

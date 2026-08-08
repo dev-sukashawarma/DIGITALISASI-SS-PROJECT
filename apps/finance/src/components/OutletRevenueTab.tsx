@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, formatNumber } from '@/lib/format'
-import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react'
+import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet, ChevronLeft, ChevronRight, Gift } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 import { exportToExcel, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
@@ -120,50 +120,47 @@ export default function OutletRevenueTab() {
       const to = endDate
 
       const buildSalesQuery = () => {
-        let q = supabase
-          .from('sales_daily_spv')
-          .select('sales_date, outlet_id, sales_source, omzet, jumlah_order_completed', { count: 'exact' })
-          .gte('sales_date', from)
-          .lte('sales_date', to)
-          .order('sales_date')
-          .order('outlet_id')
-          .order('sales_source')
-
-        if (selectedOutletId !== 'all') {
-          q = q.eq('outlet_id', selectedOutletId)
-        }
-        if (selectedChannel !== 'all') {
-          q = q.eq('sales_source', selectedChannel)
-        }
-        return q as any // Type bypass for RangeableQuery matching
+        return supabase
+          .from('orders')
+          .select('outlet_id, sales_source, is_endorse, total_amount, created_at, status')
+          .eq('status', 'completed')
+          .gte('created_at', `${from}T00:00:00.000+07:00`)
+          .lte('created_at', `${to}T23:59:59.999+07:00`) as any // Type bypass
       }
 
-      const salesRows = await fetchAllRows<SalesDailyRow>(buildSalesQuery, 'Omzet outlet')
+      const orderRows = await fetchAllRows<any>(buildSalesQuery, 'Omzet outlet')
 
       const nameMap = new Map<string, string>()
       outlets.forEach(o => nameMap.set(o.id, o.name))
 
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; totalRevenue: number; totalOrders: number }>()
 
-      salesRows.forEach(s => {
-        const date = s.sales_date || 'Unknown Date'
+      orderRows.forEach(s => {
+        if (selectedOutletId !== 'all' && s.outlet_id !== selectedOutletId) return;
+        
+        const channelRaw = s.is_endorse ? 'endors' : (s.sales_source || 'Offline')
+        if (selectedChannel !== 'all' && channelRaw !== selectedChannel) return;
+
+        const d = new Date(s.created_at)
+        const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
+        const date = localDate.toISOString().split('T')[0]
+        
         const outletId = s.outlet_id
-        const channel = s.sales_source || 'Offline'
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
-        const key = `${date}-${outletId}-${channel}`
+        const key = `${date}-${outletId}-${channelRaw}`
         
         const existing = aggMap.get(key)
         if (existing) {
-          existing.totalRevenue += Number(s.omzet || 0)
-          existing.totalOrders += Number(s.jumlah_order_completed || 0)
+          existing.totalRevenue += Number(s.total_amount || 0)
+          existing.totalOrders += 1
         } else {
           aggMap.set(key, {
             date,
             outletId,
             outletName,
-            channel,
-            totalRevenue: Number(s.omzet || 0),
-            totalOrders: Number(s.jumlah_order_completed || 0)
+            channel: channelRaw,
+            totalRevenue: Number(s.total_amount || 0),
+            totalOrders: 1
           })
         }
       })
@@ -184,7 +181,7 @@ export default function OutletRevenueTab() {
       const to = endDate
 
       const buildItemsQuery = () => {
-        let q = supabase
+        return supabase
           .from('sales_items_spv')
           .select('sales_date, outlet_id, sales_source, menu_item_name, total_qty, total_revenue, is_endorse', { count: 'exact' })
           .gte('sales_date', from)
@@ -192,15 +189,7 @@ export default function OutletRevenueTab() {
           .order('sales_date')
           .order('outlet_id')
           .order('sales_source')
-          .order('menu_item_name')
-
-        if (selectedOutletId !== 'all') {
-          q = q.eq('outlet_id', selectedOutletId)
-        }
-        if (selectedChannel !== 'all') {
-          q = q.eq('sales_source', selectedChannel)
-        }
-        return q as any // Type bypass for RangeableQuery matching
+          .order('menu_item_name') as any // Type bypass
       }
 
       const itemRows = await fetchAllRows<SalesItemRow>(buildItemsQuery, 'Penjualan per item')
@@ -211,9 +200,13 @@ export default function OutletRevenueTab() {
       const aggMap = new Map<string, { date: string; outletId: string; outletName: string; channel: string; itemName: string; isEndorse: boolean | null; totalQty: number; totalRevenue: number }>()
 
       itemRows.forEach(s => {
+        if (selectedOutletId !== 'all' && s.outlet_id !== selectedOutletId) return;
+        
+        const channel = s.is_endorse ? 'endors' : (s.sales_source || 'Offline')
+        if (selectedChannel !== 'all' && channel !== selectedChannel) return;
+
         const date = s.sales_date || 'Unknown Date'
         const outletId = s.outlet_id
-        const channel = s.sales_source || 'Offline'
         const outletName = nameMap.get(outletId) || 'Outlet Tidak Dikenal'
         
         let cleanName = s.menu_item_name || 'Unknown Item'
@@ -380,6 +373,7 @@ export default function OutletRevenueTab() {
             >
               <option value="all">Semua Channel</option>
               <option value="offline">Offline</option>
+              <option value="endors">Endorse (Kado)</option>
               <option value="gofood">GoFood</option>
               <option value="grabfood">GrabFood</option>
               <option value="shopeefood">ShopeeFood</option>
@@ -509,13 +503,24 @@ export default function OutletRevenueTab() {
                             {item.outletName}
                           </td>
                           <td className="py-4 px-5 font-medium text-suka-ink/70 uppercase text-xs">
-                            {item.channel}
+                            {item.channel === 'endors' ? (
+                              <div className="flex items-center gap-1.5 text-[#d946ef] font-bold">
+                                <Gift size={14} />
+                                ENDORSE
+                              </div>
+                            ) : (
+                              item.channel
+                            )}
                           </td>
                           <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
                             {item.totalOrders.toLocaleString('id-ID')}
                           </td>
                           <td className="py-4 px-5 text-right font-black text-suka-brown">
-                            {rupiah(item.totalRevenue)}
+                            {item.channel === 'endors' ? (
+                              <span className="text-[#d946ef]">{item.totalOrders} porsi</span>
+                            ) : (
+                              rupiah(item.totalRevenue)
+                            )}
                           </td>
                         </tr>
                       )
@@ -587,12 +592,19 @@ export default function OutletRevenueTab() {
                             {isNewOutletForDate ? item.outletName : ''}
                           </td>
                           <td className="py-3 px-5 font-medium text-suka-ink/70 uppercase text-xs">
-                            {item.channel}
+                            {item.channel === 'endors' ? (
+                              <div className="flex items-center gap-1.5 text-[#d946ef] font-bold">
+                                <Gift size={14} />
+                                ENDORSE
+                              </div>
+                            ) : (
+                              item.channel
+                            )}
                           </td>
                           <td className="py-3 px-5 font-medium text-suka-ink">
                             <div className="flex items-center gap-2">
                               {item.itemName}
-                              {item.isEndorse && (
+                              {item.isEndorse && item.channel !== 'endors' && (
                                 <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-200">
                                   ENDORSE
                                 </span>
@@ -603,7 +615,11 @@ export default function OutletRevenueTab() {
                             {formatNumber(item.totalQty)}
                           </td>
                           <td className="py-3 px-5 text-right font-black text-suka-brown">
-                            {rupiah(item.totalRevenue)}
+                            {item.channel === 'endors' ? (
+                              <span className="text-[#d946ef]">{formatNumber(item.totalQty)} porsi</span>
+                            ) : (
+                              rupiah(item.totalRevenue)
+                            )}
                           </td>
                         </tr>
                       )

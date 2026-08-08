@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PeriodFilterValue, SalesSource } from '@/lib/types'
 import type { Preset } from '@/lib/period'
 import { presetRange } from '@/lib/period'
-import { Store, Globe, Search, Check, ChevronDown, Calendar, Monitor } from 'lucide-react'
+import { Store, Globe, Search, Check, ChevronDown, Calendar, Monitor, Gift } from 'lucide-react'
 import { getChannel } from '@/lib/channels'
 
-const SOURCES: (SalesSource | 'all')[] = ['all', 'pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok']
+const SOURCES: (SalesSource | 'all')[] = ['all', 'pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors']
 
 const SOURCE_LABELS: Record<string, string> = {
   all: 'Semua Sumber',
@@ -17,6 +17,7 @@ const SOURCE_LABELS: Record<string, string> = {
   grabfood: 'GrabFood',
   shopeefood: 'ShopeeFood',
   tiktok: 'TikTok Shop',
+  endors: 'Endors',
 }
 
 import { OutletCombobox, cleanOutletName } from './OutletCombobox'
@@ -236,6 +237,7 @@ function SourceCombobox({
     if (id === "all") return <Globe className={`${w} ${h} text-suka-brown/50`} />
     if (id === "pos") return <Monitor className={`${w} ${h} text-suka-brown/50`} />
     if (id === "online") return <Globe className={`${w} ${h} text-suka-brown/50`} />
+    if (id === "endors") return <Gift className={`${w} ${h}`} style={{ color: '#d946ef' }} />
     
     const ch = getChannel(id)
     if (ch?.logoPath) {

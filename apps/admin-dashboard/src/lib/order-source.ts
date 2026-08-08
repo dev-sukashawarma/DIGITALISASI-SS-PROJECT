@@ -17,14 +17,20 @@ export interface OrderSourceInfo {
   fg: string
   logoPath?: string
   mark?: string
-  lucide: 'globe' | 'monitor' | null
+  lucide: 'globe' | 'monitor' | 'gift' | null
 }
 
 export function resolveOrderSource(
   channel?: string | null,
   salesSource?: string | null,
   customerName?: string | null,
+  isEndorse?: boolean | null,
 ): OrderSourceInfo {
+  // Direct check for Endorse
+  if (isEndorse || channel === 'endors' || salesSource === 'endors') {
+    return { key: 'endors', label: 'ENDORSE', bg: '#fdf4ff', fg: '#d946ef', lucide: 'gift' }
+  }
+
   // Try resolving channel first
   let ch = getChannel(channel)
   // If channel is generic (e.g. 'food_apps') or unrecognized, fall back to salesSource

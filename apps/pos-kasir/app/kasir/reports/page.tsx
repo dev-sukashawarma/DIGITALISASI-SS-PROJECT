@@ -965,6 +965,7 @@ export default function ReportsPage() {
                           <OrderSourceBadge
                             channel={order.channel}
                             salesSource={order.sales_source}
+                            isEndorse={order.is_endorse}
                             size="sm"
                           />
                         </td>

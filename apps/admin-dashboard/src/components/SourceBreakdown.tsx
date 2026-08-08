@@ -1,6 +1,6 @@
 import type { SalesSummaryRow, SalesSource } from '@/lib/types'
 import { rupiah, pct } from '@/lib/format'
-import { Store, Globe } from 'lucide-react'
+import { Store, Globe, Gift } from 'lucide-react'
 
 const LABELS: Record<SalesSource, string> = {
   pos: 'POS Kasir', 
@@ -11,6 +11,7 @@ const LABELS: Record<SalesSource, string> = {
   tiktok: 'TikTok Shop / Social',
   tiktok_shop: 'TikTok Shop (Marketplace)',
   shopee_shop: 'Shopee (Marketplace)',
+  endors: 'Endors',
 }
 
 const BRAND_COLORS: Record<SalesSource, string> = {
@@ -22,6 +23,7 @@ const BRAND_COLORS: Record<SalesSource, string> = {
   tiktok: '#000000',      // TikTok Black
   tiktok_shop: '#000000',  // TikTok Black
   shopee_shop: '#ee4d2d',  // Shopee Red-Orange
+  endors: '#d946ef',       // Pink/Purple
 }
 
 import { getChannel } from '@/lib/channels'
@@ -63,6 +65,7 @@ const ICONS: Record<SalesSource, any> = {
   },
   tiktok_shop: Globe,
   shopee_shop: Globe,
+  endors: Gift,
 }
 
 export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {
@@ -120,7 +123,13 @@ export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-suka-gray-500 font-medium">
-                    {item.revenue > 0 ? (
+                    {item.source === 'endors' ? (
+                      item.orders > 0 ? (
+                        <span className="font-bold text-suka-ink">{item.orders} porsi</span>
+                      ) : (
+                        '0 porsi'
+                      )
+                    ) : item.revenue > 0 ? (
                       <>
                         {rupiah(item.revenue)} <span className="text-[10px] text-suka-gray-400 font-normal">({item.orders} order)</span>
                       </>
@@ -128,7 +137,7 @@ export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {
                       'tidak ada transaksi'
                     )}
                   </span>
-                  {item.revenue > 0 && (
+                  {item.revenue > 0 && item.source !== 'endors' && (
                     <span className="font-extrabold text-suka-brown text-xs" style={{ color: item.color }}>
                       {item.percentage}%
                     </span>

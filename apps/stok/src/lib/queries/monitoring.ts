@@ -67,15 +67,43 @@ async function attachSatuanKecil<T extends { bahan_baku_id: string }>(
  * Fetch monitoring data for SPV (multi-outlet view)
  * RLS enforced: SPV role can see all outlets
  */
+// PostgREST membatasi hasil satu request ke max-rows server (default 1000) --
+// monitoring_view_spv sudah 1325+ baris (19 outlet x ~60 bahan) dan terus
+// bertambah. Tanpa paginasi, outlet yang urut alfabet setelah baris ke-1000
+// (mis. SUKA SHAWARMA EMPANG/PAJAJARAN/dst) diam-diam terpotong dari hasil --
+// bukan "data kosong", tapi terpotong PostgREST. Lihat memory
+// postgrest-max-rows-1000-cap.
+async function fetchAllRows<T>(
+  supabase: SupabaseBrowserClient,
+  view: string,
+  selectStr: string
+): Promise<T[]> {
+  const PAGE_SIZE = 1000;
+  let all: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from(view)
+      .select(selectStr)
+      .order('outlet_name')
+      .order('item_name')
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const rows = (data ?? []) as T[];
+    all = all.concat(rows);
+    if (rows.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
+}
+
 export async function fetchSPVMonitoringData() {
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from('monitoring_view_spv')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram')
-    .order('outlet_name')
-    .order('item_name');
-
-  if (error) throw error;
+  const data = await fetchAllRows<any>(
+    supabase,
+    'monitoring_view_spv',
+    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram'
+  );
 
   // Deduplicate by composite key (outlet_id, bahan_baku_id)
   const seen = new Set<string>();
@@ -103,13 +131,11 @@ export async function fetchSPVMonitoringData() {
  */
 export async function fetchLeaderMonitoringData() {
   const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from('monitoring_view_scoped')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram')
-    .order('outlet_name')
-    .order('item_name');
-
-  if (error) throw error;
+  const data = await fetchAllRows<any>(
+    supabase,
+    'monitoring_view_scoped',
+    'outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, status, is_flagged, kategori, last_opname_date, saldo_is_gram'
+  );
 
   // Deduplicate by composite key (outlet_id, bahan_baku_id)
   const seen = new Set<string>();

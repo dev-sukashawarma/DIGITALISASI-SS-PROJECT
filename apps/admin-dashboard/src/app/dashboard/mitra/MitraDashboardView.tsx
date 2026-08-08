@@ -138,7 +138,6 @@ export function MitraDashboardView({
                   value={selectedOutletId || ''}
                   onChange={(e) => setSelectedOutletId(e.target.value)}
                 >
-                  <option value="all">Semua Outlet</option>
                   {outlets.map((o: any) => (
                     <option key={o.id} value={o.id} className="font-medium text-slate-700">
                       Outlet: {o.name}

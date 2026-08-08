@@ -1723,7 +1723,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                   <option value="OFFLINE">OFFLINE (POS PAWOON)</option>
                   <option value="FOOD APPS">FOOD APPS (GrabFood/GoFood/Shopee)</option>
                   <option value="TIKTOK">TIKTOK</option>
-                  <option value="WEB ONLINE">WEB ONLINE</option>
+                  <option value="WEB ONLINE">WEB ONLINE</option>`n                  <option value="ENDORSE">ENDORSE</option>
                 </select>
               </div>
             </div>
@@ -2167,5 +2167,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     </div>
   )
 }
+
 
 

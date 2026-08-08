@@ -1215,7 +1215,7 @@ export default function KasirOrderClient({
     return (o.order_number?.toString() || '').includes(searchQuery)
   })
 
-  const todayRevenue = completedOrders.reduce((sum, o) => sum + o.total_amount, 0)
+  const todayRevenue = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0) + ((o as any).discount_amount || 0) + ((o as any).promo_subsidy || 0), 0)
 
   // Helper untuk merender card pesanan aktif (Pending & Preparing)
 

@@ -39,9 +39,9 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/mitra', label: 'Dashboard Saya', shortLabel: 'Dashboard', icon: LayoutDashboard, roles: ['MITRA'] },
       { href: '/dashboard/mitra/orderan', label: 'Riwayat Orderan', shortLabel: 'Orderan', icon: ShoppingCart, roles: ['MITRA'] },
-      { href: '/dashboard/mitra/tim', label: 'Tim Outlet', shortLabel: 'Tim', icon: Users, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/transfer', label: 'Transfer Bagi Hasil', shortLabel: 'Bukti TF', icon: ArrowRightLeft, roles: ['MITRA'] },
       { href: '/dashboard/mitra/investasi', label: 'Laporan Investasi', shortLabel: 'Investasi', icon: DollarSign, roles: ['MITRA'] },
-      { href: '/dashboard/mitra/transfer', label: 'Transfer Bagi Hasil', shortLabel: 'Transfer', icon: ArrowRightLeft, roles: ['MITRA'] },
+      { href: '/dashboard/mitra/tim', label: 'Tim Outlet', shortLabel: 'Tim', icon: Users, roles: ['MITRA'] },
       { href: '/dashboard/mitra/saran', label: 'Saran & Kritik', shortLabel: 'Saran', icon: MessageSquare, roles: ['MITRA'] },
     ],
   },

@@ -16,7 +16,7 @@ const SOURCE_LABELS: Record<string, string> = {
   gofood: 'GoFood',
   grabfood: 'GrabFood',
   shopeefood: 'ShopeeFood',
-  tiktok: 'TikTok Shop',
+  tiktok: 'TikTok Go',
   endors: 'Endors',
 }
 

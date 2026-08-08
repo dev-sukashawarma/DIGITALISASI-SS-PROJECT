@@ -8,7 +8,7 @@ const LABELS: Record<SalesSource, string> = {
   gofood: 'GoFood Delivery',
   grabfood: 'GrabFood Delivery', 
   shopeefood: 'ShopeeFood Delivery', 
-  tiktok: 'TikTok Shop / Social',
+  tiktok: 'TikTok Go',
   tiktok_shop: 'TikTok Shop (Marketplace)',
   shopee_shop: 'Shopee (Marketplace)',
   endors: 'Endors',

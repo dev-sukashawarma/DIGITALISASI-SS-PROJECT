@@ -489,7 +489,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       { key: 'shopeefood', label: 'ShopeeFood' },
       { key: 'gofood', label: 'GoFood' },
       { key: 'grabfood', label: 'GrabFood' },
-      { key: 'tiktokgo', label: 'TikTok Shop' },
+      { key: 'tiktokgo', label: 'TikTok Go' },
       { key: 'online', label: 'Website Online' },
     ]
     defaults.forEach(d => map.set(d.key, d))

@@ -37,6 +37,12 @@ export default async function KelolaMitraPage() {
     .in('role', ['mitra', 'MITRA'])
     .order('name', { ascending: true })
     
+  // 5. Ambil daftar transfer
+  const { data: transfers } = await supabase
+    .from('mitra_transfers')
+    .select('*, outlets(name)')
+    .order('created_at', { ascending: false })
+    
   // Format user list for dropdown
   const allUsers = (staffList || []).map(s => ({
     id: s.id,
@@ -51,7 +57,9 @@ export default async function KelolaMitraPage() {
       allOutlets={allOutlets || []} 
       suggestions={suggestions || []}
       allUsers={allUsers}
+      transfers={transfers || []}
     />
   )
 }
+
 

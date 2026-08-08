@@ -4,10 +4,11 @@ import { useState } from 'react'
 import { MitraFormDialog } from './MitraFormDialog'
 import { TransferUploadDialog } from './TransferUploadDialog'
 import { SaranInbox } from './SaranInbox'
-import { Users, Upload, MessageSquare } from 'lucide-react'
+import { TransferListView } from './TransferListView'
+import { Users, Upload, MessageSquare, FileCheck } from 'lucide-react'
 
-export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutlets }: any) {
-  const [activeTab, setActiveTab] = useState<'daftar' | 'saran'>('daftar')
+export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutlets, transfers = [] }: any) {
+  const [activeTab, setActiveTab] = useState<'daftar' | 'transfer' | 'saran'>('daftar')
   const [isMitraFormOpen, setIsMitraFormOpen] = useState(false)
   const [isTransferFormOpen, setIsTransferFormOpen] = useState(false)
   const [editMitraData, setEditMitraData] = useState<any>(null)
@@ -48,7 +49,7 @@ export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutle
         </div>
       </div>
 
-      <div className="bg-white border rounded-xl overflow-hidden mb-6">
+      <div className="bg-white border rounded-xl overflow-hidden mb-6 shadow-sm">
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab('daftar')}
@@ -56,7 +57,21 @@ export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutle
               activeTab === 'daftar' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'
             }`}
           >
-            Daftar Mitra
+            Daftar Mitra ({mitraProfiles.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('transfer')}
+            className={`flex-1 py-3 px-4 text-center font-medium transition-colors flex items-center justify-center ${
+              activeTab === 'transfer' ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50' : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <FileCheck className="w-4 h-4 mr-2" />
+            Riwayat Transfer
+            {transfers.length > 0 && (
+              <span className="ml-2 bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                {transfers.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setActiveTab('saran')}
@@ -121,6 +136,10 @@ export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutle
         </div>
       )}
 
+      {activeTab === 'transfer' && (
+        <TransferListView transfers={transfers} outlets={allOutlets} />
+      )}
+
       {activeTab === 'saran' && (
         <SaranInbox suggestions={suggestions} />
       )}
@@ -141,3 +160,4 @@ export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutle
     </div>
   )
 }
+

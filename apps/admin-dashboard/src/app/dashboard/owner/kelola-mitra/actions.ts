@@ -102,3 +102,28 @@ export async function balasSaran(data: { saran_id: string, tanggapan: string, us
   
   revalidatePath('/dashboard/owner/kelola-mitra')
 }
+
+export async function deleteMitraTransfer(id: string, buktiUrl?: string) {
+  const supabase = await getSupabase()
+
+  if (buktiUrl) {
+    const { error: storageError } = await supabase.storage
+      .from('mitra-transfers')
+      .remove([buktiUrl])
+      
+    if (storageError) {
+      console.error('Failed to delete file from storage:', storageError.message)
+    }
+  }
+
+  const { error } = await supabase
+    .from('mitra_transfers')
+    .delete()
+    .eq('id', id)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/owner/kelola-mitra')
+  revalidatePath('/dashboard/mitra/transfer')
+}
+

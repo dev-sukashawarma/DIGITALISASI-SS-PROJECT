@@ -12,8 +12,13 @@ async function getSupabase() {
   })
 }
 
-export async function upsertMitraProfile(data: { user_id: string, nama_mitra: string, outlet_ids: string[] }) {
+export async function upsertMitraProfile(data: { user_id: string, nama_mitra: string, outlet_ids: string[], previous_user_id?: string }) {
   const supabase = await getSupabase()
+
+  if (data.previous_user_id && data.previous_user_id !== data.user_id) {
+    await supabase.from('mitra_profiles').delete().eq('user_id', data.previous_user_id)
+  }
+
   const { error } = await supabase.from('mitra_profiles').upsert({
     user_id: data.user_id,
     nama_mitra: data.nama_mitra,

@@ -77,16 +77,18 @@ export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutle
 
       {activeTab === 'daftar' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mitraProfiles.map((mitra: any) => (
-            <div key={mitra.id} className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <h3 className="font-bold text-lg">{mitra.nama_mitra}</h3>
-                  <div className="text-sm text-gray-500 mt-1">
-                    User: {mitra.user_id?.substring(0, 8)}...
+          {mitraProfiles.map((mitra: any) => {
+            const staffUser = allUsers.find((u: any) => u.id === mitra.user_id)
+            return (
+              <div key={mitra.id || mitra.user_id} className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-bold text-lg">{mitra.nama_mitra}</h3>
+                    <div className="text-sm text-gray-500 mt-1">
+                      User Akun: {staffUser ? `${staffUser.name} (@${staffUser.username})` : `ID: ${mitra.user_id?.substring(0, 8)}...`}
+                    </div>
                   </div>
                 </div>
-              </div>
               
               <div className="mb-4">
                 <div className="text-xs font-semibold text-gray-500 mb-2 uppercase">Akses Outlet ({mitra.outlet_ids?.length || 0})</div>
@@ -109,7 +111,8 @@ export function KelolaMitraView({ mitraProfiles, suggestions, allUsers, allOutle
                 Edit Akses & Info
               </button>
             </div>
-          ))}
+          )
+        })}
           {mitraProfiles.length === 0 && (
             <div className="col-span-full text-center p-12 bg-white border rounded-xl text-gray-500">
               Belum ada profil mitra terdaftar.

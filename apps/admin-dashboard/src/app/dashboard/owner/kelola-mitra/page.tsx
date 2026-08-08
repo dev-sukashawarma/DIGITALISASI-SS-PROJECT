@@ -30,20 +30,19 @@ export default async function KelolaMitraPage() {
     .select('*, outlets(name)')
     .order('created_at', { ascending: false })
 
-  // 4. Ambil user list (auth.users via staf_profiles atau langsung auth.users)
-  // As a workaround since auth.users needs service_role, we fetch from outlet_staff where role = 'MITRA'
-  // Or we just get it from an RPC or endpoint. Here we'll just mock or use edge function, 
-  // but if we have `staf_profiles`, let's check `outlet_staff` for now.
+  // 4. Ambil user list dari outlet_staff (khusus role MITRA / mitra)
   const { data: staffList } = await supabase
     .from('outlet_staff')
     .select('id, name, role, username')
-    .eq('role', 'mitra')
+    .in('role', ['mitra', 'MITRA'])
+    .order('name', { ascending: true })
     
   // Format user list for dropdown
   const allUsers = (staffList || []).map(s => ({
-    id: s.id, // outlet_staff.id
-    name: s.name,
-    username: s.username
+    id: s.id,
+    name: s.name || s.username || 'Tanpa Nama',
+    username: s.username || '-',
+    role: s.role || 'staff'
   }))
   
   return (
@@ -55,3 +54,4 @@ export default async function KelolaMitraPage() {
     />
   )
 }
+

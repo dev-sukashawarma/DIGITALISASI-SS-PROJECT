@@ -1,13 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { upsertMitraProfile } from './actions'
 
 export function MitraFormDialog({ isOpen, onClose, users, outlets, initialData = null }: any) {
   const [loading, setLoading] = useState(false)
-  const [userId, setUserId] = useState(initialData?.user_id || '')
-  const [namaMitra, setNamaMitra] = useState(initialData?.nama_mitra || '')
-  const [selectedOutlets, setSelectedOutlets] = useState<string[]>(initialData?.outlet_ids || [])
+  const [userId, setUserId] = useState('')
+  const [namaMitra, setNamaMitra] = useState('')
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>([])
+
+  useEffect(() => {
+    if (isOpen) {
+      setUserId(initialData?.user_id || '')
+      setNamaMitra(initialData?.nama_mitra || '')
+      setSelectedOutlets(initialData?.outlet_ids || [])
+    }
+  }, [isOpen, initialData])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,7 +29,8 @@ export function MitraFormDialog({ isOpen, onClose, users, outlets, initialData =
       await upsertMitraProfile({
         user_id: userId,
         nama_mitra: namaMitra,
-        outlet_ids: selectedOutlets
+        outlet_ids: selectedOutlets,
+        previous_user_id: initialData?.user_id && initialData.user_id !== userId ? initialData.user_id : undefined
       })
       onClose()
     } catch (e: any) {
@@ -41,6 +50,8 @@ export function MitraFormDialog({ isOpen, onClose, users, outlets, initialData =
 
   if (!isOpen) return null
 
+  const isSelectedUserInList = users.some((u: any) => u.id === userId)
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -53,12 +64,16 @@ export function MitraFormDialog({ isOpen, onClose, users, outlets, initialData =
             <select
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
-              disabled={!!initialData}
-              className="w-full border rounded-lg p-2 text-sm focus:ring-2 outline-none"
+              className="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
             >
               <option value="">Pilih User...</option>
+              {!isSelectedUserInList && userId && (
+                <option value={userId}>User ID: {userId.substring(0, 8)}...</option>
+              )}
               {users.map((u: any) => (
-                <option key={u.id} value={u.id}>{u.name} ({u.username})</option>
+                <option key={u.id} value={u.id}>
+                  {u.name} ({u.username})
+                </option>
               ))}
             </select>
           </div>
@@ -69,7 +84,7 @@ export function MitraFormDialog({ isOpen, onClose, users, outlets, initialData =
               type="text"
               value={namaMitra}
               onChange={(e) => setNamaMitra(e.target.value)}
-              className="w-full border rounded-lg p-2 text-sm focus:ring-2 outline-none"
+              className="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
               placeholder="Contoh: Budi Santoso"
             />
           </div>
@@ -104,3 +119,4 @@ export function MitraFormDialog({ isOpen, onClose, users, outlets, initialData =
     </div>
   )
 }
+

@@ -101,7 +101,22 @@ export function MitraDashboardView({
               </span>
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-suka-brown tracking-tighter">
-              Halo, Ibu/Bapak <span className="text-suka-orange drop-shadow-sm">{mitra.nama_lengkap || 'Mitra'}</span> 👋
+              Halo, <span className="text-suka-orange drop-shadow-sm">
+                {(() => {
+                  const nameStr = (mitra.nama_lengkap || '').toLowerCase()
+                  if (nameStr.includes('cibinong')) return 'Ibu Sofie'
+                  if (nameStr.includes('sentul')) return 'Bapak Safiq'
+                  if (nameStr.includes('paledang')) return 'Bapak Anis'
+                  if (nameStr.includes('ciseeng')) return 'Bapak Ali'
+                  if (nameStr.includes('pekayon')) return 'Bapak Cesar'
+                  if (nameStr.includes('kalisari')) return 'Ibu Yana'
+                  if (nameStr.includes('cibubur')) return 'Bapak Abidzar'
+                  if (nameStr.includes('cicurug')) return 'Ibu Surayah'
+                  if (nameStr.includes('cileungsi')) return 'Ibu Wati'
+                  
+                  return `Ibu/Bapak ${mitra.nama_lengkap || 'Mitra'}`
+                })()}
+              </span> 👋
             </h1>
             <p className="text-suka-gray-500 font-medium">
               Pantau performa dan ringkasan investasi outlet Anda secara real-time.

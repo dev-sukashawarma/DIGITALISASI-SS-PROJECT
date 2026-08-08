@@ -59,7 +59,8 @@ export default function EnrollPage() {
       .from("outlet_staff")
       .select("id, name, role, enrolled_at, status")
       .eq("status", "active")
-      .neq("role", "kiosk");
+      .neq("role", "kiosk")
+      .neq("role", "mitra");
 
     if (outletStaff?.role === "spv" || outletStaff?.role === "regional_manager" || outletStaff?.role === "area_manager") {
       primaryQuery = primaryQuery.or(`outlet_id.eq.${selectedOutletId},id.eq.${outletStaff.id}`);
@@ -86,7 +87,7 @@ export default function EnrollPage() {
         });
         (assignedRes.data || []).forEach((row: any) => {
           const st = Array.isArray(row.outlet_staff) ? row.outlet_staff[0] : row.outlet_staff;
-          if (st && st.status === "active" && st.role !== "kiosk" && !staffMap.has(st.id)) {
+          if (st && st.status === "active" && st.role !== "kiosk" && st.role !== "mitra" && !staffMap.has(st.id)) {
             if (outletStaff?.id === st.id) {
               staffMap.set(st.id, { id: st.id, name: `${st.name} (Anda)`, role: st.role, enrolled_at: st.enrolled_at });
             } else {

@@ -376,7 +376,14 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           const relativeTime = getRelativeTimeString(t.created_at);
           const isExpanded = expandedKey === t.transaksi_key;
           const detailId = `transaksi-detail-${t.transaksi_key}`;
-          const isGram = t.single_bahan_baku_id ? (gramMap?.get(t.single_bahan_baku_id) ?? false) : false;
+          // waste_pending = baris stok_waste_reports yang BELUM di-approve --
+          // qty-nya sengaja masih besar-scale mentah (WasteModal.tsx/
+          // ManualEntryForm tak pernah mengonversinya di client; konversi
+          // baru terjadi di trigger process_waste_report_approval SAAT
+          // approve, lihat migration 20300105000017 §4). Kalau ditampilkan
+          // dengan formatter sadar-gram di sini, angka mentah itu disangka
+          // sudah gram-scale dan salah tampil (mis. "1 Blok" jadi "1 Gram").
+          const isGram = isPending ? false : (t.single_bahan_baku_id ? (gramMap?.get(t.single_bahan_baku_id) ?? false) : false);
 
           const { icon: TransIcon, iconColor, bgClass } = transaksiVisual(t);
           const bahan = t.single_bahan_baku_id ? bahanMap[t.single_bahan_baku_id] : undefined;

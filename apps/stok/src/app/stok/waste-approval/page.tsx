@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'
 import { useWasteApprovalList } from '@/hooks/useWaste'
 import { useAuth } from '@suka/auth'
-import { formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
+import { formatTriUnitSaldo, convertGramToBesar } from '@/lib/format/compositeUnit'
 
 export default function WasteApprovalPage() {
   const { outletStaff } = useAuth()
@@ -23,10 +23,14 @@ export default function WasteApprovalPage() {
 
   const handleApprove = async (id: string, qty: number, bahanBakuId: string) => {
     const bal = balances.find(b => b.bahan_baku_id === bahanBakuId)
-    const currentSaldo = bal?.saldo || 0
-    
-    if (qty > currentSaldo) {
-      const confirmMsg = `WARNING: Qty waste (${qty}) lebih besar dari saldo saat ini (${currentSaldo}). Saldo akan menjadi negatif. Tetap setujui?`
+    // qty (laporan waste) selalu besar-scale mentah; bal.saldo bisa gram-scale
+    // -- samakan skala dulu sebelum dibandingkan (§4).
+    const currentSaldoBesar = bal?.saldo_is_gram
+      ? convertGramToBesar(bal.saldo, reports.find(r => r.bahan_baku_id === bahanBakuId)?.bahan_baku ?? {})
+      : (bal?.saldo || 0)
+
+    if (qty > currentSaldoBesar) {
+      const confirmMsg = `WARNING: Qty waste (${qty}) lebih besar dari saldo saat ini (${currentSaldoBesar}). Saldo akan menjadi negatif. Tetap setujui?`
       if (!window.confirm(confirmMsg)) return
     }
 
@@ -89,8 +93,16 @@ export default function WasteApprovalPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {reports.map(r => {
             const bal = balances.find(b => b.bahan_baku_id === r.bahan_baku_id)
-            const isNegativeWarning = r.qty > (bal?.saldo || 0)
-            
+            // r.qty (laporan PENDING, belum di-approve) selalu besar-scale
+            // mentah -- konversi ke gram baru terjadi di trigger
+            // process_waste_report_approval SAAT approve (§4). bal.saldo
+            // bisa gram-scale, jadi disamakan dulu ke besar sebelum
+            // dibandingkan -- kalau tidak, warning defisit salah nyala/mati.
+            const currentSaldoBesar = bal?.saldo_is_gram
+              ? convertGramToBesar(bal.saldo, r.bahan_baku ?? {})
+              : (bal?.saldo || 0)
+            const isNegativeWarning = r.qty > currentSaldoBesar
+
             return (
               <div key={r.id} className="bg-white border border-[#d9c2b2]/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col relative group">
                 {/* Header Card */}
@@ -105,9 +117,11 @@ export default function WasteApprovalPage() {
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="font-black text-lg text-[#ba1a1a] whitespace-pre-line">{formatTriUnitSaldoAdaptive(
+                    {/* r.qty selalu besar-scale mentah (belum di-approve, lihat
+                        catatan currentSaldoBesar di atas) -- pakai formatter
+                        besar-scale biasa, BUKAN Adaptive. */}
+                    <p className="font-black text-lg text-[#ba1a1a] whitespace-pre-line">{formatTriUnitSaldo(
                       r.qty,
-                      bal?.saldo_is_gram ?? false,
                       r.bahan_baku?.satuan || '',
                       r.bahan_baku?.satuan_tengah,
                       r.bahan_baku?.faktor_tengah,

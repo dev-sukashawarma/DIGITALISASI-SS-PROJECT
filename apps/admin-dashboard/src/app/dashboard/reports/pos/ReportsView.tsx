@@ -978,8 +978,39 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   }
 
   const downloadCSVAllChannels = () => {
-    // 1. Dapatkan semua valid orders dari state 'orders' (tanpa filter channel)
-    const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'settled')
+    // 1. Gunakan filteredOrders agar sesuai dengan filter channel yang aktif di UI
+    const filteredForCSV = selectedChannel === 'all' 
+      ? orders
+      : selectedChannel === 'food_apps'
+        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key))
+        : selectedChannel === 'pos_kasir'
+        ? orders.filter(o => resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key === 'pos_kasir')
+        : selectedChannel === 'pos_pawoon_all'
+        ? orders.filter(o => {
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+            return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
+          })
+        : selectedChannel === 'pos_pawoon'
+        ? orders.filter(o => {
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+            if (src !== 'pos_pawoon' && src !== 'pos') return false
+            return !o.order_items.some(item => item.menu_item_name.includes('FA'))
+          })
+        : selectedChannel === 'pos_fa'
+        ? orders.filter(o => {
+            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+            if (src !== 'pos_pawoon' && src !== 'pos') return false
+            return o.order_items.some(item => item.menu_item_name.includes('FA'))
+          })
+        : orders.filter(o => {
+            const k = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+            const target = selectedChannel.toLowerCase()
+            if (target === 'tiktokgo' || target === 'tiktok') {
+              return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(k)
+            }
+            return k === target
+          })
+    const validOrders = filteredForCSV.filter(o => o.status === 'completed' || o.status === 'settled')
     if (validOrders.length === 0) return
 
     let dateRangeText = RANGE_LABELS[range]
@@ -1088,7 +1119,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.setAttribute('download', `Laporan_Per_Channel_${selectedOutletName}_${dateRangeText}.csv`)
+    const channelSuffix = selectedChannel === 'all' ? 'Semua_Channel' : selectedChannel.replace(/[^a-zA-Z0-9]/g, '_')
+    link.setAttribute('download', `Laporan_${channelSuffix}_${selectedOutletName}_${dateRangeText}.csv`)
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)

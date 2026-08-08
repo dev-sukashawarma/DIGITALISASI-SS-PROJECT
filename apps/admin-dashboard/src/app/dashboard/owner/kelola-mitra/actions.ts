@@ -127,3 +127,18 @@ export async function deleteMitraTransfer(id: string, buktiUrl?: string) {
   revalidatePath('/dashboard/mitra/transfer')
 }
 
+export async function deleteSaran(saranId: string) {
+  const supabase = await getSupabase()
+
+  const { error } = await supabase
+    .from('mitra_suggestions')
+    .delete()
+    .eq('id', saranId)
+
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/owner/kelola-mitra')
+  revalidatePath('/dashboard/mitra/saran')
+}
+
+

@@ -1,11 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { balasSaran } from './actions'
-import { MessageSquare, CheckCircle, Clock } from 'lucide-react'
+import { balasSaran, deleteSaran } from './actions'
+import { MessageSquare, CheckCircle, Clock, Trash2, AlertTriangle } from 'lucide-react'
 
 export function SaranInbox({ suggestions }: { suggestions: any[] }) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmItem, setConfirmItem] = useState<any | null>(null)
   const [tanggapanText, setTanggapanText] = useState<Record<string, string>>({})
   
   const handleBalas = async (saran: any) => {
@@ -24,6 +26,19 @@ export function SaranInbox({ suggestions }: { suggestions: any[] }) {
       alert(e.message || 'Gagal mengirim tanggapan')
     } finally {
       setLoadingId(null)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!confirmItem) return
+    setDeletingId(confirmItem.id)
+    try {
+      await deleteSaran(confirmItem.id)
+      setConfirmItem(null)
+    } catch (e: any) {
+      alert(e.message || 'Gagal menghapus saran')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -52,6 +67,14 @@ export function SaranInbox({ suggestions }: { suggestions: any[] }) {
                 {new Date(s.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
+
+            <button
+              onClick={() => setConfirmItem(s)}
+              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+              title="Hapus Saran"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
           </div>
           
           <div className="bg-gray-50 p-3 rounded-lg text-sm text-gray-800 border mb-4">
@@ -88,6 +111,56 @@ export function SaranInbox({ suggestions }: { suggestions: any[] }) {
           )}
         </div>
       ))}
+
+      {/* Modal Konfirmasi Hapus Saran */}
+      {confirmItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setConfirmItem(null)} />
+          <div className="relative bg-white w-full max-w-md rounded-xl shadow-2xl p-6 space-y-4">
+            <div className="flex items-center space-x-3 text-red-600">
+              <div className="p-2 bg-red-100 rounded-full">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Konfirmasi Hapus Saran</h3>
+            </div>
+
+            <p className="text-sm text-gray-600">
+              Apakah Anda yakin ingin menghapus saran dari{' '}
+              <span className="font-bold text-gray-900">{confirmItem.outlets?.name || 'Mitra'}</span>?
+            </p>
+            <div className="bg-gray-50 p-3 rounded-lg border text-xs text-gray-700 italic">
+              "{confirmItem.isi_saran}"
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmItem(null)}
+                disabled={deletingId === confirmItem.id}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={deletingId === confirmItem.id}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 flex items-center"
+              >
+                {deletingId === confirmItem.id ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                    Menghapus...
+                  </>
+                ) : (
+                  'Ya, Hapus'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

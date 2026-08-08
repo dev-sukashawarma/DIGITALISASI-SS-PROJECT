@@ -101,7 +101,7 @@ export function MitraDashboardView({
               </span>
             </div>
             <h1 className="text-3xl md:text-4xl font-black text-suka-brown tracking-tighter">
-              Halo, <span className="text-suka-orange drop-shadow-sm">{mitra.nama_lengkap || 'Mitra'}</span> 👋
+              Halo, Ibu/Bapak <span className="text-suka-orange drop-shadow-sm">{mitra.nama_lengkap || 'Mitra'}</span> 👋
             </h1>
             <p className="text-suka-gray-500 font-medium">
               Pantau performa dan ringkasan investasi outlet Anda secara real-time.

@@ -395,11 +395,72 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
       return all
     }
 
+    const buildEcommerceQuery = () => {
+      let query = supabase
+        .from('ecommerce_sales')
+        .select('*, ecommerce_sale_items(*, menu_items:menu_id(name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))')
+        .order('order_date', { ascending: false })
+      
+      if (ordersGte) query = query.gte('order_date', ordersGte)
+      if (ordersLt) query = query.lt('order_date', ordersLt)
+      if (ordersLte) query = query.lte('order_date', ordersLte)
+      
+      return query
+    }
+
+    const fetchEcommerceOrders = async () => {
+      if (selectedOutlet !== 'all' && selectedOutlet !== 'ss-online') return []
+
+      const allEc: any[] = []
+      let offset = 0
+      while (true) {
+        const { data, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
+        if (error) {
+          console.error("fetchEcommerceOrders error:", error)
+          throw error
+        }
+        const page = data ?? []
+        allEc.push(...page)
+        if (page.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
+
+      // Map to OrderRow format
+      return allEc.map((ec: any) => ({
+        id: ec.id,
+        order_number: 0,
+        status: 'completed',
+        payment_method: ec.channel_id,
+        total_amount: ec.total_amount,
+        created_at: ec.order_date,
+        outlet_id: 'ss-online',
+        channel: ec.channel_id,
+        sales_source: 'Online',
+        customer_name: 'SS Online Customer',
+        cashier_name: null,
+        external_order_id: ec.order_id,
+        order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
+          id: item.id,
+          menu_item_name: item.menu_items?.name || 'Unknown Item',
+          quantity: item.quantity,
+          unit_price: item.price,
+          subtotal: item.subtotal,
+          package_choices: null,
+          menu_items: item.menu_items
+        }))
+      })) as OrderRow[]
+    }
+
     const menuItemsQuery = supabase
       .from('menu_items')
       .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
 
-    const [ordersData, { data: shiftsData }, { data: menuItemsData }] = await Promise.all([fetchAllOrders(), qShifts, menuItemsQuery])
+    const [ordersData, ecommerceData, { data: shiftsData }, { data: menuItemsData }] = await Promise.all([
+      selectedOutlet !== 'ss-online' ? fetchAllOrders() : Promise.resolve([]), 
+      fetchEcommerceOrders(),
+      qShifts, 
+      menuItemsQuery
+    ])
 
     // Abaikan hasil fetch basi — request lebih baru (mis. user selesai memilih
     // custom date setelah sebelumnya sempat fire fetch tanpa bound tanggal)
@@ -407,7 +468,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     // akan menimpa balik data yang sudah benar dengan hasil unbounded.
     if (requestId !== fetchOrdersRequestId.current) return
 
-    setOrders(ordersData)
+    setOrders([...ordersData, ...ecommerceData].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
     setShifts(shiftsData ?? [])
     setMenuItems(menuItemsData ?? [])
     setLoading(false)
@@ -478,7 +539,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             return k === target
           })
 
-    const completed = filteredOrders.filter(o => o.status === 'completed')
+    const completed = filteredOrders.filter(o => o.status === 'completed' || o.status === 'settled')
     const totalOrders = completed.length
     // NET methodology (konsisten dengan halaman Laba Kotor, keputusan owner
     // 2026-07-29): order completed ditambah, order cancelled (void) DIKURANGKAN.
@@ -1060,7 +1121,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             </button>
 
             <BranchFilter
-              outlets={physicalOutlets}
+              outlets={[
+                { id: 'all', name: 'Semua Cabang', type: 'all' },
+                { id: 'ss-online', name: 'SS Online (Semua Channel)', type: 'online' },
+                ...physicalOutlets
+              ]}
               selectedOutlet={branchFilterValue}
               onChange={setSelectedOutlet}
             />
@@ -1508,7 +1573,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                       return (
                         <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                           <td className="px-5 py-4 font-bold text-gray-900">
-                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number}</span>
+                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
                           </td>
                           <td className="px-5 py-4 text-gray-500 font-medium text-xs">
                             {new Date(order.created_at).toLocaleString('id-ID', {
@@ -1856,8 +1921,10 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             )}
           </div>
           
+          
           {/* Laporan Tutup Shift */}
-          <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
+          {selectedOutlet !== 'ss-online' && (
+            <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
             <div>
               <h2 className="font-bold text-gray-900 text-lg">Laporan Laci Cash</h2>
               <p className="text-gray-400 text-xs mt-0.5 mb-6">Rekonsiliasi kas laci dan petty cash (uang operasional)</p>
@@ -1978,6 +2045,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               )}
             </div>
           </div>
+          )}
         </>
       )}
 

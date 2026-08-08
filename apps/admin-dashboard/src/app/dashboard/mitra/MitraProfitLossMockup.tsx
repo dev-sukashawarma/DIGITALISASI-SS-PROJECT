@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Store, Smartphone, Music, ChevronRight, X, TrendingDown, TrendingUp } from 'lucide-react'
+import { Store, Smartphone, Music, ChevronRight, X, TrendingDown, TrendingUp, Briefcase } from 'lucide-react'
 
 const formatRp = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -9,6 +9,19 @@ const formatRp = (num: number) => {
     currency: 'IDR',
     minimumFractionDigits: 0
   }).format(num)
+}
+
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return ''
+  try {
+    return new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
+    }).format(new Date(dateStr))
+  } catch (e) {
+    return dateStr
+  }
 }
 
 const MANUAL_OVERRIDES: Record<string, any> = {
@@ -106,7 +119,15 @@ const MANUAL_OVERRIDES: Record<string, any> = {
 export function MitraProfitLossMockup({ realData }: any) {
   const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null)
 
-  const { curOutletKpi = [], hppRate = 0, expenses = [], outletName = '' } = realData || {}
+  const { curOutletKpi = [], hppRate = 0, expenses = [], outletName = '', currentFilter = {} } = realData || {}
+
+  let filterText = 'Semua Waktu'
+  if (currentFilter.from && currentFilter.to) {
+    filterText = `${formatDate(currentFilter.from)} - ${formatDate(currentFilter.to)}`
+  } else if (currentFilter.from) {
+    filterText = `Sejak ${formatDate(currentFilter.from)}`
+  }
+
 
   const isLegacyOutlet = [
     'dramaga', 'paledang', 'ciseeng', 'pekayon', 'pajajaran', 'cibinong', 
@@ -190,11 +211,9 @@ export function MitraProfitLossMockup({ realData }: any) {
 
   const expTotal = opexCategories.reduce((s: number, c: any) => s + c.amount, 0)
   
-  // Management Fee (Misal: 5% dari Gross Profit) - Hanya jika isProfitSharing true
-  const managementFee = isProfitSharing ? totalRev * 0.05 : 0
-  if (managementFee > 0 && !overrideData) {
-    opexCategories.push({ name: 'Management Fee (5%)', amount: managementFee })
-  }
+  // Management Fee (Misal: 3% dari Omzet Kotor)
+  const managementFee = totalRev * 0.03
+  
   const finalExpTotal = expTotal + (overrideData ? 0 : managementFee)
 
   // 7. Summaries
@@ -213,12 +232,14 @@ const totalAdmin = faAdminFee + tkAdminFee
     revenue: {
       outlet: { revenue: outletRev, cogs: outletCogs, grossProfit: outletGross },
       foodApps: { revenue: faRev, cogs: faCogs, discountMerchant: faDeductions, adminFee: faAdminFee, grossProfit: faGross },
-      tiktokGo: { revenue: tkRev, cogs: tkCogs, adminFee: tkAdminFee, settlement: tkSettlement, grossProfit: tkGross },
+      tiktokGo: { revenue: tkRev, cogs: tkCogs, adminFee: tkAdminFee, settlement: tkSettlement, grossProfit: tkGross, discountMerchant: tkDeductions },
       total: { revenue: totalRev, cogs: totalCogs, grossProfit: totalGrossProfit, netProfit: totalNetProfit }
     },
     expenses: {
       categories: opexCategories,
-      total: finalExpTotal
+      total: expTotal,
+      managementFee: overrideData ? 0 : managementFee,
+      finalTotal: finalExpTotal
     },
     investment: overrideData ? {
       totalModal: overrideData.modal,
@@ -244,7 +265,14 @@ const totalAdmin = faAdminFee + tkAdminFee
             <span className="text-xs font-bold text-suka-brown tracking-widest uppercase">Laporan Keuangan</span>
           </div>
           <h2 className="text-3xl font-black text-suka-brown tracking-tighter">Laba Rugi</h2>
-          <p className="text-suka-gray-500 font-medium mt-1">Estimasi perhitungan bagi hasil secara real-time</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-2">
+            <p className="text-suka-gray-500 font-medium text-sm">Estimasi perhitungan bagi hasil secara real-time</p>
+            <span className="hidden sm:inline text-suka-gray-300">•</span>
+            <div className="inline-flex items-center gap-1.5 bg-white border border-suka-gray-100 text-suka-gray-500 text-xs px-2.5 py-1 rounded-lg font-bold shadow-sm w-fit">
+              <Store className="w-3.5 h-3.5 text-suka-orange" /> 
+              {filterText}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -324,16 +352,25 @@ const totalAdmin = faAdminFee + tkAdminFee
          <div className="flex flex-col">
            <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-4">Net Profit & Bagi Hasil</h3>
            
-           <div className="bg-gradient-to-br from-suka-brown to-suka-ink text-white p-8 rounded-[32px] shadow-2xl relative overflow-hidden mb-6 flex-1 flex flex-col justify-center group border border-white/10">
+           <div 
+             onClick={() => setActiveDrilldown('net profit')}
+             className="cursor-pointer bg-gradient-to-br from-suka-brown to-suka-ink text-white p-8 rounded-[32px] shadow-2xl relative overflow-hidden mb-6 flex-1 flex flex-col justify-center group border border-white/10 hover:shadow-xl hover:shadow-suka-orange/20 transition-all duration-300"
+           >
               <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-bl-full pointer-events-none transition-transform duration-700 group-hover:scale-110"></div>
               <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-suka-orange/20 blur-2xl rounded-full pointer-events-none"></div>
               
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                    <Store className="w-4 h-4 text-white" />
+              <div className="relative z-10 flex flex-col h-full">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                      <Store className="w-4 h-4 text-white" />
+                    </div>
+                    <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Total Net Profit Outlet</p>
                   </div>
-                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Total Net Profit Outlet</p>
+                  <div className="flex items-center gap-1 text-white/50 group-hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Lihat Detail</span>
+                    <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                  </div>
                 </div>
                 <h3 className="text-5xl font-black mb-8 tracking-tight">{formatRp(data.revenue.total.netProfit)}</h3>
                 
@@ -349,6 +386,21 @@ const totalAdmin = faAdminFee + tkAdminFee
                   </div>
                 )}
               </div>
+           </div>
+
+           {/* Management Fee Card */}
+           <div className="bg-white border border-suka-gray-100 p-6 rounded-[24px] shadow-sm mb-6 flex justify-between items-center group hover:shadow-md transition-all">
+             <div className="flex items-center gap-4">
+               <div className="w-12 h-12 rounded-[16px] bg-suka-brown/5 flex items-center justify-center text-suka-brown group-hover:scale-110 transition-transform">
+                 <Briefcase className="w-6 h-6" />
+               </div>
+               <div>
+                 <h4 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-1">Management Fee</h4>
+               </div>
+             </div>
+             <h3 className={`text-2xl font-black ${data.expenses.managementFee > 0 ? 'text-red-500' : 'text-suka-gray-400'}`}>
+               {data.expenses.managementFee > 0 ? `-${formatRp(data.expenses.managementFee)}` : formatRp(0)}
+             </h3>
            </div>
 
            {/* OPEX Card */}
@@ -422,8 +474,19 @@ const totalAdmin = faAdminFee + tkAdminFee
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Gross Revenue</span><span className="font-black text-suka-ink">{formatRp(data.revenue.tiktokGo.revenue)}</span></div>
                  <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.cogs)}</span></div>
-                 <div className="flex justify-between p-4 bg-blue-50 rounded-2xl border border-blue-100 mt-2"><span className="font-bold text-blue-600">Settlement (Pencairan)</span><span className="font-black text-blue-700">{formatRp(data.revenue.tiktokGo.settlement)}</span></div>
+                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.discountMerchant)}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Gross Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.tiktokGo.grossProfit)}</span></div>
+               </div>
+             )}
+
+             {activeDrilldown === 'net profit' && (
+               <div className="space-y-4">
+                 <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Total Gross Profit</span><span className="font-black text-suka-ink">{formatRp(data.revenue.total.grossProfit)}</span></div>
+                 {data.expenses.managementFee > 0 && (
+                   <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Management Fee</span><span className="font-bold text-red-500">-{formatRp(data.expenses.managementFee)}</span></div>
+                 )}
+                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Total OPEX</span><span className="font-bold text-red-500">-{formatRp(data.expenses.total)}</span></div>
+                 <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Net Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.total.netProfit)}</span></div>
                </div>
              )}
           </div>

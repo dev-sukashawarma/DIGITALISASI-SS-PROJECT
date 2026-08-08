@@ -147,6 +147,14 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: 'E-Commerce',
+    icon: ShoppingCart,
+    roles: ['OWNER', 'ADMIN'],
+    items: [
+      { href: '/dashboard/ecommerce/import-sales', label: 'Import Penjualan', shortLabel: 'Import', icon: UploadCloud, roles: ['OWNER', 'ADMIN'] },
+    ],
+  },
+  {
     title: 'Migrasi Data',
     icon: UploadCloud,
     roles: ['OWNER', 'ADMIN'],

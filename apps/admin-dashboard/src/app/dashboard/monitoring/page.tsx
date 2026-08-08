@@ -252,7 +252,7 @@ export default function MonitoringPage() {
 
       const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
-        supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv', 'regional_manager']),
+        supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv', 'regional_manager', 'area_manager']),
         supabase.from('staff_outlets').select('staff_id, outlet_id'),
         supabase.from('attendance')
           .select('outlet_id, outlet_staff_id, type, ts_server')

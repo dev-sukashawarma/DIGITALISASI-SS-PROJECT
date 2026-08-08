@@ -18,8 +18,7 @@ export function presetRange(preset: Preset, now = new Date()): { from: string; t
   if (preset === 'this_month') {
     const mm = String(jkt.getUTCMonth() + 1).padStart(2, '0')
     const yyyy = jkt.getUTCFullYear()
-    const lastDay = new Date(yyyy, jkt.getUTCMonth() + 1, 0).getDate()
-    return { from: `${yyyy}-${mm}-01`, to: `${yyyy}-${mm}-${String(lastDay).padStart(2, '0')}` }
+    return { from: `${yyyy}-${mm}-01`, to: todayStr }
   }
   
   const span = preset === 'today' ? 0 : preset === '7d' ? 6 : 29

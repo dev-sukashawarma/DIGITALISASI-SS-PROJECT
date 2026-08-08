@@ -103,7 +103,9 @@ export function MitraDashboardView({
             <h1 className="text-3xl md:text-4xl font-black text-suka-brown tracking-tighter">
               Halo, <span className="text-suka-orange drop-shadow-sm">
                 {(() => {
-                  const nameStr = (mitra.nama_lengkap || '').toLowerCase()
+                  const outletNames = (outlets || []).map((o: any) => o.name).join(' ').toLowerCase()
+                  const nameStr = ((mitra.nama_lengkap || '') + ' ' + outletNames).toLowerCase()
+                  
                   if (nameStr.includes('cibinong')) return 'Ibu Sofie'
                   if (nameStr.includes('sentul')) return 'Bapak Safiq'
                   if (nameStr.includes('paledang')) return 'Bapak Anis'

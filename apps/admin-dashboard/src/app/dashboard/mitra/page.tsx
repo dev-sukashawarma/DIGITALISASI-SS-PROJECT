@@ -65,8 +65,8 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   }
   
   // 4. Hitung trend / omzet menggunakan agregasi Owner Dashboard
-  // Kita gunakan preset '30d' sebagai default pandangan Mitra
-  const defaultRange = presetRange('30d')
+  // Kita gunakan preset 'this_month' sebagai default pandangan Mitra
+  const defaultRange = presetRange('this_month')
   const curFilter: PeriodFilterValue = {
     from: sp.from || defaultRange.from,
     to: sp.to || defaultRange.to,

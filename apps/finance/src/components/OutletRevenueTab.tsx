@@ -12,8 +12,8 @@ import { exportToExcel, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 
-interface SalesDailyRow {
-  sales_date: string | null
+interface RevenueAggRow {
+  date: string | null
   outlet_id: string
   sales_source: string | null
   omzet: number | null

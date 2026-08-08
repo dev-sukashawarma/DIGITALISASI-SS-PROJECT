@@ -7,5 +7,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|login|api/health|manifest.webmanifest|sw.js|workbox-|icons/|.*\\.(?:js|css|map)$).*)'],
+  // `auth/sso` dikecualikan: halaman serah-terima sesi dari app native dibuka
+  // justru saat cookie belum ada — kalau digerbangi, user malah dilempar portal.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|login|auth/sso|api/health|manifest.webmanifest|sw.js|workbox-|icons/|.*\\.(?:js|css|map)$).*)'],
 }

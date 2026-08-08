@@ -404,6 +404,7 @@ export default function AdminOrdersPage() {
                         <OrderSourceBadge
                           channel={order.channel}
                           salesSource={(order as any).sales_source}
+                          isEndorse={(order as any).is_endorse}
                           size="sm"
                         />
                         {order.customer_name && (
@@ -549,6 +550,23 @@ export default function AdminOrdersPage() {
                         ))
                       })()}
                     </div>
+
+                    {(() => {
+                      const itemsSubtotal = order.order_items.reduce((sum, item) => sum + item.subtotal, 0);
+                      const discountAmount = Math.max(0, itemsSubtotal - order.total_amount);
+                      
+                      if (discountAmount > 0) {
+                        return (
+                          <div className="mt-3 py-2 flex justify-between text-sm items-center gap-2 border-t border-red-100 bg-red-50/50 rounded-lg px-3">
+                            <span className="font-semibold text-red-600">Diskon / Promo</span>
+                            <span className="font-bold text-red-600 flex-shrink-0">
+                              - {formatRupiah(discountAmount)}
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
 
                     {order.notes && (
                       <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 text-sm text-amber-800 break-words whitespace-pre-wrap">

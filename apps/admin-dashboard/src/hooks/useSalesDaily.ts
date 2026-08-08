@@ -14,33 +14,13 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
     queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,
     queryFn: async () => {
-      const PAGE_SIZE = 1000
-      const all: any[] = []
-      let offset = 0
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        let q = supabase
-          .from('sales_daily_scoped')
-          .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
-          .gte('sales_date', filter.from)
-          .lte('sales_date', filter.to)
-        if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
-        if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
-        const { data, error } = await q.range(offset, offset + PAGE_SIZE - 1)
-        if (error) throw error
-        const page = data ?? []
-        all.push(...page)
-        if (page.length < PAGE_SIZE) break
-        offset += PAGE_SIZE
-      }
-      // 2. Fetch orders for deductions (discount_amount + promo_subsidy + platform_fee)
-      // Fix timezone bounds for +07:00
+      // Fetch orders for aggregations and deductions
       const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
       const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
       
       let ordersQ = supabase
         .from('orders')
-        .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
+        .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal)')
         .eq('status', 'completed')
         .gte('created_at', fromStart.toISOString())
         .lte('created_at', toEnd.toISOString())
@@ -48,15 +28,15 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
       
       const { data: ordersData, error: ordersErr } = await ordersQ
-      if (ordersErr) console.error("Error fetching orders for deductions", ordersErr)
+      if (ordersErr) throw ordersErr
       
-      const deductionsMap = new Map<string, { discount: number, platformFee: number }>()
+      const aggMap = new Map<string, any>()
       for (const o of ordersData || []) {
         const d = new Date(o.created_at)
         const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
         const dateStr = localDate.toISOString().split('T')[0]
         
-        const srcKey = String(o.sales_source || 'pos').toLowerCase()
+        const srcKey = (o.is_endorse ? 'endors' : (o.sales_source || 'pos')).toLowerCase()
         
         if (filter.source !== 'all' && srcKey !== filter.source.toLowerCase()) continue;
         
@@ -73,31 +53,30 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           discount = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
         }
         
-        let platformFee = 0 // Removed 20% estimation to match ReportsView and ownerDashboard logic
+        let platformFee = 0 
         
-        const existing = deductionsMap.get(key) || { discount: 0, platformFee: 0 }
-        existing.discount += discount
-        existing.platformFee += platformFee
-        deductionsMap.set(key, existing)
+        const existing = aggMap.get(key) || { 
+          outlet_id: o.outlet_id,
+          outlet_name: '',
+          sales_source: srcKey as SalesSource,
+          sales_date: dateStr,
+          omzet: 0,
+          jumlah_order_completed: 0,
+          jumlah_order_all: 0,
+          total_deductions: 0,
+          platform_fee: 0
+        }
+        
+        existing.omzet += Number(o.total_amount || 0)
+        existing.jumlah_order_completed += 1
+        existing.jumlah_order_all += 1
+        existing.total_deductions += discount
+        existing.platform_fee += platformFee
+        
+        aggMap.set(key, existing)
       }
 
-      return all.map((r: any) => {
-        const src = (r.sales_source || 'pos').toLowerCase()
-        const key = `${r.outlet_id}|${src}|${r.sales_date}`
-        const ded = deductionsMap.get(key) || { discount: 0, platformFee: 0 }
-
-        return {
-          outlet_id: r.outlet_id,
-          outlet_name: '',
-          sales_source: r.sales_source as SalesSource,
-          sales_date: r.sales_date,
-          omzet: Number(r.omzet),
-          jumlah_order_completed: Number(r.jumlah_order_completed),
-          jumlah_order_all: Number(r.jumlah_order_completed),
-          total_deductions: ded.discount,
-          platform_fee: ded.platformFee,
-        }
-      })
+      return Array.from(aggMap.values())
     },
   })
 

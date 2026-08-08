@@ -221,7 +221,7 @@ ChecklistCategoryCard.displayName = "ChecklistCategoryCard";
 
 export default function KruChecklistPage() {
   const { outletStaff } = useAuth();
-  const toast = useToast();
+
   const qc = useQueryClient();
   const supabase = createClient();
 
@@ -392,63 +392,7 @@ export default function KruChecklistPage() {
   const activeTickedItems = activeTab === "buka" ? bukaTickedItems : tutupTickedItems;
   const activeProgress = activeTotalItems > 0 ? Math.round((activeTickedItems / activeTotalItems) * 100) : 0;
 
-  async function handleBulkTick(phase: "buka" | "tutup") {
-    if (!recordId || !outletStaff) return;
-    if (!hasClockedIn) {
-      toast.show("err", "Absen hadir dulu sebelum menggunakan alat testing");
-      return;
-    }
-    if (!confirm(`Centang semua tugas ${phase} toko (hanya untuk testing)?`)) return;
 
-    try {
-      const cats = phase === "buka" ? bukaCats : tutupCats;
-      const items = cats.flatMap(c => c.checklist_items || []);
-      const untickedItems = items.filter(item => !ticksMap.has(item.id));
-
-      await Promise.all(untickedItems.map(item => fetch('/api/checklist/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'insert',
-          item_id: item.id,
-          record_id: recordId!,
-          staff_id: outletStaff.id,
-        })
-      })));
-
-      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
-      toast.show("ok", `Semua tugas ${phase} berhasil dicentang`);
-    } catch (e: any) {
-      toast.show("err", "Gagal bulk tick: " + e.message);
-    }
-  }
-
-  async function handleBulkUntick(phase: "buka" | "tutup") {
-    if (!recordId || !outletStaff) return;
-    if (!confirm(`Hapus centang semua tugas ${phase} toko (hanya untuk testing)?`)) return;
-
-    try {
-      const cats = phase === "buka" ? bukaCats : tutupCats;
-      const items = cats.flatMap(c => c.checklist_items || []);
-      const tickedItems = items.filter(item => ticksMap.has(item.id));
-
-      await Promise.all(tickedItems.map(item => fetch('/api/checklist/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'delete',
-          item_id: item.id,
-          record_id: recordId!,
-          staff_id: null,
-        })
-      })));
-
-      qc.invalidateQueries({ queryKey: ["checklist-ticks", recordId] });
-      toast.show("ok", `Semua centang ${phase} berhasil dihapus`);
-    } catch (e: any) {
-      toast.show("err", "Gagal bulk untick: " + e.message);
-    }
-  }
 
   if (!selectedOutletId) {
     return (
@@ -609,60 +553,7 @@ export default function KruChecklistPage() {
         </div>
       )}
 
-      {/* Alat testing (developer) */}
-      <details className="group rounded-2xl border border-suka-gray-200 bg-white">
-        <summary className="flex cursor-pointer select-none items-center gap-2 px-4 py-3 text-sm font-medium text-gray-500 [&::-webkit-details-marker]:hidden">
-          Alat testing (developer)
-          <span className="ml-auto text-gray-400 transition-transform group-open:rotate-180">▾</span>
-        </summary>
-        <div className="border-t border-suka-gray-200 px-4 py-4 space-y-4">
-          <div>
-            <p className="mb-2 text-xs font-semibold text-gray-700">Manajemen Checklist</p>
-            <p className="mb-2 text-xs text-gray-500">Mengubah progress tab yang sedang aktif.</p>
-            <div className="flex flex-col gap-2 sm:flex-row flex-wrap">
-              <button onClick={() => handleBulkTick(activeTab)} className="inline-flex items-center justify-center rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors">
-                Centang Semua ({activeTab === "buka" ? "Buka" : "Tutup"})
-              </button>
-              <button onClick={() => handleBulkUntick(activeTab)} className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors">
-                Hapus Centang Semua ({activeTab === "buka" ? "Buka" : "Tutup"})
-              </button>
-            </div>
-          </div>
-          
-          <div className="pt-2 border-t border-gray-100">
-            <p className="mb-2 text-xs font-semibold text-gray-700">Manajemen Absensi & Wajah</p>
-            <p className="mb-2 text-xs text-red-600">Awas! Data yang dihapus tidak bisa dikembalikan.</p>
-            <div className="flex flex-col gap-2 sm:flex-row flex-wrap">
-              <button onClick={async () => {
-                if (!outletStaff || !confirm("Yakin mereset semua wajah staff?")) return;
-                const { error } = await supabase.from("outlet_staff")
-                  .update({ face_descriptor: null, ref_photo_url: null, enrolled_at: null })
-                  .eq("outlet_id", selectedOutletId);
-                if (error) toast.show("err", "Gagal reset wajah");
-                else toast.show("ok", "Semua wajah berhasil direset (belum terdaftar)");
-              }} className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors">
-                Reset Wajah (Un-enroll)
-              </button>
-              <button onClick={async () => {
-                if (!outletStaff || !confirm("Yakin menghapus SEMUA log absensi hari ini?")) return;
-                const todayStr = new Date().toISOString().slice(0, 10);
-                const { error } = await supabase.from("attendance")
-                  .delete()
-                  .eq("outlet_id", selectedOutletId)
-                  .gte("ts_server", `${todayStr}T00:00:00+07:00`)
-                  .lte("ts_server", `${todayStr}T23:59:59+07:00`);
-                if (error) toast.show("err", "Gagal reset log absensi. " + error.message);
-                else {
-                  toast.show("ok", "Log absensi hari ini dihapus. Silakan refresh halaman.");
-                  setTimeout(() => window.location.reload(), 1500);
-                }
-              }} className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 transition-colors">
-                Reset Log Hari Ini
-              </button>
-            </div>
-          </div>
-        </div>
-      </details>
+
     </div>
   );
 }

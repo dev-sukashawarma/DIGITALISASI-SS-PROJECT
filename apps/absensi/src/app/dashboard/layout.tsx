@@ -28,6 +28,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
 
+  const isAdminOrHR = ["admin", "admin_hr", "owner", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
@@ -38,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
     { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
     { href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> },
-    { href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> },
+    ...(isAdminOrHR ? [{ href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> }] : []),
     { href: "/dashboard/panduan", label: "Panduan", icon: <Book size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
@@ -70,14 +72,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Redirect crew trying to access SPV-only routes
   // Gunakan WHITELIST rute kru (lebih aman dari blacklist yang bisa salah tangkap)
   React.useEffect(() => {
-    if (!loading && outletStaff && !isSPV) {
-      const kruAllowedPaths = ["/dashboard/kru", "/dashboard/kru-checklist", "/dashboard/profil", "/dashboard/cuti", "/dashboard/kasbon", "/dashboard/panduan"];
-      const isAllowed = kruAllowedPaths.some(p => pathname === p || pathname.startsWith(p + "/"));
-      if (!isAllowed) {
-        router.replace("/dashboard/kru");
+    if (!loading && outletStaff) {
+      if (!isSPV) {
+        const kruAllowedPaths = ["/dashboard/kru", "/dashboard/kru-checklist", "/dashboard/profil", "/dashboard/cuti", "/dashboard/kasbon", "/dashboard/panduan"];
+        const isAllowed = kruAllowedPaths.some(p => pathname === p || pathname.startsWith(p + "/"));
+        if (!isAllowed) {
+          router.replace("/dashboard/kru");
+        }
+      } else if (pathname === "/dashboard/pengaturan" && !isAdminOrHR) {
+        // Blokir akses ke pengaturan absensi untuk role SPV/Leader biasa
+        router.replace("/dashboard");
       }
     }
-  }, [outletStaff, isSPV, loading, pathname, router]);
+  }, [outletStaff, isSPV, isAdminOrHR, loading, pathname, router]);
 
   // Tutup sheet "Lainnya" tiap pindah halaman
   React.useEffect(() => { setMoreOpen(false); }, [pathname]);

@@ -276,168 +276,143 @@ const totalAdmin = faAdminFee + tkAdminFee
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
-         {/* Kiri: Channels */}
-         <div className="space-y-4">
-            <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-4">Gross Profit per Channel</h3>
-            
-            {/* Outlet POS */}
-            <div 
-              onClick={() => setActiveDrilldown('outlet')}
-              className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex items-center justify-between"
-            >
-               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-[16px] bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 group-hover:rotate-6 transition-transform">
-                   <Store className="w-6 h-6" />
-                 </div>
-                 <div>
-                   <h4 className="font-bold text-suka-brown">Outlet (POS)</h4>
-                   <p className="text-xs text-suka-gray-500">Rev: {formatRp(data.revenue.outlet.revenue)}</p>
-                 </div>
-               </div>
-               <div className="text-right flex items-center gap-3">
-                 <span className={`font-black text-lg ${data.revenue.outlet.grossProfit < 0 ? 'text-red-500' : 'text-suka-orange'}`}>
-                   {formatRp(data.revenue.outlet.grossProfit)}
-                 </span>
-                 <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors" />
-               </div>
-            </div>
+      {/* SUMMARY ROW */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative z-10">
+        
+        {/* Gross Profit */}
+        <div className="bg-white border border-suka-gray-100 p-5 rounded-[24px] shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-4">
+             <div className="w-10 h-10 rounded-[12px] bg-suka-orange/10 flex items-center justify-center text-suka-orange">
+               <TrendingUp className="w-5 h-5" />
+             </div>
+             <h4 className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Gross Profit</h4>
+          </div>
+          <h3 className="text-2xl font-black text-suka-brown">{formatRp(data.revenue.total.grossProfit)}</h3>
+        </div>
 
-            {/* Food Apps */}
-            <div 
-              onClick={() => setActiveDrilldown('foodapps')}
-              className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex items-center justify-between"
-            >
-               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-[16px] bg-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 group-hover:rotate-6 transition-transform">
-                   <Smartphone className="w-6 h-6" />
-                 </div>
-                 <div>
-                   <h4 className="font-bold text-suka-brown">Food Apps</h4>
-                   <p className="text-xs text-suka-gray-500">Rev: {formatRp(data.revenue.foodApps.revenue)}</p>
-                 </div>
-               </div>
-               <div className="text-right flex items-center gap-3">
-                 <span className={`font-black text-lg ${data.revenue.foodApps.grossProfit < 0 ? 'text-red-500' : 'text-suka-orange'}`}>
-                   {formatRp(data.revenue.foodApps.grossProfit)}
-                 </span>
-                 <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors" />
-               </div>
-            </div>
+        {/* OPEX */}
+        <div className="bg-white border border-suka-gray-100 p-5 rounded-[24px] shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-4">
+             <div className="w-10 h-10 rounded-[12px] bg-red-50 flex items-center justify-center text-red-500">
+               <TrendingDown className="w-5 h-5" />
+             </div>
+             <h4 className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Total OPEX</h4>
+          </div>
+          <h3 className="text-2xl font-black text-red-500">-{formatRp(data.expenses.total)}</h3>
+        </div>
 
-            {/* Tiktok */}
-            <div 
-              onClick={() => setActiveDrilldown('tiktok')}
-              className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex items-center justify-between"
-            >
-               <div className="flex items-center gap-4">
-                 <div className="w-12 h-12 rounded-[16px] bg-black/5 flex items-center justify-center text-black group-hover:scale-110 group-hover:rotate-6 transition-transform">
-                   <Music className="w-6 h-6" />
-                 </div>
-                 <div>
-                   <h4 className="font-bold text-suka-brown">Tiktok Go</h4>
-                   <p className="text-xs text-suka-gray-500">Rev: {formatRp(data.revenue.tiktokGo.revenue)}</p>
-                 </div>
-               </div>
-               <div className="text-right flex items-center gap-3">
-                 <span className={`font-black text-lg ${data.revenue.tiktokGo.grossProfit < 0 ? 'text-red-500' : 'text-suka-orange'}`}>
-                   {formatRp(data.revenue.tiktokGo.grossProfit)}
-                 </span>
-                 <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors" />
-               </div>
-            </div>
-         </div>
+        {/* Management Fee */}
+        <div className="bg-white border border-suka-gray-100 p-5 rounded-[24px] shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3 mb-4">
+             <div className="w-10 h-10 rounded-[12px] bg-suka-brown/5 flex items-center justify-center text-suka-brown">
+               <Briefcase className="w-5 h-5" />
+             </div>
+             <h4 className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Mgmt Fee</h4>
+          </div>
+          <h3 className={`text-2xl font-black ${data.expenses.managementFee > 0 ? 'text-red-500' : 'text-suka-gray-400'}`}>
+             {data.expenses.managementFee > 0 ? `-${formatRp(data.expenses.managementFee)}` : formatRp(0)}
+          </h3>
+        </div>
 
-         {/* Kanan: Net Profit & Expenses */}
-         <div className="flex flex-col">
-           <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-4">Net Profit & Bagi Hasil</h3>
-           
-           <div 
-             onClick={() => setActiveDrilldown('net profit')}
-             className="cursor-pointer bg-gradient-to-br from-suka-brown to-suka-ink text-white p-8 rounded-[32px] shadow-2xl relative overflow-hidden mb-6 flex-1 flex flex-col justify-center group border border-white/10 hover:shadow-xl hover:shadow-suka-orange/20 transition-all duration-300"
-           >
-              <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-bl-full pointer-events-none transition-transform duration-700 group-hover:scale-110"></div>
-              <div className="absolute -bottom-8 -left-8 w-32 h-32 bg-suka-orange/20 blur-2xl rounded-full pointer-events-none"></div>
-              
-              <div className="relative z-10 flex flex-col h-full">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                      <Store className="w-4 h-4 text-white" />
-                    </div>
-                    <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Total Net Profit Outlet</p>
-                  </div>
-                  <div className="flex items-center gap-1 text-white/50 group-hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-full border border-white/5">
-                    <span className="text-[10px] font-bold uppercase tracking-wider">Lihat Detail</span>
-                    <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-                  </div>
-                </div>
-                <h3 className="text-5xl font-black mb-8 tracking-tight">{formatRp(data.revenue.total.netProfit)}</h3>
-                
-                {isProfitSharing && (
-                  <div className="pt-8 border-t border-white/10 mt-auto">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-8 h-8 rounded-full bg-suka-orange/20 flex items-center justify-center">
-                        <TrendingUp className="w-4 h-4 text-suka-orange" />
-                      </div>
-                      <p className="text-white/60 text-xs font-bold uppercase tracking-widest">Bagi Hasil Mitra (50%)</p>
-                    </div>
-                    <p className="text-4xl font-black text-suka-orange drop-shadow-lg">{formatRp(data.investment.totalProfitSementara)}</p>
-                  </div>
-                )}
+        {/* Net Profit - Highlighted */}
+        <div 
+          onClick={() => setActiveDrilldown('net profit')}
+          className="group cursor-pointer bg-gradient-to-br from-suka-brown to-suka-ink text-white p-5 rounded-[24px] shadow-lg relative overflow-hidden flex flex-col justify-between hover:shadow-xl hover:shadow-suka-orange/20 transition-all duration-300"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-bl-full pointer-events-none transition-transform duration-700 group-hover:scale-110"></div>
+          <div className="absolute -bottom-8 -left-8 w-24 h-24 bg-suka-orange/20 blur-xl rounded-full pointer-events-none"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
+                   <Store className="w-4 h-4 text-white" />
+                 </div>
+                 <h4 className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Net Profit</h4>
               </div>
-           </div>
+              <div className="flex items-center gap-1 text-white/50 group-hover:text-white transition-colors bg-white/5 px-2 py-1 rounded-full border border-white/5">
+                <span className="text-[9px] font-bold uppercase tracking-wider">Detail</span>
+                <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </div>
+            <h3 className="text-3xl font-black tracking-tight drop-shadow-sm">{formatRp(data.revenue.total.netProfit)}</h3>
+          </div>
+        </div>
 
-           {/* Management Fee Card */}
-           <div className="bg-white border border-suka-gray-100 p-6 rounded-[24px] shadow-sm mb-6 flex justify-between items-center group hover:shadow-md transition-all">
-             <div className="flex items-center gap-4">
-               <div className="w-12 h-12 rounded-[16px] bg-suka-brown/5 flex items-center justify-center text-suka-brown group-hover:scale-110 transition-transform">
-                 <Briefcase className="w-6 h-6" />
+      </div>
+
+      {/* CHANNEL BREAKDOWN ROW */}
+      <div className="relative z-10 border-t border-suka-gray-100 pt-8 mt-4">
+        <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-4">Gross Profit per Channel</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* Outlet POS */}
+          <div 
+            onClick={() => setActiveDrilldown('outlet')}
+            className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
+          >
+             <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-12 rounded-[16px] bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0">
+                 <Store className="w-6 h-6" />
                </div>
                <div>
-                 <h4 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-1">Management Fee</h4>
+                 <h4 className="font-bold text-suka-brown text-sm">Outlet (POS)</h4>
+                 <p className="text-[11px] text-suka-gray-500">Rev: {formatRp(data.revenue.outlet.revenue)}</p>
                </div>
              </div>
-             <h3 className={`text-2xl font-black ${data.expenses.managementFee > 0 ? 'text-red-500' : 'text-suka-gray-400'}`}>
-               {data.expenses.managementFee > 0 ? `-${formatRp(data.expenses.managementFee)}` : formatRp(0)}
-             </h3>
-           </div>
+             <div className="flex items-end justify-between mt-auto">
+               <span className={`font-black text-xl ${data.revenue.outlet.grossProfit < 0 ? 'text-red-500' : 'text-suka-orange'}`}>
+                 {formatRp(data.revenue.outlet.grossProfit)}
+               </span>
+               <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors" />
+             </div>
+          </div>
 
-           {/* OPEX Card */}
-           <div className="bg-white border border-suka-gray-100 p-6 rounded-[24px] shadow-sm">
-             <div className="flex justify-between items-end mb-6 pb-6 border-b border-suka-gray-100">
+          {/* Food Apps */}
+          <div 
+            onClick={() => setActiveDrilldown('foodapps')}
+            className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
+          >
+             <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-12 rounded-[16px] bg-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0">
+                 <Smartphone className="w-6 h-6" />
+               </div>
                <div>
-                 <h4 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-1">Total OPEX</h4>
-                 <p className="text-xs text-suka-gray-500 font-medium">Pengeluaran Operasional</p>
+                 <h4 className="font-bold text-suka-brown text-sm">Food Apps</h4>
+                 <p className="text-[11px] text-suka-gray-500">Rev: {formatRp(data.revenue.foodApps.revenue)}</p>
                </div>
-               <h3 className="text-2xl font-black text-red-500">-{formatRp(data.expenses.total)}</h3>
              </div>
+             <div className="flex items-end justify-between mt-auto">
+               <span className={`font-black text-xl ${data.revenue.foodApps.grossProfit < 0 ? 'text-red-500' : 'text-suka-orange'}`}>
+                 {formatRp(data.revenue.foodApps.grossProfit)}
+               </span>
+               <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors" />
+             </div>
+          </div>
 
-             {/* Categories Progress Bars */}
-             <div className="space-y-6">
-                {data.expenses.categories.length === 0 ? (
-                  <div className="text-sm text-suka-gray-400 text-center py-4">Belum ada pengeluaran</div>
-                ) : (
-                  data.expenses.categories.map((cat: any, idx: number) => {
-                    const colors = ['bg-blue-500', 'bg-orange-500', 'bg-pink-500', 'bg-purple-500', 'bg-teal-500']
-                    const color = colors[idx % colors.length]
-                    const percentage = data.expenses.total > 0 ? (cat.amount / data.expenses.total) * 100 : 0
-                    
-                    return (
-                      <div key={idx}>
-                        <div className="flex justify-between text-sm font-bold text-suka-gray-600 mb-2">
-                          <span>{cat.name}</span>
-                          <span>{formatRp(cat.amount)}</span>
-                        </div>
-                        <div className="w-full bg-suka-gray-100 rounded-full h-3 overflow-hidden shadow-inner">
-                          <div className={`${color} h-full rounded-full`} style={{width: `${percentage}%`}}></div>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
+          {/* Tiktok */}
+          <div 
+            onClick={() => setActiveDrilldown('tiktok')}
+            className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
+          >
+             <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-12 rounded-[16px] bg-black/5 flex items-center justify-center text-black group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0">
+                 <Music className="w-6 h-6" />
+               </div>
+               <div>
+                 <h4 className="font-bold text-suka-brown text-sm">Tiktok Go</h4>
+                 <p className="text-[11px] text-suka-gray-500">Rev: {formatRp(data.revenue.tiktokGo.revenue)}</p>
+               </div>
              </div>
-           </div>
+             <div className="flex items-end justify-between mt-auto">
+               <span className={`font-black text-xl ${data.revenue.tiktokGo.grossProfit < 0 ? 'text-red-500' : 'text-suka-orange'}`}>
+                 {formatRp(data.revenue.tiktokGo.grossProfit)}
+               </span>
+               <ChevronRight className="w-5 h-5 text-suka-gray-300 group-hover:text-suka-orange transition-colors" />
+             </div>
+          </div>
+
         </div>
       </div>
 

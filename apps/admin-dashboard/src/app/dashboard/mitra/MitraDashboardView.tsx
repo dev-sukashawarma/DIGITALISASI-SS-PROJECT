@@ -129,12 +129,12 @@ export function MitraDashboardView({
           {outlets && outlets.length > 0 && (
             <div className="w-full md:w-auto relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-suka-orange to-suka-brown rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
-              <div className="relative bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-sm p-2 flex items-center">
+              <div className="relative w-full bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-sm p-2 flex items-center">
                 <div className="p-2 bg-suka-orange/10 rounded-xl mr-3">
                   <Store className="w-5 h-5 text-suka-orange" />
                 </div>
                 <select 
-                  className="bg-transparent text-sm font-extrabold text-suka-brown outline-none cursor-pointer pr-8 appearance-none"
+                  className="w-full min-h-[44px] bg-transparent text-sm font-extrabold text-suka-brown outline-none cursor-pointer pr-8 appearance-none"
                   value={selectedOutletId || ''}
                   onChange={(e) => setSelectedOutletId(e.target.value)}
                 >
@@ -152,16 +152,7 @@ export function MitraDashboardView({
           )}
         </div>
 
-        {/* Global Filter Date Section */}
-        <div className="flex flex-col sm:flex-row items-center gap-2 justify-end mb-4 relative z-50">
-          <PeriodFilter 
-            value={currentFilter} 
-            onChange={handleFilterChange} 
-            outlets={[]} // We disable the builtin outlet dropdown
-            lockedOutletId="all" // lock outlet logic since we use a custom one
-            hideSource 
-          />
-        </div>
+        {/* Global Filter Date Section (Moved to ProfitLoss card) */}
 
         {!outlets || outlets.length === 0 ? (
           <div className="bg-white/70 backdrop-blur-md rounded-[32px] p-12 text-center border border-white shadow-xl shadow-suka-orange/5 animate-fade-in">
@@ -282,13 +273,17 @@ export function MitraDashboardView({
 
 
             {/* Laporan Laba Rugi Section */}
-            <ProfitLoss realData={{
-              outletName: selectedOutlet?.name || 'Semua Outlet',
-              curOutletKpi,
-              hppRate: hppMap ? (hppMap[selectedOutletId] || 45) : 45,
-              expenses: expenses ? (selectedOutletId === 'all' ? expenses : expenses.filter((e: any) => e.outlet_id === selectedOutletId)) : [],
-              currentFilter // Pass current filter down to check the date
-            }} />
+            <ProfitLoss 
+              currentFilter={currentFilter}
+              onFilterChange={handleFilterChange}
+              realData={{
+                outletName: selectedOutlet?.name || 'Semua Outlet',
+                curOutletKpi,
+                hppRate: hppMap ? (hppMap[selectedOutletId] || 45) : 45,
+                expenses: expenses ? (selectedOutletId === 'all' ? expenses : expenses.filter((e: any) => e.outlet_id === selectedOutletId)) : [],
+                currentFilter // Keep this for backward compatibility inside the object if needed
+              }} 
+            />
           </div>
         )}
       </div>

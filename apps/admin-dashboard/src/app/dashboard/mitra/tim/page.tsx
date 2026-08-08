@@ -83,40 +83,33 @@ export default function TimOutletPage() {
           </div>
         ) : (
           <div className="bg-white/70 backdrop-blur-xl rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 overflow-hidden animate-fade-in">
-            <div className="overflow-x-auto">
+            <div className="w-full">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gradient-to-r from-suka-orange/5 to-transparent border-b border-white/50">
-                    <th className="py-4 px-6 text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Staf</th>
-                    <th className="py-4 px-6 text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Outlet</th>
-                    <th className="py-4 px-6 text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Posisi</th>
-                    <th className="py-4 px-6 text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap text-right">Status</th>
+                    <th className="py-2 sm:py-4 px-2 sm:px-6 text-[9px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Staf</th>
+                    <th className="py-2 sm:py-4 px-2 sm:px-6 text-[9px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap">Posisi</th>
+                    <th className="py-2 sm:py-4 px-2 sm:px-6 text-[9px] sm:text-xs font-black text-suka-brown uppercase tracking-widest whitespace-nowrap text-right">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/40">
                   {staff.map((s) => (
                     <tr key={s.id} className="hover:bg-white/40 transition-colors group">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 transition-transform shadow-sm border border-suka-orange/20">
-                            <UserCircle className="w-6 h-6" />
+                      <td className="py-2 sm:py-4 px-2 sm:px-6">
+                        <div className="flex items-center gap-1.5 sm:gap-3">
+                          <div className="w-6 h-6 sm:w-10 sm:h-10 rounded-full bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 transition-transform shadow-sm border border-suka-orange/20 shrink-0">
+                            <UserCircle className="w-4 h-4 sm:w-6 sm:h-6" />
                           </div>
-                          <span className="font-extrabold text-suka-brown">{s.name || 'Tanpa Nama'}</span>
+                          <span className="font-extrabold text-suka-brown text-[10px] sm:text-base truncate max-w-[60px] sm:max-w-[150px]">{s.name || 'Tanpa Nama'}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2 text-sm font-bold text-suka-gray-500">
-                          <Store className="w-4 h-4 text-suka-orange/60" />
-                          {getOutletName(s.outlet_id)}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-suka-orange/10 text-suka-orange capitalize">
+                      <td className="py-2 sm:py-4 px-2 sm:px-6">
+                        <span className="inline-flex items-center px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-md text-[9px] sm:text-xs font-bold bg-suka-orange/10 text-suka-orange capitalize">
                           {s.role?.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="py-4 px-6 text-right">
-                        <span className={`inline-flex items-center px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm ${
+                      <td className="py-2 sm:py-4 px-2 sm:px-6 text-right">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 sm:px-3 sm:py-1 text-[8px] sm:text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm ${
                           s.status === 'active' 
                             ? 'bg-gradient-to-r from-suka-green/80 to-suka-green text-white shadow-green-500/30' 
                             : 'bg-gradient-to-r from-suka-gray-300 to-suka-gray-400 text-white shadow-gray-400/30'

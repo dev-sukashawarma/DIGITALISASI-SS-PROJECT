@@ -69,26 +69,26 @@ export default function TransferPage() {
         ) : (
           <div className="space-y-4 animate-fade-in">
             {transfers.map((t) => (
-              <div key={t.id} className="flex justify-between items-center p-6 bg-white/70 backdrop-blur-md rounded-[24px] border border-white shadow-lg shadow-suka-orange/5 hover:bg-white/90 hover:scale-[1.01] transition-all duration-300">
-                <div className="flex items-center space-x-4">
-                  <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl border border-blue-100 shadow-sm">
-                    <FileText className="w-8 h-8 text-blue-600" />
+              <div key={t.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-0 p-5 sm:p-6 bg-white/70 backdrop-blur-xl rounded-[28px] border border-white shadow-xl shadow-suka-orange/5 hover:bg-white/90 hover:scale-[1.01] transition-all duration-300">
+                <div className="flex items-center gap-4 w-full sm:w-auto">
+                  <div className="p-3.5 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-2xl border border-blue-100 shadow-sm shrink-0">
+                    <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                   </div>
-                  <div>
-                    <div className="font-extrabold text-lg text-suka-brown tracking-tight">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-base sm:text-lg text-suka-brown tracking-tight truncate">
                       Periode {new Date(t.bulan).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
                     </div>
-                    <div className="text-sm font-black text-suka-gray-400 mt-1">
+                    <div className="text-sm font-semibold text-suka-gray-500 mt-0.5">
                       {Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(t.nominal)}
                     </div>
                   </div>
                 </div>
                 <button 
                   onClick={() => handleDownload(t.bukti_url)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm border border-blue-200"
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-5 py-3 sm:py-2.5 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 text-blue-700 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-sm border border-blue-200 shrink-0"
                 >
                   <Download className="w-4 h-4" />
-                  <span>Download</span>
+                  <span>Download Bukti</span>
                 </button>
               </div>
             ))}

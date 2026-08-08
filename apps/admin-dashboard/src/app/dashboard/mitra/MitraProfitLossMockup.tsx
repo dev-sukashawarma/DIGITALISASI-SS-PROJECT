@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Store, Utensils, ShoppingBag, ChevronRight, X, TrendingDown, TrendingUp, Briefcase } from 'lucide-react'
+import { PeriodFilter } from '@/components/PeriodFilter'
 
 const formatRp = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -116,7 +117,7 @@ const MANUAL_OVERRIDES: Record<string, any> = {
   }
 }
 
-export function MitraProfitLossMockup({ realData }: any) {
+export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, onFilterChange }: any) {
   const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null)
 
   const { curOutletKpi = [], hppRate = 0, expenses = [], outletName = '', currentFilter = {} } = realData || {}
@@ -274,6 +275,17 @@ const totalAdmin = faAdminFee + tkAdminFee
             </div>
           </div>
         </div>
+        {onFilterChange && (
+          <div className="flex-shrink-0 z-20 w-full md:w-auto">
+            <PeriodFilter 
+              value={parentFilter} 
+              onChange={onFilterChange} 
+              outlets={[]} 
+              lockedOutletId="all" 
+              hideSource 
+            />
+          </div>
+        )}
       </div>
 
       {/* SUMMARY ROW */}
@@ -344,13 +356,13 @@ const totalAdmin = faAdminFee + tkAdminFee
       {/* CHANNEL BREAKDOWN ROW */}
       <div className="relative z-10 border-t border-suka-gray-100 pt-8 mt-4">
         <h3 className="text-sm font-extrabold text-suka-gray-400 uppercase tracking-widest mb-4">Gross Profit per Channel</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Horizontal scroll on mobile, grid on desktop */}
+        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 md:grid md:grid-cols-3 md:overflow-visible md:pb-0 scrollbar-hide">
           
           {/* Outlet POS */}
           <div 
             onClick={() => setActiveDrilldown('outlet')}
-            className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
+            className="group min-w-[85%] sm:min-w-[300px] md:min-w-0 snap-center cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
           >
               <div className="flex items-center gap-4 mb-4">
                <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-suka-orange/20 to-suka-orange/5 flex items-center justify-center text-suka-orange group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0 shadow-sm shadow-suka-orange/20">
@@ -372,7 +384,7 @@ const totalAdmin = faAdminFee + tkAdminFee
           {/* Food Apps */}
           <div 
             onClick={() => setActiveDrilldown('foodapps')}
-            className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
+            className="group min-w-[85%] sm:min-w-[300px] md:min-w-0 snap-center cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
           >
               <div className="flex items-center gap-4 mb-4">
                <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0 shadow-sm shadow-green-100">
@@ -394,7 +406,7 @@ const totalAdmin = faAdminFee + tkAdminFee
           {/* Tiktok */}
           <div 
             onClick={() => setActiveDrilldown('tiktok')}
-            className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
+            className="group min-w-[85%] sm:min-w-[300px] md:min-w-0 snap-center cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
           >
               <div className="flex items-center gap-4 mb-4">
                <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-slate-200 to-slate-100 flex items-center justify-center text-slate-800 group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0 shadow-sm shadow-slate-200">
@@ -430,8 +442,8 @@ const totalAdmin = faAdminFee + tkAdminFee
              {activeDrilldown === 'outlet' && (
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Gross Revenue</span><span className="font-black text-suka-ink">{formatRp(data.revenue.outlet.revenue)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.outlet.cogs)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.outlet.revenue - (data.revenue.outlet.revenue - posDeductions))}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.outlet.cogs)}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.outlet.revenue - (data.revenue.outlet.revenue - posDeductions))}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20"><span className="font-bold text-suka-brown">Gross Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.outlet.grossProfit)}</span></div>
                </div>
              )}
@@ -439,8 +451,8 @@ const totalAdmin = faAdminFee + tkAdminFee
              {activeDrilldown === 'foodapps' && (
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Gross Revenue</span><span className="font-black text-suka-ink">{formatRp(data.revenue.foodApps.revenue)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.cogs)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.discountMerchant)}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.cogs)}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.foodApps.discountMerchant)}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Gross Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.foodApps.grossProfit)}</span></div>
                </div>
              )}
@@ -448,8 +460,8 @@ const totalAdmin = faAdminFee + tkAdminFee
              {activeDrilldown === 'tiktok' && (
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Gross Revenue</span><span className="font-black text-suka-ink">{formatRp(data.revenue.tiktokGo.revenue)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.cogs)}</span></div>
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.discountMerchant)}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">COGS (HPP)</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.cogs)}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Discount to Customer</span><span className="font-bold text-red-500">-{formatRp(data.revenue.tiktokGo.discountMerchant)}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Gross Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.tiktokGo.grossProfit)}</span></div>
                </div>
              )}
@@ -458,9 +470,9 @@ const totalAdmin = faAdminFee + tkAdminFee
                <div className="space-y-4">
                  <div className="flex justify-between p-4 bg-suka-gray-50 rounded-2xl border border-suka-gray-100"><span className="font-bold text-suka-gray-500">Total Gross Profit</span><span className="font-black text-suka-ink">{formatRp(data.revenue.total.grossProfit)}</span></div>
                  {data.expenses.managementFee > 0 && (
-                   <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Management Fee</span><span className="font-bold text-red-500">-{formatRp(data.expenses.managementFee)}</span></div>
+                   <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Management Fee</span><span className="font-bold text-red-500">-{formatRp(data.expenses.managementFee)}</span></div>
                  )}
-                 <div className="flex justify-between p-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Total OPEX</span><span className="font-bold text-red-500">-{formatRp(data.expenses.total)}</span></div>
+                 <div className="flex justify-between py-4 px-3 border-b border-dashed border-suka-gray-200"><span className="font-bold text-red-400">Total OPEX</span><span className="font-bold text-red-500">-{formatRp(data.expenses.total)}</span></div>
                  <div className="flex justify-between p-4 bg-suka-orange/10 rounded-2xl border border-suka-orange/20 mt-2"><span className="font-bold text-suka-brown">Net Profit</span><span className="font-black text-suka-orange">{formatRp(data.revenue.total.netProfit)}</span></div>
                </div>
              )}

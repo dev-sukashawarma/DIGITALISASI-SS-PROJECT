@@ -8,7 +8,7 @@ import { CommandMenu } from '@/components/layout/CommandMenu'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-[#4A1713] relative">
+    <div className="flex h-[100dvh] w-full overflow-hidden bg-[#FDF9F3] md:bg-[#4A1713] relative">
       {/* Decorative Glow - Kept strictly inside by overflow-hidden */}
       <div className="absolute bottom-[-10rem] left-[-10rem] w-[30rem] h-[30rem] bg-suka-orange/20 blur-[120px] rounded-full pointer-events-none z-0" />
       <CommandMenu />

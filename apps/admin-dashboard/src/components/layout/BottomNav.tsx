@@ -30,10 +30,10 @@ export const BottomNav = () => {
     <>
       {/* Bottom Tab Bar (mobile only) */}
       <nav
-        className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-lg border-t border-suka-gray-200 shadow-[0_-4px_24px_-8px_rgba(112,22,4,0.18)] print:hidden"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="md:hidden fixed bottom-0 left-0 w-full z-40 bg-white/95 backdrop-blur-2xl border-t border-suka-orange/10 rounded-t-[24px] shadow-[0_-8px_32px_rgba(112,22,4,0.05)] print:hidden"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       >
-        <div className="flex items-stretch h-16 px-1">
+        <div className="flex items-center justify-around h-[76px] px-2 pt-2">
           {inline.map(({ href, label, shortLabel, icon: Icon }) => {
             const isActive = isItemActive(href, pathname)
             return (
@@ -42,27 +42,26 @@ export const BottomNav = () => {
                 href={href}
                 className="relative flex-1 flex flex-col items-center justify-center gap-1 min-w-0 px-0.5"
               >
-                {isActive && (
-                  <span className="absolute top-0 h-1 w-8 rounded-full bg-suka-orange" />
-                )}
                 <span
-                  className={`relative flex items-center justify-center rounded-xl transition-all ${
-                    isActive ? 'bg-suka-orange/10 px-3 py-1' : 'px-3 py-1'
+                  className={`relative flex items-center justify-center transition-all duration-300 ${
+                    isActive 
+                      ? 'w-10 h-10 rounded-full bg-gradient-to-br from-suka-orange to-suka-brown shadow-md shadow-suka-orange/30 scale-105' 
+                      : 'w-10 h-10 rounded-full bg-transparent hover:bg-suka-gray-50'
                   }`}
                 >
                   <Icon
                     size={20}
-                    className={`shrink-0 transition-colors ${isActive ? 'text-suka-orange' : 'text-suka-gray-400'}`}
+                    className={`shrink-0 transition-colors ${isActive ? 'text-white' : 'text-suka-gray-400'}`}
                   />
                   {href === '/dashboard/hr/leave' && pendingCount > 0 && (
-                    <span className="absolute top-0 right-1 translate-x-1/2 -translate-y-1/2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white">
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
                       {pendingCount}
                     </span>
                   )}
                 </span>
                 <span
-                  className={`text-[10px] font-bold leading-none truncate max-w-full transition-colors ${
-                    isActive ? 'text-suka-orange' : 'text-suka-gray-500'
+                  className={`text-[10px] font-extrabold tracking-wide leading-tight truncate max-w-full transition-all duration-300 ${
+                    isActive ? 'text-suka-brown scale-100' : 'text-suka-gray-400 scale-95'
                   }`}
                 >
                   {shortLabel ?? label}
@@ -77,10 +76,20 @@ export const BottomNav = () => {
             onClick={() => setSheetOpen(true)}
             className="flex-1 flex flex-col items-center justify-center gap-1 px-0.5"
           >
-            <span className={`flex items-center justify-center rounded-xl px-3 py-1 transition-all ${sheetOpen ? 'bg-suka-orange/10' : ''}`}>
-              <Menu size={20} className={`shrink-0 ${sheetOpen ? 'text-suka-orange' : 'text-suka-gray-400'}`} />
+            <span 
+              className={`relative flex items-center justify-center transition-all duration-300 ${
+                sheetOpen 
+                  ? 'w-10 h-10 rounded-full bg-gradient-to-br from-suka-orange to-suka-brown shadow-md shadow-suka-orange/30 scale-105' 
+                  : 'w-10 h-10 rounded-full bg-transparent hover:bg-suka-gray-50'
+              }`}
+            >
+              <Menu size={20} className={`shrink-0 transition-colors ${sheetOpen ? 'text-white' : 'text-suka-gray-400'}`} />
             </span>
-            <span className={`text-[10px] font-bold leading-none ${sheetOpen ? 'text-suka-orange' : 'text-suka-gray-500'}`}>
+            <span 
+              className={`text-[10px] font-extrabold tracking-wide leading-tight transition-all duration-300 ${
+                sheetOpen ? 'text-suka-brown scale-100' : 'text-suka-gray-400 scale-95'
+              }`}
+            >
               Menu
             </span>
           </button>
@@ -97,27 +106,27 @@ export const BottomNav = () => {
           />
 
           {/* Sheet */}
-          <div className="relative bg-suka-cream rounded-t-3xl border-t border-suka-gray-200 max-h-[80vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
-            <div className="sticky top-0 bg-suka-cream/95 backdrop-blur px-5 pt-4 pb-3 flex items-center justify-between border-b border-suka-brown/5">
-              <div className="text-lg font-extrabold text-suka-brown tracking-tight">
+          <div className="relative bg-white/95 backdrop-blur-3xl rounded-t-[32px] border-t border-white shadow-[0_-10px_40px_rgba(112,22,4,0.1)] max-h-[85vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
+            <div className="sticky top-0 bg-white/80 backdrop-blur-xl px-6 pt-5 pb-4 flex items-center justify-between border-b border-suka-brown/5 z-10">
+              <div className="text-xl font-extrabold text-suka-brown tracking-tight">
                 Admin<span className="text-suka-orange">Hub</span>
               </div>
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
-                className="w-9 h-9 rounded-full bg-white border border-suka-gray-200 flex items-center justify-center text-suka-brown active:scale-95 transition-transform"
+                className="w-10 h-10 rounded-full bg-suka-gray-50 border border-suka-gray-100 flex items-center justify-center text-suka-gray-500 hover:bg-suka-gray-100 hover:text-suka-brown active:scale-95 transition-all"
                 aria-label="Tutup menu"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="px-4 py-4 space-y-5">
+            <div className="px-5 py-5 space-y-6">
               {NAV_GROUPS.map((group) => {
                 if (!group.roles.includes(role)) return null
                 return (
                   <div key={group.title}>
-                    <h3 className="px-2 mb-2 text-[11px] font-bold text-suka-gray-500 uppercase tracking-wider">
+                    <h3 className="px-2 mb-3 text-[11px] font-black text-suka-gray-400 uppercase tracking-widest">
                       {group.title}
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
@@ -129,16 +138,16 @@ export const BottomNav = () => {
                             key={href}
                             href={href}
                             onClick={() => setSheetOpen(false)}
-                            className={`flex items-center gap-3 rounded-2xl px-3 py-3 font-bold text-sm transition-all active:scale-95 ${
+                            className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold text-sm transition-all active:scale-95 ${
                               isActive
-                                ? 'bg-suka-orange text-white shadow-sm shadow-suka-orange/20'
-                                : 'bg-white text-suka-ink border border-suka-gray-200'
+                                ? 'bg-gradient-to-br from-suka-orange to-suka-brown text-white shadow-md shadow-suka-orange/20 scale-[1.02]'
+                                : 'bg-white/50 text-suka-ink border border-suka-gray-100 hover:bg-white hover:border-suka-gray-200 hover:shadow-sm'
                             }`}
                           >
                             <Icon size={18} className={isActive ? 'text-white' : 'text-suka-orange'} />
                             <span className="truncate flex-1">{label}</span>
                             {href === '/dashboard/hr/leave' && pendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0">
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 shadow-sm border border-white">
                                 {pendingCount}
                               </span>
                             )}

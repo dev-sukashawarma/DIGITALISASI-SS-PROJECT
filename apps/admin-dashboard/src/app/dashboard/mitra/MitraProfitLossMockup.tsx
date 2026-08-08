@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Store, Smartphone, Music, ChevronRight, X, TrendingDown, TrendingUp, Briefcase } from 'lucide-react'
+import { Store, Utensils, ShoppingBag, ChevronRight, X, TrendingDown, TrendingUp, Briefcase } from 'lucide-react'
 
 const formatRp = (num: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -352,8 +352,8 @@ const totalAdmin = faAdminFee + tkAdminFee
             onClick={() => setActiveDrilldown('outlet')}
             className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
           >
-             <div className="flex items-center gap-4 mb-4">
-               <div className="w-12 h-12 rounded-[16px] bg-suka-orange/10 flex items-center justify-center text-suka-orange group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0">
+              <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-suka-orange/20 to-suka-orange/5 flex items-center justify-center text-suka-orange group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0 shadow-sm shadow-suka-orange/20">
                  <Store className="w-6 h-6" />
                </div>
                <div>
@@ -374,9 +374,9 @@ const totalAdmin = faAdminFee + tkAdminFee
             onClick={() => setActiveDrilldown('foodapps')}
             className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
           >
-             <div className="flex items-center gap-4 mb-4">
-               <div className="w-12 h-12 rounded-[16px] bg-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0">
-                 <Smartphone className="w-6 h-6" />
+              <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-green-100 to-green-50 flex items-center justify-center text-green-600 group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0 shadow-sm shadow-green-100">
+                 <Utensils className="w-6 h-6" />
                </div>
                <div>
                  <h4 className="font-bold text-suka-brown text-sm">Food Apps</h4>
@@ -396,9 +396,9 @@ const totalAdmin = faAdminFee + tkAdminFee
             onClick={() => setActiveDrilldown('tiktok')}
             className="group cursor-pointer bg-gradient-to-br from-white to-suka-gray-50 border border-suka-gray-100 p-5 rounded-[24px] hover:shadow-lg hover:shadow-suka-orange/10 transition-all duration-300 flex flex-col justify-between h-full"
           >
-             <div className="flex items-center gap-4 mb-4">
-               <div className="w-12 h-12 rounded-[16px] bg-black/5 flex items-center justify-center text-black group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0">
-                 <Music className="w-6 h-6" />
+              <div className="flex items-center gap-4 mb-4">
+               <div className="w-12 h-12 rounded-[16px] bg-gradient-to-br from-slate-200 to-slate-100 flex items-center justify-center text-slate-800 group-hover:scale-110 group-hover:rotate-6 transition-transform shrink-0 shadow-sm shadow-slate-200">
+                 <ShoppingBag className="w-6 h-6" />
                </div>
                <div>
                  <h4 className="font-bold text-suka-brown text-sm">Tiktok Go</h4>

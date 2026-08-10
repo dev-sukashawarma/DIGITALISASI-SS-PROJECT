@@ -188,7 +188,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   }, [menuItems])
   
   // Date Range State
-  const [range, setRange] = useState<DateRangeType>('thisMonth')
+  const [range, setRange] = useState<DateRangeType>(initialOutlets.length === 1 ? 'yesterday' : 'thisMonth')
   const [showRangePicker, setShowRangePicker] = useState(false)
   const [customStartDate, setCustomStartDate] = useState<string>('')
   const [customEndDate, setCustomEndDate] = useState<string>('')
@@ -1308,10 +1308,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
               </div>
-              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Omzet sebelum potongan, semua sumber (Pawoon + sistem sendiri)</p>
-              </div>
+              {initialOutlets.length > 1 && (
+                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                  <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Omzet sebelum potongan, semua sumber (Pawoon + sistem sendiri)</p>
+                </div>
+              )}
             </div>
 
             {/* 2. Total COGS */}
@@ -1321,10 +1323,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalHPP)}</p>
               </div>
-              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total Harga Pokok Penjualan (HPP)</p>
-              </div>
+              {initialOutlets.length > 1 && (
+                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                  <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total Harga Pokok Penjualan (HPP)</p>
+                </div>
+              )}
             </div>
 
             {/* 3. Admin Platform */}
@@ -1334,10 +1338,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Platform</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
               </div>
-              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Promo & diskon — ikut mengurangi Gross Profit</p>
-              </div>
+              {initialOutlets.length > 1 && (
+                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
+                  <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Promo & diskon — ikut mengurangi Gross Profit</p>
+                </div>
+              )}
             </div>
 
             {/* 4. Gross Profit */}
@@ -1347,10 +1353,12 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
               </div>
-              <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
-                <p className="text-[10px] xl:text-[11px] text-white font-bold tracking-wide">✓ Profit murni (Laba Kotor)</p>
-              </div>
+              {initialOutlets.length > 1 && (
+                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
+                  <p className="text-[10px] xl:text-[11px] text-white font-bold tracking-wide">✓ Profit murni (Laba Kotor)</p>
+                </div>
+              )}
             </div>
           </div>
 

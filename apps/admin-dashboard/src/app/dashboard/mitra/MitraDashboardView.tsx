@@ -57,10 +57,10 @@ export function MitraDashboardView({
   
   // Filter baris performa hanya untuk outlet yang dipilih
   const curOutletKpi = selectedOutletId === 'all' ? curKpiRows : curKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
-  const currentOmzet = curOutletKpi.reduce((sum: number, r: any) => sum + r.omzet, 0)
+  const currentOmzet = curOutletKpi.reduce((sum: number, r: any) => sum + r.omzet + (r.total_deductions || 0), 0)
   
   const prevOutletKpi = selectedOutletId === 'all' ? prevKpiRows : prevKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
-  const prevOmzet = prevOutletKpi.reduce((sum: number, r: any) => sum + r.omzet, 0)
+  const prevOmzet = prevOutletKpi.reduce((sum: number, r: any) => sum + r.omzet + (r.total_deductions || 0), 0)
   
   const trendOutletKpi = selectedOutletId === 'all' ? trendKpiRows : trendKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
   

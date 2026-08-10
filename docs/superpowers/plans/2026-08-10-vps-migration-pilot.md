@@ -6,7 +6,7 @@
 
 **Architecture:** A custom multi-stage-free `Dockerfile` builds the whole npm workspace monorepo (root deps + `packages/auth`, `packages/design-system`, `packages/realtime` source + `apps/admin-dashboard`), then runs the existing `server.cjs` entrypoint — the same boot mechanism already used in production on cPanel, so `middleware.ts` keeps enforcing auth (this repo has a documented incident where Next's `output: 'standalone'` mode silently broke auth enforcement — see `next.config.mjs` comment). Coolify builds this Dockerfile from the monorepo root on every git push and deploys it behind its bundled Traefik reverse proxy with automatic Let's Encrypt TLS. DNS cutover is staged through a throwaway test subdomain before touching the production `admin.sukashawarma.com` record, so rollback is always "flip the A record back."
 
-**Tech Stack:** Docker, Coolify (self-hosted PaaS), Hostinger VPS KVM 2 (Ubuntu 24.04, Indonesia data center), Next.js 16 / npm workspaces (existing), Supabase Cloud (unchanged), Cloudflare (optional, for DNS/TLS-in-front).
+**Tech Stack:** Docker, Coolify (self-hosted PaaS), Hostinger VPS KVM 2 (Ubuntu 24.04, Indonesia data center), Next.js 16 / npm workspaces (existing), Supabase Cloud (unchanged), Cloudflare (DNS zone authority for `sukashawarma.com`, moved off cPanel/connectindo as Task 0 of this plan).
 
 ## Global Constraints
 
@@ -17,6 +17,8 @@
 - Production DNS for `admin.sukashawarma.com` MUST NOT be changed until the full smoke-test checklist (Task 6) passes on the throwaway test subdomain. (Spec §6)
 - cPanel's existing `admin-dashboard` deployment MUST stay running and untouched until the VPS deployment has been stable in production for at least 1–2 weeks. (Spec §6, §9)
 - The VPS MUST be hardened (SSH key-only, `ufw`, no plaintext secrets in git) before any Supabase credential is placed on it — same standard as the current production server. (Spec §3)
+- `sukashawarma.com` has **live email** (self-hosted on the same cPanel/connectindo server — MX priority 0 points at `sukashawarma.com` itself, with SPF/DKIM/DMARC configured). Every DNS record inventoried in Task 0 Step 1 MUST be reproduced exactly in Cloudflare before nameservers are switched, or mail delivery breaks. Mail records (MX, and any record referenced by SPF/DKIM) MUST be set to Cloudflare's "DNS only" (not proxied) mode.
+- The portal/launcher app's real production hostname is `app.sukashawarma.com` — **not** `portal.sukashawarma.com` (verified by direct DNS lookup; `portal.sukashawarma.com` does not resolve at all). Use `app.sukashawarma.com` in every SSO/login-flow reference in this plan.
 
 ---
 
@@ -27,8 +29,131 @@
 | `apps/admin-dashboard/Dockerfile` (new) | Builds the monorepo + admin-dashboard and defines the container runtime command (`node server.cjs`). |
 | `apps/admin-dashboard/.dockerignore` (new) | Keeps `node_modules`, `.next`, git metadata, and the many scratch/check `.mjs`/`.cjs` files out of the Docker build context. |
 | `docs/superpowers/plans/runbook-admin-dashboard-vps.md` (new, written in Task 8) | Durable record of VPS IP, Coolify project URL, DNS records, and rollback commands — for whoever operates this next, not just this session. |
+| `docs/superpowers/plans/runbook-dns-cloudflare.md` (new, written in Task 0) | Durable record of every DNS record migrated to Cloudflare, so nothing gets silently dropped in a future edit. |
 
 No other repo files change. Supabase schema, RLS, and app code are untouched — this plan is pure infrastructure.
+
+---
+
+## Task 0: Migrate the DNS zone for sukashawarma.com from cPanel to Cloudflare
+
+**Why this comes first:** the DNS zone for `sukashawarma.com` currently lives *inside* the cPanel/connectindo account itself (nameservers are `dns1-4.connectindo.net`) — confirmed by direct lookup, not assumed. As long as that's true, DNS authority is coupled to that one hosting account. Doing this now, before any app moves to the VPS, means Task 5 and Task 7 (below) edit records in Cloudflare instead of cPanel Zone Editor, and the eventual full decommission of cPanel (out of scope of this plan, but the stated long-term goal) won't also take the domain's DNS down with it.
+
+**This task does NOT touch email hosting itself** — mail keeps running on the same cPanel server exactly as today. Only the *records that point to it* move to a new authority. Migrating the mail server itself (if cPanel is ever fully decommissioned) is a separate, future project — flagged here, not solved here.
+
+**Files:**
+- Create: `docs/superpowers/plans/runbook-dns-cloudflare.md`
+
+- [ ] **Step 1: Export the authoritative zone file from cPanel — do not rely on guessing subdomains**
+
+Log into cPanel (connectindo) → **Zone Editor** → `sukashawarma.com` → **Export Zone File** (or **Raw Zone Editor**, whichever the cPanel theme calls it). Save the raw zone file. This is the authoritative source — DNS lookups from outside (like the ones used to draft this plan) can only find records for names someone thought to guess; the zone file lists every record that actually exists, including any that were never probed for.
+
+- [ ] **Step 2: Cross-check the export against the records already confirmed for this plan**
+
+At minimum, the exported zone file must account for all of these (already verified by direct lookup while writing this plan):
+
+| Record | Type | Value |
+|---|---|---|
+| `sukashawarma.com` | A | `103.77.106.237` |
+| `sukashawarma.com` | MX (priority 0) | `sukashawarma.com` |
+| `sukashawarma.com` | TXT (SPF) | `v=spf1 ip4:103.77.106.237 +a +mx +ip4:103.65.237.110 ~all` |
+| `_dmarc.sukashawarma.com` | TXT | `v=DMARC1; p=none;` |
+| `default._domainkey.sukashawarma.com` | TXT (DKIM) | (RSA public key — copy verbatim from the zone export, it's long) |
+| `www.sukashawarma.com` | A | `103.77.106.237` |
+| `mail.sukashawarma.com` | A | `103.77.106.237` |
+| `webmail.sukashawarma.com` | A | `103.77.106.237` |
+| `cpanel.sukashawarma.com` | A | `103.77.106.237` |
+| `ftp.sukashawarma.com` | A | `103.77.106.237` |
+| `autodiscover.sukashawarma.com` | A | `103.77.106.237` |
+| `autoconfig.sukashawarma.com` | A | `103.77.106.237` |
+| `app.sukashawarma.com` (portal/launcher) | A | `103.77.106.237` |
+| `stok.sukashawarma.com` | A | `103.77.106.237` |
+| `distribusi.sukashawarma.com` | A | `103.77.106.237` |
+| `absensi.sukashawarma.com` | A | `103.77.106.237` |
+| `admin.sukashawarma.com` | A | `103.77.106.237` |
+| `finance.sukashawarma.com` | A | `103.77.106.237` |
+| `manager.sukashawarma.com` | A | `103.77.106.237` |
+
+If the zone export contains records not in this table (it likely will — this plan's lookups only checked names someone thought to try), add them to the table before continuing. **Do not proceed to Step 5 (nameserver switch) until this table is confirmed complete against the actual export.**
+
+- [ ] **Step 3: Create the Cloudflare site and import records**
+
+Sign up / log into Cloudflare → **Add a Site** → enter `sukashawarma.com` → select the Free plan. Cloudflare will attempt to auto-scan existing DNS records. **Do not trust the auto-scan alone** — after it finishes, manually compare Cloudflare's imported record list against the table from Step 2, field by field, and add anything missing.
+
+- [ ] **Step 4: Set proxy status correctly per record**
+
+In Cloudflare's DNS tab, for each record, set the orange-cloud/grey-cloud toggle:
+- `mail`, `webmail`, `cpanel`, `ftp`, `autodiscover`, `autoconfig`, and the bare `sukashawarma.com` A record used by MX → **DNS only (grey cloud)**. Mail and cPanel protocols do not work through Cloudflare's HTTP(S) proxy.
+- `www`, `app`, `stok`, `distribusi`, `absensi`, `admin`, `finance`, `manager` → **DNS only (grey cloud) for now**. Leave proxying (orange cloud) off during this migration — turning it on changes the IP clients see (Cloudflare's edge IP instead of the origin), which is a separate decision with its own testing, not something to bundle into a DNS-authority migration.
+- MX and TXT records don't have a proxy toggle — they're DNS-only by nature.
+
+- [ ] **Step 5: Note Cloudflare's assigned nameservers**
+
+Cloudflare shows two nameservers (e.g. `xxx.ns.cloudflare.com`, `yyy.ns.cloudflare.com`) after the site is added. Write them down — needed for Step 6.
+
+- [ ] **Step 6: Change nameservers at the registrar (IDWebHost)**
+
+Log into IDWebHost's client panel → find the `sukashawarma.com` domain → **Nameservers** / **DNS Management** section → replace the current nameservers (`dns1-4.connectindo.net`) with the two Cloudflare nameservers from Step 5. Save.
+
+- [ ] **Step 7: Wait for propagation, then verify from outside your own resolver's cache**
+
+Nameserver changes propagate slower than a single record change (up to 24–48 hours, though often faster). Check periodically:
+
+```powershell
+Resolve-DnsName -Name sukashawarma.com -Type NS -Server 8.8.8.8
+```
+
+Expected: eventually shows `*.ns.cloudflare.com` entries instead of `dns*.connectindo.net`.
+
+- [ ] **Step 8: Verify every record from the Step 2 table still resolves correctly**
+
+```powershell
+foreach ($h in @("sukashawarma.com","www.sukashawarma.com","mail.sukashawarma.com","app.sukashawarma.com","stok.sukashawarma.com","distribusi.sukashawarma.com","absensi.sukashawarma.com","admin.sukashawarma.com","finance.sukashawarma.com","manager.sukashawarma.com")) {
+  Write-Output "$h -> $((Resolve-DnsName -Name $h -Type A -Server 8.8.8.8 -ErrorAction SilentlyContinue).IPAddress -join ',')"
+}
+Resolve-DnsName -Name sukashawarma.com -Type MX -Server 8.8.8.8
+Resolve-DnsName -Name sukashawarma.com -Type TXT -Server 8.8.8.8
+Resolve-DnsName -Name _dmarc.sukashawarma.com -Type TXT -Server 8.8.8.8
+Resolve-DnsName -Name default._domainkey.sukashawarma.com -Type TXT -Server 8.8.8.8
+```
+
+Expected: every hostname still resolves to `103.77.106.237`, and MX/SPF/DMARC/DKIM values match the Step 2 table exactly.
+
+- [ ] **Step 9: Verify email still works**
+
+Send a test email to an `@sukashawarma.com` address from an external account (e.g. Gmail), and send one from an `@sukashawarma.com` account to an external address. Confirm both arrive, and check the received message's headers for `SPF: PASS` and `DKIM: PASS`. **If either fails, do not proceed with the rest of this plan until email is confirmed working** — this is the one class of regression from this task that would be a business-critical outage, not just an inconvenience.
+
+- [ ] **Step 10: Write the DNS runbook**
+
+```markdown
+# Runbook: DNS zone for sukashawarma.com
+
+## Authority
+DNS zone authority: **Cloudflare** (moved from cPanel/connectindo on <date>).
+Domain registrar: IDWebHost (unchanged — only nameservers were repointed, the domain itself is still registered there).
+Cloudflare account: <account email/owner>
+
+## Editing records going forward
+All A/CNAME/MX/TXT record changes for sukashawarma.com and its subdomains happen in the
+Cloudflare dashboard now — cPanel's Zone Editor is no longer authoritative and edits made
+there will have no effect once the nameserver switch has propagated.
+
+## Full record inventory at time of migration
+(copy the final, verified table from Task 0 Step 2 here)
+
+## Known coupling
+Email (MX -> sukashawarma.com itself, SPF/DKIM/DMARC configured) is still physically
+hosted on the cPanel/connectindo server. Decommissioning that server in the future
+requires migrating mail hosting FIRST or in parallel — this DNS migration does not
+solve that, it only decouples DNS lookups from that server's continued existence.
+```
+
+- [ ] **Step 11: Commit the DNS runbook**
+
+```bash
+git add docs/superpowers/plans/runbook-dns-cloudflare.md
+git commit -m "docs: record DNS zone migration from cPanel to Cloudflare"
+```
 
 ---
 
@@ -343,20 +468,23 @@ No commit — Coolify configuration lives in Coolify's own database, not in this
 - Consumes: the running Coolify application from Task 4.
 - Produces: `admin-vps.sukashawarma.com` serving the app over HTTPS — this is what Task 6's smoke test checklist runs against.
 
-- [ ] **Step 1: Create the DNS record**
+- [ ] **Step 1: Create the DNS record in Cloudflare**
 
-In the DNS provider for `sukashawarma.com` (cPanel Zone Editor or Cloudflare, whichever currently authoritative — check per CLAUDE.md Deployment section), add:
+In the Cloudflare dashboard (DNS zone authority as of Task 0) → `sukashawarma.com` → DNS → Add record:
 
 ```
-A    admin-vps.sukashawarma.com    →  <VPS_IP>
+Type: A
+Name: admin-vps
+Target: <VPS_IP>
+Proxy status: DNS only (grey cloud)
 ```
 
-TTL can be left at default here — this is a new, disposable test record, not the production one.
+TTL can be left at "Auto" — this is a new, disposable test record, not the production one.
 
 - [ ] **Step 2: Verify DNS propagation**
 
-```bash
-dig +short admin-vps.sukashawarma.com
+```powershell
+Resolve-DnsName -Name admin-vps.sukashawarma.com -Type A -Server 8.8.8.8
 ```
 
 Expected: returns `<VPS_IP>`.
@@ -395,7 +523,7 @@ All checks run against `https://admin-vps.sukashawarma.com` (not production yet)
 
 - [ ] **Step 1: SSO login flow**
 
-Log in via the existing portal (`portal.sukashawarma.com`, still on cPanel) as an `owner` or `admin` account, and confirm the portal redirects into `https://admin-vps.sukashawarma.com/dashboard` **already authenticated** (no second login prompt). This is the cross-server cookie check — confirms `NEXT_PUBLIC_COOKIE_DOMAIN=.sukashawarma.com` was baked in correctly in Task 4 Step 4.
+Log in via the existing portal (`app.sukashawarma.com`, still on cPanel) as an `owner` or `admin` account, and confirm the portal redirects into `https://admin-vps.sukashawarma.com/dashboard` **already authenticated** (no second login prompt). This is the cross-server cookie check — confirms `NEXT_PUBLIC_COOKIE_DOMAIN=.sukashawarma.com` was baked in correctly in Task 4 Step 4.
 
 Expected: lands on the dashboard, logged in, no redirect loop.
 
@@ -421,23 +549,15 @@ If any check in this task fails: fix the underlying issue (Dockerfile, env vars,
 
 ## Task 7: DNS cutover for admin.sukashawarma.com
 
-- [ ] **Step 1: Lower TTL on the production record ahead of time**
+- [ ] **Step 1: Confirm the TTL is already low**
 
-In the DNS provider, edit the existing `admin.sukashawarma.com` A record: set TTL to `300`. Wait at least one full old-TTL period (check the previous TTL value before changing it) so the lowered TTL itself has propagated.
+Already verified while drafting this plan: `admin.sukashawarma.com`'s A record TTL is already `300` seconds (5 minutes) — no separate TTL-lowering wait needed. Confirm this still holds in Cloudflare's DNS tab (TTL "Auto" in Cloudflare effectively serves at a low value, or set it explicitly to 300 if it shows something higher after the Task 0 import).
 
-- [ ] **Step 2: Verify the lowered TTL has propagated**
+- [ ] **Step 2: Cut over, in Cloudflare**
 
-```bash
-dig admin.sukashawarma.com | grep -A1 ANSWER
-```
+Cloudflare dashboard → `sukashawarma.com` → DNS → find the `admin` A record → edit the target from `103.77.106.237` (cPanel) to `<VPS_IP>`. Leave proxy status as **DNS only (grey cloud)**, consistent with Task 0 Step 4's decision to defer proxying as a separate concern.
 
-Expected: TTL column shows `300` or less.
-
-- [ ] **Step 3: Cut over**
-
-Edit the `admin.sukashawarma.com` A record: change the target from the cPanel IP to `<VPS_IP>`.
-
-- [ ] **Step 4: Verify from outside your own DNS cache**
+- [ ] **Step 3: Verify from outside your own DNS cache**
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" --resolve admin.sukashawarma.com:443:<VPS_IP> https://admin.sukashawarma.com/dashboard
@@ -445,20 +565,20 @@ curl -s -o /dev/null -w "%{http_code}\n" --resolve admin.sukashawarma.com:443:<V
 
 Expected: `307`/`302` redirect — confirms the VPS answers correctly for the real production hostname (not just the test subdomain), independent of whether your local machine's DNS cache has caught up yet.
 
-- [ ] **Step 5: Confirm real propagation**
+- [ ] **Step 4: Confirm real propagation**
 
-```bash
-dig +short admin.sukashawarma.com
+```powershell
+Resolve-DnsName -Name admin.sukashawarma.com -Type A -Server 8.8.8.8
 ```
 
-Expected (once propagated, may take a few minutes given the lowered TTL): `<VPS_IP>`.
+Expected (once propagated, may take a few minutes given the already-low TTL): `<VPS_IP>`.
 
-- [ ] **Step 6: Rollback command, ready but not run**
+- [ ] **Step 5: Rollback command, ready but not run**
 
 Keep this on hand for the next 24–48 hours (Task 8):
 
 ```
-Change admin.sukashawarma.com A record back to 103.77.106.237 (cPanel — still running, untouched).
+In Cloudflare DNS: change the admin.sukashawarma.com A record back to 103.77.106.237 (cPanel — still running, untouched).
 ```
 
 No commit — DNS state.
@@ -534,7 +654,7 @@ Expected: `tar -tzf` lists file paths from inside the archive without error (pro
 - App domain: https://admin.sukashawarma.com (cut over on <date from Task 7>)
 
 ## Rollback
-Change the `admin.sukashawarma.com` A record back to `103.77.106.237` (cPanel).
+In Cloudflare DNS (dash.cloudflare.com → sukashawarma.com → DNS), change the `admin.sukashawarma.com` A record back to `103.77.106.237` (cPanel).
 cPanel copy of admin-dashboard is left running and untouched until <date + 1-2 weeks>.
 
 ## Deploy
@@ -584,3 +704,5 @@ git commit -m "docs: record admin-dashboard VPS migration in deployment status"
 - Migrating any other app (stok, distribusi, absensi, etc.) to the VPS — same pattern repeats per-app once this pilot is proven.
 - Supabase self-host as a production candidate (cron dump/restore track) — separate, independent plan, not part of this one.
 - pos-kasir — going native Android instead, not part of any web hosting migration.
+- **Migrating the mail server itself off cPanel/connectindo** — Task 0 only moves DNS record authority to Cloudflare; email keeps being physically hosted and processed by the cPanel server. Full cPanel decommission (the stated long-term goal) requires a separate mail-hosting migration project first — flagged in Task 0's runbook, not solved here.
+- Enabling Cloudflare's proxy (orange cloud) for app subdomains — Task 0 deliberately leaves every migrated record in "DNS only" mode to keep this a pure authority change. Turning on proxying, CDN, and WAF features is a separate future decision with its own testing needs.

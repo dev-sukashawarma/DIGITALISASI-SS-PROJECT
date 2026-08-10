@@ -15,7 +15,7 @@ WORKDIR /repo
 # --- Layer 1: manifests only, so install is cached unless deps change ---
 # package-lock.json is gitignored in this repo (yarn.lock is the tracked
 # lockfile) — use yarn, not npm, or Coolify's git-cloned context won't have it.
-COPY package.json yarn.lock .npmrc ./
+COPY package.json yarn.lock .npmrc tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json

@@ -159,7 +159,9 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
-  const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
+  const [selectedOutlet, setSelectedOutlet] = useState<string>(
+    initialOutlets.length === 1 ? initialOutlets[0].id : 'all'
+  )
   const { physical: physicalOutlets, marketplace: marketplaceOutlets } = useMemo(
     () => splitOutletsByType(outlets),
     [outlets]
@@ -1178,15 +1180,17 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               <span>Integrasi Google Sheets</span>
             </button>
 
-            <BranchFilter
-              outlets={[
-                { id: 'all', name: 'Semua Cabang', type: 'all' },
-                { id: 'ss-online', name: 'SS Online (Semua Channel)', type: 'online' },
-                ...physicalOutlets
-              ]}
-              selectedOutlet={branchFilterValue}
-              onChange={setSelectedOutlet}
-            />
+            {initialOutlets.length > 1 && (
+              <BranchFilter
+                outlets={[
+                  { id: 'all', name: 'Semua Cabang', type: 'all' },
+                  { id: 'ss-online', name: 'SS Online (Semua Channel)', type: 'online' },
+                  ...physicalOutlets
+                ]}
+                selectedOutlet={branchFilterValue}
+                onChange={setSelectedOutlet}
+              />
+            )}
 
             <select
               value={selectedChannel}

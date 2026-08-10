@@ -17,6 +17,7 @@ export interface ExpenseRow {
   period_month: string
   receipt_url?: string | null
   source: 'monthly' | 'petty_cash'
+  type?: string
 }
 
 const EMPTY_ROWS: ExpenseRow[] = []
@@ -30,13 +31,13 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
     queryFn: async () => {
       let q1 = supabase
         .from('expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, outlets(name)')
+        .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
 
       let q2 = supabase
         .from('petty_cash_expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, receipt_url, outlets(name)')
+        .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name)')
         .in('category', ['operasional', 'utilitas', 'lainnya'])
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
@@ -63,6 +64,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         expense_date: row.expense_date,
         period_month: row.period_month,
         receipt_url: row.receipt_url,
+        type: row.type || 'expense',
         source: 'monthly' as const
       }))
 
@@ -77,6 +79,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         expense_date: row.expense_date,
         period_month: row.expense_date.slice(0, 7) + '-01', // Fallback month start
         receipt_url: row.receipt_url,
+        type: row.type || 'expense',
         source: 'petty_cash' as const
       }))
 

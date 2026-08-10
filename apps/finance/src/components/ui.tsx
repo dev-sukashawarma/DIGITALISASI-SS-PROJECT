@@ -1,6 +1,6 @@
 'use client'
 
-import type { ReactNode } from 'react'
+import React, { type ReactNode } from 'react'
 import type { CashTxStatus } from '@/lib/types'
 import { motion } from 'framer-motion'
 import { Badge } from '@suka/design-system'
@@ -87,5 +87,40 @@ export function SectionCard({ title, action, children }: { title: string; action
       </div>
       <div className="p-6">{children}</div>
     </motion.div>
+  )
+}
+
+/**
+ * Kepala halaman seragam: judul + 1 kalimat penjelas + slot filter opsional.
+ * Dipakai di atas setiap halaman fitur agar orang awam selalu tahu ada di mana.
+ */
+export function PageHeader({
+  title,
+  description,
+  children,
+  icon,
+}: {
+  title: string
+  description?: string
+  /** Slot kanan, mis. filter periode/outlet. */
+  children?: ReactNode
+  icon?: React.ElementType
+}) {
+  return (
+    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between mb-8 relative z-50">
+      <div className="flex-1">
+        {/* Playful Display Header */}
+        <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide flex items-center gap-3">
+          {icon && React.createElement(icon, { className: "w-8 h-8 md:w-10 md:h-10 text-suka-orange" })}
+          {title}
+        </h1>
+        {description && (
+          <p className="text-suka-ink/60 mt-3 font-medium text-sm">
+            {description}
+          </p>
+        )}
+      </div>
+      {children && <div className="shrink-0 xl:mt-2">{children}</div>}
+    </div>
   )
 }

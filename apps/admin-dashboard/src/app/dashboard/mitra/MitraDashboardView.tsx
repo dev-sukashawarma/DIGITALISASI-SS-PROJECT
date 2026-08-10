@@ -27,6 +27,8 @@ const ProfitLoss = dynamic(
 )
 
 
+import { calculateProfitData } from './MitraProfitLossMockup'
+
 export function MitraDashboardView({ 
   mitra, 
   outlets,
@@ -63,6 +65,17 @@ export function MitraDashboardView({
   const prevOmzet = prevOutletKpi.reduce((sum: number, r: any) => sum + r.omzet, 0)
   
   const trendOutletKpi = selectedOutletId === 'all' ? trendKpiRows : trendKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
+  
+  // Calculate Profit Mitra Sementara
+  const profitDataParams = {
+    outletName: selectedOutlet?.name || 'Semua Outlet',
+    curOutletKpi,
+    hppRate: hppMap ? (hppMap[selectedOutletId] || 45) : 45,
+    expenses: expenses ? (selectedOutletId === 'all' ? expenses : expenses.filter((e: any) => e.outlet_id === selectedOutletId)) : [],
+    currentFilter
+  }
+  const calculatedProfitData = calculateProfitData(profitDataParams)
+  const profitMitraSementara = calculatedProfitData.investment.totalProfitSementara || 0
   
   // Real ROI Stats
   const [roiStats, setRoiStats] = useState<{ roi: number, bepPercentage: number, loading: boolean }>({ roi: 0, bepPercentage: 0, loading: true })
@@ -198,7 +211,7 @@ export function MitraDashboardView({
             {/* Info Cards Removed as requested */}
 
             {/* KPI Cards - Glassmorphism Style */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               
               {/* Omzet Card */}
               <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
@@ -258,6 +271,31 @@ export function MitraDashboardView({
                          <div className="w-full h-full bg-white/20 animate-pulse"></div>
                       </div>
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Profit Mitra Sementara Card */}
+              <div className="group bg-white/70 backdrop-blur-md p-6 sm:p-8 rounded-[32px] border border-white shadow-xl shadow-suka-orange/5 flex flex-col justify-between hover:-translate-y-2 transition-all duration-300 hover:shadow-2xl hover:shadow-suka-orange/10 hover:bg-white/90 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-orange-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500"></div>
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <p className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Profit Mitra</p>
+                    <p className="text-[10px] text-suka-gray-400 font-semibold mt-1">Sementara (Realtime)</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-100 shadow-sm group-hover:rotate-12 transition-transform duration-300">
+                    <DollarSign className="w-6 h-6 text-suka-orange" />
+                  </div>
+                </div>
+                <div className="mt-auto flex flex-col gap-3">
+                  <h3 className={`text-3xl lg:text-[2rem] font-black tracking-tighter tabular-nums drop-shadow-sm break-all leading-none ${profitMitraSementara < 0 ? 'text-red-500' : 'text-suka-brown'}`}>
+                    Rp <CountUp end={profitMitraSementara} duration={1.5} separator="." decimals={0} />
+                  </h3>
+                  <div className="mt-1">
+                    <span className="inline-flex items-center text-xs font-bold text-suka-orange">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      Estimasi Real-time
+                    </span>
                   </div>
                 </div>
               </div>

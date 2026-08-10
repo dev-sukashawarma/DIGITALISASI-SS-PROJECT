@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useMitraOutlet } from '../MitraOutletContext'
 import { PageHeader } from '@/components/ui'
-import { ShoppingBag, Search, Filter, Clock, CheckCircle2, XCircle, Loader2, Store, ExternalLink, ArrowLeft, Receipt, User } from 'lucide-react'
+import { ShoppingBag, Search, Filter, Clock, Loader2, Store, ArrowLeft, User } from 'lucide-react'
 
 interface OrderItem {
   id: string
@@ -13,6 +13,48 @@ interface OrderItem {
   unit_price: number
   subtotal: number
   notes?: string | null
+  package_choices?: Record<string, string> | string | null
+}
+
+import { cleanItemName } from '@/lib/order-item-name'
+import { formatRupiah } from '@/lib/validations'
+import OrderSourceBadge from '@/components/OrderSourceBadge'
+
+function extractOrderPackages(order: any) {
+  const pkgs: { name: string; qty: number; choices?: Record<string, string> }[] = []
+  
+  if (!order.order_items) return pkgs
+
+  order.order_items.forEach((item: any) => {
+    let isPackage = false
+    let choicesObj: Record<string, string> = {}
+    
+    if (item.package_choices) {
+      if (typeof item.package_choices === 'object') {
+        choicesObj = item.package_choices as Record<string, string>
+      } else if (typeof item.package_choices === 'string') {
+        try {
+          choicesObj = JSON.parse(item.package_choices)
+        } catch (e) {}
+      }
+      if (Object.keys(choicesObj).length > 0) isPackage = true
+    }
+
+    const nameLower = item.menu_item_name?.toLowerCase() || ''
+    if (nameLower.includes('paket') || nameLower.includes('combo') || nameLower.includes('bundle')) {
+      isPackage = true
+    }
+
+    if (isPackage) {
+      pkgs.push({
+        name: cleanItemName(item.menu_item_name),
+        qty: item.quantity,
+        choices: choicesObj
+      })
+    }
+  })
+
+  return pkgs
 }
 
 export default function OrderanPage() {
@@ -48,7 +90,7 @@ export default function OrderanPage() {
       
       let query = supabase
         .from('orders')
-        .select('*')
+        .select('*, order_items(*)')
         .eq('outlet_id', selectedOutletId)
         .order('created_at', { ascending: false })
         
@@ -280,83 +322,144 @@ export default function OrderanPage() {
               </div>
             </div>
 
-            {/* Order List */}
-            <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col h-[calc(100vh-280px)] lg:h-[calc(100vh-230px)]">
+            {/* Order Table */}
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-white shadow-[0_2px_10px_rgba(0,0,0,0.02)] overflow-hidden flex flex-col min-h-[500px]">
               <div className="p-3 border-b border-suka-gray-100 bg-white/50 text-xs font-bold text-suka-gray-400 uppercase tracking-widest text-center">
                 {loading ? 'Memuat Data...' : `${orders.length} Transaksi Ditemukan`}
               </div>
               
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="overflow-y-auto flex-1 custom-scrollbar">
-                  {loading ? (
-                    <div className="flex justify-center items-center h-full p-8">
-                      <Loader2 className="w-6 h-6 text-suka-orange animate-spin" />
-                    </div>
-                  ) : orders.length === 0 ? (
-                    <div className="flex flex-col justify-center items-center h-full p-8 text-center text-suka-gray-400">
-                      <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm font-medium">Tidak ada orderan.</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-suka-gray-100">
-                      {paginatedOrders.map((o) => (
-                        <div 
-                          key={o.id} 
-                          onClick={() => selectOrder(o.id)}
-                          className={`p-4 cursor-pointer transition-all duration-200 group relative hover:bg-suka-gray-50`}
-                        >
-
-                          <div className="flex justify-between items-start mb-2 pl-1">
-                            <div className="font-semibold text-suka-brown truncate pr-2 flex items-center gap-2">
-                              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${o.status === 'completed' ? 'bg-suka-green' : o.status === 'cancelled' ? 'bg-red-500' : 'bg-suka-orange'}`} />
-                              {o.customer_name || 'Walk-in'}
-                            </div>
-                            <div className="text-[11px] font-bold text-suka-gray-400 whitespace-nowrap bg-suka-gray-100 px-2 py-0.5 rounded-full">
-                              {new Date(o.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                          </div>
-                          
-                          <div className="flex justify-between items-center pl-1">
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-suka-gray-400 uppercase tracking-wider">
-                              <span>#{o.id.substring(0,6).toUpperCase()}</span>
-                              <span>•</span>
-                              <span className={o.channel?.toLowerCase().includes('grab') || o.channel?.toLowerCase().includes('go') ? 'text-suka-orange' : ''}>
-                                {o.channel || o.source || 'POS'}
-                              </span>
-                            </div>
-                            <div className="font-bold text-suka-brown">
-                              {Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(o.total_amount)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                {/* Pagination Controls */}
-                {!loading && totalPages > 1 && (
-                  <div className="p-3 border-t border-suka-gray-100 bg-white/50 flex items-center justify-between">
-                    <button 
-                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-suka-gray-50 text-suka-brown hover:bg-suka-gray-100 disabled:opacity-30 disabled:hover:bg-suka-gray-50 transition-colors"
-                    >
-                      Sebelumnya
-                    </button>
-                    <span className="text-xs font-bold text-suka-gray-400 uppercase tracking-widest">
-                      Hal {currentPage} dari {totalPages}
-                    </span>
-                    <button 
-                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                      className="text-xs font-bold px-3 py-1.5 rounded-lg bg-suka-gray-50 text-suka-brown hover:bg-suka-gray-100 disabled:opacity-30 disabled:hover:bg-suka-gray-50 transition-colors"
-                    >
-                      Selanjutnya
-                    </button>
+              <div className="overflow-x-auto flex-1">
+                {loading ? (
+                  <div className="flex justify-center items-center h-full p-8">
+                    <Loader2 className="w-6 h-6 text-suka-orange animate-spin" />
                   </div>
+                ) : orders.length === 0 ? (
+                  <div className="flex flex-col justify-center items-center h-full p-8 text-center text-suka-gray-400">
+                    <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm font-medium">Tidak ada orderan.</p>
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-sm whitespace-nowrap">
+                    <thead className="bg-suka-gray-50 text-suka-gray-500 font-semibold border-b border-suka-gray-100">
+                      <tr>
+                        <th className="px-5 py-4">No. Antrian</th>
+                        <th className="px-5 py-4">Waktu</th>
+                        <th className="px-5 py-4">Nama</th>
+                        <th className="px-5 py-4">Nama Item</th>
+                        <th className="px-5 py-4">Paket / Combo</th>
+                        <th className="px-5 py-4">Sumber</th>
+                        <th className="px-5 py-4">Metode Bayar</th>
+                        <th className="px-5 py-4 text-right">Total Transaksi</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-suka-gray-100">
+                      {paginatedOrders.map((order) => {
+                        const pkgs = extractOrderPackages(order);
+                        
+                        return (
+                          <tr 
+                            key={order.id} 
+                            onClick={() => selectOrder(order.id)}
+                            className="hover:bg-suka-orange/5 transition-colors cursor-pointer"
+                          >
+                            <td className="px-5 py-4 font-bold text-suka-brown">
+                              <span className="bg-suka-gray-100 text-suka-gray-600 px-2 py-1 rounded-md">#{order.id.substring(0,6).toUpperCase()}</span>
+                            </td>
+                            <td className="px-5 py-4 text-suka-gray-500 font-medium text-xs">
+                              {new Date(order.created_at).toLocaleString('id-ID', {
+                                day: 'numeric', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                              })}
+                            </td>
+                            <td className="px-5 py-4 font-semibold text-suka-brown text-xs">
+                              <div className="flex flex-col gap-1.5 items-start">
+                                {order.customer_name ? (
+                                  <span className="bg-suka-gray-50 text-suka-gray-700 px-2 py-1 rounded-md border border-suka-gray-200/60 inline-block font-medium">{order.customer_name}</span>
+                                ) : (
+                                  <span className="text-suka-gray-400 font-normal italic">Walk-in</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 text-suka-gray-600 font-medium">
+                              <div className="flex flex-col gap-1.5">
+                                {(order.order_items || []).map((i: any, idx: number) => (
+                                  <div key={idx} className="whitespace-normal leading-tight text-[13px] flex items-start gap-1.5">
+                                    <span className="font-bold text-suka-brown bg-suka-gray-100 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">{i.quantity}x</span> 
+                                    <span>{cleanItemName(i.menu_item_name)}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="px-5 py-4 font-medium text-suka-gray-700">
+                              {pkgs.length === 0 ? (
+                                <span className="text-suka-gray-400 font-normal italic">-</span>
+                              ) : (
+                                <div className="flex flex-col gap-1.5">
+                                  {pkgs.map((pkg, idx) => (
+                                    <div key={idx} className="flex flex-col gap-0.5">
+                                      <div className="inline-flex items-center gap-1.5 whitespace-normal leading-tight text-[12px]">
+                                        <span className="font-bold text-suka-orange bg-suka-orange/10 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">
+                                          {pkg.qty}x
+                                        </span>
+                                        <span className="font-semibold text-suka-brown bg-suka-orange/5 px-2 py-0.5 rounded-md border border-suka-orange/20">
+                                          {pkg.name}
+                                        </span>
+                                      </div>
+                                      {pkg.choices && Object.keys(pkg.choices).length > 0 && (
+                                        <div className="pl-6 flex flex-wrap gap-1 text-[10px] text-suka-gray-500 mt-0.5">
+                                          {Object.entries(pkg.choices).map(([k, v]) => (
+                                            <span key={k} className="bg-suka-gray-100 text-suka-gray-600 px-1.5 py-0.2 rounded border border-suka-gray-200/50">
+                                              {k}: <strong className="text-suka-brown">{v as string}</strong>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-5 py-4">
+                              <OrderSourceBadge channel={order.channel} salesSource={order.source} customerName={order.customer_name} isEndorse={false} size="sm" />
+                            </td>
+                            <td className="px-5 py-4">
+                              <span className="px-2.5 py-1 bg-suka-orange/10 text-suka-orange border border-suka-orange/20 text-[10px] font-bold rounded-lg uppercase">
+                                {order.payment_method || '-'}
+                              </span>
+                            </td>
+                            <td className="px-5 py-4 text-right font-bold text-suka-brown text-base">
+                              {formatRupiah(order.total_amount)}
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </div>
+              
+              {/* Pagination Controls */}
+              {!loading && totalPages > 1 && (
+                <div className="p-3 border-t border-suka-gray-100 bg-white/50 flex items-center justify-between">
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-suka-gray-50 text-suka-brown hover:bg-suka-gray-100 disabled:opacity-30 disabled:hover:bg-suka-gray-50 transition-colors"
+                  >
+                    Sebelumnya
+                  </button>
+                  <span className="text-xs font-bold text-suka-gray-400 uppercase tracking-widest">
+                    Hal {currentPage} dari {totalPages}
+                  </span>
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="text-xs font-bold px-3 py-1.5 rounded-lg bg-suka-gray-50 text-suka-brown hover:bg-suka-gray-100 disabled:opacity-30 disabled:hover:bg-suka-gray-50 transition-colors"
+                  >
+                    Selanjutnya
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

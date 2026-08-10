@@ -48,8 +48,10 @@
     "recharts": "^3.8.1",
     "sonner": "^1.4.0",
     "use-debounce": "^10.1.1",
+    "uuid": "^7.0.3",
     "xlsx": "^0.18.5",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zustand": "^4.5.4"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",

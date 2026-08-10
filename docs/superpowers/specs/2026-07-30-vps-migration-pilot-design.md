@@ -36,7 +36,7 @@ Internet
    │              ▲
    │              └── cron dump/restore harian ← Supabase Cloud (pg_dump + storage sync)
    │
-   ├── portal.sukashawarma.com     ──→ cPanel (103.77.106.237) — tetap
+   ├── app.sukashawarma.com        ──→ cPanel (103.77.106.237) — tetap (portal/launcher; nama subdomain terverifikasi via DNS lookup, bukan "portal.sukashawarma.com")
    ├── stok.sukashawarma.com       ──→ cPanel — tetap
    ├── distribusi.sukashawarma.com──→ cPanel — tetap
    ├── absensi.sukashawarma.com    ──→ cPanel — tetap

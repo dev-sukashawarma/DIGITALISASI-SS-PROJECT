@@ -1171,14 +1171,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => setShowGoogleSheetsModal(true)}
-              className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
-              title="Pengaturan Integrasi Google Sheets"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-              <span>Integrasi Google Sheets</span>
-            </button>
+            {initialOutlets.length > 1 && (
+              <button
+                onClick={() => setShowGoogleSheetsModal(true)}
+                className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
+                title="Pengaturan Integrasi Google Sheets"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+                <span>Integrasi Google Sheets</span>
+              </button>
+            )}
 
             {initialOutlets.length > 1 && (
               <BranchFilter
@@ -1246,27 +1248,31 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
 
 
-            <button
-              onClick={downloadCSVAllChannels}
-              disabled={orders.length === 0}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title="Download Laporan CSV Semua Channel (Dipisah per Kategori)"
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span className="hidden sm:inline">CSV (Semua Channel)</span>
-              <span className="sm:hidden">CSV</span>
-            </button>
+            {initialOutlets.length > 1 && (
+              <>
+                <button
+                  onClick={downloadCSVAllChannels}
+                  disabled={orders.length === 0}
+                  className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-emerald-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Download Laporan CSV Semua Channel (Dipisah per Kategori)"
+                >
+                  <FileSpreadsheet className="w-4 h-4" />
+                  <span className="hidden sm:inline">CSV (Semua Channel)</span>
+                  <span className="sm:hidden">CSV</span>
+                </button>
 
-            <button
-              onClick={downloadPDFAllChannels}
-              disabled={orders.length === 0}
-              className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              title="Download Laporan PDF Semua Channel (Dipisah per Kategori)"
-            >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">PDF (Semua Channel)</span>
-              <span className="sm:hidden">PDF 2</span>
-            </button>
+                <button
+                  onClick={downloadPDFAllChannels}
+                  disabled={orders.length === 0}
+                  className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm shadow-rose-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  title="Download Laporan PDF Semua Channel (Dipisah per Kategori)"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span className="hidden sm:inline">PDF (Semua Channel)</span>
+                  <span className="sm:hidden">PDF 2</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
       

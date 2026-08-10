@@ -1,0 +1,13 @@
+# NOTE: build context is the monorepo root, so these paths are root-relative.
+**/node_modules
+**/.next
+**/.git
+.claude
+mobile
+apps/*/node_modules
+!apps/finance
+apps/finance/*.cjs
+apps/finance/*.sql
+apps/finance/*.txt
+apps/finance/*.md
+apps/finance/tsconfig.tsbuildinfo

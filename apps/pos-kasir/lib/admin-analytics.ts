@@ -31,6 +31,8 @@ export interface OrderRow {
   id: string
   status: string
   total_amount: number
+  discount_amount?: number | null
+  promo_subsidy?: number | null
   created_at: string
   outlet_id: string
   channel?: string | null
@@ -130,11 +132,14 @@ export function computeAnalytics(
     ? orders.filter(o => inRange(o.created_at, prevStart, prevEnd))
     : []
 
-  const todayRevenue = periodOrders.reduce((s, o) => s + o.total_amount, 0)
+  const getOrderGross = (o: OrderRow) =>
+    (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+
+  const todayRevenue = periodOrders.reduce((s, o) => s + getOrderGross(o), 0)
   const totalOrdersCount = periodOrders.length
   const avgOrderValue = totalOrdersCount > 0 ? Math.round(todayRevenue / totalOrdersCount) : 0
 
-  const prevRevenue = prevOrders.reduce((s, o) => s + o.total_amount, 0)
+  const prevRevenue = prevOrders.reduce((s, o) => s + getOrderGross(o), 0)
   const prevCount = prevOrders.length
 
   const revenueGrowth = !hasComparison ? 0 : (prevRevenue === 0
@@ -154,7 +159,7 @@ export function computeAnalytics(
 
   const branchMap: Record<string, number> = {}
   periodOrders.forEach(o => {
-    branchMap[o.outlet_id] = (branchMap[o.outlet_id] || 0) + o.total_amount
+    branchMap[o.outlet_id] = (branchMap[o.outlet_id] || 0) + getOrderGross(o)
   })
   const leaderboard = Object.entries(branchMap)
     .map(([id, rev]) => {
@@ -169,7 +174,7 @@ export function computeAnalytics(
   periodOrders.forEach(o => {
     const info = resolveOrderSource(o.channel, o.sales_source)
     const cur = sourceMap.get(info.key) ?? { info, revenue: 0, orders: 0 }
-    cur.revenue += o.total_amount
+    cur.revenue += getOrderGross(o)
     cur.orders += 1
     sourceMap.set(info.key, cur)
   })

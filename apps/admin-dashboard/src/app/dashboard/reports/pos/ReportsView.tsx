@@ -1820,8 +1820,11 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             )}
           </div>
           
-          {/* Rekap Rincian Item Terjual */}
-          <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
+          {/* Rekap Rincian Item Terjual & Laporan Laci Cash (Hanya Admin) */}
+          {initialOutlets.length > 1 && (
+            <>
+              {/* Rekap Rincian Item Terjual */}
+              <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
             <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="font-bold text-gray-900 text-lg">Rekap Rincian Item Terjual</h2>
@@ -2107,6 +2110,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
               )}
             </div>
           </div>
+          )}
+            </>
           )}
         </>
       )}

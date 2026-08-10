@@ -5,7 +5,7 @@
 #
 # Runtime uses server.cjs (same entrypoint as the cPanel production deploy)
 # instead of `next start` on a `standalone` build — see
-# apps/admin-dashboard/next.config.js for why `output: 'standalone'` is
+# apps/admin-dashboard/next.config.mjs for why `output: 'standalone'` is
 # banned in this repo (it silently disables middleware.ts auth enforcement).
 
 FROM node:24-bookworm-slim

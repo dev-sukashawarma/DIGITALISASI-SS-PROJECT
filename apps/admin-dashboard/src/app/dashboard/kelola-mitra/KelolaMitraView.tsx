@@ -1,8 +1,10 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { CircleDollarSign, Calendar, FileText, Store } from 'lucide-react'
+import { CircleDollarSign, Calendar, FileText, Store, UploadCloud } from 'lucide-react'
 import { InvestmentDialog } from '@/components/InvestmentDialog'
+import { BulkInvestasiModal } from '@/components/BulkInvestasiModal'
+import { Button } from '@suka/design-system'
 import type { Outlet } from '@/lib/types'
 
 export default function KelolaMitraView({ 
@@ -13,6 +15,7 @@ export default function KelolaMitraView({
   investments: any[] 
 }) {
   const [investmentOutlet, setInvestmentOutlet] = useState<Outlet | null>(null)
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   
   // Create a map of investments by outlet id
   const investmentMap = useMemo(() => {
@@ -34,14 +37,21 @@ export default function KelolaMitraView({
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-2xl font-extrabold text-suka-brown tracking-tight">Kelola Mitra</h2>
+        <Button 
+          onClick={() => setIsBulkModalOpen(true)}
+          className="flex items-center gap-2 bg-suka-orange hover:bg-suka-orange/90 text-white border-0"
+        >
+          <UploadCloud size={16} />
+          Input Massal Base Data
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {outlets.map(outlet => {
           const inv = investmentMap[outlet.id]
-          const totalModal = inv?.total_investment || 0
+          const totalModal = inv?.nilai_investasi || 0
           
           return (
             <div key={outlet.id} className="bg-white rounded-2xl shadow-sm border border-suka-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -107,12 +117,21 @@ export default function KelolaMitraView({
           outlet={investmentOutlet}
           onClose={() => {
             setInvestmentOutlet(null)
-            // Ideally we should refetch or optimistically update. 
-            // A simple page reload is the quickest to reflect server changes without React Query setup.
             window.location.reload()
           }}
         />
       )}
+
+      <BulkInvestasiModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        outlets={outlets}
+        investments={investments}
+        onSuccess={() => {
+          setIsBulkModalOpen(false)
+          window.location.reload()
+        }}
+      />
     </div>
   )
 }

@@ -36,7 +36,7 @@ export function useExpenses(filter: PeriodFilterValue) {
       let q2 = supabase
         .from('petty_cash_expenses')
         .select('id, outlet_id, category, amount, description, expense_date, receipt_url, outlets(name)')
-        .in('category', ['operasional', 'utilitas', 'lainnya'])
+        .in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities'])
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
 
@@ -65,19 +65,26 @@ export function useExpenses(filter: PeriodFilterValue) {
         source: 'monthly' as const
       }))
 
-      const pettyCashRows = (res2.data ?? []).map((row: any) => ({
-        id: row.id,
-        outlet_id: row.outlet_id,
-        outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
-        category: row.category,
-        scope: 'outlet' as const, // petty cash selalu di outlet
-        amount: Number(row.amount),
-        description: row.description ?? '',
-        expense_date: row.expense_date,
-        period_month: row.expense_date.slice(0, 7) + '-01', // Fallback month start
-        receipt_url: row.receipt_url,
-        source: 'petty_cash' as const
-      }))
+      const pettyCashRows = (res2.data ?? []).map((row: any) => {
+        let cat = row.category
+        if (cat === 'bb') cat = 'bahan_baku'
+        else if (cat === 'outlet' || cat === 'operasional') cat = 'pengeluaran_outlet'
+        else if (cat === 'utilities') cat = 'utilitas'
+
+        return {
+          id: row.id,
+          outlet_id: row.outlet_id,
+          outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
+          category: cat,
+          scope: 'outlet' as const, // petty cash selalu di outlet
+          amount: Number(row.amount),
+          description: row.description ?? '',
+          expense_date: row.expense_date,
+          period_month: row.expense_date.slice(0, 7) + '-01', // Fallback month start
+          receipt_url: row.receipt_url,
+          source: 'petty_cash' as const
+        }
+      })
 
       return [...monthlyRows, ...pettyCashRows] as ExpenseRow[]
     },

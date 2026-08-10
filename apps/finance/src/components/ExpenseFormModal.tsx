@@ -10,7 +10,7 @@ import {
   type ExpenseCategory,
   type TransactionType
 } from '@/lib/expenseCategories'
-import type { Outlet } from '@/pos-types'
+import type { Outlet } from '@/lib/types'
 import { ArrowDownToLine, ArrowUpToLine } from 'lucide-react'
 
 const inputCls =

@@ -213,7 +213,9 @@ export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, o
   const expTotal = opexCategories.reduce((s: number, c: any) => s + c.amount, 0)
   
   // Management Fee (Misal: 3% dari Omzet Kotor)
-  const managementFee = totalRev * 0.03
+  // Hanya berlaku untuk: Sentul, Paledang, Cibubur, Cicurug, Cileungsi
+  const hasManagementFee = ['sentul', 'paledang', 'cibubur', 'cicurug', 'cileungsi'].some(loc => outletName.toLowerCase().includes(loc))
+  const managementFee = hasManagementFee ? totalRev * 0.03 : 0
   
   const finalExpTotal = expTotal + (overrideData ? 0 : managementFee)
 
@@ -289,7 +291,7 @@ const totalAdmin = faAdminFee + tkAdminFee
       </div>
 
       {/* SUMMARY ROW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 relative z-10">
+      <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-3 gap-4 mb-8 relative z-10">
         
         {/* Gross Profit */}
         <div className="bg-white border border-suka-gray-100 p-5 rounded-[24px] shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
@@ -311,19 +313,6 @@ const totalAdmin = faAdminFee + tkAdminFee
              <h4 className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Total OPEX</h4>
           </div>
           <h3 className="text-2xl font-black text-red-500">-{formatRp(data.expenses.total)}</h3>
-        </div>
-
-        {/* Management Fee */}
-        <div className="bg-white border border-suka-gray-100 p-5 rounded-[24px] shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
-          <div className="flex items-center gap-3 mb-4">
-             <div className="w-10 h-10 rounded-[12px] bg-suka-brown/5 flex items-center justify-center text-suka-brown">
-               <Briefcase className="w-5 h-5" />
-             </div>
-             <h4 className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Mgmt Fee</h4>
-          </div>
-          <h3 className={`text-2xl font-black ${data.expenses.managementFee > 0 ? 'text-red-500' : 'text-suka-gray-400'}`}>
-             {data.expenses.managementFee > 0 ? `-${formatRp(data.expenses.managementFee)}` : formatRp(0)}
-          </h3>
         </div>
 
         {/* Net Profit - Highlighted */}

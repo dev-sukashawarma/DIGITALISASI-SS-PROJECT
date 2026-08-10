@@ -46,6 +46,16 @@ export default function ImportSalesView() {
       
       setParsedData(data)
 
+      const parseDateString = (dateStr: string) => {
+        if (!dateStr) return null;
+        const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/);
+        if (match) {
+          const [_, day, month, year, h, m, s] = match;
+          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${h || '00'}:${m || '00'}:${s || '00'}`;
+        }
+        return dateStr;
+      }
+
       const ordersMap = new Map()
       for (const row of data as any[]) {
          const orderId = row['Order ID']
@@ -55,7 +65,7 @@ export default function ImportSalesView() {
             ordersMap.set(orderId, {
                id: orderId,
                status: row['Order Status'],
-               date: row['Created Time'] || null,
+               date: parseDateString(row['Created Time']) || null,
                subtotal: 0,
                discount: 0,
                total: parseFloat(row['Order Amount'] || '0'),

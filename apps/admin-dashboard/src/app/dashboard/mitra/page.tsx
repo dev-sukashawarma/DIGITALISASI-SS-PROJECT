@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import { presetRange, previousRange } from '@/lib/period'
+import { presetRange, previousRange, monthRange } from '@/lib/period'
 import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import { MitraDashboardView } from './MitraDashboardView'
@@ -65,8 +65,8 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   }
   
   // 4. Hitung trend / omzet menggunakan agregasi Owner Dashboard
-  // Kita gunakan preset 'this_month' sebagai default pandangan Mitra
-  const defaultRange = presetRange('this_month')
+  // Kita gunakan preset 'yesterday' sebagai default pandangan Mitra
+  const defaultRange = presetRange('yesterday')
   const curFilter: PeriodFilterValue = {
     from: sp.from || defaultRange.from,
     to: sp.to || defaultRange.to,
@@ -79,10 +79,18 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     ...previousRange({ from: curFilter.from, to: curFilter.to })
   }
 
-  // Fetch current data, previous data, and top menus
-  const [curData, prevData, topMenus] = await Promise.all([
+  let trendFilter = { ...curFilter }
+  if (curFilter.from === curFilter.to && curFilter.from) {
+    const [year, month] = curFilter.from.split('-').map(Number)
+    const mRange = monthRange(year, month)
+    trendFilter = { ...curFilter, from: mRange.from, to: mRange.to }
+  }
+
+  // Fetch current data, previous data, trend data, and top menus
+  const [curData, prevData, trendData, topMenus] = await Promise.all([
     getOwnerDashboardData(curFilter, outlets),
     getOwnerDashboardData(prevFilter, outlets),
+    getOwnerDashboardData(trendFilter, outlets),
     getAggregatedMenuSales({ ...curFilter, outletId: outletIds.length > 0 ? outletIds[0] : 'all' }) // Default fetch for their outlets
   ])
   
@@ -142,6 +150,8 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       investasiMap={investasiMap}
       curKpiRows={curData.kpiRows}
       prevKpiRows={prevData.kpiRows}
+      trendKpiRows={trendData.kpiRows}
+      trendFilter={trendFilter}
       hourlyRows={curData.hourlyRows}
       currentFilter={curFilter}
       hppMap={hppMap}

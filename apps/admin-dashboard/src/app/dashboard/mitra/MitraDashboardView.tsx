@@ -13,7 +13,8 @@ import type { PeriodFilterValue } from '@/lib/types'
 import { PeriodFilter } from '@/components/PeriodFilter'
 
 import { useMitraOutlet } from './MitraOutletContext'
-import { TabInfoOutlet } from './MitraOutletInfo'
+import { getMitraRoiStats } from '@/app/actions/mitraRoi'
+import { useState, useEffect } from 'react'
 
 const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
@@ -32,6 +33,8 @@ export function MitraDashboardView({
   investasiMap,
   curKpiRows,
   prevKpiRows,
+  trendKpiRows,
+  trendFilter,
   hppMap,
   expenses,
   currentFilter,
@@ -59,13 +62,38 @@ export function MitraDashboardView({
   const prevOutletKpi = selectedOutletId === 'all' ? prevKpiRows : prevKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
   const prevOmzet = prevOutletKpi.reduce((sum: number, r: any) => sum + r.omzet, 0)
   
-  const currentRoi = currentInvestasi > 0 ? (currentOmzet / currentInvestasi) * 100 : 0
-  const prevRoi = currentInvestasi > 0 ? (prevOmzet / currentInvestasi) * 100 : 0
+  const trendOutletKpi = selectedOutletId === 'all' ? trendKpiRows : trendKpiRows.filter((r: any) => r.outlet_id === selectedOutletId)
+  
+  // Real ROI Stats
+  const [roiStats, setRoiStats] = useState<{ roi: number, bepPercentage: number, loading: boolean }>({ roi: 0, bepPercentage: 0, loading: true })
+
+  useEffect(() => {
+    let active = true
+    async function loadStats() {
+      setRoiStats(prev => ({ ...prev, loading: true }))
+      try {
+        const allowedIds = (outlets || []).map((o: any) => o.id)
+        if (allowedIds.length === 0) return
+        const stats = await getMitraRoiStats(selectedOutletId || 'all', allowedIds)
+        if (active) {
+          setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, loading: false })
+        }
+      } catch (e) {
+        console.error(e)
+        if (active) setRoiStats(prev => ({ ...prev, loading: false }))
+      }
+    }
+    loadStats()
+    return () => { active = false }
+  }, [selectedOutletId, outlets])
+
+  const currentRoi = roiStats.roi
+  const bepPercentage = roiStats.bepPercentage
+  const isLoadingRoi = roiStats.loading
   
   const dOmzet = deltaPct(currentOmzet, prevOmzet)
-  const dRoi = deltaPct(currentRoi, prevRoi)
-  
-  const bepPercentage = Math.min(currentRoi, 100)
+  // ROI delta removed because ROI is cumulative
+  const dRoi = null
   
   const renderDelta = (delta: number | null) => {
     if (delta === null) return null
@@ -167,10 +195,7 @@ export function MitraDashboardView({
         ) : (
           <div className="space-y-8">
             
-            {/* Info Cards Moved to Top */}
-            {selectedOutlet && (
-              <TabInfoOutlet outlet={selectedOutlet} />
-            )}
+            {/* Info Cards Removed as requested */}
 
             {/* KPI Cards - Glassmorphism Style */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -180,7 +205,9 @@ export function MitraDashboardView({
                 <div className="absolute top-0 right-0 w-32 h-32 bg-green-100/30 rounded-bl-full -z-10 group-hover:scale-125 transition-transform duration-500"></div>
                 <div className="flex justify-between items-start mb-6">
                   <div>
-                    <p className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">Omzet Bulan Ini</p>
+                    <p className="text-xs font-extrabold text-suka-gray-400 uppercase tracking-widest">
+                      {(!currentFilter?.from || currentFilter.from === currentFilter.to) ? 'Omzet Kemarin' : 'Total Omzet'}
+                    </p>
                     <p className="text-[10px] text-suka-gray-400 font-semibold mt-1">Penjualan kotor keseluruhan</p>
                   </div>
                   <div className="p-3 rounded-2xl bg-gradient-to-br from-green-50 to-green-100/50 border border-green-100 shadow-sm group-hover:rotate-12 transition-transform duration-300">
@@ -249,10 +276,17 @@ export function MitraDashboardView({
                 </div>
                 <div className="mt-auto flex flex-col gap-3">
                   <h3 className="text-3xl lg:text-[2rem] font-black text-suka-brown tracking-tighter tabular-nums drop-shadow-sm break-all leading-none">
-                    <CountUp end={currentRoi} duration={1.5} separator="." decimals={2} decimal="," />%
+                    {isLoadingRoi ? (
+                       <span className="text-suka-gray-300">...</span>
+                    ) : (
+                       <><CountUp end={currentRoi} duration={1.5} separator="." decimals={2} decimal="," />%</>
+                    )}
                   </h3>
                   <div className="mt-1">
-                    {renderDelta(dRoi)}
+                    <span className="inline-flex items-center text-xs font-bold text-suka-orange">
+                      <TrendingUp className="w-3 h-3 mr-1" />
+                      Terus Bertumbuh
+                    </span>
                   </div>
                 </div>
               </div>
@@ -265,7 +299,7 @@ export function MitraDashboardView({
                  <h2 className="text-xl font-extrabold text-suka-brown tracking-tight">Tren Pendapatan Harian</h2>
                </div>
                <RevenueTrendChart 
-                  rows={curOutletKpi} 
+                  rows={trendOutletKpi} 
                   isHourly={false} 
                   className="w-full"
                />

@@ -4,7 +4,7 @@ import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
 export const OUTLET_CATEGORIES = [
   'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
   'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'internet', 'sewa_outlet',
-  'salary'
+  'salary', 'bahan_baku', 'utilitas', 'lainnya'
 ] as const
 export const PUSAT_CATEGORIES = ['pengeluaran_global', 'gaji_staff_kantor'] as const
 export const INCOME_CATEGORIES = ['pemasukan_lain', 'modal_awal', 'setoran_owner'] as const
@@ -39,4 +39,7 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   pemasukan_lain:     { label: 'Pemasukan Lain',     color: '#16a34a', icon: Wallet },
   modal_awal:         { label: 'Modal Awal',         color: '#059669', icon: Wallet },
   setoran_owner:      { label: 'Setoran Owner',      color: '#10b981', icon: Wallet },
+  bahan_baku:         { label: 'Bahan Baku',         color: '#ca8a04', icon: Wallet },
+  utilitas:           { label: 'Utilitas',           color: '#0891b2', icon: Zap },
+  lainnya:            { label: 'Lainnya',            color: '#4b5563', icon: Wallet },
 }

@@ -86,9 +86,14 @@ function formatTime(value?: string | null): string {
 
 const CATEGORY_LABEL: Record<string, string> = {
   bahan_baku: 'Bahan Baku',
-  operasional: 'Operasional',
+  pengeluaran_outlet: 'Operasional Outlet',
   utilitas: 'Utilitas',
   lainnya: 'Lainnya',
+  // Backwards compatibility for old data:
+  bb: 'Bahan Baku',
+  outlet: 'Operasional Outlet',
+  operasional: 'Operasional Outlet',
+  utilities: 'Utilitas',
 }
 
 export default function CashierShiftPage() {
@@ -111,7 +116,7 @@ export default function CashierShiftPage() {
   const [pettyCashLocked, setPettyCashLocked] = useState(false)
   
   // Expense Form
-  const [expCategory, setExpCategory] = useState<string>('outlet')
+  const [expCategory, setExpCategory] = useState<string>('pengeluaran_outlet')
   const [expAmount, setExpAmount] = useState<string>('')
   const [expDesc, setExpDesc] = useState<string>('')
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
@@ -427,7 +432,7 @@ export default function CashierShiftPage() {
       setSuccessMsg('Pengeluaran berhasil dicatat')
       setExpAmount('')
       setExpDesc('')
-      setExpCategory('outlet')
+      setExpCategory('pengeluaran_outlet')
       setReceiptFile(null)
       await fetchCurrentState()
     } catch (err: any) {
@@ -701,9 +706,9 @@ export default function CashierShiftPage() {
                       disabled={isSubmitting}
                       className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-medium"
                     >
-                      <option value="bb">Bahan Baku (Es Batu, Sayur)</option>
-                      <option value="outlet">Operasional Outlet (Plastik, ATK, Lainnya)</option>
-                      <option value="utilities">Utilitas (Listrik Darurat)</option>
+                      <option value="bahan_baku">Bahan Baku (Es Batu, Sayur)</option>
+                      <option value="pengeluaran_outlet">Operasional Outlet (Plastik, ATK, Lainnya)</option>
+                      <option value="utilitas">Utilitas (Listrik Darurat)</option>
                     </select>
                   </div>
                   <div>

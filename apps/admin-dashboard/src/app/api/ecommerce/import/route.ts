@@ -27,14 +27,45 @@ export async function POST(request: Request) {
     const { data: menus } = await supabase.from('menu_items').select('id, name')
     const menuMap = new Map(menus?.map(m => [m.name.toLowerCase(), m.id]))
 
+    // Helper: sanitize date - handles Excel serial numbers, Date objects, or string formats
+    const sanitizeDate = (dateVal: any): string => {
+      if (!dateVal) return new Date().toISOString()
+      
+      // Excel serial number (number type)
+      if (typeof dateVal === 'number') {
+        // Excel epoch: Jan 0 1900 (with leap year bug), serial 1 = Jan 1 1900
+        const excelEpoch = new Date(1899, 11, 30)
+        const date = new Date(excelEpoch.getTime() + dateVal * 86400000)
+        return date.toISOString()
+      }
+
+      // Already a Date object
+      if (dateVal instanceof Date) {
+        return dateVal.toISOString()
+      }
+
+      const str = String(dateVal)
+
+      // DD/MM/YYYY HH:mm:ss format
+      const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/)
+      if (match) {
+        const [_, day, month, year, h, m, s] = match
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${(h||'00').padStart(2,'0')}:${(m||'00').padStart(2,'0')}:${(s||'00').padStart(2,'0')}+07:00`
+      }
+
+      // Fallback: try native parse
+      const parsed = new Date(str)
+      return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString()
+    }
+
     // Find existing orders to prevent duplicates
     const refNos = orders.map((o: any) => o.id)
     const { data: existingSales } = await supabase
       .from('ecommerce_sales')
-      .select('reference_no')
-      .in('reference_no', refNos)
+      .select('order_id')
+      .in('order_id', refNos)
     
-    const existingSet = new Set(existingSales?.map(e => e.reference_no) || [])
+    const existingSet = new Set(existingSales?.map(e => e.order_id) || [])
     const newOrders = orders.filter((o: any) => !existingSet.has(o.id))
 
     if (newOrders.length === 0) {
@@ -45,7 +76,7 @@ export async function POST(request: Request) {
       entity_id,
       channel_id,
       order_id: o.id,
-      order_date: o.date || new Date().toISOString(),
+      order_date: sanitizeDate(o.date),
       total_amount: o.total,
       raw_data: o
     }))

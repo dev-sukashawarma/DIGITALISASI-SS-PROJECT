@@ -26,6 +26,10 @@ export function InvestmentDialog({
   
   const [omzetHistoris, setOmzetHistoris] = useState<number>(0)
   const [transferHistoris, setTransferHistoris] = useState<number>(0)
+  
+  const [isProfitSharingActive, setIsProfitSharingActive] = useState<boolean>(false)
+  const [persentaseBagiHasil, setPersentaseBagiHasil] = useState<number>(50)
+  const [managementFee, setManagementFee] = useState<number>(0)
 
   useEffect(() => {
     const fetchInvestment = async () => {
@@ -42,6 +46,9 @@ export function InvestmentDialog({
         setCatatan(data.catatan || '')
         setOmzetHistoris(data.omzet_historis || 0)
         setTransferHistoris(data.transfer_historis || 0)
+        setIsProfitSharingActive(data.is_profit_sharing_active || false)
+        setPersentaseBagiHasil(data.persentase_bagi_hasil ?? 50)
+        setManagementFee(data.management_fee || 0)
       }
       setLoading(false)
     }
@@ -68,7 +75,10 @@ export function InvestmentDialog({
         tanggal_mulai: tanggalMulai || new Date().toISOString().slice(0, 10),
         catatan: catatan,
         omzet_historis: omzetHistoris,
-        transfer_historis: transferHistoris
+        transfer_historis: transferHistoris,
+        is_profit_sharing_active: isProfitSharingActive,
+        persentase_bagi_hasil: persentaseBagiHasil,
+        management_fee: managementFee
       }
 
       let error = null
@@ -167,6 +177,53 @@ export function InvestmentDialog({
                     placeholder="Contoh: 5000000"
                   />
                 </label>
+              </div>
+
+              <div className="p-4 border border-suka-gray-200 rounded-xl bg-suka-gray-50/50 space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="w-5 h-5 text-suka-orange focus:ring-suka-orange border-gray-300 rounded cursor-pointer"
+                    checked={isProfitSharingActive}
+                    onChange={(e) => setIsProfitSharingActive(e.target.checked)}
+                  />
+                  <span className="font-bold text-sm text-suka-ink">Aktifkan Bagi Hasil Otomatis</span>
+                </label>
+                
+                {isProfitSharingActive && (
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-suka-gray-200 border-dashed">
+                    <label className="text-sm">
+                      <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-[10px]">Porsi Mitra (%)</span>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          className={`${inputCls} pr-8`} 
+                          value={persentaseBagiHasil || ''} 
+                          onChange={(e) => setPersentaseBagiHasil(Number(e.target.value))} 
+                          max={100}
+                          min={0}
+                        />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-suka-gray-500 font-semibold">%</span>
+                        </div>
+                      </div>
+                    </label>
+                    <label className="text-sm">
+                      <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-[10px]">Management Fee / Bln</span>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <span className="text-suka-gray-500 font-semibold text-xs">Rp</span>
+                        </div>
+                        <input 
+                          type="number" 
+                          className={`${inputCls} pl-8`} 
+                          value={managementFee || ''} 
+                          onChange={(e) => setManagementFee(Number(e.target.value))} 
+                        />
+                      </div>
+                    </label>
+                  </div>
+                )}
               </div>
 
               <label className="text-sm">

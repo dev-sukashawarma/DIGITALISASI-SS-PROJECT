@@ -229,6 +229,16 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
     return { from: '2000-01-01', to: fmt(today) }
   }, [range, customStartDate, customEndDate])
 
+  // Pawoon data hanya tersedia s.d. Juli 2026 — sembunyikan filter Pawoon
+  // jika rentang filter tidak mencakup satupun hari di Juli 2026 atau sebelumnya.
+  const PAWOON_CUTOFF = '2026-08-01'
+  const isPawoonVisible = useMemo(() => {
+    if (range === 'all') return true
+    const from = dateStrRange.from
+    if (!from) return false
+    return new Date(from) < new Date(PAWOON_CUTOFF)
+  }, [range, dateStrRange.from])
+
   const { rows: hppRows } = useHppByChannel(dateStrRange.from, dateStrRange.to)
 
   // Table State
@@ -476,16 +486,28 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
+  // Auto-reset selectedChannel jika filter Pawoon aktif tapi Pawoon sudah
+  // tidak relevan untuk range yang dipilih (Agustus 2026 ke atas).
+  const PAWOON_CHANNEL_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
+  useEffect(() => {
+    if (!isPawoonVisible && PAWOON_CHANNEL_KEYS.has(selectedChannel)) {
+      setSelectedChannel('all')
+    }
+  }, [isPawoonVisible])
+
   // ─── Available Channels ───
+  const PAWOON_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
   const availableChannels = useMemo(() => {
     const map = new Map<string, { key: string; label: string }>()
-    
-    // Channel standar agar user dapat selalu memilih sumber utama
+
+    // Channel standar — Pawoon hanya dimasukkan jika range mencakup Juli 2026 atau sebelumnya
     const defaults = [
       { key: 'pos_kasir', label: 'POS KASIR (Internal)' },
-      { key: 'pos_pawoon_all', label: 'POS PAWOON (Semua)' },
-      { key: 'pos_pawoon', label: 'POS PAWOON' },
-      { key: 'pos_fa', label: 'FA PAWOON' },
+      ...(isPawoonVisible ? [
+        { key: 'pos_pawoon_all', label: 'POS PAWOON (Semua)' },
+        { key: 'pos_pawoon', label: 'POS PAWOON' },
+        { key: 'pos_fa', label: 'FA PAWOON' },
+      ] : []),
       { key: 'shopeefood', label: 'ShopeeFood' },
       { key: 'gofood', label: 'GoFood' },
       { key: 'grabfood', label: 'GrabFood' },
@@ -496,16 +518,20 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     orders.forEach(o => {
       const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
+      // Sembunyikan sumber Pawoon dari orders jika tidak relevan untuk range ini
+      if (!isPawoonVisible && PAWOON_KEYS.has(src.key)) return
       if (!map.has(src.key)) {
         map.set(src.key, { key: src.key, label: src.label })
       }
     })
     return Array.from(map.values())
-  }, [orders])
+  }, [orders, isPawoonVisible, PAWOON_KEYS])
+
+  // ─── Shared helper (used in analytics useMemo AND downloadCSVAllChannels) ───
+  const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
-    const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
     const filteredOrders = selectedChannel === 'all' 
       ? orders 

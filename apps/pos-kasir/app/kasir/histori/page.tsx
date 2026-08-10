@@ -170,21 +170,24 @@ export default function AdminOrdersPage() {
     return matchesChannelFilter(order as any, channelFilter);
   });
 
+  const getGrossAmount = (o: any) =>
+    (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+
   const totalRevenue = filteredOrders
     .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval')
-    .reduce((s, o) => s + o.total_amount + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0), 0)
+    .reduce((s, o) => s + getGrossAmount(o), 0)
 
   const revenueCash = filteredOrders
     .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'cash')
-    .reduce((s, o) => s + o.total_amount, 0)
+    .reduce((s, o) => s + getGrossAmount(o), 0)
 
   const revenueQris = filteredOrders
     .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'qris')
-    .reduce((s, o) => s + o.total_amount, 0)
+    .reduce((s, o) => s + getGrossAmount(o), 0)
 
   const revenueDebit = filteredOrders
     .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'card')
-    .reduce((s, o) => s + o.total_amount, 0)
+    .reduce((s, o) => s + getGrossAmount(o), 0)
 
   return (
     <div className="space-y-6" suppressHydrationWarning>

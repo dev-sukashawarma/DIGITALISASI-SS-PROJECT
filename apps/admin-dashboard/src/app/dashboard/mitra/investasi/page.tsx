@@ -10,6 +10,7 @@ export default function LaporanInvestasiPage() {
   const { selectedOutletId, selectedOutlet } = useMitraOutlet()
   const [investasi, setInvestasi] = useState<any>(null)
   const [omzetTotal, setOmzetTotal] = useState<number>(0)
+  const [totalTransfer, setTotalTransfer] = useState<number>(0)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -36,12 +37,29 @@ export default function LaporanInvestasiPage() {
         .eq('outlet_id', selectedOutletId)
         .eq('status', 'completed')
         
+      let calculatedOmzet = 0
       if (orders) {
-        const total = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
-        setOmzetTotal(total)
-      } else {
-        setOmzetTotal(0)
+        calculatedOmzet = orders.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
       }
+
+      const { data: transfers } = await supabase
+        .from('mitra_transfers')
+        .select('nominal')
+        .eq('outlet_id', selectedOutletId)
+        
+      let calculatedTransfers = 0
+      if (transfers) {
+        calculatedTransfers = transfers.reduce((sum, t) => sum + Number(t.nominal || 0), 0)
+      }
+      
+      // Add historical data if available
+      if (inv) {
+        calculatedOmzet += Number(inv.omzet_historis || 0)
+        calculatedTransfers += Number(inv.transfer_historis || 0)
+      }
+      
+      setOmzetTotal(calculatedOmzet)
+      setTotalTransfer(calculatedTransfers)
       
       setLoading(false)
     }
@@ -141,15 +159,42 @@ export default function LaporanInvestasiPage() {
               
             </div>
 
-            {/* Total Omzet Keseluruhan */}
-            <div className="bg-white/70 backdrop-blur-md p-6 rounded-[24px] border border-white shadow-xl shadow-suka-orange/5 flex items-center justify-between">
-              <div>
-                <h3 className="font-extrabold text-sm text-suka-gray-400 uppercase tracking-widest mb-1">Total Omzet Keseluruhan</h3>
-                <p className="text-[10px] font-bold text-suka-gray-400">Total kotor pendapatan selama aktif</p>
-              </div>
-              <div className="text-2xl font-black text-suka-brown drop-shadow-sm">
-                {Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(omzetTotal)}
-              </div>
+            {/* Rekap Modal Mitra Table */}
+            <div className="rounded-[16px] border-2 border-black overflow-hidden bg-white shadow-xl shadow-suka-orange/5 animate-fade-in">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-cyan-300 border-b-2 border-black">
+                    <th className="px-4 py-3 text-sm font-extrabold text-black uppercase tracking-wider border-r-2 border-black w-2/3">REKAP MODAL MITRA</th>
+                    <th className="px-4 py-3 border-black"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y-2 divide-black">
+                  <tr>
+                    <td className="px-4 py-2.5 text-sm font-medium text-black border-r-2 border-black uppercase">Total Modal Mitra</td>
+                    <td className="px-4 py-2.5 text-sm font-extrabold text-black text-right">
+                      {Intl.NumberFormat('id-ID').format(investasi.nilai_investasi)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2.5 text-sm font-medium text-black border-r-2 border-black uppercase">Profit Mitra Sebelumnya</td>
+                    <td className="px-4 py-2.5 text-sm font-medium text-black text-right">
+                      {Intl.NumberFormat('id-ID').format(totalTransfer)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2.5 text-sm font-medium text-black border-r-2 border-black uppercase">Total Profit Mitra Sementara</td>
+                    <td className="px-4 py-2.5 text-sm font-extrabold text-black text-right">
+                      {Intl.NumberFormat('id-ID').format(omzetTotal)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="px-4 py-2.5 text-sm font-medium text-black border-r-2 border-black uppercase">ROI</td>
+                    <td className="px-4 py-2.5 text-sm font-extrabold text-black text-right">
+                      {roi.toFixed(2)}%
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
             {/* Catatan Admin */}

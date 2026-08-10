@@ -28,7 +28,7 @@ Internet
    │
 [Cloudflare] (opsional, disarankan) — DNS, TLS, sembunyikan IP
    │
-   ├── admin.sukashawarma.com ──→ VPS baru (IP VPS, DomaiNesia)
+   ├── admin.sukashawarma.com ──→ VPS baru (IP VPS, Hostinger KVM 2, lokasi Indonesia)
    │        │
    │        [Coolify] (reverse proxy Traefik + TLS otomatis di dalamnya)
    │        ├── admin-dashboard (Next.js, deploy via git push)
@@ -65,11 +65,12 @@ Cron job harian (jam sepi trafik, mis. 03:00 WIB) di VPS menjalankan dua langkah
 
 ## 4. Provider & Spek VPS
 
-**Provider terpilih: DomaiNesia Cloud VPS Turbo** (AMD EPYC Genoa, NVMe SSD, KVM murni, 3x replikasi data bawaan).
+**Provider terpilih: Hostinger VPS KVM 2, lokasi data center Indonesia.**
 
-- Target spek setara **4 vCPU / 8 GB RAM**, estimasi **Rp250rb – 400rb/bulan** (tier persis dikonfirmasi langsung di dashboard DomaiNesia saat implementasi, karena listing publik tidak merinci harga persis untuk tier ini).
-- Provider lokal Indonesia dipilih untuk latency rendah ke 19 outlet — alasan yang sama dengan kenapa produksi sekarang di connectindo.
-- ⚠️ 8GB RAM cukup ketat untuk menjalankan Postgres+Auth+Realtime+Storage+Kong+Studio (Supabase self-host) **+** admin-dashboard **+** Coolify sekaligus di satu mesin. Kalau pilot terasa lambat, opsi pertama adalah naik ke 16GB (bukan menyalahkan hal lain dulu) — semua provider VPS mendukung vertical scaling tanpa migrasi ulang.
+- Spek: **2 vCPU / 8 GB RAM / 100 GB NVMe SSD**, 8TB bandwidth, dedicated IPv4, KVM isolation, **weekly backup bawaan** (relevan untuk §8).
+- Harga: promo ~$6.99–9.99/bln (kontrak 12–24 bulan, ≈Rp112rb–160rb/bln), renewal ~$14.99/bln (≈Rp240rb/bln) — kurs asumsi ~Rp16rb/USD, konfirmasi harga persis saat checkout.
+- Lokasi data center **Indonesia** dipilih secara eksplisit saat setup (bukan default) — menjaga latency rendah ke 19 outlet, alasan yang sama dengan kenapa produksi sekarang di connectindo. Hostinger juga punya lokasi lain (Singapore, India, Malaysia) tapi **tidak dipakai** untuk deployment ini.
+- ⚠️ 2 vCPU cukup pas-pasan untuk menjalankan Postgres+Auth+Realtime+Storage+Kong+Studio (Supabase self-host) **+** admin-dashboard **+** Coolify sekaligus di satu mesin — CPU lebih mungkin jadi bottleneck duluan dibanding RAM di spek ini. Kalau pilot terasa lambat, opsi pertama adalah upgrade tier KVM berikutnya (KVM 4: 4 vCPU/16GB) via quick scaling Hostinger, bukan menyalahkan hal lain dulu.
 
 ---
 
@@ -120,12 +121,12 @@ Developer → git push ke branch (mis. main atau deploy/admin-dashboard)
 ### Biaya Bulanan (recurring, tambahan di atas yang sudah berjalan)
 | Item | Estimasi/bln |
 |---|---|
-| DomaiNesia Cloud VPS Turbo (~4vCPU/8GB) | Rp250rb – 400rb |
+| Hostinger VPS KVM 2 (2vCPU/8GB, lokasi Indonesia) | Rp112rb – 160rb (harga promo kontrak 12–24 bulan), naik ke ~Rp240rb saat renewal |
 | Cloudflare | Rp0 (free tier) |
-| Object storage off-site untuk backup config Coolify (Backblaze B2/Wasabi) | Rp15rb – 30rb |
-| **Total bulanan tambahan** | **~Rp265rb – 430rb/bln** |
+| Object storage off-site untuk backup dump Postgres/config Coolify (Backblaze B2/Wasabi) | Rp15rb – 30rb |
+| **Total bulanan tambahan** | **~Rp127rb – 190rb/bln (promo) / ~Rp255rb – 270rb/bln (setelah renewal)** |
 
-Supabase Cloud tetap jalan sebagai produksi (biaya lama, tidak berubah oleh pilot ini). cPanel connectindo juga tetap berjalan selama transisi (tidak dihitung sebagai penambahan). Estimasi ini di bawah budget menengah <1jt yang ditentukan, dengan ruang naik ke VPS 16GB (+~Rp150-200rb/bln) bila 8GB terasa ketat.
+Supabase Cloud tetap jalan sebagai produksi (biaya lama, tidak berubah oleh pilot ini). cPanel connectindo juga tetap berjalan selama transisi (tidak dihitung sebagai penambahan). Estimasi ini jauh di bawah budget menengah <1jt yang ditentukan, dengan ruang upgrade ke tier KVM 4 (4vCPU/16GB, +~Rp150-250rb/bln) bila KVM 2 terasa ketat.
 
 ---
 
@@ -136,9 +137,10 @@ Supabase Cloud tetap jalan sebagai produksi (biaya lama, tidak berubah oleh pilo
 | **Supabase Cloud** (produksi sungguhan) | ✅ Ya | Ditangani Supabase Cloud (PITR sesuai plan langganan) — di luar scope VPS ini, tapi retention plan dicek ulang saat implementasi. |
 | **Supabase self-host** (kandidat produksi, di VPS) | Tidak — salinan harian dari Cloud | Tidak perlu backup terpisah rumit — kalau corrupt/hilang, re-run cron dump/restore dari Cloud. Cukup pastikan cron logging & alert (Telegram/email) saat gagal berturut-turut. |
 | **admin-dashboard di VPS** (kode + config) | Kode di git, config di Coolify | Kode aman di GitHub. Config Coolify (env var, connection settings) di-backup rutin via fitur export Coolify → object storage off-site (bukan disk VPS yang sama). |
+| **Seluruh VPS** (fallback tambahan) | Bukan sumber kebenaran mana pun | Hostinger KVM 2 sudah termasuk **weekly backup bawaan** (snapshot VPS penuh) — lapisan tambahan di luar strategi di atas, berguna untuk pemulihan cepat kalau VPS corrupt, tapi **tetap dilengkapi backup off-site independen** untuk config Coolify (poin di bawah), karena snapshot bawaan provider tidak menggantikan salinan di luar provider itu sendiri. |
 
 **Wajib sebelum go-live pilot:**
-1. Backup off-site untuk konfigurasi Coolify (bukan di VPS yang sama).
+1. Backup off-site untuk konfigurasi Coolify (bukan di VPS yang sama, dan bukan cuma weekly snapshot bawaan Hostinger).
 2. Alert otomatis kalau cron dump/restore Supabase self-host gagal.
 3. Test restore berkala — backup yang tak pernah dicoba restore tidak bisa dipercaya.
 

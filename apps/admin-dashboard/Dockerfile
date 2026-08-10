@@ -12,14 +12,16 @@ FROM node:24-bookworm-slim
 
 WORKDIR /repo
 
-# --- Layer 1: manifests only, so `npm install` is cached unless deps change ---
-COPY package.json package-lock.json .npmrc ./
+# --- Layer 1: manifests only, so install is cached unless deps change ---
+# package-lock.json is gitignored in this repo (yarn.lock is the tracked
+# lockfile) — use yarn, not npm, or Coolify's git-cloned context won't have it.
+COPY package.json yarn.lock .npmrc ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
 COPY apps/admin-dashboard/package.json apps/admin-dashboard/package.json
 
-RUN npm install
+RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
 # --- Layer 2: full source ---
 COPY packages/auth packages/auth
@@ -47,11 +49,11 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-RUN npm run build --workspace=apps/admin-dashboard
+WORKDIR /repo/apps/admin-dashboard
+RUN yarn build
 
 ENV NODE_ENV=production
 ENV PORT=3000
 EXPOSE 3000
 
-WORKDIR /repo/apps/admin-dashboard
 CMD ["node", "server.cjs"]

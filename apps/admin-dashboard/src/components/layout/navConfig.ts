@@ -108,6 +108,14 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: 'Kemitraan',
+    icon: HeartHandshake,
+    roles: ['ADMIN'],
+    items: [
+      { href: '/dashboard/kelola-mitra', label: 'Daftar Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['ADMIN'] },
+    ],
+  },
+  {
     title: 'Manajemen POS',
     icon: Store,
     roles: ['ADMIN'],

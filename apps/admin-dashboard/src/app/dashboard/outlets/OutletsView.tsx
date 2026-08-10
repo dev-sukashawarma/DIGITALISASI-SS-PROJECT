@@ -133,7 +133,7 @@ export default function OutletsPage() {
         rows={rows}
         onEdit={(o) => { setShowForm(false); setEditing(o) }}
         onToggleActive={handleToggleActive}
-        onDelete={(o) => setDeleting(o)}
+        onDelete={setDeleting}
       />
 
       {deleting && (

@@ -1,14 +1,15 @@
 'use client'
-import { Pencil, Power, Trash2 } from 'lucide-react'
+import { Pencil, Power, Trash2, CircleDollarSign } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
 
 export function OutletTable({
-  rows, onEdit, onToggleActive, onDelete,
+  rows, onEdit, onToggleActive, onDelete, onManageInvestment
 }: {
   rows: Outlet[]
-  onEdit: (o: Outlet) => void
-  onToggleActive: (o: Outlet) => void
-  onDelete: (o: Outlet) => void
+  onEdit?: (o: Outlet) => void
+  onToggleActive?: (o: Outlet) => void
+  onDelete?: (o: Outlet) => void
+  onManageInvestment?: (o: Outlet) => void
 }) {
   if (rows.length === 0) {
     return <p className="rounded-xl bg-suka-gray-50 p-6 text-center text-sm text-gray-500">Tidak ada outlet.</p>
@@ -38,9 +39,14 @@ export function OutletTable({
               </td>
               <td className="px-4 py-3">
                 <div className="flex justify-end gap-3 text-gray-500">
-                  <button title="Edit" onClick={() => onEdit(o)}><Pencil size={16} /></button>
-                  <button title={o.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => onToggleActive(o)}><Power size={16} /></button>
-                  <button title="Hapus permanen" onClick={() => onDelete(o)} className="text-red-500"><Trash2 size={16} /></button>
+                  {onManageInvestment && (
+                    <button title="Kelola Modal Mitra" onClick={() => onManageInvestment(o)} className="text-cyan-600 hover:text-cyan-700">
+                      <CircleDollarSign size={16} />
+                    </button>
+                  )}
+                  {onEdit && <button title="Edit" onClick={() => onEdit(o)}><Pencil size={16} /></button>}
+                  {onToggleActive && <button title={o.is_active ? 'Nonaktifkan' : 'Aktifkan'} onClick={() => onToggleActive(o)}><Power size={16} /></button>}
+                  {onDelete && <button title="Hapus permanen" onClick={() => onDelete(o)} className="text-red-500"><Trash2 size={16} /></button>}
                 </div>
               </td>
             </tr>

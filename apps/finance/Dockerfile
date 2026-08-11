@@ -45,8 +45,8 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-WORKDIR /repo/apps/finance
-RUN corepack enable && yarn build
+WORKDIR /repo
+RUN corepack enable && yarn workspace @suka/finance build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

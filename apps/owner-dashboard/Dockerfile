@@ -25,7 +25,7 @@ WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 # Safely copy local node_modules if it exists (for unhoisted packages like next.js)
 COPY --from=deps /repo/apps/owner-dashboard/node_module[s] ./apps/owner-dashboard/node_modules/
-COPY package.json yarn.lock tsconfig.json ./
+COPY package.json yarn.lock .npmrc tsconfig.json ./
 COPY packages packages
 COPY apps/owner-dashboard apps/owner-dashboard
 

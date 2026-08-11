@@ -16,7 +16,7 @@ COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/distribusi/package.json apps/distribusi/package.json
 
-RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
 # --- Stage 2: Build Next.js application ---
 FROM node:24-bookworm-slim AS builder
@@ -48,7 +48,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo
-RUN corepack enable && yarn workspace @suka/distribusi build
+RUN --mount=type=cache,target=/repo/apps/distribusi/.next/cache corepack enable && yarn workspace @suka/distribusi build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

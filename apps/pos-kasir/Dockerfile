@@ -16,7 +16,7 @@ COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/pos-kasir/package.json apps/pos-kasir/package.json
 
-RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
 # --- Stage 2: Build Next.js application ---
 FROM node:24-bookworm-slim AS builder

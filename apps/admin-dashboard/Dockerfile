@@ -14,7 +14,7 @@ COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/admin-dashboard/package.json apps/admin-dashboard/package.json
 
 # Install dependencies (cached by BuildKit)
-RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 corepack enable && yarn install --frozen-lockfile --network-timeout 600000
+RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 corepack enable && (yarn install --frozen-lockfile --network-timeout 600000 || (yarn cache clean --all && yarn install --frozen-lockfile --network-timeout 600000))
 
 # Copy source code
 COPY packages packages

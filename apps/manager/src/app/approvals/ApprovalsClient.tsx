@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle } from 'lucide-react';
+import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle, Building2, ChevronDown } from 'lucide-react';
 import { processVoidOrder } from '../actions/cancellations';
 import { searchCompletedOrders, forceCancelCompletedOrder, getMyOutletsForVoid } from '../actions/orderVoid';
 import { useApprovals } from '../../lib/ApprovalsContext';
@@ -62,6 +62,7 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
   const [myOutlets, setMyOutlets] = useState<OutletOption[]>([])
   const [outletsLoaded, setOutletsLoaded] = useState(false)
   const [outletId, setOutletId] = useState('')
+  const [outletPickerOpen, setOutletPickerOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CompletedOrderRow[]>([])
   const [searching, setSearching] = useState(false)
@@ -307,16 +308,47 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
           ) : (
             <>
               {myOutlets.length > 1 ? (
-                <select
-                  value={outletId}
-                  onChange={e => { setOutletId(e.target.value); setResults([]) }}
-                  className="w-full sm:w-72 px-4 py-2.5 rounded-xl border border-suka-brown/10 bg-white text-sm font-bold text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange/30"
-                >
-                  <option value="">Pilih outlet...</option>
-                  {myOutlets.map(o => (
-                    <option key={o.id} value={o.id}>{o.name}</option>
-                  ))}
-                </select>
+                <div className="relative w-fit">
+                  <button
+                    onClick={() => setOutletPickerOpen(o => !o)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-all text-xs font-bold shadow-sm ${
+                      outletId
+                        ? 'bg-suka-orange text-white border-suka-orange shadow-[0_2px_8px_rgba(249,115,22,0.3)]'
+                        : 'bg-white text-suka-brown border-suka-brown/20 hover:border-suka-brown/40'
+                    }`}
+                  >
+                    <Building2 className="w-3.5 h-3.5 shrink-0" />
+                    <span className="max-w-[160px] truncate">
+                      {myOutlets.find(o => o.id === outletId)?.name ?? 'Pilih Outlet'}
+                    </span>
+                    <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${outletPickerOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {outletPickerOpen && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setOutletPickerOpen(false)} />
+                      <div className="absolute left-0 top-full mt-2 bg-white border border-suka-brown/10 rounded-2xl shadow-xl py-2 z-50 w-56 overflow-hidden">
+                        <p className="px-4 py-1.5 text-[10px] font-black text-suka-gray-400 uppercase tracking-wider border-b border-suka-brown/5 mb-1">
+                          Pilih Outlet
+                        </p>
+                        {myOutlets.map(o => (
+                          <button
+                            key={o.id}
+                            onClick={() => { setOutletId(o.id); setResults([]); setOutletPickerOpen(false) }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 text-sm transition-colors text-left ${
+                              outletId === o.id
+                                ? 'bg-suka-orange/10 text-suka-orange font-black'
+                                : 'text-suka-gray-600 hover:bg-suka-gray-50 font-bold'
+                            }`}
+                          >
+                            <span className="truncate">{o.name}</span>
+                            {outletId === o.id && <Check className="w-3.5 h-3.5 shrink-0 ml-2" />}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
               ) : (
                 <p className="text-xs font-black text-suka-gray-400 uppercase tracking-widest">
                   Outlet: <span className="text-suka-brown">{myOutlets[0].name}</span>

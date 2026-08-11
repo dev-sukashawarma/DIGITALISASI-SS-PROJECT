@@ -23,6 +23,8 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
 COPY --from=deps /repo/node_modules ./node_modules
+# Safely copy local node_modules if it exists (for unhoisted packages like next.js)
+COPY --from=deps /repo/apps/finance/node_module[s] ./apps/finance/node_modules/
 COPY package.json yarn.lock tsconfig.json ./
 COPY packages packages
 COPY apps/finance apps/finance
@@ -56,10 +58,11 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY --from=builder /repo/node_modules /repo/node_modules
+COPY --from=builder /repo/apps/finance/node_module[s] /repo/apps/finance/node_modules/
 COPY --from=builder /repo/apps/finance/package.json ./package.json
 COPY --from=builder /repo/apps/finance/.next ./.next
 COPY --from=builder /repo/apps/finance/public ./public
 
 EXPOSE 3000
 
-CMD ["/repo/node_modules/.bin/next", "start", "-p", "3000"]
+CMD ["npx", "next", "start", "-p", "3000"]

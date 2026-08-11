@@ -16,9 +16,6 @@ COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/finance/package.json apps/finance/package.json
 
-ENV YARN_NETWORK_CONCURRENCY=1
-ENV NODE_OPTIONS="--max_old_space_size=1024"
-
 RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
 # --- Stage 2: Build Next.js application ---
@@ -49,7 +46,6 @@ ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
-ENV NODE_OPTIONS="--max_old_space_size=1024"
 
 WORKDIR /repo
 RUN corepack enable && yarn workspace @suka/finance build

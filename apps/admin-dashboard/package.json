@@ -18,7 +18,7 @@
     "@suka/auth": "*",
     "@suka/design-system": "*",
     "@suka/realtime": "*",
-    "@supabase/ssr": "^0.2.0",
+    "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.38.0",
     "@tailwindcss/typography": "^0.5.20",
     "@tanstack/react-query": "^5.51.0",

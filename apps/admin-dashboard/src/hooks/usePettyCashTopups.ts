@@ -1,11 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase'
 
 export function usePettyCashTopups(filter?: { from: string; to: string; outletId: string }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
 
   return useQuery({
     queryKey: ['petty_cash_topups', filter],

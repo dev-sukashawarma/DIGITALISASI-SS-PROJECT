@@ -1,11 +1,10 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle } from 'lucide-react';
 import { processVoidOrder } from '../actions/cancellations';
-import { searchCompletedOrders, forceCancelCompletedOrder } from '../actions/orderVoid';
+import { searchCompletedOrders, forceCancelCompletedOrder, getMyOutletsForVoid } from '../actions/orderVoid';
 import { useApprovals } from '../../lib/ApprovalsContext';
-import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 
 type CompletedOrderRow = {
@@ -15,6 +14,8 @@ type CompletedOrderRow = {
   total_amount: number
   created_at: string
 }
+
+type OutletOption = { id: string; name: string }
 
 type VoidRequest = {
   id: string
@@ -58,14 +59,25 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
   const [loadingIds, setLoadingIds] = useState<string[]>([])
   const [tab, setTab] = useState<'pending' | 'completed'>('pending')
 
-  const searchParams = useSearchParams()
-  const outletId = searchParams.get('outlet_id')
+  const [myOutlets, setMyOutlets] = useState<OutletOption[]>([])
+  const [outletsLoaded, setOutletsLoaded] = useState(false)
+  const [outletId, setOutletId] = useState('')
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<CompletedOrderRow[]>([])
   const [searching, setSearching] = useState(false)
   const [target, setTarget] = useState<CompletedOrderRow | null>(null)
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (tab !== 'completed' || outletsLoaded) return
+    getMyOutletsForVoid().then(res => {
+      const list = (res.data || []) as OutletOption[]
+      setMyOutlets(list)
+      if (list.length === 1) setOutletId(list[0].id)
+      setOutletsLoaded(true)
+    })
+  }, [tab, outletsLoaded])
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -284,25 +296,47 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
 
       {tab === 'completed' && (
         <div className="space-y-4">
-          {!outletId ? (
+          {!outletsLoaded ? (
+            <div className="bg-white rounded-2xl p-8 text-center text-suka-gray-500 font-medium border border-suka-brown/5 flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" /> Memuat outlet...
+            </div>
+          ) : myOutlets.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-suka-gray-500 font-medium border border-suka-brown/5">
-              Pilih outlet terlebih dahulu lewat filter outlet di pojok kanan atas.
+              Anda belum ditugaskan ke outlet mana pun.
             </div>
           ) : (
             <>
+              {myOutlets.length > 1 ? (
+                <select
+                  value={outletId}
+                  onChange={e => { setOutletId(e.target.value); setResults([]) }}
+                  className="w-full sm:w-72 px-4 py-2.5 rounded-xl border border-suka-brown/10 bg-white text-sm font-bold text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange/30"
+                >
+                  <option value="">Pilih outlet...</option>
+                  {myOutlets.map(o => (
+                    <option key={o.id} value={o.id}>{o.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <p className="text-xs font-black text-suka-gray-400 uppercase tracking-widest">
+                  Outlet: <span className="text-suka-brown">{myOutlets[0].name}</span>
+                </p>
+              )}
+
               <form onSubmit={handleSearch} className="flex gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-suka-gray-400" />
                   <input
                     value={query}
                     onChange={e => setQuery(e.target.value)}
+                    disabled={!outletId}
                     placeholder="Cari nama pelanggan atau nomor pesanan..."
-                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-suka-brown/10 bg-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-suka-orange/30"
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-suka-brown/10 bg-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-suka-orange/30 disabled:opacity-50"
                   />
                 </div>
                 <button
                   type="submit"
-                  disabled={searching || !query.trim()}
+                  disabled={searching || !query.trim() || !outletId}
                   className="px-5 py-3 rounded-xl bg-suka-orange text-white font-black text-sm disabled:opacity-50"
                 >
                   {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cari'}

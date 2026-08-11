@@ -35,6 +35,29 @@ async function requireStaffWithOutletAccess(outletId: string) {
   return { staff, supabaseAdmin }
 }
 
+export async function getMyOutletsForVoid() {
+  const headersList = await headers()
+  const staff = parseStaffHeader(headersList.get(STAFF_HEADER))
+  if (!staff || !ALLOWED_ROLES.includes(staff.role)) return { success: false, data: [] }
+
+  const supabaseAdmin = getSupabaseAdmin()
+  let query = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).order('name')
+
+  if (staff.role === 'area_manager' || staff.role === 'leader') {
+    const { data: staffOutlets } = await supabaseAdmin
+      .from('staff_outlets')
+      .select('outlet_id')
+      .eq('staff_id', staff.id)
+    const outletIds = (staffOutlets || []).map((so: any) => so.outlet_id)
+    if (outletIds.length === 0) return { success: true, data: [] }
+    query = query.in('id', outletIds)
+  }
+
+  const { data, error } = await query
+  if (error) return { success: false, data: [] }
+  return { success: true, data: data || [] }
+}
+
 export async function searchCompletedOrders(outletId: string, query: string) {
   const auth = await requireStaffWithOutletAccess(outletId)
   if ('error' in auth) return { success: false, error: auth.error, data: [] }

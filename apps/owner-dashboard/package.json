@@ -19,7 +19,7 @@
     "recharts": "^3.8.1",
     "react-is": "^19.0.0",
     "@supabase/supabase-js": "^2.38.0",
-    "@supabase/ssr": "^0.2.0",
+    "@supabase/ssr": "^0.5.1",
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
     "@suka/auth": "*",

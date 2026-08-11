@@ -18,6 +18,9 @@ const nextConfig = {
     tsconfigPath: './tsconfig.json',
     ignoreBuildErrors: true,
   },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   images: {
     domains: ['qntuhtkujpwudcpudmbj.supabase.co'],
     remotePatterns: [

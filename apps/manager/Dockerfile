@@ -60,17 +60,24 @@ RUN corepack enable && yarn workspace manager build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
-WORKDIR /repo/apps/manager
+WORKDIR /repo
 
 ENV NODE_ENV=production
 ENV PORT=3000
+# server.js standalone membaca HOSTNAME; tanpa 0.0.0.0 ia bisa bind ke
+# localhost saja dan tak terjangkau dari luar container.
+ENV HOSTNAME=0.0.0.0
 
-COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/manager/node_module[s] /repo/apps/manager/node_modules/
-COPY --from=builder /repo/apps/manager/package.json ./package.json
-COPY --from=builder /repo/apps/manager/.next ./.next
-COPY --from=builder /repo/apps/manager/public ./public
+# next.config.ts memakai output:'standalone' — Next sudah men-trace modul yang
+# benar-benar dipakai runtime ke .next/standalone (termasuk node_modules-nya
+# sendiri). Menyalin /repo/node_modules utuh seperti sebelumnya menggandakannya
+# DAN ikut membawa devDependencies (typescript, eslint, @types, tailwind) yang
+# nol gunanya saat runtime.
+# Layout standalone mengikuti struktur monorepo: server.js ada di apps/manager/.
+COPY --from=builder /repo/apps/manager/.next/standalone ./
+COPY --from=builder /repo/apps/manager/.next/static ./apps/manager/.next/static
+COPY --from=builder /repo/apps/manager/public ./apps/manager/public
 
 EXPOSE 3000
 
-CMD ["npx", "next", "start", "-p", "3000"]
+CMD ["node", "apps/manager/server.js"]

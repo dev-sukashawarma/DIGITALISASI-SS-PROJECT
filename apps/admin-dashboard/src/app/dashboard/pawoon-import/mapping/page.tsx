@@ -4,14 +4,17 @@ import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import MappingTable from './MappingTable';
 
-// Setup Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export const revalidate = 0;
 
 export default async function PawoonMappingPage() {
+    // Inisialisasi client di dalam function — BUKAN di top-level module.
+    // createClient() di top-level dievaluasi saat build (static analysis),
+    // sebelum env vars tersedia → crash: "supabaseKey is required".
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const mapPath = path.join(process.cwd(), 'src', 'data', 'pawoon_item_map.json');
     let mappingData: Record<string, any> = {};
     

@@ -10,12 +10,18 @@ import { requireRole } from '@/lib/authz';
 import { pawoonMenuOrderIndex } from '@/lib/pawoonMenuOrder';
 import { resolvePawoonProductRow } from '@/lib/pawoonProduct';
 
-// Setup Supabase (Server side)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// JANGAN inisialisasi di top-level module: build time Next.js mengevaluasi
+// module sebelum env vars tersedia → crash "supabaseKey is required".
+// Pakai fungsi lazy agar client dibuat hanya saat function dipanggil (runtime).
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function previewPawoonFile(formData: FormData) {
+    const supabase = getSupabase();
     try {
         // Server Action = endpoint POST publik; import Pawoon adalah operasi
         // admin, bukan sekadar preview tanpa konsekuensi (baca file + query DB).
@@ -738,6 +744,7 @@ export async function previewPawoonFile(formData: FormData) {
 }
 
 export async function syncPawoonData(orders: any[], items: any[], ordersToVoid: string[] = []) {
+    const supabase = getSupabase();
     try {
         await requireRole(['admin', 'owner']);
 
@@ -773,6 +780,7 @@ export async function syncPawoonData(orders: any[], items: any[], ordersToVoid: 
 }
 
 export async function getMenuItemsForMapping() {
+    const supabase = getSupabase();
     try {
         await requireRole(['admin', 'owner']);
         const { data, error } = await supabase
@@ -788,6 +796,7 @@ export async function getMenuItemsForMapping() {
 }
 
 export async function updatePawoonMapping(newMappings: Record<string, string>) {
+    const supabase = getSupabase();
     try {
         await requireRole(['admin', 'owner']);
         const mapPath = path.join(process.cwd(), 'src', 'data', 'pawoon_item_map.json');
@@ -833,6 +842,7 @@ export async function updatePawoonMapping(newMappings: Record<string, string>) {
 }
 
 export async function getOutletsForClear() {
+    const supabase = getSupabase();
     try {
         await requireRole(['admin', 'owner']);
         const { data, error } = await supabase
@@ -858,6 +868,7 @@ export async function countPawoonDataForOutlet(
     dateTo?: string
 ) {
     if (!outletId) return { success: false, error: 'Outlet ID is required' };
+    const supabase = getSupabase();
     try {
         await requireRole(['admin', 'owner']);
 
@@ -893,6 +904,7 @@ export async function clearPawoonDataForOutlet(
     dateTo?: string
 ) {
     if (!outletId) return { success: false, error: 'Outlet ID is required' };
+    const supabase = getSupabase();
 
     try {
         // DELETE destruktif dengan service-role client (bypass RLS) — 'use server'

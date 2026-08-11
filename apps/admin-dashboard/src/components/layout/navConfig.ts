@@ -40,22 +40,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/mitra', label: 'Dashboard Saya', shortLabel: 'Dashboard', icon: LayoutDashboard, roles: ['MITRA'] },
       { href: '/dashboard/mitra/orderan', label: 'Riwayat Orderan', shortLabel: 'Orderan', icon: ShoppingCart, roles: ['MITRA'] },
       { href: '/dashboard/mitra/transfer', label: 'Transfer Bagi Hasil', shortLabel: 'Bukti TF', icon: ArrowRightLeft, roles: ['MITRA'] },
-      { href: '/dashboard/mitra/investasi', label: 'Laporan Investasi', shortLabel: 'Investasi', icon: DollarSign, roles: ['MITRA'] },
       { href: '/dashboard/mitra/tim', label: 'Tim Outlet', shortLabel: 'Tim', icon: Users, roles: ['MITRA'] },
       { href: '/dashboard/mitra/saran', label: 'Saran & Kritik', shortLabel: 'Saran', icon: MessageSquare, roles: ['MITRA'] },
-    ],
-  },
-  {
-    title: 'Pembelian & PO',
-    icon: ShoppingCart,
-    roles: ['ADMIN', 'PURCHASING'],
-    items: [
-      { href: '/dashboard/pembelian/perlu-dibeli', label: 'Perlu Dibeli', shortLabel: 'Perlu Dibeli', icon: BellRing, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['ADMIN', 'PURCHASING'] },
     ],
   },
   {
@@ -108,11 +94,25 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: 'Pembelian & PO',
+    icon: ShoppingCart,
+    roles: ['ADMIN', 'PURCHASING'],
+    items: [
+      { href: '/dashboard/pembelian/perlu-dibeli', label: 'Perlu Dibeli', shortLabel: 'Perlu Dibeli', icon: BellRing, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['ADMIN', 'PURCHASING'] },
+    ],
+  },
+  {
     title: 'Kemitraan',
     icon: HeartHandshake,
-    roles: ['ADMIN'],
+    roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/kelola-mitra', label: 'Daftar Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['ADMIN'] },
+      { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {
@@ -151,7 +151,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/push-center', label: 'Pusat Notifikasi', shortLabel: 'Notifikasi', icon: BellRing, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
-      { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

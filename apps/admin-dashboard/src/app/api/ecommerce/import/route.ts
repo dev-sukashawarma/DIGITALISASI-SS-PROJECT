@@ -27,35 +27,18 @@ export async function POST(request: Request) {
     const { data: menus } = await supabase.from('menu_items').select('id, name')
     const menuMap = new Map(menus?.map(m => [m.name.toLowerCase(), m.id]))
 
-    // Helper: sanitize date - handles Excel serial numbers, Date objects, or string formats
+    // Helper: normalize date to ISO - frontend sends ISO strings, but handle edge cases
     const sanitizeDate = (dateVal: any): string => {
       if (!dateVal) return new Date().toISOString()
-      
-      // Excel serial number (number type)
+      if (typeof dateVal === 'string') {
+        const parsed = new Date(dateVal)
+        return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString()
+      }
       if (typeof dateVal === 'number') {
-        // Excel epoch: Jan 0 1900 (with leap year bug), serial 1 = Jan 1 1900
-        const excelEpoch = new Date(1899, 11, 30)
-        const date = new Date(excelEpoch.getTime() + dateVal * 86400000)
-        return date.toISOString()
+        // Excel serial fallback
+        return new Date((dateVal - 25569) * 86400 * 1000).toISOString()
       }
-
-      // Already a Date object
-      if (dateVal instanceof Date) {
-        return dateVal.toISOString()
-      }
-
-      const str = String(dateVal)
-
-      // DD/MM/YYYY HH:mm:ss format
-      const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/)
-      if (match) {
-        const [_, day, month, year, h, m, s] = match
-        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${(h||'00').padStart(2,'0')}:${(m||'00').padStart(2,'0')}:${(s||'00').padStart(2,'0')}+07:00`
-      }
-
-      // Fallback: try native parse
-      const parsed = new Date(str)
-      return isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString()
+      return new Date().toISOString()
     }
 
     // Find existing orders to prevent duplicates

@@ -117,37 +117,22 @@ const MANUAL_OVERRIDES: Record<string, any> = {
   }
 }
 
-export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, onFilterChange }: any) {
-  const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null)
-
+export function calculateProfitData(realData: any) {
   const { curOutletKpi = [], hppRate = 0, expenses = [], outletName = '', currentFilter = {} } = realData || {}
-
-  let filterText = 'Semua Waktu'
-  if (currentFilter.from && currentFilter.to) {
-    filterText = `${formatDate(currentFilter.from)} - ${formatDate(currentFilter.to)}`
-  } else if (currentFilter.from) {
-    filterText = `Sejak ${formatDate(currentFilter.from)}`
-  }
-
 
   const isLegacyOutlet = [
     'dramaga', 'paledang', 'ciseeng', 'pekayon', 'pajajaran', 'cibinong', 
     'sukmajaya', 'citayam', 'kalisari', 'empang', 'jatiasih', 'jatiwaringin',
     'cirendeu', 'beji', 'sawangan', 'jagakarsa', 'bnr', 'cimanggu',
-    // (fallback nama lama)
     'sindang', 'yasmin', 'cikaret', 'ciomas', 'air mancur', 'bangbarung', 'tajur', 'pomad', 'semua'
   ].some(legacy => outletName.toLowerCase().includes(legacy))
 
-  // Hanya Cibubur, Cicurug, Sentul dan setelahnya yang kena 50:50 & management fee
   const isProfitSharing = !isLegacyOutlet && outletName.toLowerCase() !== 'semua outlet'
 
-  // Cari apakah ada data sinkronisasi manual untuk outlet ini
   const overrideKey = Object.keys(MANUAL_OVERRIDES).find(key => outletName.toLowerCase().includes(key))
-  // Hanya terapkan override jika filternya adalah bulan Juni 2026 (atau tidak ada filter, untuk default, tapi lebih aman filter spesifik)
-  const isJune2026 = realData.currentFilter?.from?.startsWith('2026-06')
+  const isJune2026 = currentFilter?.from?.startsWith('2026-06')
   const overrideData = (overrideKey && isJune2026) ? MANUAL_OVERRIDES[overrideKey] : null
 
-  // 1. Omzet (Net Revenue) & Deductions (Discounts)
   const posOmzet = curOutletKpi.filter((r: any) => r.sales_source === 'pos').reduce((sum: number, r: any) => sum + Number(r.omzet), 0)
   const posDeductions = curOutletKpi.filter((r: any) => r.sales_source === 'pos').reduce((sum: number, r: any) => sum + Number(r.total_deductions || 0), 0)
   
@@ -157,15 +142,11 @@ export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, o
   const tkOmzet = curOutletKpi.filter((r: any) => r.sales_source === 'tiktok').reduce((sum: number, r: any) => sum + Number(r.omzet), 0)
   const tkDeductions = curOutletKpi.filter((r: any) => r.sales_source === 'tiktok').reduce((sum: number, r: any) => sum + Number(r.total_deductions || 0), 0)
 
-  // 2. Gross Revenue Per Channel (Net Revenue + Discounts)
   const outletRev = posOmzet + posDeductions
   const faRev = faOmzet + faDeductions
   const tkRev = tkOmzet + tkDeductions
   const totalRev = outletRev + faRev + tkRev
 
-  // 3. COGS (HPP) Calculation
-  // User explicitly wants to use HPP override percentage. hppRate is a percentage (e.g. 45 for 45%).
-  // Default to 40% if for some reason it's 0 or missing.
   const hppPercentage = Number(hppRate) > 0 ? Number(hppRate) : 40
   const totalHppValue = totalRev * (hppPercentage / 100)
 
@@ -173,28 +154,20 @@ export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, o
   const faCogs = totalRev > 0 ? (faRev / totalRev) * totalHppValue : 0
   const tkCogs = totalRev > 0 ? (tkRev / totalRev) * totalHppValue : 0
 
-  // 4. Admin Fees
-  // Admin fees will be uploaded manually via expenses with category 'admin'
   const adminFeeTotal = expenses.filter((e: any) => ['Admin Fee', 'admin_fee', 'Platform Fee', 'admin'].includes(e.category)).reduce((s: number, e: any) => s + Number(e.amount), 0)
-  // We'll assign it to FoodApps for now since that's where most admin fees come from
   const faAdminFee = adminFeeTotal
   const tkAdminFee = 0
 
-  // 5. Gross Profit = Net Revenue (Omzet) - COGS - Admin Fee
   const outletGross = posOmzet - outletCogs
   const faGross = faOmzet - faCogs - faAdminFee
   const tkGross = tkOmzet - tkCogs - tkAdminFee
 
-  // Settlement (What goes to Bank Account)
   const tkSettlement = tkOmzet - tkAdminFee
 
-  // 6. Expenses (OPEX)
-  // Exclude admin fees (already in Gross Profit) and incomes
   const opexItems = expenses.filter((e: any) => !['Admin Fee', 'admin_fee', 'Platform Fee', 'admin', 'income', 'cash_in'].includes(e.category))
   
   const opexGrouped = opexItems.reduce((acc: any, e: any) => {
     let cat = e.category || 'Lainnya'
-    // Normalize some categories
     if (['bb', 'bahan baku'].includes(cat.toLowerCase())) cat = 'Bahan Baku'
     if (['utilities', 'operasional'].includes(cat.toLowerCase())) cat = 'Operasional'
     if (['ads', 'marketing'].includes(cat.toLowerCase())) cat = 'Marketing'
@@ -212,26 +185,20 @@ export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, o
 
   const expTotal = opexCategories.reduce((s: number, c: any) => s + c.amount, 0)
   
-  // Management Fee (Misal: 3% dari Omzet Kotor)
-  // Hanya berlaku untuk: Sentul, Paledang, Cibubur, Cicurug, Cileungsi
   const hasManagementFee = ['sentul', 'paledang', 'cibubur', 'cicurug', 'cileungsi'].some(loc => outletName.toLowerCase().includes(loc))
   const managementFee = hasManagementFee ? totalRev * 0.03 : 0
   
   const finalExpTotal = expTotal + (overrideData ? 0 : managementFee)
 
-  // 7. Summaries
   const totalCogs = outletCogs + faCogs + tkCogs
-  // @ts-ignore
-const totalAdmin = faAdminFee + tkAdminFee
+  const totalAdmin = faAdminFee + tkAdminFee
   const totalGrossProfit = outletGross + faGross + tkGross
   
   const totalNetProfit = totalGrossProfit - finalExpTotal
   
-  // Kalau ada manual override, kita pake profit sementara dari override (kalo ada) 
-  // atau biarkan 0 untuk outlet lama, karena 50:50 sudah kita hide
   const profitMitra = isProfitSharing ? (totalNetProfit > 0 ? totalNetProfit * 0.5 : 0) : 0 
 
-  const data = {
+  return {
     revenue: {
       outlet: { revenue: outletRev, cogs: outletCogs, grossProfit: outletGross },
       foodApps: { revenue: faRev, cogs: faCogs, discountMerchant: faDeductions, adminFee: faAdminFee, grossProfit: faGross },
@@ -253,9 +220,28 @@ const totalAdmin = faAdminFee + tkAdminFee
       totalModal: 150000000,
       profitSebelumnya: 45000000,
       totalProfitSementara: profitMitra,
-      roi: 32.5 // Hardcoded for mockup representation
+      roi: 32.5
     }
   }
+}
+
+export function MitraProfitLossMockup({ realData, currentFilter: parentFilter, onFilterChange }: any) {
+  const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null)
+  
+  const { currentFilter = {} } = realData || {}
+  
+  let filterText = 'Semua Waktu'
+  if (currentFilter.from && currentFilter.to) {
+    filterText = `${formatDate(currentFilter.from)} - ${formatDate(currentFilter.to)}`
+  } else if (currentFilter.from) {
+    filterText = `Sejak ${formatDate(currentFilter.from)}`
+  }
+
+  const data = calculateProfitData(realData)
+
+  const posDeductions = data.revenue.total.revenue - data.revenue.total.grossProfit // approximate for modal usage
+  // Note: we might need exact deductions in the drilldown, but since drilldown uses data properties we can just access them
+
 
   return (
     <div className="bg-white/70 backdrop-blur-xl border border-white p-6 sm:p-8 rounded-[32px] shadow-xl shadow-suka-orange/5 relative overflow-hidden mt-8 animate-fade-in">

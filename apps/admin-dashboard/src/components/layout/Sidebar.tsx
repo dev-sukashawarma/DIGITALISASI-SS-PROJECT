@@ -2,12 +2,13 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { useRole } from './RoleContext'
 import { accessibleGroups, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
+import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 
 export const Sidebar = () => {
   const pathname = usePathname()
@@ -25,9 +26,17 @@ export const Sidebar = () => {
   // Pintu yang sedang dibuka: default pintu yang memuat halaman aktif.
   const activeGroupTitle = groups.find((g) => g.items.some((i) => isItemActive(i.href, pathname)))?.title
   const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? groups[0]?.title ?? null)
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+
+  // Sync openDoor when pathname changes so it naturally reflects the active item
+  useEffect(() => {
+    if (activeGroupTitle) {
+      setOpenDoor(activeGroupTitle)
+    }
+  }, [activeGroupTitle])
 
   return (
-    <aside className="hidden w-[260px] shrink-0 bg-transparent text-white md:flex md:flex-col print:hidden z-40 relative">
+    <aside className="hidden w-[260px] shrink-0 bg-transparent text-white lg:flex lg:flex-col print:hidden z-40 relative">
       <div className="p-6 pb-2 text-center flex flex-col items-center justify-center">
         <div className="w-14 h-14 mb-2 rounded-full overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10">
           <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-cover" />
@@ -48,27 +57,6 @@ export const Sidebar = () => {
 
           return (
             <div key={group.title}>
-              {group.items.length === 1 ? (
-                <div className="mt-1">
-                  {group.items.map(({ href, label, icon: Icon }) => {
-                    const active = isItemActive(href, pathname)
-                    return (
-                      <Link
-                        key={href}
-                        href={href}
-                        className={`group flex items-center gap-3 rounded-xl mx-2 px-3 py-2.5 font-bold transition-all active:scale-95 ${
-                          active
-                            ? 'bg-white text-[#4A1713] shadow-md'
-                            : 'text-white/70 hover:bg-white/10 hover:text-white'
-                        }`}
-                      >
-                        <Icon size={18} className={active ? 'text-[#4A1713]' : 'text-white/50 group-hover:text-white/80'} />
-                        <span className="flex-1 text-sm">{label}</span>
-                      </Link>
-                    )
-                  })}
-                </div>
-              ) : (
                 <>
                   {/* Kepala pintu — klik untuk buka/tutup */}
                   <button
@@ -113,7 +101,6 @@ export const Sidebar = () => {
                     </div>
                   )}
                 </>
-              )}
             </div>
           )
         })}
@@ -121,13 +108,19 @@ export const Sidebar = () => {
 
       <div className="p-4 space-y-2 relative z-10">
         <button
-          onClick={handleLogout}
+          onClick={() => setIsLogoutOpen(true)}
           className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl font-bold text-[13px] text-white/60 hover:text-white hover:bg-white/10 transition-all active:scale-95"
         >
           <LogOut size={16} />
           Logout
         </button>
       </div>
+
+      <ConfirmLogoutDialog
+        isOpen={isLogoutOpen}
+        onClose={() => setIsLogoutOpen(false)}
+        onConfirm={handleLogout}
+      />
     </aside>
   )
 }

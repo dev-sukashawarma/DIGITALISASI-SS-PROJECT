@@ -3,7 +3,9 @@
 import { useAuth } from '@suka/auth'
 import { LogOut, Search } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import { labelForPath } from './navConfig'
+import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 
 function formatRoleName(role?: string) {
   if (!role) return 'Staff'
@@ -26,6 +28,7 @@ function formatRoleName(role?: string) {
 export const Header = () => {
   const { outletStaff, signOut } = useAuth()
   const pathname = usePathname()
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false)
 
   const title = labelForPath(pathname)
 
@@ -76,7 +79,7 @@ export const Header = () => {
           <div className="w-[1px] h-4 bg-gray-100 hidden sm:block mx-1"></div>
 
           <button
-            onClick={handleLogout}
+            onClick={() => setIsLogoutOpen(true)}
             className="flex items-center gap-1.5 px-4 py-1.5 rounded-full hover:bg-red-50 text-suka-brown hover:text-red-600 font-bold text-xs transition-colors"
           >
             <LogOut className="w-3.5 h-3.5" />
@@ -84,6 +87,12 @@ export const Header = () => {
           </button>
         </div>
       </div>
+
+      <ConfirmLogoutDialog
+        isOpen={isLogoutOpen}
+        onClose={() => setIsLogoutOpen(false)}
+        onConfirm={handleLogout}
+      />
     </header>
   )
 }

@@ -101,7 +101,7 @@ export function SwipeableLayout({ children }: { children: React.ReactNode }) {
   })
 
   return (
-    <div {...handlers} className="flex-1 flex flex-col h-full w-full relative touch-pan-y overflow-hidden">
+    <div {...handlers} className="flex-1 min-w-0 flex flex-col h-full w-full relative touch-pan-y overflow-hidden">
       {/* Peek Background (Underneath) */}
       <div className="absolute inset-0 z-0 bg-suka-cream/60 flex items-center justify-between px-8 pointer-events-none">
         {/* Left Peek (Shows Previous Tab) */}
@@ -138,7 +138,7 @@ export function SwipeableLayout({ children }: { children: React.ReactNode }) {
       {/* Main Content (On Top) */}
       <div 
         ref={containerRef} 
-        className="flex-1 flex flex-col h-full w-full bg-suka-cream z-10 will-change-transform shadow-[0_0_30px_rgba(0,0,0,0.08)]"
+        className="flex-1 min-w-0 flex flex-col h-full w-full bg-suka-cream z-10 will-change-transform shadow-[0_0_30px_rgba(0,0,0,0.08)]"
       >
         {children}
       </div>

@@ -8,11 +8,13 @@ import { useAuth } from '@suka/auth'
 import { useRole } from './RoleContext'
 import { NAV_GROUPS, accessibleItems, isItemActive, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
+import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 
 export const BottomNav = () => {
   const pathname = usePathname()
   const { role } = useRole()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [isLogoutOpen, setIsLogoutOpen] = useState(false)
   const { pendingCount } = useLeaveNotifications()
 
   const items = accessibleItems(role)
@@ -30,7 +32,7 @@ export const BottomNav = () => {
     <>
       {/* Bottom Tab Bar (mobile only) */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 w-full z-40 bg-white/95 backdrop-blur-2xl border-t border-suka-orange/10 rounded-t-[24px] shadow-[0_-8px_32px_rgba(112,22,4,0.05)] print:hidden"
+        className="lg:hidden fixed bottom-0 left-0 w-full z-40 bg-white/95 backdrop-blur-2xl border-t border-suka-orange/10 rounded-t-[24px] shadow-[0_-8px_32px_rgba(112,22,4,0.05)] print:hidden"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}
       >
         <div className="flex items-center justify-around h-[76px] px-2 pt-2">
@@ -98,7 +100,7 @@ export const BottomNav = () => {
 
       {/* Full-nav bottom sheet */}
       {sheetOpen && (
-        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-suka-brown/40 backdrop-blur-sm animate-in fade-in duration-200"
@@ -160,7 +162,7 @@ export const BottomNav = () => {
               })}
 
               <button
-                onClick={handleLogout}
+                onClick={() => setIsLogoutOpen(true)}
                 className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-2xl font-bold text-sm text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 active:scale-95 transition-transform"
               >
                 <LogOut size={16} className="text-red-500" />
@@ -170,6 +172,12 @@ export const BottomNav = () => {
           </div>
         </div>
       )}
+
+      <ConfirmLogoutDialog
+        isOpen={isLogoutOpen}
+        onClose={() => setIsLogoutOpen(false)}
+        onConfirm={handleLogout}
+      />
     </>
   )
 }

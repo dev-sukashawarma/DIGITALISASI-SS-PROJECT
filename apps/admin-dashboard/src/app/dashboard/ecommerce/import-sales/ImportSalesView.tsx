@@ -40,20 +40,28 @@ export default function ImportSalesView() {
       setResult(null)
       
       const buffer = await selectedFile.arrayBuffer()
-      const wb = XLSX.read(buffer, { type: 'array' })
+      const wb = XLSX.read(buffer, { type: 'array', cellDates: true })
       const ws = wb.Sheets[wb.SheetNames[0]]
-      const data = XLSX.utils.sheet_to_json(ws)
+      const data = XLSX.utils.sheet_to_json(ws, { raw: false })
       
       setParsedData(data)
 
-      const parseDateString = (dateStr: string) => {
-        if (!dateStr) return null;
-        const match = dateStr.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/);
-        if (match) {
-          const [_, day, month, year, h, m, s] = match;
-          return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')} ${h || '00'}:${m || '00'}:${s || '00'}`;
+      // Normalize any date value (string, Date object, or number) to ISO string
+      const toISODate = (val: any): string | null => {
+        if (!val) return null
+        if (val instanceof Date) return isNaN(val.getTime()) ? null : val.toISOString()
+        if (typeof val === 'number') {
+          const utcMs = (val - 25569) * 86400 * 1000
+          return new Date(utcMs).toISOString()
         }
-        return dateStr;
+        const str = String(val)
+        const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/)
+        if (m) {
+          const [_, day, month, year, h, mm2, s] = m
+          return new Date(`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}T${(h||'00').padStart(2,'0')}:${(mm2||'00').padStart(2,'0')}:${(s||'00').padStart(2,'0')}+07:00`).toISOString()
+        }
+        const parsed = new Date(str)
+        return isNaN(parsed.getTime()) ? null : parsed.toISOString()
       }
 
       const ordersMap = new Map()
@@ -65,7 +73,7 @@ export default function ImportSalesView() {
             ordersMap.set(orderId, {
                id: orderId,
                status: row['Order Status'],
-               date: parseDateString(row['Created Time']) || null,
+               date: toISODate(row['Created Time']),
                subtotal: 0,
                discount: 0,
                total: parseFloat(row['Order Amount'] || '0'),

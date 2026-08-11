@@ -29,7 +29,8 @@
     "react": "^19.0.0-rc.0",
     "react-dom": "^19.0.0-rc.0",
     "react-swipeable": "^7.0.2",
-    "sonner": "^1.4.0"
+    "sonner": "^1.4.0",
+    "ua-parser-js": "^0.7.41"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

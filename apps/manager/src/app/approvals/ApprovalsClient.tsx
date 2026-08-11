@@ -1,10 +1,20 @@
 'use client'
 
 import React, { useState } from 'react';
-import { Check, X, Clock, Loader2, AlertTriangle } from 'lucide-react';
+import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle } from 'lucide-react';
 import { processVoidOrder } from '../actions/cancellations';
+import { searchCompletedOrders, forceCancelCompletedOrder } from '../actions/orderVoid';
 import { useApprovals } from '../../lib/ApprovalsContext';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
+
+type CompletedOrderRow = {
+  id: string
+  order_number: number
+  customer_name: string | null
+  total_amount: number
+  created_at: string
+}
 
 type VoidRequest = {
   id: string
@@ -46,6 +56,55 @@ const getTimeAgo = (dateString: string) => {
 export default function ApprovalsClient({ initialRequests }: { initialRequests: any[] }) {
   const { pendingRequests: requests, refreshApprovals } = useApprovals()
   const [loadingIds, setLoadingIds] = useState<string[]>([])
+  const [tab, setTab] = useState<'pending' | 'completed'>('pending')
+
+  const searchParams = useSearchParams()
+  const outletId = searchParams.get('outlet_id')
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<CompletedOrderRow[]>([])
+  const [searching, setSearching] = useState(false)
+  const [target, setTarget] = useState<CompletedOrderRow | null>(null)
+  const [note, setNote] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!outletId || !query.trim()) return
+    setSearching(true)
+    try {
+      const res = await searchCompletedOrders(outletId, query)
+      if (res.success) {
+        setResults(res.data as CompletedOrderRow[])
+        if (res.data.length === 0) toast.info('Tidak ada pesanan selesai yang cocok.')
+      } else {
+        toast.error(res.error || 'Gagal mencari pesanan')
+      }
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  const closeVoidModal = () => {
+    setTarget(null)
+    setNote('')
+  }
+
+  const handleForceCancel = async () => {
+    if (!target || !outletId || !note.trim()) return
+    setSubmitting(true)
+    try {
+      const res = await forceCancelCompletedOrder(target.id, outletId, note)
+      if (res.success) {
+        toast.success(`Pesanan #${target.order_number} berhasil dibatalkan.`)
+        setResults(prev => prev.filter(r => r.id !== target.id))
+        closeVoidModal()
+      } else {
+        toast.error(res.error || 'Gagal membatalkan pesanan')
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   const [confirmDialog, setConfirmDialog] = useState<{
     isOpen: boolean;
@@ -83,9 +142,34 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h2 className="text-xl sm:text-2xl font-black text-suka-brown">Persetujuan (Approvals)</h2>
+        <h2 className="text-xl sm:text-2xl font-black text-suka-brown">Persetujuan &amp; Pembatalan Pesanan</h2>
       </div>
-      
+
+      <div className="flex gap-2 bg-white rounded-xl border border-suka-brown/5 p-1.5 w-fit shadow-sm">
+        <button
+          onClick={() => setTab('pending')}
+          className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+            tab === 'pending' ? 'bg-suka-orange text-white shadow-sm' : 'text-suka-gray-500 hover:text-suka-brown'
+          }`}
+        >
+          Menunggu Persetujuan
+          {requests.length > 0 && (
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${tab === 'pending' ? 'bg-white/25' : 'bg-suka-orange/10 text-suka-orange'}`}>
+              {requests.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setTab('completed')}
+          className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+            tab === 'completed' ? 'bg-suka-orange text-white shadow-sm' : 'text-suka-gray-500 hover:text-suka-brown'
+          }`}
+        >
+          Pesanan Selesai
+        </button>
+      </div>
+
+      {tab === 'pending' && (
       <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 overflow-hidden">
         <div className="p-4 border-b border-suka-brown/5 bg-suka-cream/30 flex justify-between items-center">
           <h3 className="font-bold text-suka-brown">Antrean Persetujuan Void</h3>
@@ -93,7 +177,7 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
             {requests.length} Menunggu
           </span>
         </div>
-        
+
         {requests.length === 0 ? (
           <div className="p-8 text-center text-suka-gray-500 font-medium">
             Tidak ada pengajuan persetujuan saat ini.
@@ -196,6 +280,109 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
           </div>
         )}
       </div>
+      )}
+
+      {tab === 'completed' && (
+        <div className="space-y-4">
+          {!outletId ? (
+            <div className="bg-white rounded-2xl p-8 text-center text-suka-gray-500 font-medium border border-suka-brown/5">
+              Pilih outlet terlebih dahulu lewat filter outlet di pojok kanan atas.
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-suka-gray-400" />
+                  <input
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                    placeholder="Cari nama pelanggan atau nomor pesanan..."
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-suka-brown/10 bg-white text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-suka-orange/30"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={searching || !query.trim()}
+                  className="px-5 py-3 rounded-xl bg-suka-orange text-white font-black text-sm disabled:opacity-50"
+                >
+                  {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cari'}
+                </button>
+              </form>
+
+              <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 overflow-hidden">
+                {results.length === 0 ? (
+                  <div className="p-8 text-center text-suka-gray-500 font-medium">
+                    Belum ada hasil. Hanya pesanan berstatus <b>selesai</b> yang bisa dibatalkan di sini.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-suka-brown/5">
+                    {results.map(order => (
+                      <div key={order.id} className="p-4 sm:p-5 flex items-center justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="font-black text-suka-brown">
+                            #{order.order_number} <span className="text-suka-gray-400 font-semibold">&middot;</span>{' '}
+                            {order.customer_name || 'Tanpa nama'}
+                          </p>
+                          <p className="text-xs font-bold text-suka-gray-400 mt-0.5">
+                            {new Date(order.created_at).toLocaleString('id-ID')} &middot; {formatRupiah(order.total_amount || 0)}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setTarget(order)}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 font-black text-xs uppercase tracking-wider shrink-0"
+                        >
+                          <XCircle size={16} /> Batalkan
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Confirmation Modal Void Force-Cancel */}
+      {target && (
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-suka-brown/80 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="p-6 bg-red-50 flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500 text-white flex items-center justify-center mb-4">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-lg font-black text-red-600 mb-1">Batalkan Pesanan #{target.order_number}</h3>
+              <p className="text-sm text-suka-gray-600 font-medium">
+                Pesanan ini akan ditandai batal. Catatan alasan wajib diisi.
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <textarea
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="Contoh: order double input, duplikat dari #123"
+                rows={3}
+                className="w-full px-3 py-2.5 rounded-xl border border-suka-brown/10 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-200"
+              />
+              <div className="flex gap-3">
+                <button
+                  onClick={closeVoidModal}
+                  className="flex-1 py-2.5 rounded-xl border-2 border-suka-gray-200 text-suka-gray-600 font-bold hover:bg-suka-gray-50"
+                >
+                  Kembali
+                </button>
+                <button
+                  onClick={handleForceCancel}
+                  disabled={!note.trim() || submitting}
+                  className="flex-1 py-2.5 rounded-xl text-white font-bold bg-red-500 hover:bg-red-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Ya, Batalkan'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmDialog.isOpen && (

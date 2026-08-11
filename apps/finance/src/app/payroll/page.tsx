@@ -1,22 +1,10 @@
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
+import { createServerComponentClient } from '@/lib/supabase-server'
 import { PayrollView } from './components/PayrollView'
 
 export const dynamic = 'force-dynamic'
 
 export default async function PayrollPage() {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    }
-  )
+  const supabase = await createServerComponentClient()
 
   const now = new Date()
   const currentMonth = now.getMonth() + 1

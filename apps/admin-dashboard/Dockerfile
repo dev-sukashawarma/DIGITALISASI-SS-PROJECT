@@ -25,7 +25,7 @@ WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 # Safely copy local node_modules if it exists (for unhoisted packages like next.js)
 COPY --from=deps /repo/apps/admin-dashboard/node_module[s] ./apps/admin-dashboard/node_modules/
-COPY package.json yarn.lock tsconfig.json ./
+COPY package.json yarn.lock .npmrc tsconfig.json ./
 COPY packages packages
 COPY apps/admin-dashboard apps/admin-dashboard
 
@@ -46,7 +46,6 @@ ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
-ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 WORKDIR /repo
 RUN corepack enable && yarn workspace @suka/admin-dashboard build

@@ -2,7 +2,7 @@
 # Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
 
 # --- Stage 1: Install dependencies ---
-FROM node:24-bookworm-slim AS deps
+FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
 # Install python/make if needed for some node-gyp packages, though usually not needed for these apps
@@ -18,14 +18,7 @@ COPY apps/finance/package.json apps/finance/package.json
 
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
-# --- Stage 2: Build Next.js application ---
-FROM node:24-bookworm-slim AS builder
-WORKDIR /repo
-
-COPY --from=deps /repo/node_modules ./node_modules
-# Safely copy local node_modules if it exists (for unhoisted packages like next.js)
-COPY --from=deps /repo/apps/finance/node_module[s] ./apps/finance/node_modules/
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+# Copy source code
 COPY packages packages
 COPY apps/finance apps/finance
 

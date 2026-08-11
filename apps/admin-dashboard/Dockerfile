@@ -1,12 +1,9 @@
 # Multi-stage Dockerfile for Next.js app (@suka/admin-dashboard)
 # Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
 
-# --- Stage 1: Install dependencies ---
-FROM node:24-bookworm-slim AS deps
+# --- Stage 1: Build Next.js application ---
+FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
-
-# Install python/make if needed for some node-gyp packages, though usually not needed for these apps
-# RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests for yarn workspaces resolution
 COPY package.json yarn.lock .npmrc tsconfig.json ./
@@ -16,16 +13,10 @@ COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/admin-dashboard/package.json apps/admin-dashboard/package.json
 
+# Install dependencies (cached by BuildKit)
 RUN --mount=type=cache,target=/usr/local/share/.cache/yarn/v6 corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
-# --- Stage 2: Build Next.js application ---
-FROM node:24-bookworm-slim AS builder
-WORKDIR /repo
-
-COPY --from=deps /repo/node_modules ./node_modules
-# Safely copy local node_modules if it exists (for unhoisted packages like next.js)
-COPY --from=deps /repo/apps/admin-dashboard/node_module[s] ./apps/admin-dashboard/node_modules/
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+# Copy source code
 COPY packages packages
 COPY apps/admin-dashboard apps/admin-dashboard
 
@@ -47,10 +38,10 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-WORKDIR /repo
-RUN corepack enable && node -v && yarn -v && cd apps/admin-dashboard && (yarn build || (echo "YARN BUILD FAILED" && npx next build))
+# Build the application
+RUN corepack enable && yarn workspace @suka/admin-dashboard build
 
-# --- Stage 3: Ultra-lightweight Production Runner ---
+# --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
 WORKDIR /repo/apps/admin-dashboard
 
@@ -58,7 +49,7 @@ ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/admin-dashboard/node_module[s] /repo/apps/admin-dashboard/node_modules/
+COPY --from=builder /repo/apps/admin-dashboard/node_modules /repo/apps/admin-dashboard/node_modules/
 COPY --from=builder /repo/apps/admin-dashboard/package.json ./package.json
 COPY --from=builder /repo/apps/admin-dashboard/.next ./.next
 COPY --from=builder /repo/apps/admin-dashboard/public ./public

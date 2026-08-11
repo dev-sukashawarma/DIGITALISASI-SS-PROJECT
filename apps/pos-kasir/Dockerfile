@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Next.js app (@suka/finance)
+# Multi-stage Dockerfile for Next.js app (@suka/pos-kasir)
 # Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
 
 # --- Stage 1: Install dependencies ---
@@ -14,7 +14,7 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
-COPY apps/finance/package.json apps/finance/package.json
+COPY apps/pos-kasir/package.json apps/pos-kasir/package.json
 
 RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
@@ -25,19 +25,31 @@ WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 COPY package.json yarn.lock tsconfig.json ./
 COPY packages packages
-COPY apps/finance apps/finance
+COPY apps/pos-kasir apps/pos-kasir
 
 # NEXT_PUBLIC_* variables inlined at build time
+ARG KASIR_TO_ORDER_SECRET
 ARG NEXT_PUBLIC_COOKIE_DOMAIN
 ARG NEXT_PUBLIC_PORTAL_URL
+ARG NEXT_PUBLIC_STOK_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_SUPABASE_URL
+ARG ORDER_SYSTEM_NOTIFY_URL
+ARG ORDER_TO_KASIR_SECRET
+ARG SUPABASE_ACCESS_TOKEN
+ARG SUPABASE_PROJECT_ID
 ARG SUPABASE_SERVICE_ROLE_KEY
 
+ENV KASIR_TO_ORDER_SECRET=$KASIR_TO_ORDER_SECRET
 ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
 ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+ENV NEXT_PUBLIC_STOK_URL=$NEXT_PUBLIC_STOK_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV ORDER_SYSTEM_NOTIFY_URL=$ORDER_SYSTEM_NOTIFY_URL
+ENV ORDER_TO_KASIR_SECRET=$ORDER_TO_KASIR_SECRET
+ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
+ENV SUPABASE_PROJECT_ID=$SUPABASE_PROJECT_ID
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 
 # Prevent build process from OOM on low vCPU hosts
@@ -45,20 +57,20 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-WORKDIR /repo/apps/finance
+WORKDIR /repo/apps/pos-kasir
 RUN corepack enable && yarn build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
-WORKDIR /repo/apps/finance
+WORKDIR /repo/apps/pos-kasir
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/finance/package.json ./package.json
-COPY --from=builder /repo/apps/finance/.next ./.next
-COPY --from=builder /repo/apps/finance/public ./public
+COPY --from=builder /repo/apps/pos-kasir/package.json ./package.json
+COPY --from=builder /repo/apps/pos-kasir/.next ./.next
+COPY --from=builder /repo/apps/pos-kasir/public ./public
 
 EXPOSE 3000
 

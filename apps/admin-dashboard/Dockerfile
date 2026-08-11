@@ -1,59 +1,65 @@
-# Build context MUST be the monorepo root (not this directory) — this app
-# depends on npm workspace packages (@suka/auth, @suka/design-system,
-# @suka/realtime) that live at packages/*/src and are resolved via npm
-# workspace symlinks in the root node_modules.
-#
-# Runtime uses server.cjs (same entrypoint as the cPanel production deploy)
-# instead of `next start` on a `standalone` build — see
-# apps/admin-dashboard/next.config.mjs for why `output: 'standalone'` is
-# banned in this repo (it silently disables middleware.ts auth enforcement).
+# Multi-stage Dockerfile for Next.js app (@suka/admin-dashboard)
+# Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
 
-FROM node:24-bookworm-slim
-
+# --- Stage 1: Install dependencies ---
+FROM node:24-bookworm-slim AS deps
 WORKDIR /repo
 
-# --- Layer 1: manifests only, so install is cached unless deps change ---
-# package-lock.json is gitignored in this repo (yarn.lock is the tracked
-# lockfile) — use yarn, not npm, or Coolify's git-cloned context won't have it.
+# Install python/make if needed for some node-gyp packages, though usually not needed for these apps
+# RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Copy manifests for yarn workspaces resolution
 COPY package.json yarn.lock .npmrc tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
+COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/admin-dashboard/package.json apps/admin-dashboard/package.json
 
 RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
-# --- Layer 2: full source ---
-COPY packages/auth packages/auth
-COPY packages/design-system packages/design-system
-COPY packages/realtime packages/realtime
+# --- Stage 2: Build Next.js application ---
+FROM node:24-bookworm-slim AS builder
+WORKDIR /repo
+
+COPY --from=deps /repo/node_modules ./node_modules
+COPY package.json yarn.lock tsconfig.json ./
+COPY packages packages
 COPY apps/admin-dashboard apps/admin-dashboard
 
-# NEXT_PUBLIC_* vars are inlined into the client bundle at build time —
-# they MUST be passed as --build-arg, a runtime-only env var is too late.
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_PORTAL_URL
+# NEXT_PUBLIC_* variables inlined at build time
 ARG NEXT_PUBLIC_COOKIE_DOMAIN
+ARG NEXT_PUBLIC_PORTAL_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+
 ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
+ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 
-# Throttle the build — Hostinger KVM 2 is only 2 vCPU, and this repo has a
-# documented history of OOM/EAGAIN during unthrottled Next builds on
-# constrained hosts (see apps/admin-dashboard/package.json "build:cpanel").
+# Prevent build process from OOM on low vCPU hosts
 ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo/apps/admin-dashboard
-RUN yarn build
+RUN corepack enable && yarn build
+
+# --- Stage 3: Ultra-lightweight Production Runner ---
+FROM node:24-bookworm-slim AS runner
+WORKDIR /repo/apps/admin-dashboard
 
 ENV NODE_ENV=production
 ENV PORT=3000
+
+COPY --from=builder /repo/node_modules /repo/node_modules
+COPY --from=builder /repo/apps/admin-dashboard/package.json ./package.json
+COPY --from=builder /repo/apps/admin-dashboard/.next ./.next
+COPY --from=builder /repo/apps/admin-dashboard/public ./public
+
 EXPOSE 3000
 
-CMD ["node", "server.cjs"]
+CMD ["./node_modules/.bin/next", "start", "-p", "3000"]

@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for Next.js app (@suka/finance)
+# Multi-stage Dockerfile for Next.js app (@suka/absensi)
 # Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
 
 # --- Stage 1: Install dependencies ---
@@ -14,7 +14,7 @@ COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
-COPY apps/finance/package.json apps/finance/package.json
+COPY apps/absensi/package.json apps/absensi/package.json
 
 RUN corepack enable && yarn install --frozen-lockfile --network-timeout 600000
 
@@ -25,7 +25,7 @@ WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 COPY package.json yarn.lock tsconfig.json ./
 COPY packages packages
-COPY apps/finance apps/finance
+COPY apps/absensi apps/absensi
 
 # NEXT_PUBLIC_* variables inlined at build time
 ARG NEXT_PUBLIC_COOKIE_DOMAIN
@@ -45,20 +45,20 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-WORKDIR /repo/apps/finance
+WORKDIR /repo/apps/absensi
 RUN corepack enable && yarn build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
-WORKDIR /repo/apps/finance
+WORKDIR /repo/apps/absensi
 
 ENV NODE_ENV=production
 ENV PORT=3000
 
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/finance/package.json ./package.json
-COPY --from=builder /repo/apps/finance/.next ./.next
-COPY --from=builder /repo/apps/finance/public ./public
+COPY --from=builder /repo/apps/absensi/package.json ./package.json
+COPY --from=builder /repo/apps/absensi/.next ./.next
+COPY --from=builder /repo/apps/absensi/public ./public
 
 EXPOSE 3000
 

@@ -1,0 +1,18 @@
+**/node_modules
+**/.next
+.git
+.github
+.claude
+.superpowers
+mobile
+docs
+sample-reports
+e2e-tests
+recovered_images
+Format Import Channel
+SS COGS SET
+*.sql
+*.log
+*.txt
+*.xlsx
+*.csv

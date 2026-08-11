@@ -62,4 +62,4 @@ COPY --from=builder /repo/apps/stok/public ./public
 
 EXPOSE 3000
 
-CMD ["./node_modules/.bin/next", "start", "-p", "3000"]
+CMD ["/repo/node_modules/.bin/next", "start", "-p", "3000"]

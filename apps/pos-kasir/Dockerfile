@@ -74,4 +74,4 @@ COPY --from=builder /repo/apps/pos-kasir/public ./public
 
 EXPOSE 3000
 
-CMD ["./node_modules/.bin/next", "start", "-p", "3000"]
+CMD ["/repo/node_modules/.bin/next", "start", "-p", "3000"]

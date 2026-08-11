@@ -1,5 +1,5 @@
-import fs from 'fs';
-import path from 'path';
+import fs from 'node:fs';
+import path from 'node:path';
 import Link from 'next/link';
 import { createClient } from '@supabase/supabase-js';
 import MappingTable from './MappingTable';

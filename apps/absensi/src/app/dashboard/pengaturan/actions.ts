@@ -3,11 +3,15 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseKey);
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 export async function saveGlobalConfig(formData: FormData) {
+  const supabaseAdmin = getSupabaseAdmin();
   const jam_masuk = formData.get("jam_masuk") as string;
   const jam_keluar = formData.get("jam_keluar") as string;
   const toleransi_menit = parseInt(formData.get("toleransi_menit") as string || "0", 10);
@@ -43,6 +47,7 @@ export async function saveGlobalConfig(formData: FormData) {
 }
 
 export async function saveOutletException(formData: FormData) {
+  const supabaseAdmin = getSupabaseAdmin();
   const outlet_id = formData.get("outlet_id") as string;
   const jam_masuk = formData.get("jam_masuk") as string;
   const jam_keluar = formData.get("jam_keluar") as string;
@@ -79,6 +84,7 @@ export async function saveOutletException(formData: FormData) {
 }
 
 export async function deleteOutletException(outlet_id: string) {
+  const supabaseAdmin = getSupabaseAdmin();
   const { error } = await supabaseAdmin
     .from("outlet_attendance_config")
     .delete()
@@ -91,6 +97,7 @@ export async function deleteOutletException(outlet_id: string) {
 }
 
 export async function deleteAllExceptions() {
+  const supabaseAdmin = getSupabaseAdmin();
   const { error } = await supabaseAdmin
     .from("outlet_attendance_config")
     .delete()

@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { Button } from '@suka/design-system'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3 } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, XCircle } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
@@ -23,6 +23,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'Manajemen',
     items: [
       { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
+      { href: '/pembatalan-pesanan', label: 'Batalkan Pesanan', icon: XCircle },
       { href: '/team', label: 'Tim / Kru', icon: Users },
       { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
     ]

@@ -22,6 +22,10 @@
     "@suka/design-system": "*",
     "@suka/offline-queue": "*",
     "@suka/realtime": "*",
+    "@tanstack/react-query": "^5.101.0",
+    "sonner": "^1.4.0",
+    "zustand": "^4.5.4",
+    "lucide-react": "^0.300.0",
     "jsqr": "^1.4.0",
     "qrcode": "^1.5.3"
   },

@@ -7,7 +7,7 @@ export const revalidate = 0;
 
 export default async function PengaturanAbsensiPage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "dummy_key_for_build";
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const [globalRes, outletsRes, outletConfigsRes] = await Promise.all([

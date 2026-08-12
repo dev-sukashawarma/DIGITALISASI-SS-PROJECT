@@ -1,6 +1,3 @@
-"use client";
-
-import { motion } from "motion/react";
 import { Flame, Wallet, MapPin } from "lucide-react";
 
 const features = [
@@ -44,12 +41,8 @@ export default function AuthenticExperience() {
         <div className="flex flex-col lg:flex-row items-center gap-10 lg:gap-20 mb-20">
 
           {/* Chef */}
-          <motion.div
-            initial={{ opacity: 0, x: -32 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-            className="relative flex-shrink-0"
+          <div
+            className="relative flex-shrink-0 reveal-on-scroll reveal-left"
           >
             <div className="absolute inset-0 rounded-full bg-[#FFC500]/10 blur-3xl" />
             <img
@@ -59,14 +52,11 @@ export default function AuthenticExperience() {
                          drop-shadow-[0_24px_48px_rgba(0,0,0,0.35)]
                          hover:scale-[1.02] transition-transform duration-500"
             />
-          </motion.div>
+          </div>
 
           {/* Headline block */}
-          <motion.div
-            initial={{ opacity: 0, x: 32 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          <div
+            className="reveal-on-scroll reveal-right delay-150"
           >
             <p className="text-xs font-semibold tracking-[0.22em] uppercase text-[#FE7108] mb-4">
               KENAPA KAMI SPESIAL
@@ -80,30 +70,21 @@ export default function AuthenticExperience() {
               Suka Shawarma<br />
               <span className="text-[#FE7108]">Spesial?</span>
             </h2>
-          </motion.div>
+          </div>
         </div>
 
         {/* 3 feature cards — floating */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6">
           {features.map((item, index) => (
-            <motion.div
+            <div
               key={item.title}
-              initial={{ opacity: 0, y: 32 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{
-                duration: 0.6,
-                delay: index * 0.12,
-                ease: [0.16, 1, 0.3, 1],
-              }}
-              whileHover={{ y: -6, transition: { duration: 0.3, ease: [0.16, 1, 0.3, 1] } }}
-              className="group bg-white/[0.07] backdrop-blur-sm
+              className={`group bg-white/[0.07] backdrop-blur-sm
                          rounded-[28px] p-7
                          border border-white/10
                          shadow-[0_8px_32px_rgba(0,0,0,0.20)]
                          hover:bg-white/[0.11] hover:border-white/20
-                         hover:shadow-[0_20px_48px_rgba(0,0,0,0.30)]
-                         transition-all duration-300 cursor-default"
+                         hover:shadow-[0_20px_48px_rgba(0,0,0,0.30)] hover:-translate-y-1.5
+                         transition-all duration-300 cursor-default reveal-on-scroll ${index === 1 ? 'delay-100' : index === 2 ? 'delay-200' : ''}`}
             >
               {/* Icon */}
               <div className="w-12 h-12 rounded-2xl bg-[#FE7108] flex items-center justify-center mb-5
@@ -118,7 +99,7 @@ export default function AuthenticExperience() {
               <p className="text-white/60 text-sm leading-relaxed">
                 {item.description}
               </p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

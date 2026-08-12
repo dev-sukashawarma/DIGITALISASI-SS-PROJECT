@@ -65,18 +65,18 @@ const description = "Bergabung menjadi mitra resmi Suka Shawarma dan kembangkan 
   </Fragment>
   <Navbar client:load pathname={Astro.url.pathname} />
   <main class="pt-[68px]">
-    <KemitraanHero client:visible />
-    <KemitraanTicker client:visible />
-    <KemitraanAbout client:visible />
-    <KemitraanWhyUs client:visible />
-    <KemitraanGallery client:visible />
-    <KemitraanPackages client:visible />
-    <KemitraanProfit client:visible />
-    <KemitraanROI client:visible />
+    <KemitraanHero />
+    <KemitraanTicker />
+    <KemitraanAbout />
+    <KemitraanWhyUs />
+    <KemitraanGallery />
+    <KemitraanPackages />
+    <KemitraanProfit />
+    <KemitraanROI />
     <KemitraanCalculator client:visible />
-    <KemitraanSteps client:visible />
+    <KemitraanSteps />
     <KemitraanFAQ client:visible />
-    <KemitraanCTA client:visible />
+    <KemitraanCTA />
   </main>
-  <KemitraanFooter client:idle />
+  <KemitraanFooter />
 </Layout>

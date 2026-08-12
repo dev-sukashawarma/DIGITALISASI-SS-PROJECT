@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>comp-toggle.html</title>
+<link rel="stylesheet" href="_shared.css">
+<style>.t{position:relative;display:inline-block;width:42px;height:24px}.t input{opacity:0;width:0;height:0;position:absolute}.s{width:42px;height:24px;background:#e6d4bf;border-radius:12px;display:block;position:relative;transition:background .2s}.s::after{content:'';position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.25)}.t input:checked+.s{background:#0a7d2c}.t input:checked+.s::after{transform:translateX(18px)}.r{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:#fff;border-radius:10px;border:1px solid #f2e6d8;max-width:280px;margin-bottom:8px}.lab{font-size:14px;color:#400a07;font-weight:600}.sub{font-size:12px;color:#8a6b5e}</style>
+</head><body>
+<div class="card" style="height:130px">
+      <div class="label">iOS-style toggle</div>
+      <div style="display:flex;gap:14px;align-items:center;margin-top:12px">
+        <div>
+          <div class="r"><div><div class="lab">Tersedia</div><div class="sub">Customer bisa pesan</div></div><label class="t"><input type="checkbox" checked /><span class="s"></span></label></div>
+          <div class="r"><div><div class="lab">Best Seller</div><div class="sub">Tampil di tab ⭐</div></div><label class="t"><input type="checkbox" /><span class="s"></span></label></div>
+        </div>
+      </div>
+    </div>
+</body></html>

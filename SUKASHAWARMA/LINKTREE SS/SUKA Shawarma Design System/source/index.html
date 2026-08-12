@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Konfirmasi Pesanan — SUKA Shawarma</title>
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <button class="topbar-ic" onclick="history.back()">‹</button>
+    <span class="topbar-title">Konfirmasi Pesanan</span>
+    <span style="width:32px"></span>
+  </div>
+
+  <!-- Stepper: step 2 dari 3 -->
+  <div style="padding:10px 16px 0;background:var(--card);border-bottom:1px solid var(--line)">
+    <div class="stepper">
+      <div class="step on"></div>
+      <div class="step on"></div>
+      <div class="step"></div>
+    </div>
+  </div>
+
+  <!-- Konten utama -->
+  <div id="pageContent">
+    <!-- diisi oleh JS -->
+  </div>
+
+  <!-- Footer bayar -->
+  <div class="sheet-footer" id="footerPay" style="
+    position:fixed;bottom:0;left:50%;transform:translateX(-50%);
+    width:100%;max-width:480px;background:var(--card);
+    padding:12px 16px;border-top:1px solid var(--line);z-index:30;
+    display:none;
+  ">
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:4px">
+      <span>Subtotal</span><span id="fSubtotal">—</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:10px">
+      <span>Biaya layanan</span><span id="fFee">—</span>
+    </div>
+    <button class="btn-add-big" id="btnBayar" onclick="doCheckout()">
+      <span>Bayar Sekarang</span>
+      <span id="fTotal">—</span>
+    </button>
+  </div>
+
+</div><!-- .phone -->
+
+<!-- Loading overlay -->
+<div class="loading-overlay" id="loadingOverlay" style="display:none">
+  <div class="loading-card">
+    <div class="spinner"></div>
+    <p>Memproses pesanan…</p>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="assets/js/supabase.js"></script>
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+// ─── Baca data dari sessionStorage ───────────────────────────────────────────
+const raw = sessionStorage.getItem('suka_checkout');
+let checkoutData = null;
+
+try { checkoutData = raw ? JSON.parse(raw) : null; } catch { checkoutData = null; }
+
+if (!checkoutData || !checkoutData.cart || !checkoutData.cart.length) {
+  document.getElementById('pageContent').innerHTML = `
+    <div class="error-box" style="margin:24px 16px">
+      <p>Data pesanan tidak ditemukan.<br/>Silakan kembali dan coba lagi.</p>
+      <button class="btn-retry" onclick="window.location.href='index.html'">Ke Halaman Utama</button>
+    </div>`;
+} else {
+  renderPage();
+}
+
+// ─── Render halaman konfirmasi ────────────────────────────────────────────────
+function renderPage() {
+  const { outletName, outletAddress, customerName, customerWA, pickupTime, notes, cart } = checkoutData;
+
+  const subtotal = getCartTotal(cart);
+  const fee      = Math.ceil(subtotal * SERVICE_FEE_RATE);
+  const total    = subtotal + fee;
+
+  // Update footer
+  document.getElementById('fSubtotal').textContent = formatRupiah(subtotal);
+  document.getElementById('fFee').textContent      = formatRupiah(fee);
+  document.getElementById('fTotal').textContent    = formatRupiah(total);
+  document.getElementById('footerPay').style.display = '';
+
+  // Items HTML
+  const itemsHtml = cart.map(item => {
+    const sel = summarizeSelections(item.selections);
+    return `<div class="summary-row">
+      <span class="n">
+        <b>${item.qty}× ${item.name}</b>
+        ${sel ? `<br/><span style="color:var(--muted);font-size:12px">${sel}</span>` : ''}
+        ${item.note ? `<br/><span style="color:var(--muted);font-size:12px">📝 ${item.note}</span>` : ''}
+      </span>
+      <span style="text-align:right;white-space:nowrap">${formatRupiah(item.unitPrice * item.qty)}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('pageContent').innerHTML = `
+
+    <!-- Outlet -->
+    <div class="info-card" style="margin-top:12px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px">📍 Outlet Pickup</div>
+      <div class="info-row">
+        <span class="label">Outlet</span>
+        <span class="val">${outletName}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Alamat</span>
+        <span class="val" style="font-size:13px;font-weight:500;color:var(--muted)">${outletAddress}</span>
+      </div>
+    </div>
+
+    <!-- Data pemesan -->
+    <div class="info-card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px">👤 Data Pemesan</div>
+      <div class="info-row">
+        <span class="label">Nama</span>
+        <span class="val">${customerName}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">WhatsApp</span>
+        <span class="val">${customerWA}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Waktu Ambil</span>
+        <span class="val">${pickupTime}</span>
+      </div>
+      ${notes ? `<div class="info-row">
+        <span class="label">Catatan</span>
+        <span class="val" style="font-size:13px;font-weight:500;color:var(--muted)">${notes}</span>
+      </div>` : ''}
+    </div>
+
+    <!-- Ringkasan pesanan -->
+    <div class="info-card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px">🍽 Pesanan</div>
+      <div class="summary-box" style="margin-bottom:0">
+        ${itemsHtml}
+        <div class="summary-row total">
+          <span>Subtotal</span><span>${formatRupiah(subtotal)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rincian harga -->
+    <div class="info-card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px">💰 Rincian Pembayaran</div>
+      <div class="info-row">
+        <span class="label">Subtotal</span>
+        <span class="val">${formatRupiah(subtotal)}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Biaya layanan</span>
+        <span class="val" style="color:var(--muted)">${formatRupiah(fee)} <span style="font-size:11px;font-weight:500">(0.7%)</span></span>
+      </div>
+      <div class="info-row" style="border-top:1px dashed var(--line2);margin-top:6px;padding-top:8px">
+        <span class="label" style="font-weight:700;font-size:15px;color:var(--ink)">Total</span>
+        <span class="val" style="font-size:18px;font-weight:800;color:var(--brand)">${formatRupiah(total)}</span>
+      </div>
+    </div>
+
+    <!-- Pilihan metode pembayaran -->
+    <div class="info-card" style="margin-bottom:12px">
+      <div style="font-weight:700;font-size:14px;margin-bottom:10px">💳 Metode Pembayaran</div>
+
+      <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:2px solid var(--brand);border-radius:10px;cursor:pointer;margin-bottom:8px">
+        <input type="radio" name="payMethod" value="manual" checked style="accent-color:var(--brand)" />
+        <div>
+          <div style="font-weight:600;font-size:13px">💵 Bayar di Kasir / Transfer Manual</div>
+          <div style="font-size:11px;color:var(--muted)">Konfirmasi oleh admin outlet</div>
+        </div>
+      </label>
+
+      <label style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:2px solid var(--line);border-radius:10px;cursor:not-allowed;opacity:0.5">
+        <input type="radio" name="payMethod" value="qris" disabled style="accent-color:var(--brand)" />
+        <div>
+          <div style="font-weight:600;font-size:13px">📱 QRIS Dinamis</div>
+          <div style="font-size:11px;color:var(--muted)">🚧 Coming Soon</div>
+        </div>
+      </label>
+    </div>
+
+    <!-- Penjelasan pembayaran -->
+    <div class="hint-banner" style="margin:0 12px 12px">
+      💡 Pesanan akan langsung tercatat. Selesaikan pembayaran di kasir outlet saat pickup.
+    </div>
+
+    <!-- Spacer agar konten tidak tertutup footer -->
+    <div style="height:140px"></div>
+  `;
+}
+
+// ─── Submit ke Edge Function ──────────────────────────────────────────────────
+let isSubmitting = false;
+
+async function doCheckout() {
+  if (isSubmitting) return;
+  isSubmitting = true;
+
+  const btnBayar = document.getElementById('btnBayar');
+  btnBayar.disabled = true;
+  document.getElementById('loadingOverlay').style.display = 'flex';
+
+  try {
+    const result = await submitManualOrder(checkoutData);
+
+    // Simpan data order di sessionStorage untuk dibaca order.html
+    sessionStorage.setItem('suka_order', JSON.stringify({
+      order_number:   result.order_number,
+      order_id:       result.order_id,
+      total:          result.total,
+      subtotal:       result.subtotal,
+      service_fee:    result.service_fee,
+      outlet_name:    checkoutData.outletName,
+      outlet_address: checkoutData.outletAddress,
+      customer_name:  checkoutData.customerName,
+      pickup_time:    checkoutData.pickupTime,
+      payment_method: 'manual',
+    }));
+
+    // Hapus cart setelah order berhasil dibuat
+    clearCart(checkoutData.outletSlug);
+
+    // Redirect ke halaman status order
+    window.location.href = 'order.html?order=' + result.order_number;
+
+  } catch (err) {
+    document.getElementById('loadingOverlay').style.display = 'none';
+    btnBayar.disabled = false;
+    isSubmitting = false;
+    showToast('❌ ' + (err.message || 'Gagal memproses pesanan. Coba lagi.'), 4000);
+  }
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

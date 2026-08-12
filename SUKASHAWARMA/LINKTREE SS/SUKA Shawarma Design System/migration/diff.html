@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>style.css — rebrand diff</title>
+<link rel="stylesheet" href="../colors_and_type.css" />
+<style>
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #faf3e9;
+  color: var(--fg1);
+}
+.page {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+header {
+  margin-bottom: 24px;
+  padding: 22px 24px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+h1 {
+  font-family: var(--font-display);
+  color: var(--brand-ink);
+  font-size: 28px;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  margin: 0 0 6px;
+  line-height: 1;
+}
+.sub {
+  font-size: 14px;
+  color: var(--fg-muted);
+  margin-bottom: 14px;
+}
+.meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.meta-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-ink);
+  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.meta-pill.del { background: #fbe7df; color: #701604; }
+.meta-pill.add { background: #e8f4ea; color: #0a7d2c; }
+.legend { font-size: 12px; color: var(--fg-muted); margin-left: auto; }
+.files {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--fg-muted);
+}
+.files span { padding: 4px 10px; background: var(--bg); border-radius: 6px; }
+.files .arrow { background: transparent; color: var(--fg-faint); }
+
+.hunk {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+.hunk-head {
+  padding: 8px 14px;
+  background: #fff7ed;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  border-bottom: 1px solid var(--line);
+  font-weight: 600;
+}
+table.diff {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.55;
+  table-layout: fixed;
+}
+col.ln { width: 48px; }
+table.diff td {
+  padding: 1px 10px;
+  vertical-align: top;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+td.ln {
+  text-align: right;
+  color: var(--fg-faint);
+  user-select: none;
+  background: #faf3e9;
+  border-right: 1px solid var(--line);
+  font-size: 11px;
+  padding-top: 2px;
+}
+td.ln.del { background: #fbe7df; color: #701604; }
+td.ln.add { background: #e8f4ea; color: #0a7d2c; }
+td.src.del { background: #fdf0eb; color: #4a1410; }
+td.src.add { background: #f1f9f3; color: #0a3818; }
+tr.ctx td.src { color: var(--fg-muted); }
+mark.del { background: #f7c5b6; color: #4a1410; border-radius: 2px; padding: 0 2px; }
+mark.add { background: #aedeb9; color: #0a3818; border-radius: 2px; padding: 0 2px; }
+
+footer {
+  margin-top: 28px;
+  padding: 18px 22px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--fg2);
+  line-height: 1.55;
+}
+footer b { color: var(--fg1); }
+footer code {
+  font-family: var(--font-mono);
+  background: var(--bg);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <h1>style.css — rebrand diff</h1>
+  <div class="sub">Apply this patch to <code>assets/css/style.css</code> in your FormOrder_SS repo to swap the legacy red palette for the warm SUKA palette. No markup changes needed — every selector keeps using the same tokens.</div>
+  <div class="meta">
+    <span class="meta-pill">14 lines changed</span>
+    <span class="meta-pill">2 hunks</span>
+    <span class="meta-pill">939 lines total · no insertions/deletions</span>
+    <span class="legend">red = before · green = after</span>
+  </div>
+  <div class="files">
+    <span>source/style.css</span>
+    <span class="arrow">→</span>
+    <span>migration/style.css</span>
+  </div>
+</header>
+
+<div class="hunk">
+    <div class="hunk-head">@@ lines 2–25 @@</div>
+    <table class="diff">
+      <colgroup><col class="ln"><col class="ln"><col><col></colgroup>
+      <tbody><tr class="ctx">
+        <td class="ln">2</td><td class="ln">2</td>
+        <td class="src">&nbsp;</td>
+        <td class="src">&nbsp;</td>
+      </tr><tr class="ctx">
+        <td class="ln">3</td><td class="ln">3</td>
+        <td class="src">/* ─── Variables ─────────────────────────────────────────────────────────────── */</td>
+        <td class="src">/* ─── Variables ─────────────────────────────────────────────────────────────── */</td>
+      </tr><tr class="ctx">
+        <td class="ln">4</td><td class="ln">4</td>
+        <td class="src">:root {</td>
+        <td class="src">:root {</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">5</td><td class="ln add">5</td>
+        <td class="src del">  --bg:        #f<mark class="del">afafa</mark>;</td>
+        <td class="src add">  --bg:        #f<mark class="add">fffff</mark>;</td>
+      </tr><tr class="ctx">
+        <td class="ln">6</td><td class="ln">6</td>
+        <td class="src">  --card:      #ffffff;</td>
+        <td class="src">  --card:      #ffffff;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">7</td><td class="ln add">7</td>
+        <td class="src del">  --ink:       #<mark class="del">111111</mark>;</td>
+        <td class="src add">  --ink:       #<mark class="add">400a07</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">8</td><td class="ln add">8</td>
+        <td class="src del">  --ink2:      #<mark class="del">333333</mark>;</td>
+        <td class="src add">  --ink2:      #<mark class="add">701604</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">9</td><td class="ln add">9</td>
+        <td class="src del">  --muted:     #<mark class="del">666666</mark>;</td>
+        <td class="src add">  --muted:     #<mark class="add">8a6b5e</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">10</td><td class="ln add">10</td>
+        <td class="src del">  --faint:     #<mark class="del">999999</mark>;</td>
+        <td class="src add">  --faint:     #<mark class="add">b39a8a</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">11</td><td class="ln add">11</td>
+        <td class="src del">  --line:      #<mark class="del">eeeeee</mark>;</td>
+        <td class="src add">  --line:      #<mark class="add">f2e6d8</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">12</td><td class="ln add">12</td>
+        <td class="src del">  --line2:     #e<mark class="del">4e4e4</mark>;</td>
+        <td class="src add">  --line2:     #e<mark class="add">6d4bf</mark>;</td>
+      </tr><tr class="ctx">
+        <td class="ln">13</td><td class="ln">13</td>
+        <td class="src">&nbsp;</td>
+        <td class="src">&nbsp;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">14</td><td class="ln add">14</td>
+        <td class="src del">  --brand:     #f<mark class="del">f4d4f</mark>;</td>
+        <td class="src add">  --brand:     #f<mark class="add">29744</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">15</td><td class="ln add">15</td>
+        <td class="src del">  --brand-dk:  #e<mark class="del">83e40</mark>;</td>
+        <td class="src add">  --brand-dk:  #e<mark class="add">e8a2c</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">16</td><td class="ln add">16</td>
+        <td class="src del">  --brand-bg:  #fff1<mark class="del">f1</mark>;</td>
+        <td class="src add">  --brand-bg:  #fff1<mark class="add">e0</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">17</td><td class="ln add">17</td>
+        <td class="src del">  --accent:    #fff<mark class="del">5e6</mark>;</td>
+        <td class="src add">  --accent:    #fff<mark class="add">1e0</mark>;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">18</td><td class="ln add">18</td>
+        <td class="src del">  --accent-ink:#<mark class="del">a85b00</mark>;</td>
+        <td class="src add">  --accent-ink:#<mark class="add">701604</mark>;</td>
+      </tr><tr class="ctx">
+        <td class="ln">19</td><td class="ln">19</td>
+        <td class="src">&nbsp;</td>
+        <td class="src">&nbsp;</td>
+      </tr><tr class="ctx">
+        <td class="ln">20</td><td class="ln">20</td>
+        <td class="src">  --green:     #0a7d2c;</td>
+        <td class="src">  --green:     #0a7d2c;</td>
+      </tr><tr class="ctx">
+        <td class="ln">21</td><td class="ln">21</td>
+        <td class="src">  --green-bg:  #f0fdf4;</td>
+        <td class="src">  --green-bg:  #f0fdf4;</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">22</td><td class="ln add">22</td>
+        <td class="src del">  --orange:    #f<mark class="del">97316</mark>;</td>
+        <td class="src add">  --orange:    #f<mark class="add">29744</mark>;</td>
+      </tr><tr class="ctx">
+        <td class="ln">23</td><td class="ln">23</td>
+        <td class="src">  --blue:      #2563eb;</td>
+        <td class="src">  --blue:      #2563eb;</td>
+      </tr><tr class="ctx">
+        <td class="ln">24</td><td class="ln">24</td>
+        <td class="src">&nbsp;</td>
+        <td class="src">&nbsp;</td>
+      </tr><tr class="ctx">
+        <td class="ln">25</td><td class="ln">25</td>
+        <td class="src">  --radius:    14px;</td>
+        <td class="src">  --radius:    14px;</td>
+      </tr></tbody></table></div><div class="hunk">
+    <div class="hunk-head">@@ lines 467–473 @@</div>
+    <table class="diff">
+      <colgroup><col class="ln"><col class="ln"><col><col></colgroup>
+      <tbody><tr class="ctx">
+        <td class="ln">467</td><td class="ln">467</td>
+        <td class="src">&nbsp;</td>
+        <td class="src">&nbsp;</td>
+      </tr><tr class="ctx">
+        <td class="ln">468</td><td class="ln">468</td>
+        <td class="src">/* ─── Home page hero ──────────────────────────────────────────────────────────── */</td>
+        <td class="src">/* ─── Home page hero ──────────────────────────────────────────────────────────── */</td>
+      </tr><tr class="ctx">
+        <td class="ln">469</td><td class="ln">469</td>
+        <td class="src">.home-hero {</td>
+        <td class="src">.home-hero {</td>
+      </tr><tr class="diff-row">
+        <td class="ln del">470</td><td class="ln add">470</td>
+        <td class="src del">  background: linear-gradient(135deg, var(--brand) 0%, <mark class="del">#ff8c42</mark> 100%);</td>
+        <td class="src add">  background: linear-gradient(135deg, var(--brand) 0%, <mark class="add">var(--brand-dk)</mark> 100%);</td>
+      </tr><tr class="ctx">
+        <td class="ln">471</td><td class="ln">471</td>
+        <td class="src">  padding: 24px 16px 20px; color: #fff;</td>
+        <td class="src">  padding: 24px 16px 20px; color: #fff;</td>
+      </tr><tr class="ctx">
+        <td class="ln">472</td><td class="ln">472</td>
+        <td class="src">}</td>
+        <td class="src">}</td>
+      </tr><tr class="ctx">
+        <td class="ln">473</td><td class="ln">473</td>
+        <td class="src">.home-hero h1 { margin: 0 0 4px; font-size: 20px; font-weight: 800; }</td>
+        <td class="src">.home-hero h1 { margin: 0 0 4px; font-size: 20px; font-weight: 800; }</td>
+      </tr></tbody></table></div>
+
+<footer>
+  <p><b>How to apply.</b> Either (a) copy <code>migration/style.css</code> over <code>assets/css/style.css</code> in your repo, or (b) only edit the <code>:root { … }</code> block at the top — that accounts for 13 of the changes; the 14th is one gradient inside <code>.home-hero</code>.</p>
+  <p>Also update the PWA theme color in every HTML file: <code>&lt;meta name="theme-color" content="#ff4d4f"&gt;</code> → <code>#f29744</code>. That's a one-line find-replace across <code>index.html, menu.html, checkout.html, order.html, admin/*.html, manifest.json</code>.</p>
+  <p>The legacy red <code>#ff4d4f</code> shows up nowhere else in the codebase — every component already consumes <code>var(--brand)</code>, so the rebrand really is just this one file.</p>
+</footer>
+
+</div>
+</body>
+</html>

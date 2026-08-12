@@ -1,0 +1,191 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SUKA Shawarma — Design Tokens
+   Colors + Type, both base values and semantic aliases.
+
+   Palette overrides the legacy red (#ff4d4f) used in the source repo with the
+   warm orange / deep-brown palette from the official brand color plate
+   (SS_cp_001).  When generating new SUKA designs, use these tokens — NOT the
+   red in assets/css/style.css.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ─── Fonts (Google Fonts substitutes — see README for sourcing notes) ─── */
+@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+:root {
+  /* ── BRAND PALETTE (from SS_cp_001) ─────────────────────────────────── */
+  --suka-orange:        #f29744;   /* primary — disc behind chef, "A" highlights */
+  --suka-orange-deep:   #ee8a2c;   /* hover / pressed */
+  --suka-orange-soft:   #fff1e0;   /* tint backgrounds, chips */
+  --suka-orange-edge:   #ffd9b0;   /* dashed borders, dividers on tint */
+
+  --suka-brown:         #701604;   /* "SHAWARMA" deep red-brown */
+  --suka-brown-deep:    #5a1003;   /* hover for brown buttons */
+  --suka-brown-soft:    #fbe7df;   /* tints */
+
+  --suka-ink:           #400a07;   /* "SUKA" near-black brown — body text */
+  --suka-ink-2:         #6b3a31;   /* secondary body */
+
+  --suka-cream:         #fff7ed;   /* warm app background */
+  --suka-paper:         #ffffff;   /* card surface */
+  --suka-line:          #f2e6d8;   /* warm divider */
+  --suka-line-2:        #e6d4bf;   /* warm border-2 */
+  --suka-muted:         #8a6b5e;   /* warm muted */
+  --suka-faint:         #b39a8a;
+
+  /* Supporting semantic colors (kept from source, tuned slightly) */
+  --suka-green:         #0a7d2c;
+  --suka-green-soft:    #f0fdf4;
+  --suka-yellow:        #fff8e1;
+  --suka-yellow-ink:    #7a5c00;
+  --suka-blue:          #2563eb;
+
+  /* ── SEMANTIC ALIASES (use these in components) ─────────────────────── */
+  --bg:                 var(--suka-cream);
+  --surface:            var(--suka-paper);
+  --surface-2:          #faf3e9;
+  --line:               var(--suka-line);
+  --line-2:             var(--suka-line-2);
+
+  --fg1:                var(--suka-ink);       /* primary text */
+  --fg2:                var(--suka-ink-2);     /* secondary text */
+  --fg-muted:           var(--suka-muted);
+  --fg-faint:           var(--suka-faint);
+  --fg-inverse:         #ffffff;
+
+  --brand:              var(--suka-orange);
+  --brand-deep:         var(--suka-orange-deep);
+  --brand-soft:         var(--suka-orange-soft);
+  --brand-edge:         var(--suka-orange-edge);
+  --brand-ink:          var(--suka-brown);     /* text/icons on brand-soft */
+
+  --accent:             var(--suka-brown);
+  --accent-deep:        var(--suka-brown-deep);
+  --accent-soft:        var(--suka-brown-soft);
+
+  /* Status */
+  --ok:                 var(--suka-green);
+  --ok-soft:            var(--suka-green-soft);
+  --warn:               var(--suka-yellow-ink);
+  --warn-soft:          var(--suka-yellow);
+  --info:               var(--suka-blue);
+  --info-soft:          #eff6ff;
+  --danger:             var(--suka-brown);
+  --danger-soft:        var(--suka-brown-soft);
+
+  /* ── TYPE FAMILIES ──────────────────────────────────────────────────── */
+  --font-display:       "Lilita One", "Boogaloo", "Modak", system-ui, sans-serif;
+  --font-sans:          "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont,
+                        "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --font-mono:          ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ── TYPE SCALE (mobile-first; deck/admin pages can opt up) ─────────── */
+  --fs-display:         32px;     /* hero / outlet name / big stats */
+  --fs-h1:              22px;
+  --fs-h2:              18px;     /* section heads, sheet titles */
+  --fs-h3:              16px;     /* card titles, item names */
+  --fs-body:            14px;     /* default body */
+  --fs-body-sm:         13px;     /* secondary body, hints */
+  --fs-caption:         12px;     /* metadata, addresses, hints */
+  --fs-overline:        11px;     /* section labels (uppercase) */
+  --fs-tiny:            10px;     /* badge text, smallest meta */
+
+  --lh-tight:           1.15;
+  --lh-snug:            1.3;
+  --lh-normal:          1.5;
+
+  --tracking-display:   0;
+  --tracking-overline:  0.5px;    /* applied with text-transform: uppercase */
+
+  /* ── RADII & SHADOWS ────────────────────────────────────────────────── */
+  --radius-xs:          8px;
+  --radius-sm:          10px;
+  --radius:             14px;
+  --radius-lg:          20px;
+  --radius-pill:        999px;
+
+  --shadow-sm:          0 1px 2px rgba(64,10,7,.04);
+  --shadow:             0 1px 2px rgba(64,10,7,.04), 0 4px 16px rgba(64,10,7,.07);
+  --shadow-lg:          0 8px 30px rgba(64,10,7,.18);
+  --shadow-brand:       0 6px 20px rgba(242,151,68,.30);
+
+  /* ── SPACING ─────────────────────────────────────────────────────────── */
+  --space-1:            4px;
+  --space-2:            8px;
+  --space-3:            12px;
+  --space-4:            16px;
+  --space-5:            20px;
+  --space-6:            24px;
+  --space-8:            32px;
+  --space-10:           40px;
+
+  /* ── LAYOUT ──────────────────────────────────────────────────────────── */
+  --container-mobile:   480px;     /* the .phone shell width */
+  --gutter:             16px;
+}
+
+/* ─── BASE TYPE RULES ──────────────────────────────────────────────────── */
+html, body {
+  font-family: var(--font-sans);
+  font-size:   var(--fs-body);
+  line-height: var(--lh-normal);
+  color:       var(--fg1);
+  background:  var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+.display, h1.display {
+  font-family: var(--font-display);
+  font-size:   var(--fs-display);
+  line-height: var(--lh-tight);
+  color:       var(--brand-ink);
+  font-weight: 400;            /* Lilita One is already black-weight */
+  letter-spacing: var(--tracking-display);
+}
+
+h1 {
+  font-family: var(--font-sans);
+  font-size:   var(--fs-h1);
+  font-weight: 800;
+  line-height: var(--lh-tight);
+  color:       var(--fg1);
+  margin:      0 0 var(--space-2);
+}
+
+h2 {
+  font-size:   var(--fs-h2);
+  font-weight: 700;
+  line-height: var(--lh-snug);
+  color:       var(--fg1);
+  margin:      0 0 var(--space-2);
+}
+
+h3 {
+  font-size:   var(--fs-h3);
+  font-weight: 700;
+  line-height: var(--lh-snug);
+  color:       var(--fg1);
+  margin:      0 0 var(--space-1);
+}
+
+p {
+  font-size:   var(--fs-body);
+  line-height: var(--lh-normal);
+  color:       var(--fg2);
+  margin:      0 0 var(--space-3);
+}
+
+.body-sm    { font-size: var(--fs-body-sm); line-height: var(--lh-normal); color: var(--fg2); }
+.caption    { font-size: var(--fs-caption); color: var(--fg-muted); line-height: var(--lh-snug); }
+.overline   {
+  font-size: var(--fs-overline);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-overline);
+  color: var(--fg-muted);
+}
+.tiny       { font-size: var(--fs-tiny); color: var(--fg-muted); }
+.price      { font-weight: 800; color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+.price-big  { font-size: 18px; font-weight: 800; color: var(--brand-ink); }
+.price-old  { color: var(--fg-faint); text-decoration: line-through; font-weight: 500; font-size: var(--fs-caption); }
+
+code, .mono { font-family: var(--font-mono); font-size: var(--fs-body-sm); }

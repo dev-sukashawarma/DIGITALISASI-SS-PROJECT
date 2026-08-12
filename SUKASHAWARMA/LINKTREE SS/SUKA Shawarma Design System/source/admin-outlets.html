@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Outlet — SUKA Admin</title>
+<link rel="stylesheet" href="../assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-title">📍 Outlet</span>
+    <button class="topbar-action" onclick="openOutletForm(null)">+ Tambah</button>
+  </div>
+
+  <!-- Daftar outlet -->
+  <div id="outletList" style="padding:8px 12px">
+    <div class="skeleton-card"><div class="skeleton-lines">
+      <div class="skeleton skeleton-line"></div>
+      <div class="skeleton skeleton-line short"></div>
+    </div></div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="admin-nav">
+    <a href="/admin/index.html"><span>🏠</span><span>Dashboard</span></a>
+    <a href="/admin/orders.html"><span>📋</span><span>Pesanan</span></a>
+    <a href="/admin/menu.html"><span>🌯</span><span>Menu</span></a>
+    <a href="/admin/reports.html"><span>📊</span><span>Laporan</span></a>
+    <a href="/admin/outlets.html" class="admin-only"><span>📍</span><span>Outlet</span></a>
+    <a href="/admin/settings.html" class="admin-only"><span>⚙️</span><span>Pengaturan</span></a>
+  </nav>
+
+</div>
+<div class="toast" id="toast"></div>
+<div id="adminModal" class="admin-modal-overlay" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<script src="../assets/js/supabase.js"></script>
+<script src="../assets/js/utils.js"></script>
+<script src="../assets/js/admin.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let allOutlets = [];
+
+// ─── Init — super_admin only ──────────────────────────────────────────────────
+(async function init() {
+  const u = await requireSuperAdmin();
+  if (!u) return;
+  await loadOutlets();
+})();
+
+// ─── Load ─────────────────────────────────────────────────────────────────────
+async function loadOutlets() {
+  const { data } = await window.db
+    .from('outlets')
+    .select('*')
+    .order('name');
+  allOutlets = data || [];
+  renderOutlets();
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderOutlets() {
+  const el = document.getElementById('outletList');
+  if (allOutlets.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">📍</div>
+      <div class="empty-title">Belum ada outlet</div>
+      <div class="empty-desc">Tekan + Tambah untuk menambah outlet baru</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = allOutlets.map(outletRow).join('') + '<div style="height:80px"></div>';
+}
+
+function outletRow(o) {
+  const hours = (o.open_hour && o.close_hour)
+    ? `${o.open_hour.slice(0, 5)}–${o.close_hour.slice(0, 5)}`
+    : 'Jam belum diset';
+
+  return `<div class="admin-order-row" style="opacity:${o.is_active ? 1 : 0.55}">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="width:48px;height:48px;border-radius:10px;flex-shrink:0;
+                  background:linear-gradient(135deg,#ffd166,#ff8c42);
+                  display:flex;align-items:center;justify-content:center;font-size:24px">
+        📍
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${o.name}</div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:4px">${o.address}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <span class="${o.type === 'owned' ? 'badge-owned' : 'badge-partner'} badge">
+            ${o.type === 'owned' ? 'Owned' : 'Partner'}
+          </span>
+          <span style="font-size:11px;color:var(--muted)">⏰ ${hours}</span>
+          ${o.phone_wa ? `<span style="font-size:11px;color:var(--muted)">📱 ${o.phone_wa}</span>` : ''}
+        </div>
+        ${o.lat && o.lng ? `<div style="font-size:11px;color:var(--faint);margin-top:2px">${o.lat}, ${o.lng}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex-shrink:0">
+        <label class="toggle-wrap">
+          <input type="checkbox" ${o.is_active ? 'checked' : ''}
+                 onchange="toggleOutlet('${o.id}',this.checked)" />
+          <span class="toggle-slider"></span>
+        </label>
+        <button class="action-btn action-secondary"
+                style="font-size:11px;padding:4px 10px"
+                onclick="openOutletForm('${o.id}')">Edit</button>
+        <button class="action-btn action-secondary"
+                style="font-size:11px;padding:4px 10px"
+                onclick="openOverrideManager('${o.id}')">Harga</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── Toggle aktif ─────────────────────────────────────────────────────────────
+async function toggleOutlet(outletId, active) {
+  const { error } = await window.db
+    .from('outlets').update({ is_active: active }).eq('id', outletId);
+  if (error) { adminToast('❌ ' + error.message); return; }
+  const idx = allOutlets.findIndex(o => o.id === outletId);
+  if (idx >= 0) allOutlets[idx].is_active = active;
+  adminToast(active ? '✅ Outlet diaktifkan' : '⏸ Outlet dinonaktifkan');
+  renderOutlets();
+}
+
+// ─── Form outlet ──────────────────────────────────────────────────────────────
+function openOutletForm(outletId) {
+  const o    = outletId ? allOutlets.find(x => x.id === outletId) : null;
+  const isNew = !o;
+
+  openModal(isNew ? '+ Tambah Outlet' : 'Edit Outlet', `
+    <div class="form-group">
+      <label class="form-label">Nama Outlet</label>
+      <input id="oName" class="form-input" value="${o?.name || ''}"
+             placeholder="SUKA Shawarma Menteng" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Slug (URL, huruf kecil & tanda hubung)</label>
+      <input id="oSlug" class="form-input" value="${o?.slug || ''}"
+             placeholder="menteng"
+             ${!isNew ? 'readonly style="background:var(--bg);color:var(--muted)"' : ''} />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Alamat Lengkap</label>
+      <textarea id="oAddr" class="form-input" rows="2"
+                placeholder="Jl. …">${o?.address || ''}</textarea>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Latitude</label>
+        <input id="oLat" class="form-input" type="number" step="any"
+               value="${o?.lat || ''}" placeholder="-6.2" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Longitude</label>
+        <input id="oLng" class="form-input" type="number" step="any"
+               value="${o?.lng || ''}" placeholder="106.8" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">No WhatsApp (format: 628xxx)</label>
+      <input id="oWa" class="form-input" value="${o?.phone_wa || ''}"
+             placeholder="628123456789" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Jam Buka</label>
+        <input id="oOpen" class="form-input" type="time"
+               value="${o?.open_hour?.slice(0, 5) || ''}" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jam Tutup</label>
+        <input id="oClose" class="form-input" type="time"
+               value="${o?.close_hour?.slice(0, 5) || ''}" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tipe Outlet</label>
+      <select id="oType" class="form-input">
+        <option value="owned"   ${o?.type === 'owned'   ? 'selected' : ''}>Owned (milik sendiri)</option>
+        <option value="partner" ${o?.type === 'partner' ? 'selected' : ''}>Partner (mitra)</option>
+      </select>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:6px">
+      <input id="oActive" type="checkbox" ${o?.is_active !== false ? 'checked' : ''} />
+      Outlet aktif (tampil di daftar)
+    </label>
+  `,
+  `<button class="btn-add-big" style="width:100%"
+           onclick="saveOutlet(${o ? `'${o.id}'` : 'null'})">
+     ${isNew ? 'Tambah Outlet' : 'Simpan Perubahan'}
+   </button>`);
+}
+
+async function saveOutlet(outletId) {
+  const name   = document.getElementById('oName').value.trim();
+  const slug   = document.getElementById('oSlug').value.trim()
+                   .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const addr   = document.getElementById('oAddr').value.trim();
+  const lat    = parseFloat(document.getElementById('oLat').value)  || null;
+  const lng    = parseFloat(document.getElementById('oLng').value)  || null;
+  const wa     = document.getElementById('oWa').value.trim()        || null;
+  const open   = document.getElementById('oOpen').value             || null;
+  const close  = document.getElementById('oClose').value            || null;
+  const type   = document.getElementById('oType').value;
+  const active = document.getElementById('oActive').checked;
+
+  if (!name)  { adminToast('❌ Nama wajib diisi'); return; }
+  if (!addr)  { adminToast('❌ Alamat wajib diisi'); return; }
+  if (!slug)  { adminToast('❌ Slug wajib diisi'); return; }
+
+  const payload = {
+    name, slug, address: addr, lat, lng,
+    phone_wa: wa, open_hour: open, close_hour: close,
+    type, is_active: active,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (outletId) {
+    const { error } = await window.db.from('outlets').update(payload).eq('id', outletId);
+    if (error) { adminToast('❌ ' + error.message); return; }
+    const idx = allOutlets.findIndex(o => o.id === outletId);
+    if (idx >= 0) allOutlets[idx] = { ...allOutlets[idx], ...payload };
+    adminToast('✅ Outlet diperbarui');
+  } else {
+    const { data, error } = await window.db
+      .from('outlets').insert(payload).select().single();
+    if (error) { adminToast('❌ ' + error.message); return; }
+    allOutlets.push(data);
+    adminToast('✅ Outlet ditambahkan');
+  }
+
+  closeModal();
+  renderOutlets();
+}
+
+// ─── Override harga per outlet ────────────────────────────────────────────────
+async function openOverrideManager(outletId) {
+  const outlet = allOutlets.find(o => o.id === outletId);
+  if (!outlet) return;
+
+  openModal(`Harga Override: ${outlet.name}`,
+    `<div style="text-align:center;padding:20px 0"><div class="spinner" style="margin:0 auto 8px"></div><div style="font-size:13px;color:var(--muted)">Memuat data…</div></div>`
+  );
+
+  const [itemsRes, overridesRes] = await Promise.all([
+    window.db.from('menu_items').select('id, name, base_price, is_active').order('name'),
+    window.db.from('outlet_menu_overrides')
+      .select('id, menu_item_id, price_override, is_available')
+      .eq('outlet_id', outletId),
+  ]);
+
+  const items     = itemsRes.data     || [];
+  const overrides = overridesRes.data || [];
+  const overrideMap = Object.fromEntries(overrides.map(o => [o.menu_item_id, o]));
+
+  const rowsHtml = items.map(item => {
+    const ov = overrideMap[item.id];
+    return `<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600">${item.name}</div>
+        <div style="font-size:11px;color:var(--muted)">Dasar: ${formatRupiah(item.base_price)}</div>
+      </div>
+      <input type="number" min="0" step="500"
+             id="ovPrice-${item.id}"
+             class="form-input" style="width:100px;font-size:12px;padding:6px 8px"
+             value="${ov?.price_override ?? ''}"
+             placeholder="Sama" />
+      <label class="toggle-wrap" title="Tersedia">
+        <input type="checkbox" id="ovAvail-${item.id}"
+               ${ov?.is_available !== false ? 'checked' : ''} />
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`;
+  }).join('');
+
+  openModal(`Harga Override: ${outlet.name}`,
+    `<div style="font-size:12px;color:var(--muted);margin-bottom:10px">
+       Kosongkan harga = pakai harga dasar. Toggle = ketersediaan di outlet ini.
+     </div>
+     <div id="overrideRows">${rowsHtml}</div>`,
+    `<button class="btn-add-big" style="width:100%" onclick="saveOverrides('${outletId}')">
+       Simpan Semua Override
+     </button>`
+  );
+
+  // Simpan referensi untuk saveOverrides
+  window._overrideItems = items;
+  window._overrideMap   = overrideMap;
+}
+
+async function saveOverrides(outletId) {
+  const items       = window._overrideItems || [];
+  const overrideMap = window._overrideMap   || {};
+  const upserts     = [];
+
+  for (const item of items) {
+    const priceEl = document.getElementById(`ovPrice-${item.id}`);
+    const availEl = document.getElementById(`ovAvail-${item.id}`);
+    if (!priceEl || !availEl) continue;
+
+    const price = priceEl.value !== '' ? parseFloat(priceEl.value) : null;
+    const avail = availEl.checked;
+    const existing = overrideMap[item.id];
+
+    // Hanya upsert jika ada perubahan atau sudah ada override sebelumnya
+    if (existing || price !== null || !avail) {
+      upserts.push({
+        outlet_id:      outletId,
+        menu_item_id:   item.id,
+        price_override: price,
+        is_available:   avail,
+      });
+    }
+  }
+
+  if (upserts.length === 0) {
+    adminToast('Tidak ada perubahan'); closeModal(); return;
+  }
+
+  const { error } = await window.db
+    .from('outlet_menu_overrides')
+    .upsert(upserts, { onConflict: 'outlet_id,menu_item_id' });
+
+  if (error) { adminToast('❌ ' + error.message); return; }
+  adminToast(`✅ ${upserts.length} override disimpan`);
+  closeModal();
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

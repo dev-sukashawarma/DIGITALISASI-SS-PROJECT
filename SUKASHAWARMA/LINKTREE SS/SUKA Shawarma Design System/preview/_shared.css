@@ -1,0 +1,49 @@
+/* Preview-card shared bootstrap.
+   Every card is a 700×~150 frame on the warm cream brand background.
+   Cards do NOT include their own titles — the asset name renders outside. */
+
+@import url('../colors_and_type.css');
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; padding: 0;
+  width: 700px;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--fg1);
+  overflow: hidden;
+}
+.card {
+  width: 700px;
+  padding: 18px 22px;
+  background: var(--bg);
+}
+.row { display: flex; gap: 12px; align-items: stretch; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.swatch {
+  flex: 1;
+  border-radius: var(--radius-sm);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 96px;
+  border: 1px solid rgba(64,10,7,.06);
+}
+.swatch .name {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+}
+.swatch .hex {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  opacity: .85;
+}
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--fg-muted);
+}

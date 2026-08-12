@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Login Admin — SUKA Shawarma</title>
+<link rel="stylesheet" href="../assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone" style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding-bottom:0">
+  <div style="width:100%;padding:32px 20px">
+
+    <div style="text-align:center;margin-bottom:36px">
+      <div style="font-size:52px;margin-bottom:12px">🌯</div>
+      <div style="font-size:22px;font-weight:800;color:var(--brand)">SUKA Shawarma</div>
+      <div style="font-size:13px;color:var(--muted);margin-top:4px">Panel Admin</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Email</label>
+      <input type="email" id="email" class="form-input" placeholder="admin@sukshawarma.com"
+             autocomplete="email" />
+    </div>
+    <div class="form-group" style="margin-top:14px">
+      <label class="form-label">Password</label>
+      <input type="password" id="password" class="form-input" placeholder="••••••••"
+             autocomplete="current-password" />
+    </div>
+
+    <div id="loginError" style="color:var(--brand);font-size:13px;margin-top:8px;display:none"></div>
+
+    <button id="btnLogin" class="btn-add-big" style="width:100%;margin-top:20px" onclick="doLogin()">
+      Masuk
+    </button>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<script src="../assets/js/supabase.js"></script>
+<script>
+// Redirect kalau sudah login
+(async function () {
+  const { data: { user } } = await window.db.auth.getUser();
+  if (user) {
+    const { data: p } = await window.db.from('admin_users').select('id').eq('id', user.id).single();
+    if (p) { window.location.replace('index.html'); }
+  }
+})();
+
+async function doLogin() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const errEl    = document.getElementById('loginError');
+  const btn      = document.getElementById('btnLogin');
+
+  errEl.style.display = 'none';
+  if (!email || !password) {
+    errEl.textContent = 'Email dan password wajib diisi.';
+    errEl.style.display = '';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Memproses…';
+
+  const { data, error } = await window.db.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    errEl.textContent = 'Email atau password salah.';
+    errEl.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+    return;
+  }
+
+  // Verifikasi user ada di admin_users dan aktif
+  const { data: profile, error: pe } = await window.db
+    .from('admin_users')
+    .select('id, role, is_active')
+    .eq('id', data.user.id)
+    .single();
+
+  if (pe || !profile || !profile.is_active) {
+    await window.db.auth.signOut();
+    errEl.textContent = 'Akun tidak memiliki akses admin atau sudah dinonaktifkan.';
+    errEl.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Masuk';
+    return;
+  }
+
+  window.location.replace('index.html');
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Menu — SUKA Admin</title>
+<link rel="stylesheet" href="../assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-title">🌯 Menu</span>
+    <button class="topbar-action admin-only" onclick="openItemForm(null)">+ Tambah</button>
+  </div>
+
+  <!-- Category tabs -->
+  <div class="tabs" id="catTabs">
+    <button class="tab active" data-cat="" onclick="setCat('')">Semua</button>
+  </div>
+
+  <!-- Search -->
+  <div class="search-wrap">
+    <input type="text" id="menuSearch" placeholder="Cari menu…" oninput="applyFilter()" />
+  </div>
+
+  <!-- Daftar menu -->
+  <div id="menuList" style="padding:6px 12px">
+    <div class="skeleton-card"><div class="skeleton-lines">
+      <div class="skeleton skeleton-line"></div>
+      <div class="skeleton skeleton-line short"></div>
+    </div></div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="admin-nav">
+    <a href="/admin/index.html"><span>🏠</span><span>Dashboard</span></a>
+    <a href="/admin/orders.html"><span>📋</span><span>Pesanan</span></a>
+    <a href="/admin/menu.html"><span>🌯</span><span>Menu</span></a>
+    <a href="/admin/reports.html"><span>📊</span><span>Laporan</span></a>
+    <a href="/admin/outlets.html" class="admin-only"><span>📍</span><span>Outlet</span></a>
+    <a href="/admin/settings.html" class="admin-only"><span>⚙️</span><span>Pengaturan</span></a>
+  </nav>
+
+</div>
+<div class="toast" id="toast"></div>
+<div id="adminModal" class="admin-modal-overlay" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<script src="../assets/js/supabase.js"></script>
+<script src="../assets/js/utils.js"></script>
+<script src="../assets/js/admin.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let allItems     = [];
+let categories   = [];
+let overrideMap  = {};  // { menu_item_id: { id, is_available } } — untuk outlet_staff
+let outletData   = null;
+let currentCat   = '';
+let isSuperAdmin = false;
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  const u = await requireAuth();
+  if (!u) return;
+  isSuperAdmin = u.role === 'super_admin';
+
+  if (!isSuperAdmin) {
+    // Tampilkan banner outlet yang sedang dikelola staff
+    const { data: od } = await window.db
+      .from('outlets').select('id,name').eq('id', u.outlet_id).single();
+    outletData = od;
+    if (od) {
+      const banner = document.createElement('div');
+      banner.className = 'hint-banner';
+      banner.style.cssText = 'margin:8px 12px 0;border-radius:10px';
+      banner.innerHTML = `📍 Mengatur ketersediaan menu untuk <b>${od.name}</b>`;
+      document.getElementById('catTabs').before(banner);
+    }
+  }
+
+  await Promise.all([loadCategories(), loadItems()]);
+})();
+
+// ─── Data loaders ─────────────────────────────────────────────────────────────
+async function loadCategories() {
+  const { data } = await window.db
+    .from('categories').select('*').order('sort_order').order('name');
+  categories = data || [];
+
+  const tabs = document.getElementById('catTabs');
+  categories.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'tab';
+    btn.dataset.cat = c.id;
+    btn.textContent = c.name;
+    btn.onclick = () => setCat(c.id);
+    tabs.appendChild(btn);
+  });
+}
+
+async function loadItems() {
+  const queries = [
+    window.db.from('menu_items')
+      .select(`*, categories(name),
+               menu_variants(id, label, is_required, is_multi, sort_order,
+                 menu_variant_options(id, name, price_modifier, is_default, sort_order))`)
+      .order('sort_order').order('name'),
+  ];
+
+  // Outlet staff: muat overrides untuk outletnya
+  if (!isSuperAdmin && outletData) {
+    queries.push(
+      window.db.from('outlet_menu_overrides')
+        .select('id, menu_item_id, is_available')
+        .eq('outlet_id', outletData.id)
+    );
+  }
+
+  const [itemRes, overrideRes] = await Promise.all(queries);
+  allItems = itemRes.data || [];
+
+  overrideMap = {};
+  if (overrideRes) {
+    (overrideRes.data || []).forEach(o => { overrideMap[o.menu_item_id] = o; });
+  }
+
+  applyFilter();
+}
+
+// ─── Filter ───────────────────────────────────────────────────────────────────
+function setCat(catId) {
+  currentCat = catId;
+  document.querySelectorAll('#catTabs .tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.cat === catId)
+  );
+  applyFilter();
+}
+
+function applyFilter() {
+  const q = (document.getElementById('menuSearch')?.value || '').toLowerCase();
+  let items = allItems;
+  if (currentCat) items = items.filter(i => i.category_id === currentCat);
+  if (q) items = items.filter(i =>
+    i.name.toLowerCase().includes(q) || (i.description || '').toLowerCase().includes(q)
+  );
+  renderList(items);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderList(items) {
+  const el = document.getElementById('menuList');
+  if (items.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🍽️</div>
+      <div class="empty-title">Tidak ada menu</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = items.map(menuRow).join('') + '<div style="height:80px"></div>';
+}
+
+function menuRow(item) {
+  const catName   = (item.categories || {}).name || '—';
+  const varCount  = (item.menu_variants || []).length;
+  const override  = overrideMap[item.id];
+  // outlet_staff: tersedia kecuali override eksplisit false
+  const isAvail   = override ? override.is_available : true;
+  const rowOpacity = isSuperAdmin ? (item.is_active ? 1 : 0.55) : (isAvail ? 1 : 0.55);
+
+  return `<div class="admin-order-row" style="opacity:${rowOpacity}">
+    <div style="display:flex;gap:10px;align-items:flex-start">
+      <div style="width:56px;height:56px;border-radius:10px;flex-shrink:0;overflow:hidden;
+                  background:linear-gradient(135deg,#fde2c4,#ffb088);
+                  display:flex;align-items:center;justify-content:center;font-size:28px">
+        ${item.photo_url
+          ? `<img src="${item.photo_url}" style="width:100%;height:100%;object-fit:cover" />`
+          : '🌯'}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;font-size:14px">${item.name}</div>
+        <div style="font-size:12px;color:var(--muted)">${catName}${varCount ? ` · ${varCount} varian` : ''}</div>
+        <div style="font-weight:700;color:var(--brand);font-size:13px;margin-top:2px">${formatRupiah(item.base_price)}</div>
+        ${item.is_best_seller ? `<span style="font-size:10px;background:var(--brand-bg);color:var(--brand);padding:2px 7px;border-radius:999px;font-weight:700">⭐ Best Seller</span>` : ''}
+        ${!isSuperAdmin ? `<div style="font-size:11px;margin-top:4px;color:${isAvail ? 'var(--green)' : 'var(--faint)'}">
+          ${isAvail ? '● Tersedia' : '● Tidak tersedia'}
+        </div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;align-items:flex-end;flex-shrink:0">
+        ${isSuperAdmin ? `
+          <label class="toggle-wrap">
+            <input type="checkbox" ${item.is_active ? 'checked' : ''} onchange="toggleItem('${item.id}',this.checked)" />
+            <span class="toggle-slider"></span>
+          </label>
+          <button class="action-btn action-secondary"
+                  style="font-size:11px;padding:4px 10px"
+                  onclick="openItemForm('${item.id}')">Edit</button>
+          <button class="action-btn action-secondary"
+                  style="font-size:11px;padding:4px 10px"
+                  onclick="openVariantManager('${item.id}')">Varian</button>
+        ` : `
+          <label class="toggle-wrap">
+            <input type="checkbox" ${isAvail ? 'checked' : ''} onchange="toggleAvailability('${item.id}',this.checked)" />
+            <span class="toggle-slider"></span>
+          </label>
+          <div style="font-size:10px;color:var(--muted);text-align:center">Tersedia</div>
+        `}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── Toggle aktif (super_admin — ubah is_active di menu_items) ────────────────
+async function toggleItem(itemId, active) {
+  const { error } = await window.db
+    .from('menu_items').update({ is_active: active }).eq('id', itemId);
+  if (error) { adminToast('❌ ' + error.message); return; }
+  const idx = allItems.findIndex(i => i.id === itemId);
+  if (idx >= 0) allItems[idx].is_active = active;
+  adminToast(active ? '✅ Menu diaktifkan' : '⏸ Menu dinonaktifkan');
+  applyFilter();
+}
+
+// ─── Toggle ketersediaan (outlet_staff — upsert outlet_menu_overrides) ────────
+async function toggleAvailability(itemId, available) {
+  if (!outletData) return;
+  const { error } = await window.db
+    .from('outlet_menu_overrides')
+    .upsert(
+      { outlet_id: outletData.id, menu_item_id: itemId, is_available: available },
+      { onConflict: 'outlet_id,menu_item_id' }
+    );
+  if (error) { adminToast('❌ ' + error.message); return; }
+
+  // Update local map
+  if (overrideMap[itemId]) {
+    overrideMap[itemId].is_available = available;
+  } else {
+    overrideMap[itemId] = { menu_item_id: itemId, is_available: available };
+  }
+
+  adminToast(available ? '✅ Menu tersedia' : '⏸ Menu tidak tersedia');
+  applyFilter();
+}
+
+// ─── Form item ────────────────────────────────────────────────────────────────
+function openItemForm(itemId) {
+  const item   = itemId ? allItems.find(i => i.id === itemId) : null;
+  const isNew  = !item;
+  const catOpts = categories.map(c =>
+    `<option value="${c.id}" ${item?.category_id === c.id ? 'selected' : ''}>${c.name}</option>`
+  ).join('');
+
+  openModal(isNew ? '+ Tambah Menu' : 'Edit Menu', `
+    <div class="form-group">
+      <label class="form-label">Nama Menu</label>
+      <input id="iName" class="form-input" value="${item?.name || ''}" placeholder="Nama menu" />
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="form-group">
+        <label class="form-label">Harga Jual (Rp)</label>
+        <input id="iPrice" class="form-input" type="number" min="0" step="500"
+               value="${item?.base_price || ''}" placeholder="0" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Harga Coret (Rp)</label>
+        <input id="iCompare" class="form-input" type="number" min="0" step="500"
+               value="${item?.compare_price || ''}" placeholder="Kosong = no diskon" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Kategori</label>
+      <select id="iCat" class="form-input">
+        <option value="">— Pilih kategori —</option>
+        ${catOpts}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Deskripsi (opsional)</label>
+      <textarea id="iDesc" class="form-input" rows="2"
+                placeholder="Deskripsi singkat">${item?.description || ''}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Foto Menu (opsional)</label>
+      <div id="photoPreviewWrap" style="margin-bottom:8px;${item?.photo_url ? '' : 'display:none'}">
+        <img id="photoPreview" src="${item?.photo_url || ''}"
+             style="width:100%;max-height:160px;object-fit:cover;border-radius:10px;border:1px solid var(--line2)" />
+      </div>
+      <input type="hidden" id="iPhoto" value="${item?.photo_url || ''}" />
+      <div style="display:flex;gap:8px;align-items:center">
+        <label class="action-btn action-secondary" style="font-size:12px;padding:8px 14px;cursor:pointer;margin:0">
+          📷 ${item?.photo_url ? 'Ganti Foto' : 'Upload Foto'}
+          <input type="file" id="iPhotoFile" accept="image/*" style="display:none"
+                 onchange="uploadMenuPhoto(this)" />
+        </label>
+        <span id="photoUploadStatus" style="font-size:12px;color:var(--muted)"></span>
+        ${item?.photo_url ? `<button type="button" class="action-btn" style="font-size:12px;padding:8px 10px;background:#fff0f0;color:var(--brand);border:none" onclick="clearMenuPhoto()">Hapus</button>` : ''}
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Urutan Tampil</label>
+      <input id="iSort" class="form-input" type="number" min="0"
+             value="${item?.sort_order ?? 0}" />
+    </div>
+    <div style="display:flex;gap:16px;margin-top:6px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+        <input id="iActive" type="checkbox" ${item?.is_active !== false ? 'checked' : ''} /> Aktif
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+        <input id="iBest" type="checkbox" ${item?.is_best_seller ? 'checked' : ''} /> Best Seller
+      </label>
+    </div>
+  `,
+  `<button class="btn-add-big" style="width:100%"
+           onclick="saveItem(${item ? `'${item.id}'` : 'null'})">
+     ${isNew ? 'Tambah Menu' : 'Simpan Perubahan'}
+   </button>`);
+}
+
+// ─── Upload foto menu ke Supabase Storage ────────────────────────────────────
+async function uploadMenuPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const statusEl = document.getElementById('photoUploadStatus');
+  statusEl.textContent = 'Mengupload…';
+
+  // Validasi ukuran max 2MB
+  if (file.size > 2 * 1024 * 1024) {
+    statusEl.style.color = 'var(--brand)';
+    statusEl.textContent = '❌ Ukuran maks 2MB';
+    input.value = '';
+    return;
+  }
+
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const path = `menu/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+
+  const { error } = await window.db.storage
+    .from('menu-photos')
+    .upload(path, file, { upsert: false, contentType: file.type });
+
+  if (error) {
+    statusEl.style.color = 'var(--brand)';
+    statusEl.textContent = '❌ ' + error.message;
+    return;
+  }
+
+  const { data: urlData } = window.db.storage.from('menu-photos').getPublicUrl(path);
+  const publicUrl = urlData.publicUrl;
+
+  document.getElementById('iPhoto').value = publicUrl;
+  document.getElementById('photoPreview').src = publicUrl;
+  document.getElementById('photoPreviewWrap').style.display = '';
+  statusEl.style.color = 'var(--green)';
+  statusEl.textContent = '✅ Foto berhasil diupload';
+}
+
+function clearMenuPhoto() {
+  document.getElementById('iPhoto').value = '';
+  document.getElementById('photoPreview').src = '';
+  document.getElementById('photoPreviewWrap').style.display = 'none';
+  document.getElementById('photoUploadStatus').textContent = '';
+  const fileInput = document.getElementById('iPhotoFile');
+  if (fileInput) fileInput.value = '';
+}
+
+async function saveItem(itemId) {
+  const name    = document.getElementById('iName').value.trim();
+  const price   = parseFloat(document.getElementById('iPrice').value);
+  const compare = parseFloat(document.getElementById('iCompare').value) || null;
+  const catId   = document.getElementById('iCat').value || null;
+  const desc    = document.getElementById('iDesc').value.trim() || null;
+  const photo   = document.getElementById('iPhoto').value.trim() || null;
+  const sort    = parseInt(document.getElementById('iSort').value) || 0;
+  const active  = document.getElementById('iActive').checked;
+  const best    = document.getElementById('iBest').checked;
+
+  if (!name)                        { adminToast('❌ Nama wajib diisi'); return; }
+  if (isNaN(price) || price < 0)    { adminToast('❌ Harga tidak valid'); return; }
+  if (compare !== null && compare <= price) { adminToast('❌ Harga coret harus lebih besar dari harga jual'); return; }
+
+  const payload = {
+    name, base_price: price, compare_price: compare, category_id: catId,
+    description: desc, photo_url: photo,
+    sort_order: sort, is_active: active, is_best_seller: best,
+  };
+
+  if (itemId) {
+    const { error } = await window.db.from('menu_items').update(payload).eq('id', itemId);
+    if (error) { adminToast('❌ ' + error.message); return; }
+    const idx = allItems.findIndex(i => i.id === itemId);
+    if (idx >= 0) allItems[idx] = { ...allItems[idx], ...payload };
+    adminToast('✅ Menu diperbarui');
+  } else {
+    const { data, error } = await window.db
+      .from('menu_items').insert(payload).select('*, categories(name)').single();
+    if (error) { adminToast('❌ ' + error.message); return; }
+    allItems.unshift({ ...data, menu_variants: [] });
+    adminToast('✅ Menu ditambahkan');
+  }
+
+  closeModal();
+  applyFilter();
+}
+
+// ─── Variant manager ──────────────────────────────────────────────────────────
+function openVariantManager(itemId) {
+  const item = allItems.find(i => i.id === itemId);
+  if (!item) return;
+
+  const variants = item.menu_variants || [];
+
+  const varHtml = variants.length === 0
+    ? `<div style="color:var(--muted);font-size:13px;padding:8px 0">Belum ada varian</div>`
+    : variants.sort((a, b) => a.sort_order - b.sort_order).map(v => {
+        const opts = (v.menu_variant_options || [])
+          .sort((a, b) => a.sort_order - b.sort_order)
+          .map(o => `<div style="display:flex;justify-content:space-between;padding:4px 0 4px 12px;font-size:12px;color:var(--muted)">
+            <span>${o.name}${o.is_default ? ' ★' : ''}</span>
+            <span>${o.price_modifier > 0 ? '+' + formatRupiah(o.price_modifier) : o.price_modifier < 0 ? formatRupiah(o.price_modifier) : 'Gratis'}</span>
+          </div>`).join('');
+        return `<div style="background:var(--bg);border-radius:8px;padding:10px 12px;margin-bottom:8px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <span style="font-weight:600;font-size:13px">${v.label}</span>
+            <div style="display:flex;gap:4px">
+              <span style="font-size:10px;background:var(--line);color:var(--muted);padding:2px 6px;border-radius:4px">${v.is_required ? 'Wajib' : 'Opsional'}</span>
+              <span style="font-size:10px;background:var(--line);color:var(--muted);padding:2px 6px;border-radius:4px">${v.is_multi ? 'Multi' : 'Pilih 1'}</span>
+            </div>
+          </div>
+          ${opts}
+          ${isSuperAdmin ? `<div style="display:flex;gap:6px;margin-top:8px">
+            <button class="action-btn action-secondary" style="font-size:11px;padding:3px 10px" onclick="openVariantForm('${itemId}','${v.id}')">Edit Varian</button>
+            <button class="action-btn action-secondary" style="font-size:11px;padding:3px 10px" onclick="openOptionForm('${v.id}',null)">+ Opsi</button>
+          </div>` : ''}
+        </div>`;
+      }).join('');
+
+  openModal(`Varian: ${item.name}`, `
+    ${varHtml}
+    ${isSuperAdmin ? `<button class="action-btn action-primary" style="width:100%;margin-top:8px;padding:10px" onclick="openVariantForm('${itemId}',null)">+ Tambah Varian</button>` : ''}
+  `);
+}
+
+// ─── Form varian ──────────────────────────────────────────────────────────────
+function openVariantForm(itemId, variantId) {
+  const item    = allItems.find(i => i.id === itemId);
+  const variant = variantId
+    ? (item?.menu_variants || []).find(v => v.id === variantId) : null;
+  const isNew = !variant;
+
+  openModal(isNew ? '+ Tambah Varian' : 'Edit Varian', `
+    <div class="form-group">
+      <label class="form-label">Label Varian</label>
+      <input id="vLabel" class="form-input" value="${variant?.label || ''}" placeholder="Pilihan Ukuran" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Urutan</label>
+      <input id="vSort" class="form-input" type="number" min="0" value="${variant?.sort_order ?? 0}" />
+    </div>
+    <div style="display:flex;gap:16px;margin-top:6px">
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+        <input id="vReq" type="checkbox" ${variant?.is_required ? 'checked' : ''} /> Wajib dipilih
+      </label>
+      <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+        <input id="vMulti" type="checkbox" ${variant?.is_multi ? 'checked' : ''} /> Pilih banyak
+      </label>
+    </div>
+  `,
+  `<button class="btn-add-big" style="width:100%"
+           onclick="saveVariant('${itemId}',${variantId ? `'${variantId}'` : 'null'})">
+     ${isNew ? 'Tambah Varian' : 'Simpan'}
+   </button>`);
+}
+
+async function saveVariant(itemId, variantId) {
+  const label = document.getElementById('vLabel').value.trim();
+  const sort  = parseInt(document.getElementById('vSort').value) || 0;
+  const req   = document.getElementById('vReq').checked;
+  const multi = document.getElementById('vMulti').checked;
+
+  if (!label) { adminToast('❌ Label wajib diisi'); return; }
+
+  const payload = { label, sort_order: sort, is_required: req, is_multi: multi };
+
+  if (variantId) {
+    const { error } = await window.db.from('menu_variants').update(payload).eq('id', variantId);
+    if (error) { adminToast('❌ ' + error.message); return; }
+  } else {
+    const { data, error } = await window.db
+      .from('menu_variants').insert({ ...payload, menu_item_id: itemId }).select().single();
+    if (error) { adminToast('❌ ' + error.message); return; }
+    const item = allItems.find(i => i.id === itemId);
+    if (item) item.menu_variants = [...(item.menu_variants || []), { ...data, menu_variant_options: [] }];
+  }
+
+  adminToast(variantId ? '✅ Varian diperbarui' : '✅ Varian ditambahkan');
+  closeModal();
+  await loadItems();
+  openVariantManager(itemId);
+}
+
+// ─── Form opsi varian ─────────────────────────────────────────────────────────
+function openOptionForm(variantId, optionId) {
+  let opt = null;
+  for (const item of allItems) {
+    for (const v of (item.menu_variants || [])) {
+      if (v.id === variantId) {
+        opt = optionId ? (v.menu_variant_options || []).find(o => o.id === optionId) : null;
+        break;
+      }
+    }
+  }
+  const isNew = !opt;
+
+  openModal(isNew ? '+ Tambah Opsi' : 'Edit Opsi', `
+    <div class="form-group">
+      <label class="form-label">Nama Opsi</label>
+      <input id="oName" class="form-input" value="${opt?.name || ''}" placeholder="Regular" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tambahan Harga (Rp, 0 = gratis)</label>
+      <input id="oMod" class="form-input" type="number" step="500" value="${opt?.price_modifier ?? 0}" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Urutan</label>
+      <input id="oSort" class="form-input" type="number" min="0" value="${opt?.sort_order ?? 0}" />
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-top:6px">
+      <input id="oDef" type="checkbox" ${opt?.is_default ? 'checked' : ''} /> Default terpilih
+    </label>
+  `,
+  `<button class="btn-add-big" style="width:100%"
+           onclick="saveOption('${variantId}',${optionId ? `'${optionId}'` : 'null'})">
+     ${isNew ? 'Tambah Opsi' : 'Simpan'}
+   </button>`);
+}
+
+async function saveOption(variantId, optionId) {
+  const name = document.getElementById('oName').value.trim();
+  const mod  = parseFloat(document.getElementById('oMod').value) || 0;
+  const sort = parseInt(document.getElementById('oSort').value)  || 0;
+  const def  = document.getElementById('oDef').checked;
+
+  if (!name) { adminToast('❌ Nama wajib diisi'); return; }
+
+  const payload = { name, price_modifier: mod, sort_order: sort, is_default: def };
+
+  if (optionId) {
+    const { error } = await window.db.from('menu_variant_options').update(payload).eq('id', optionId);
+    if (error) { adminToast('❌ ' + error.message); return; }
+  } else {
+    const { error } = await window.db
+      .from('menu_variant_options').insert({ ...payload, variant_id: variantId });
+    if (error) { adminToast('❌ ' + error.message); return; }
+  }
+
+  adminToast(optionId ? '✅ Opsi diperbarui' : '✅ Opsi ditambahkan');
+  closeModal();
+  await loadItems();
+
+  // Temukan item parent untuk buka ulang variant manager
+  for (const item of allItems) {
+    if ((item.menu_variants || []).some(v => v.id === variantId)) {
+      openVariantManager(item.id);
+      break;
+    }
+  }
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

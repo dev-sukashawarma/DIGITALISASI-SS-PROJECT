@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<title>comp-input.html</title>
+<link rel="stylesheet" href="_shared.css">
+<style>.f{margin-bottom:10px}.f label{font-size:13px;font-weight:600;display:block;margin-bottom:5px;color:#400a07}.f input{width:100%;border:1.5px solid #e6d4bf;border-radius:10px;padding:11px 12px;font-size:14px;font-family:var(--font-sans);outline:none;color:#400a07;background:#fff;box-sizing:border-box}.f input:focus{border-color:#f29744}.f input.fok{border-color:#f29744}.f .h{font-size:12px;color:#8a6b5e;margin-top:4px}.err input{border-color:#701604;background:#fbe7df}.err .m{font-size:12px;color:#701604;margin-top:4px}</style>
+</head><body>
+<div class="card" style="height:200px">
+      <div class="label">Form fields</div>
+      <div style="display:flex;gap:14px;margin-top:12px;max-width:620px">
+        <div style="flex:1">
+          <div class="f"><label>Nama Pemesan *</label><input value="Budi Santoso" /></div>
+          <div class="f"><label>Nomor WhatsApp *</label><input class="fok" value="081234567890" /><div class="h">Format: 08xxx atau 628xxx</div></div>
+        </div>
+        <div style="flex:1">
+          <div class="f err"><label>Waktu Ambil *</label><input value="" placeholder="Contoh: 30 menit lagi" /><div class="m">Waktu ambil wajib diisi</div></div>
+          <div class="f"><label>Catatan Tambahan</label><input value="Tanpa bawang, tidak pedas" /></div>
+        </div>
+      </div>
+    </div>
+</body></html>

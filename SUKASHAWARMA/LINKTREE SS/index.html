@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="id">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>SUKA Shawarma</title>
+  <meta name="description" content="SUKA Shawarma — Besar dan Nikmat. Order pickup, cek outlet, dan info kemitraan." />
+  <meta name="theme-color" content="#f29744" />
+  <meta property="og:title" content="SUKA Shawarma" />
+  <meta property="og:description"
+    content="SUKA Shawarma — Besar dan Nikmat. Order pickup, cek outlet, dan info kemitraan." />
+  <!-- TODO: ganti dengan absolute URL sebelum deploy, misal https://sukashawarma.com/assets/logo.png -->
+  <meta property="og:image" content="/assets/logo.png" />
+  <meta property="og:type" content="website" />
+  <link rel="stylesheet" href="colors_and_type.css" />
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .phone {
+      width: 100%;
+      max-width: var(--container-mobile);
+      min-height: 100vh;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: var(--space-8) var(--gutter) var(--space-10);
+    }
+
+    /* ─── Hero ─────────────────────────────────────────────────────────── */
+    .hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      padding-bottom: var(--space-8);
+      text-align: center;
+    }
+
+    .hero-logo {
+      width: 88px;
+      height: 88px;
+      object-fit: contain;
+      border-radius: var(--radius);
+      filter: drop-shadow(0 4px 12px rgba(242, 151, 68, .25));
+    }
+
+    .hero-name {
+      font-family: var(--font-display);
+      font-size: 28px;
+      font-weight: 400;
+      color: var(--suka-brown);
+      line-height: var(--lh-tight);
+      letter-spacing: 0;
+      margin: 0;
+      text-wrap: balance;
+    }
+
+    .hero-tagline {
+      font-family: var(--font-sans);
+      font-size: var(--fs-h3);
+      font-weight: 600;
+      color: var(--fg2);
+      margin: 0;
+      line-height: var(--lh-snug);
+      text-wrap: balance;
+    }
+
+    /* ─── Link Cards ────────────────────────────────────────────────────── */
+    .links {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-3);
+    }
+
+    .link-card {
+      display: flex;
+      align-items: center;
+      gap: var(--space-4);
+      padding: var(--space-4);
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      text-decoration: none;
+      color: inherit;
+      transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 120ms cubic-bezier(0.23, 1, 0.32, 1);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .link-card:active {
+      transform: scale(.97);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .link-card:focus-visible {
+      outline: 3px solid var(--suka-orange);
+      outline-offset: 2px;
+    }
+
+    /* Primary CTA — Order Sekarang */
+    .link-card--primary {
+      background: var(--suka-orange);
+      box-shadow: var(--shadow-brand);
+    }
+
+    .link-card--primary .link-label,
+    .link-card--primary .link-sub,
+    .link-card--primary .link-arrow {
+      color: #ffffff;
+    }
+
+    .link-icon-img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      border-radius: var(--radius-xs);
+    }
+
+    .link-icon {
+      font-size: 28px;
+      line-height: 1;
+      flex-shrink: 0;
+      width: 40px;
+      text-align: center;
+    }
+
+    .link-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .link-label {
+      font-family: var(--font-sans);
+      font-size: var(--fs-h3);
+      font-weight: 700;
+      color: var(--fg1);
+      line-height: var(--lh-tight);
+    }
+
+    .link-sub {
+      font-size: var(--fs-caption);
+      color: var(--fg2);
+      line-height: var(--lh-snug);
+    }
+
+    .link-arrow {
+      font-size: 20px;
+      color: var(--fg-muted);
+      flex-shrink: 0;
+      font-weight: 400;
+    }
+
+    /* ─── Stagger entrance ─────────────────────────────────────────────── */
+    @keyframes cardIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .link-card {
+      opacity: 0;
+      animation: cardIn 320ms cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    }
+
+    .links> :nth-child(1) {
+      animation-delay: 80ms;
+    }
+
+    .links> :nth-child(2) {
+      animation-delay: 140ms;
+    }
+
+    .links> :nth-child(3) {
+      animation-delay: 200ms;
+    }
+
+    .links> :nth-child(4) {
+      animation-delay: 260ms;
+    }
+
+    .links> :nth-child(5) {
+      animation-delay: 320ms;
+    }
+
+    .links> :nth-child(6) {
+      animation-delay: 380ms;
+    }
+
+    .links> :nth-child(7) {
+      animation-delay: 440ms;
+    }
+
+    .links> :nth-child(8) {
+      animation-delay: 500ms;
+    }
+
+    .links> :nth-child(9) {
+      animation-delay: 560ms;
+    }
+
+    .links> :nth-child(10) {
+      animation-delay: 620ms;
+    }
+
+    .links> :nth-child(11) {
+      animation-delay: 680ms;
+    }
+
+    /* Larger gap before the primary CTA to give it visual breathing room */
+    .links>.link-card--primary {
+      margin-top: var(--space-2);
+    }
+
+    /* ─── Reduced motion ───────────────────────────────────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      .link-card {
+        animation: none;
+        opacity: 1;
+        transition: none;
+      }
+    }
+
+    /* ─── Desktop hover ────────────────────────────────────────────────── */
+    @media (hover: hover) {
+      .link-card:not(.link-card--primary):hover {
+        background: var(--surface-2);
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .link-card--primary:hover {
+        background: var(--suka-orange-deep);
+        transform: translateY(-1px);
+      }
+    }
+
+    /* ─── Divider ──────────────────────────────────────────────────────── */
+    .divider {
+      width: 100%;
+      border: none;
+      border-top: 1.5px solid var(--line-2);
+      margin: var(--space-3) 0;
+    }
+
+    /* ─── Footer ───────────────────────────────────────────────────────── */
+    .footer {
+      margin-top: var(--space-8);
+      font-size: var(--fs-caption);
+      color: var(--fg-faint);
+      text-align: center;
+    }
+
+    @media (min-width: 500px) {
+      body {
+        background: #e8e8e8;
+        align-items: flex-start;
+        padding: var(--space-8) 0;
+      }
+
+      .phone {
+        min-height: unset;
+        border: 1px solid var(--line-2);
+        box-shadow: 0 4px 32px rgba(64, 10, 7, .10);
+        border-radius: var(--radius-lg);
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="phone">
+    <!-- ─── Hero ─────────────────────────────────────────────────────── -->
+    <header class="hero">
+      <img src="logo.png" alt="SUKA Shawarma" class="hero-logo" />
+      <h1 class="hero-name">SUKA Shawarma</h1>
+      <p class="hero-tagline">Besar dan Nikmat</p>
+    </header>
+
+    <!-- ─── Link Cards ──────────────────────────────────────────────────── -->
+    <nav class="links">
+
+      <a href="https://order.sukashawarma.com" class="link-card link-card--primary" target="_blank"
+        rel="noopener noreferrer">
+        <span class="link-icon">🛒</span>
+        <span class="link-body">
+          <span class="link-label">Order Sekarang</span>
+          <span class="link-sub">Pickup di outlet terdekat</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <a href="https://id.shp.ee/1MYyUfcP" class="link-card" target="_blank" rel="noopener noreferrer">
+        <span class="link-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#EE4D2D" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M16 6V5C16 2.79086 14.2091 1 12 1C9.79086 1 8 2.79086 8 5V6H4C3.44772 6 3 6.44772 3 7V20C3 21.6569 4.34315 23 6 23H18C19.6569 23 21 21.6569 21 20V7C21 6.44772 20.5523 6 20 6H16ZM10 5C10 3.89543 10.8954 3 12 3C13.1046 3 14 3.89543 14 5V6H10V5ZM19 20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V8H19V20Z" />
+            <path
+              d="M13.5 12.5C13.5 12.2239 13.2761 12 13 12H11C10.4477 12 10 11.5523 10 11C10 10.4477 10.4477 10 11 10H14V8.5H11C9.61929 8.5 8.5 9.61929 8.5 11C8.5 12.3807 9.61929 13.5 11 13.5H13C13.5523 13.5 14 13.9477 14 14.5C14 15.0523 13.5523 15.5 13 15.5H9V17H13C14.3807 17 15.5 15.8807 15.5 14.5C15.5 13.1193 14.3807 12.5 13.5 12.5Z" />
+          </svg>
+        </span>
+        <span class="link-body">
+          <span class="link-label">ShopeeFood</span>
+          <span class="link-sub">Kirim SUKA Shawarma ke Seluruh Indonesia</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <a href="https://vt.tiktok.com/ZS9MPtFojBmug-FpUnM/" class="link-card" target="_blank" rel="noopener noreferrer">
+        <span class="link-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#000000" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.27 8.27 0 0 0 4.84 1.55V6.79a4.85 4.85 0 0 1-1.07-.1z" />
+          </svg>
+        </span>
+        <span class="link-body">
+          <span class="link-label">TikTok Order</span>
+          <span class="link-sub">Kirim SUKA Shawarma ke Seluruh Indonesia</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <hr class="divider" />
+
+      <a href="https://sukashawarma.com/outletss" class="link-card" target="_blank" rel="noopener noreferrer">
+        <span class="link-icon">📍</span>
+        <span class="link-body">
+          <span class="link-label">Outlet Kami</span>
+          <span class="link-sub">19 outlet se-Indonesia</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <a href="https://wa.me/6282299325621?text=Halo%20saya%20tertarik%20kemitraan%20SukaShawarma" class="link-card"
+        target="_blank" rel="noopener noreferrer">
+        <span class="link-icon">🤝</span>
+        <span class="link-body">
+          <span class="link-label">Kemitraan</span>
+          <span class="link-sub">Bergabung buka outlet SUKA Shawarma</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <a href="https://wa.me/6282299325621?text=Halo%2C%20saya%20ingin%20berdiskusi%20mengenai%20peluang%20kerjasama%20dengan%20SUKA%20Shawarma"
+        class="link-card" target="_blank" rel="noopener noreferrer">
+        <span class="link-icon">🫱🏻‍🫲🏼</span>
+        <span class="link-body">
+          <span class="link-label">Kerjasama</span>
+          <span class="link-sub">Kolaborasi dan peluang bisnis lainnya</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <a href="kritik-saran.html" class="link-card">
+        <span class="link-icon">✍️</span>
+        <span class="link-body">
+          <span class="link-label">Kritik & Saran</span>
+          <span class="link-sub">Sampaikan feedback Anda untuk kami</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <hr class="divider" />
+
+      <a href="https://www.sukashawarma.com" class="link-card" target="_blank" rel="noopener noreferrer">
+        <span class="link-icon link-icon--img">
+          <img src="logo.png" alt="SUKA Shawarma" class="link-icon-img" />
+        </span>
+        <span class="link-body">
+          <span class="link-label">Website</span>
+          <span class="link-sub">www.sukashawarma.com</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+      <a href="https://www.tiktok.com/@sukashawarmaofficial" class="link-card" target="_blank"
+        rel="noopener noreferrer">
+        <span class="link-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true">
+            <path
+              d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.27 8.27 0 0 0 4.84 1.55V6.79a4.85 4.85 0 0 1-1.07-.1z"
+              fill="#000000" />
+          </svg>
+        </span>
+        <span class="link-body">
+          <span class="link-label">TikTok</span>
+          <span class="link-sub">@sukashawarmaofficial</span>
+        </span>
+        <span class="link-arrow">→</span>
+      </a>
+
+    </nav>
+
+    <!-- ─── Footer ─────────────────────────────────────────────────────── -->
+    <footer class="footer">
+      <span>© 2025 SUKA Shawarma</span>
+    </footer>
+  </div>
+</body>
+
+</html>

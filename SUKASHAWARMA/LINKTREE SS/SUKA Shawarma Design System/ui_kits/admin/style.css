@@ -1,0 +1,259 @@
+/* SUKA Shawarma — Admin UI Kit
+   Shares the same warm-palette shell as the customer app, with admin-only
+   additions: bottom nav, stat cards, order rows, modals, toggles. */
+
+@import url('../../colors_and_type.css');
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; padding: 0;
+  background: #e8e8e8;
+  font-family: var(--font-sans);
+  color: var(--fg1);
+}
+button { font-family: var(--font-sans); cursor: pointer; }
+input, textarea, select { font-family: var(--font-sans); }
+
+.app {
+  max-width: var(--container-mobile);
+  margin: 0 auto;
+  background: var(--bg);
+  min-height: 100vh;
+  position: relative;
+  padding-bottom: 76px;
+}
+@media (min-width: 500px) {
+  body { padding: 12px 0; }
+  .app { border-radius: 20px; box-shadow: 0 0 0 1px var(--line), var(--shadow-lg); min-height: calc(100vh - 24px); overflow: hidden; }
+}
+
+/* ── Topbar ─────────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--surface);
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  min-height: 56px;
+}
+.topbar-l { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topbar-emoji { font-size: 22px; line-height: 1; flex-shrink: 0; }
+.topbar-text { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.topbar-title { font-weight: 800; font-size: 15px; color: var(--fg1); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-sub   { font-size: 11px; color: var(--fg-muted); line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.role-chip {
+  font-size: 10px; font-weight: 700; letter-spacing: .4px;
+  background: var(--brand-soft); color: var(--accent);
+  padding: 2px 8px; border-radius: 999px; text-transform: uppercase;
+}
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok); animation: pulse 1s infinite;
+  display: inline-block; vertical-align: middle;
+}
+@keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+.btn-link {
+  font-size: 12px; font-weight: 700; color: var(--brand);
+  background: var(--brand-soft); border: 0; border-radius: 999px;
+  padding: 6px 12px;
+}
+
+/* ── Bottom nav ─────────────────────────────────────── */
+.nav {
+  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
+  width: 100%; max-width: var(--container-mobile);
+  background: var(--surface); border-top: 1px solid var(--line);
+  display: flex; z-index: 30;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  box-shadow: 0 -2px 10px rgba(64,10,7,.04);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 9px 4px 7px;
+  font-size: 10px; color: var(--fg-faint); gap: 3px;
+  cursor: pointer; user-select: none;
+}
+.nav-item .ic { font-size: 20px; line-height: 1; }
+.nav-item.active { color: var(--brand); }
+
+/* ── Filter chips ──────────────────────────────────── */
+.chips {
+  display: flex; gap: 8px; overflow-x: auto;
+  padding: 10px 12px 8px; background: var(--bg);
+  scrollbar-width: none;
+}
+.chips::-webkit-scrollbar { display: none; }
+.chip {
+  flex: 0 0 auto; padding: 6px 14px;
+  border: 1.5px solid var(--line-2); border-radius: 999px;
+  font-size: 13px; background: var(--surface); cursor: pointer;
+  white-space: nowrap; user-select: none; color: var(--fg2);
+}
+.chip.active { background: var(--fg1); color: #fff; border-color: var(--fg1); }
+
+/* ── Stat cards ─────────────────────────────────────── */
+.stat-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  padding: 12px;
+}
+.stat {
+  background: var(--surface); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 14px 12px; text-align: center;
+}
+.stat .ic { font-size: 22px; line-height: 1; }
+.stat .val { font-size: 18px; font-weight: 800; color: var(--fg1); margin: 4px 0 2px; font-variant-numeric: tabular-nums; }
+.stat .lbl { font-size: 11px; color: var(--fg-muted); font-weight: 600; }
+
+/* ── Section heading ────────────────────────────────── */
+.section-title {
+  font-weight: 700; font-size: 11px; color: var(--fg-muted);
+  padding: 14px 16px 4px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+
+/* ── Order rows ─────────────────────────────────────── */
+.order-list { padding: 4px 12px; display: flex; flex-direction: column; gap: 10px; }
+.order {
+  background: var(--surface); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 12px;
+}
+.order-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; gap: 8px; }
+.order-num { font-family: var(--font-mono); font-size: 11px; color: var(--fg-muted); }
+.order-name { font-weight: 800; font-size: 14px; color: var(--fg1); margin-top: 1px; }
+.order-meta { font-size: 12px; color: var(--fg-muted); margin-top: 2px; }
+.order-right { text-align: right; flex-shrink: 0; }
+.order-total { font-weight: 800; font-size: 14px; color: var(--brand); margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.order-summary { font-size: 12px; color: var(--fg-muted); margin-bottom: 4px; }
+.order-pickup { font-size: 12px; color: var(--fg2); }
+.order-note { font-size: 12px; color: var(--fg-muted); margin-top: 2px; }
+.order-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+
+.action {
+  border: 0; border-radius: 8px;
+  padding: 7px 14px; font-size: 12px; font-weight: 700;
+  flex-shrink: 0; font-family: var(--font-sans);
+}
+.action.primary { background: var(--brand); color: #fff; }
+.action.secondary { background: var(--line); color: var(--fg2); }
+.action.danger { background: var(--danger-soft); color: var(--danger); }
+
+/* ── Status chips ───────────────────────────────────── */
+.status {
+  display: inline-block; padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+}
+.status.paid       { background: var(--info-soft); color: var(--info); }
+.status.preparing  { background: #fefce8; color: #a16207; }
+.status.ready      { background: var(--ok-soft); color: var(--ok); }
+.status.done       { background: var(--line); color: var(--fg-muted); }
+.status.cancelled  { background: var(--danger-soft); color: var(--danger); }
+
+/* ── Login screen ───────────────────────────────────── */
+.login {
+  width: 100%; padding: 32px 20px;
+  display: flex; flex-direction: column;
+  justify-content: center; align-items: stretch;
+  min-height: 100vh;
+}
+.login-brand { text-align: center; margin-bottom: 36px; }
+.login-emoji { font-size: 52px; margin-bottom: 12px; }
+.login-name {
+  font-family: var(--font-display); font-size: 28px;
+  color: var(--brand-ink); letter-spacing: 1px; line-height: 1;
+}
+.login-sub { font-size: 13px; color: var(--fg-muted); margin-top: 6px; }
+
+/* ── Forms ──────────────────────────────────────────── */
+.field { margin-bottom: 12px; }
+.field-label {
+  display: block; font-size: 11px; font-weight: 700; color: var(--fg-muted);
+  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px;
+}
+.field input, .field select, .field textarea {
+  width: 100%; padding: 11px 13px;
+  border: 1.5px solid var(--line-2); border-radius: 8px;
+  background: var(--surface); font-size: 14px; color: var(--fg1);
+  outline: none; font-family: var(--font-sans);
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); }
+.field .err { font-size: 12px; color: var(--accent); margin-top: 6px; min-height: 14px; }
+
+.btn-big {
+  width: 100%; background: var(--brand); color: #fff; border: 0;
+  border-radius: 10px; padding: 14px;
+  font-weight: 800; font-size: 15px; cursor: pointer;
+  font-family: var(--font-sans); text-align: center;
+}
+.btn-big:active { background: var(--brand-deep); }
+.btn-big[disabled] { opacity: .6; cursor: not-allowed; }
+
+/* ── Menu admin row ─────────────────────────────────── */
+.menu-row {
+  background: var(--surface); border-radius: 14px;
+  box-shadow: var(--shadow); padding: 12px; margin: 0 12px 10px;
+  display: flex; gap: 12px; align-items: flex-start;
+}
+.menu-row-img {
+  width: 54px; height: 54px; border-radius: 10px; flex-shrink: 0;
+  background: linear-gradient(135deg, #fde2c4, #ffb088);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+}
+.menu-row-body { flex: 1; min-width: 0; }
+.menu-row-name { font-weight: 700; font-size: 14px; color: var(--fg1); }
+.menu-row-meta { font-size: 12px; color: var(--fg-muted); margin-top: 1px; }
+.menu-row-price { color: var(--brand); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* ── iOS toggle ─────────────────────────────────────── */
+.toggle { position: relative; display: inline-block; width: 42px; height: 24px; flex-shrink: 0; }
+.toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider {
+  width: 42px; height: 24px; background: var(--line-2); border-radius: 12px;
+  transition: background .2s; position: relative; display: block; cursor: pointer;
+}
+.toggle-slider::after {
+  content: ''; position: absolute;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: #fff; top: 3px; left: 3px;
+  transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.toggle input:checked + .toggle-slider { background: var(--ok); }
+.toggle input:checked + .toggle-slider::after { transform: translateX(18px); }
+
+/* ── Empty state ────────────────────────────────────── */
+.empty { text-align: center; color: var(--fg-faint); padding: 60px 20px 40px; }
+.empty-icon { font-size: 48px; margin-bottom: 12px; }
+.empty-title { font-size: 16px; font-weight: 700; color: var(--fg2); margin-bottom: 6px; }
+.empty-desc { font-size: 13px; }
+
+/* ── Toast ──────────────────────────────────────────── */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  background: var(--fg1); color: #fff; padding: 10px 20px;
+  border-radius: 999px; font-size: 13px; z-index: 100;
+  white-space: nowrap;
+}
+
+/* ── Modal (admin bottom sheet) ─────────────────────── */
+.scrim {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40;
+}
+.modal {
+  position: fixed; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 100%; max-width: var(--container-mobile);
+  background: var(--surface); border-radius: 20px 20px 0 0;
+  z-index: 50; max-height: 92vh; overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  padding: 16px 16px 12px; border-bottom: 1px solid var(--line);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-title { font-size: 16px; font-weight: 800; color: var(--fg1); }
+.modal-close { font-size: 24px; color: var(--fg-muted); background: none; border: 0; padding: 0 4px; }
+.modal-body { padding: 14px 16px; }
+.modal-row {
+  display: flex; gap: 10px; padding: 5px 0; font-size: 14px;
+}
+.modal-row .lbl { color: var(--fg-muted); font-size: 13px; min-width: 90px; }
+.modal-row .val { font-weight: 600; flex: 1; color: var(--fg1); }

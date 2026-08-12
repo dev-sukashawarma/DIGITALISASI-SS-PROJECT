@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Pesanan — SUKA Admin</title>
+<link rel="stylesheet" href="../assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <span class="topbar-title">📋 Pesanan</span>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="liveIndicator" class="pulse" title="Realtime aktif" style="display:none"></span>
+      <span id="adminName" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <!-- Filter status -->
+  <div class="chips" id="filterChips" style="padding-bottom:8px">
+    <button class="chip active" data-status="active"   onclick="setFilter('active')">Aktif</button>
+    <button class="chip"        data-status="paid"     onclick="setFilter('paid')">Dibayar</button>
+    <button class="chip"        data-status="preparing" onclick="setFilter('preparing')">Disiapkan</button>
+    <button class="chip"        data-status="ready"    onclick="setFilter('ready')">Siap Ambil</button>
+    <button class="chip"        data-status="done"     onclick="setFilter('done')">Selesai</button>
+    <button class="chip"        data-status="all"      onclick="setFilter('all')">Semua</button>
+  </div>
+
+  <!-- Outlet filter — hanya super_admin -->
+  <div id="outletFilterWrap" style="padding:0 12px 8px;display:none">
+    <select id="outletFilter" class="form-input" style="font-size:13px" onchange="loadOrders()">
+      <option value="">Semua Outlet</option>
+    </select>
+  </div>
+
+  <!-- Daftar order -->
+  <div id="orderList" style="padding:6px 12px">
+    <div class="skeleton-card"><div class="skeleton-lines">
+      <div class="skeleton skeleton-line"></div>
+      <div class="skeleton skeleton-line short"></div>
+    </div></div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="admin-nav">
+    <a href="/admin/index.html"><span>🏠</span><span>Dashboard</span></a>
+    <a href="/admin/orders.html"><span>📋</span><span>Pesanan</span></a>
+    <a href="/admin/menu.html"><span>🌯</span><span>Menu</span></a>
+    <a href="/admin/reports.html"><span>📊</span><span>Laporan</span></a>
+    <a href="/admin/outlets.html" class="admin-only"><span>📍</span><span>Outlet</span></a>
+    <a href="/admin/settings.html" class="admin-only"><span>⚙️</span><span>Pengaturan</span></a>
+  </nav>
+
+</div>
+<div class="toast" id="toast"></div>
+<div id="adminModal" class="admin-modal-overlay" style="display:none"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<script src="../assets/js/supabase.js"></script>
+<script src="../assets/js/utils.js"></script>
+<script src="../assets/js/admin.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let allOrders     = [];
+let currentFilter = 'active';
+
+const ACTIVE_STATUSES = ['paid', 'preparing', 'ready'];
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  const u = await requireAuth();
+  if (!u) return;
+
+  document.getElementById('liveIndicator').style.display = '';
+
+  if (u.role === 'super_admin') {
+    const { data } = await window.db
+      .from('outlets').select('id, name').eq('is_active', true).order('name');
+    const sel = document.getElementById('outletFilter');
+    (data || []).forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o.id; opt.textContent = o.name;
+      sel.appendChild(opt);
+    });
+    document.getElementById('outletFilterWrap').style.display = '';
+  }
+
+  await loadOrders();
+  subscribeOrders(u);
+})();
+
+// ─── Load orders ──────────────────────────────────────────────────────────────
+async function loadOrders() {
+  const outletId = document.getElementById('outletFilter')?.value || null;
+
+  let q = window.db
+    .from('orders')
+    .select(`id, order_number, customer_name, customer_wa, total, status,
+             created_at, pickup_time, notes, outlet_id,
+             outlets(name),
+             order_items(item_name, quantity, unit_price, selections, note)`)
+    .order('created_at', { ascending: false })
+    .limit(200);
+
+  if (outletId) q = q.eq('outlet_id', outletId);
+
+  const { data } = await q;
+  allOrders = data || [];
+  renderOrders();
+}
+
+// ─── Filter ───────────────────────────────────────────────────────────────────
+function setFilter(status) {
+  currentFilter = status;
+  document.querySelectorAll('#filterChips .chip').forEach(c =>
+    c.classList.toggle('active', c.dataset.status === status)
+  );
+  renderOrders();
+}
+
+function getFiltered() {
+  if (currentFilter === 'active') return allOrders.filter(o => ACTIVE_STATUSES.includes(o.status));
+  if (currentFilter === 'all')    return allOrders;
+  return allOrders.filter(o => o.status === currentFilter);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function renderOrders() {
+  const list = getFiltered();
+  const el   = document.getElementById('orderList');
+
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">📭</div>
+      <div class="empty-title">Tidak ada pesanan</div>
+      <div class="empty-desc">untuk filter ini</div>
+    </div>`;
+    return;
+  }
+  el.innerHTML = list.map(orderCard).join('') + '<div style="height:80px"></div>';
+}
+
+function orderCard(o) {
+  const items      = o.order_items || [];
+  const summary    = items.slice(0, 2).map(i => `${i.quantity}× ${i.item_name}`).join(', ')
+    + (items.length > 2 ? ` +${items.length - 2} lagi` : '');
+  const outletName = (o.outlets || {}).name || '—';
+  const action     = STATUS_NEXT_ACTION[o.status];
+
+  return `<div class="admin-order-row" id="ord-${o.id}">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+      <div>
+        <span style="font-family:monospace;font-size:11px;color:var(--muted)">${o.order_number}</span>
+        <div style="font-weight:700;font-size:14px">${o.customer_name}</div>
+        <div style="font-size:12px;color:var(--muted)">${outletName} · ${fmtTimeAgo(o.created_at)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:8px">
+        ${statusBadge(o.status)}
+        <div style="font-weight:700;font-size:14px;color:var(--brand);margin-top:4px">${formatRupiah(o.total)}</div>
+      </div>
+    </div>
+    ${summary ? `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">${summary}</div>` : ''}
+    ${o.pickup_time ? `<div style="font-size:12px;color:var(--ink2)">⏰ Ambil: ${o.pickup_time}</div>` : ''}
+    ${o.notes ? `<div style="font-size:12px;color:var(--muted);margin-top:2px">📝 ${o.notes}</div>` : ''}
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+      ${action ? `<button class="action-btn action-primary" onclick="doUpdateStatus('${o.id}','${action.next}')">${action.label}</button>` : ''}
+      <button class="action-btn action-secondary" onclick="showDetail('${o.id}')">Detail</button>
+      ${['paid','preparing','ready'].includes(o.status)
+        ? `<button class="action-btn action-danger" onclick="doCancel('${o.id}')">Batalkan</button>` : ''}
+    </div>
+  </div>`;
+}
+
+// ─── Aksi ─────────────────────────────────────────────────────────────────────
+async function doUpdateStatus(orderId, newStatus) {
+  try {
+    await updateOrderStatus(orderId, newStatus);
+    // Update lokal langsung — tidak tunggu realtime
+    const idx = allOrders.findIndex(o => o.id === orderId);
+    if (idx >= 0) {
+      allOrders[idx] = { ...allOrders[idx], status: newStatus };
+      renderOrders();
+    }
+    adminToast(`✅ Status → ${STATUS_LABELS[newStatus]}`);
+  } catch (e) {
+    adminToast('❌ Gagal: ' + e.message);
+  }
+}
+
+async function doCancel(orderId) {
+  if (!confirm('Batalkan pesanan ini? Tindakan ini tidak dapat diurungkan.')) return;
+  const { error } = await window.db.from('orders').update({
+    status:       'cancelled',
+    cancel_reason: 'Dibatalkan oleh outlet',
+    cancelled_at:  new Date().toISOString(),
+  }).eq('id', orderId);
+  if (error) { adminToast('❌ ' + error.message); return; }
+  adminToast('✅ Pesanan dibatalkan');
+}
+
+function showDetail(orderId) {
+  const o = allOrders.find(x => x.id === orderId);
+  if (!o) return;
+
+  const itemsHtml = (o.order_items || []).map(i => `
+    <div class="info-row" style="padding:4px 0">
+      <span class="label">${i.quantity}× ${i.item_name}</span>
+      <span class="val" style="text-align:right">${formatRupiah(i.unit_price * i.quantity)}</span>
+    </div>`).join('');
+
+  openModal(`📋 ${o.order_number}`, `
+    <div class="info-row"><span class="label">Status</span><span class="val">${statusBadge(o.status)}</span></div>
+    <div class="info-row"><span class="label">Nama</span><span class="val">${o.customer_name}</span></div>
+    <div class="info-row"><span class="label">WhatsApp</span>
+      <span class="val"><a href="https://wa.me/${o.customer_wa}" target="_blank" style="color:var(--brand)">${o.customer_wa}</a></span>
+    </div>
+    <div class="info-row"><span class="label">Waktu Ambil</span><span class="val">${o.pickup_time || '—'}</span></div>
+    <div class="info-row"><span class="label">Outlet</span><span class="val">${(o.outlets || {}).name || '—'}</span></div>
+    <div class="info-row"><span class="label">Dibuat</span><span class="val">${fmtDateTime(o.created_at)}</span></div>
+    <hr style="border:0;border-top:1px dashed var(--line2);margin:10px 0"/>
+    ${itemsHtml}
+    <hr style="border:0;border-top:1px dashed var(--line2);margin:10px 0"/>
+    <div class="info-row">
+      <span class="label" style="font-weight:700">Total</span>
+      <span class="val" style="font-weight:800;color:var(--brand);font-size:16px">${formatRupiah(o.total)}</span>
+    </div>
+    ${o.notes ? `<div style="margin-top:8px;font-size:13px;color:var(--muted);background:var(--bg);padding:8px 10px;border-radius:8px">📝 ${o.notes}</div>` : ''}
+  `);
+}
+
+// ─── Realtime ─────────────────────────────────────────────────────────────────
+function subscribeOrders(u) {
+  const filter = (u.role === 'outlet_staff' && u.outlet_id)
+    ? `outlet_id=eq.${u.outlet_id}` : undefined;
+
+  const ch = window.db.channel('admin-orders-rt')
+    .on('postgres_changes', {
+      event:  '*',
+      schema: 'public',
+      table:  'orders',
+      ...(filter ? { filter } : {}),
+    }, payload => handleRealtime(payload))
+    .subscribe();
+
+  addRealtimeChannel(ch);
+}
+
+async function handleRealtime(payload) {
+  if (payload.eventType === 'INSERT') {
+    const { data } = await window.db
+      .from('orders')
+      .select(`id, order_number, customer_name, customer_wa, total, status,
+               created_at, pickup_time, notes, outlet_id,
+               outlets(name),
+               order_items(item_name, quantity, unit_price, selections, note)`)
+      .eq('id', payload.new.id)
+      .single();
+    if (data) {
+      allOrders.unshift(data);
+      renderOrders();
+      playDing();
+      adminToast(`🔔 Order baru: ${data.order_number}`);
+    }
+  } else if (payload.eventType === 'UPDATE') {
+    const idx = allOrders.findIndex(o => o.id === payload.new.id);
+    if (idx >= 0) {
+      allOrders[idx] = { ...allOrders[idx], ...payload.new };
+      renderOrders();
+    }
+  }
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

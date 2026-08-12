@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Status Pesanan — SUKA Shawarma</title>
+<link rel="stylesheet" href="assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <button class="topbar-ic" onclick="window.location.href='index.html'">‹</button>
+    <div class="topbar-logo">🌯 SUKA Shawarma</div>
+    <span style="width:32px"></span>
+  </div>
+
+  <!-- Konten status -->
+  <div id="pageContent">
+    <!-- skeleton loading -->
+    <div class="status-hero">
+      <div class="skeleton" style="width:56px;height:56px;border-radius:50%;margin:0 auto 12px"></div>
+      <div class="skeleton skeleton-line" style="width:60%;margin:0 auto 8px"></div>
+      <div class="skeleton skeleton-line short" style="width:40%;margin:0 auto"></div>
+    </div>
+  </div>
+
+</div><!-- .phone -->
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- QR library (untuk render order number QR di state ready) -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script src="assets/js/supabase.js"></script>
+<script src="assets/js/utils.js"></script>
+<script src="assets/js/app.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const orderNumber = getParam('order');
+let order         = null;
+let realtimeChannel = null;
+let countdownTimer  = null;
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  if (!orderNumber) {
+    renderError('Order tidak ditemukan. <a href="index.html">Kembali ke beranda</a>');
+    return;
+  }
+
+  // Coba baca dari sessionStorage dulu (lebih cepat, data lengkap dari checkout)
+  const cached = readCachedOrder();
+
+  await loadOrder(cached);
+})();
+
+function readCachedOrder() {
+  try {
+    const raw = sessionStorage.getItem('suka_order');
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    return o.order_number === orderNumber ? o : null;
+  } catch { return null; }
+}
+
+// ─── Load order dari DB ───────────────────────────────────────────────────────
+async function loadOrder(cached) {
+  // Ambil order + outlet dari Supabase
+  const { data, error } = await window.db
+    .from('orders')
+    .select('*, outlets(name, address, phone_wa)')
+    .eq('order_number', orderNumber)
+    .single();
+
+  if (error || !data) {
+    // Fallback ke cached jika ada
+    if (cached) {
+      renderStatus(cached);
+    } else {
+      renderError('Order tidak ditemukan. Pastikan URL sudah benar.');
+    }
+    return;
+  }
+
+  order = data;
+
+  // Merge data tambahan dari cache jika belum ada di DB row
+  if (cached) {
+    order._qris_url = order.qris_url || cached.qris_url;
+    order._pay_url  = order.tripay_pay_url || cached.pay_url;
+  } else {
+    order._qris_url = order.qris_url;
+    order._pay_url  = order.tripay_pay_url;
+  }
+
+  renderStatus(order);
+  subscribeRealtime(order.id);
+}
+
+// ─── Subscribe realtime untuk update otomatis ─────────────────────────────────
+function subscribeRealtime(orderId) {
+  if (realtimeChannel) window.db.removeChannel(realtimeChannel);
+
+  realtimeChannel = window.db
+    .channel('order-' + orderId)
+    .on('postgres_changes', {
+      event:  'UPDATE',
+      schema: 'public',
+      table:  'orders',
+      filter: 'id=eq.' + orderId,
+    }, payload => {
+      const updated = { ...order, ...payload.new };
+      updated._qris_url = order._qris_url;
+      updated._pay_url  = order._pay_url;
+      order = updated;
+      renderStatus(order);
+    })
+    .subscribe();
+}
+
+// ─── Render UI berdasarkan status ─────────────────────────────────────────────
+function renderStatus(o) {
+  // Stop countdown lama jika ada
+  if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
+
+  const outlet = o.outlets || {};
+  const outletName    = outlet.name    || o.outlet_name    || '—';
+  const outletAddress = outlet.address || o.outlet_address || '';
+
+  let heroHtml = '';
+  let extraHtml = '';
+
+  switch (o.status) {
+
+    case 'pending_payment':
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">⏳</div>
+          <div class="status-title">Menunggu Pembayaran</div>
+          <div class="status-sub">Scan QRIS di bawah sebelum waktu habis</div>
+          <span class="status-chip status-pending">BELUM DIBAYAR</span>
+        </div>`;
+
+      // Bangun QRIS box
+      const qrisHtml = buildQrisBox(o);
+
+      extraHtml = `
+        ${qrisHtml}
+        <div class="info-card">
+          <button class="btn-outline" id="btnCekStatus" onclick="doCekStatus()">
+            Sudah Bayar? Cek Status
+          </button>
+          <a href="${o._pay_url || '#'}" target="_blank" rel="noopener" class="btn-outline"
+             style="${o._pay_url ? '' : 'opacity:.4;pointer-events:none'}">
+            Buka Halaman Tripay
+          </a>
+        </div>`;
+      break;
+
+    case 'paid':
+      const isManual = o.payment_method === 'manual';
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">✅</div>
+          <div class="status-title">${isManual ? 'Pesanan Diterima!' : 'Pembayaran Berhasil!'}</div>
+          <div class="status-sub">${isManual
+            ? 'Bayar saat pickup — outlet sedang konfirmasi pesananmu'
+            : 'Pesanan diterima — menunggu konfirmasi outlet'}</div>
+          <span class="status-chip status-paid">${isManual ? 'DIKONFIRMASI' : 'DIBAYAR'}</span>
+        </div>`;
+      break;
+
+    case 'preparing':
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">👨‍🍳</div>
+          <div class="status-title">Sedang Disiapkan</div>
+          <div class="status-sub">Outlet sedang memproses pesananmu</div>
+          <span class="status-chip status-preparing">DIPROSES</span>
+        </div>`;
+      break;
+
+    case 'ready':
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">🎉</div>
+          <div class="status-title">Pesanan Siap Diambil!</div>
+          <div class="status-sub">Tunjukkan kode ini ke kasir</div>
+          <span class="status-chip status-ready">SIAP DIAMBIL</span>
+        </div>`;
+
+      extraHtml = `
+        <div class="info-card" style="text-align:center">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Kode Order</div>
+          <div class="order-number-big">${o.order_number}</div>
+          <div class="qr-canvas-wrap" id="qrOrderWrap"></div>
+          <div style="font-size:12px;color:var(--muted);margin-top:6px">Scan atau tunjukkan nomor di atas</div>
+        </div>`;
+      break;
+
+    case 'done':
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">🌯</div>
+          <div class="status-title">Selesai!</div>
+          <div class="status-sub">Terima kasih sudah pesan di SUKA Shawarma</div>
+          <span class="status-chip status-done">SELESAI</span>
+        </div>`;
+
+      extraHtml = `
+        <div class="info-card" style="text-align:center">
+          <a href="index.html" class="btn-add-big" style="display:block;text-decoration:none;text-align:center">
+            Pesan Lagi
+          </a>
+        </div>`;
+      break;
+
+    case 'cancelled':
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">❌</div>
+          <div class="status-title">Pesanan Dibatalkan</div>
+          <div class="status-sub">${o.cancel_reason || 'Pesanan dibatalkan oleh outlet'}</div>
+          <span class="status-chip status-cancelled">DIBATALKAN</span>
+        </div>`;
+
+      extraHtml = `
+        <div class="info-card" style="text-align:center">
+          <div style="font-size:13px;color:var(--muted);margin-bottom:14px">
+            Jika sudah membayar, refund diproses 1–3 hari kerja.
+          </div>
+          <a href="index.html" class="btn-add-big" style="display:block;text-decoration:none;text-align:center">
+            Pesan Ulang
+          </a>
+        </div>`;
+      break;
+
+    case 'expired':
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">⌛</div>
+          <div class="status-title">QRIS Kedaluwarsa</div>
+          <div class="status-sub">Waktu pembayaran habis. Silakan buat pesanan baru.</div>
+          <span class="status-chip status-expired">KEDALUWARSA</span>
+        </div>`;
+
+      extraHtml = `
+        <div class="info-card" style="text-align:center">
+          <a href="menu.html?outlet=${encodeURIComponent(o.outlet_slug || '')}"
+             class="btn-add-big" style="display:block;text-decoration:none;text-align:center">
+            Pesan Ulang
+          </a>
+        </div>`;
+      break;
+
+    default:
+      heroHtml = `
+        <div class="status-hero">
+          <div class="status-icon">🔄</div>
+          <div class="status-title">Memproses…</div>
+          <div class="status-sub">Mohon tunggu sebentar</div>
+        </div>`;
+  }
+
+  // Info order bawah
+  const infoHtml = `
+    <div class="info-card">
+      <div style="font-weight:700;font-size:14px;margin-bottom:8px">📋 Detail Pesanan</div>
+      <div class="info-row">
+        <span class="label">No. Order</span>
+        <span class="val" style="font-family:monospace;font-size:13px">${o.order_number}</span>
+      </div>
+      <div class="info-row">
+        <span class="label">Outlet</span>
+        <span class="val">${outletName}</span>
+      </div>
+      ${outletAddress ? `<div class="info-row">
+        <span class="label">Alamat</span>
+        <span class="val" style="font-size:13px;font-weight:500;color:var(--muted)">${outletAddress}</span>
+      </div>` : ''}
+      <div class="info-row" style="border-top:1px dashed var(--line2);margin-top:6px;padding-top:8px">
+        <span class="label" style="font-weight:700">Total</span>
+        <span class="val" style="font-size:16px;font-weight:800;color:var(--brand)">${formatRupiah(o.total)}</span>
+      </div>
+    </div>
+    <div style="height:32px"></div>`;
+
+  document.getElementById('pageContent').innerHTML = heroHtml + extraHtml + infoHtml;
+
+  // Post-render hooks per status
+  if (o.status === 'pending_payment') {
+    startCountdownUI(o.expires_at);
+  }
+  if (o.status === 'ready') {
+    renderOrderQR(o.order_number);
+  }
+}
+
+// ─── QR code QRIS (untuk state pending_payment) ───────────────────────────────
+function buildQrisBox(o) {
+  const qrisUrl = o._qris_url;
+  let qrisContent = '';
+
+  if (qrisUrl) {
+    if (qrisUrl.startsWith('http')) {
+      // URL gambar QR dari Tripay
+      qrisContent = `<div class="qris-img"><img src="${qrisUrl}" alt="QRIS" /></div>`;
+    } else {
+      // Raw QRIS string — render canvas via QRCode.js
+      qrisContent = `<div id="qrisCanvas" style="display:flex;justify-content:center;margin-bottom:10px"></div>`;
+    }
+  } else {
+    qrisContent = `
+      <div style="padding:20px 0;color:var(--accent-ink);font-size:13px">
+        QR tidak tersedia. Gunakan tombol "Buka Halaman Tripay" di bawah.
+      </div>`;
+  }
+
+  return `
+    <div class="qris-box" style="margin:0 12px 12px">
+      <div class="qris-title">Scan QRIS untuk Membayar</div>
+      ${qrisContent}
+      <div class="qris-amount">${formatRupiah(o.total)}</div>
+      <div class="qris-info">
+        <span class="countdown" id="countdown">—</span>
+      </div>
+    </div>`;
+}
+
+// ─── Render QR untuk order number (state ready) ───────────────────────────────
+function renderOrderQR(orderNum) {
+  const wrap = document.getElementById('qrOrderWrap');
+  if (!wrap) return;
+  try {
+    new QRCode(wrap, {
+      text:         orderNum,
+      width:        180,
+      height:       180,
+      correctLevel: QRCode.CorrectLevel.M,
+    });
+  } catch (e) {
+    wrap.style.display = 'none';
+  }
+}
+
+// ─── Countdown timer ──────────────────────────────────────────────────────────
+function startCountdownUI(expiresAt) {
+  // Render raw QRIS string jika perlu (setelah DOM tersedia)
+  const qrisUrl = order?._qris_url;
+  if (qrisUrl && !qrisUrl.startsWith('http')) {
+    const canvas = document.getElementById('qrisCanvas');
+    if (canvas) {
+      try {
+        new QRCode(canvas, {
+          text: qrisUrl, width: 240, height: 240,
+          correctLevel: QRCode.CorrectLevel.M,
+        });
+      } catch { /* fallback: tidak tampil */ }
+    }
+  }
+
+  function tick() {
+    const el = document.getElementById('countdown');
+    if (!el) return;
+    const ms = new Date(expiresAt) - Date.now();
+    if (ms <= 0) {
+      el.textContent = '⌛ Waktu habis';
+      el.style.color = 'var(--brand)';
+      // Update UI ke expired tanpa tunggu realtime
+      setTimeout(() => {
+        if (order && order.status === 'pending_payment') {
+          order.status = 'expired';
+          renderStatus(order);
+        }
+      }, 1500);
+      return;
+    }
+    const m = Math.floor(ms / 60000);
+    const s = Math.floor((ms % 60000) / 1000);
+    el.textContent = `⏱ Berakhir dalam ${m}:${String(s).padStart(2, '0')}`;
+    if (ms < 60000) el.style.color = 'var(--brand)';
+    countdownTimer = setTimeout(tick, 1000);
+  }
+  tick();
+}
+
+// ─── Tombol "Sudah Bayar? Cek Status" ────────────────────────────────────────
+let isCheking = false;
+
+async function doCekStatus() {
+  if (isCheking) return;
+  isCheking = true;
+
+  const btn = document.getElementById('btnCekStatus');
+  if (btn) { btn.textContent = 'Mengecek…'; btn.disabled = true; }
+
+  try {
+    const result = await checkOrderStatus(orderNumber);
+    if (result.synced && result.status !== 'pending_payment') {
+      // Status berubah — reload dari DB
+      await loadOrder(null);
+    } else {
+      showToast(result.status === 'pending_payment'
+        ? '⏳ Pembayaran belum terdeteksi. Tunggu sebentar.'
+        : '✅ Status diperbarui');
+    }
+  } catch (err) {
+    showToast('Gagal cek status. Coba lagi.');
+  } finally {
+    isCheking = false;
+    const b = document.getElementById('btnCekStatus');
+    if (b) { b.textContent = 'Sudah Bayar? Cek Status'; b.disabled = false; }
+  }
+}
+
+// ─── Error display ────────────────────────────────────────────────────────────
+function renderError(msg) {
+  document.getElementById('pageContent').innerHTML = `
+    <div class="error-box" style="margin:24px 16px">
+      <p>${msg}</p>
+      <button class="btn-retry" onclick="window.location.href='index.html'">Ke Beranda</button>
+    </div>`;
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

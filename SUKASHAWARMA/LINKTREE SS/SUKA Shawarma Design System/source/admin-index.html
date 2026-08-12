@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Dashboard — SUKA Admin</title>
+<link rel="stylesheet" href="../assets/css/style.css" />
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#ff4d4f" />
+</head>
+<body>
+<div class="phone">
+
+  <!-- Topbar -->
+  <div class="topbar">
+    <div>
+      <div class="topbar-logo">🌯 SUKA Admin</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:1px">
+        <span id="adminRole" style="font-weight:600"></span>
+        <span id="adminName" style="margin-left:4px"></span>
+      </div>
+    </div>
+    <button onclick="adminSignOut()"
+            style="font-size:12px;color:var(--brand);background:var(--brand-bg);border:0;border-radius:999px;padding:6px 12px;font-weight:600">
+      Keluar
+    </button>
+  </div>
+
+  <!-- Konten utama -->
+  <div id="pageContent" style="padding:12px">
+    <!-- skeleton -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="stat-card"><div class="skeleton skeleton-line" style="height:18px;margin-bottom:8px"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="stat-card"><div class="skeleton skeleton-line" style="height:18px;margin-bottom:8px"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="stat-card"><div class="skeleton skeleton-line" style="height:18px;margin-bottom:8px"></div><div class="skeleton skeleton-line short"></div></div>
+      <div class="stat-card"><div class="skeleton skeleton-line" style="height:18px;margin-bottom:8px"></div><div class="skeleton skeleton-line short"></div></div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="admin-nav">
+    <a href="/admin/index.html"><span>🏠</span><span>Dashboard</span></a>
+    <a href="/admin/orders.html"><span>📋</span><span>Pesanan</span></a>
+    <a href="/admin/menu.html"><span>🌯</span><span>Menu</span></a>
+    <a href="/admin/reports.html"><span>📊</span><span>Laporan</span></a>
+    <a href="/admin/outlets.html" class="admin-only"><span>📍</span><span>Outlet</span></a>
+    <a href="/admin/settings.html" class="admin-only"><span>⚙️</span><span>Pengaturan</span></a>
+  </nav>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="../config.js"></script>
+<script src="../assets/js/supabase.js"></script>
+<script src="../assets/js/utils.js"></script>
+<script src="../assets/js/admin.js"></script>
+<script>
+(async function init() {
+  const u = await requireAuth();
+  if (!u) return;
+  loadDashboard(u);
+})();
+
+async function loadDashboard(u) {
+  // Tanggal hari ini format ISO (timezone Jakarta)
+  const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' });
+
+  let ordersQ = window.db
+    .from('orders')
+    .select('id, status, total, created_at, customer_name, order_number, outlets(name)')
+    .gte('created_at', todayStr + 'T00:00:00+07:00')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  // outlet_staff hanya lihat outletnya sendiri
+  if (u.role === 'outlet_staff' && u.outlet_id) {
+    ordersQ = ordersQ.eq('outlet_id', u.outlet_id);
+  }
+
+  const [ordersRes, outletRes] = await Promise.all([
+    ordersQ,
+    window.db.from('outlets').select('id').eq('is_active', true),
+  ]);
+
+  const orders  = ordersRes.data  || [];
+  const outlets = outletRes.data  || [];
+
+  const revenue = orders
+    .filter(o => ['paid','preparing','ready','done'].includes(o.status))
+    .reduce((s, o) => s + (o.total || 0), 0);
+  const pending = orders.filter(o => o.status === 'paid').length;
+
+  const pc = document.getElementById('pageContent');
+  pc.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      ${statCard('🛍️', orders.length, 'Order Hari Ini')}
+      ${statCard('💰', formatRupiah(revenue), 'Pendapatan')}
+      ${statCard('⏳', pending, 'Perlu Diproses')}
+      ${statCard('📍', outlets.length, 'Outlet Aktif')}
+    </div>
+
+    <div style="font-weight:700;font-size:14px;margin-bottom:8px">Order Terbaru</div>
+    ${orders.length === 0
+      ? `<div class="empty"><div class="empty-icon">🎉</div><div class="empty-title">Belum ada order hari ini</div></div>`
+      : orders.slice(0, 10).map(o => `
+          <div class="admin-order-row" style="cursor:pointer" onclick="window.location.href='orders.html'">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <span style="font-family:monospace;font-size:11px;color:var(--muted)">${o.order_number}</span>
+                <div style="font-weight:600;font-size:13px">${o.customer_name}</div>
+                <div style="font-size:12px;color:var(--muted)">${(o.outlets || {}).name || '—'} · ${fmtTimeAgo(o.created_at)}</div>
+              </div>
+              <div style="text-align:right">
+                ${statusBadge(o.status)}
+                <div style="font-weight:700;font-size:13px;margin-top:4px;color:var(--brand)">${formatRupiah(o.total)}</div>
+              </div>
+            </div>
+          </div>`).join('')
+    }
+    <div style="height:80px"></div>
+  `;
+}
+
+function statCard(icon, val, label) {
+  return `<div class="stat-card">
+    <div style="font-size:24px;margin-bottom:4px">${icon}</div>
+    <div style="font-weight:800;font-size:18px;color:var(--ink)">${val}</div>
+    <div style="font-size:11px;color:var(--muted);margin-top:2px">${label}</div>
+  </div>`;
+}
+</script>
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
+</body>
+</html>

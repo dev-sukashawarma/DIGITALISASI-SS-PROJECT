@@ -1,0 +1,25 @@
+{
+  "name": "SUKA Shawarma Order",
+  "short_name": "SUKA Order",
+  "description": "Pesan shawarma online, pickup di outlet terdekat.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#ff4d4f",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "assets/img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Pilih Outlet",
+      "url": "/",
+      "description": "Pilih outlet SUKA Shawarma terdekat"
+    }
+  ]
+}

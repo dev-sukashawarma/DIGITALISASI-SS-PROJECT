@@ -2,11 +2,15 @@
   "name": "sukashawarma-outlet-suite",
   "version": "0.0.1",
   "private": true,
+  "engines": {
+    "node": "23"
+  },
   "description": "Outlet Suite — digitalisasi operasional outlet Sukashawarma",
   "workspaces": [
     "packages/*",
     "apps/*",
-    "mobile/*"
+    "mobile/*",
+    "SUKASHAWARMA"
   ],
   "scripts": {
     "dev": "npm run dev --workspaces --if-present",

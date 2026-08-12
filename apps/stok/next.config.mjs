@@ -1,8 +1,3 @@
-import path from 'path'
-import { fileURLToPath } from 'url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue', '@suka/realtime'],
@@ -19,14 +14,13 @@ const nextConfig = {
       },
     ],
   },
-  // Explicit alias for @/* — Turbopack/Next.js 16 misresolves tsconfig paths
-  // when invoked via `yarn workspace` from monorepo root.
-  webpack(config) {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': path.resolve(__dirname, 'src'),
-    }
-    return config
+  // Turbopack native alias — Next.js 16 uses Turbopack by default for builds.
+  // tsconfig paths are misresolved from monorepo root; this ensures @/* always
+  // points to the correct apps/stok/src/ directory.
+  turbopack: {
+    resolveAlias: {
+      '@': './src',
+    },
   },
 }
 

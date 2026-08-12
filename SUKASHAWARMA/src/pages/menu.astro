@@ -1,0 +1,11 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MenuPageClient from '@/components/MenuPageClient';
+
+const title = "Menu Shawarma Autentik";
+const description = "Jelajahi menu lengkap Suka Shawarma — dari shawarma original ayam, sapi, mix, hingga varian spesial Suka Chicken & Shawarmie. Dibuat segar setiap hari.";
+---
+
+<Layout title={title} description={description}>
+  <MenuPageClient client:load />
+</Layout>

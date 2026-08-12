@@ -1,0 +1,51 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import OutletGrid from '@/components/OutletGrid';
+import { outlets } from '@/data/outlets';
+
+const title = "Lokasi Outlet Terdekat";
+const description = "Temukan outlet Suka Shawarma terdekat di Bogor, Depok, Jakarta, Bekasi, dan Tangerang Selatan. 20+ cabang aktif siap melayani kamu.";
+---
+
+<Layout title={title} description={description}>
+  <Navbar client:load pathname={Astro.url.pathname} />
+
+  <main class="pt-[68px]">
+    {/* Hero */}
+    <section class="bg-[#FAF7F2] pt-20 pb-16 px-6 lg:px-8">
+      <div class="max-w-7xl mx-auto text-center">
+        <p class="text-xs font-semibold tracking-[0.22em] uppercase text-[#FE7108] mb-4">
+          Temukan Kami
+        </p>
+        <h1
+          class="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight text-[#111111] leading-[1.1] mb-5"
+        >
+          Temukan Outlet<br />
+          <span class="text-[#6E1A10]">Suka Shawarma Terdekat</span>
+        </h1>
+        <p class="text-[#111111]/55 text-base md:text-lg max-w-xl mx-auto leading-relaxed">
+          Jelajahi seluruh outlet Suka Shawarma dan temukan lokasi terdekat
+          untuk menikmati shawarma favoritmu.
+        </p>
+
+        {/* Subtle accent dots */}
+        <div class="flex items-center justify-center gap-2 mt-8">
+          <span class="w-1.5 h-1.5 rounded-full bg-[#6E1A10]/30"></span>
+          <span class="w-6 h-1.5 rounded-full bg-[#FE7108]"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-[#6E1A10]/30"></span>
+        </div>
+      </div>
+    </section>
+
+    {/* Outlet listing */}
+    <section class="py-16 lg:py-20 bg-white">
+      <div class="max-w-7xl mx-auto px-6 lg:px-8">
+        <OutletGrid outlets={outlets} client:load />
+      </div>
+    </section>
+  </main>
+
+  <Footer client:idle />
+</Layout>

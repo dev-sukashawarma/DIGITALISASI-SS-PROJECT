@@ -1,0 +1,67 @@
+---
+import '@fontsource/arimo/400.css';
+import '@fontsource/arimo/500.css';
+import '@fontsource/arimo/600.css';
+import '@fontsource/arimo/700.css';
+import '@fontsource/arimo/400-italic.css';
+import '@fontsource/arimo/700-italic.css';
+import '../styles/globals.css';
+
+interface Props {
+	title?: string;
+	description?: string;
+}
+
+const {
+  title = "Suka Shawarma - Shawarma Autentik Berkualitas",
+  description = "Nikmati shawarma berkualitas dengan bumbu rempah pilihan khas Timur Tengah. Tersedia di 20+ outlet Jabodetabek. Pesan sekarang!"
+} = Astro.props;
+
+const siteUrl = "https://sukashawarma.vercel.app";
+---
+
+<!doctype html>
+<html lang="id">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content={description} />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="theme-color" content="#6E1A10" />
+		<link rel="icon" type="image/png" href="/icon.png" />
+		
+		<title>{title}</title>
+
+		<!-- SEO Keywords & Authors -->
+		<meta name="keywords" content="shawarma, suka shawarma, kebab, kuliner bogor, shawarma jabodetabek, makanan timur tengah, halal" />
+		<meta name="author" content="Suka Shawarma" />
+		<meta name="creator" content="Suka Shawarma" />
+		<meta name="publisher" content="PT Suka Profit Berkah" />
+		<meta name="format-detection" content="telephone=no, date=no, email=no, address=no" />
+		<meta name="referrer" content="origin-when-cross-origin" />
+
+		<!-- Robots -->
+		<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+
+		<!-- Open Graph -->
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={siteUrl} />
+		<meta property="og:site_name" content="Suka Shawarma" />
+		<meta property="og:locale" content="id_ID" />
+		<meta property="og:type" content="website" />
+		<meta property="og:image" content="/sslogonew.png" />
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content="summary_large_image" />
+		<meta name="twitter:title" content={title} />
+		<meta name="twitter:description" content={description} />
+		<meta name="twitter:image" content="/sslogonew.png" />
+
+		<!-- Preload LCP image -->
+		<link rel="preload" as="image" href="/hero1.png" fetchpriority="high" />
+		<slot name="head" />
+	</head>
+	<body class="min-h-screen flex flex-col bg-white text-[#111111] antialiased" style="font-family: 'Arimo', sans-serif;">
+		<slot />
+	</body>
+</html>

@@ -1,0 +1,42 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '@/components/Navbar';
+import HeroCarousel from '@/components/HeroCarousel';
+import FounderStory from '@/components/FounderStory';
+import BestSeller from '@/components/BestSeller';
+import AuthenticExperience from '@/components/AuthenticExperience';
+import Testimonials from '@/components/Testimonials';
+import Locations from '@/components/Locations';
+import Footer from '@/components/Footer';
+
+const title = "Suka Shawarma | Shawarma Autentik Khas Timur Tengah";
+const description = "Nikmati shawarma berkualitas dengan bumbu rempah pilihan. Tersedia di 20+ outlet Jabodetabek. Rasa autentik, porsi kenyang, harga merakyat.";
+---
+
+<Layout title={title} description={description}>
+  {/* 1. Sticky Navigation */}
+  <Navbar client:load pathname={Astro.url.pathname} />
+
+  <main>
+    {/* 2. Hero Carousel */}
+    <HeroCarousel client:load />
+
+    {/* 3. Founder Story */}
+    <FounderStory client:visible />
+
+    {/* 4. Best Seller */}
+    <BestSeller client:visible />
+
+    {/* 5. Authentic Experience */}
+    <AuthenticExperience client:visible />
+
+    {/* 6. Testimonials */}
+    <Testimonials client:visible />
+
+    {/* 7. Locations */}
+    <Locations client:visible />
+  </main>
+
+  {/* 8. Footer */}
+  <Footer client:idle />
+</Layout>

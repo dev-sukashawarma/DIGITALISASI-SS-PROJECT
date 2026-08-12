@@ -363,10 +363,19 @@ export async function getAttendanceReportData(
   filter: PeriodFilterValue,
   outlets: Outlet[]
 ): Promise<AttendanceRecordExt[]> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) => {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          cookieStore.set(name, value, options)
+        )
+      } catch {
+        // Ignored, might be called from a Server Component.
+      }
+    }
+  })
 
   // 1. Fetch Staff & Outlets for Mapping
   const [{ data: staffList }, { data: outletsList }] = await Promise.all([

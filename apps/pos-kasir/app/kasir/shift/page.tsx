@@ -74,7 +74,7 @@ function formatDateTime(value?: string | null): string {
   if (!value) return '—'
   const d = new Date(value)
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function formatTime(value?: string | null): string {
@@ -619,7 +619,7 @@ export default function CashierShiftPage() {
                     inputMode="numeric"
                     required
                     placeholder="Contoh: 150.000"
-                    value={startingPettyCash ? Number(startingPettyCash).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                    value={startingPettyCash ? Number(startingPettyCash).toLocaleString('id-ID') : ''}
                     onChange={e => !pettyCashLocked && setStartingPettyCash(e.target.value.replace(/\D/g, ''))}
                     disabled={isSubmitting || pettyCashLocked}
                     className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -721,7 +721,7 @@ export default function CashierShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <span className="text-gray-400 font-semibold text-sm">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="20.000" value={expAmount ? Number(expAmount).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''} onChange={e => setExpAmount(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-bold" />
+                      <input inputMode="numeric" required placeholder="20.000" value={expAmount ? Number(expAmount).toLocaleString('id-ID') : ''} onChange={e => setExpAmount(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting} className="w-full pl-9 pr-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-bold" />
                     </div>
                   </div>
 

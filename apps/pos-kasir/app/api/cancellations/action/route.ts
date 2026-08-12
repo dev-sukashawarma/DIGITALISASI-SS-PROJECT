@@ -2,14 +2,17 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { requireApprover } from '@/lib/authz'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 const CANCELLATION_APPROVER_ROLES = ['leader', 'area_manager', 'regional_manager', 'admin']
 
 export async function POST(req: Request) {
+  const supabase = getSupabase()
   try {
     const { token, action } = await req.json() // action: 'approve' | 'reject'
 

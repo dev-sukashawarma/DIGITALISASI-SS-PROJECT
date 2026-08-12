@@ -49,7 +49,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo
-RUN corepack enable && yarn workspace manager build
+RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace manager build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

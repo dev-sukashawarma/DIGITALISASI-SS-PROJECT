@@ -39,7 +39,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 # Build the application
-RUN corepack enable && yarn workspace @suka/admin-dashboard build
+RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/admin-dashboard build
 
 # --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

@@ -16,8 +16,8 @@ export default async function RekapAbsensiOwnerPage({ searchParams }: { searchPa
 
   const sp = await searchParams
 
-  const { data: user } = await supabase.auth.getUser()
-  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', user.user?.id).single()
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = await supabase.from('users').select('role, outlet_id').eq('id', user?.id || '').single()
   const isReadOnly = profile?.role === 'MITRA'
   const lockedOutletId = isReadOnly ? profile?.outlet_id : null
 

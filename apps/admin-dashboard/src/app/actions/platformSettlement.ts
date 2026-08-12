@@ -6,10 +6,12 @@ import { getParser, PLATFORM_COMPARE_CHANNEL } from '@/lib/platformSettlement';
 import type { PlatformId, SettlementDaily, SettlementRow } from '@/lib/platformSettlement';
 import storeMapRaw from '@/data/platform_store_map.json';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
 
 type StoreMapEntry = {
   byStoreId: Record<string, string>;
@@ -32,6 +34,7 @@ export interface OutletComparison {
 }
 
 export async function previewSettlementFile(formData: FormData) {
+  const supabase = getSupabase();
   try {
     await requireRole(['admin', 'owner']);
 
@@ -206,6 +209,7 @@ export async function syncSettlementData(payload: {
   sourceFile: string;
   daily: SettlementDaily[];
 }) {
+  const supabase = getSupabase();
   try {
     const { userId } = await requireRole(['admin', 'owner']);
     const { platform, sourceFile, daily } = payload;
@@ -286,6 +290,7 @@ const PLATFORM_LABELS: Record<string, string> = {
 export async function previewAllSettlementFiles(formData: FormData): Promise<
   { success: true; summary: MultiPlatformSummary } | { success: false; error: string }
 > {
+  const supabase = getSupabase();
   try {
     await requireRole(['admin', 'owner']);
 
@@ -428,6 +433,7 @@ export async function previewAllSettlementFiles(formData: FormData): Promise<
 }
 
 export async function syncAllSettlementData(allDaily: MultiPlatformSummary['allDaily']) {
+  const supabase = getSupabase();
   try {
     const { userId } = await requireRole(['admin', 'owner']);
     let totalSaved = 0;

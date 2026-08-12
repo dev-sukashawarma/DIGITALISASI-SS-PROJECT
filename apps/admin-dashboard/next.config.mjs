@@ -6,7 +6,6 @@ const nextConfig = {
   // berhenti menegakkan auth di produksi — semua route terproteksi balas 200 tanpa login —
   // dan `/` balas 500. Empat app lain (stok/absensi/distribusi/finance) tanpa `output`
   // dan semuanya sehat. Lihat ADR-008.
-  turbopack: {},
   transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/realtime'],
   experimental: {
     optimizePackageImports: ['recharts', 'lucide-react', 'react-icons', 'date-fns'],
@@ -22,7 +21,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    domains: ['qntuhtkujpwudcpudmbj.supabase.co'],
     remotePatterns: [
       {
         protocol: 'https',

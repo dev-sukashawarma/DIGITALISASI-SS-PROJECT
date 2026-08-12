@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { TrendingUp, TrendingDown, Clock, AlertTriangle, ListChecks, Calendar } from 'lucide-react';
 import RankingList from './RankingList';
 import { CustomDateFilter } from '../components/CustomDateFilter';
+import ZonePerformanceTable from '../components/ZonePerformanceTable';
 import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
@@ -62,6 +63,12 @@ const getAMName = (outletId: string, outletName: string, amMap: Map<string, stri
   }
   
   return 'Lainnya';
+};
+
+const isIgnoredAM = (name: string) => {
+  if (!name) return true;
+  const n = name.toUpperCase();
+  return n === 'LAINNYA' || n.includes('AREA MANAGER AM') || n.includes('TEST');
 };
 
 export default async function DashboardOverview(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -315,7 +322,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       amName: getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name),
       omzet: outletOmzetMap.get(outlet.id) || 0
     }))
-    .filter(o => o.amName !== 'Lainnya')
+    .filter(o => !isIgnoredAM(o.amName))
     .sort((a, b) => b.omzet - a.omzet);
 
   const maxOmzet = outletRanking.length > 0 ? outletRanking[0].omzet : 1;
@@ -323,7 +330,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   const groupedOutlets = new Map<string, any[]>();
   allOutlets.forEach(outlet => {
     const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name);
-    if (amName === 'Lainnya') return;
+    if (isIgnoredAM(amName)) return;
     
     const groupKey = amName;
     if (!groupedOutlets.has(groupKey)) {
@@ -333,78 +340,185 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-xl sm:text-2xl font-black text-suka-brown">Ringkasan Area</h2>
-        <div className="flex bg-white rounded-lg p-1 shadow-sm border border-suka-brown/10 self-stretch sm:self-auto">
-          <Link href="?period=today" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'today' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>Hari Ini</Link>
-          <Link href="?period=yesterday" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'yesterday' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>Kemarin</Link>
-          <Link href="?period=week" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'week' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>7 Hari Terakhir</Link>
-          <Link href="?period=month" className={`px-4 py-1.5 text-sm font-bold rounded-md flex-1 text-center transition-colors ${period === 'month' ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'}`}>1 Bulan Terakhir</Link>
+    <div className="space-y-6 max-w-7xl mx-auto pb-10">
+      
+      {/* 🌟 Header Section & Segmented Filter Control */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10">
+        <div>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl sm:text-2xl font-black text-suka-brown tracking-tight">Ringkasan Area</h2>
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-suka-orange/10 text-suka-orange border border-suka-orange/20">
+              USER: {staff?.role ? staff.role.replace('_', ' ').toUpperCase() : 'REGIONAL MANAGER'}
+            </span>
+          </div>
+          <p className="text-xs font-semibold text-suka-gray-400 mt-1">
+            Pantau performa pendapatan, transaksi, dan aktivitas cabang secara real-time
+          </p>
+        </div>
+
+        {/* Segmented Filter Control */}
+        <div className="flex bg-suka-brown/[0.04] rounded-2xl p-1 border border-suka-brown/10 self-stretch md:self-auto overflow-x-auto">
+          <Link href="?period=today" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'today' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Hari Ini</Link>
+          <Link href="?period=yesterday" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'yesterday' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Kemarin</Link>
+          <Link href="?period=week" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'week' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>7 Hari Terakhir</Link>
+          <Link href="?period=month" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'month' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>1 Bulan Terakhir</Link>
           <CustomDateFilter />
         </div>
       </div>
       
-      {/* Metrics Grid */}
+      {/* 📊 Metrics Grid (Bento KPI Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <TrendingUp size={48} className="text-suka-orange" />
+        
+        {/* KPI 1: Pendapatan */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-suka-orange/30 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Pendapatan</h3>
+            <div className="p-2.5 bg-suka-orange/10 text-suka-orange rounded-2xl group-hover:scale-110 transition-transform">
+              <TrendingUp size={20} />
+            </div>
           </div>
-          <h3 className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider mb-2">Pendapatan</h3>
-          <p className="text-2xl sm:text-3xl font-black text-suka-brown">{formatRupiah(omzetToday)}</p>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1 mt-2 ${
-            isPositive ? 'text-suka-green bg-suka-green/10' : 'text-red-500 bg-red-50'
-          }`}>
-            {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-            {isPositive ? '+' : '-'}{absChange}% dari periode sebelumnya
-          </span>
+          <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
+            {formatRupiah(omzetToday)}
+          </p>
+          <div className="mt-3">
+            <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${
+              isPositive ? 'text-emerald-800 bg-emerald-100/80 border border-emerald-200' : 'text-red-700 bg-red-100/80 border border-red-200'
+            }`}>
+              {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+              {isPositive ? '+' : '-'}{absChange}% dari periode sebelumnya
+            </span>
+          </div>
         </div>
         
-        <div className="bg-white p-5 rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <Clock size={48} className="text-suka-orange" />
+        {/* KPI 2: Jumlah Transaksi */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Jumlah Transaksi</h3>
+            <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <Clock size={20} />
+            </div>
           </div>
-          <h3 className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider mb-2">Jumlah Transaksi</h3>
-          <p className="text-2xl sm:text-3xl font-black text-suka-brown">{txToday}</p>
-          <span className="text-[10px] font-bold text-suka-gray-500 bg-suka-gray-100 px-2 py-0.5 rounded-full inline-block mt-2">Selesai pada periode ini</span>
+          <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
+            {txToday} <span className="text-sm font-bold text-suka-gray-400">order</span>
+          </p>
+          <div className="mt-3">
+            <span className="text-[10px] font-extrabold text-suka-brown/60 bg-suka-brown/5 px-2.5 py-1 rounded-full border border-suka-brown/10 inline-block">
+              Selesai pada periode ini
+            </span>
+          </div>
         </div>
 
-        <div className="bg-white p-5 rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
-            <ListChecks size={48} className="text-suka-orange" />
+        {/* KPI 3: Jumlah Item Terjual */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Jumlah Item Terjual</h3>
+            <div className="p-2.5 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
+              <ListChecks size={20} />
+            </div>
           </div>
-          <h3 className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider mb-2">Jumlah Item Terjual</h3>
-          <p className="text-2xl sm:text-3xl font-black text-suka-brown">{itemsSoldToday}</p>
-          <span className="text-[10px] font-bold text-suka-gray-500 bg-suka-gray-100 px-2 py-0.5 rounded-full inline-block mt-2">Total Produk pada periode ini</span>
+          <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
+            {itemsSoldToday} <span className="text-sm font-bold text-suka-gray-400">porsi</span>
+          </p>
+          <div className="mt-3">
+            <span className="text-[10px] font-extrabold text-suka-brown/60 bg-suka-brown/5 px-2.5 py-1 rounded-full border border-suka-brown/10 inline-block">
+              Total Produk pada periode ini
+            </span>
+          </div>
         </div>
       </div>
       
+      {/* 🏢 Zone Performance Monitoring Table for Regional Manager */}
+      {(() => {
+        if (staff?.role === 'area_manager') return null;
+
+        const zonePerformanceMap = new Map<string, { outlets: { id: string; name: string; omzet: number }[]; totalOmzet: number }>();
+
+        allOutlets.forEach(outlet => {
+          const amName = getAMName(outlet.id, outlet.name, amMap, staff?.role, staff?.name);
+          if (isIgnoredAM(amName)) return;
+
+          const omzet = outletOmzetMap.get(outlet.id) || 0;
+          if (!zonePerformanceMap.has(amName)) {
+            zonePerformanceMap.set(amName, { outlets: [], totalOmzet: 0 });
+          }
+          const zData = zonePerformanceMap.get(amName)!;
+          zData.outlets.push({ id: outlet.id, name: outlet.name, omzet });
+          zData.totalOmzet += omzet;
+        });
+
+        const zonePerformanceData = Array.from(zonePerformanceMap.entries())
+          .map(([zoneName, data]) => ({
+            zoneName,
+            outlets: data.outlets,
+            totalOmzet: data.totalOmzet
+          }))
+          .sort((a, b) => b.totalOmzet - a.totalOmzet);
+
+        return <ZonePerformanceTable zones={zonePerformanceData} />;
+      })()}
+      
+      {/* 🏆 Bottom Grid: Leaderboard & Operational Status */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 lg:col-span-2 min-h-[300px]">
-          <h3 className="text-sm font-black text-suka-brown uppercase tracking-wider mb-6 border-b border-suka-brown/5 pb-3">Ranking Outlet (Berdasarkan Omzet)</h3>
+        
+        {/* Leaderboard Ranking */}
+        <div className="bg-white p-6 sm:p-7 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 lg:col-span-2 min-h-[300px]">
+          <div className="flex items-center justify-between mb-6 pb-3 border-b border-suka-brown/10">
+            <h3 className="text-sm font-black text-suka-brown uppercase tracking-wider">
+              Ranking Outlet (Berdasarkan Omzet)
+            </h3>
+            <span className="text-xs font-bold text-suka-gray-400">
+              {outletRanking.length} Outlet Terdaftar
+            </span>
+          </div>
           <RankingList outletRanking={outletRanking} maxOmzet={maxOmzet} />
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 min-h-[300px] lg:col-span-1">
-          <h3 className="text-sm font-black text-suka-brown uppercase tracking-wider mb-4 border-b border-suka-brown/5 pb-3">Status Outlet</h3>
+
+        {/* Live Outlet Status Feed */}
+        <div className="bg-white p-6 sm:p-7 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 min-h-[300px] lg:col-span-1">
+          <div className="flex items-center justify-between mb-6 pb-3 border-b border-suka-brown/10">
+            <h3 className="text-sm font-black text-suka-brown uppercase tracking-wider">
+              Status Outlet
+            </h3>
+            <span className="text-xs font-bold text-suka-gray-400">
+              {allOutlets.length} Cabang
+            </span>
+          </div>
+
           {allOutlets.length === 0 ? (
             <p className="text-sm text-suka-gray-400">Tidak ada outlet.</p>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-5 max-h-[480px] overflow-y-auto pr-1">
               {Array.from(groupedOutlets.entries()).map(([groupKey, groupOutlets]) => (
-                <div key={groupKey}>
-                  <h4 className="text-xs font-black text-suka-orange mb-3 bg-suka-orange/10 px-3 py-1.5 rounded-lg inline-block">{groupKey}</h4>
-                  <ul className="space-y-4">
-                    {groupOutlets.map(outlet => (
-                      <li key={outlet.id} className="flex justify-between items-center">
-                        <span className="text-sm font-bold text-suka-brown">{outlet.name}</span>
-                        {outletFirstCheckIn.has(outlet.id) ? (
-                          <span className="px-2.5 py-1 bg-suka-green/10 text-suka-green text-[10px] rounded-full font-black uppercase tracking-widest shadow-sm">Buka - {outletFirstCheckIn.get(outlet.id)}</span>
-                        ) : (
-                          <span className="px-2.5 py-1 bg-red-100 text-red-600 text-[10px] rounded-full font-black uppercase tracking-widest shadow-sm">Tutup</span>
-                        )}
-                      </li>
-                    ))}
+                <div key={groupKey} className="space-y-3">
+                  {groupedOutlets.size > 1 && (
+                    <h4 className="text-[11px] font-black text-suka-orange uppercase tracking-wider bg-suka-orange/10 px-3 py-1.5 rounded-lg inline-block border border-suka-orange/20">
+                      {groupKey}
+                    </h4>
+                  )}
+                  <ul className="divide-y divide-suka-brown/5">
+                    {groupOutlets.map(outlet => {
+                      const isOpen = outletFirstCheckIn.has(outlet.id);
+                      const openTime = outletFirstCheckIn.get(outlet.id);
+
+                      return (
+                        <li key={outlet.id} className="py-3 flex justify-between items-center first:pt-0 last:pb-0 hover:bg-suka-brown/[0.02] px-2 rounded-xl transition-colors">
+                          <span className="text-sm font-extrabold text-suka-brown truncate mr-2">{outlet.name}</span>
+                          {isOpen ? (
+                            <span className="inline-flex items-center px-2.5 py-1 bg-emerald-50 text-emerald-800 text-[10px] rounded-full font-black uppercase tracking-wider border border-emerald-200 shrink-0">
+                              <span className="relative flex h-2 w-2 mr-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                              </span>
+                              Buka - {openTime}
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-1 bg-red-50 text-red-700 text-[10px] rounded-full font-black uppercase tracking-wider border border-red-200 shrink-0">
+                              Tutup
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 </div>
               ))}

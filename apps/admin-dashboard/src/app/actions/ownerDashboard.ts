@@ -377,23 +377,7 @@ export async function getAttendanceReportData(
   const staffMap = new Map((staffList || []).map((s) => [s.id, s]))
   const outletMap = new Map((outletsList || []).map((o) => [o.id, o.name]))
 
-  // Helper function to generate Signed URL from `selfies` bucket
-  const photoCache = new Map<string, string | null>()
-  async function getSignedStealthPhoto(path?: string | null): Promise<string | null> {
-    if (!path) return null
-    if (path.startsWith('http://') || path.startsWith('https://')) return path
-    if (photoCache.has(path)) return photoCache.get(path)!
-
-    // Create signed URL for stealth photo from selfies bucket
-    const { data: selfieSigned } = await supabase.storage.from('selfies').createSignedUrl(path, 3600)
-    if (selfieSigned?.signedUrl) {
-      photoCache.set(path, selfieSigned.signedUrl)
-      return selfieSigned.signedUrl
-    }
-
-    return null
-  }
-
+  // We will batch-sign the stealth photo URLs below to prevent server timeout
   // 2. Query REAL table `attendance` (singular) where all stealth camera photos are recorded
   let query = supabase
     .from('attendance')
@@ -497,36 +481,63 @@ export async function getAttendanceReportData(
     }
   }
 
-  // Convert grouped items to AttendanceRecordExt with Signed Stealth Photo URLs & Out Status
-  const result: AttendanceRecordExt[] = await Promise.all(
-    Array.from(grouped.values()).map(async (item) => {
-      const signedIn = await getSignedStealthPhoto(item.raw_photo_in)
-      const signedOut = await getSignedStealthPhoto(item.raw_photo_out)
+  // Gather all unique photo paths
+  const pathsToSign = new Set<string>()
+  for (const item of grouped.values()) {
+    if (item.raw_photo_in && !item.raw_photo_in.startsWith('http')) pathsToSign.add(item.raw_photo_in)
+    if (item.raw_photo_out && !item.raw_photo_out.startsWith('http')) pathsToSign.add(item.raw_photo_out)
+  }
 
-      return {
-        id: item.id,
-        staff_id: item.staff_id,
-        staff_name: item.staff_name,
-        staff_role: item.staff_role,
-        outlet_id: item.outlet_id,
-        outlet_name: item.outlet_name,
-        date: item.date,
-        clock_in: item.clock_in,
-        clock_out: item.clock_out,
-        status: item.status,
-        late_minutes: item.late_minutes,
-        out_status: item.out_status,
-        out_minutes: item.out_minutes,
-        notes: item.notes,
-        stealth_photo_in_url: signedIn,
-        stealth_photo_out_url: signedOut,
-        gps_lat_in: item.gps_lat_in,
-        gps_lng_in: item.gps_lng_in,
-        gps_lat_out: item.gps_lat_out,
-        gps_lng_out: item.gps_lng_out,
+  // Batch sign the URLs in chunks of 100 to avoid overloading the API
+  const pathArray = Array.from(pathsToSign)
+  const signedUrlsMap = new Map<string, string>()
+  const chunkSize = 100
+  
+  for (let i = 0; i < pathArray.length; i += chunkSize) {
+    const chunk = pathArray.slice(i, i + chunkSize)
+    const { data: signedUrls } = await supabase.storage.from('selfies').createSignedUrls(chunk, 3600)
+    if (signedUrls) {
+      for (const su of signedUrls) {
+        if (su.signedUrl) signedUrlsMap.set(su.path, su.signedUrl)
       }
-    })
-  )
+    }
+  }
+
+  // Convert grouped items to AttendanceRecordExt with Signed Stealth Photo URLs & Out Status
+  const result: AttendanceRecordExt[] = Array.from(grouped.values()).map((item) => {
+    let signedIn = item.raw_photo_in
+    if (signedIn && !signedIn.startsWith('http')) {
+      signedIn = signedUrlsMap.get(signedIn) || null
+    }
+
+    let signedOut = item.raw_photo_out
+    if (signedOut && !signedOut.startsWith('http')) {
+      signedOut = signedUrlsMap.get(signedOut) || null
+    }
+
+    return {
+      id: item.id,
+      staff_id: item.staff_id,
+      staff_name: item.staff_name,
+      staff_role: item.staff_role,
+      outlet_id: item.outlet_id,
+      outlet_name: item.outlet_name,
+      date: item.date,
+      clock_in: item.clock_in,
+      clock_out: item.clock_out,
+      status: item.status,
+      late_minutes: item.late_minutes,
+      out_status: item.out_status,
+      out_minutes: item.out_minutes,
+      notes: item.notes,
+      stealth_photo_in_url: signedIn,
+      stealth_photo_out_url: signedOut,
+      gps_lat_in: item.gps_lat_in,
+      gps_lng_in: item.gps_lng_in,
+      gps_lat_out: item.gps_lat_out,
+      gps_lng_out: item.gps_lng_out,
+    }
+  })
 
   return result.sort((a, b) => b.date.localeCompare(a.date))
 }

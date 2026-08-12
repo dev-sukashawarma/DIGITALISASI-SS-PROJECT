@@ -5,6 +5,8 @@ import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle, Building2, Ch
 import { processVoidOrder } from '../actions/cancellations';
 import { searchCompletedOrders, forceCancelCompletedOrder, getMyOutletsForVoid } from '../actions/orderVoid';
 import { useApprovals } from '../../lib/ApprovalsContext';
+import { PeriodFilter, PeriodValue } from '../../components/PeriodFilter';
+import { presetRange } from '../../lib/period';
 import { toast } from 'sonner';
 
 type CompletedOrderRow = {
@@ -58,6 +60,7 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
   const { pendingRequests: requests, refreshApprovals } = useApprovals()
   const [loadingIds, setLoadingIds] = useState<string[]>([])
   const [tab, setTab] = useState<'pending' | 'completed'>('pending')
+  const [period, setPeriod] = useState<PeriodValue>(presetRange('today'))
 
   const [myOutlets, setMyOutlets] = useState<OutletOption[]>([])
   const [outletsLoaded, setOutletsLoaded] = useState(false)
@@ -80,15 +83,13 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
     })
   }, [tab, outletsLoaded])
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!outletId || !query.trim()) return
+  const fetchCompletedOrders = async () => {
+    if (!outletId) return
     setSearching(true)
     try {
-      const res = await searchCompletedOrders(outletId, query)
+      const res = await searchCompletedOrders(outletId, query, period)
       if (res.success) {
         setResults(res.data as CompletedOrderRow[])
-        if (res.data.length === 0) toast.info('Tidak ada pesanan selesai yang cocok.')
       } else {
         toast.error(res.error || 'Gagal mencari pesanan')
       }
@@ -96,6 +97,30 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
       setSearching(false)
     }
   }
+
+  const handleSearch = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault()
+    fetchCompletedOrders()
+  }
+
+  useEffect(() => {
+    if (tab === 'completed' && outletId) {
+      fetchCompletedOrders()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [period, outletId, tab])
+
+  const filteredPendingRequests = React.useMemo(() => {
+    return requests.filter(req => {
+      if (!period.from || !period.to) return true
+      const reqDate = new Date(req.created_at)
+      const from = new Date(period.from)
+      from.setHours(0,0,0,0)
+      const to = new Date(period.to)
+      to.setHours(23,59,59,999)
+      return reqDate >= from && reqDate <= to
+    })
+  }, [requests, period])
 
   const closeVoidModal = () => {
     setTarget(null)
@@ -156,6 +181,9 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h2 className="text-xl sm:text-2xl font-black text-suka-brown">Persetujuan &amp; Pembatalan Pesanan</h2>
+        <div className="w-full sm:w-auto">
+          <PeriodFilter value={period} onChange={setPeriod} />
+        </div>
       </div>
 
       <div className="flex gap-2 bg-white rounded-xl border border-suka-brown/5 p-1.5 w-fit shadow-sm">
@@ -187,17 +215,17 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
         <div className="p-4 border-b border-suka-brown/5 bg-suka-cream/30 flex justify-between items-center">
           <h3 className="font-bold text-suka-brown">Antrean Persetujuan Void</h3>
           <span className="bg-suka-orange/10 text-suka-orange text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-widest shadow-sm">
-            {requests.length} Menunggu
+            {filteredPendingRequests.length} Menunggu
           </span>
         </div>
 
-        {requests.length === 0 ? (
+        {filteredPendingRequests.length === 0 ? (
           <div className="p-8 text-center text-suka-gray-500 font-medium">
             Tidak ada pengajuan persetujuan saat ini.
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {requests.map(req => (
+            {filteredPendingRequests.map(req => (
               <div 
                 key={req.id} 
                 className="group relative bg-white border border-suka-gray-200/60 hover:border-suka-orange/30 rounded-2xl p-5 sm:p-6 transition-all duration-300 hover:shadow-lg hover:shadow-suka-orange/5 overflow-hidden flex flex-col md:flex-row md:items-start justify-between gap-6"
@@ -368,7 +396,7 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
                 </div>
                 <button
                   type="submit"
-                  disabled={searching || !query.trim() || !outletId}
+                  disabled={searching || !outletId}
                   className="px-5 py-3 rounded-xl bg-suka-orange text-white font-black text-sm disabled:opacity-50"
                 >
                   {searching ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Cari'}

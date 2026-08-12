@@ -1,4 +1,4 @@
-export type Preset = 'today' | 'yesterday' | '7d' | '30d'
+export type Preset = 'today' | 'yesterday' | '7d' | '30d' | 'this_month'
 
 function iso(d: Date): string { return d.toISOString().slice(0, 10) }
 function addDays(ymd: string, n: number): string {
@@ -13,6 +13,10 @@ export function presetRange(preset: Preset, now = new Date()): { from: string; t
   if (preset === 'yesterday') {
     const yesterday = addDays(todayStr, -1)
     return { from: yesterday, to: yesterday }
+  }
+  
+  if (preset === 'this_month') {
+    return { from: todayStr.slice(0, 8) + '01', to: todayStr }
   }
   
   const span = preset === 'today' ? 0 : preset === '7d' ? 6 : 29

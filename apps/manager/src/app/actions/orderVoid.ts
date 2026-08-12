@@ -58,13 +58,17 @@ export async function getMyOutletsForVoid() {
   return { success: true, data: data || [] }
 }
 
-export async function searchCompletedOrders(outletId: string, query: string) {
+export async function searchCompletedOrders(
+  outletId: string, 
+  query: string,
+  period?: { from: string; to: string }
+) {
   const auth = await requireStaffWithOutletAccess(outletId)
   if ('error' in auth) return { success: false, error: auth.error, data: [] }
   const { supabaseAdmin } = auth
 
   const trimmed = query.trim()
-  if (!trimmed) return { success: true, data: [] }
+  if (!trimmed && !period) return { success: true, data: [] }
 
   let q = supabaseAdmin
     .from('orders')
@@ -72,11 +76,21 @@ export async function searchCompletedOrders(outletId: string, query: string) {
     .eq('outlet_id', outletId)
     .eq('status', 'completed')
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(50) // Increased limit since we might search by date only
 
-  q = /^\d+$/.test(trimmed)
-    ? q.eq('order_number', parseInt(trimmed, 10))
-    : q.ilike('customer_name', `%${trimmed}%`)
+  if (period?.from && period?.to) {
+    const fromDate = new Date(period.from)
+    fromDate.setHours(0, 0, 0, 0)
+    const toDate = new Date(period.to)
+    toDate.setHours(23, 59, 59, 999)
+    q = q.gte('created_at', fromDate.toISOString()).lte('created_at', toDate.toISOString())
+  }
+
+  if (trimmed) {
+    q = /^\d+$/.test(trimmed)
+      ? q.eq('order_number', parseInt(trimmed, 10))
+      : q.ilike('customer_name', `%${trimmed}%`)
+  }
 
   const { data, error } = await q
   if (error) return { success: false, error: error.message, data: [] }

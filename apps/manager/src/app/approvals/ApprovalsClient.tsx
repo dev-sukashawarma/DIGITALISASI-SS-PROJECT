@@ -114,10 +114,8 @@ export default function ApprovalsClient({ initialRequests }: { initialRequests: 
     return requests.filter(req => {
       if (!period.from || !period.to) return true
       const reqDate = new Date(req.created_at)
-      const from = new Date(period.from)
-      from.setHours(0,0,0,0)
-      const to = new Date(period.to)
-      to.setHours(23,59,59,999)
+      const from = new Date(`${period.from}T00:00:00+07:00`)
+      const to = new Date(`${period.to}T23:59:59.999+07:00`)
       return reqDate >= from && reqDate <= to
     })
   }, [requests, period])

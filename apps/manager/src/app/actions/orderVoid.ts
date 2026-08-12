@@ -79,10 +79,8 @@ export async function searchCompletedOrders(
     .limit(50) // Increased limit since we might search by date only
 
   if (period?.from && period?.to) {
-    const fromDate = new Date(period.from)
-    fromDate.setHours(0, 0, 0, 0)
-    const toDate = new Date(period.to)
-    toDate.setHours(23, 59, 59, 999)
+    const fromDate = new Date(`${period.from}T00:00:00+07:00`)
+    const toDate = new Date(`${period.to}T23:59:59.999+07:00`)
     q = q.gte('created_at', fromDate.toISOString()).lte('created_at', toDate.toISOString())
   }
 

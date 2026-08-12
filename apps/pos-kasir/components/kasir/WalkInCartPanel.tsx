@@ -219,7 +219,7 @@ export function WalkInCartPanel(props: {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">Rp</span>
                     <input
                       inputMode="numeric"
-                      value={amountReceived ? amountReceived.toLocaleString('id-ID') : ''}
+                      value={amountReceived ? amountReceived.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
                       onChange={(e) => setCashInput(e.target.value.replace(/\D/g, ''))}
                       placeholder="0"
                       className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl bg-white text-right text-lg font-bold focus:outline-none focus:ring-2 focus:ring-emerald-500 transition-colors"

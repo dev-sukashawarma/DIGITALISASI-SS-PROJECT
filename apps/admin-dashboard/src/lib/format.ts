@@ -1,5 +1,5 @@
 export function rupiah(n: number): string {
-  return 'Rp\u00A0' + Math.round(n).toLocaleString('id-ID')
+  return 'Rp\u00A0' + Math.round(n).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
 }
 export function rupiahCompact(n: number): string {
   const absN = Math.abs(n)

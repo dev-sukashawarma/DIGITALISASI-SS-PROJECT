@@ -44,7 +44,7 @@ export function useHrActivity() {
             id: `att-${a.id}`,
             type: 'attendance',
             title: `Absensi: ${a.outlet_staff?.name || 'Karyawan'}`,
-            description: `Clock in pada ${a.clock_in ? new Date(a.clock_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'} (Status: ${a.status})`,
+            description: `Clock in pada ${a.clock_in ? new Date(a.clock_in).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' }) : '-'} (Status: ${a.status})`,
             timestamp: a.created_at || a.date,
             status: a.status
           })
@@ -72,7 +72,7 @@ export function useHrActivity() {
             id: `cash-${c.id}`,
             type: 'cash_advance',
             title: `Pengajuan Kasbon: ${c.outlet_staff?.name || 'Karyawan'}`,
-            description: `Meminjam kasbon sebesar Rp ${c.amount.toLocaleString('id-ID')}`,
+            description: `Meminjam kasbon sebesar Rp ${c.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`,
             timestamp: c.created_at,
             status: c.status
           })

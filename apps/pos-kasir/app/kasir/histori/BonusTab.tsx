@@ -76,7 +76,7 @@ export default function BonusTab() {
           >
             {Array.from({ length: 12 }).map((_, i) => (
               <option key={i + 1} value={i + 1}>
-                {new Date(0, i).toLocaleString('id-ID', { month: 'long' })}
+                {new Date(0, i).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'long' })}
               </option>
             ))}
           </select>
@@ -181,7 +181,7 @@ export default function BonusTab() {
                 </tr>
               ) : (
                 [...dailyData].reverse().map((row: any, i: number) => {
-                  const dateLabel = new Date(row.order_date).toLocaleDateString('id-ID', {
+                  const dateLabel = new Date(row.order_date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', 
                     day: 'numeric', month: 'short'
                   })
                   const isToday = new Date(row.order_date).toDateString() === new Date().toDateString()

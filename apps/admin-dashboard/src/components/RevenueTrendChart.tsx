@@ -37,8 +37,8 @@ export function RevenueTrendChart({
     data = [...byDate.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([date, omzet]) => ({
-        date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-        fullDate: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }),
+        date: new Date(date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short' }),
+        fullDate: new Date(date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric' }),
         omzet
       }))
   }

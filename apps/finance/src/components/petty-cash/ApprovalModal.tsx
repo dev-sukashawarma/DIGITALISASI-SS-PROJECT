@@ -57,7 +57,7 @@ export function ApprovalModal({ isOpen, onClose, request, onApprove, onReject }:
               </div>
               <div className="flex justify-between items-center border-t border-slate-200 pt-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">Nominal</span>
-                <span className="text-lg font-black text-indigo-600">Rp {request.amount.toLocaleString('id-ID')}</span>
+                <span className="text-lg font-black text-indigo-600">Rp {request.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
               </div>
             </div>
 

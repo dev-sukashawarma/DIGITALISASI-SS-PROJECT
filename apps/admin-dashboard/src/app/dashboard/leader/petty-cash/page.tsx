@@ -28,7 +28,7 @@ function formatDateTime(iso: string) {
   if (!iso) return '-'
   try {
     const d = new Date(iso)
-    return d.toLocaleString('id-ID', {
+    return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -404,7 +404,7 @@ export default function LeaderPettyCashPage() {
                       type="text" 
                       inputMode="numeric"
                       placeholder="0" 
-                      value={amount ? Number(amount).toLocaleString('id-ID') : ''}
+                      value={amount ? Number(amount).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
                       onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
                       className="w-full pl-12 pr-4 py-3.5 bg-slate-50 rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none transition-all"
                       required 

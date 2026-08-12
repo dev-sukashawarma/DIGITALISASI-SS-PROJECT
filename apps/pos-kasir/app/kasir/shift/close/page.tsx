@@ -386,7 +386,7 @@ export default function CloseShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
+                      <input inputMode="numeric" required placeholder="Contoh: 850.000" value={actualEndingCash ? Number(actualEndingCash).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''} onChange={e => setActualEndingCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-emerald-50/50 border border-emerald-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
                     </div>
                     {cashDiff !== null && (
                       <p className={`text-xs font-bold mt-1.5 ${cashDiff === 0 ? 'text-emerald-600' : cashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>
@@ -400,7 +400,7 @@ export default function CloseShiftPage() {
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <span className="text-gray-500 font-semibold">Rp</span>
                       </div>
-                      <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID') : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
+                      <input inputMode="numeric" required placeholder="Contoh: 250.000" value={actualEndingPettyCash ? Number(actualEndingPettyCash).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''} onChange={e => setActualEndingPettyCash(e.target.value.replace(/\D/g, ''))} disabled={isSubmitting || !isClosingAllowed} className="w-full pl-12 pr-4 py-3 bg-blue-50/50 border border-blue-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors outline-none font-semibold text-lg text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed" />
                     </div>
                     {pettyCashDiff !== null && (
                       <p className={`text-xs font-bold mt-1.5 ${pettyCashDiff === 0 ? 'text-emerald-600' : pettyCashDiff > 0 ? 'text-blue-600' : 'text-red-600'}`}>

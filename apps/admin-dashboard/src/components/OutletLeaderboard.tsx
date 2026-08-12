@@ -91,7 +91,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                   <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border shrink-0 ${deltaColor}`}>
                     {e.deltaPct == null 
                       ? '—' 
-                      : `${e.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(e.deltaPct).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`
+                      : `${e.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(e.deltaPct).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  maximumFractionDigits: 1 })}%`
                     }
                   </span>
                 </div>
@@ -103,7 +103,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                   </div>
                   <div className="text-center">
                     <p className="text-[10px] text-suka-gray-400 font-bold uppercase mb-0.5">Order</p>
-                    <p className="font-extrabold text-suka-gray-700 text-sm">{e.orders.toLocaleString('id-ID')}</p>
+                    <p className="font-extrabold text-suka-gray-700 text-sm">{e.orders.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-suka-gray-400 font-bold uppercase mb-0.5">AOV</p>
@@ -167,13 +167,13 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                   </td>
                   <td className="py-4 px-6 text-suka-ink font-bold">{cleanOutletName}</td>
                   <td className="py-4 px-6 text-right text-suka-brown font-extrabold">{rupiah(e.omzet)}</td>
-                  <td className="py-4 px-6 text-right text-suka-gray-600">{e.orders.toLocaleString('id-ID')}</td>
+                  <td className="py-4 px-6 text-right text-suka-gray-600">{e.orders.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</td>
                   <td className="py-4 px-6 text-right text-suka-gray-600">{rupiah(e.aov)}</td>
                   <td className="py-4 px-6 text-center">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${deltaColor}`}>
                       {e.deltaPct == null 
                         ? '—' 
-                        : `${e.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(e.deltaPct).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%`
+                        : `${e.deltaPct >= 0 ? '▲' : '▼'} ${Math.abs(e.deltaPct).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  maximumFractionDigits: 1 })}%`
                       }
                     </span>
                   </td>

@@ -245,7 +245,7 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                           {r.outlet_name}
                           {isMoreThanOneDay && r.date_value && (
                             <span className="ml-1 text-[10px] font-medium text-suka-gray-500 whitespace-nowrap">
-                              ({new Date(r.date_value).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })})
+                              ({new Date(r.date_value).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short' })})
                             </span>
                           )}
                         </span>
@@ -321,9 +321,9 @@ export function DailyTargetBoard({ filter, kpiRows }: DailyTargetBoardProps = {}
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-gray-400 text-sm font-bold">Rp</span>
                 <input
                   inputMode="numeric"
-                  value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
+                  value={targetInput ? Number(targetInput).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
                   onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
-                  placeholder={currentTarget ? currentTarget.toLocaleString('id-ID') : 'mis. 5.000.000'}
+                  placeholder={currentTarget ? currentTarget.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : 'mis. 5.000.000'}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-bold text-suka-ink bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10"
                 />
               </div>

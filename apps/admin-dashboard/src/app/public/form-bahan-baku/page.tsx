@@ -573,8 +573,8 @@ function FormBahanBakuContent() {
                                           <span className="text-sm font-medium text-gray-500">Satuan Kecil</span>
                                           <span className="text-xs font-semibold text-gray-400 mt-0.5">
                                             {sku.satuan_tengah && sku.faktor_tengah 
-                                               ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID')} ${selectedItem.satuan_kecil || selectedItem.satuan}`
-                                               : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID')} ${selectedItem.satuan_kecil || selectedItem.satuan}`
+                                               ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} ${selectedItem.satuan_kecil || selectedItem.satuan}`
+                                               : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} ${selectedItem.satuan_kecil || selectedItem.satuan}`
                                             }
                                           </span>
                                           {sku.satuan_tengah && sku.faktor_tengah && (

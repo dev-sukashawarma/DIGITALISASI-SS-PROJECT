@@ -201,10 +201,10 @@ export async function getPettyCashData(
     .limit(500)
 
   if (filter.from) {
-    topupQuery = topupQuery.gte('created_at', `${filter.from}T00:00:00.000Z`)
+    topupQuery = topupQuery.gte('created_at', `${filter.from}T00:00:00.000+07:00`)
   }
   if (filter.to) {
-    topupQuery = topupQuery.lte('created_at', `${filter.to}T23:59:59.999Z`)
+    topupQuery = topupQuery.lte('created_at', `${filter.to}T23:59:59.999+07:00`)
   }
   if (filter.outletId && filter.outletId !== 'all') {
     topupQuery = topupQuery.eq('outlet_id', filter.outletId)
@@ -396,10 +396,10 @@ export async function getAttendanceReportData(
     .limit(1000)
 
   if (filter.from) {
-    query = query.gte('ts_server', `${filter.from}T00:00:00.000Z`)
+    query = query.gte('ts_server', `${filter.from}T00:00:00.000+07:00`)
   }
   if (filter.to) {
-    query = query.lte('ts_server', `${filter.to}T23:59:59.999Z`)
+    query = query.lte('ts_server', `${filter.to}T23:59:59.999+07:00`)
   }
   if (filter.outletId && filter.outletId !== 'all') {
     query = query.eq('outlet_id', filter.outletId)
@@ -469,7 +469,7 @@ export async function getAttendanceReportData(
 
     const item = grouped.get(key)!
     if (r.type === 'in') {
-      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
       item.raw_photo_in = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
@@ -481,7 +481,7 @@ export async function getAttendanceReportData(
         item.late_minutes = r.telat_menit || 0
       }
     } else if (r.type === 'out') {
-      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
       item.raw_photo_out = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)

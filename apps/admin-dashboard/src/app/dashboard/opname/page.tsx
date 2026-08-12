@@ -14,7 +14,7 @@ type Outlet = { id: string; name: string }
 function formatIndonesianDate(dateStr: string): string {
   try {
     const d = new Date(dateStr)
-    return d.toLocaleDateString('id-ID', {
+    return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', 
       weekday: 'long',
       day: 'numeric',
       month: 'long',

@@ -416,7 +416,7 @@ export default function AdminOrdersPage() {
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5 flex items-center flex-wrap gap-1">
                         <span>
-                          {new Date(order.created_at).toLocaleString('id-ID', {
+                          {new Date(order.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
                             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
                           })}
                         </span>

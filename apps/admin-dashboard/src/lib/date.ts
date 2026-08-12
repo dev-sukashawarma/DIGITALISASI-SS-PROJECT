@@ -17,12 +17,12 @@ export function formatRelativeTime(iso: string | null | undefined): string {
   if (diffHour < 24) return `${diffHour} jam lalu`
   if (diffDay < 7) return `${diffDay} hr lalu`
 
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '-'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }

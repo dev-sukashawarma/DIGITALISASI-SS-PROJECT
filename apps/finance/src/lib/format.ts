@@ -1,6 +1,6 @@
 export function rupiah(n: number): string {
   const sign = n < 0 ? '-' : ''
-  return sign + 'Rp ' + Math.abs(Math.round(n)).toLocaleString('id-ID')
+  return sign + 'Rp ' + Math.abs(Math.round(n)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
 }
 
 export function rupiahCompact(n: number): string {
@@ -23,14 +23,14 @@ export function tanggal(iso: string | null | undefined): string {
   if (!iso) return '-'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+  return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function tanggalWaktu(iso: string | null | undefined): string {
   if (!iso) return '-'
   const d = new Date(iso)
   if (isNaN(d.getTime())) return '-'
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 export function relativeTime(iso: string | null | undefined): string {
@@ -52,9 +52,9 @@ export function relativeTime(iso: string | null | undefined): string {
   if (diffHour < 24) return `${diffHour} jam lalu`
   if (diffDay < 7) return `${diffDay} hr lalu`
 
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
 }
 
 export function formatNumber(n: number): string {
-  return Math.abs(Math.round(n)).toLocaleString('id-ID')
+  return Math.abs(Math.round(n)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
 }

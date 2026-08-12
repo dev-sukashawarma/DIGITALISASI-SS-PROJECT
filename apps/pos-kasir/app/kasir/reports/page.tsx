@@ -774,7 +774,7 @@ export default function ReportsPage() {
                   <div className="flex items-end justify-center gap-2 h-48">
                     {analytics.dailyEntries.map(([date, rev]: [string, number]) => {
                       const pct = (rev / maxDaily) * 100
-                      const dayLabel = new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+                      const dayLabel = new Date(date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short' })
                       return (
                         <div key={date} className="flex-1 flex flex-col justify-end items-center gap-1 h-full group relative min-w-0 max-w-[60px]">
                           <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10 shadow-lg no-print">
@@ -946,7 +946,7 @@ export default function ReportsPage() {
                           </span>
                         </td>
                         <td className="px-5 py-4 text-gray-500 font-medium text-xs">
-                          {new Date(order.created_at).toLocaleString('id-ID', {
+                          {new Date(order.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
                             day: 'numeric', month: 'short', year: 'numeric',
                             hour: '2-digit', minute: '2-digit'
                           })}
@@ -1026,9 +1026,9 @@ export default function ReportsPage() {
                 </div>
               ) : (
                 shifts.map((shift) => {
-                  const dateStr = new Date(shift.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
-                  const startTimeStr = new Date(shift.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-                  const endTimeStr = shift.end_time ? new Date(shift.end_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Berjalan';
+                  const dateStr = new Date(shift.start_time).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric' });
+                  const startTimeStr = new Date(shift.start_time).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' });
+                  const endTimeStr = shift.end_time ? new Date(shift.end_time).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' }) : 'Berjalan';
                   
                   const variance = shift.variance || 0;
                   const pcVariance = shift.petty_cash_variance || 0;

@@ -157,7 +157,7 @@ function OrderSuccessContent() {
                   <p className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-1">Total Tagihan</p>
                   <p className="text-gray-500 text-xs flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    {new Date(order.created_at).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
                 <span className="font-bold text-2xl text-gray-900">

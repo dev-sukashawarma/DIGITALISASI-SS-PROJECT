@@ -11,7 +11,7 @@ import type { PriceAlert } from '@/hooks/usePOPriceAlerts'
 
 function formatUpdatedAt(iso: string | null): string {
   if (!iso) return '—'
-  return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+  return new Date(iso).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export function BahanBakuTable({

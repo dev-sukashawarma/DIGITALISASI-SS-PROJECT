@@ -1579,7 +1579,7 @@ export default function KasirOrderClient({
                         <p className="text-xs text-slate-500/60 mt-1 flex items-center gap-1.5 flex-wrap">
                           <span className="font-semibold text-[#0a7d2c]"><TimeAgo date={order.created_at} /></span>
                           <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
-                          {new Date(order.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(order.created_at).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' })}
                           <span className="w-1 h-1 bg-[#d9c2b2] rounded-full" />
                           {order.source === 'online' ? (
                             <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-blue-50 px-1.5 py-0.5 rounded text-blue-600">

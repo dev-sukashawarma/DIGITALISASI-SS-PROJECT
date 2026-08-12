@@ -104,7 +104,7 @@ export default function PawoonImportPage() {
                 );
                 const sisa = after.success ? (after.count ?? 0) : null;
 
-                let msg = `Berhasil menghapus ${res.count?.toLocaleString('id-ID')} transaksi Pawoon (${rangeLabel}) untuk outlet ${outletToClearName}.`;
+                let msg = `Berhasil menghapus ${res.count?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} transaksi Pawoon (${rangeLabel}) untuk outlet ${outletToClearName}.`;
                 if (sisa === 0) {
                     msg += ' Terverifikasi: tidak ada sisa data Pawoon pada filter ini.';
                     setClearSuccess(msg);
@@ -113,7 +113,7 @@ export default function PawoonImportPage() {
                 } else {
                     setClearSuccess('');
                     setErrorMsg(
-                        `${msg} TAPI masih tersisa ${sisa.toLocaleString('id-ID')} transaksi yang belum terhapus` +
+                        `${msg} TAPI masih tersisa ${sisa.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} transaksi yang belum terhapus` +
                         `${res.message ? ` — ${res.message}` : ''}. Klik hapus sekali lagi untuk melanjutkan.`
                     );
                     return;
@@ -350,7 +350,7 @@ export default function PawoonImportPage() {
                         {isCounting && <span className="text-gray-600">Menghitung data yang akan dihapus...</span>}
                         {!isCounting && clearCount !== null && clearCount > 0 && (
                             <span className="text-red-700">
-                                <b>{clearCount.toLocaleString('id-ID')} transaksi import Pawoon</b> akan dihapus beserta item-nya.
+                                <b>{clearCount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} transaksi import Pawoon</b> akan dihapus beserta item-nya.
                                 Order manual kasir, online, dan kiosk tidak ikut terhapus.
                             </span>
                         )}
@@ -505,13 +505,13 @@ export default function PawoonImportPage() {
                             <div className="bg-blue-50 p-4 rounded-xl flex flex-col justify-center">
                                 <p className="text-blue-600 text-sm font-medium mb-1">Grand Total</p>
                                 <p className="text-3xl font-bold text-blue-900 mt-1">
-                                    Rp {((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)).toLocaleString('id-ID')}
+                                    Rp {((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                 </p>
                                 <p className="text-xs font-medium text-blue-700 mt-2">
-                                    Total Omset (Rp {(displayedSummary.totalOmsetGross || displayedSummary.totalOmset).toLocaleString('id-ID')}) - Void (Rp {(displayedSummary.totalOmsetVoid || 0).toLocaleString('id-ID')})
+                                    Total Omset (Rp {(displayedSummary.totalOmsetGross || displayedSummary.totalOmset).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}) - Void (Rp {(displayedSummary.totalOmsetVoid || 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })})
                                 </p>
                                 <p className={`text-xs font-bold mt-1 ${((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)) === displayedSummary.totalOmset ? 'text-green-600' : 'text-red-600'}`}>
-                                    Validasi Excel: Rp {displayedSummary.totalOmset.toLocaleString('id-ID')}
+                                    Validasi Excel: Rp {displayedSummary.totalOmset.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                     {((displayedSummary.totalOmsetGross || displayedSummary.totalOmset) - (displayedSummary.totalOmsetVoid || 0)) === displayedSummary.totalOmset ? ' (Match ✅)' : ' (Beda ❌)'}
                                 </p>
                             </div>
@@ -543,7 +543,7 @@ export default function PawoonImportPage() {
                                     {selectedDate === 'ALL' ? (displayedSummary.totalOverlapCount || 0) : (displayedSummary.systemOverlap?.count || 0)} <span className="text-sm font-normal">transaksi</span>
                                 </p>
                                 <p className={`text-xs font-bold mt-2 ${(selectedDate === 'ALL' ? displayedSummary.totalOverlapCount : displayedSummary.systemOverlap?.count) > 0 ? 'text-orange-700' : 'text-green-700'}`}>
-                                    Rp {(selectedDate === 'ALL' ? (displayedSummary.totalOverlapOmset || 0) : (displayedSummary.systemOverlap?.total || 0)).toLocaleString('id-ID')}
+                                    Rp {(selectedDate === 'ALL' ? (displayedSummary.totalOverlapOmset || 0) : (displayedSummary.systemOverlap?.total || 0)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                 </p>
                             </div>
                         </div>
@@ -739,7 +739,7 @@ export default function PawoonImportPage() {
                                                 <td className="p-3 text-center">{item.tiktok > 0 ? item.tiktok : '-'}</td>
                                                 <td className="p-3 text-center font-bold bg-gray-50">{item.offline + item.food_apps + item.tiktok}</td>
                                                 <td className="p-3 text-right font-bold text-blue-700 bg-blue-50/50">
-                                                    Rp {item.totalRevenue?.toLocaleString('id-ID') || 0}
+                                                    Rp {item.totalRevenue?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) || 0}
                                                 </td>
                                             </tr>
                                         );
@@ -799,7 +799,7 @@ export default function PawoonImportPage() {
                                             {displayedSummary.itemSalesTracker.reduce((acc: number, item: any) => acc + (item.offline || 0) + (item.food_apps || 0) + (item.tiktok || 0), 0)}
                                         </td>
                                         <td className="p-3 text-right text-blue-800 bg-blue-100">
-                                            Rp {displayedSummary.itemSalesTracker.reduce((acc: number, item: any) => acc + (item.totalRevenue || 0), 0).toLocaleString('id-ID')}
+                                            Rp {displayedSummary.itemSalesTracker.reduce((acc: number, item: any) => acc + (item.totalRevenue || 0), 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -836,7 +836,7 @@ export default function PawoonImportPage() {
                                                     <td className="p-3 text-center">{item.tiktok > 0 ? item.tiktok : '-'}</td>
                                                     <td className="p-3 text-center font-bold bg-orange-50/30">{item.offline + item.food_apps + item.tiktok}</td>
                                                     <td className="p-3 text-right font-bold text-orange-700 bg-orange-50/50">
-                                                        Rp {item.totalRevenue?.toLocaleString('id-ID') || 0}
+                                                        Rp {item.totalRevenue?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) || 0}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -895,7 +895,7 @@ export default function PawoonImportPage() {
                                                     {displayedSummary.systemOverlap.itemSalesTracker.reduce((acc: number, item: any) => acc + (item.offline || 0) + (item.food_apps || 0) + (item.tiktok || 0), 0)}
                                                 </td>
                                                 <td className="p-3 text-right text-orange-900 bg-orange-200">
-                                                    Rp {displayedSummary.systemOverlap.itemSalesTracker.reduce((acc: number, item: any) => acc + (item.totalRevenue || 0), 0).toLocaleString('id-ID')}
+                                                    Rp {displayedSummary.systemOverlap.itemSalesTracker.reduce((acc: number, item: any) => acc + (item.totalRevenue || 0), 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                                 </td>
                                             </tr>
                                         </tfoot>
@@ -927,7 +927,7 @@ export default function PawoonImportPage() {
                                                 : "Sebagian Data Melewati Tanggal Cutoff Sistem"}
                                         </p>
                                         <p className="text-sm">
-                                            Terdapat <strong>{previewResult.summary.postSystemSkippedCount} transaksi</strong> (senilai Rp {previewResult.summary.postSystemSkippedOmset?.toLocaleString('id-ID')}) yang terjadi pada atau setelah outlet ini resmi menggunakan sistem. Data ini <strong>tidak akan disimpan</strong> ke database untuk menghindari duplikasi dengan input kasir manual, dan hanya ditampilkan di layar ini untuk keperluan recheck/komparasi.
+                                            Terdapat <strong>{previewResult.summary.postSystemSkippedCount} transaksi</strong> (senilai Rp {previewResult.summary.postSystemSkippedOmset?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}) yang terjadi pada atau setelah outlet ini resmi menggunakan sistem. Data ini <strong>tidak akan disimpan</strong> ke database untuk menghindari duplikasi dengan input kasir manual, dan hanya ditampilkan di layar ini untuk keperluan recheck/komparasi.
                                         </p>
                                         {previewResult.summary.cutoffs?.filter((c: any) => c.cutoffDate).length > 0 && (
                                             <p className="text-sm mt-2">

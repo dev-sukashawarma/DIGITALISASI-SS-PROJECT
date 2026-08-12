@@ -138,7 +138,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
       if (cashLocationId) {
         const selectedLoc = availableLocations.find(l => l.id === cashLocationId)
         if (selectedLoc && selectedLoc.saldo < approvedAmount) {
-          alert(`Saldo tidak mencukupi! Saldo saat ini: Rp ${selectedLoc.saldo.toLocaleString('id-ID')}, dibutuhkan: Rp ${approvedAmount.toLocaleString('id-ID')}`)
+          alert(`Saldo tidak mencukupi! Saldo saat ini: Rp ${selectedLoc.saldo.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}, dibutuhkan: Rp ${approvedAmount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`)
           return
         }
       }
@@ -203,7 +203,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
               <div className="text-right">
                 <span className="text-xs font-semibold text-slate-500">Nominal Diajukan</span>
                 <div className="text-base font-bold text-slate-400 line-through decoration-slate-300">
-                  Rp {request.amount.toLocaleString('id-ID')}
+                  Rp {request.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                 </div>
               </div>
             </div>
@@ -366,7 +366,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
               >
                 {selectedLocation ? (
                   <span className="text-slate-800 font-bold block truncate">
-                    {selectedLocation.label} <span className="text-slate-500 font-medium ml-1">(Saldo: Rp {selectedLocation.saldo.toLocaleString('id-ID')})</span>
+                    {selectedLocation.label} <span className="text-slate-500 font-medium ml-1">(Saldo: Rp {selectedLocation.saldo.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })})</span>
                   </span>
                 ) : (
                   <span className="text-slate-400">-- Pilih Sumber Dana Kas/Bank --</span>
@@ -396,7 +396,7 @@ export function FinanceApprovalModal({ isOpen, onClose, request, onApprove, onRe
                             {loc.label}
                           </span>
                           <span className="text-slate-500 mt-0.5 text-xs font-medium">
-                            Saldo: Rp {loc.saldo.toLocaleString('id-ID')}
+                            Saldo: Rp {loc.saldo.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                           </span>
                         </div>
                         {cashLocationId === loc.id && (

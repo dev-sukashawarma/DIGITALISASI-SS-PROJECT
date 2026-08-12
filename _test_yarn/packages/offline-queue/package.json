@@ -1,0 +1,27 @@
+{
+  "name": "@suka/offline-queue",
+  "version": "0.0.1",
+  "description": "Offline-first data queue for outlet operations (absensi, stok)",
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "idb-keyval": "^6.2.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  }
+}

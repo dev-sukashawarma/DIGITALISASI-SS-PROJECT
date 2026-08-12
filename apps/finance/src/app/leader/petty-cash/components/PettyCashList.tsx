@@ -13,7 +13,7 @@ function formatDateTime(iso: string) {
   if (!iso) return '-'
   try {
     const d = new Date(iso)
-    return d.toLocaleString('id-ID', {
+    return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
       day: '2-digit',
       month: 'short',
       year: 'numeric',
@@ -259,7 +259,7 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
 
                     {/* Nominal */}
                     <td className="py-4 px-5 font-black text-suka-brown text-sm whitespace-nowrap">
-                      Rp {req.amount.toLocaleString('id-ID')}
+                      Rp {req.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                     </td>
 
                     {/* Alasan */}
@@ -369,7 +369,7 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                 </div>
 
                 <div className="flex items-baseline justify-between pt-1">
-                  <span className="text-base font-black text-suka-brown">Rp {req.amount.toLocaleString('id-ID')}</span>
+                  <span className="text-base font-black text-suka-brown">Rp {req.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
                   <span className="text-[10px] font-medium text-suka-gray-400">{formatDateTime(req.created_at)}</span>
                 </div>
 

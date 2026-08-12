@@ -12,7 +12,7 @@ const PLATFORMS = [
   { id: 'tiktokgo',   label: 'TikTok Go',  accept: '.xlsx,.xls', color: 'gray',   emoji: '⚫' },
 ];
 
-const rp = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+const rp = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' });
 const pct = (a: number, b: number) => b > 0 ? ((a / b) * 100).toFixed(1) + '%' : '-';
 
 export default function PlatformSettlementPage() {
@@ -206,7 +206,7 @@ export default function PlatformSettlementPage() {
               <div className="bg-blue-50 rounded-xl p-4">
                 <p className="text-blue-600 text-xs font-semibold uppercase tracking-wide">Omzet Kotor Settlement</p>
                 <p className="text-2xl font-bold text-blue-900 mt-1">{rp(s.totalOmzetKotor)}</p>
-                <p className="text-xs text-blue-500 mt-1">{s.totalTrx.toLocaleString('id-ID')} transaksi</p>
+                <p className="text-xs text-blue-500 mt-1">{s.totalTrx.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} transaksi</p>
               </div>
               <div className="bg-red-50 rounded-xl p-4">
                 <p className="text-red-600 text-xs font-semibold uppercase tracking-wide">Admin Platform (Komisi)</p>
@@ -260,7 +260,7 @@ export default function PlatformSettlementPage() {
                       <div className="flex justify-between items-start mb-2">
                         <p className="font-bold text-sm text-gray-800">{p.label}</p>
                         <p className="text-xs bg-white border px-2 py-0.5 rounded-md font-medium text-gray-600">
-                          {p.trx.toLocaleString('id-ID')} {p.platform === 'tiktokgo' ? 'voucher' : 'trx'}
+                          {p.trx.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} {p.platform === 'tiktokgo' ? 'voucher' : 'trx'}
                         </p>
                       </div>
                       <p className="text-xs text-gray-500">Omzet Kotor</p>

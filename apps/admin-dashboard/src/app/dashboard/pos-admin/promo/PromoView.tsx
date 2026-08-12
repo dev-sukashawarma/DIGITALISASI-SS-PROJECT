@@ -351,11 +351,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                         <div className="flex items-center gap-3 mt-1.5">
                           {promo.is_active && promo.discount_value > 0 ? (
                             <>
-                              <span className="text-sm text-gray-400 line-through decoration-gray-300 font-medium">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
-                              <span className="text-base font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Rp {(discountedPrice || 0).toLocaleString('id-ID')}</span>
+                              <span className="text-sm text-gray-400 line-through decoration-gray-300 font-medium">Rp {(menu.price || 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
+                              <span className="text-base font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Rp {(discountedPrice || 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
                             </>
                           ) : (
-                            <span className="text-base font-bold text-gray-600">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
+                            <span className="text-base font-bold text-gray-600">Rp {(menu.price || 0).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
                           )}
                         </div>
                       </div>

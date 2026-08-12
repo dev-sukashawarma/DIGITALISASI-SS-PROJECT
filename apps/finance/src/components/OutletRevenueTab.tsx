@@ -513,7 +513,7 @@ export default function OutletRevenueTab() {
                             )}
                           </td>
                           <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
-                            {item.totalOrders.toLocaleString('id-ID')}
+                            {item.totalOrders.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                           </td>
                           <td className="py-4 px-5 text-right font-black text-suka-brown">
                             {item.channel === 'endors' ? (

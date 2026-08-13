@@ -59,6 +59,44 @@ export function useOpnameActions() {
     const wibNow = new Date(now.getTime() + wibOffset * 60 * 1000)
     const todayWIB = wibNow.toISOString().slice(0, 10) // "YYYY-MM-DD"
 
+    // Urutan khusus 13 Agustus 2026 (permintaan owner, hari yang sama dgn fix
+    // bug finalize opname supabaseKey): SEMUA outlet boleh opname maksimal 2x
+    // hari ini, opname pertama bertipe 'ad_hoc', opname kedua bertipe 'harian'
+    // (dibalik dari urutan normal) agar tak bentrok unique index
+    // uniq_opname_harian_per_day (hanya berlaku utk tipe='harian'). Opname
+    // kedua baru dibuat setelah yang pertama finalized. Hari-hari lain
+    // otomatis kembali normal (1x/hari) karena gate ini per-tanggal.
+    // HAPUS blok ini setelah 13/08/2026.
+    const EXTRA_OPNAME_DATE = '2026-08-13'
+    if (todayWIB === EXTRA_OPNAME_DATE) {
+      const { data: todaysOpnames } = await supabase.from('opname')
+        .select('*')
+        .eq('outlet_id', outletId)
+        .eq('tanggal', todayWIB)
+        .not('status', 'eq', 'rejected')
+        .order('created_at', { ascending: true })
+
+      const list = (todaysOpnames ?? []) as Opname[]
+
+      if (list.length === 0) {
+        const { data, error } = await supabase.from('opname')
+          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+        if (error) throw error
+        return data as Opname
+      }
+
+      if (list.length === 1) {
+        if (list[0].status !== 'finalized') return list[0]
+        const { data, error } = await supabase.from('opname')
+          .insert({ outlet_id: outletId, tipe: 'harian', status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+        if (error) throw error
+        return data as Opname
+      }
+
+      // Sudah 2x hari ini → kembalikan yang terakhir apa adanya.
+      return list[list.length - 1]
+    }
+
     const { data: existing } = await supabase.from('opname')
       .select('*')
       .eq('outlet_id', outletId)

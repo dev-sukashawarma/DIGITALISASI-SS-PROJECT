@@ -14,8 +14,7 @@ type Outlet = { id: string; name: string }
 function formatIndonesianDate(dateStr: string): string {
   try {
     const d = new Date(dateStr)
-    return d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', 
-      weekday: 'long',
+    return d.toLocaleDateString('id-ID', { weekday: 'long',
       day: 'numeric',
       month: 'long',
       year: 'numeric'
@@ -29,7 +28,6 @@ function formatWIBTime(tsServerStr: string): string {
   try {
     const d = new Date(tsServerStr)
     return d.toLocaleTimeString('id-ID', {
-      timeZone: 'Asia/Jakarta',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,

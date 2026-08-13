@@ -119,7 +119,7 @@ export default function LaporanPembelianPage() {
                 <div key={b.bulan} className="px-5 py-3 flex justify-between items-center">
                   <div>
                     <div className="font-bold text-suka-ink text-sm">
-                      {new Date(b.bulan + '-01').toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'long', year: 'numeric' })}
+                      {new Date(b.bulan + '-01').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
                     </div>
                     <div className="text-xs text-gray-400">{b.items} bahan baku</div>
                   </div>
@@ -140,7 +140,7 @@ export default function LaporanPembelianPage() {
                   <span className="text-sm font-bold text-gray-300 w-5 text-right">{idx + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-suka-ink text-sm truncate">{b.nama}</div>
-                    <div className="text-xs text-gray-400">{b.total_qty.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} {b.satuan}</div>
+                    <div className="text-xs text-gray-400">{b.total_qty.toLocaleString('id-ID')} {b.satuan}</div>
                   </div>
                   <div className="text-right">
                     <div className="font-extrabold text-suka-brown text-sm">{rupiah(b.total_nilai)}</div>
@@ -178,10 +178,10 @@ export default function LaporanPembelianPage() {
                           <span className="text-xs text-gray-400 ml-1">/{r.satuan}</span>
                         </td>
                         <td className="px-4 py-3 text-gray-500">
-                          {new Date(r.bulan + '-01').toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'short', year: '2-digit' })}
+                          {new Date(r.bulan + '-01').toLocaleDateString('id-ID', { month: 'short', year: '2-digit' })}
                         </td>
                         <td className="px-4 py-3 text-gray-500 text-xs">{r.supplier_nama}</td>
-                        <td className="px-4 py-3 text-right">{r.total_qty.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</td>
+                        <td className="px-4 py-3 text-right">{r.total_qty.toLocaleString('id-ID')}</td>
                         <td className="px-4 py-3 text-right font-bold text-suka-brown">{rupiah(r.avg_harga_tertimbang)}</td>
                         <td className="px-4 py-3 text-right text-xs text-gray-500">
                           {rupiah(r.harga_min)} — {rupiah(r.harga_max)}

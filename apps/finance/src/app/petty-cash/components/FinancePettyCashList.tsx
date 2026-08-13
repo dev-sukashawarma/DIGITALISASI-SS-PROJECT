@@ -10,7 +10,7 @@ import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
 import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
 
-const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`
+const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID')}`
 
 function parseFinanceNote(description?: string | null) {
   if (!description) return { mainReason: '', financeNote: null }

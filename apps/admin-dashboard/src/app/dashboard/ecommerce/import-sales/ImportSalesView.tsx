@@ -258,7 +258,7 @@ export default function ImportSalesView() {
                       {order.items.map((i: any) => `${i.qty}x ${i.sku_name || i.product_name}`).join(', ')}
                     </td>
                     <td className="px-4 py-3 text-right font-bold text-gray-900">
-                      Rp {order.total.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                      Rp {order.total.toLocaleString('id-ID')}
                     </td>
                   </tr>
                 ))}

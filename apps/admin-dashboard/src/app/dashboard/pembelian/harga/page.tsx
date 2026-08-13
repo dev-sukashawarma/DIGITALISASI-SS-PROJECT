@@ -166,7 +166,7 @@ export default function HargaPage() {
                   {historyRows.map((h) => (
                     <tr key={h.id} className="hover:bg-white/80 transition-all">
                       <td className="py-3.5 px-6 font-bold text-suka-gray-600">
-                        {new Date(h.changed_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric' })}
+                        {new Date(h.changed_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                       </td>
                       <td className="py-3.5 px-6 text-right font-medium text-suka-gray-400">
                         {h.harga_lama ? rupiah(h.harga_lama) : '—'}

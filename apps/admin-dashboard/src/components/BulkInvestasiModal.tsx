@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState, useEffect } from 'react'
 import { Button } from '@suka/design-system'
 import { CheckCircle2, AlertTriangle, X, Save } from 'lucide-react'

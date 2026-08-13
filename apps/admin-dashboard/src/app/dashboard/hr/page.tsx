@@ -53,7 +53,7 @@ export default function HRDashboard() {
                   <p className="font-semibold text-sm text-suka-ink">{act.title}</p>
                   <p className="text-sm text-suka-gray-600">{act.description}</p>
                   <p className="text-xs text-suka-gray-400 mt-1">
-                    {new Date(act.timestamp).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  dateStyle: 'medium', timeStyle: 'short' })}
+                    {new Date(act.timestamp).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
                   </p>
                 </div>
                 {act.status && (

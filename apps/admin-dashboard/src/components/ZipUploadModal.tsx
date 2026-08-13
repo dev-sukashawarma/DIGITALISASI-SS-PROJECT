@@ -378,7 +378,7 @@ export default function ZipUploadModal({ categories, onClose, onComplete }: ZipU
                         </span>
                       </div>
                       <span className={`font-bold text-xs ${item.success ? 'text-emerald-600' : 'text-red-500'}`}>
-                        Rp {item.price.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                        Rp {item.price.toLocaleString('id-ID')}
                       </span>
                     </div>
                   ))}

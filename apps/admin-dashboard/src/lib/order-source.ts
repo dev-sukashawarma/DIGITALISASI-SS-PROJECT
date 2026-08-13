@@ -27,7 +27,7 @@ export function resolveOrderSource(
   isEndorse?: boolean | null,
 ): OrderSourceInfo {
   // Direct check for Endorse
-  if (isEndorse || channel === 'endors' || salesSource === 'endors') {
+  if (isEndorse || channel === 'endors' || channel === 'endorse' || salesSource === 'endors' || salesSource === 'endorse') {
     return { key: 'endors', label: 'ENDORSE', bg: '#fdf4ff', fg: '#d946ef', lucide: 'gift' }
   }
 

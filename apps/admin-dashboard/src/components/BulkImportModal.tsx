@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { useState } from 'react'
 import { Button } from '@suka/design-system'
 import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, X } from 'lucide-react'

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Button } from '@suka/design-system'
-import { UploadCloud, CheckCircle2, AlertTriangle, FileSpreadsheet, X } from 'lucide-react'
+import { UploadCloud, CheckCircle2, AlertTriangle, X } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import { importExpensesAction } from '@/app/actions/importExpensesAction'
 

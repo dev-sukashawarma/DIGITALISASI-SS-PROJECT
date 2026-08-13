@@ -187,7 +187,7 @@ export default function LiveLocationMap({ outlets, crews }: LiveLocationMapProps
                   <div className="mt-3 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px]">
                     <span className="text-gray-400">Update Terakhir:</span>
                     <span className="font-bold text-[#1e1b15]">
-                      {new Date(crew.updated_at).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                      {new Date(crew.updated_at).toLocaleTimeString('id-ID')}
                     </span>
                   </div>
                 </Popup>

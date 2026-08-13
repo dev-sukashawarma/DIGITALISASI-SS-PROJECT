@@ -116,7 +116,7 @@ export default function GlobalOrdersPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-bold text-slate-800">
-                        Rp {order.total_amount?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                        Rp {order.total_amount?.toLocaleString('id-ID')}
                       </div>
                     </td>
                     <td className="px-6 py-4">

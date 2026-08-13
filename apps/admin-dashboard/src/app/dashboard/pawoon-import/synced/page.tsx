@@ -119,7 +119,7 @@ export default async function SyncedPawoonDataPage({
 
     (orders || []).forEach((order: any) => {
         const dateKey = new Date(order.created_at).toLocaleDateString('id-ID', {
-            year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'Asia/Jakarta'
+            year: 'numeric', month: '2-digit', day: '2-digit'
         });
 
         if (!byDate[dateKey]) {
@@ -190,7 +190,7 @@ export default async function SyncedPawoonDataPage({
         { struk: 0, omsetKotor: 0, voidJml: 0, voidNilai: 0, grandTotal: 0, offline: 0, grabfood: 0, tiktok: 0, cash: 0, qris: 0, card: 0 }
     );
 
-    const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`;
+    const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
 
     // Date range info
     const allDates = rows.map(r => r.date);
@@ -329,7 +329,7 @@ export default async function SyncedPawoonDataPage({
                                                                 {sum ? (
                                                                     <>
                                                                         <span className="text-gray-500 font-medium bg-gray-50 px-2 py-1 rounded border border-gray-100 text-xs">
-                                                                            {new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })} – {new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })}
+                                                                            {new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })} – {new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                         </span>
                                                                         <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
                                                                     </>
@@ -378,7 +378,7 @@ export default async function SyncedPawoonDataPage({
                                                                 {sum ? (
                                                                     <>
                                                                         <span className="text-amber-700 font-medium bg-amber-50 px-2 py-1 rounded border border-amber-100 text-xs">
-                                                                            {new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })} – {new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Jakarta' })}
+                                                                            {new Date(sum.min).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })} – {new Date(sum.max).toLocaleDateString('id-ID', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                                                                         </span>
                                                                         <span className="bg-amber-100 text-amber-800 px-2 py-1 rounded text-xs font-bold">{sum.count} items</span>
                                                                     </>

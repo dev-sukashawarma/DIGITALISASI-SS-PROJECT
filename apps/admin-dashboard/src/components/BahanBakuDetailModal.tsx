@@ -344,7 +344,7 @@ export function BahanBakuDetailModal({
                         autoFocus
                         className="w-32 rounded-lg border border-suka-gray-300 px-3 py-1.5 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-sm font-bold" 
                         inputMode="numeric"
-                        value={draftHarga ? Number(draftHarga).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                        value={draftHarga ? Number(draftHarga).toLocaleString('id-ID') : ''}
                         onChange={(e) => setDraftHarga(e.target.value.replace(/\D/g, ''))}
                         onKeyDown={(e) => { 
                           if (e.key === 'Enter') {
@@ -383,8 +383,7 @@ export function BahanBakuDetailModal({
                   
                   {bahanBaku.harga?.harga_updated_at && !isEditingHarga && (
                     <p className="text-xs text-gray-400 mt-1">
-                      Diperbarui: {new Date(bahanBaku.harga.harga_updated_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', 
-                        day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+                      Diperbarui: {new Date(bahanBaku.harga.harga_updated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
                       })}
                     </p>
                   )}
@@ -712,8 +711,8 @@ export function BahanBakuDetailModal({
                                       )}
                                       <span>
                                         {sku.satuan_tengah && sku.faktor_tengah 
-                                           ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} ${bahanBaku.satuan_kecil || bahanBaku.satuan} (1 ${sku.satuan_tengah} = ${sku.faktor_tengah} ${bahanBaku.satuan_kecil || bahanBaku.satuan})`
-                                           : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} ${bahanBaku.satuan_kecil || bahanBaku.satuan}`
+                                           ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID')} ${bahanBaku.satuan_kecil || bahanBaku.satuan} (1 ${sku.satuan_tengah} = ${sku.faktor_tengah} ${bahanBaku.satuan_kecil || bahanBaku.satuan})`
+                                           : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID')} ${bahanBaku.satuan_kecil || bahanBaku.satuan}`
                                         }
                                       </span>
                                     </div>
@@ -769,8 +768,8 @@ export function BahanBakuDetailModal({
                                         <span className="text-sm font-medium text-gray-500">Satuan Kecil</span>
                                         <span className="text-xs font-semibold text-gray-400 mt-0.5">
                                           {sku.satuan_tengah && sku.faktor_tengah 
-                                             ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} ${bahanBaku.satuan_kecil || bahanBaku.satuan}`
-                                             : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} ${bahanBaku.satuan_kecil || bahanBaku.satuan}`
+                                             ? `${sku.qty_isi / sku.faktor_tengah} ${sku.satuan_tengah} = ${sku.qty_isi.toLocaleString('id-ID')} ${bahanBaku.satuan_kecil || bahanBaku.satuan}`
+                                             : `1 ${sku.nama_kemasan} = ${sku.qty_isi.toLocaleString('id-ID')} ${bahanBaku.satuan_kecil || bahanBaku.satuan}`
                                           }
                                         </span>
                                         {sku.satuan_tengah && sku.faktor_tengah && (

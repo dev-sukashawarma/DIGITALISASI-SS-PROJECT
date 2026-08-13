@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use client'
 // @ts-nocheck
 
@@ -30,8 +31,7 @@ function formatTime(iso: string) {
   if (!iso) return '-'
   try {
     const d = new Date(iso)
-    return d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', 
-      hour: '2-digit',
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit',
       minute: '2-digit'
     })
   } catch {

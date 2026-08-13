@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
 
 // Dipanggil dari app/kasir saat kasir menekan "Tandai Selesai" pada order
 // yang sumbernya online (source = 'online').
-// Mengupdate langsung status order-system ke 'done' via Supabase Service Key.
+// Meneruskan notifikasi ke Edge Function `kasir-order-done` milik order-system
+// (lihat scripts/setup-integration.js) yang mengirim WA "pesanan siap diambil"
+// ke customer lewat Fonnte.
+//
+// Sebelumnya route ini menulis langsung ke DB order-system pakai
+// NEXT_PUBLIC_SS_ORDER_URL + SS_ORDER_SERVICE_KEY — tapi SS_ORDER_SERVICE_KEY
+// tidak pernah di-provision di Dockerfile/.env.example, jadi update ini SELALU
+// gagal dengan 500 dan notifikasi WA tidak pernah terkirim. Env yang benar-benar
+// dikonfigurasi (lihat Dockerfile) adalah ORDER_SYSTEM_NOTIFY_URL +
+// KASIR_TO_ORDER_SECRET, yang dipakai di sini.
 export async function POST(request: Request) {
   let body: { order_id: string }
   try {
@@ -29,29 +37,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, skipped: true })
   }
 
-  const ssOrderUrl = process.env.NEXT_PUBLIC_SS_ORDER_URL
-  const ssOrderServiceKey = process.env.SS_ORDER_SERVICE_KEY
+  const notifyUrl = process.env.ORDER_SYSTEM_NOTIFY_URL
+  const secret = process.env.KASIR_TO_ORDER_SECRET
 
-  if (!ssOrderUrl || !ssOrderServiceKey) {
-    console.error('NEXT_PUBLIC_SS_ORDER_URL / SS_ORDER_SERVICE_KEY belum dikonfigurasi')
+  if (!notifyUrl || !secret) {
+    console.error('ORDER_SYSTEM_NOTIFY_URL / KASIR_TO_ORDER_SECRET belum dikonfigurasi')
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 
   try {
-    const ssOrderDb = createClient(ssOrderUrl, ssOrderServiceKey)
-    
-    // Update langsung ke database order-system
-    const { error: updateErr } = await ssOrderDb
-      .from('orders')
-      .update({
+    const res = await fetch(notifyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({
+        order_id: order.external_order_id,
         status: 'done',
-        done_at: new Date().toISOString()
-      })
-      .eq('id', order.external_order_id)
+      }),
+    })
 
-    if (updateErr) {
-      console.error('Gagal update database order-system:', updateErr)
-      return NextResponse.json({ error: 'Gagal update database order-system' }, { status: 502 })
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error('order-system menolak notifikasi selesai:', res.status, errText)
+      return NextResponse.json({ error: 'order-system menolak notifikasi' }, { status: 502 })
     }
   } catch (err) {
     console.error('Gagal menghubungi order-system:', err)

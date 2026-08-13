@@ -76,7 +76,7 @@ export default function TransferPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="font-bold text-base sm:text-lg text-suka-brown tracking-tight truncate">
-                      Periode {new Date(t.bulan).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'long', year: 'numeric' })}
+                      Periode {new Date(t.bulan).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
                     </div>
                     <div className="text-sm font-semibold text-suka-gray-500 mt-0.5">
                       {Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(t.nominal)}

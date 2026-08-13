@@ -95,8 +95,7 @@ function ExpandableRow({
         </td>
         <td className="whitespace-nowrap px-4 py-3 text-suka-gray-500">
           {row.created_at
-            ? new Date(row.created_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', 
-                day: '2-digit',
+            ? new Date(row.created_at).toLocaleDateString('id-ID', { day: '2-digit',
                 month: 'short',
                 year: 'numeric',
               })
@@ -177,8 +176,7 @@ function ExpandableRow({
                           </td>
                           <td className="px-3 py-2 text-suka-gray-600">
                             {p.payment_date
-                              ? new Date(p.payment_date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta', 
-                                    day: '2-digit',
+                              ? new Date(p.payment_date).toLocaleDateString('id-ID', { day: '2-digit',
                                     month: 'short',
                                     year: 'numeric',
                                   }

@@ -123,7 +123,7 @@ export default function OpnameDetailModal({ opnameId, outletName, onClose }: Pro
   }, [onClose])
 
   const timeStr = header ? new Date(header.created_at).toLocaleTimeString('id-ID', {
-    timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', hour12: false
+    hour: '2-digit', minute: '2-digit', hour12: false
   }).replace(':', '.') + ' WIB' : ''
 
   return (

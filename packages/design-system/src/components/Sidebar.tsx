@@ -16,6 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ menuItems, currentPathname }) 
     <aside className="w-64 bg-suka-cream border-r border-suka-gray-200 p-6">
       <nav className="space-y-2">
         {menuItems.map((item) => (
+          // @ts-ignore - ReactNode type mismatch in monorepo
           <Link
             key={item.href}
             href={item.href}

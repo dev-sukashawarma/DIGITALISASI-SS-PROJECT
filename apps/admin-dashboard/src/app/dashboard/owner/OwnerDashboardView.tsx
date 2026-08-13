@@ -174,11 +174,11 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
   const completed = cur.rows.reduce((s: number, r: any) => s + r.jumlah_order_completed, 0)
   const currentAov = completed > 0 ? Math.round(netRevenue / completed) : 0
 
-  const formatRp = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+  const formatRp = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric' })
+    return new Date(dateString).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
   }
-  const printTime = new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  const printTime = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   return (
     <div className="hidden print:block text-black bg-white w-full py-8">
@@ -215,7 +215,7 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
           </tr>
           <tr className="bg-gray-50">
             <td className="p-3 border-b border-gray-300 font-medium">Total Transaksi Selesai</td>
-            <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{completed.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</td>
+            <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{completed.toLocaleString('id-ID')}</td>
           </tr>
           <tr>
             <td className="p-3 border-b border-gray-300 font-medium">Rata-rata Nilai Belanja (AOV)</td>

@@ -18,7 +18,7 @@ export function TransferListView({ transfers = [], outlets = [] }: { transfers: 
   const filteredTransfers = transfers.filter((t: any) => {
     const matchesOutlet = selectedOutlet === 'all' || t.outlet_id === selectedOutlet
     const outletName = t.outlets?.name || outlets.find((o: any) => o.id === t.outlet_id)?.name || ''
-    const bulanStr = new Date(t.bulan).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'long', year: 'numeric' })
+    const bulanStr = new Date(t.bulan).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
     const catatanStr = t.catatan || ''
     const searchLower = searchTerm.toLowerCase()
     
@@ -141,9 +141,8 @@ export function TransferListView({ transfers = [], outlets = [] }: { transfers: 
               <tbody className="divide-y text-gray-700">
                 {filteredTransfers.map((t: any) => {
                   const outletName = t.outlets?.name || outlets.find((o: any) => o.id === t.outlet_id)?.name || 'Outlet Tidak Ditemukan'
-                  const bulanFormatted = new Date(t.bulan).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'long', year: 'numeric' })
-                  const uploadDate = new Date(t.created_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  
-                    day: 'numeric', 
+                  const bulanFormatted = new Date(t.bulan).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
+                  const uploadDate = new Date(t.created_at).toLocaleDateString('id-ID', { day: 'numeric', 
                     month: 'short', 
                     year: 'numeric',
                     hour: '2-digit',
@@ -224,7 +223,7 @@ export function TransferListView({ transfers = [], outlets = [] }: { transfers: 
               </span>{' '}
               periode{' '}
               <span className="font-bold text-gray-900">
-                {new Date(confirmItem.bulan).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  month: 'long', year: 'numeric' })}
+                {new Date(confirmItem.bulan).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })}
               </span>{' '}
               sebesar <span className="font-bold text-green-700">{formatCurrency(confirmItem.nominal)}</span>?
             </p>

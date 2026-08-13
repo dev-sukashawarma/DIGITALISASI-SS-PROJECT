@@ -64,7 +64,7 @@ export function SaranInbox({ suggestions }: { suggestions: any[] }) {
               </div>
               <div className="text-xs text-gray-500 mt-1 flex items-center">
                 <Clock className="w-3 h-3 mr-1" />
-                {new Date(s.created_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {new Date(s.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
 

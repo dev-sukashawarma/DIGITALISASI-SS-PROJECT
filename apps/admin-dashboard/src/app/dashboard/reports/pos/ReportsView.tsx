@@ -1652,8 +1652,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                             <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
                           </td>
                           <td className="px-5 py-4 text-gray-500 font-medium text-xs">
-                            {new Date(order.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
-                              day: 'numeric', month: 'short', year: 'numeric',
+                            {new Date(order.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric',
                               hour: '2-digit', minute: '2-digit'
                             })}
                           </td>
@@ -2020,9 +2019,9 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 </div>
               ) : (
                 shifts.map((shift) => {
-                  const dateStr = new Date(shift.start_time).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric' });
-                  const startTimeStr = new Date(shift.start_time).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' });
-                  const endTimeStr = shift.end_time ? new Date(shift.end_time).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' }) : 'Berjalan';
+                  const dateStr = new Date(shift.start_time).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+                  const startTimeStr = new Date(shift.start_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+                  const endTimeStr = shift.end_time ? new Date(shift.end_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : 'Berjalan';
                   
                   const variance = shift.variance || 0;
                   const pcVariance = shift.petty_cash_variance || 0;
@@ -2136,7 +2135,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             <div className="flex items-center justify-between p-5 border-b border-gray-100">
               <div>
                 <h3 className="font-bold text-gray-900 text-lg">Rincian Petty Cash</h3>
-                <p className="text-xs text-gray-500 mt-1">Shift: {new Date(selectedShiftForExpenses.start_time).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
+                <p className="text-xs text-gray-500 mt-1">Shift: {new Date(selectedShiftForExpenses.start_time).toLocaleString('id-ID')}</p>
               </div>
               <button 
                 onClick={() => setSelectedShiftForExpenses(null)}
@@ -2182,7 +2181,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                         {shiftExpenses.map((exp) => (
                           <tr key={exp.id} className="hover:bg-amber-50/50">
                             <td className="px-4 py-3 text-gray-500 font-medium text-xs">
-                              {new Date(exp.created_at).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' })}
+                              {new Date(exp.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                             </td>
                             <td className="px-4 py-3 text-gray-700 capitalize font-medium">
                               {exp.category?.replace('_', ' ')}
@@ -2231,7 +2230,7 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                         {shiftTopups.map((topup) => (
                           <tr key={topup.id} className="hover:bg-amber-50/50">
                             <td className="px-4 py-3 text-gray-500 font-medium text-xs">
-                              {new Date(topup.created_at).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' })}
+                              {new Date(topup.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                             </td>
                             <td className="px-4 py-3 text-gray-600 italic">
                               {topup.description || '-'}

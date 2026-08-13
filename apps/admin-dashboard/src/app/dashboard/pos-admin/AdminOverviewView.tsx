@@ -170,7 +170,7 @@ export default function AdminOverviewView({
     const dataList = Object.entries(dailyMap)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, revenue]) => ({
-        date: new Date(date).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short' }),
+        date: new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
         revenue,
         _rawDate: date
       }))
@@ -179,7 +179,7 @@ export default function AdminOverviewView({
       const d = new Date(dataList[0]._rawDate)
       d.setDate(d.getDate() - 1)
       dataList.unshift({
-        date: d.toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short' }),
+        date: d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
         revenue: 0,
         _rawDate: ''
       })

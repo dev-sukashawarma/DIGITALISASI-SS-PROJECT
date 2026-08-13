@@ -30,7 +30,6 @@ function getWIBDateStr(tsServerStr: string): string {
   try {
     const d = new Date(tsServerStr)
     const formatter = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Jakarta',
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -45,7 +44,6 @@ function formatWIBTime(tsServerStr: string): string {
   try {
     const d = new Date(tsServerStr)
     return d.toLocaleTimeString('id-ID', {
-      timeZone: 'Asia/Jakarta',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,

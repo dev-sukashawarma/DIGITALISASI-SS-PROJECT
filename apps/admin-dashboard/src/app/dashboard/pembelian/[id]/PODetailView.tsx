@@ -254,7 +254,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
             </span>
           </div>
           <p className="text-xs font-bold text-suka-gray-400 mt-1">
-            Supplier: <span className="text-suka-brown">{po.supplier_nama}</span> · Dibuat pada {new Date(po.tanggal_po).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric' })}
+            Supplier: <span className="text-suka-brown">{po.supplier_nama}</span> · Dibuat pada {new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
       </div>
@@ -434,7 +434,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
       {po.diverifikasi_at && (
         <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-200 rounded-2xl p-4 text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-2xs">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>Diverifikasi oleh Kitchen pada {new Date(po.diverifikasi_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</span>
+          <span>Diverifikasi oleh Kitchen pada {new Date(po.diverifikasi_at).toLocaleString('id-ID')}</span>
         </div>
       )}
 

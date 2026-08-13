@@ -8,6 +8,11 @@ import { useAuth } from '@suka/auth';
 import { createClient } from "@/lib/supabase";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 import { CameraCapture } from "@/components/CameraCapture";
 import { PermissionModal } from "@/components/PermissionModal";
 import { loadFaceModels } from "@/lib/face/recognizer";
@@ -826,7 +831,7 @@ export function AttendanceKioskPanel() {
                 </div>
                 <div className="text-right space-y-1">
                   <p className="text-base font-extrabold text-suka-brown leading-none">
-                    {dayjs(r.ts_server).format("HH:mm")}
+                    {dayjs(r.ts_server).tz("Asia/Jakarta").format("HH:mm")}
                   </p>
                   <div className="flex justify-end">
                     {r.type === 'in' ? (

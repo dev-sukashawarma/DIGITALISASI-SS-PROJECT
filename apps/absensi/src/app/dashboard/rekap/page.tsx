@@ -12,6 +12,11 @@ import { attendanceToCsv, downloadCsv, type CsvRow } from "@/features/rekap/csv"
 import { useRealtimeInvalidate } from "@suka/realtime";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 type Row = {
   id: string;
@@ -253,11 +258,11 @@ export default function RekapPage() {
   }
 
   function formatTanggal(ts: string) {
-    return dayjs(ts).format("DD MMM YYYY");
+    return dayjs(ts).tz("Asia/Jakarta").format("DD MMM YYYY");
   }
 
   function jam(ts: string) {
-    return dayjs(ts).format("HH:mm");
+    return dayjs(ts).tz("Asia/Jakarta").format("HH:mm");
   }
 
   function selfieUrl(path: string) {

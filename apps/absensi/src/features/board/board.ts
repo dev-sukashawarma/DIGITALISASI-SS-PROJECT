@@ -29,7 +29,7 @@ export type BoardRow = {
 export type BoardSummary = { hadir: number; telat: number; telat_toleransi: number; belum: number; alpha: number; total: number };
 
 function jam(ts: string): string {
-  return new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
+  return new Date(ts).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" });
 }
 
 function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {

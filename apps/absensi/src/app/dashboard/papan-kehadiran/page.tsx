@@ -85,7 +85,7 @@ export default function PapanKehadiranPage() {
         </div>
         <div className="hidden sm:block">
           <InfoPill icon={<CalendarDays size={14} />}>
-            {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}
+            {new Date().toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta" })}
           </InfoPill>
         </div>
       </div>
@@ -155,7 +155,7 @@ export default function PapanKehadiranPage() {
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="font-semibold text-gray-900 text-sm truncate">{alert.staff_name}</span>
                   <span className="text-gray-400 font-mono text-[10px] bg-gray-50 px-2 py-0.5 rounded-full border border-gray-100">
-                    {new Date(alert.ts_server).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                    {new Date(alert.ts_server).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })}
                   </span>
                 </div>
                 <div className="text-[11px] font-medium text-red-600 bg-red-50/50 px-2 py-1 rounded inline-block w-fit">

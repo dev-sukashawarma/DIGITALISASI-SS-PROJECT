@@ -10,7 +10,11 @@ import { useToast } from "@/lib/feedback/toast";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale("id");
 
 type TickRow = {
@@ -140,7 +144,7 @@ const ChecklistItemRow = React.memo(({
           <p className="text-xs text-gray-400 flex items-center gap-1 mt-0.5">
             <User size={11} />
             <span className={isMe ? "text-suka-orange font-medium" : ""}>{isMe ? "Kamu" : tickerName}</span>
-            · {dayjs(tick.ticked_at).format("HH:mm")}
+            · {dayjs(tick.ticked_at).tz("Asia/Jakarta").format("HH:mm")}
           </p>
         )}
       </div>

@@ -9,7 +9,11 @@ import { PageHeader } from "@/components/PageHeader";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
 import dayjs from "dayjs";
 import "dayjs/locale/id";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
 dayjs.locale("id");
 
 type TickRow = {
@@ -182,7 +186,7 @@ export default function ChecklistMonitorPage() {
             className="flex w-full items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-500 transition-colors hover:border-suka-orange hover:text-suka-orange sm:w-auto"
           >
             <RefreshCw size={15} /> Refresh
-            <span className="text-xs text-gray-400">· {dayjs(lastRefresh).format("HH:mm:ss")}</span>
+            <span className="text-xs text-gray-400">· {dayjs(lastRefresh).tz("Asia/Jakarta").format("HH:mm:ss")}</span>
           </button>
         }
       />
@@ -347,7 +351,7 @@ export default function ChecklistMonitorPage() {
                                 <p className="mt-0.5 flex items-center gap-1 text-xs text-gray-400">
                                   <User size={11} />
                                   <span className="font-medium text-suka-brown">{tickerName}</span>
-                                  · {dayjs(tick.ticked_at).format("HH:mm")}
+                                  · {dayjs(tick.ticked_at).tz("Asia/Jakarta").format("HH:mm")}
                                 </p>
                               )}
                               {!isTicked && (

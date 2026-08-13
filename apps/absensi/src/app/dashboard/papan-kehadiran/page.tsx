@@ -54,7 +54,7 @@ export default function PapanKehadiranPage() {
 
   const isSpvOrAdmin = ["spv", "owner", "admin", "admin_hr", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
   const { data, isLoading } = useQuery({
     queryKey: ["papan-kehadiran", selectedOutletId, today],
     enabled: !!selectedOutletId,

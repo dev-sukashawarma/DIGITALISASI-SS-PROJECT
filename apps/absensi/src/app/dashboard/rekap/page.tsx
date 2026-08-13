@@ -59,8 +59,8 @@ export default function RekapPage() {
   const { outletStaff } = useAuth();
   const supabase = createClient();
   const [period, setPeriod] = useState("hari_ini");
-  const [customStart, setCustomStart] = useState(() => dayjs().startOf("month").format("YYYY-MM-DD"));
-  const [customEnd, setCustomEnd] = useState(() => dayjs().format("YYYY-MM-DD"));
+  const [customStart, setCustomStart] = useState(() => dayjs().tz("Asia/Jakarta").startOf("month").format("YYYY-MM-DD"));
+  const [customEnd, setCustomEnd] = useState(() => dayjs().tz("Asia/Jakarta").format("YYYY-MM-DD"));
   const [filterStatus, setFilterStatus] = useState("semua");
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedStaff, setSelectedStaff] = useState<StaffSummary | null>(null);
@@ -75,7 +75,7 @@ export default function RekapPage() {
 
   const { startDate, endDate } = useMemo(() => {
     let start, end;
-    const now = dayjs();
+    const now = dayjs().tz("Asia/Jakarta");
     switch (period) {
       case "hari_ini":
         start = now.format("YYYY-MM-DD");
@@ -186,7 +186,7 @@ export default function RekapPage() {
     const groups = new Map<string, { in?: Row, out?: Row, alpha?: Row, dateTs: string }>();
 
     for (const r of selectedStaff.rows) {
-      const d = dayjs(r.ts_server).format("DD MMM YYYY");
+      const d = dayjs(r.ts_server).tz("Asia/Jakarta").format("DD MMM YYYY");
       const existing = groups.get(d) || { dateTs: r.ts_server };
       if (r.status === "alpha") {
         existing.alpha = r;

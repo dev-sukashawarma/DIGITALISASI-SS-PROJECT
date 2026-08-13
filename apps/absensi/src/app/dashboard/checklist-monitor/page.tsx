@@ -58,7 +58,7 @@ export default function ChecklistMonitorPage() {
     }
   }, [outletStaff]);
 
-  const today = dayjs().format("YYYY-MM-DD");
+  const today = dayjs().tz("Asia/Jakarta").format("YYYY-MM-DD");
 
   useEffect(() => {
     if (!selectedOutletId) return;
@@ -179,7 +179,7 @@ export default function ChecklistMonitorPage() {
       <PageHeader
         icon={<ClipboardCheck size={20} />}
         title="Monitor Checklist"
-        subtitle={dayjs().format("dddd, D MMMM YYYY")}
+        subtitle={dayjs().tz("Asia/Jakarta").format("dddd, D MMMM YYYY")}
         action={
           <button
             onClick={handleRefresh}

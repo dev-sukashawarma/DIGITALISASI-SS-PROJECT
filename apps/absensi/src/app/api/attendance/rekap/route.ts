@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export async function GET(request: Request) {
   const supabaseService = createClient(
@@ -15,8 +20,8 @@ export async function GET(request: Request) {
   let end_date = searchParams.get('end_date');
 
   if (!start_date || !end_date) {
-    start_date = dateParam || dayjs().format('YYYY-MM-DD');
-    end_date = dateParam || dayjs().format('YYYY-MM-DD');
+    start_date = dateParam || dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD');
+    end_date = dateParam || dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD');
   }
 
   if (!outlet_id) {
@@ -89,15 +94,15 @@ export async function GET(request: Request) {
     dbRows.forEach((r: any) => {
       if (r.status === 'telat' && r.type === 'in' && cfg?.jam_masuk) {
         const [h, m] = cfg.jam_masuk.split(':').map(Number);
-        const serverTime = new Date(r.ts_server);
-        const expectedTime = new Date(r.ts_server);
-        expectedTime.setHours(h, m, 0, 0);
-        const diffMs = serverTime.getTime() - expectedTime.getTime();
-        r.delay_minutes = r.telat_menit ?? (diffMs > 0 ? Math.floor(diffMs / 60000) : 0);
+        const expectedMinutes = h * 60 + m;
+        const t = dayjs(r.ts_server).tz('Asia/Jakarta');
+        const actualMinutes = t.hour() * 60 + t.minute();
+        const diff = actualMinutes - expectedMinutes;
+        r.delay_minutes = r.telat_menit ?? (diff > 0 ? diff : 0);
       }
     });
 
-    const todayStr = dayjs().format('YYYY-MM-DD');
+    const todayStr = dayjs().tz('Asia/Jakarta').format('YYYY-MM-DD');
     const virtualAlphas: any[] = [];
     
     let curr = dayjs(start_date);

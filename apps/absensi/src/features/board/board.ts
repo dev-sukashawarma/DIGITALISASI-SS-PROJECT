@@ -1,3 +1,10 @@
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
+
 export type BoardStaff = { id: string; name: string; role: string };
 export type BoardRecord = {
   outlet_staff_id: string;
@@ -34,14 +41,13 @@ function jam(ts: string): string {
 
 function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
   const [h, m] = jamMasuk.split(":").map(Number);
-  const serverTime = new Date(tsServer);
-  
-  const expectedTime = new Date(tsServer);
-  expectedTime.setHours(h, m, 0, 0);
-  
-  const diffMs = serverTime.getTime() - expectedTime.getTime();
-  if (diffMs <= 0) return 0;
-  return Math.floor(diffMs / 60000);
+  const expectedMinutes = h * 60 + m;
+
+  const t = dayjs(tsServer).tz("Asia/Jakarta");
+  const actualMinutes = t.hour() * 60 + t.minute();
+
+  const diff = actualMinutes - expectedMinutes;
+  return diff > 0 ? diff : 0;
 }
 
 /** Hitung papan kehadiran: status terbaru tiap staff + ringkasan. */

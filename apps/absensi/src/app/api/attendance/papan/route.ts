@@ -10,7 +10,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const outlet_id = searchParams.get('outlet_id');
-  const date = searchParams.get('date') || new Date().toISOString().slice(0, 10);
+  const date = searchParams.get('date') || new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
 
   if (!outlet_id) {
     return NextResponse.json({ error: 'outlet_id is required' }, { status: 400 });

@@ -240,7 +240,7 @@ export default function KruChecklistPage() {
     }
   }, [outletStaff]);
 
-  const today = dayjs().format("YYYY-MM-DD");
+  const today = dayjs().tz("Asia/Jakarta").format("YYYY-MM-DD");
 
   const { data: hasClockedIn = false, isLoading: loadingClockIn } = useQuery({
     queryKey: ["checklist-clockin", outletStaff?.id, today],
@@ -408,7 +408,7 @@ export default function KruChecklistPage() {
             </span>
             <div className="min-w-0">
               <h1 className="text-lg font-bold text-suka-ink leading-tight">Checklist Operasional</h1>
-              <p className="text-sm text-gray-500">{dayjs().format("dddd, D MMMM YYYY")}</p>
+              <p className="text-sm text-gray-500">{dayjs().tz("Asia/Jakarta").format("dddd, D MMMM YYYY")}</p>
             </div>
           </div>
         </div>
@@ -434,7 +434,7 @@ export default function KruChecklistPage() {
           </span>
           <div className="min-w-0">
             <h1 className="text-lg font-bold text-suka-ink leading-tight">Checklist Operasional</h1>
-            <p className="text-sm text-gray-500">{dayjs().format("dddd, D MMMM YYYY")}</p>
+            <p className="text-sm text-gray-500">{dayjs().tz("Asia/Jakarta").format("dddd, D MMMM YYYY")}</p>
           </div>
         </div>
 

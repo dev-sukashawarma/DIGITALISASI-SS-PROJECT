@@ -274,8 +274,8 @@ export function AttendanceKioskPanel() {
   }, [kiosk.phase, kiosk.result?.ok]);
 
   // Hitung hasIn di sini (sebelum useEffect) agar bisa dipakai di clockInWindowOpen
-  const today = dayjs().format("YYYY-MM-DD");
-  const todayRecords = records.filter(r => dayjs(r.ts_server).format("YYYY-MM-DD") === today);
+  const today = dayjs().tz("Asia/Jakarta").format("YYYY-MM-DD");
+  const todayRecords = records.filter(r => dayjs(r.ts_server).tz("Asia/Jakarta").format("YYYY-MM-DD") === today);
   const hasIn = todayRecords.some(r => r.type === "in");
   const hasOut = todayRecords.some(r => r.type === "out");
 
@@ -297,11 +297,11 @@ export function AttendanceKioskPanel() {
 
   // Label jam kamera akan buka lagi (untuk overlay "sedang bekerja")
   const clockOutWindowLabel = jamKeluar
-    ? dayjs().startOf("day").add(toMin(jamKeluar) - 30, "minute").format("HH:mm")
+    ? dayjs().tz("Asia/Jakarta").startOf("day").add(toMin(jamKeluar) - 30, "minute").format("HH:mm")
     : null;
   // Label jam kamera buka untuk clock-in
   const windowOpenLabel = (!isManual && jamMasuk)
-    ? dayjs().startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
+    ? dayjs().tz("Asia/Jakarta").startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
     : null;
 
   useEffect(() => { 
@@ -785,7 +785,7 @@ export function AttendanceKioskPanel() {
               {loadingHistory ? "Memuat..." : hasIn && hasOut ? "Selesai Shift (Masuk & Keluar)" : hasIn ? "Sedang Bekerja" : "Belum Absen"}
             </h3>
             <p className="text-xs text-gray-500 font-semibold capitalize">
-              {dayjs().format("dddd, D MMMM YYYY")}
+              {dayjs().tz("Asia/Jakarta").format("dddd, D MMMM YYYY")}
             </p>
           </div>
         </div>
@@ -825,7 +825,7 @@ export function AttendanceKioskPanel() {
                       {r.type === 'in' ? 'Absen Masuk' : 'Absen Keluar'}
                     </p>
                     <p className="text-[10px] text-gray-400 font-semibold">
-                      {dayjs(r.ts_server).format("dddd, D MMM YYYY")}
+                      {dayjs(r.ts_server).tz("Asia/Jakarta").format("dddd, D MMM YYYY")}
                     </p>
                   </div>
                 </div>

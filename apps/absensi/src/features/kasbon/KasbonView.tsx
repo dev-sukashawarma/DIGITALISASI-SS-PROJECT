@@ -5,9 +5,14 @@ import { useAuth } from "@suka/auth";
 import { Banknote, Clock, CheckCircle2, XCircle, Plus, Info } from "lucide-react";
 import { useKasbonHistory, useSubmitKasbon } from "./api";
 import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
 import { useToast } from "@/lib/feedback/toast";
 import { Select } from "@/components/Select";
 import { useRealtimeInvalidate } from "@suka/realtime";
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export function KasbonView() {
   const { outletStaff } = useAuth();
@@ -210,7 +215,7 @@ export function KasbonView() {
                       <span className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-md">
                         Dicicil {item.installment_months} Bulan
                       </span>
-                      <span>Diajukan: {dayjs(item.created_at).format('DD MMM YYYY')}</span>
+                      <span>Diajukan: {dayjs(item.created_at).tz('Asia/Jakarta').format('DD MMM YYYY')}</span>
                     </div>
                   </div>
                 </div>

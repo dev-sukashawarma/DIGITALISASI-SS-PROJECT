@@ -591,7 +591,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       .map((i: any) => i.id as string);
     if (requiredIds.length === 0) return true;
 
-    const today = new Date().toLocaleDateString("en-CA"); // YYYY-MM-DD lokal (samakan dgn kru-checklist)
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" }); // YYYY-MM-DD WIB (samakan dgn kru-checklist)
     const { data: rec } = await supabase
       .from("daily_checklist_records")
       .select("id")

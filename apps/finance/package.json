@@ -30,6 +30,7 @@
     "next": "^16.1.6",
     "playwright": "^1.60.0",
     "react": "^19.0.0-rc.0",
+    "react-countup": "^6.5.0",
     "react-dom": "^19.0.0-rc.0",
     "recharts": "^3.9.1",
     "sonner": "^1.4.0"

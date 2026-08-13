@@ -1,6 +1,6 @@
 export function rupiah(n: number): string {
   const sign = n < 0 ? '-' : ''
-  return sign + 'Rp ' + Math.abs(Math.round(n)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+  return sign + 'Rp ' + Math.abs(Math.round(n)).toLocaleString('id-ID')
 }
 
 export function rupiahCompact(n: number): string {
@@ -56,7 +56,7 @@ export function relativeTime(iso: string | null | undefined): string {
 }
 
 export function formatNumber(n: number): string {
-  return Math.abs(Math.round(n)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+  return Math.abs(Math.round(n)).toLocaleString('id-ID')
 }
 
 export function formatStok(qty: number, unit?: string): string {

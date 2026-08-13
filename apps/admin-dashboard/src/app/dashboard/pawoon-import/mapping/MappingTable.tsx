@@ -136,16 +136,16 @@ export default function MappingTable({ mappingList, outletMap }: { mappingList: 
                                     <td className="p-4 text-center text-gray-500">{idx + 1}</td>
                                     <td className="p-4 font-medium text-blue-700">{item.pawoonName}</td>
                                     <td className="p-4 font-bold text-blue-800 bg-blue-50/30">
-                                        Rp {item.pawoonPrice ? item.pawoonPrice.toLocaleString('id-ID') : '-'}
+                                        Rp {item.pawoonPrice ? item.pawoonPrice.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : '-'}
                                     </td>
                                     <td className="p-4 font-bold text-green-700">{item.systemName}</td>
                                     <td className="p-4 text-green-800 bg-green-50/30">
                                         <div className={`${item.targetLabel === 'Offline' ? 'font-bold text-green-700' : 'text-gray-600'}`}>
-                                            Offline: Rp {item.priceOffline.toLocaleString('id-ID')}
+                                            Offline: Rp {item.priceOffline.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                         </div>
                                         {item.priceOnline && item.priceOnline.map((op: any, i: number) => (
                                             <div key={i} className={`text-xs mt-1 ${item.targetLabel === op.label ? 'font-bold text-green-700' : 'text-gray-500'}`}>
-                                                {op.label}: Rp {op.price.toLocaleString('id-ID')}
+                                                {op.label}: Rp {op.price.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                                             </div>
                                         ))}
                                     </td>

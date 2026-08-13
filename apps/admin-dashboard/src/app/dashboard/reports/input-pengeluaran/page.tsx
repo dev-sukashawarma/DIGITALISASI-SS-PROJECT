@@ -179,7 +179,7 @@ export default function InputPengeluaranPage() {
                       <td className="px-4 py-3">{r.outlet_name}</td>
                       <td className="px-4 py-3 text-suka-gray-600 truncate max-w-[250px]">{r.description}</td>
                       <td className={`px-4 py-3 text-right font-medium ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
-                        {isIncome ? '+' : '-'}Rp {r.amount.toLocaleString('id-ID')}
+                        {isIncome ? '+' : '-'}Rp {r.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
                       </td>
                     </tr>
                   )

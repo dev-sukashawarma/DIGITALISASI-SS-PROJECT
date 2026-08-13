@@ -190,7 +190,7 @@ export default async function SyncedPawoonDataPage({
         { struk: 0, omsetKotor: 0, voidJml: 0, voidNilai: 0, grandTotal: 0, offline: 0, grabfood: 0, tiktok: 0, cash: 0, qris: 0, card: 0 }
     );
 
-    const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
+    const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`;
 
     // Date range info
     const allDates = rows.map(r => r.date);

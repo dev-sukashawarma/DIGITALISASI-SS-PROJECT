@@ -159,7 +159,7 @@ function ChannelCells({ m }: { m: ChannelMetrics }) {
     <>
       <td className="py-3 px-3 text-right text-suka-gray-600">{rupiah(m.revenue)}</td>
       <td className={`py-3 px-3 text-right font-bold ${m.gp >= 0 ? 'text-suka-green' : 'text-red-700'}`}>{rupiah(m.gp)}</td>
-      <td className="py-3 px-3 text-right text-suka-gray-500">{m.pcs.toLocaleString('id-ID')}</td>
+      <td className="py-3 px-3 text-right text-suka-gray-500">{m.pcs.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</td>
     </>
   )
 }

@@ -166,7 +166,7 @@ export default function BuktiQrisPage() {
                   
                   <div className="flex items-center justify-between pt-3 border-t border-suka-gray-100 mt-auto">
                     <div className="text-xs text-suka-gray-400">
-                      {new Date(order.created_at).toLocaleString('id-ID', { 
+                      {new Date(order.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  
                         day: 'numeric', month: 'short', year: 'numeric', 
                         hour: '2-digit', minute: '2-digit' 
                       })}

@@ -201,10 +201,10 @@ export async function getPettyCashData(
     .limit(500)
 
   if (filter.from) {
-    topupQuery = topupQuery.gte('created_at', `${filter.from}T00:00:00.000Z`)
+    topupQuery = topupQuery.gte('created_at', `${filter.from}T00:00:00.000+07:00`)
   }
   if (filter.to) {
-    topupQuery = topupQuery.lte('created_at', `${filter.to}T23:59:59.999Z`)
+    topupQuery = topupQuery.lte('created_at', `${filter.to}T23:59:59.999+07:00`)
   }
   if (filter.outletId && filter.outletId !== 'all') {
     topupQuery = topupQuery.eq('outlet_id', filter.outletId)
@@ -363,10 +363,19 @@ export async function getAttendanceReportData(
   filter: PeriodFilterValue,
   outlets: Outlet[]
 ): Promise<AttendanceRecordExt[]> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) => {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) =>
+          cookieStore.set(name, value, options)
+        )
+      } catch {
+        // Ignored, might be called from a Server Component.
+      }
+    }
+  })
 
   // 1. Fetch Staff & Outlets for Mapping
   const [{ data: staffList }, { data: outletsList }] = await Promise.all([
@@ -377,23 +386,7 @@ export async function getAttendanceReportData(
   const staffMap = new Map((staffList || []).map((s) => [s.id, s]))
   const outletMap = new Map((outletsList || []).map((o) => [o.id, o.name]))
 
-  // Helper function to generate Signed URL from `selfies` bucket
-  const photoCache = new Map<string, string | null>()
-  async function getSignedStealthPhoto(path?: string | null): Promise<string | null> {
-    if (!path) return null
-    if (path.startsWith('http://') || path.startsWith('https://')) return path
-    if (photoCache.has(path)) return photoCache.get(path)!
-
-    // Create signed URL for stealth photo from selfies bucket
-    const { data: selfieSigned } = await supabase.storage.from('selfies').createSignedUrl(path, 3600)
-    if (selfieSigned?.signedUrl) {
-      photoCache.set(path, selfieSigned.signedUrl)
-      return selfieSigned.signedUrl
-    }
-
-    return null
-  }
-
+  // We will batch-sign the stealth photo URLs below to prevent server timeout
   // 2. Query REAL table `attendance` (singular) where all stealth camera photos are recorded
   let query = supabase
     .from('attendance')
@@ -403,10 +396,10 @@ export async function getAttendanceReportData(
     .limit(1000)
 
   if (filter.from) {
-    query = query.gte('ts_server', `${filter.from}T00:00:00.000Z`)
+    query = query.gte('ts_server', `${filter.from}T00:00:00.000+07:00`)
   }
   if (filter.to) {
-    query = query.lte('ts_server', `${filter.to}T23:59:59.999Z`)
+    query = query.lte('ts_server', `${filter.to}T23:59:59.999+07:00`)
   }
   if (filter.outletId && filter.outletId !== 'all') {
     query = query.eq('outlet_id', filter.outletId)
@@ -476,7 +469,7 @@ export async function getAttendanceReportData(
 
     const item = grouped.get(key)!
     if (r.type === 'in') {
-      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
       item.raw_photo_in = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
@@ -488,7 +481,7 @@ export async function getAttendanceReportData(
         item.late_minutes = r.telat_menit || 0
       }
     } else if (r.type === 'out') {
-      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
       item.raw_photo_out = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)
@@ -497,36 +490,63 @@ export async function getAttendanceReportData(
     }
   }
 
-  // Convert grouped items to AttendanceRecordExt with Signed Stealth Photo URLs & Out Status
-  const result: AttendanceRecordExt[] = await Promise.all(
-    Array.from(grouped.values()).map(async (item) => {
-      const signedIn = await getSignedStealthPhoto(item.raw_photo_in)
-      const signedOut = await getSignedStealthPhoto(item.raw_photo_out)
+  // Gather all unique photo paths
+  const pathsToSign = new Set<string>()
+  for (const item of grouped.values()) {
+    if (item.raw_photo_in && !item.raw_photo_in.startsWith('http')) pathsToSign.add(item.raw_photo_in)
+    if (item.raw_photo_out && !item.raw_photo_out.startsWith('http')) pathsToSign.add(item.raw_photo_out)
+  }
 
-      return {
-        id: item.id,
-        staff_id: item.staff_id,
-        staff_name: item.staff_name,
-        staff_role: item.staff_role,
-        outlet_id: item.outlet_id,
-        outlet_name: item.outlet_name,
-        date: item.date,
-        clock_in: item.clock_in,
-        clock_out: item.clock_out,
-        status: item.status,
-        late_minutes: item.late_minutes,
-        out_status: item.out_status,
-        out_minutes: item.out_minutes,
-        notes: item.notes,
-        stealth_photo_in_url: signedIn,
-        stealth_photo_out_url: signedOut,
-        gps_lat_in: item.gps_lat_in,
-        gps_lng_in: item.gps_lng_in,
-        gps_lat_out: item.gps_lat_out,
-        gps_lng_out: item.gps_lng_out,
+  // Batch sign the URLs in chunks of 100 to avoid overloading the API
+  const pathArray = Array.from(pathsToSign)
+  const signedUrlsMap = new Map<string, string>()
+  const chunkSize = 100
+  
+  for (let i = 0; i < pathArray.length; i += chunkSize) {
+    const chunk = pathArray.slice(i, i + chunkSize)
+    const { data: signedUrls } = await supabase.storage.from('selfies').createSignedUrls(chunk, 3600)
+    if (signedUrls) {
+      for (const su of signedUrls) {
+        if (su.signedUrl) signedUrlsMap.set(su.path, su.signedUrl)
       }
-    })
-  )
+    }
+  }
+
+  // Convert grouped items to AttendanceRecordExt with Signed Stealth Photo URLs & Out Status
+  const result: AttendanceRecordExt[] = Array.from(grouped.values()).map((item) => {
+    let signedIn = item.raw_photo_in
+    if (signedIn && !signedIn.startsWith('http')) {
+      signedIn = signedUrlsMap.get(signedIn) || null
+    }
+
+    let signedOut = item.raw_photo_out
+    if (signedOut && !signedOut.startsWith('http')) {
+      signedOut = signedUrlsMap.get(signedOut) || null
+    }
+
+    return {
+      id: item.id,
+      staff_id: item.staff_id,
+      staff_name: item.staff_name,
+      staff_role: item.staff_role,
+      outlet_id: item.outlet_id,
+      outlet_name: item.outlet_name,
+      date: item.date,
+      clock_in: item.clock_in,
+      clock_out: item.clock_out,
+      status: item.status,
+      late_minutes: item.late_minutes,
+      out_status: item.out_status,
+      out_minutes: item.out_minutes,
+      notes: item.notes,
+      stealth_photo_in_url: signedIn,
+      stealth_photo_out_url: signedOut,
+      gps_lat_in: item.gps_lat_in,
+      gps_lng_in: item.gps_lng_in,
+      gps_lat_out: item.gps_lat_out,
+      gps_lng_out: item.gps_lng_out,
+    }
+  })
 
   return result.sort((a, b) => b.date.localeCompare(a.date))
 }

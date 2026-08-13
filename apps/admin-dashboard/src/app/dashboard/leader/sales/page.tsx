@@ -30,7 +30,7 @@ function formatTime(iso: string) {
   if (!iso) return '-'
   try {
     const d = new Date(iso)
-    return d.toLocaleTimeString('id-ID', {
+    return d.toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', 
       hour: '2-digit',
       minute: '2-digit'
     })

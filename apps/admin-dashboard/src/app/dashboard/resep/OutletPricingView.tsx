@@ -172,7 +172,7 @@ export default function OutletPricingView({ menuItems }: OutletPricingViewProps)
     toast.success('HPP berhasil dihitung (+10%). Silakan periksa tabel dan klik Simpan!');
   };
 
-  const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
+  const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
 
   return (
     <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden">

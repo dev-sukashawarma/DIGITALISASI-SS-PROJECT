@@ -136,7 +136,7 @@ function ApproveContent() {
                 </div>
                 <div className="pt-2 mt-2 border-t border-gray-200">
                   <span className="text-xs text-gray-500 font-semibold uppercase">Total Belanja</span>
-                  <p className="text-lg font-bold text-gray-900">Rp {orderDetails.totalAmount?.toLocaleString('id-ID')}</p>
+                  <p className="text-lg font-bold text-gray-900">Rp {orderDetails.totalAmount?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</p>
                 </div>
               </div>
             )}

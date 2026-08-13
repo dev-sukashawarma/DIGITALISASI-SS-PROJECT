@@ -2,7 +2,7 @@ import type { HealthTransition } from '@/lib/healthStatus'
 import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react'
 
 function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+  return new Date(iso).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta',  hour: '2-digit', minute: '2-digit' })
 }
 
 function getStatusIcon(status: string) {

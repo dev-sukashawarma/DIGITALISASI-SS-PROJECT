@@ -133,7 +133,7 @@ export default function SaranPage() {
                   <div key={s.id} className="bg-white/70 backdrop-blur-md rounded-[24px] p-6 border border-white shadow-lg shadow-suka-orange/5 hover:bg-white/90 transition-all duration-300">
                     <div className="flex justify-between items-center mb-4">
                       <span className="text-[10px] font-extrabold text-suka-gray-400 uppercase tracking-widest">
-                        {new Date(s.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                        {new Date(s.created_at).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm ${
                         s.status === 'baru' ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-white shadow-yellow-500/30' :

@@ -2,12 +2,13 @@
 
 import React, { useState, useMemo } from 'react'
 import { Spinner, EmptyState } from '@suka/design-system'
-import { Camera, X, Download, Search, Calendar, Store, Building2, Clock, CheckCircle2, Send, XCircle, Plus } from 'lucide-react'
+import { Camera, X, Download, Search, Calendar, Store, Building2, Clock, CheckCircle2, Send, XCircle, Plus, FileSpreadsheet, FileText } from 'lucide-react'
 import { ApprovalModal } from '@/components/petty-cash/ApprovalModal'
 import { CreateTopupModal } from './CreateTopupModal'
 import { usePettyCashRequests, useProcessPettyCashLeader, useForwardPettyCashLeader } from '@/hooks/usePettyCash'
 import { relativeTime } from '@/lib/format'
 import type { PettyCashTopup } from '@/lib/types'
+import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
 
 function formatDateTime(iso: string) {
   if (!iso) return '-'
@@ -178,24 +179,48 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
         </button>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className="relative">
-        <Search className="w-4 h-4 text-suka-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-        <input
-          type="text"
-          placeholder="Cari berdasarkan nama outlet, alasan, bank, atau nominal..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-suka-gray-200 rounded-2xl text-xs font-semibold text-suka-brown placeholder-suka-gray-400 focus:ring-2 focus:ring-suka-orange focus:outline-none transition-all shadow-2xs"
-        />
-        {searchQuery && (
-          <button 
-            onClick={() => setSearchQuery('')}
-            className="absolute right-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 hover:text-suka-brown text-xs font-bold"
+      {/* SEARCH BAR & EXPORT BUTTONS */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 text-suka-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            placeholder="Cari berdasarkan nama outlet, alasan, bank, atau nominal..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-12 py-2.5 bg-white border border-suka-gray-200 rounded-2xl text-xs font-semibold text-suka-brown placeholder-suka-gray-400 focus:ring-2 focus:ring-suka-orange focus:outline-none transition-all shadow-2xs"
+          />
+          {searchQuery && (
+            <button 
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 hover:text-suka-brown text-xs font-bold"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+
+        {/* Download Buttons */}
+        <div className="flex items-center gap-2 shrink-0 justify-end">
+          <button
+            type="button"
+            onClick={() => exportPettyCashCSV(filteredRequests, `Riwayat_PettyCash_${new Date().toISOString().split('T')[0]}.csv`)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="Unduh data riwayat ke format CSV/Excel"
           >
-            Clear
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Download CSV</span>
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => exportPettyCashPDF(filteredRequests, `Riwayat_PettyCash_${new Date().toISOString().split('T')[0]}.pdf`)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-red-50 text-red-700 hover:bg-red-100 font-bold text-xs rounded-xl border border-red-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer"
+            title="Unduh dokumen laporan ke format PDF"
+          >
+            <FileText className="w-4 h-4 text-red-600" />
+            <span>Download PDF</span>
+          </button>
+        </div>
       </div>
 
       {/* LIST / TABLE CONTENT */}

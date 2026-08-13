@@ -4,7 +4,7 @@ import { useState, Fragment, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePurchaseSuggestion } from '@/hooks/usePurchaseSuggestion'
 import { formatStok } from '@/lib/format'
-import { PageHeader, StatTile } from '@/components/ui'
+import { PageHeader, StatCard } from '@/components/ui'
 import { 
   ShoppingCart, Search, AlertTriangle, AlertCircle, 
   CheckCircle2, Sparkles, Package, ArrowRight
@@ -92,33 +92,33 @@ export default function PerluDibeliPage() {
 
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatTile
+        <StatCard
           label="Total Usulan Items"
           value={<CountUp end={rows.length} duration={1} />}
-          sub="Jenis Bahan Baku Terdata"
-          icon={Package}
-          accent="brown"
+          hint="Jenis Bahan Baku Terdata"
+          icon={<Package className="w-5 h-5" />}
+          tone="brown"
         />
-        <StatTile
+        <StatCard
           label="Stok Mendesak"
           value={<CountUp end={mendesakCount} duration={1} />}
-          sub="Butuh Restok Segera"
-          icon={AlertTriangle}
-          accent="red"
+          hint="Butuh Restok Segera"
+          icon={<AlertTriangle className="w-5 h-5" />}
+          tone="red"
         />
-        <StatTile
+        <StatCard
           label="Stok Menipis"
           value={<CountUp end={menipisCount} duration={1} />}
-          sub="Mendekati Limit Threshold"
-          icon={AlertCircle}
-          accent="orange"
+          hint="Mendekati Limit Threshold"
+          icon={<AlertCircle className="w-5 h-5" />}
+          tone="orange"
         />
-        <StatTile
+        <StatCard
           label="Draft PO Dipilih"
           value={<CountUp end={selectedCount} duration={1} />}
-          sub="Siap Diproses Ke PO"
-          icon={CheckCircle2}
-          accent="green"
+          hint="Siap Diproses Ke PO"
+          icon={<CheckCircle2 className="w-5 h-5" />}
+          tone="green"
         />
       </div>
 
@@ -360,3 +360,4 @@ export default function PerluDibeliPage() {
     </div>
   )
 }
+

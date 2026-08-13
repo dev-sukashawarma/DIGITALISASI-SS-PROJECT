@@ -3,11 +3,12 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search } from 'lucide-react'
+import { Wallet, Clock, History, Filter, Store, CheckCircle2, XCircle, Send, ArrowRight, Loader2, Camera, X, Download, Search, FileSpreadsheet, FileText } from 'lucide-react'
 import { FinanceApprovalModal } from './FinanceApprovalModal'
 import { usePettyCashRequests, useProcessPettyCashFinance, useForwardPettyCashFinance } from '@/hooks/usePettyCash'
 import { tanggalWaktu } from '@/lib/format'
 import type { PettyCashTopup, DisbursementMethod } from '@/lib/types'
+import { exportPettyCashCSV, exportPettyCashPDF } from '@/lib/exportPettyCash'
 
 const formatRupiah = (val: number) => `Rp ${val.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`
 
@@ -365,16 +366,40 @@ export function FinancePettyCashList({ initialRequests }: { initialRequests?: Pe
           </div>
         </div>
 
-        {/* SEARCH BAR */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-suka-gray-400" />
-          <input
-            type="text"
-            placeholder="Cari outlet, alasan, bank..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-8 pr-3 py-1.5 bg-suka-cream/50 border border-suka-brown/20 text-suka-brown text-xs font-bold rounded-xl focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange placeholder-suka-gray-400 transition-all"
-          />
+        {/* SEARCH BAR & EXPORT BUTTONS */}
+        <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-suka-gray-400" />
+            <input
+              type="text"
+              placeholder="Cari outlet, alasan, bank..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 bg-suka-cream/50 border border-suka-brown/20 text-suka-brown text-xs font-bold rounded-xl focus:outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange placeholder-suka-gray-400 transition-all"
+            />
+          </div>
+
+          {/* Export Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => exportPettyCashCSV(filteredRequests, `Riwayat_PettyCash_${new Date().toISOString().split('T')[0]}.csv`)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl border border-emerald-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer"
+              title="Unduh data riwayat ke format CSV/Excel"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="hidden sm:inline">Download</span> CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => exportPettyCashPDF(filteredRequests, `Riwayat_PettyCash_${new Date().toISOString().split('T')[0]}.pdf`)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 font-bold text-xs rounded-xl border border-red-200/80 transition-all shadow-2xs active:scale-95 cursor-pointer"
+              title="Unduh dokumen laporan ke format PDF"
+            >
+              <FileText className="w-3.5 h-3.5 text-red-600" />
+              <span className="hidden sm:inline">Download</span> PDF
+            </button>
+          </div>
         </div>
       </div>
 

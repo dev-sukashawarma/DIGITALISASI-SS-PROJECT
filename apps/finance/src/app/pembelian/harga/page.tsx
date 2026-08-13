@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { usePOPriceAlerts } from '@/hooks/usePOPriceAlerts'
 import { useHargaHistory } from '@/hooks/useHargaHistory'
-import { PageHeader, StatTile } from '@/components/ui'
+import { PageHeader, StatCard } from '@/components/ui'
 import { rupiah } from '@/lib/format'
 import { TrendingUp, TrendingDown, AlertCircle, History, Package } from 'lucide-react'
 import CountUp from 'react-countup'
@@ -37,26 +37,26 @@ export default function HargaPage() {
 
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatTile
+        <StatCard
           label="Perubahan Harga >5%"
           value={<CountUp end={alerts.length} duration={1} />}
-          sub="Alert Fluktuasi 30 Hari"
-          icon={AlertCircle}
-          accent="orange"
+          hint="Alert Fluktuasi 30 Hari"
+          icon={<AlertCircle className="w-5 h-5" />}
+          tone="orange"
         />
-        <StatTile
+        <StatCard
           label="Mengalami Kenaikan"
           value={<CountUp end={naikCount} duration={1} />}
-          sub="Harga Terima Lebih Tinggi"
-          icon={TrendingUp}
-          accent="red"
+          hint="Harga Terima Lebih Tinggi"
+          icon={<TrendingUp className="w-5 h-5" />}
+          tone="red"
         />
-        <StatTile
+        <StatCard
           label="Mengalami Penurunan"
           value={<CountUp end={turunCount} duration={1} />}
-          sub="Harga Terima Lebih Hemat"
-          icon={TrendingDown}
-          accent="green"
+          hint="Harga Terima Lebih Hemat"
+          icon={<TrendingDown className="w-5 h-5" />}
+          tone="green"
         />
       </div>
 
@@ -188,3 +188,4 @@ export default function HargaPage() {
     </div>
   )
 }
+

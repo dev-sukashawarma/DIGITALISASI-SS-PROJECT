@@ -58,3 +58,9 @@ export function relativeTime(iso: string | null | undefined): string {
 export function formatNumber(n: number): string {
   return Math.abs(Math.round(n)).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
 }
+
+export function formatStok(qty: number, unit?: string): string {
+  const formatted = qty.toLocaleString('id-ID', { maximumFractionDigits: 2 })
+  return unit ? `${formatted} ${unit}` : formatted
+}
+

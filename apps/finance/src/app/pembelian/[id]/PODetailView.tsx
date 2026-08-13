@@ -3,12 +3,12 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw, FileText } from 'lucide-react'
+import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw, FileText } from 'lucide-react'
 import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
 import { useBahanBakuOptions } from '@/hooks/usePurchaseOrder'
-import { useBahanBakuHargaMutations } from '@/hooks/useBahanBakuHargaMutations'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
+import { VerifikasiTerimaModal } from './components/VerifikasiTerimaModal'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 
@@ -104,7 +104,7 @@ function PriceSyncModal({
                 />
                 <div className="flex-1 min-w-0">
                   <div className="font-extrabold text-suka-brown text-xs truncate">
-                    {(item as any).bahan_baku?.nama ?? item.bahan_baku_id}
+                    {(item as any).bahan_baku?.nama || (item as any).item_description || (item as any).bahan_baku_id}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-[11px] text-suka-gray-400 font-semibold">
@@ -155,11 +155,11 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
-  const { setHarga } = useBahanBakuHargaMutations()
   const { data: bahanBakuOptions = [] } = useBahanBakuOptions()
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceUrls, setInvoiceUrls] = useState<string[]>([])
   const [showPriceSync, setShowPriceSync] = useState(false)
+  const [showVerifikasi, setShowVerifikasi] = useState(false)
   const [syncSaving, setSyncSaving] = useState(false)
   const [syncDone, setSyncDone] = useState(false)
 
@@ -188,7 +188,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
 
   const priceDiffs: PriceDiffItem[] = isReceived
     ? po.items
-        .filter(it => it.harga_terima !== null)
+        .filter(it => it.harga_terima !== null && it.bahan_baku_id !== null)
         .map(it => {
           const option = bahanBakuOptions.find(b => b.id === it.bahan_baku_id)
           const harga_master = option?.harga_beli ?? null
@@ -229,7 +229,8 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   return (
     <div className="space-y-6 animate-fade-in pb-12">
       {/* Price Sync Modal */}
-      {showPriceSync && (
+      {showVerifikasi && <VerifikasiTerimaModal po={po} onClose={() => setShowVerifikasi(false)} />}
+        {showPriceSync && (
         <PriceSyncModal
           diffs={priceDiffs}
           onConfirm={handlePriceSync}
@@ -338,7 +339,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
                   <tr key={item.id} className="hover:bg-white/80 transition-all">
                     <td className="py-4 px-6 font-extrabold text-suka-brown text-sm">
                       {(item as any).bahan_baku?.nama ?? '—'}
-                      <span className="text-xs text-suka-gray-400 font-semibold ml-1.5">({(item as any).bahan_baku?.satuan})</span>
+                      <span className="text-xs text-suka-gray-400 font-semibold ml-1.5">({(item as any).bahan_baku?.satuan || (item as any).satuan_ad_hoc || '�'})</span>
                     </td>
                     <td className="py-4 px-6 text-right font-bold text-suka-ink">{item.qty_pesan}</td>
                     <td className="py-4 px-6 text-right text-suka-gray-400 font-medium">{rupiah(item.harga_pesan)}</td>
@@ -438,7 +439,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
         </div>
       )}
 
-      {/* Actions */}
+            {/* Actions */}
       <div className="flex gap-3 flex-wrap pt-2">
         {nextStatus && NEXT_STATUS_LABEL[po.status] && (
           <button
@@ -448,6 +449,14 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           >
             {updateStatus.isPending ? <Spinner className="w-5 h-5" /> : <Truck className="w-5 h-5" />}
             {NEXT_STATUS_LABEL[po.status]}
+          </button>
+        )}
+        {(po.status === 'dikirim_ke_supplier' || po.status === 'sebagian_diterima') && (
+          <button
+            onClick={() => setShowVerifikasi(true)}
+            className="flex-1 py-3.5 bg-gradient-to-r from-suka-ink to-blue-900 text-white rounded-2xl font-extrabold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xs"
+          >
+            <PackageCheck className="w-5 h-5" /> Terima Barang
           </button>
         )}
         {po.status === 'draft' && (

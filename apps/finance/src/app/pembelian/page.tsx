@@ -22,5 +22,26 @@ export default async function PembelianPage() {
     p_status: null,
   })
 
-  return <PembelianView initialData={pos ?? []} defaultFrom={defaultFrom} defaultTo={defaultTo} />
+  let enrichedPos = pos ?? []
+  if (enrichedPos.length > 0) {
+    const poIds = enrichedPos.map((p: any) => p.id)
+    const { data: extras } = await supabase
+      .from('purchase_order')
+      .select('id, diverifikasi_at, paid_at, payment_status, tanggal_estimasi_tiba')
+      .in('id', poIds)
+
+    const extrasMap = new Map((extras ?? []).map(x => [x.id, x]))
+    enrichedPos = enrichedPos.map((p: any) => {
+      const extra = extrasMap.get(p.id)
+      return {
+        ...p,
+        diverifikasi_at: p.diverifikasi_at ?? extra?.diverifikasi_at ?? null,
+        paid_at: p.paid_at ?? extra?.paid_at ?? null,
+        payment_status: p.payment_status ?? extra?.payment_status ?? 'unpaid',
+        tanggal_estimasi_tiba: p.tanggal_estimasi_tiba ?? extra?.tanggal_estimasi_tiba ?? null,
+      }
+    })
+  }
+
+  return <PembelianView initialData={enrichedPos} defaultFrom={defaultFrom} defaultTo={defaultTo} />
 }

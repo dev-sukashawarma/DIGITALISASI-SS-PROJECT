@@ -19,6 +19,7 @@ import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
 import WasteApprovalPage from '@/app/stok/waste-approval/page';
+import { POInboundTabContent } from './POInboundTabContent';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { Avatar } from '@suka/design-system/src/components/Avatar';
 import { LogOut, RefreshCw } from 'lucide-react';
@@ -48,8 +49,23 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'B
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
   useMonitoringRealtime();
   const { boundOutlets } = useOutletScope();
-  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
+
+  const { data: inboundPos = [] } = useQuery({
+    queryKey: ['spv_inbound_pos'],
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc('get_purchase_orders', {
+        p_from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+        p_to: new Date().toISOString().split('T')[0],
+        p_status: null
+      });
+      if (error) return [];
+      return (data ?? []).filter((p: any) => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima');
+    },
+    refetchInterval: 30000
+  });
   
   // State for split view outlet selection
   const [selectedOutletId, setSelectedOutletId] = useState<string | null>(null);
@@ -506,6 +522,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           alertCount={alertCount} 
           approvalCount={pendingApprovals.length} 
           wasteApprovalCount={pendingWaste?.length || 0}
+          poInboundCount={inboundPos.length}
         />
       </div>
 
@@ -1051,8 +1068,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
             <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-4xl mx-auto space-y-6">
 
-
-
               <div className="space-y-4">
                 <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
                   Approval Permintaan Bahan
@@ -1060,6 +1075,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                 <ApprovalList />
               </div>
             </div>
+          </main>
+        )}
+
+        {/* PO Inbound Tab */}
+        {activeTab === 'po_inbound' && (
+          <main className="flex-1 overflow-y-auto bg-[#faf2e9]/30">
+            <POInboundTabContent />
           </main>
         )}
       </div>

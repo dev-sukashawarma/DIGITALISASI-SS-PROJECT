@@ -16,7 +16,9 @@ export type POStatus =
 
 export type POItem = {
   id: string
-  bahan_baku_id: string
+  bahan_baku_id: string | null
+  item_description: string | null
+  satuan_ad_hoc: string | null
   bahan_baku?: { nama: string; satuan: string }
   qty_pesan: number
   harga_pesan: number
@@ -42,6 +44,8 @@ export type PurchaseOrder = {
   diverifikasi_at: string | null
   created_at: string
   updated_at: string
+  jatuh_tempo?: string | null
+  termin_hari?: number | null
 }
 
 export type POWithItems = PurchaseOrder & { items: POItem[] }
@@ -56,6 +60,16 @@ export type POSummary = {
   jumlah_item: number
   nama_dibuat_oleh: string | null
   created_at: string
+  total_nilai_terima?: number
+  jumlah_item_terima?: number
+  jumlah_invoice?: number
+  has_discrepancy?: boolean
+  jatuh_tempo?: string | null
+  termin_hari?: number | null
+  diverifikasi_at?: string | null
+  paid_at?: string | null
+  payment_status?: string | null
+  tanggal_estimasi_tiba?: string | null
 }
 
 export type Supplier = {
@@ -91,7 +105,25 @@ export function usePurchaseOrders(filters?: { from?: string; to?: string; status
         p_status: filters?.status ?? null,
       })
       if (error) throw error
-      return data ?? []
+      if (!data || data.length === 0) return []
+
+      const poIds = data.map((p: any) => p.id)
+      const { data: extras } = await supabase
+        .from('purchase_order')
+        .select('id, diverifikasi_at, paid_at, payment_status, tanggal_estimasi_tiba')
+        .in('id', poIds)
+
+      const extrasMap = new Map((extras ?? []).map(x => [x.id, x]))
+      return data.map((p: any) => {
+        const extra = extrasMap.get(p.id)
+        return {
+          ...p,
+          diverifikasi_at: p.diverifikasi_at ?? extra?.diverifikasi_at ?? null,
+          paid_at: p.paid_at ?? extra?.paid_at ?? null,
+          payment_status: p.payment_status ?? extra?.payment_status ?? 'unpaid',
+          tanggal_estimasi_tiba: p.tanggal_estimasi_tiba ?? extra?.tanggal_estimasi_tiba ?? null,
+        }
+      })
     },
   })
 }
@@ -163,7 +195,7 @@ export function useCreatePO() {
       supplier_nama: string
       tanggal_po: string
       catatan: string | null
-      items: { bahan_baku_id: string; qty_pesan: number; harga_pesan: number }[]
+      items: { bahan_baku_id?: string | null; item_description?: string | null; satuan_ad_hoc?: string | null; qty_pesan: number; harga_pesan: number }[]
     }) => {
       const { data, error } = await supabase.rpc('create_purchase_order', {
         p_supplier_id: payload.supplier_id,
@@ -278,4 +310,26 @@ export async function getSignedInvoiceUrl(path: string): Promise<string> {
     .createSignedUrl(path, 3600)
   if (error) throw error
   return data.signedUrl
+}
+
+export function useVerifikasiTerimaPO() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ poId, items }: { poId: string, items: any[] }) => {
+      const { data, error } = await supabase.rpc('verifikasi_terima_po', {
+        p_po_id: poId,
+        p_items: items
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, { poId }) => {
+      toast.success('Penerimaan barang berhasil dicatat')
+      qc.invalidateQueries({ queryKey: ['purchase_orders'] })
+      qc.invalidateQueries({ queryKey: ['purchase_order', poId] })
+    },
+    onError: (err: any) => {
+      toast.error('Gagal memverifikasi penerimaan: ' + err.message)
+    }
+  })
 }

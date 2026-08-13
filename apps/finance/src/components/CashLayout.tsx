@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -32,10 +32,17 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: 'PURCHASING',
+    items: [
+      { href: '/pembelian/supplier', label: 'Database Supplier', icon: Truck },
+      { href: '/pembelian', label: 'Pembelian (PO)', icon: ShoppingCart },
+      { href: '/po-approval', label: 'Approval PO', icon: ClipboardCheck },
+    ],
+  },
+  {
     title: 'PEMBAYARAN',
     items: [
-      { href: '/supplier', label: 'Supplier', icon: Truck },
-      { href: '/po-approval', label: 'Approval PO', icon: ClipboardCheck },
+      { href: '/supplier', label: 'Pelunasan Supplier', icon: Banknote },
       { href: '/payroll', label: 'Gaji', icon: Wallet },
       { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
       { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },
@@ -276,7 +283,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
 
         {/* Scrollable Main */}
         <main className="flex-1 overflow-y-auto w-full scrollbar-hide">
-          <div className="max-w-7xl mx-auto p-4 sm:p-5 lg:p-6 pb-24 md:pb-8">
+          <div className="w-full max-w-full p-4 sm:p-5 lg:p-6 pb-24 md:pb-8">
             {children}
           </div>
         </main>
@@ -404,3 +411,4 @@ export function CashLayout({ children }: { children: ReactNode }) {
     </div>
   )
 }
+

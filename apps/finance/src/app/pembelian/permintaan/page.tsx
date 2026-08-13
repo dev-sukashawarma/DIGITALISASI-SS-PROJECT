@@ -4,7 +4,7 @@
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePurchaseRequests, useRejectPr, type PurchaseRequest } from '@/hooks/usePurchaseRequest'
-import { PageHeader, StatTile } from '@/components/ui'
+import { PageHeader, StatCard } from '@/components/ui'
 import { ClipboardList, AlertTriangle, Clock, ArrowRight, CheckCircle2, XCircle } from 'lucide-react'
 import CountUp from 'react-countup'
 import { Spinner } from '@suka/design-system'
@@ -55,26 +55,26 @@ export default function PermintaanPage() {
 
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatTile
+        <StatCard
           label="Total Permintaan"
           value={<CountUp end={rows.length} duration={1} />}
-          sub="Dokumen Pengajuan"
-          icon={ClipboardList}
-          accent="brown"
+          hint="Dokumen Pengajuan"
+          icon={<ClipboardList className="w-5 h-5" />}
+          tone="brown"
         />
-        <StatTile
+        <StatCard
           label="Urgensi Mendesak"
           value={<CountUp end={mendesakCount} duration={1} />}
-          sub="Butuh Tindakan Cepat"
-          icon={AlertTriangle}
-          accent="red"
+          hint="Butuh Tindakan Cepat"
+          icon={<AlertTriangle className="w-5 h-5" />}
+          tone="red"
         />
-        <StatTile
+        <StatCard
           label="Menunggu Dikonversi"
           value={<CountUp end={pendingCount} duration={1} />}
-          sub="Belum Menjadi PO"
-          icon={Clock}
-          accent="orange"
+          hint="Belum Menjadi PO"
+          icon={<Clock className="w-5 h-5" />}
+          tone="orange"
         />
       </div>
 
@@ -159,4 +159,5 @@ export default function PermintaanPage() {
     </div>
   )
 }
+
 

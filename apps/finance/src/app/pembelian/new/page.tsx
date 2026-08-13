@@ -11,6 +11,8 @@ import { Spinner } from '@suka/design-system'
 
 type ItemRow = {
   bahan_baku_id: string
+  item_description?: string
+  satuan_ad_hoc?: string
   qty_pesan: string
   harga_pesan: string
 }
@@ -25,7 +27,7 @@ export default function NewPOPage() {
   const [supplierNama, setSupplierNama] = useState('')
   const [tanggalPo, setTanggalPo] = useState(() => new Date().toISOString().split('T')[0])
   const [catatan, setCatatan] = useState('')
-  const [items, setItems] = useState<ItemRow[]>([{ bahan_baku_id: '', qty_pesan: '', harga_pesan: '' }])
+  const [items, setItems] = useState<ItemRow[]>([{ bahan_baku_id: '', item_description: '', satuan_ad_hoc: '', qty_pesan: '', harga_pesan: '' }])
 
   const isLoading = loadingSuppliers || loadingBahan
 
@@ -39,13 +41,15 @@ export default function NewPOPage() {
         const bahan = bahanList.find(b => b.id === bId)
         return {
           bahan_baku_id: bId,
+          item_description: '',
+          satuan_ad_hoc: '',
           qty_pesan: '',
           harga_pesan: bahan?.harga_beli ? String(bahan.harga_beli) : ''
         }
       })
       setItems(newItems)
     } else {
-      setItems([{ bahan_baku_id: '', qty_pesan: '', harga_pesan: '' }])
+      setItems([{ bahan_baku_id: '', item_description: '', satuan_ad_hoc: '', qty_pesan: '', harga_pesan: '' }])
     }
   }
 
@@ -61,7 +65,7 @@ export default function NewPOPage() {
   }
 
   function addItem() {
-    setItems(prev => [...prev, { bahan_baku_id: '', qty_pesan: '', harga_pesan: '' }])
+    setItems(prev => [...prev, { bahan_baku_id: '', item_description: '', satuan_ad_hoc: '', qty_pesan: '', harga_pesan: '' }])
   }
 
   function removeItem(idx: number) {
@@ -76,10 +80,10 @@ export default function NewPOPage() {
     s + (parseFloat(it.qty_pesan) || 0) * (parseFloat(it.harga_pesan) || 0), 0)
 
   const isValid = (supplierNama.trim() || supplierId) &&
-    items.every(it => it.bahan_baku_id && parseFloat(it.qty_pesan) > 0) &&
+    items.every(it => (it.bahan_baku_id && it.bahan_baku_id !== 'ad_hoc' || (it.bahan_baku_id === 'ad_hoc' && it.item_description?.trim() && it.satuan_ad_hoc?.trim())) && parseFloat(it.qty_pesan) > 0) &&
     items.length > 0
 
-  const usedBahanIds = new Set(items.map(i => i.bahan_baku_id).filter(Boolean))
+  const usedBahanIds = new Set(items.map(i => i.bahan_baku_id).filter(id => id && id !== 'ad_hoc'))
 
   async function handleSubmit() {
     if (!isValid) return
@@ -90,9 +94,11 @@ export default function NewPOPage() {
       tanggal_po: tanggalPo,
       catatan: catatan.trim() || null,
       items: items
-        .filter(it => it.bahan_baku_id && parseFloat(it.qty_pesan) > 0)
+        .filter(it => (it.bahan_baku_id && it.bahan_baku_id !== 'ad_hoc' && parseFloat(it.qty_pesan) > 0) || (it.bahan_baku_id === 'ad_hoc' && it.item_description?.trim() && parseFloat(it.qty_pesan) > 0))
         .map(it => ({
-          bahan_baku_id: it.bahan_baku_id,
+          bahan_baku_id: it.bahan_baku_id === 'ad_hoc' ? null : it.bahan_baku_id,
+          item_description: it.bahan_baku_id === 'ad_hoc' ? it.item_description : null,
+          satuan_ad_hoc: it.bahan_baku_id === 'ad_hoc' ? it.satuan_ad_hoc : null,
           qty_pesan: parseFloat(it.qty_pesan),
           harga_pesan: parseFloat(it.harga_pesan) || 0,
         })),
@@ -140,6 +146,20 @@ export default function NewPOPage() {
                   <option value="">— Pilih atau ketik baru —</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
                 </select>
+                {supplierId && (() => {
+                  const selectedSup = suppliers.find(s => s.id === supplierId)
+                  const termin = selectedSup?.termin_hari
+                  return (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-suka-brown">
+                      <span className="text-suka-gray-400">Termin Pembayaran:</span>
+                      <span className={`px-2 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-wider ${
+                        termin && termin > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {termin && termin > 0 ? `TOP ${termin} Hari` : 'Cash On Delivery (COD)'}
+                      </span>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
 
@@ -181,7 +201,7 @@ export default function NewPOPage() {
                 const subtotal = (parseFloat(item.qty_pesan) || 0) * (parseFloat(item.harga_pesan) || 0)
                 return (
                   <div key={idx} className="flex flex-col sm:flex-row gap-3 p-3.5 bg-white/80 rounded-2xl border border-suka-gray-200/60 shadow-2xs hover:border-suka-brown/20 transition-all">
-                    <div className="flex-1">
+                    <div className="flex-1 flex flex-col gap-2">
                       <select
                         value={item.bahan_baku_id}
                         onChange={e => handleBahanChange(idx, e.target.value)}
@@ -191,7 +211,24 @@ export default function NewPOPage() {
                         {bahanList
                           .filter(b => !usedBahanIds.has(b.id) || b.id === item.bahan_baku_id)
                           .map(b => <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>)}
+                        <option value="ad_hoc">+ Item Lainnya (Ad-Hoc)</option>
                       </select>
+                      {item.bahan_baku_id === 'ad_hoc' && (
+                        <div className="flex gap-2 animate-fade-in">
+                          <input type="text"
+                            value={item.item_description || ''}
+                            onChange={e => updateItem(idx, 'item_description', e.target.value)}
+                            placeholder="Nama Barang Lainnya"
+                            className="flex-1 px-3 py-2 text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange"
+                          />
+                          <input type="text"
+                            value={item.satuan_ad_hoc || ''}
+                            onChange={e => updateItem(idx, 'satuan_ad_hoc', e.target.value)}
+                            placeholder="Satuan (cth: pcs)"
+                            className="w-32 px-3 py-2 text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange"
+                          />
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
                       <div className="w-28">

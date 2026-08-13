@@ -14,6 +14,7 @@ import { tanggal, rupiah } from '@/lib/format'
 import { TxStatusBadge } from '@/components/ui'
 import OutletRevenueTab from '@/components/OutletRevenueTab'
 import PettyCashExpensesTab from '@/components/PettyCashExpensesTab'
+import StokInventoryTab from '@/components/StokInventoryTab'
 
 const container = {
   hidden: { opacity: 0 },
@@ -332,6 +333,18 @@ export default function DashboardClient() {
               transition={{ type: 'spring', stiffness: 120, damping: 15 }}
             >
               <OutletRevenueTab />
+            </motion.div>
+          )}
+
+          {activeTab === 'stok' && (
+            <motion.div
+              key="stok"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20, transition: { duration: 0.2 } }}
+              transition={{ type: 'spring', stiffness: 120, damping: 15 }}
+            >
+              <StokInventoryTab />
             </motion.div>
           )}
 

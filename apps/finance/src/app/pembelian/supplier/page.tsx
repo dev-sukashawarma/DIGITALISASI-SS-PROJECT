@@ -5,7 +5,7 @@ import { Plus, Edit2, Check, Phone, MapPin, Tag, Truck, Package, Layers } from '
 import { useSuppliers, useCreateSupplier, useUpdateSupplier, useBahanBakuOptions, type Supplier } from '@/hooks/usePurchaseOrder'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
-import { PageHeader, StatTile } from '@/components/ui'
+import { PageHeader, StatCard } from '@/components/ui'
 import CountUp from 'react-countup'
 
 const KATEGORI_OPTIONS = [
@@ -34,7 +34,7 @@ export default function SupplierPage() {
     bahan_baku_ids: [] as string[],
   })
 
-  // Calculations for StatTiles
+  // Calculations for StatCards
   const totalBahanSuplaiCount = useMemo(() => {
     const set = new Set<string>()
     suppliers.forEach(s => s.bahan_baku_ids?.forEach(bId => set.add(bId)))
@@ -111,26 +111,26 @@ export default function SupplierPage() {
 
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatTile
+        <StatCard
           label="Total Supplier"
           value={<CountUp end={suppliers.length} duration={1} />}
-          sub="Mitra Pemasok Terdaftar"
-          icon={Truck}
-          accent="brown"
+          hint="Mitra Pemasok Terdaftar"
+          icon={<Truck className="w-5 h-5" />}
+          tone="brown"
         />
-        <StatTile
+        <StatCard
           label="Kategori Tercover"
           value={<CountUp end={kategoriCount} duration={1} />}
-          sub="Klasifikasi Bahan Utama"
-          icon={Layers}
-          accent="orange"
+          hint="Klasifikasi Bahan Utama"
+          icon={<Layers className="w-5 h-5" />}
+          tone="orange"
         />
-        <StatTile
+        <StatCard
           label="Total Items Disuplai"
           value={<CountUp end={totalBahanSuplaiCount} duration={1} />}
-          sub="Bahan Baku Terhubung"
-          icon={Package}
-          accent="green"
+          hint="Bahan Baku Terhubung"
+          icon={<Package className="w-5 h-5" />}
+          tone="green"
         />
       </div>
 
@@ -291,3 +291,4 @@ export default function SupplierPage() {
     </div>
   )
 }
+

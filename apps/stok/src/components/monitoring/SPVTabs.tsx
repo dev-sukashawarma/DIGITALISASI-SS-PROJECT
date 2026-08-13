@@ -3,19 +3,21 @@
 import React from 'react';
 
 interface SPVTabsProps {
-  activeTab: 'overview' | 'alerts' | 'approval' | 'waste_approval';
-  onTabChange: (tab: 'overview' | 'alerts' | 'approval' | 'waste_approval') => void;
+  activeTab: 'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound';
+  onTabChange: (tab: 'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound') => void;
   alertCount: number;
   approvalCount: number;
   wasteApprovalCount?: number;
+  poInboundCount?: number;
 }
 
-export function SPVTabs({ activeTab, onTabChange, alertCount, approvalCount, wasteApprovalCount }: SPVTabsProps) {
+export function SPVTabs({ activeTab, onTabChange, alertCount, approvalCount, wasteApprovalCount, poInboundCount }: SPVTabsProps) {
   const tabs = [
     { id: 'overview', label: 'Overview', count: null },
     { id: 'alerts', label: 'Alerts', count: alertCount },
     { id: 'approval', label: 'Approval Permintaan', count: approvalCount },
     { id: 'waste_approval', label: 'Approval Waste', count: wasteApprovalCount || 0 },
+    { id: 'po_inbound', label: 'Penerimaan PO Supplier', count: poInboundCount || 0 },
   ] as const;
 
   return (

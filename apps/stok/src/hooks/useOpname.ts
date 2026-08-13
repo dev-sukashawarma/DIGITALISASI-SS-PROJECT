@@ -39,6 +39,16 @@ export function useOpnameList(outletId: string | null | undefined) {
 
 interface FinalizePayload { opnameId: string }
 
+// Tanggal hari ini dalam WIB (UTC+7) format "YYYY-MM-DD", timezone-safe.
+// Dipakai konsisten oleh createOrReuseDraft dan fetchTodayDraft agar keduanya
+// selalu merujuk hari yang sama.
+export function getTodayWIB(): string {
+  const now = new Date()
+  const wibOffset = 7 * 60 // menit
+  const wibNow = new Date(now.getTime() + wibOffset * 60 * 1000)
+  return wibNow.toISOString().slice(0, 10)
+}
+
 export function useOpnameActions() {
   const supabase = createClient()
   const { add, flush, isOnline } = useOfflineQueue<FinalizePayload>('stok-opname-finalize')
@@ -50,14 +60,27 @@ export function useOpnameActions() {
     return data as Opname
   }, [])
 
+  // Ambil draft opname yang sedang berjalan (status='draft') hari ini untuk
+  // outlet ini, beserta item-item yang sudah tersimpan — dipakai OpnameForm
+  // untuk resume saat crew buka lagi form setelah "Simpan Draft".
+  const fetchTodayDraft = useCallback(async (outletId: string) => {
+    const todayWIB = getTodayWIB()
+    const { data, error } = await supabase.from('opname')
+      .select('*, opname_item(*)')
+      .eq('outlet_id', outletId)
+      .eq('tanggal', todayWIB)
+      .eq('status', 'draft')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data as (Opname & { opname_item: OpnameItem[] }) | null
+  }, [])
+
   const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
     // Cek apakah sudah ada opname hari ini untuk outlet ini (semua status kecuali rejected)
     // Gunakan range tanggal hari ini (WIB = UTC+7) agar timezone-safe
-    const now = new Date()
-    // Ambil tanggal hari ini dalam WIB
-    const wibOffset = 7 * 60 // menit
-    const wibNow = new Date(now.getTime() + wibOffset * 60 * 1000)
-    const todayWIB = wibNow.toISOString().slice(0, 10) // "YYYY-MM-DD"
+    const todayWIB = getTodayWIB()
 
     // Urutan khusus 13 Agustus 2026 (permintaan owner, hari yang sama dgn fix
     // bug finalize opname supabaseKey): SEMUA outlet boleh opname maksimal 2x
@@ -178,5 +201,5 @@ export function useOpnameActions() {
 
   useEffect(() => { if (isOnline) flushFinalize() }, [isOnline, flushFinalize])
 
-  return { createDraft, createOrReuseDraft, upsertItems, setPendingApproval, finalize }
+  return { createDraft, createOrReuseDraft, fetchTodayDraft, upsertItems, setPendingApproval, finalize }
 }

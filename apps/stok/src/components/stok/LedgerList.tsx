@@ -34,6 +34,7 @@ const DELIVERY_UNITS: Record<string, { label: string; factorFromLarge: number }>
   'MINYAK SAYUR': { label: 'kompan', factorFromLarge: 1 },
   'MINYAK': { label: 'kompan', factorFromLarge: 1 },
   'FOIL': { label: 'roll', factorFromLarge: 24 },
+  'FOIL (48)': { label: 'roll', factorFromLarge: 48 },
   'SARUNG TANGAN BENING': { label: 'pack', factorFromLarge: 1 },
   'HAND GLOVE': { label: 'pack', factorFromLarge: 1 },
   'KERTAS STRUK': { label: 'roll', factorFromLarge: 1 },

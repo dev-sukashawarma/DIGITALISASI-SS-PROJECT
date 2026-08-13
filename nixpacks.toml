@@ -3,3 +3,7 @@ nixPkgs = ["nodejs_23"]
 
 [variables]
 NIXPACKS_NODE_VERSION = "23"
+YARN_CACHE_FOLDER = "/tmp/yarn-cache-busted"
+
+[phases.install]
+cmds = ["yarn install --frozen-lockfile --network-timeout 600000"]

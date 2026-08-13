@@ -2,7 +2,7 @@ import type { AppName, Role } from './types'
 
 /** Sumber tunggal matriks akses role -> daftar app. Ref: docs/ROLE-JOBDESK.md */
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
-  admin: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'owner-dashboard', 'admin-dashboard', 'finance'],
+  admin: ['admin-dashboard', 'stok', 'distribusi', 'finance'],
   admin_hr: ['absensi', 'admin-dashboard'],
   owner: ['owner-dashboard', 'admin-dashboard', 'finance'],
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
@@ -19,12 +19,19 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   developer: ['admin-dashboard'],
 }
 
-export function hasAppAccess(role: Role, app: AppName): boolean {
+export function hasAppAccess(role: Role, app: AppName, username?: string | null): boolean {
+  if (username === 'adminkitchen' && app === 'absensi') {
+    return true
+  }
   return ROLE_APP_ACCESS[role]?.includes(app) ?? false
 }
 
-export function accessibleApps(role: Role): AppName[] {
-  return ROLE_APP_ACCESS[role] ?? []
+export function accessibleApps(role: Role, username?: string | null): AppName[] {
+  const apps = [...(ROLE_APP_ACCESS[role] ?? [])]
+  if (username === 'adminkitchen' && !apps.includes('absensi')) {
+    apps.push('absensi')
+  }
+  return apps
 }
 
 /**

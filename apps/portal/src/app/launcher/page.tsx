@@ -56,11 +56,11 @@ export default async function LauncherPage() {
 
   const APP_URL = await getAppUrls()
 
-  // Admin, Owner, dan Mitra tidak punya menu operasional di launcher → langsung ke admin-dashboard.
-  if (['admin', 'owner', 'mitra', 'korlap', 'purchasing'].includes(staff.role)) {
+  // Owner, Mitra, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
+  if (['owner', 'mitra', 'korlap', 'purchasing'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
-  const apps = accessibleApps(staff.role)
+  const apps = accessibleApps(staff.role, staff.username)
 
   const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
     'admin-dashboard': { 
@@ -80,6 +80,13 @@ export default async function LauncherPage() {
   // Configure greeting and styling banners based on user roles
   const getBannerConfig = (role: string) => {
     switch (role) {
+      case 'admin':
+        return {
+          title: 'ADMIN WORKSPACE',
+          desc: 'Kelola administrasi, stok, distribusi, dan keuangan.',
+          gradient: 'from-suka-ink via-blue-900 to-suka-ink',
+          ringColor: 'ring-blue-500/50 shadow-blue-500/10'
+        }
       case 'owner':
         return {
           title: 'OWNER ANALYTICS HUB',

@@ -1102,5 +1102,51 @@ Value `sales_source` untuk Shopee adalah **`'shopee_shop'`**, bukan `'shopee'` s
 
 ---
 
-**Last updated:** 2026-08-05  
+## Session 2026-08-13: VPS Docker Deploy Bug Hunt, Opname 2x-Hari Exception, Draft Save, & Master Data Cleanup
+
+**Status:** ✅ Kode COMPLETED & di-push ke `main` (5 commit). ✅ Fix VPS Docker sudah live setelah redeploy `stok`. DB master-data cleanup sudah dijalankan langsung ke live DB (bukan cuma di kode).
+
+### 🔴 Bug utama: secret server-only hilang di runtime — Docker multi-stage build (SEMUA app)
+
+**Gejala:** "Server error: supabaseKey is required" muncul di finalisasi opname (`apps/stok`), tepat setelah migrasi deploy dari cPanel ke **VPS berbasis Docker** (bukan lagi cPanel+LiteSpeed).
+
+**Root cause:** `apps/*/Dockerfile` semua multi-stage build. `NEXT_PUBLIC_*` aman karena di-inline webpack ke bundle client **maupun server** saat build (jadi tetap benar meski stage runner tak declare ulang). Tapi secret server-only (`SUPABASE_SERVICE_ROLE_KEY`, dll) dibaca `process.env` di **RUNTIME** oleh Server Action/Route Handler — dan Docker **tidak** membawa `ARG`/`ENV` lintas stage (`FROM node:24-bookworm-slim AS runner` = environment baru). Semua Dockerfile cuma declare secret ini di stage **builder**, bukan **runner** (stage yang benar-benar jalan) → `process.env.SUPABASE_SERVICE_ROLE_KEY` selalu `undefined` di container produksi.
+
+**Fix (commit `4778ca5e`):** re-declare `ARG`+`ENV` untuk secret masing-masing app di stage runner, di **9 Dockerfile** (stok, distribusi, absensi, finance, owner-dashboard: `SUPABASE_SERVICE_ROLE_KEY`; admin-dashboard: + `CRON_SECRET`/`GUDANG_MAGIC_TOKEN`/`ORDER_ONLINE_*`; portal: + `SUPABASE_JWT_SECRET`/`GUDANG_MAGIC_TOKEN`; pos-kasir: + `SUPABASE_ACCESS_TOKEN`/`SUPABASE_PROJECT_ID`/`ORDER_*_SECRET`; manager: + `SUPABASE_ACCESS_TOKEN`/`SUPABASE_PROJECT_ID`/`SUPABASE_URL`/`FIREBASE_SERVICE_ACCOUNT`). Karena platform VPS sudah kirim `--build-arg` yang sama untuk semua stage dalam satu build, murni fix Dockerfile — tak perlu ubah config platform. **Bukti korelasi:** commit `a6fdb07e` dari dev lain ("use createSupabaseServerClient to avoid missing SERVICE_ROLE_KEY env var in production") menunjukkan `admin-dashboard` kena bug identik di waktu yang sama, dikerjakan dengan workaround app-level alih-alih fix root cause Docker.
+
+### 🔴 Bug kedua: cache BuildKit korup (build gagal total)
+
+**Gejala:** Redeploy `stok` gagal build: `EBUSY: resource busy or locked, rmdir '...yarn/v6'` + `ENOENT` saat extract tarball cache.
+
+**Root cause:** Cache mount `--mount=type=cache,target=...` tanpa `id` eksplisit → default id = target path → **semua app berbagi satu cache** yang sama, dan cache itu korup. Sudah pernah kejadian & di-fix untuk `apps/manager` sehari sebelumnya (`f3669c81`, kasih `id=yarn-cache-v2`) tapi belum diterapkan ke app lain.
+
+**Fix (commit `ce760879`):** terapkan `id=yarn-cache-v2` ke **8 Dockerfile** sisanya sekaligus (bukan cuma stok) — semuanya berbagi cache sama, jadi semua rawan gagal identik di deploy berikutnya kalau tak dibereskan bareng.
+
+### ⚠️ Kesalahpahaman yang sempat terjadi & pelajarannya
+Setelah kedua fix di atas + redeploy sukses, muncul error BARU "Opname tidak ditemukan" — sempat dicurigai `SUPABASE_SERVICE_ROLE_KEY` di panel VPS ke-isi anon key (bukan service_role), karena draft opname **berhasil dibuat** (RLS-scoped client, terverifikasi ada di DB) tapi item **gagal disimpan** oleh service-role client (`opname_item` count=0). **Ternyata sebab sebenarnya lebih sederhana:** variabel `SUPABASE_SERVICE_ROLE_KEY` memang **belum pernah di-set** di panel VPS sebelumnya (dikonfirmasi user). Setelah ditambahkan + redeploy, muncul error ketiga "Server Action ... was not found on the server" — ini **bukan bug**, itu efek normal Next.js: ID Server Action di-generate ulang tiap build, tab browser yang sudah kebuka dari sebelum redeploy masih pegang referensi lama. Fix: hard refresh / buka ulang tab.
+
+### ✅ Fitur: Opname 2x hari ini (13/08/2026), semua outlet
+Owner minta longgarkan cap opname harian jadi 2x khusus tanggal ini (crew banyak yang nulis manual di kertas semalam karena app sempat down) — opname pertama `tipe='ad_hoc'` (susulan data semalam), kedua `tipe='harian'` (opname normal hari ini), opname kedua baru dibuat setelah yang pertama `finalized`. Gate per-tanggal (`todayWIB === '2026-08-13'`) di [useOpname.ts](apps/stok/src/hooks/useOpname.ts) `createOrReuseDraft` — otomatis kembali normal (1x/hari) besok tanpa perlu revert manual, pola sama seperti exception Jatiasih yang sudah ada.
+
+### ✅ Fitur: Simpan Draft & resume opname
+Ditambah tombol "💾 Simpan Draft" di [OpnameForm.tsx](apps/stok/src/components/stok/OpnameForm.tsx) — simpan progres input (buat/reuse draft + upsert item) TANPA memanggil `finalize_opname`, supaya crew tak kehilangan progres kalau app ditutup di tengah opname. Saat form dibuka lagi, otomatis resume dari draft hari ini (`fetchTodayDraft` di `useOpname.ts`) + tampilkan banner status "📝 Draft — terakhir update [jam]". Nilai mentah (besar/tengah/kecil) disimpan di field baru `raw` dalam `opname_item.catatan` JSON (field lama `f/s/d` tetap dipertahankan, tak mengubah layar lain yang membacanya).
+
+### 🔴 Temuan keamanan: role `kitchen` bisa opname outlet lain (belum diperbaiki)
+Diverifikasi ke DB live: `opname_insert`/`opname_update`/`opname_item_write` RLS memakai `accessible_outlet_ids()` yang untuk role `kitchen` mengembalikan SEMUA outlet (dimaksudkan utk "lihat semua outlet" doc CLAUDE.md, ternyata kepakai juga utk INSERT). Form opname normal (`finalize_opname` RPC dipanggil via sesi user sendiri) punya guard ketat `outlet_staff.outlet_id = opname.outlet_id` jadi **diblokir** kalau dicoba lewat form biasa untuk outlet lain. **Tapi** kitchen bisa: buat draft outlet lain → isi item → `set_opname_pending` (nol guard) → approve punya sendiri lewat `/stok/opname-approval` (approval jalan lewat service-role, guard `finalize_opname` otomatis di-skip karena `auth.uid()` NULL) → ledger `opname_selisih` outlet lain benar-benar berubah. Pola sama dgn `server-action-authz-gap` (memory). **Belum diperbaiki** — opsi perbaikan: perketat `opname_insert`/`update`/`item_write` kembali ke `outlet_staff.outlet_id` sendiri (opname = aksi fisik lokal), biarkan `opname_read`/approve/reject tetap luas (accessible_outlet_ids, karena approval memang harus lintas-outlet).
+
+### ✅ Master data cleanup: MINYAK vs MINYAK SAYUR, PLASTIK BENING
+Dicek `resep_item` (BOM aktif): **19/19 resep global pakai MINYAK SAYUR**, nol pakai item "MINYAK" (yang ternyata punya bug `faktor_konversi=1`, seharusnya 1000 spt MINYAK SAYUR — bikin opname manual salah hitung kalau dipakai). Keputusan owner: rename **MINYAK SAYUR → MINYAK** (id sama, BOM otomatis ikut), item lama "MINYAK" di-rename **"MINYAK (NONAKTIF)"** + `is_active=false` (BUKAN DELETE — 156 baris `ledger_stok` + 183 `opname_item` + saldo di 25 outlet, semua `ON DELETE RESTRICT`, hapus = hilang jejak audit beneran). **PLASTIK BENING** juga dinonaktifkan (0 pemakaian BOM aktif, aman). Migration `20260813120000`/`20260813121500` — dijalankan **langsung ke live DB** (bukan lewat `db push`, karena kena drift migration remote-only dari dev lain yang tak di-repair sepihak, sesuai kebiasaan proyek ini) lalu ditandai `applied` via `migration repair`.
+
+### Artefak
+- Migrations: `supabase/migrations/20260813120000_rename_minyak_sayur_to_minyak.sql`, `20260813121500_deactivate_plastik_bening.sql`
+- Commits: `4778ca5e` (secret propagation), `ce760879` (yarn cache bust), `e5c2cde6` (draft save/resume), `8d625ca8` (rename Minyak), `cc513b88` (deactivate Plastik Bening), `aba8eeb2` (opname 2x exception)
+
+### 📝 Next
+- **Perbaiki role `kitchen` cross-outlet opname** (temuan keamanan di atas) — belum dikerjakan, butuh keputusan apakah opname WAJIB scoped ke outlet sendiri untuk semua role.
+- Terapkan fix Docker (secret + cache) yang sama ke app lain yang belum sempat di-redeploy sejak commit ini (`distribusi`, `absensi`, `admin-dashboard`, dll) — kode sudah benar, tinggal redeploy tiap app.
+- Audit env var `SUPABASE_SERVICE_ROLE_KEY` (dan secret server-only lain) di panel VPS untuk SEMUA app, bukan cuma `stok` — pola "belum pernah di-set sejak migrasi VPS" kemungkinan berulang di app lain juga.
+
+---
+
+**Last updated:** 2026-08-13  
 **Owner:** Dev Suka Shawarma

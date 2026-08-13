@@ -74,7 +74,7 @@ export async function enforceAppAccess(
 
   // --- Gate: role + status (1 RT DB; tetap dibutuhkan) ---
   const { staff } = await getOutletStaff(supabase, userId)
-  if (!staff || !hasAppAccess(staff.role, app) || staff.status !== 'active') {
+  if (!staff || !hasAppAccess(staff.role, app, staff.username) || staff.status !== 'active') {
     return getRedirect(getPortalUrl(request))
   }
 

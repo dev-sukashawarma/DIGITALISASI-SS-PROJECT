@@ -70,6 +70,22 @@ WORKDIR /repo/apps/pos-kasir
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
+# (fresh FROM). Server Actions/Route Handlers baca process.env di RUNTIME,
+# jadi harus di-re-declare di sini juga, bukan cuma di builder.
+ARG SUPABASE_SERVICE_ROLE_KEY
+ARG SUPABASE_ACCESS_TOKEN
+ARG SUPABASE_PROJECT_ID
+ARG ORDER_SYSTEM_NOTIFY_URL
+ARG ORDER_TO_KASIR_SECRET
+ARG KASIR_TO_ORDER_SECRET
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
+ENV SUPABASE_PROJECT_ID=$SUPABASE_PROJECT_ID
+ENV ORDER_SYSTEM_NOTIFY_URL=$ORDER_SYSTEM_NOTIFY_URL
+ENV ORDER_TO_KASIR_SECRET=$ORDER_TO_KASIR_SECRET
+ENV KASIR_TO_ORDER_SECRET=$KASIR_TO_ORDER_SECRET
+
 COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/apps/pos-kasir/node_module[s] /repo/apps/pos-kasir/node_modules/
 COPY --from=builder /repo/apps/pos-kasir/package.json ./package.json

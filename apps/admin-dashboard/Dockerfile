@@ -48,6 +48,20 @@ WORKDIR /repo/apps/admin-dashboard
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
+# (fresh FROM). Server Actions/Route Handlers baca process.env di RUNTIME,
+# jadi harus di-re-declare di sini juga, bukan cuma di builder.
+ARG SUPABASE_SERVICE_ROLE_KEY
+ARG CRON_SECRET
+ARG GUDANG_MAGIC_TOKEN
+ARG ORDER_ONLINE_SERVICE_ROLE_KEY
+ARG ORDER_ONLINE_SUPABASE_URL
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV CRON_SECRET=$CRON_SECRET
+ENV GUDANG_MAGIC_TOKEN=$GUDANG_MAGIC_TOKEN
+ENV ORDER_ONLINE_SERVICE_ROLE_KEY=$ORDER_ONLINE_SERVICE_ROLE_KEY
+ENV ORDER_ONLINE_SUPABASE_URL=$ORDER_ONLINE_SUPABASE_URL
+
 COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/apps/admin-dashboard/node_modules /repo/apps/admin-dashboard/node_modules/
 COPY --from=builder /repo/apps/admin-dashboard/package.json ./package.json

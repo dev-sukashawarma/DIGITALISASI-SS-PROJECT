@@ -61,6 +61,20 @@ ENV PORT=3000
 # localhost saja dan tak terjangkau dari luar container.
 ENV HOSTNAME=0.0.0.0
 
+# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
+# (fresh FROM), termasuk untuk build output:'standalone'. server.js baca
+# process.env di RUNTIME, jadi harus di-re-declare di sini juga.
+ARG SUPABASE_SERVICE_ROLE_KEY
+ARG SUPABASE_ACCESS_TOKEN
+ARG SUPABASE_PROJECT_ID
+ARG SUPABASE_URL
+ARG FIREBASE_SERVICE_ACCOUNT
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
+ENV SUPABASE_PROJECT_ID=$SUPABASE_PROJECT_ID
+ENV SUPABASE_URL=$SUPABASE_URL
+ENV FIREBASE_SERVICE_ACCOUNT=$FIREBASE_SERVICE_ACCOUNT
+
 # next.config.ts memakai output:'standalone' — Next sudah men-trace modul yang
 # benar-benar dipakai runtime ke .next/standalone (termasuk node_modules-nya
 # sendiri). Menyalin /repo/node_modules utuh seperti sebelumnya menggandakannya

@@ -60,6 +60,16 @@ WORKDIR /repo/apps/portal
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
+# (fresh FROM). Server Actions/middleware baca process.env di RUNTIME,
+# jadi harus di-re-declare di sini juga, bukan cuma di builder.
+ARG SUPABASE_SERVICE_ROLE_KEY
+ARG SUPABASE_JWT_SECRET
+ARG GUDANG_MAGIC_TOKEN
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_JWT_SECRET=$SUPABASE_JWT_SECRET
+ENV GUDANG_MAGIC_TOKEN=$GUDANG_MAGIC_TOKEN
+
 COPY --from=builder /repo/node_modules /repo/node_modules
 COPY --from=builder /repo/apps/portal/node_module[s] /repo/apps/portal/node_modules/
 COPY --from=builder /repo/apps/portal/package.json ./package.json

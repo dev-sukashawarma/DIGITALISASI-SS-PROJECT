@@ -103,7 +103,7 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo, sc
             {scheduledPromo.start_date && (
               <div className="mt-0.5 bg-violet-700/90 text-white text-[8px] font-semibold px-1.5 py-0.5 rounded-md shadow-sm text-center flex items-center gap-0.5 justify-center">
                 <Clock className="w-2 h-2" />
-                {new Date(scheduledPromo.start_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
+                {new Date(scheduledPromo.start_date).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
               </div>
             )}
           </div>
@@ -170,7 +170,7 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo, sc
                     ? `${scheduledPromo.discount_value}%`
                     : formatRupiah(scheduledPromo.discount_value).replace('Rp ', '')
                   } mulai {scheduledPromo.start_date
-                    ? new Date(scheduledPromo.start_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+                    ? new Date(scheduledPromo.start_date).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
                     : ''} WIB
                 </span>
               )}

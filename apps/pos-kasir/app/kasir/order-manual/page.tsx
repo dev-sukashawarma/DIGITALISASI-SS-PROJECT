@@ -1099,7 +1099,7 @@ export default function OrderManualPage() {
                           {scheduledPromo && scheduledPromo.start_date && (
                             <span className="text-[8px] text-violet-600 font-semibold flex items-center gap-0.5 mt-0.5">
                               <Clock className="w-2 h-2" />
-                              {new Date(scheduledPromo.start_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
+                              {new Date(scheduledPromo.start_date).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
                             </span>
                           )}
                         </div>

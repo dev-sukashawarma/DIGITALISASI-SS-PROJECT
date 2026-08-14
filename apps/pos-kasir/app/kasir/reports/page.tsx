@@ -15,6 +15,7 @@ import { useMyOutlet } from '@/lib/useMyOutlet'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { applyChannelFilter } from '@/lib/channel-filter'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
@@ -938,15 +939,21 @@ export default function ReportsPage() {
                       <td colSpan={5} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
                     </tr>
                   ) : (
-                    paginatedData.map((order: any) => (
+                    paginatedData.map((order: any) => {
+                      const orderSubtotal = (order.order_items || []).reduce((sum: number, i: any) => sum + (Number(i.subtotal) || 0), 0)
+                      const discount = orderSubtotal - (Number(order.total_amount) || 0)
+                      return (
                       <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                         <td className="px-5 py-4 font-bold text-gray-900">
-                          <span className={`px-2 py-1 rounded-md ${order.status === 'cancelled' ? 'bg-red-100 text-red-600 line-through' : 'bg-gray-100 text-gray-600'}`}>
-                            #{order.order_number}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className={`px-2 py-1 rounded-md ${order.status === 'cancelled' ? 'bg-red-100 text-red-600 line-through' : 'bg-gray-100 text-gray-600'}`}>
+                              #{order.order_number}
+                            </span>
+                            <ScheduledPromoBadge names={order.scheduled_promo_names} />
+                          </div>
                         </td>
                         <td className="px-5 py-4 text-gray-500 font-medium text-xs">
-                          {new Date(order.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
+                          {new Date(order.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',
                             day: 'numeric', month: 'short', year: 'numeric',
                             hour: '2-digit', minute: '2-digit'
                           })}
@@ -955,6 +962,12 @@ export default function ReportsPage() {
                           <div title={(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}>
                             {(order.order_items || []).map((i: any) => cleanItemName(i.menu_item_name)).join(', ')}
                           </div>
+                          {discount > 0 && (
+                            <div className="whitespace-normal leading-tight text-[11px] flex items-center gap-1.5 mt-1 pt-1 border-t border-gray-100/60">
+                              <span className="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">Promo</span>
+                              <span className="text-red-500">- {formatRupiah(discount)}</span>
+                            </div>
+                          )}
                           {order.status === 'cancelled' && (order.cancellation_reason || order.void_reason) && (
                             <div className="text-[10px] mt-1 text-red-500 font-bold whitespace-normal leading-tight">
                               [BATAL] {order.cancellation_reason || order.void_reason ? `Alasan: ${order.cancellation_reason || order.void_reason}` : ''}
@@ -976,7 +989,8 @@ export default function ReportsPage() {
                         </td>
                         <td className="px-5 py-4 text-right font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</td>
                       </tr>
-                    ))
+                      )
+                    })
                   )}
                 </tbody>
               </table>

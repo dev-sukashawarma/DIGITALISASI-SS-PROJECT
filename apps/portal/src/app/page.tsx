@@ -58,7 +58,15 @@ export default function LoginPage() {
       return
     }
 
-    if (['owner', 'mitra', 'korlap', 'purchasing'].includes(staff.role)) {
+    if (['purchasing', 'purchase'].includes(staff.role)) {
+      const host = typeof window !== 'undefined' ? window.location.hostname : ''
+      const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
+      const financeUrl = process.env.NEXT_PUBLIC_APP_URL_FINANCE || (isLocal ? 'http://localhost:3020' : 'https://finance.sukashawarma.com')
+      window.location.href = financeUrl
+      return
+    }
+
+    if (['owner', 'mitra', 'korlap'].includes(staff.role)) {
       const host = typeof window !== 'undefined' ? window.location.hostname : ''
       const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
       const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || (isLocal ? 'http://localhost:3005' : 'https://admin.sukashawarma.com')

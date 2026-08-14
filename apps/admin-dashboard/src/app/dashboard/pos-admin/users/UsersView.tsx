@@ -105,11 +105,19 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
         })
       })
       
-      const data = await res.json()
-      
+      // Respons bisa saja bukan JSON (mis. halaman error 500 dari Next) —
+      // jangan sampai sebab aslinya hilang jadi "Gagal menghubungi server".
+      const raw = await res.text()
+      let data: { error?: string } = {}
+      try {
+        data = raw ? JSON.parse(raw) : {}
+      } catch {
+        data = { error: `Server membalas respons tidak valid (HTTP ${res.status})` }
+      }
+
       if (!res.ok) {
-        setError(data.error || 'Terjadi kesalahan')
-        toast.error(data.error || 'Terjadi kesalahan')
+        setError(data.error || `Terjadi kesalahan (HTTP ${res.status})`)
+        toast.error(data.error || `Terjadi kesalahan (HTTP ${res.status})`)
       } else {
         // Success
         toast.success(editingUser ? 'Pengguna berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!')

@@ -25,11 +25,29 @@ export async function createClient() {
   })
 }
 
+/** Dilempar saat env service-role tidak tersedia di RUNTIME container. */
+export class ServiceRoleMissingError extends Error {
+  constructor() {
+    super(
+      'Konfigurasi server belum lengkap: SUPABASE_SERVICE_ROLE_KEY tidak tersedia di runtime. ' +
+      'Set variabel ini di panel VPS untuk app admin-dashboard, lalu redeploy.'
+    )
+    this.name = 'ServiceRoleMissingError'
+  }
+}
+
 // Gunakan hanya di API Routes - bypasses RLS
 export function createServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  // Tanpa guard ini, @supabase/ssr melempar "supabaseKey is required" mentah →
+  // Next membalas HTML 500, client gagal `res.json()` dan hanya bisa bilang
+  // "Gagal menghubungi server" (sebab aslinya tak pernah kelihatan).
+  if (!url || !serviceKey) throw new ServiceRoleMissingError()
+
   return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    serviceKey,
     {
       cookies: {
         getAll() { return [] },

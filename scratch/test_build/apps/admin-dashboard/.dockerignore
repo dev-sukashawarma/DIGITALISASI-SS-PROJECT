@@ -1,0 +1,21 @@
+# NOTE: build context is the monorepo root, so these paths are root-relative.
+**/node_modules
+**/.next
+**/.git
+.claude
+mobile
+apps/*/node_modules
+!apps/admin-dashboard
+apps/admin-dashboard/*.sql
+apps/admin-dashboard/*.mjs
+apps/admin-dashboard/*.cjs
+apps/admin-dashboard/*.ts
+!apps/admin-dashboard/src/**/*.ts
+!apps/admin-dashboard/next.config.mjs
+!apps/admin-dashboard/postcss.config.mjs
+!apps/admin-dashboard/vitest.config.ts
+!apps/admin-dashboard/server.cjs
+!apps/admin-dashboard/next-env.d.ts
+apps/admin-dashboard/*.txt
+apps/admin-dashboard/*.md
+apps/admin-dashboard/tsconfig.tsbuildinfo

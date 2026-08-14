@@ -1,0 +1,192 @@
+'use client'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { BookOpen, Plus, Trash2, Loader2, ArrowLeft } from 'lucide-react'
+import { createSupabaseBrowserClient } from '@suka/auth'
+import { Button } from '@suka/design-system'
+import { toast } from 'sonner'
+import { deletePanduan } from './actions'
+
+interface Guide {
+  id: string
+  system_code: string
+  title: string
+  category?: string
+  sort_order?: number
+  desc?: string;
+}
+
+const CATEGORY_NAMES: Record<string, string> = {
+  'absensi': 'Sistem Absensi',
+  'pos': 'Sistem POS (Kasir)',
+  'stok': 'Sistem Stok & Opname',
+  'distribusi': 'Sistem Distribusi',
+}
+
+export default function SystemCategoryPage() {
+  const router = useRouter()
+  const params = useParams()
+  const system_code = params.system_code as string
+  const supabase = createSupabaseBrowserClient()
+  const [guides, setGuides] = useState<Guide[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+
+  const categoryName = CATEGORY_NAMES[system_code] || system_code
+
+  useEffect(() => {
+    if (system_code) {
+      loadGuides()
+    }
+  }, [system_code])
+
+  const loadGuides = async () => {
+    setIsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('system_guides')
+        .select('id, system_code, title, category, sort_order')
+        .eq('system_code', system_code)
+        .order('category', { ascending: true })
+        .order('sort_order', { ascending: true })
+
+      if (error) {
+        toast.error('Gagal memuat daftar panduan')
+      } else if (data) {
+        setGuides(data)
+      }
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreate = () => {
+    router.push(`/dashboard/panduan/${system_code}/new`)
+  }
+
+  const handleDelete = async (id: string, title: string) => {
+    if (!window.confirm(`Yakin ingin menghapus panduan "${title}"?`)) {
+      return
+    }
+
+    setDeletingId(id)
+    try {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData?.user?.id
+
+      if (!userId) {
+        toast.error('Anda belum login')
+        setDeletingId(null)
+        return
+      }
+
+      const res = await deletePanduan(id, userId)
+      if (res.error) {
+        toast.error(res.error)
+      } else {
+        toast.success('Panduan berhasil dihapus')
+        loadGuides()
+      }
+    } catch (err) {
+      console.error(err)
+      toast.error('Terjadi kesalahan')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  // Group guides by category
+  const groupedGuides = guides.reduce((acc, guide) => {
+    const cat = guide.category || 'Tanpa Kategori'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(guide)
+    return acc
+  }, {} as Record<string, Guide[]>)
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard/panduan" className="p-2 rounded-full hover:bg-suka-gray-100 transition-colors">
+          <ArrowLeft size={20} className="text-gray-500" />
+        </Link>
+        <div className="flex flex-col gap-1">
+          <h2 className="text-2xl font-extrabold text-suka-ink">Panduan {categoryName}</h2>
+          <p className="text-sm text-gray-500">Kelola daftar panduan untuk modul ini.</p>
+        </div>
+        <div className="ml-auto">
+          <Button onClick={handleCreate} className="gap-2">
+            <Plus size={16} />
+            Tambah Panduan
+          </Button>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex h-32 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-suka-orange" />
+        </div>
+      ) : guides.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 px-4 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+          <BookOpen className="w-12 h-12 text-gray-300 mb-3" />
+          <h3 className="text-lg font-bold text-gray-600">Belum ada panduan</h3>
+          <p className="text-sm text-gray-500 mt-1 mb-4 text-center">Buat panduan sistem pertama Anda di kategori ini.</p>
+          <Button onClick={handleCreate} variant="secondary">
+            Buat Panduan
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-8">
+          {Object.entries(groupedGuides).map(([category, items]) => (
+            <div key={category} className="space-y-4">
+              <h3 className="text-lg font-bold text-suka-ink border-b border-gray-200 pb-2">
+                {category}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                {items.map((sys) => (
+                  <div
+                    key={sys.id}
+                    className="flex items-start gap-4 p-5 rounded-2xl bg-white border border-suka-gray-100 shadow-sm hover:shadow-md hover:border-suka-orange/30 transition-all group relative"
+                  >
+                    <div className="p-3 rounded-xl bg-suka-orange/10 text-suka-orange group-hover:bg-suka-orange group-hover:text-white transition-colors">
+                      <BookOpen size={24} />
+                    </div>
+                    <div className="flex-1 min-w-0 pr-8">
+                      <Link href={`/dashboard/panduan/${system_code}/${sys.id}`} className="block">
+                        <h4 className="font-bold text-suka-ink truncate hover:text-suka-orange transition-colors">
+                          {sys.title}
+                        </h4>
+                      </Link>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Urutan: {sys.sort_order || 0}
+                      </p>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        handleDelete(sys.id, sys.title)
+                      }}
+                      disabled={deletingId === sys.id}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Hapus Panduan"
+                    >
+                      {deletingId === sys.id ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Trash2 size={18} />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

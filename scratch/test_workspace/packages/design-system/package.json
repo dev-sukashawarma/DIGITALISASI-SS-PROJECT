@@ -1,0 +1,24 @@
+{
+  "name": "@suka/design-system",
+  "version": "0.0.1",
+  "description": "SUKA brand design tokens and UI components",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": ["dist", "src"],
+  "scripts": {
+    "build": "tsc && node -e \"console.log('✓ Build complete')\"",
+    "type-check": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "lucide-react": "^0.300.0",
+    "next": "^15.0.0",
+    "typescript": "^5.3.3",
+    "@types/react": "^18.2.45"
+  },
+  "peerDependencies": {
+    "lucide-react": "^0.300.0",
+    "next": ">=15",
+    "react": "^18.0.0 || ^19.0.0",
+    "tailwindcss": "^4.0.0"
+  }
+}

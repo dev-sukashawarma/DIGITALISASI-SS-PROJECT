@@ -42,8 +42,8 @@ export async function GET(request: Request) {
     const { data: orders, error } = await supabase
       .from('orders')
       .select('id, order_number, total_amount, order_items(menu_item_name, quantity)')
-      .eq('source', 'online')
-      .eq('channel', 'TikTok Go')
+      .in('source', ['manual', 'online'])
+      .in('channel', ['tiktok_go', 'tiktokgo', 'TikTok Go'])
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
 

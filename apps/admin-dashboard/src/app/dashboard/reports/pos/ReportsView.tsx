@@ -11,7 +11,6 @@ import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import GoogleSheetsSettingsModal from '@/components/GoogleSheetsSettingsModal'
 import { useHppByChannel } from '@/hooks/useHppByChannel'
 import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
 
@@ -175,7 +174,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
   const [selectedChannel, setSelectedChannel] = useState<string>('all')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
-  const [showGoogleSheetsModal, setShowGoogleSheetsModal] = useState(false)
 
   const menuItemByNameMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -1171,17 +1169,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {initialOutlets.length > 1 && (
-              <button
-                onClick={() => setShowGoogleSheetsModal(true)}
-                className="flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
-                title="Pengaturan Integrasi Google Sheets"
-              >
-                <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                <span>Integrasi Google Sheets</span>
-              </button>
-            )}
-
             {initialOutlets.length > 1 && (
               <BranchFilter
                 outlets={[
@@ -2306,12 +2293,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
           </div>
         </div>
       )}
-
-      {/* Google Sheets Settings Modal */}
-      <GoogleSheetsSettingsModal
-        isOpen={showGoogleSheetsModal}
-        onClose={() => setShowGoogleSheetsModal(false)}
-      />
     </div>
   )
 }

@@ -1,0 +1,139 @@
+@import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* Scan design-system & shared packages untuk class yang dipakai komponen */
+@source "../../../../packages";
+
+/* Palet Suka Shawarma (selaras tokens @suka/design-system) */
+@theme {
+  --color-suka-primary: #f29744;
+  --color-suka-orange: #f29744;
+  --color-suka-brown: #701604;
+  --color-suka-ink: #400a07;
+  --color-suka-cream: #FDF9F3;
+  --color-suka-green: #0a7d2c;
+  --color-suka-gray-50: #f9fafb;
+  --color-suka-gray-100: #f3f4f6;
+  --color-suka-gray-200: #e5e7eb;
+  --color-suka-gray-300: #d1d5db;
+  --color-suka-gray-400: #9ca3af;
+  --color-suka-gray-500: #6b7280;
+  --color-suka-gray-600: #4b5563;
+  --color-suka-gray-700: #374151;
+  --color-suka-gray-800: #1f2937;
+  --color-suka-gray-900: #111827;
+
+  /* Shadow & animasi bawaan halaman pos-admin (migrasi dari pos-kasir) */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, .05), 0 4px 12px rgba(0, 0, 0, .04);
+  --shadow-card-hover: 0 4px 20px rgba(0, 0, 0, .10);
+  --shadow-amber: 0 4px 14px rgba(245, 158, 11, .35);
+
+  --animate-fade-up: fade-up .4s ease forwards;
+  --animate-fade-in: fade-in .3s ease forwards;
+  --animate-scale-in: scale-in .2s ease forwards;
+  --animate-slide-in: slide-in .35s cubic-bezier(.16, 1, .3, 1) forwards;
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(.95); }
+    to   { opacity: 1; transform: scale(1); }
+  }
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+}
+
+/* Komponen bawaan halaman pos-admin (migrasi dari pos-kasir) */
+@layer components {
+  .card {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100;
+  }
+
+  .card-hover {
+    @apply bg-white rounded-2xl shadow-card border border-gray-100 hover:shadow-card-hover hover:-translate-y-0.5
+           transition-all duration-200;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-amber-500 text-white font-semibold
+           px-6 py-3.5 rounded-2xl
+           shadow-sm shadow-amber-500/20 hover:bg-amber-600
+           active:scale-[.98]
+           transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2
+           bg-white text-gray-700 font-semibold
+           px-6 py-3 rounded-2xl border border-gray-200
+           hover:border-gray-300 hover:bg-gray-50
+           active:scale-[.98]
+           transition-all duration-150;
+  }
+
+  .input {
+    @apply w-full px-4 py-3 rounded-xl
+           border border-gray-200 bg-white
+           text-gray-900 placeholder:text-gray-400
+           focus:outline-none focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400
+           transition-all duration-150;
+  }
+
+  .input-label {
+    @apply block text-sm font-semibold text-gray-600 mb-1.5 tracking-tight;
+  }
+
+  .badge-amber {
+    @apply inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-700;
+  }
+}
+
+@layer base {
+  html {
+    min-height: 100%;
+  }
+  body {
+    min-height: 100%;
+    font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+    color: #400a07; /* Suka Ink */
+    background-color: #FDF9F3; /* Suka Cream */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Hide scrollbar but keep scroll (used by mobile-scrollable filter rows) */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@keyframes suka-page-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+body {
+  animation: suka-page-fadein 0.4s ease forwards;
+}
+
+@keyframes blink-fast {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.animate-blink-fast {
+  animation: blink-fast 0.4s infinite;
+}

@@ -1,0 +1,51 @@
+{
+  "_catatan": "Pemetaan toko di platform food apps -> nama outlet di sistem kita. Kunci utama Store ID (stabil walau nama toko diedit di dashboard platform). byName dipakai sebagai cadangan bila baris laporan tidak punya Store ID. Nilai di 'closed' = toko yang sudah tutup / bukan milik grup lagi -> sengaja dilewati saat import, tidak dihitung ke P&L.",
+  "shopeefood": {
+    "byStoreId": {
+      "21827892": "SUKA SHAWARMA DEPOK SUKMAJAYA",
+      "21887969": "SUKA SHAWARMA JAGAKARSA",
+      "21926684": "SUKA SHAWARMA BEJI",
+      "21972693": "SUKA SHAWARMA SAWANGAN",
+      "22041792": "SUKA SHAWARMA DRAMAGA",
+      "22183550": "MITRA CISEENG",
+      "22222109": "MITRA CIBINONG",
+      "22222140": "MITRA SENTUL",
+      "22294533": "SUKA SHAWARMA JATIASIH",
+      "22332510": "MITRA PEKAYON",
+      "22358890": "SUKA SHAWARMA JATIWARINGIN",
+      "22416339": "MITRA KALISARI",
+      "22580898": "SUKA SHAWARMA PAJAJARAN",
+      "23215197": "MITRA CIBUBUR"
+    },
+    "byName": {
+      "suka shawarma cicurug": "MITRA CICURUG"
+    },
+    "closed": {
+      "22303209": "SUKA SHAWARMA CIPUTAT TIMUR",
+      "22287475": "SUKA SHAWARMA TEBET"
+    }
+  },
+  "grabfood": {
+    "byStoreId": {
+      "8d1ba9d5-c0ef-4f05-a3aa-8e9c2b3d853a": "MITRA CIBUBUR"
+    },
+    "byName": {},
+    "closed": {}
+  },
+  "gofood": {
+    "byStoreId": {
+      "G973507430": "MITRA CIBUBUR"
+    },
+    "byName": {},
+    "closed": {}
+  },
+  "tiktokgo": {
+    "byStoreId": {
+      "SUKA Shawarma Kota Wisata Cibubur": "MITRA CIBUBUR"
+    },
+    "byName": {
+      "suka shawarma kota wisata cibubur": "MITRA CIBUBUR"
+    },
+    "closed": {}
+  }
+}

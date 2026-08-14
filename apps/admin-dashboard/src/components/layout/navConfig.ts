@@ -64,7 +64,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/voids', label: 'Batal & Kecurangan', shortLabel: 'Batal', icon: AlertTriangle, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Package, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },

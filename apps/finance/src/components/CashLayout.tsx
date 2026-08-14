@@ -123,12 +123,25 @@ export function CashLayout({ children }: { children: ReactNode }) {
     prevPendingRef.current = totalPending
   }, [pettyPendingCount, poPendingCount])
 
-  const BOTTOM_NAV_ITEMS = [
-    { href: '/', label: 'Beranda', icon: LayoutDashboard },
-    { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
-    { href: '/setoran', label: 'Setoran', icon: Banknote },
-    { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },
-  ]
+  const isPurchasingRole = outletStaff && ((outletStaff.role as string) === 'purchasing' || (outletStaff.role as string) === 'purchase')
+
+  const visibleNavGroups = isPurchasingRole
+    ? NAV_GROUPS.filter(g => g.title === 'PURCHASING')
+    : NAV_GROUPS
+
+  const BOTTOM_NAV_ITEMS = isPurchasingRole
+    ? [
+        { href: '/', label: 'Beranda', icon: LayoutDashboard },
+        { href: '/pembelian', label: 'Purchase Order', icon: ShoppingCart },
+        { href: '/pembelian/penerimaan', label: 'Penerimaan', icon: Package },
+        { href: '/pembelian/invoice', label: 'Invoice', icon: Receipt },
+      ]
+    : [
+        { href: '/', label: 'Beranda', icon: LayoutDashboard },
+        { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
+        { href: '/setoran', label: 'Setoran', icon: Banknote },
+        { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },
+      ]
 
   if (pathname?.startsWith('/leader') || pathname?.startsWith('/area-manager')) {
     return <>{children}</>
@@ -176,7 +189,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         </div>
 
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 relative z-10 scrollbar-hide">
-          {NAV_GROUPS.map((group) => (
+          {visibleNavGroups.map((group) => (
             <div key={group.title}>
               <h3 className="px-4 mb-3 text-[10px] font-black tracking-widest text-suka-orange/80 uppercase">
                 {group.title}
@@ -377,7 +390,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
                 </div>
                 
                 <div className="max-h-[60vh] overflow-y-auto space-y-8 scrollbar-hide">
-                  {NAV_GROUPS.map((group) => (
+                  {visibleNavGroups.map((group) => (
                     <div key={group.title}>
                       <h3 className="mb-4 text-[10px] font-black tracking-widest text-suka-orange uppercase">
                         {group.title}

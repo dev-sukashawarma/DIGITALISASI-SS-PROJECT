@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
 
 // Endpoint dipanggil dari halaman /kasir/order-manual (tab "Kasir Langsung")
 // saat kasir mencatat pesanan pelanggan yang datang LANGSUNG ke kasir.
@@ -172,6 +172,7 @@ export async function POST(request: Request) {
   
   // Track applied promos to increment usage limits
   const appliedPromoIds = new Set<string>()
+  const scheduledPromoNames = new Set<string>()
   
   for (const item of validatedItems) {
     const menuItem = menuItems?.find(m => m.id === item.menu_item_id)
@@ -182,6 +183,7 @@ export async function POST(request: Request) {
         if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
           globalApplied = true
           appliedPromoIds.add(globalPromo.id)
+          if (isScheduledPromo(globalPromo) && globalPromo.promo_name) scheduledPromoNames.add(globalPromo.promo_name)
         }
       }
 
@@ -189,6 +191,7 @@ export async function POST(request: Request) {
         const itemPromo = itemPromos.find(p => p.menu_item_id === item.menu_item_id && isPromoEligible(p as BasePromo))
         if (itemPromo) {
           appliedPromoIds.add(itemPromo.id)
+          if (isScheduledPromo(itemPromo) && itemPromo.promo_name) scheduledPromoNames.add(itemPromo.promo_name)
         }
       }
     }
@@ -225,6 +228,7 @@ export async function POST(request: Request) {
     channel: null,
     sales_source: 'pos',
     is_endorse: body.is_endorse,
+    scheduled_promo_names: Array.from(scheduledPromoNames),
   }
 
   // Payload insert lengkap

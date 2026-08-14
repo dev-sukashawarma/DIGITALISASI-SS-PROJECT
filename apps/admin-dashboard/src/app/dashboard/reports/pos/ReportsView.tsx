@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
+import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import { useHppByChannel } from '@/hooks/useHppByChannel'
 import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
@@ -1614,7 +1615,10 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                       return (
                         <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                           <td className="px-5 py-4 font-bold text-gray-900">
-                            <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
+                              <ScheduledPromoBadge names={order.scheduled_promo_names} />
+                            </div>
                           </td>
                           <td className="px-5 py-4 text-gray-500 font-medium text-xs">
                             {new Date(order.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric',

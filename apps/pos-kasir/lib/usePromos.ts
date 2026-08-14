@@ -7,6 +7,7 @@ import { db } from '@/lib/db'
 
 export type OutletPromo = {
   id: string
+  promo_name?: string | null
   outlet_id: string
   scope: 'global' | 'item'
   menu_item_id: string | null

@@ -27,6 +27,9 @@ export async function savePromosAction(
   for (const p of promos) {
     const scheduleError = validateSchedule(p)
     if (scheduleError) return { success: false, error: scheduleError }
+    if ((p.start_date || p.end_date) && !String(p.promo_name || '').trim()) {
+      return { success: false, error: 'Nama promo wajib diisi untuk promo terjadwal.' }
+    }
   }
 
   const outletIds = outlets.map(o => o.id)
@@ -67,6 +70,7 @@ export async function savePromosAction(
         start_date: p.start_date ?? null,
         end_date: p.end_date ?? null,
         apply_to_food_apps: p.apply_to_food_apps || false
+        ,promo_name: String(p.promo_name || '').trim() || null
       })
     }
   }

@@ -29,6 +29,7 @@ type OutletPromo = {
   end_date?: string | null
   apply_to_food_apps?: boolean
   sync_to_order_online?: boolean
+  promo_name?: string | null
 }
 
 type Outlet = {
@@ -101,6 +102,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     end_date: null,
     apply_to_food_apps: false,
     sync_to_order_online: false
+    ,promo_name: ''
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -234,6 +236,10 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
             <div className="mt-6 pt-6 border-t border-amber-200/50 space-y-6 animate-fade-in">
               {/* Nilai diskon */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-700">Nama Promo</label>
+                  <input value={globalPromo.promo_name || ''} onChange={e => handleGlobalPromoChange('promo_name', e.target.value)} placeholder="Contoh: Promo Kemerdekaan" className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900" />
+                </div>
                 <div className="space-y-2">
                   <label className="block text-sm font-bold text-gray-700">Tipe Diskon</label>
                   <select
@@ -495,6 +501,10 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
                     {promo.is_active && (
                       <div className="mt-5 pt-5 border-t border-blue-200/50 space-y-4 animate-fade-in">
+                        <div className="space-y-1.5">
+                          <label className="block text-sm font-bold text-blue-900">Nama Promo</label>
+                          <input value={promo.promo_name || ''} onChange={e => handleItemPromoChange(menu.id, 'promo_name', e.target.value)} placeholder={`Contoh: Promo ${menu.name}`} className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors" />
+                        </div>
                         <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
                           <div className="flex items-center gap-2">
                             <CalendarClock className="w-4 h-4 text-blue-500 shrink-0" />

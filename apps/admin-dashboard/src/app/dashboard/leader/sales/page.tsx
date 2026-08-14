@@ -6,6 +6,7 @@ import React, { useState, useEffect } from 'react'
 import { Target, TrendingUp, Store, Receipt, ArrowRight, AlertCircle, ShoppingBag } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
+import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 
 interface OrderItem {
   menu_item_name: string
@@ -18,6 +19,7 @@ interface Order {
   created_at: string
   status: string
   total_amount: number
+  scheduled_promo_names?: string[]
   order_items?: OrderItem[]
   outlet_id: string
 }
@@ -157,7 +159,7 @@ export default function SalesMonitoringPage() {
       // 2. Fetch Recent Orders (Any status to see real-time queue)
       const { data: recent } = await supabase
         .from('orders')
-        .select('id, order_number, created_at, status, total_amount')
+        .select('id, order_number, created_at, status, total_amount, scheduled_promo_names')
         .eq('outlet_id', outletId)
         .gte('created_at', fromStart)
         .lte('created_at', toEnd)
@@ -349,6 +351,7 @@ export default function SalesMonitoringPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-bold text-slate-900 text-sm">#{order.order_number}</h4>
+                        <ScheduledPromoBadge names={order.scheduled_promo_names} />
                         {order.status === 'completed' ? (
                           <span className="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider">
                             Selesai

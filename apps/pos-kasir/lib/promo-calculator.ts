@@ -2,6 +2,8 @@ export type PromoScope = 'global' | 'item';
 export type PromoType = 'percentage' | 'nominal';
 
 export interface BasePromo {
+  id?: string;
+  promo_name?: string | null;
   scope: PromoScope;
   menu_item_id: string | null;
   discount_type: PromoType;
@@ -14,6 +16,10 @@ export interface BasePromo {
   start_date?: string | null;
   end_date?: string | null;
   apply_to_food_apps?: boolean;
+}
+
+export function isScheduledPromo(promo: BasePromo): boolean {
+  return Boolean(promo.start_date || promo.end_date);
 }
 
 const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'];

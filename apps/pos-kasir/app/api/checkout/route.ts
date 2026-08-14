@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { validateCheckoutPayload } from '@/lib/validations'
 import type { CheckoutPayload } from '@/types'
-import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
 
 export async function POST(request: Request) {
   let body: unknown
@@ -95,6 +95,7 @@ export async function POST(request: Request) {
   }
 
   const appliedPromoIds = new Set<string>()
+  const scheduledPromoNames = new Set<string>()
 
   let subtotalAmount = 0
   // Diskon per-item dicatat supaya "Omzet Kotor" di laporan bisa direkonstruksi
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
         if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
           globalApplied = true
           appliedPromoIds.add(globalPromo.id)
+          if (isScheduledPromo(globalPromo) && globalPromo.promo_name) scheduledPromoNames.add(globalPromo.promo_name)
         }
       }
 
@@ -143,6 +145,7 @@ export async function POST(request: Request) {
         const itemPromo = itemPromos.find(p => p.menu_item_id === menuItem.id && isPromoEligible(p as BasePromo))
         if (itemPromo) {
           appliedPromoIds.add(itemPromo.id)
+          if (isScheduledPromo(itemPromo) && itemPromo.promo_name) scheduledPromoNames.add(itemPromo.promo_name)
         }
       }
     }
@@ -188,6 +191,7 @@ export async function POST(request: Request) {
       // Diskon promo per-item — dicatat untuk laporan, TIDAK mengubah total tagihan
       // (harga sudah didiskon di unit_price/subtotal di atas).
       discount_amount: itemDiscountTotal > 0 ? itemDiscountTotal : null,
+      scheduled_promo_names: Array.from(scheduledPromoNames),
       status: 'pending',
     },
     p_items: validatedItems

@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/ui'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
+import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 
 export default function BuktiQrisPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -42,6 +43,7 @@ export default function BuktiQrisPage() {
           created_at,
           payment_proof_url,
           status,
+          scheduled_promo_names,
           outlet:outlet_id (
             name
           )
@@ -149,6 +151,7 @@ export default function BuktiQrisPage() {
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="font-bold text-suka-ink text-base">#{order.order_number}</span>
+                        <ScheduledPromoBadge names={order.scheduled_promo_names} />
                       </div>
                       <div className="text-sm text-suka-gray-600 mb-1">
                         <span className="font-semibold text-suka-ink">{order.customer_name || 'Tanpa Nama'}</span>

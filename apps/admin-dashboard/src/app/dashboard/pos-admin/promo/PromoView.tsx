@@ -160,7 +160,10 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       }
 
       // Cegah jadwal terbalik sebelum menyentuh server (DB juga menolaknya).
+      // Promo nonaktif dilewati — dates basi di item yang sudah dimatikan
+      // tak boleh memblokir penyimpanan promo lain yang sedang diedit.
       for (const p of promos) {
+        if (!p.is_active) continue
         const scheduleError = validateSchedule(p)
         if (scheduleError) {
           const label = p.scope === 'global'

@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Trash2, ArrowLeft, AlertCircle, ShoppingCart, Check } from 'lucide-react'
-import { useCreatePO, useSuppliers, useBahanBakuOptions } from '@/hooks/usePurchaseOrder'
+import { useCreatePO, useSuppliers, useBahanBakuOptions, type POStatus } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
 import { Spinner } from '@suka/design-system'
@@ -85,13 +85,14 @@ export default function NewPOPage() {
 
   const usedBahanIds = new Set(items.map(i => i.bahan_baku_id).filter(id => id && id !== 'ad_hoc'))
 
-  async function handleSubmit() {
+  async function handleSubmit(status: POStatus) {
     if (!isValid) return
     const nama = supplierNama.trim() || suppliers.find(s => s.id === supplierId)?.nama || ''
     await createPO.mutateAsync({
       supplier_id: supplierId || null,
       supplier_nama: nama,
       tanggal_po: tanggalPo,
+      status: status,
       catatan: catatan.trim() || null,
       items: items
         .filter(it => (it.bahan_baku_id && it.bahan_baku_id !== 'ad_hoc' && parseFloat(it.qty_pesan) > 0) || (it.bahan_baku_id === 'ad_hoc' && it.item_description?.trim() && parseFloat(it.qty_pesan) > 0))
@@ -274,9 +275,13 @@ export default function NewPOPage() {
               className="flex-1 py-3 border border-suka-gray-200 rounded-2xl font-bold text-sm text-suka-gray-500 hover:bg-suka-gray-50 transition-colors">
               Batal
             </button>
-            <button onClick={handleSubmit} disabled={!isValid || createPO.isPending}
-              className="flex-[2] py-3 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl font-extrabold text-sm hover:from-suka-ink hover:to-black active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(44,24,16,0.15)]">
-              {createPO.isPending ? <><Spinner className="w-5 h-5" /> Menyimpan Draft...</> : <><Check className="w-5 h-5" /> Simpan Draft PO</>}
+            <button onClick={() => handleSubmit('draft')} disabled={!isValid || createPO.isPending}
+              className="flex-1 py-3 bg-white border border-suka-brown text-suka-brown rounded-2xl font-extrabold text-sm hover:bg-suka-brown/5 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(44,24,16,0.05)]">
+              {createPO.isPending ? <Spinner className="w-5 h-5 text-suka-brown" /> : <Check className="w-5 h-5" />} Simpan Draft
+            </button>
+            <button onClick={() => handleSubmit('menunggu_approval_finance')} disabled={!isValid || createPO.isPending}
+              className="flex-[1.5] py-3 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl font-extrabold text-sm hover:from-suka-ink hover:to-black active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(44,24,16,0.15)]">
+              {createPO.isPending ? <Spinner className="w-5 h-5 text-white" /> : <ShoppingCart className="w-5 h-5" />} Buat & Ajukan
             </button>
           </div>
         </>
@@ -284,4 +289,5 @@ export default function NewPOPage() {
     </div>
   )
 }
+
 

@@ -70,9 +70,25 @@ function getDueDateAgingInfo(po: POSummary) {
   }
 }
 
-export default function PembelianView({ initialData, defaultFrom, defaultTo }: { initialData: POSummary[], defaultFrom: string, defaultTo: string }) {
+export default function PembelianView({ 
+  initialData, 
+  defaultFrom, 
+  defaultTo,
+  title = "Purchase Order & Matching Dashboard",
+  description = "Pusat kontrol pengadaan barang, verifikasi penerimaan fisik, dan 3-Way Matching invoice.",
+  defaultStatusFilter = '',
+  hideCreateButton = false
+}: { 
+  initialData: POSummary[], 
+  defaultFrom: string, 
+  defaultTo: string,
+  title?: string,
+  description?: string,
+  defaultStatusFilter?: string,
+  hideCreateButton?: boolean
+}) {
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [statusFilter, setStatusFilter] = useState<string>(defaultStatusFilter)
   const [dueFilter, setDueFilter] = useState<string>('')
   const [fromDate, setFromDate] = useState(defaultFrom)
   const [toDate, setToDate] = useState(defaultTo)
@@ -120,16 +136,18 @@ export default function PembelianView({ initialData, defaultFrom, defaultTo }: {
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
       <PageHeader 
-        title="Purchase Order & Matching Dashboard" 
-        description="Pusat kontrol pengadaan barang, verifikasi penerimaan fisik, dan 3-Way Matching invoice."
+        title={title} 
+        description={description}
       >
-        <Link
-          href="/pembelian/new"
-          className="mt-3 sm:mt-0 flex items-center justify-center gap-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white font-extrabold px-5 py-2.5 rounded-2xl hover:from-suka-ink hover:to-black active:scale-[.98] transition-all text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)]"
-        >
-          <Plus className="w-5 h-5" />
-          Buat PO
-        </Link>
+        {!hideCreateButton && (
+          <Link
+            href="/pembelian/new"
+            className="mt-3 sm:mt-0 flex items-center justify-center gap-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white font-extrabold px-5 py-2.5 rounded-2xl hover:from-suka-ink hover:to-black active:scale-[.98] transition-all text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)]"
+          >
+            <Plus className="w-5 h-5" />
+            Buat PO
+          </Link>
+        )}
       </PageHeader>
 
       {/* Top Strategic Metrics */}

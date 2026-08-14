@@ -194,6 +194,7 @@ export function useCreatePO() {
       supplier_id: string | null
       supplier_nama: string
       tanggal_po: string
+      status?: POStatus
       catatan: string | null
       items: { bahan_baku_id?: string | null; item_description?: string | null; satuan_ad_hoc?: string | null; qty_pesan: number; harga_pesan: number }[]
     }) => {
@@ -201,6 +202,7 @@ export function useCreatePO() {
         p_supplier_id: payload.supplier_id,
         p_supplier_nama: payload.supplier_nama,
         p_tanggal_po: payload.tanggal_po,
+        p_status: payload.status ?? 'draft',
         p_catatan: payload.catatan,
         p_items: payload.items,
       })

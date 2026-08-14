@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -35,8 +35,12 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'PURCHASING',
     items: [
       { href: '/pembelian/supplier', label: 'Database Supplier', icon: Truck },
-      { href: '/pembelian', label: 'Pembelian (PO)', icon: ShoppingCart },
+      { href: '/pembelian/permintaan', label: 'Permintaan (PR)', icon: ClipboardList },
+      { href: '/pembelian', label: 'Purchase Order (PO)', icon: ShoppingCart },
       { href: '/po-approval', label: 'Approval PO', icon: ClipboardCheck },
+      { href: '/pembelian/penerimaan', label: 'Penerimaan Barang', icon: Package },
+      { href: '/pembelian/invoice', label: 'Invoice Pembelian', icon: Receipt },
+      { href: '/pembelian/laporan', label: 'Laporan Pembelian', icon: FileText },
     ],
   },
   {

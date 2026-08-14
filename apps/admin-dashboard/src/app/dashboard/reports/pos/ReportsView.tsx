@@ -153,7 +153,8 @@ function extractOrderPackages(order: OrderRow) {
   return pkgs
 }
 
-export default function ReportsView({ initialOutlets }: ReportsViewProps) {
+export default function ReportsView({ initialOutlets: rawInitialOutlets }: ReportsViewProps) {
+  const initialOutlets = useMemo(() => rawInitialOutlets.filter(o => !o.name.toLowerCase().includes('outlet tes')), [rawInitialOutlets])
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
@@ -518,6 +519,8 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
 
     orders.forEach(o => {
       const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
+      // Sembunyikan ENDORSE dari dropdown
+      if (src.key === 'endors') return
       // Sembunyikan sumber Pawoon dari orders jika tidak relevan untuk range ini
       if (!isPawoonVisible && PAWOON_KEYS.has(src.key)) return
       if (!map.has(src.key)) {
@@ -1172,7 +1175,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
             {initialOutlets.length > 1 && (
               <BranchFilter
                 outlets={[
-                  { id: 'all', name: 'Semua Cabang', type: 'all' },
                   { id: 'ss-online', name: 'SS Online (Semua Channel)', type: 'online' },
                   ...physicalOutlets
                 ]}
@@ -1295,12 +1297,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
               </div>
-              {initialOutlets.length > 1 && (
-                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                  <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Omzet sebelum potongan, semua sumber (Pawoon + sistem sendiri)</p>
-                </div>
-              )}
             </div>
 
             {/* 2. Total COGS */}
@@ -1310,12 +1306,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalHPP)}</p>
               </div>
-              {initialOutlets.length > 1 && (
-                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                  <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Total Harga Pokok Penjualan (HPP)</p>
-                </div>
-              )}
             </div>
 
             {/* 3. Admin Platform */}
@@ -1325,12 +1315,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Platform</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
               </div>
-              {initialOutlets.length > 1 && (
-                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 rounded-full bg-white/70"></div>
-                  <p className="text-[10px] xl:text-[11px] text-white/80 font-medium tracking-wide">Promo & diskon — ikut mengurangi Gross Profit</p>
-                </div>
-              )}
             </div>
 
             {/* 4. Gross Profit */}
@@ -1340,12 +1324,6 @@ export default function ReportsView({ initialOutlets }: ReportsViewProps) {
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
               </div>
-              {initialOutlets.length > 1 && (
-                <div className="relative z-10 mt-6 xl:mt-8 flex items-center gap-2 bg-black/10 w-fit px-3 py-1.5 rounded-full">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-300"></div>
-                  <p className="text-[10px] xl:text-[11px] text-white font-bold tracking-wide">✓ Profit murni (Laba Kotor)</p>
-                </div>
-              )}
             </div>
           </div>
 

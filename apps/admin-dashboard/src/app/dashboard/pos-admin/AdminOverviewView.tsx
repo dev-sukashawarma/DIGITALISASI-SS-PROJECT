@@ -34,7 +34,7 @@ export default function AdminOverviewView({
   initialChartDaily: { sales_date: string; omzet: number }[]
 }) {
   const [orders, setOrders] = useState<OrderRow[]>(initialOrders)
-  const [outlets] = useState<Outlet[]>(initialOutlets)
+  const [outlets] = useState<Outlet[]>(() => initialOutlets.filter(o => !o.name.toLowerCase().includes('outlet tes')))
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [loading, setLoading] = useState(false)
 

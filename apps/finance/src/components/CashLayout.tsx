@@ -34,6 +34,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: 'PURCHASING',
     items: [
+      { href: '/pembelian/dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
       { href: '/pembelian/supplier', label: 'Database Supplier', icon: Truck },
       { href: '/pembelian/permintaan', label: 'Permintaan (PR)', icon: ClipboardList },
       { href: '/pembelian', label: 'Purchase Order (PO)', icon: ShoppingCart },
@@ -131,7 +132,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
 
   const BOTTOM_NAV_ITEMS = isPurchasingRole
     ? [
-        { href: '/', label: 'Beranda', icon: LayoutDashboard },
+        { href: '/pembelian/dashboard', label: 'Dashboard', icon: LayoutDashboard },
         { href: '/pembelian', label: 'Purchase Order', icon: ShoppingCart },
         { href: '/pembelian/penerimaan', label: 'Penerimaan', icon: Package },
         { href: '/pembelian/invoice', label: 'Invoice', icon: Receipt },

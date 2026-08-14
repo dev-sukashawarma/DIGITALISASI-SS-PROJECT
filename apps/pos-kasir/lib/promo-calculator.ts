@@ -71,18 +71,21 @@ export function calculateItemPrice(
   promos: BasePromo[],
   cartBaseSubtotal?: number,
   salesSource?: string,
-  channelPrices?: Record<string, number> | null
+  channelPrices?: Record<string, number> | null,
+  now: number = Date.now()
 ): number {
   const isFoodApp = salesSource ? FOOD_APP_CHANNELS.includes(salesSource.toLowerCase()) : false;
 
   const basePrice = resolveBasePrice(originalPrice, salesSource, channelPrices);
 
-  const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
-  const itemPromos = promos.filter(p => p.scope === 'item' && p.is_active);
+  // Gunakan isPromoEligible (bukan sekadar .is_active) agar jadwal & kuota
+  // diperiksa di titik yang sama — mencegah promo aktif sebelum start_date.
+  const globalPromo = promos.find(p => p.scope === 'global' && isPromoEligible(p, now));
+  const itemPromos = promos.filter(p => p.scope === 'item' && isPromoEligible(p, now));
 
   // Global promo berlaku untuk SEMUA item, asalkan di dalam jadwal & kuota.
   if (globalPromo && (!isFoodApp || globalPromo.apply_to_food_apps)) {
-    if (!isPromoEligible(globalPromo)) {
+    if (!isPromoEligible(globalPromo, now)) {
       // Belum mulai / sudah lewat / kuota habis → jatuh ke promo per item.
     } else {
       let apply = true;
@@ -106,8 +109,10 @@ export function calculateItemPrice(
   if (!promo) return basePrice;
   if (isFoodApp && !promo.apply_to_food_apps) return basePrice;
 
-  // Belum mulai (promo terjadwal), sudah lewat, atau kuota habis.
-  if (!isPromoEligible(promo)) {
+  // isPromoEligible sudah dipanggil saat membangun itemPromos di atas,
+  // sehingga promo di sini pasti sudah lolos jadwal & kuota.
+  // Guard ini dipertahankan sebagai lapisan defensif.
+  if (!isPromoEligible(promo, now)) {
     return basePrice;
   }
 

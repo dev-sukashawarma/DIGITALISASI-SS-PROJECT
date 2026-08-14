@@ -1,12 +1,11 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import { resolveLogoutTargets } from '@/lib/kiosk-logout'
+import { resolveApiUser } from '@/lib/api-auth'
 
 export async function POST(request: Request) {
-  // 1. Identifikasi requester (harus kasir) dari cookie sesi
-  const supabaseAuth = await createClient()
-
-  const { data: { user } } = await supabaseAuth.auth.getUser()
+  // 1. Identifikasi requester dari cookie web atau token Bearer aplikasi native.
+  const user = await resolveApiUser(request)
   if (!user) {
     return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
   }

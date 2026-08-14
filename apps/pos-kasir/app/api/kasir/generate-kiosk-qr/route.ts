@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
+import { resolveApiUser } from '@/lib/api-auth'
 
 export async function POST(request: Request) {
   try {
-    const supabaseAuth = await createClient()
-
-    const { data: { user } } = await supabaseAuth.auth.getUser()
+    const user = await resolveApiUser(request)
     if (!user) {
       return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }

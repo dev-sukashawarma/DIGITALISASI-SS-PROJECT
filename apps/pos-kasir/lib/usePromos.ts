@@ -69,12 +69,18 @@ export function usePromos(outletId: string | undefined) {
       )
       .subscribe()
 
-    // Fallback polling to ensure real-time behavior even if replication is off
+    // Fallback polling — dipercepat ke 5 detik agar perubahan jadwal dari admin
+    // tidak tertunda terlalu lama bila realtime channel sesaat terputus.
     const interval = setInterval(() => {
       load(true)
-    }, 10000)
+    }, 5000)
+
+    // Re-fetch segera saat tab kembali aktif (misalnya kasir alt-tab lalu balik).
+    const handleVisibility = () => { if (!document.hidden) load(true) }
+    document.addEventListener('visibilitychange', handleVisibility)
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
@@ -92,7 +98,7 @@ export function usePromos(outletId: string | undefined) {
   }
 
   const getPromoForMenu = (menuId: string): OutletPromo | null => {
-    // Promo terjadwal yang belum mulai tidak boleh muncul sebagai badge di menu.
+    // Promo terjadwal yang belum mulai tidak boleh muncul sebagai badge aktif di menu.
     const globalP = promos.find(p => p.scope === 'global' && isPromoEligible(p))
     if (globalP) return globalP
 
@@ -100,5 +106,25 @@ export function usePromos(outletId: string | undefined) {
     return itemP || null
   }
 
-  return { promos, loading, globalPromo, itemPromos, calculateItemPrice: calcItemPrice, calculateGlobalDiscount: calcGlobalDiscount, getPromoForMenu }
+  /**
+   * Promo yang is_active=true tapi belum mulai (start_date > now).
+   * Dipakai untuk badge "Terjadwal" di kartu menu kasir — bukan untuk kalkulasi harga.
+   */
+  const getScheduledPromoForMenu = (menuId: string): OutletPromo | null => {
+    const isScheduled = (p: OutletPromo) => {
+      if (!p.is_active) return false
+      if (!p.start_date) return false
+      const start = new Date(p.start_date).getTime()
+      return !isNaN(start) && start > Date.now()
+    }
+
+    // Global terjadwal berlaku semua menu
+    const globalSched = promos.find(p => p.scope === 'global' && isScheduled(p))
+    if (globalSched) return globalSched
+
+    const itemSched = promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && isScheduled(p))
+    return itemSched || null
+  }
+
+  return { promos, loading, globalPromo, itemPromos, calculateItemPrice: calcItemPrice, calculateGlobalDiscount: calcGlobalDiscount, getPromoForMenu, getScheduledPromoForMenu }
 }

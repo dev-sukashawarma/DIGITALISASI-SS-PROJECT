@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Plus, Minus, Sandwich } from 'lucide-react'
+import { Plus, Minus, Sandwich, Clock } from 'lucide-react'
 import type { MenuItem as MenuItemType } from '@/types'
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
@@ -14,9 +14,11 @@ interface Props {
   item: MenuItemType
   calculateItemPrice?: (price: number, id: string, channelPrices?: Record<string, number> | null) => number
   applicablePromo?: OutletPromo | null
+  /** Promo yang is_active=true tapi start_date masih di depan — ditampilkan sebagai badge "Terjadwal" */
+  scheduledPromo?: OutletPromo | null
 }
 
-export default function MenuItem({ item, calculateItemPrice, applicablePromo }: Props) {
+export default function MenuItem({ item, calculateItemPrice, applicablePromo, scheduledPromo }: Props) {
   const { items, addItem, updateQuantity } = useCart()
   const router = useRouter()
   const [imgError, setImgError] = useState(false)
@@ -70,13 +72,21 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
           </div>
         )}
         
-        {/* Promo Badge overlay */}
+        {/* Promo Badge overlay — hanya tampil saat promo sudah berjalan */}
         {item.is_available && isDiscountActiveNow && (
           <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10 flex-col !items-start">
             <span>PROMO</span>
             {hasUsageLimit && remainingUsage && remainingUsage > 0 && (
               <span className="text-[8px] font-medium bg-white/20 px-1 rounded-sm w-full text-center">Sisa: {remainingUsage}</span>
             )}
+          </div>
+        )}
+
+        {/* Scheduled promo badge — tampil saat promo aktif tapi belum mulai */}
+        {item.is_available && !isDiscountActiveNow && scheduledPromo && (
+          <div className="absolute top-2.5 left-2.5 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1 z-10">
+            <Clock className="w-2.5 h-2.5 shrink-0" />
+            <span>TERJADWAL</span>
           </div>
         )}
 
@@ -131,6 +141,18 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo }: 
                 <span className="text-[9.5px] text-amber-700 font-bold bg-amber-50 inline-block px-1.5 py-0.5 rounded mt-1 leading-none w-fit border border-amber-100">
                   Diskon {applicablePromo!.discount_type === 'percentage' ? `${applicablePromo!.discount_value}%` : formatRupiah(applicablePromo!.discount_value).replace('Rp ', '')} 
                   {applicablePromo!.min_purchase! > 0 ? ` Min. ${formatRupiah(applicablePromo!.min_purchase!).replace('Rp ', '')}` : ''}
+                </span>
+              )}
+              {/* Info promo terjadwal di bawah harga */}
+              {!hasPotentialPromo && scheduledPromo && (
+                <span className="text-[9px] text-violet-600 font-bold bg-violet-50 inline-flex items-center gap-1 px-1.5 py-0.5 rounded mt-1 leading-none w-fit border border-violet-100">
+                  <Clock className="w-2 h-2 shrink-0" />
+                  Diskon {scheduledPromo.discount_type === 'percentage'
+                    ? `${scheduledPromo.discount_value}%`
+                    : formatRupiah(scheduledPromo.discount_value).replace('Rp ', '')
+                  } mulai {scheduledPromo.start_date
+                    ? new Date(scheduledPromo.start_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+                    : ''} WIB
                 </span>
               )}
             </>

@@ -420,7 +420,10 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 const status = getPromoStatus(promo, now)
 
                 let discountedPrice = menu.price || 0;
-                if (promo.is_active && promo.discount_value > 0) {
+                // Tampilkan preview harga diskon hanya saat promo sedang berjalan,
+                // bukan saat masih "Terjadwal" atau "Berakhir".
+                const showDiscountPreview = promo.is_active && promo.discount_value > 0 && status === 'berjalan'
+                if (showDiscountPreview) {
                   if (promo.discount_type === 'nominal') {
                     discountedPrice = Math.max(0, (menu.price || 0) - promo.discount_value)
                   } else {
@@ -435,7 +438,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                       <div className="flex-1 min-w-0">
                         <p className={`font-bold text-base sm:text-lg break-words ${promo.is_active ? 'text-blue-900' : 'text-gray-900'}`}>{menu.name}</p>
                         <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5">
-                          {promo.is_active && promo.discount_value > 0 ? (
+                          {showDiscountPreview ? (
                             <>
                               <span className="text-sm text-gray-400 line-through decoration-gray-300 font-medium">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
                               <span className="text-base font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">Rp {(discountedPrice || 0).toLocaleString('id-ID')}</span>

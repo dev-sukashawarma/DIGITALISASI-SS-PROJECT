@@ -1026,11 +1026,25 @@ export default function KasirOrderClient({
 
     // Kalau order ini berasal dari website order online, teruskan notifikasi
     // ke order-system supaya WA "pesanan siap diambil" terkirim ke customer.
+    // Dicek responsnya (bukan cuma .catch jaringan) supaya kegagalan di sisi
+    // server (mis. secret belum dikonfigurasi) tidak lagi senyap total — order
+    // tetap ditandai selesai, tapi kasir tahu WA-nya mungkin belum terkirim.
     fetch('/api/orders/notify-online-done', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_id: id }),
-    }).catch((err) => console.error('Gagal mengirim notifikasi online ke order-system:', err))
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          console.error('Gagal mengirim notifikasi online ke order-system:', res.status, data)
+          showToast({ type: 'error', message: 'Order selesai, tapi WA ke customer gagal terkirim.' })
+        }
+      })
+      .catch((err) => {
+        console.error('Gagal mengirim notifikasi online ke order-system:', err)
+        showToast({ type: 'error', message: 'Order selesai, tapi WA ke customer gagal terkirim.' })
+      })
     return true
   }
 

@@ -12,14 +12,6 @@ import { exportToExcel, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 
-interface RevenueAggRow {
-  date: string | null
-  outlet_id: string
-  sales_source: string | null
-  omzet: number | null
-  jumlah_order_completed: number | null
-}
-
 interface SalesItemRow {
   sales_date: string | null
   outlet_id: string
@@ -122,7 +114,7 @@ export default function OutletRevenueTab() {
       const buildSalesQuery = () => {
         return supabase
           .from('orders')
-          .select('outlet_id, sales_source, is_endorse, total_amount, created_at, status')
+          .select('outlet_id, sales_source, channel, is_endorse, total_amount, created_at, status')
           .eq('status', 'completed')
           .gte('created_at', `${from}T00:00:00.000+07:00`)
           .lte('created_at', `${to}T23:59:59.999+07:00`) as any // Type bypass
@@ -138,7 +130,7 @@ export default function OutletRevenueTab() {
       orderRows.forEach(s => {
         if (selectedOutletId !== 'all' && s.outlet_id !== selectedOutletId) return;
         
-        const channelRaw = s.is_endorse ? 'endors' : (s.sales_source || 'Offline')
+        const channelRaw = (s.is_endorse || s.channel === 'endorse' || s.channel === 'endors' || s.sales_source === 'endorse' || s.sales_source === 'endors') ? 'endors' : (s.sales_source || 'Offline')
         if (selectedChannel !== 'all' && channelRaw !== selectedChannel) return;
 
         const d = new Date(s.created_at)
@@ -202,7 +194,7 @@ export default function OutletRevenueTab() {
       itemRows.forEach(s => {
         if (selectedOutletId !== 'all' && s.outlet_id !== selectedOutletId) return;
         
-        const channel = s.is_endorse ? 'endors' : (s.sales_source || 'Offline')
+        const channel = (s.is_endorse || s.sales_source === 'endorse' || s.sales_source === 'endors') ? 'endors' : (s.sales_source || 'Offline')
         if (selectedChannel !== 'all' && channel !== selectedChannel) return;
 
         const date = s.sales_date || 'Unknown Date'
@@ -513,7 +505,7 @@ export default function OutletRevenueTab() {
                             )}
                           </td>
                           <td className="py-4 px-5 text-right font-medium text-suka-gray-600">
-                            {item.totalOrders.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                            {item.totalOrders.toLocaleString('id-ID')}
                           </td>
                           <td className="py-4 px-5 text-right font-black text-suka-brown">
                             {item.channel === 'endors' ? (

@@ -37,7 +37,7 @@ interface HppDashboardViewProps {
 }
 
 function rupiah(n: number) {
-  return 'Rp ' + Math.round(n).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID')
 }
 
 export default function HppDashboardView({ items, channels }: HppDashboardViewProps) {

@@ -161,7 +161,7 @@ function POCard({ po }: { po: POSummary }) {
           </div>
           <div className="text-xs font-bold text-suka-gray-600 mt-1.5 truncate">{po.supplier_nama}</div>
           <div className="flex items-center gap-3 mt-2 text-[10px] font-semibold text-suka-gray-400">
-            <span className="bg-suka-gray-50 px-2 py-0.5 rounded-md border border-suka-gray-100">{new Date(po.tanggal_po).toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short', year: 'numeric' })}</span>
+            <span className="bg-suka-gray-50 px-2 py-0.5 rounded-md border border-suka-gray-100">{new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
             <span>·</span>
             <span className="text-suka-brown">{po.jumlah_item} Item Dipesan</span>
             {po.nama_dibuat_oleh && <><span>·</span><span className="uppercase tracking-wider">Oleh: {po.nama_dibuat_oleh}</span></>}

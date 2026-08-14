@@ -96,12 +96,12 @@ export async function processPettyCashFinanceCustomAmount(formData: FormData) {
       const finalAmount = approvedAmount ?? topup.amount
       if (approvalNote && approvalNote.trim()) {
         if (approvedAmount && approvedAmount !== topup.amount) {
-          newDescription = `${topup.description}\n\n[Catatan Finance (Acc Rp ${finalAmount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} dari Diajukan Rp ${topup.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}): ${approvalNote.trim()}]`
+          newDescription = `${topup.description}\n\n[Catatan Finance (Acc Rp ${finalAmount.toLocaleString('id-ID')} dari Diajukan Rp ${topup.amount.toLocaleString('id-ID')}): ${approvalNote.trim()}]`
         } else {
           newDescription = `${topup.description}\n\n[Catatan Finance: ${approvalNote.trim()}]`
         }
       } else if (approvedAmount && approvedAmount !== topup.amount) {
-        newDescription = `${topup.description}\n\n[Catatan Finance: Nominal disetujui Rp ${finalAmount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} dari diajukan Rp ${topup.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}]`
+        newDescription = `${topup.description}\n\n[Catatan Finance: Nominal disetujui Rp ${finalAmount.toLocaleString('id-ID')} dari diajukan Rp ${topup.amount.toLocaleString('id-ID')}]`
       }
     }
 

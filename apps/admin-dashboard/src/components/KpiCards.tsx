@@ -177,7 +177,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
                       : 'text-rose-500 bg-rose-50'
                   }`}
                 >
-                  {isPositive ? '▲' : '▼'} {Math.abs(c.delta as number).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  maximumFractionDigits: 1 })}%
+                  {isPositive ? '▲' : '▼'} {Math.abs(c.delta as number).toLocaleString('id-ID', { maximumFractionDigits: 1 })}%
                 </span>
               )}
             </div>

@@ -506,7 +506,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs group-focus-within:text-suka-orange transition-colors">Rp</span>
                         <input
                           inputMode="numeric"
-                          value={targetInput ? Number(targetInput).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                          value={targetInput ? Number(targetInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setTargetInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 5.000.000"
                           className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-black text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
@@ -524,7 +524,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400 font-extrabold text-xs group-focus-within:text-suka-orange transition-colors">Rp</span>
                         <input
                           inputMode="numeric"
-                          value={bonusInput ? Number(bonusInput).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                          value={bonusInput ? Number(bonusInput).toLocaleString('id-ID') : ''}
                           onChange={(e) => setBonusInput(e.target.value.replace(/\D/g, ''))}
                           placeholder="misal: 150.000"
                           className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm font-black text-suka-ink bg-white shadow-inner border border-suka-gray-200 outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all"
@@ -734,7 +734,7 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                               <Eye className="w-3.5 h-3.5 text-suka-gray-400" /> {m.read_count} Dibaca
                             </span>
                           </div>
-                          <span>{new Date(m.created_at).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta',  day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                          <span>{new Date(m.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
 
                         {m.target_type === 'outlets' && m.outlet_ids && m.outlet_ids.length > 0 && (
@@ -841,14 +841,14 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                             <input
                               inputMode="numeric"
                               placeholder="Target baru"
-                              value={targetVal ? Number(targetVal).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                              value={targetVal ? Number(targetVal).toLocaleString('id-ID') : ''}
                               onChange={(e) => setOverrideInputs({ ...overrideInputs, [r.outlet_id]: e.target.value.replace(/\D/g, '') })}
                               className="w-24 px-2 py-1 rounded-lg text-xs font-bold bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown"
                             />
                             <input
                               inputMode="numeric"
                               placeholder="Bonus"
-                              value={bonusVal ? Number(bonusVal).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                              value={bonusVal ? Number(bonusVal).toLocaleString('id-ID') : ''}
                               onChange={(e) => setOverrideBonusInputs({ ...overrideBonusInputs, [r.outlet_id]: e.target.value.replace(/\D/g, '') })}
                               className="w-20 px-2 py-1 rounded-lg text-xs font-bold bg-suka-cream/30 border border-suka-gray-200 outline-none focus:border-suka-brown"
                             />

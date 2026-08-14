@@ -122,7 +122,7 @@ export default function ExpensesPage() {
             <StatTile
               label="Total Pengeluaran"
               value={<><span className="text-lg align-top">Rp </span><CountUp end={totalAmount} duration={1} separator="." /></>}
-              sub={titleText + ` (Bulanan: Rp ${(amountBulanan/1000).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}k | Kas Kecil: Rp ${(amountPettyCash/1000).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}k)`}
+              sub={titleText + ` (Bulanan: Rp ${(amountBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(amountPettyCash/1000).toLocaleString('id-ID')}k)`}
               icon={Wallet}
               accent="brown"
             />
@@ -136,7 +136,7 @@ export default function ExpensesPage() {
             <StatTile
               label="Kategori Terbesar"
               value={<span className="text-xl leading-tight">{topCategory}</span>}
-              sub={byCategory.length > 0 ? `Total: Rp ${(byCategory[0].value/1000).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}k` : 'Belum ada data'}
+              sub={byCategory.length > 0 ? `Total: Rp ${(byCategory[0].value/1000).toLocaleString('id-ID')}k` : 'Belum ada data'}
               icon={Award}
               accent="orange"
             />

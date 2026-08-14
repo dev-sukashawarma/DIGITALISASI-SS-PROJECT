@@ -272,7 +272,7 @@ export default function ProfitClient({
                                 <PieChart className="w-24 h-24" />
                             </div>
                             <p className="text-gray-500 text-sm font-medium mb-1 relative">Total Transaksi</p>
-                            <h3 className="text-3xl font-black text-gray-900 relative">{totalOrders.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} <span className="text-lg text-gray-400 font-medium">struk</span></h3>
+                            <h3 className="text-3xl font-black text-gray-900 relative">{totalOrders.toLocaleString('id-ID')} <span className="text-lg text-gray-400 font-medium">struk</span></h3>
                         </div>
                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
@@ -369,7 +369,7 @@ export default function ProfitClient({
                                                             <span className="bg-red-100 text-red-600 text-[10px] px-2 py-0.5 rounded-full font-bold whitespace-nowrap">Set HPP!</span>
                                                         )}
                                                     </td>
-                                                    <td className="px-6 py-4 text-center font-bold text-gray-700">{item.qty.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</td>
+                                                    <td className="px-6 py-4 text-center font-bold text-gray-700">{item.qty.toLocaleString('id-ID')}</td>
                                                     <td className="px-6 py-4 text-right font-medium text-gray-900">{formatRp(hargaJual)}</td>
                                                     <td className="px-6 py-4 text-right text-gray-500">
                                                         {formatRp(item.hppUnit)}
@@ -391,7 +391,7 @@ export default function ProfitClient({
                                                                 <CornerDownRight className="w-4 h-4 text-gray-300 mr-2" />
                                                                 {getChannelBadge(ch)}
                                                             </td>
-                                                            <td className="px-6 py-3 text-center text-sm font-semibold text-gray-600">{chData.qty.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}</td>
+                                                            <td className="px-6 py-3 text-center text-sm font-semibold text-gray-600">{chData.qty.toLocaleString('id-ID')}</td>
                                                             <td className="px-6 py-3 text-right text-sm text-gray-700">{formatRp(chHargaJual)}</td>
                                                             <td className="px-6 py-3 text-right text-sm text-gray-400">{formatRp(item.hppUnit)}</td>
                                                             <td className="px-6 py-3 text-right text-sm text-red-400">{formatRp(chData.hppTotal)}</td>

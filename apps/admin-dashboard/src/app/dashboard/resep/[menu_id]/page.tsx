@@ -102,7 +102,7 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
           Resep BOM: {menu.name}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          Kategori: {menu.categories?.name || '—'} | Harga: Rp {menu.price?.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+          Kategori: {menu.categories?.name || '—'} | Harga: Rp {menu.price?.toLocaleString('id-ID')}
         </p>
       </div>
 

@@ -158,7 +158,7 @@ export function CreateTopupModal({ isOpen, onClose }: CreateTopupModalProps) {
                   inputMode="numeric"
                   placeholder="0"
                   className="w-full border border-suka-gray-300 rounded-lg pl-9 pr-3 py-2.5 text-sm font-bold focus:ring-2 focus:ring-suka-brown"
-                  value={amount ? Number(amount).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                  value={amount ? Number(amount).toLocaleString('id-ID') : ''}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/\D/g, '')
                     setAmount(raw)

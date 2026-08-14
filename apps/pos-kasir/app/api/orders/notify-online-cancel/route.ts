@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
 
 // Dipanggil dari app/kasir saat kasir membatalkan order (cancelOrder)
 // yang sumbernya online (source = 'online').
-// Mengupdate langsung status order-system ke 'cancelled' via Supabase Service Key.
+// Meneruskan notifikasi ke Edge Function order-system yang sama dipakai
+// notify-online-done (lihat komentar di sana untuk kenapa route ini pindah
+// dari update DB langsung ke webhook ORDER_SYSTEM_NOTIFY_URL).
 export async function POST(request: Request) {
   let body: { order_id: string }
   try {
@@ -29,29 +30,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, skipped: true })
   }
 
-  const ssOrderUrl = process.env.NEXT_PUBLIC_SS_ORDER_URL
-  const ssOrderServiceKey = process.env.SS_ORDER_SERVICE_KEY
+  const notifyUrl = process.env.ORDER_SYSTEM_NOTIFY_URL
+  const secret = process.env.KASIR_TO_ORDER_SECRET
 
-  if (!ssOrderUrl || !ssOrderServiceKey) {
-    console.error('NEXT_PUBLIC_SS_ORDER_URL / SS_ORDER_SERVICE_KEY belum dikonfigurasi')
+  if (!notifyUrl || !secret) {
+    console.error('ORDER_SYSTEM_NOTIFY_URL / KASIR_TO_ORDER_SECRET belum dikonfigurasi')
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 
   try {
-    const ssOrderDb = createClient(ssOrderUrl, ssOrderServiceKey)
-    
-    // Update langsung ke database order-system
-    const { error: updateErr } = await ssOrderDb
-      .from('orders')
-      .update({
+    const res = await fetch(notifyUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${secret}`,
+      },
+      body: JSON.stringify({
+        order_id: order.external_order_id,
         status: 'cancelled',
-        cancelled_at: new Date().toISOString()
-      })
-      .eq('id', order.external_order_id)
+      }),
+    })
 
-    if (updateErr) {
-      console.error('Gagal update database order-system:', updateErr)
-      return NextResponse.json({ error: 'Gagal update database order-system' }, { status: 502 })
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      console.error('order-system menolak notifikasi batal:', res.status, errText)
+      return NextResponse.json({ error: 'order-system menolak notifikasi' }, { status: 502 })
     }
   } catch (err) {
     console.error('Gagal menghubungi order-system:', err)

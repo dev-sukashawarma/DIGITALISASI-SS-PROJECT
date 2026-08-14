@@ -144,8 +144,7 @@ export function PettyCashReportView({
       return d.toLocaleDateString('id-ID', {
         day: '2-digit',
         month: 'short',
-        year: 'numeric',
-        timeZone: 'Asia/Jakarta'
+        year: 'numeric'
       })
     } catch {
       return isoStr
@@ -158,7 +157,6 @@ export function PettyCashReportView({
       const d = new Date(isoStr)
       if (isNaN(d.getTime())) return isoStr.includes('T') ? isoStr.split('T')[1].slice(0, 5) : '00:00'
       return d.toLocaleTimeString('id-ID', {
-        timeZone: 'Asia/Jakarta',
         hour: '2-digit',
         minute: '2-digit',
         hour12: false

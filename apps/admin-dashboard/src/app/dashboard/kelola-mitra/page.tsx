@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import KelolaMitraView from './KelolaMitraView'

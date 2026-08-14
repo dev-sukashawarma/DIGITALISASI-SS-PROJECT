@@ -58,7 +58,7 @@ type SortField = 'category' | 'name' | 'type' | 'hpp' | 'price' | 'profit' | 'ma
 type SortDir = 'asc' | 'desc'
 
 function rupiah(n: number) {
-  return 'Rp ' + Math.round(n).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+  return 'Rp ' + Math.round(n).toLocaleString('id-ID')
 }
 
 /** Logo SVG kecil untuk channel online (GoFood, Shopee, dll) */
@@ -412,7 +412,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
       toast.success(
         val === null
           ? `HPP Override untuk "${name}" berhasil direset ke BOM`
-          : `HPP Override untuk "${name}" berhasil diset ke Rp ${val.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}`
+          : `HPP Override untuk "${name}" berhasil diset ke Rp ${val.toLocaleString('id-ID')}`
       )
       setEditingOverrideId(null)
       router.refresh()

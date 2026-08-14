@@ -58,7 +58,6 @@ export function formatGoogleSheetsPayload(
   const dateObj = new Date(timestamp)
   // Get local date number in Asia/Jakarta timezone
   const dayOfMonthStr = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Asia/Jakarta',
     day: 'numeric'
   }).format(dateObj)
   const dayOfMonth = Number(dayOfMonthStr) || dateObj.getDate()

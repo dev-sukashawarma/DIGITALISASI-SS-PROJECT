@@ -2,6 +2,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { db } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
@@ -469,7 +470,7 @@ export async function getAttendanceReportData(
 
     const item = grouped.get(key)!
     if (r.type === 'in') {
-      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
+      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       item.raw_photo_in = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
@@ -481,7 +482,7 @@ export async function getAttendanceReportData(
         item.late_minutes = r.telat_menit || 0
       }
     } else if (r.type === 'out') {
-      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' })
+      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
       item.raw_photo_out = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)

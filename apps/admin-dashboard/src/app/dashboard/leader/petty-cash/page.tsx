@@ -1,11 +1,12 @@
-'use client'
 // @ts-nocheck
+'use client'
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { 
   Building2, Send, Check, 
   Search, Camera, X, Download
 } from 'lucide-react'
+// @ts-nocheck
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
 import { toast } from 'sonner'
@@ -28,8 +29,7 @@ function formatDateTime(iso: string) {
   if (!iso) return '-'
   try {
     const d = new Date(iso)
-    return d.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', 
-      day: '2-digit',
+    return d.toLocaleString('id-ID', { day: '2-digit',
       month: 'short',
       year: 'numeric',
       hour: '2-digit',
@@ -404,7 +404,7 @@ export default function LeaderPettyCashPage() {
                       type="text" 
                       inputMode="numeric"
                       placeholder="0" 
-                      value={amount ? Number(amount).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+                      value={amount ? Number(amount).toLocaleString('id-ID') : ''}
                       onChange={(e) => setAmount(e.target.value.replace(/\D/g, ''))}
                       className="w-full pl-12 pr-4 py-3.5 bg-slate-50 rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-slate-900 outline-none transition-all"
                       required 

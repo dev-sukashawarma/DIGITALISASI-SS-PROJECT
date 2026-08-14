@@ -121,7 +121,7 @@ export function PettyCashList({ initialRequests }: { initialRequests?: PettyCash
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm font-bold text-suka-brown whitespace-nowrap">
-                    Rp {req.amount.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
+                    Rp {req.amount.toLocaleString('id-ID')}
                   </td>
                   <td className="py-3 px-4 text-sm text-suka-gray-600">{req.reason || req.description}</td>
                   <td className="py-3 px-4 whitespace-nowrap">

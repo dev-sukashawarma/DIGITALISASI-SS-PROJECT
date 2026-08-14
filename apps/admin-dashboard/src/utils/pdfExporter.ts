@@ -100,7 +100,7 @@ export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData):
   doc.text(`Cabang: ${data.outletName}`, rightX, currentY + 4, { align: 'right' })
   doc.text(`Periode: ${data.dateRangeLabel}`, rightX, currentY + 9, { align: 'right' })
   doc.text(`Channel: ${data.channelLabel}`, rightX, currentY + 14, { align: 'right' })
-  doc.text(`Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
+  doc.text(`Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
 
   currentY += 24
 
@@ -117,8 +117,8 @@ export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData):
 
   const kpis = [
     { label: 'GROSS REVENUE', value: formatRupiah(data.grossRevenue), color: [245, 158, 11] }, // Amber-500
-    { label: 'TOTAL ITEM TERJUAL', value: `${totalItemQty.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} Pcs`, color: [16, 185, 129] }, // Emerald-500
-    { label: 'TOTAL TRANSAKSI', value: `${data.totalOrders.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} Pesanan`, color: [99, 102, 241] } // Indigo-500
+    { label: 'TOTAL ITEM TERJUAL', value: `${totalItemQty.toLocaleString('id-ID')} Pcs`, color: [16, 185, 129] }, // Emerald-500
+    { label: 'TOTAL TRANSAKSI', value: `${data.totalOrders.toLocaleString('id-ID')} Pesanan`, color: [99, 102, 241] } // Indigo-500
   ]
 
   kpis.forEach((kpi, idx) => {
@@ -207,7 +207,7 @@ export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData):
     doc.setFontSize(7)
     doc.setTextColor(156, 163, 175) // Gray-400
     doc.text(
-      `Dicetak pada: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} | Halaman ${i} dari ${pageCount}`,
+      `Dicetak pada: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
       105,
       287,
       { align: 'center' }
@@ -269,7 +269,7 @@ export const generateCategorizedReportPDF = async (data: CategorizedReportData):
   doc.text(`Cabang: ${data.outletName}`, rightX, currentY + 4, { align: 'right' })
   doc.text(`Periode: ${data.dateRangeLabel}`, rightX, currentY + 9, { align: 'right' })
   doc.text(`Channel: Semua Channel`, rightX, currentY + 14, { align: 'right' })
-  doc.text(`Tgl Unduh: ${new Date().toLocaleDateString('id-ID', { timeZone: 'Asia/Jakarta',  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
+  doc.text(`Tgl Unduh: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
 
   currentY += 24
 
@@ -447,7 +447,7 @@ export const generateCategorizedReportPDF = async (data: CategorizedReportData):
     doc.setFontSize(7)
     doc.setTextColor(156, 163, 175) // Gray-400
     doc.text(
-      `Dicetak pada: ${new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })} | Halaman ${i} dari ${pageCount}`,
+      `Dicetak pada: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
       105,
       287,
       { align: 'center' }

@@ -55,7 +55,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe, comboBOMData 
     return hppOverride.trim() !== '' && !isNaN(overrideNum) ? overrideNum : hpp.totalHpp
   }, [hppOverride, hpp.totalHpp])
 
-  const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })
+  const rupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
   const marginPct = hargaJual > 0 ? ((hargaJual - activeHpp) / hargaJual) * 100 : null
   const marginBadge =
     marginPct === null
@@ -210,7 +210,7 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe, comboBOMData 
             <input
               type="text"
               inputMode="numeric"
-              value={hargaJual ? hargaJual.toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' }) : ''}
+              value={hargaJual ? hargaJual.toLocaleString('id-ID') : ''}
               onChange={(e) => setHargaJual(Number(e.target.value.replace(/\D/g, '')) || 0)}
               className="w-full bg-black/20 text-3xl font-extrabold text-suka-orange rounded-lg py-1 pl-10 pr-3 border border-transparent focus:border-suka-orange focus:ring-1 focus:ring-suka-orange"
             />

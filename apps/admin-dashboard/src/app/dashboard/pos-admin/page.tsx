@@ -19,7 +19,7 @@ export default async function AdminOverviewPage() {
       const dateRange = resolveRange('30days', '', '')
       let q = supabase
         .from('orders')
-        .select('id, status, total_amount, created_at, outlet_id, channel, sales_source')
+        .select('id, status, total_amount, created_at, outlet_id, channel, sales_source, scheduled_promo_names')
         .eq('status', 'completed')
         .order('created_at', { ascending: true })
 

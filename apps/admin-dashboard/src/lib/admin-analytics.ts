@@ -39,6 +39,7 @@ export interface OrderRow {
   sales_source?: string | null
   customer_name?: string | null
   is_endorse?: boolean | null
+  scheduled_promo_names?: string[] | null
 }
 
 // Satu baris rincian kontribusi per sumber (channel/online/pos) untuk Overview.

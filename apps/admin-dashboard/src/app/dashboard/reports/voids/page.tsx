@@ -13,6 +13,7 @@ export default async function VoidsReportPage() {
       id,
       created_at,
       total_amount,
+      scheduled_promo_names,
       void_reason,
       void_at,
       outlets!inner(name),

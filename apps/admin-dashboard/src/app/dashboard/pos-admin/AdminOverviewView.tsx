@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
-  TrendingUp, TrendingDown, ShoppingBag, Banknote, Clock, Store, ChevronDown, Calendar, Globe, Monitor, Layers
+  TrendingUp, TrendingDown, ShoppingBag, Banknote, Clock, Store, ChevronDown, Calendar, Globe, Monitor, Layers, Tag
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
@@ -59,7 +59,7 @@ export default function AdminOverviewView({
 
     let q = supabase
       .from('orders')
-      .select('id, status, total_amount, created_at, outlet_id, channel, sales_source')
+      .select('id, status, total_amount, created_at, outlet_id, channel, sales_source, scheduled_promo_names')
       .eq('status', 'completed')
       .order('created_at', { ascending: true })
 
@@ -159,6 +159,10 @@ export default function AdminOverviewView({
   const analytics = useMemo(
     () => computeAnalytics(orders, outlets, dateRange),
     [orders, outlets, dateRange]
+  )
+  const scheduledPromoOrderCount = useMemo(
+    () => orders.filter(order => (order.scheduled_promo_names || []).length > 0).length,
+    [orders]
   )
 
   const chartData = useMemo(() => {
@@ -325,6 +329,14 @@ export default function AdminOverviewView({
               </div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rata-rata Pesanan</p>
               <p className="text-xl font-bold text-gray-900 mt-0.5">{formatRupiah(analytics.avgOrderValue)}</p>
+            </div>
+
+            <div className="card p-5 shadow-sm border border-violet-100 bg-violet-50/30">
+              <div className="w-9 h-9 bg-violet-100 rounded-2xl flex items-center justify-center mb-3">
+                <Tag className="w-4.5 h-4.5 text-violet-600" strokeWidth={1.5} />
+              </div>
+              <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">Order Promo Terjadwal</p>
+              <p className="text-3xl font-bold text-violet-900 mt-0.5">{scheduledPromoOrderCount}</p>
             </div>
 
             <div className="card p-5 shadow-sm border border-gray-100">

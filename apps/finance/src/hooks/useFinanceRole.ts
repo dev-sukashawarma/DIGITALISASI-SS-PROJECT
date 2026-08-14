@@ -12,11 +12,18 @@ export function useFinanceRole() {
   const role = outletStaff?.role ?? null
   const isChecker = role === 'owner' || role === 'admin'
   const isFinance = role === 'owner' || role === 'admin' || role === 'admin_finance'
+  const isPurchasing = role === 'owner' || role === 'admin' || role === 'purchasing' || role === 'purchase'
+  const canManagePO = isPurchasing || role === 'admin_finance' || role === 'kitchen'
+  const canApprovePO = role === 'owner' || role === 'admin' || role === 'admin_finance'
+
   return { 
     role, 
     name: outletStaff?.name ?? null, 
     userId: outletStaff?.id ?? null,
     isChecker, 
-    isFinance 
+    isFinance,
+    isPurchasing,
+    canManagePO,
+    canApprovePO,
   }
 }

@@ -1835,7 +1835,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <option value="OFFLINE">OFFLINE (POS PAWOON)</option>
                   <option value="FOOD APPS">FOOD APPS (GrabFood/GoFood/Shopee)</option>
                   <option value="TIKTOK">TIKTOK</option>
-                  <option value="WEB ONLINE">WEB ONLINE</option>`n                  <option value="ENDORSE">ENDORSE</option>
+                  <option value="WEB ONLINE">WEB ONLINE</option>
                 </select>
               </div>
             </div>

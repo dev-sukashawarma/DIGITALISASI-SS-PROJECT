@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
+import { getPromoStatus, validateSchedule } from '@/lib/promoSchedule'
 import crypto from 'crypto'
 
 export async function savePromosAction(
@@ -18,6 +19,14 @@ export async function savePromosAction(
 
   if (!outlets || outlets.length === 0) {
     return { success: false, error: 'Tidak ada outlet aktif untuk diterapkan promo.' }
+  }
+
+  // Jadwal divalidasi di server juga — Server Action adalah endpoint POST
+  // publik, guard di form saja tidak cukup. DB punya CHECK constraint yang
+  // sama, tapi pesannya tak terbaca kasir kalau sampai lolos ke sana.
+  for (const p of promos) {
+    const scheduleError = validateSchedule(p)
+    if (scheduleError) return { success: false, error: scheduleError }
   }
 
   const outletIds = outlets.map(o => o.id)
@@ -55,7 +64,8 @@ export async function savePromosAction(
         is_active: p.is_active,
         min_purchase: p.min_purchase,
         usage_limit: p.usage_limit,
-        end_date: p.end_date,
+        start_date: p.start_date ?? null,
+        end_date: p.end_date ?? null,
         apply_to_food_apps: p.apply_to_food_apps || false
       })
     }
@@ -110,7 +120,10 @@ export async function savePromosAction(
           discount_value: Math.max(0.01, Number(p.discount_value) || 0),
           min_purchase: p.min_purchase || 0,
           end_at: p.end_date || null,
-          is_active: p.is_active,
+          // Order Online belum punya kolom jadwal mulai, jadi promo yang masih
+          // "Terjadwal" dikirim non-aktif ke sana. Saat jadwalnya tiba, admin
+          // perlu menyimpan ulang halaman ini agar ikut menyala di website.
+          is_active: p.is_active && getPromoStatus(p) === 'berjalan',
           applies_to: appliesTo,
           outlet_ids: outletIds,
           item_ids: p.scope === 'item' ? [p.menu_item_id] : null,

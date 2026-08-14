@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { validateCheckoutPayload } from '@/lib/validations'
 import type { CheckoutPayload } from '@/types'
-import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, BasePromo } from '@/lib/promo-calculator'
 
 export async function POST(request: Request) {
   let body: unknown
@@ -132,18 +132,15 @@ export async function POST(request: Request) {
     // Track applied promos
     if (unitPrice < menuItem.price) {
       let globalApplied = false
-      if (globalPromo) {
-        if (!(globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) && 
-            !(globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit)) {
-          if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
-             globalApplied = true
-             appliedPromoIds.add(globalPromo.id)
-          }
+      if (globalPromo && isPromoEligible(globalPromo as BasePromo)) {
+        if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
+          globalApplied = true
+          appliedPromoIds.add(globalPromo.id)
         }
       }
 
       if (!globalApplied) {
-        const itemPromo = itemPromos.find(p => p.menu_item_id === menuItem.id && p.is_active)
+        const itemPromo = itemPromos.find(p => p.menu_item_id === menuItem.id && isPromoEligible(p as BasePromo))
         if (itemPromo) {
           appliedPromoIds.add(itemPromo.id)
         }

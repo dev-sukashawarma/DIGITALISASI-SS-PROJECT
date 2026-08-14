@@ -10,11 +10,43 @@ export interface BasePromo {
   min_purchase?: number | null;
   usage_limit?: number | null;
   current_usage?: number;
+  /** Promo terjadwal: belum berlaku sebelum waktu ini. NULL = berlaku sejak diaktifkan. */
+  start_date?: string | null;
   end_date?: string | null;
   apply_to_food_apps?: boolean;
 }
 
 const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'];
+
+/**
+ * Promo sedang berada di dalam jendela jadwalnya?
+ *
+ * start_date/end_date bertipe timestamptz (instant absolut), jadi perbandingan
+ * ini benar tanpa peduli zona waktu perangkat kasir — perangkat yang diset
+ * WITA tidak akan menyalakan promo satu jam lebih awal.
+ */
+export function isPromoScheduleRunning(promo: BasePromo, now: number = Date.now()): boolean {
+  if (promo.start_date) {
+    const start = new Date(promo.start_date).getTime();
+    if (!isNaN(start) && start > now) return false; // belum mulai
+  }
+  if (promo.end_date) {
+    const end = new Date(promo.end_date).getTime();
+    if (!isNaN(end) && end < now) return false; // sudah lewat
+  }
+  return true;
+}
+
+/**
+ * Promo layak dipakai: aktif, di dalam jadwal, kuota belum habis.
+ * min_purchase dicek terpisah karena bergantung isi keranjang.
+ */
+export function isPromoEligible(promo: BasePromo, now: number = Date.now()): boolean {
+  if (!promo.is_active) return false;
+  if (!isPromoScheduleRunning(promo, now)) return false;
+  if (promo.usage_limit && (promo.current_usage || 0) >= promo.usage_limit) return false;
+  return true;
+}
 
 /**
  * Harga acuan (list price) sebelum promo. Untuk channel yang punya harga
@@ -48,12 +80,10 @@ export function calculateItemPrice(
   const globalPromo = promos.find(p => p.scope === 'global' && p.is_active);
   const itemPromos = promos.filter(p => p.scope === 'item' && p.is_active);
 
-  // If global promo is active and not expired, it applies to ALL items
+  // Global promo berlaku untuk SEMUA item, asalkan di dalam jadwal & kuota.
   if (globalPromo && (!isFoodApp || globalPromo.apply_to_food_apps)) {
-    if (globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) {
-      // global promo is expired, so it's ignored, fall through to item promo
-    } else if (globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit) {
-      // global promo usage limit reached
+    if (!isPromoEligible(globalPromo)) {
+      // Belum mulai / sudah lewat / kuota habis → jatuh ke promo per item.
     } else {
       let apply = true;
       if (globalPromo.min_purchase && globalPromo.min_purchase > 0) {
@@ -76,12 +106,9 @@ export function calculateItemPrice(
   if (!promo) return basePrice;
   if (isFoodApp && !promo.apply_to_food_apps) return basePrice;
 
-  if (promo.end_date && new Date(promo.end_date).getTime() < Date.now()) {
-    return basePrice; // Expired
-  }
-
-  if (promo.usage_limit && (promo.current_usage || 0) >= promo.usage_limit) {
-    return basePrice; // Usage limit reached
+  // Belum mulai (promo terjadwal), sudah lewat, atau kuota habis.
+  if (!isPromoEligible(promo)) {
+    return basePrice;
   }
 
   if (promo.min_purchase && promo.min_purchase > 0) {

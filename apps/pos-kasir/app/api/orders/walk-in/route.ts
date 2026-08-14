@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, BasePromo } from '@/lib/promo-calculator'
 
 // Endpoint dipanggil dari halaman /kasir/order-manual (tab "Kasir Langsung")
 // saat kasir mencatat pesanan pelanggan yang datang LANGSUNG ke kasir.
@@ -178,18 +178,15 @@ export async function POST(request: Request) {
     if (menuItem && item.unit_price < menuItem.price) {
       // Find if it was global or item promo. In calculateItemPrice, global promo has priority.
       let globalApplied = false
-      if (globalPromo) {
-        if (!(globalPromo.end_date && new Date(globalPromo.end_date).getTime() < Date.now()) && 
-            !(globalPromo.usage_limit && (globalPromo.current_usage || 0) >= globalPromo.usage_limit)) {
-          if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
-             globalApplied = true
-             appliedPromoIds.add(globalPromo.id)
-          }
+      if (globalPromo && isPromoEligible(globalPromo as BasePromo)) {
+        if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
+          globalApplied = true
+          appliedPromoIds.add(globalPromo.id)
         }
       }
 
       if (!globalApplied) {
-        const itemPromo = itemPromos.find(p => p.menu_item_id === item.menu_item_id && p.is_active)
+        const itemPromo = itemPromos.find(p => p.menu_item_id === item.menu_item_id && isPromoEligible(p as BasePromo))
         if (itemPromo) {
           appliedPromoIds.add(itemPromo.id)
         }

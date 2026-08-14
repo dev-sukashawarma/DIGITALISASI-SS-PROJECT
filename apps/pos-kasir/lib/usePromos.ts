@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { calculateItemPrice, calculateGlobalDiscount } from './promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, isPromoEligible } from './promo-calculator'
 import { db } from '@/lib/db'
 
 export type OutletPromo = {
@@ -16,6 +16,8 @@ export type OutletPromo = {
   min_purchase?: number | null
   usage_limit?: number | null
   current_usage?: number
+  /** Promo terjadwal: belum berlaku sebelum waktu ini. NULL = berlaku sejak diaktifkan. */
+  start_date?: string | null
   end_date?: string | null
   apply_to_food_apps?: boolean
 }
@@ -90,10 +92,11 @@ export function usePromos(outletId: string | undefined) {
   }
 
   const getPromoForMenu = (menuId: string): OutletPromo | null => {
-    const globalP = promos.find(p => p.scope === 'global' && p.is_active && (!p.end_date || new Date(p.end_date).getTime() > Date.now()))
+    // Promo terjadwal yang belum mulai tidak boleh muncul sebagai badge di menu.
+    const globalP = promos.find(p => p.scope === 'global' && isPromoEligible(p))
     if (globalP) return globalP
-    
-    const itemP = promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && p.is_active && (!p.end_date || new Date(p.end_date).getTime() > Date.now()))
+
+    const itemP = promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && isPromoEligible(p))
     return itemP || null
   }
 

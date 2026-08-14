@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useDeferredValue } from 'rea
 import Link from 'next/link'
 import {
   ArrowLeft, Search, Plus, Minus, Trash2, ShoppingBag, Loader2,
-  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera, ThumbsUp, Clock,
+  CheckCircle2, X, StickyNote, Banknote, QrCode, Sandwich, Store, Globe, Printer, CreditCard, Camera, ThumbsUp, Clock, Tag,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
@@ -40,7 +40,7 @@ export default function OrderManualPage() {
   const supabase = createClient()
   const queryClient = useQueryClient()
   const { outletId, outletName, loaded } = useMyOutlet()
-  const { calculateItemPrice, calculateGlobalDiscount, globalPromo } = usePromos(outletId || undefined)
+  const { calculateItemPrice, calculateGlobalDiscount, globalPromo, getPromoForMenu, getScheduledPromoForMenu } = usePromos(outletId || undefined)
   const { showAlert, showConfirm } = useDialogStore()
 
   // Mode halaman: "walkin" (pelanggan datang langsung ke kasir), "online" (Food Apps), "website" (backup order website/WA), atau "endorse"
@@ -464,9 +464,11 @@ export default function OrderManualPage() {
   const parsedPromoSubsidy = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? (Number(promoSubsidy) || 0) : 0
   const totalPrice = Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy)
 
-  const isGlobalPromoActive = globalPromo && globalPromo.is_active && (!globalPromo.end_date || new Date(globalPromo.end_date).getTime() > Date.now());
-  const needsMoreForPromo = isGlobalPromoActive && globalPromo.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo.min_purchase;
-  const missingAmount = needsMoreForPromo ? (globalPromo.min_purchase || 0) - subtotalAmount : 0;
+  // globalPromo dari usePromos sudah lolos isPromoEligible (jadwal + kuota),
+  // sehingga tidak perlu cek ulang di sini. Booleans di bawah hanya untuk UI.
+  const isGlobalPromoActive = !!globalPromo;
+  const needsMoreForPromo = isGlobalPromoActive && globalPromo!.min_purchase && subtotalAmount > 0 && subtotalAmount < globalPromo!.min_purchase;
+  const missingAmount = needsMoreForPromo ? (globalPromo!.min_purchase || 0) - subtotalAmount : 0;
 
   const activeChannel = mode === 'website' ? 'website' : channel
   const canSubmit = lineList.length > 0 && !!activeChannel && !!payment && !!customerName.trim() && (mode !== 'website' || !!pickupTime.trim()) && !submitting
@@ -1025,10 +1027,16 @@ export default function OrderManualPage() {
               <p className="font-medium">Tidak ada menu yang cocok</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
               {visibleItems.map((it) => {
                 const qty = lineList.filter(l => l.item.id === it.id).reduce((sum, l) => sum + l.quantity, 0)
                 const disabled = it.isDisabled
+                const activePromo = getPromoForMenu(it.id)
+                const scheduledPromo = !activePromo ? getScheduledPromoForMenu(it.id) : null
+                const promoPrice = activePromo
+                  ? wrappedCalculateItemPrice(it.price, it.id, it.channel_prices)
+                  : null
+                const hasDiscount = promoPrice !== null && promoPrice < it.price
                 return (
                   <div
                     key={it.id}
@@ -1054,18 +1062,46 @@ export default function OrderManualPage() {
                           <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full border border-red-400 shadow-sm">HABIS</span>
                         </div>
                       )}
+                      {/* Promo badge — harga sudah turun */}
+                      {!disabled && hasDiscount && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5 z-10">
+                          <Tag className="w-2.5 h-2.5" />
+                          <span>PROMO</span>
+                        </div>
+                      )}
+                      {/* Scheduled badge — promo aktif tapi belum waktunya */}
+                      {!disabled && !hasDiscount && scheduledPromo && (
+                        <div className="absolute top-2 left-2 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-0.5 z-10 animate-pulse">
+                          <Clock className="w-2.5 h-2.5" />
+                          <span>TERJADWAL</span>
+                        </div>
+                      )}
                       {!disabled && <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200" />}
                     </div>
                     <div className="p-2.5 flex flex-col justify-between">
                       <p className="font-bold text-gray-800 text-xs leading-snug line-clamp-2 min-h-[2rem]">{it.name}</p>
                       <div className="flex items-center justify-between mt-2">
                         <div className="flex flex-col">
-                          {it.strike_price != null && (
+                          {hasDiscount && (
+                            <span className="text-gray-400 line-through text-[10px] xl:text-xs">
+                              {formatRupiah(it.price)}
+                            </span>
+                          )}
+                          {!hasDiscount && it.strike_price != null && (
                             <span className="text-gray-400 line-through text-[10px] xl:text-xs">
                               {formatRupiah(it.strike_price)}
                             </span>
                           )}
-                          <span className="font-bold text-amber-600 text-xs xl:text-sm">{formatRupiah(wrappedCalculateItemPrice(it.price, it.id, it.channel_prices))}</span>
+                          <span className={`font-bold text-xs xl:text-sm ${hasDiscount ? 'text-red-600' : 'text-amber-600'}`}>
+                            {formatRupiah(hasDiscount ? promoPrice! : wrappedCalculateItemPrice(it.price, it.id, it.channel_prices))}
+                          </span>
+                          {/* Info jadwal promo yang belum mulai */}
+                          {scheduledPromo && scheduledPromo.start_date && (
+                            <span className="text-[8px] text-violet-600 font-semibold flex items-center gap-0.5 mt-0.5">
+                              <Clock className="w-2 h-2" />
+                              {new Date(scheduledPromo.start_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

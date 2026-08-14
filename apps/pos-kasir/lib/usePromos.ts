@@ -25,6 +25,14 @@ export type OutletPromo = {
 export function usePromos(outletId: string | undefined) {
   const [promos, setPromos] = useState<OutletPromo[]>([])
   const [loading, setLoading] = useState(true)
+  // Tick setiap 5 detik → memaksa re-render sehingga isPromoEligible dievaluasi
+  // ulang tepat saat start_date/end_date tercapai tanpa menunggu polling berikutnya.
+  const [now, setNow] = useState<number>(() => Date.now())
+
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 5000)
+    return () => clearInterval(tick)
+  }, [])
 
   useEffect(() => {
     if (!outletId) {
@@ -42,7 +50,7 @@ export function usePromos(outletId: string | undefined) {
           .select('*')
           .eq('outlet_id', outletId)
           .eq('is_active', true)
-        
+
         if (error) throw error
         setPromos(data || [])
         // Cache promo ke IndexedDB untuk dipakai saat offline
@@ -69,8 +77,8 @@ export function usePromos(outletId: string | undefined) {
       )
       .subscribe()
 
-    // Fallback polling — dipercepat ke 5 detik agar perubahan jadwal dari admin
-    // tidak tertunda terlalu lama bila realtime channel sesaat terputus.
+    // Fallback polling setiap 5 detik — memastikan data segar bila realtime
+    // channel sesaat terputus DAN sekaligus me-refresh now via setNow di atas.
     const interval = setInterval(() => {
       load(true)
     }, 5000)
@@ -86,28 +94,34 @@ export function usePromos(outletId: string | undefined) {
     }
   }, [outletId])
 
-  const globalPromo = promos.find(p => p.scope === 'global')
-  const itemPromos = promos.filter(p => p.scope === 'item')
+  // ─── Derived: hanya promo yang BENAR-BENAR sedang berjalan ─────────────────
+  // Menggunakan `now` dari state sehingga komponen konsumen re-render
+  // secara otomatis setiap 5 detik — bukan hanya saat data baru datang.
+  const activeGlobalPromo = promos.find(p => p.scope === 'global' && isPromoEligible(p, now)) ?? null
+  const activeItemPromos  = promos.filter(p => p.scope === 'item' && isPromoEligible(p, now))
 
-  const calcItemPrice = (originalPrice: number, menuId: string, cartBaseSubtotal?: number, salesSource?: string, channelPrices?: Record<string, number> | null): number => {
-    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource, channelPrices)
+  const calcItemPrice = (
+    originalPrice: number,
+    menuId: string,
+    cartBaseSubtotal?: number,
+    salesSource?: string,
+    channelPrices?: Record<string, number> | null
+  ): number => {
+    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource, channelPrices, now)
   }
 
   const calcGlobalDiscount = (subtotal: number): number => {
     return calculateGlobalDiscount(subtotal, promos)
   }
 
+  /** Promo yang sedang AKTIF dan berada di dalam jendela jadwal. */
   const getPromoForMenu = (menuId: string): OutletPromo | null => {
-    // Promo terjadwal yang belum mulai tidak boleh muncul sebagai badge aktif di menu.
-    const globalP = promos.find(p => p.scope === 'global' && isPromoEligible(p))
-    if (globalP) return globalP
-
-    const itemP = promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && isPromoEligible(p))
-    return itemP || null
+    if (activeGlobalPromo) return activeGlobalPromo
+    return activeItemPromos.find(p => p.menu_item_id === menuId) ?? null
   }
 
   /**
-   * Promo yang is_active=true tapi belum mulai (start_date > now).
+   * Promo yang is_active=true tapi start_date masih di depan (belum mulai).
    * Dipakai untuk badge "Terjadwal" di kartu menu kasir — bukan untuk kalkulasi harga.
    */
   const getScheduledPromoForMenu = (menuId: string): OutletPromo | null => {
@@ -115,16 +129,30 @@ export function usePromos(outletId: string | undefined) {
       if (!p.is_active) return false
       if (!p.start_date) return false
       const start = new Date(p.start_date).getTime()
-      return !isNaN(start) && start > Date.now()
+      // Jika sudah lewat end_date juga bukan "terjadwal"
+      if (p.end_date) {
+        const end = new Date(p.end_date).getTime()
+        if (!isNaN(end) && end < now) return false
+      }
+      return !isNaN(start) && start > now
     }
 
-    // Global terjadwal berlaku semua menu
     const globalSched = promos.find(p => p.scope === 'global' && isScheduled(p))
     if (globalSched) return globalSched
 
-    const itemSched = promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && isScheduled(p))
-    return itemSched || null
+    return promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && isScheduled(p)) ?? null
   }
 
-  return { promos, loading, globalPromo, itemPromos, calculateItemPrice: calcItemPrice, calculateGlobalDiscount: calcGlobalDiscount, getPromoForMenu, getScheduledPromoForMenu }
+  return {
+    promos,
+    loading,
+    /** Promo global yang SEDANG BERJALAN (lolos jadwal & kuota). */
+    globalPromo: activeGlobalPromo,
+    /** Promo per-item yang SEDANG BERJALAN (lolos jadwal & kuota). */
+    itemPromos: activeItemPromos,
+    calculateItemPrice: calcItemPrice,
+    calculateGlobalDiscount: calcGlobalDiscount,
+    getPromoForMenu,
+    getScheduledPromoForMenu,
+  }
 }

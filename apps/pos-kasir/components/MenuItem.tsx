@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Plus, Minus, Sandwich, Clock } from 'lucide-react'
+import { Plus, Minus, Sandwich, Clock, Tag } from 'lucide-react'
 import type { MenuItem as MenuItemType } from '@/types'
 import { useCart } from '@/store/cart'
 import { formatRupiah } from '@/lib/validations'
@@ -74,19 +74,38 @@ export default function MenuItem({ item, calculateItemPrice, applicablePromo, sc
         
         {/* Promo Badge overlay — hanya tampil saat promo sudah berjalan */}
         {item.is_available && isDiscountActiveNow && (
-          <div className="absolute top-2.5 left-2.5 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded shadow-sm flex items-center gap-1 z-10 flex-col !items-start">
-            <span>PROMO</span>
+          <div className="absolute top-2.5 left-2.5 z-10">
+            <div className="relative bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg shadow-md flex items-center gap-1 overflow-hidden">
+              {/* shimmer effect */}
+              <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_ease-in-out_infinite]" />
+              <Tag className="w-2.5 h-2.5 shrink-0" />
+              <span>PROMO</span>
+              {applicablePromo!.discount_type === 'percentage'
+                ? <span className="bg-white/20 px-1 rounded text-[8px]">-{applicablePromo!.discount_value}%</span>
+                : <span className="bg-white/20 px-1 rounded text-[8px]">-{formatRupiah(applicablePromo!.discount_value).replace('Rp ', '')}</span>
+              }
+            </div>
             {hasUsageLimit && remainingUsage && remainingUsage > 0 && (
-              <span className="text-[8px] font-medium bg-white/20 px-1 rounded-sm w-full text-center">Sisa: {remainingUsage}</span>
+              <div className="mt-0.5 bg-red-600/90 text-white text-[8px] font-bold px-2 py-0.5 rounded-md shadow-sm text-center">
+                Sisa {remainingUsage}x
+              </div>
             )}
           </div>
         )}
 
         {/* Scheduled promo badge — tampil saat promo aktif tapi belum mulai */}
         {item.is_available && !isDiscountActiveNow && scheduledPromo && (
-          <div className="absolute top-2.5 left-2.5 bg-violet-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm flex items-center gap-1 z-10">
-            <Clock className="w-2.5 h-2.5 shrink-0" />
-            <span>TERJADWAL</span>
+          <div className="absolute top-2.5 left-2.5 z-10">
+            <div className="relative bg-violet-600 text-white text-[9px] font-bold px-1.5 py-1 rounded-lg shadow-md flex items-center gap-1 overflow-hidden animate-pulse">
+              <Clock className="w-2.5 h-2.5 shrink-0" />
+              <span>TERJADWAL</span>
+            </div>
+            {scheduledPromo.start_date && (
+              <div className="mt-0.5 bg-violet-700/90 text-white text-[8px] font-semibold px-1.5 py-0.5 rounded-md shadow-sm text-center flex items-center gap-0.5 justify-center">
+                <Clock className="w-2 h-2" />
+                {new Date(scheduledPromo.start_date).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })} WIB
+              </div>
+            )}
           </div>
         )}
 

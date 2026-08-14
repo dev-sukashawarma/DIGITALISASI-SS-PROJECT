@@ -35,17 +35,15 @@ describe('computePosReportKpi', () => {
   })
 })
 
-// Kasus nyata: EMPANG 24 Juli 2026 (76 completed + 1 void, struk P7KY2P6LD8NY7
-// Rp94.000). Sebelum perbaikan, Gross Revenue menampilkan Rp4.015.000 (void
-// tidak mengurangi apa pun). Angka yang benar (NET, konsisten dgn halaman Laba
-// Kotor) adalah Rp3.921.000.
+// Order void tidak pernah menjadi pendapatan. Sesuai aturan laporan saat ini,
+// hanya order `completed` yang dihitung; cancelled tidak dikurangkan kedua kali.
 describe('computeNetRevenueVoidAware', () => {
-  it('mengurangi omset dengan total_amount order cancelled', () => {
+  it('mengabaikan total_amount order cancelled', () => {
     const orders = [
       { status: 'completed', total_amount: 4_015_000 },
       { status: 'cancelled', total_amount: 94_000 },
     ]
-    expect(computeNetRevenueVoidAware(orders)).toBe(3_921_000)
+    expect(computeNetRevenueVoidAware(orders)).toBe(4_015_000)
   })
 
   it('mengabaikan status selain completed/cancelled', () => {

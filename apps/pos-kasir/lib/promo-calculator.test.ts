@@ -94,6 +94,10 @@ describe('isPromoScheduleRunning', () => {
     expect(isPromoScheduleRunning(itemPromo({ end_date: '2026-08-14T09:00:00.000Z' }), NOW)).toBe(false)
   })
 
+  it('berhenti tepat saat end_date tiba', () => {
+    expect(isPromoScheduleRunning(itemPromo({ end_date: '2026-08-14T10:00:00.000Z' }), NOW)).toBe(false)
+  })
+
   it('berjalan di dalam jendela mulai–selesai', () => {
     expect(isPromoScheduleRunning(
       itemPromo({ start_date: '2026-08-14T09:00:00.000Z', end_date: '2026-08-14T11:00:00.000Z' }),
@@ -101,8 +105,9 @@ describe('isPromoScheduleRunning', () => {
     )).toBe(true)
   })
 
-  it('tanggal rusak diabaikan, bukan bikin promo mati', () => {
-    expect(isPromoScheduleRunning(itemPromo({ start_date: 'bukan-tanggal' }), NOW)).toBe(true)
+  it('tanggal rusak fail-closed agar tidak memotong harga tanpa jadwal valid', () => {
+    expect(isPromoScheduleRunning(itemPromo({ start_date: 'bukan-tanggal' }), NOW)).toBe(false)
+    expect(isPromoScheduleRunning(itemPromo({ end_date: 'bukan-tanggal' }), NOW)).toBe(false)
   })
 })
 

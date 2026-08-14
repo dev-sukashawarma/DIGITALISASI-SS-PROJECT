@@ -24,6 +24,10 @@ describe('getPromoStatus', () => {
     expect(getPromoStatus({ is_active: true, end_date: '2026-08-14T09:00:00.000Z' }, NOW)).toBe('berakhir')
   })
 
+  it('berakhir tepat saat waktu selesai tiba', () => {
+    expect(getPromoStatus({ is_active: true, end_date: '2026-08-14T10:00:00.000Z' }, NOW)).toBe('berakhir')
+  })
+
   it('berakhir menang atas terjadwal kalau dua-duanya sudah lewat', () => {
     expect(getPromoStatus(
       { is_active: true, start_date: '2026-08-13T00:00:00.000Z', end_date: '2026-08-14T00:00:00.000Z' },
@@ -47,6 +51,11 @@ describe('validateSchedule', () => {
       start_date: '2026-08-14T00:00:00.000Z',
       end_date: '2026-08-15T00:00:00.000Z',
     })).toBeNull()
+  })
+
+  it('menolak format rusak walau sisi jadwal lainnya kosong', () => {
+    expect(validateSchedule({ start_date: 'bukan-tanggal', end_date: null })).toMatch(/tidak valid/)
+    expect(validateSchedule({ start_date: null, end_date: 'bukan-tanggal' })).toMatch(/tidak valid/)
   })
 
   it('menolak selesai sebelum atau sama dengan mulai', () => {

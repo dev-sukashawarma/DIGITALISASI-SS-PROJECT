@@ -28,11 +28,14 @@ const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktok
 export function isPromoScheduleRunning(promo: BasePromo, now: number = Date.now()): boolean {
   if (promo.start_date) {
     const start = new Date(promo.start_date).getTime();
-    if (!isNaN(start) && start > now) return false; // belum mulai
+    // Jadwal yang rusak harus fail-closed. Mengabaikannya akan membuat promo
+    // aktif tanpa batas waktu dan memotong harga sebelum jadwal yang dimaksud.
+    if (isNaN(start) || start > now) return false; // rusak / belum mulai
   }
   if (promo.end_date) {
     const end = new Date(promo.end_date).getTime();
-    if (!isNaN(end) && end < now) return false; // sudah lewat
+    // Jendela berlaku adalah [start, end): tepat pada end promo sudah selesai.
+    if (isNaN(end) || end <= now) return false; // rusak / sudah selesai
   }
   return true;
 }

@@ -26,12 +26,17 @@ export function getPromoStatus(promo: PromoScheduleInput, now: number = Date.now
 
 /** Alasan jadwal tidak valid, atau null kalau valid. */
 export function validateSchedule(promo: PromoScheduleInput): string | null {
-  if (!promo.start_date || !promo.end_date) return null
+  const start = promo.start_date ? new Date(promo.start_date).getTime() : null
+  const end = promo.end_date ? new Date(promo.end_date).getTime() : null
 
-  const start = new Date(promo.start_date).getTime()
-  const end = new Date(promo.end_date).getTime()
-  if (isNaN(start) || isNaN(end)) return 'Format tanggal jadwal tidak valid.'
-  if (end <= start) return 'Jadwal selesai harus lebih akhir dari jadwal mulai.'
+  // Periksa setiap sisi secara independen. Sebelumnya tanggal rusak lolos jika
+  // sisi lainnya kosong, sehingga konsumen POS dapat menerima jadwal ambigu.
+  if ((start !== null && isNaN(start)) || (end !== null && isNaN(end))) {
+    return 'Format tanggal jadwal tidak valid.'
+  }
+  if (start !== null && end !== null && end <= start) {
+    return 'Jadwal selesai harus lebih akhir dari jadwal mulai.'
+  }
   return null
 }
 

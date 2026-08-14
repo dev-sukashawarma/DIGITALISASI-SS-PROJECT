@@ -173,7 +173,52 @@ supabase migration repair  # Fix diverged riwayat
 
 ---
 
-## Deployment — cPanel + CloudLinux Node Selector + LiteSpeed
+## Deployment — VPS + Docker (Coolify)
+
+**Status saat ini (per 2026-08-14).** Produksi sudah migrasi dari cPanel+LiteSpeed (section di bawah, disimpan sebagai riwayat) ke **VPS berbasis Docker, di-orchestrate oleh Coolify** (self-hosted PaaS — konfirmasi dari stack trace deploy: `App\Jobs\ApplicationDeploymentJob`, `App\Traits\ExecuteRemoteCommand`). **1 app = 1 Dockerfile** di `apps/<app>/Dockerfile`, multi-stage (`builder` → `runner`), tanpa `docker-compose.yml` di repo — Coolify memanggil `docker build` langsung dengan `--build-arg` per env var yang dikonfigurasi di panelnya.
+
+### Struktur Dockerfile (pola wajib, semua 9 app)
+1. **Stage `builder`** (`FROM node:24-bookworm-slim AS builder`) — copy manifest (`package.json` root + tiap `packages/*/package.json` + `apps/<app>/package.json`) dulu untuk cache layer, baru `yarn install --frozen-lockfile`, baru copy source penuh, baru `NEXT_TURBOPACK=0 yarn workspace <name> build`.
+2. **Stage `runner`** (`FROM node:24-bookworm-slim AS runner`, fresh environment) — copy hasil build (`node_modules`, `.next`, `public`, `package.json`) dari `builder`, `CMD ["npx","next","start",...]`.
+
+### ⚠️ Gotcha kritikal #1 — secret server-only hilang di runtime (WAJIB re-declare di stage runner)
+`NEXT_PUBLIC_*` aman karena di-inline webpack ke bundle saat build. Tapi secret server-only (`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_JWT_SECRET`, `SUPABASE_ACCESS_TOKEN`, `CRON_SECRET`, `GUDANG_MAGIC_TOKEN`, `ORDER_ONLINE_*`, `FIREBASE_SERVICE_ACCOUNT`, dll) dibaca `process.env` di **RUNTIME** oleh Server Action/Route Handler/middleware — Docker **tidak** membawa `ARG`/`ENV` lintas stage (`FROM ... AS runner` = environment baru). **Setiap secret server-only WAJIB di-`ARG`+`ENV` ulang di stage `runner`, bukan cuma `builder`.** (Root cause insiden "supabaseKey is required" 2026-08-13, fix commit `4778ca5e` di semua 9 Dockerfile.) Kalau nambah secret baru ke suatu app: cek `apps/<app>/Dockerfile` stage runner, dan pastikan Coolify panel app itu juga sudah declare var-nya (build-arg tak jalan kalau Coolify tak tahu nama var-nya).
+
+### ⚠️ Gotcha kritikal #2 — BuildKit cache mount korup di build konkuren
+`RUN --mount=type=cache,target=...` tanpa `id` eksplisit → default id = target path → **semua app berbagi satu cache** kalau dibuild bersamaan (umum di Coolify saat beberapa app di-redeploy berdekatan) → `EBUSY`/`ENOENT` saat extract tarball yarn. **Fix:** semua 9 Dockerfile pakai `--mount=type=cache,id=yarn-cache-v3,sharing=locked,target=/usr/local/share/.cache/yarn/v6` — `id` eksplisit + `sharing=locked` men-serialize akses antar build konkuren. Kalau muncul lagi (`v3` korup), naikkan ke `v4` dst — jangan cuma retry, cache yang sudah korup tak akan pulih sendiri.
+
+### ⚠️ Gotcha kritikal #3 — phantom dependency: lolos lokal, gagal di Docker
+Tiap `apps/*/Dockerfile` hanya `COPY` manifest app itu sendiri + `packages/*` — app lain TIDAK ikut. Kalau suatu file import package yang **tak dideklarasikan** di `package.json` app itu sendiri (cuma "kebetulan" ada di `node_modules` root karena workspace lain mendeklarasikannya, ter-hoist oleh yarn), build lokal (`yarn build` di root monorepo) **selalu lolos**, tapi Docker (`COPY` scoped) **gagal** `Module not found` — kasus nyata: `date-fns` (fixed 2026-08-12), `react-countup` di `apps/finance/src/app/pembelian/*` yang di-port dari `admin-dashboard` tanpa ikut nambah dependency-nya (fixed 2026-08-14, commit `4dd7bb5e`). **Cara diagnosis cepat:** `mv node_modules/<pkg> /tmp/` lalu `yarn build` lokal — kalau daftar file yang gagal sama persis dengan log Coolify, itu penyebabnya. Log Coolify sering meredact baris yang gagal, cuma tampilkan baris konteks — jangan asumsikan baris pertama yang terlihat itu penyebabnya.
+
+### Menambah dependency baru ke satu app (root pakai yarn classic, JANGAN `yarn install` polos)
+Root punya workspace `"SUKASHAWARMA"` (astro-based, tak terkait app Next.js manapun) yang `yarn.lock`-nya **sudah divergen dari `package.json`-nya**. Yarn classic (v1) selalu resolve SEMUA workspace bersamaan — `yarn install` atau `yarn workspace <app> add <pkg>` polos di root akan menyeret ribuan baris tak terkait (Astro compiler, esbuild binaries, dst) ke `yarn.lock`, mengotori diff.
+1. Tambah entry manual ke `package.json` app yang dituju.
+2. **Cek dulu apakah package+range yang sama PERSIS sudah resolved** di `yarn.lock` (yarn classic mengelompokkan entry berdasar string range literal, bukan lokasi package.json) — `grep -n "^<pkg>@<range>:" yarn.lock`. Kalau sudah ada (mis. app lain sudah pakai range yang sama), **tidak perlu ubah `yarn.lock` sama sekali**.
+3. Kalau belum ada, gunakan range yang PERSIS sama dengan yang sudah ada untuk paket serupa bila memungkinkan, atau terima bahwa `yarn install --ignore-engines` root akan menarik drift `SUKASHAWARMA` — pisahkan commit lockfile-nya, atau tolerir diff besar (bukan bug, itu utang teknis workspace lain).
+4. **Selalu verifikasi** sebelum commit: `git diff --stat yarn.lock` harus 0/kecil untuk dependency-satu-baris; `yarn install --frozen-lockfile --ignore-engines` di root harus lolos tanpa menulis ulang lockfile.
+
+### Env var checklist per app (server-only, WAJIB di-set di panel Coolify + Dockerfile runner stage)
+| App | Secret server-only |
+|---|---|
+| stok, distribusi, absensi, finance, owner-dashboard | `SUPABASE_SERVICE_ROLE_KEY` |
+| admin-dashboard | + `CRON_SECRET`, `GUDANG_MAGIC_TOKEN`, `ORDER_ONLINE_*` |
+| portal | + `SUPABASE_JWT_SECRET`, `GUDANG_MAGIC_TOKEN` |
+| pos-kasir | + `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, `ORDER_*_SECRET` |
+| manager | + `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, `SUPABASE_URL`, `FIREBASE_SERVICE_ACCOUNT` |
+
+**Kalau muncul error "X is required"/"X is undefined" di produksi tapi kode lokal jalan normal:** curigai dulu apakah var itu benar ADA di panel Coolify app tsb (migrasi cPanel→VPS tidak otomatis bawa env var lama — beberapa app sempat lupa di-set sama sekali, bukan cuma kasus salah value).
+
+### Setelah redeploy: "Server Action ... was not found on the server"
+**Bukan bug.** ID Server Action Next.js di-generate ulang tiap build; tab browser yang sudah kebuka SEBELUM redeploy masih pegang referensi ID lama. Fix: hard refresh / tutup-buka ulang tab, bukan investigasi kode.
+
+### Status app (redeploy pending vs live)
+Setiap sesi kerja yang mengubah kode app tertentu **WAJIB dicatat butuh redeploy** (lihat section Session di bawah tiap entry "⚠️ Perlu redeploy") — kode di `main` tidak otomatis live sampai Coolify di-trigger ulang untuk app tsb.
+
+---
+
+## Deployment (LAMA/SUPERSEDED) — cPanel + CloudLinux Node Selector + LiteSpeed
+
+⚠️ **Riwayat.** Produksi sudah pindah ke VPS+Docker+Coolify (section di atas). Section ini disimpan untuk konteks historis/rollback darurat saja — jangan ikuti langkah di bawah untuk deploy baru.
 
 Server produksi: shared hosting **connectindo** (`grace`, IP publik **103.77.106.237**, NS connectindo.net), LiteSpeed + CloudLinux Node Selector. Dipilih shared server Indonesia demi **latency** (Vercel kena limit redeploy). **1 subdomain = 1 Node app.**
 

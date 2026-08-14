@@ -460,6 +460,7 @@ export default function KasirMenuClient({
                         <div className="w-12 h-12 rounded-2xl overflow-hidden bg-amber-50 flex items-center justify-center">
                           {item.image_url ? (
                             <Image src={item.image_url} alt={item.name} width={48} height={48}
+                              unoptimized
                               className="object-cover w-full h-full" />
                           ) : (
                             <Sandwich className="w-5 h-5 text-amber-200" strokeWidth={1.5} />

@@ -24,11 +24,17 @@ export async function savePromosAction(
   // Jadwal divalidasi di server juga — Server Action adalah endpoint POST
   // publik, guard di form saja tidak cukup. DB punya CHECK constraint yang
   // sama, tapi pesannya tak terbaca kasir kalau sampai lolos ke sana.
+  // Hanya promo yang AKTIF yang divalidasi — item promo lama yang sudah
+  // dimatikan (is_active=false) bisa saja masih menyimpan start_date/end_date
+  // basi dari sebelum field "Nama Promo" ada, dan seharusnya tak memblokir
+  // penyimpanan promo lain yang sedang benar-benar diedit.
   for (const p of promos) {
+    if (!p.is_active) continue
     const scheduleError = validateSchedule(p)
     if (scheduleError) return { success: false, error: scheduleError }
     if ((p.start_date || p.end_date) && !String(p.promo_name || '').trim()) {
-      return { success: false, error: 'Nama promo wajib diisi untuk promo terjadwal.' }
+      const label = p.scope === 'global' ? 'Promo Semua Menu' : `Promo menu (${p.menu_item_id})`
+      return { success: false, error: `${label}: nama promo wajib diisi untuk promo terjadwal.` }
     }
   }
 

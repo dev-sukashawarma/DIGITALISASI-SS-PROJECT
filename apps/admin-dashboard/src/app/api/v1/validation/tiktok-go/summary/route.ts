@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     // 2. Parse Date
     const { searchParams } = new URL(request.url)
     const dateParam = searchParams.get('date') // Format: YYYY-MM-DD
+    const outletParam = searchParams.get('outlet')
     
     if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json({ error: 'Valid date parameter (YYYY-MM-DD) is required' }, { status: 400 })
@@ -39,13 +40,19 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     // 4. Fetch data from Supabase
-    const { data: orders, error } = await supabase
+    let query = supabase
       .from('orders')
-      .select('id, total_amount, order_items(quantity)')
+      .select('id, total_amount, order_items(quantity), outlet:outlets!inner(name)')
       .in('source', ['manual', 'online'])
       .in('channel', ['tiktok_go', 'tiktokgo', 'TikTok Go'])
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
+
+    if (outletParam) {
+      query = query.ilike('outlets.name', `%${outletParam}%`)
+    }
+
+    const { data: orders, error } = await query
 
     if (error) {
       console.error('Error fetching orders:', error)

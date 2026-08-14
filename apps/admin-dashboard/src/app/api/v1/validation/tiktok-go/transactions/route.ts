@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     // 2. Parse Date
     const { searchParams } = new URL(request.url)
     const dateParam = searchParams.get('date') // Format: YYYY-MM-DD
+    const outletParam = searchParams.get('outlet')
     
     if (!dateParam || !/^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       return NextResponse.json({ error: 'Valid date parameter (YYYY-MM-DD) is required' }, { status: 400 })
@@ -39,31 +40,38 @@ export async function GET(request: Request) {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     // 4. Fetch data from Supabase
-    const { data: orders, error } = await supabase
+    let query = supabase
       .from('orders')
-      .select('id, order_number, total_amount, order_items(menu_item_name, quantity)')
+      .select('id, order_number, total_amount, order_items(menu_item_name, quantity), outlet:outlets!inner(name)')
       .in('source', ['manual', 'online'])
       .in('channel', ['tiktok_go', 'tiktokgo', 'TikTok Go'])
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
 
+    if (outletParam) {
+      query = query.ilike('outlets.name', `%${outletParam}%`)
+    }
+
+    const { data: orders, error } = await query
+
     if (error) {
-      console.error('Error fetching transactions:', error)
+      console.error('Error fetching orders:', error)
       return NextResponse.json({ error: 'Database error' }, { status: 500 })
     }
 
-    // 5. Format response
-    const transactions = orders?.map(order => {
-      // Menggabungkan nama-nama item yang dibeli dalam satu string jika diperlukan
-      const itemNames = order.order_items
-        ? order.order_items.map((item: any) => `${item.quantity}x ${item.menu_item_name}`).join(', ')
-        : ''
+    // 5. Format transactions
+    const transactions = (orders || []).map((order: any) => {
+      // Create a summary string of items, e.g., "1x Nasi Goreng, 2x Es Teh"
+      const itemsSummary = (order.order_items || [])
+        .map((item: any) => `${item.quantity}x ${item.menu_item_name}`)
+        .join(', ')
 
       return {
         id: order.id,
         order_number: order.order_number,
-        amount: order.total_amount,
-        items_summary: itemNames
+        amount: Number(order.total_amount || 0),
+        items_summary: itemsSummary,
+        store_name: order.outlet?.name || 'Unknown'
       }
     }) || []
 

@@ -70,8 +70,13 @@ export async function POST(request: Request) {
       if (!storeName) continue
       
       // Attempt to map using existing mapping logic
-      const outletName = map.byName[storeName.trim().toLowerCase()] || null
-      const outletId = outletName ? outletIdByName.get(outletName.trim().toLowerCase()) : null
+      const mappedOutletName = map.byName[storeName.trim().toLowerCase()] || null
+      let outletId = mappedOutletName ? outletIdByName.get(mappedOutletName.trim().toLowerCase()) : null
+
+      // Fallback: If not found in map, try to directly match the storeName with the database outlet name
+      if (!outletId) {
+        outletId = outletIdByName.get(storeName.trim().toLowerCase()) || null
+      }
 
       if (!outletId) {
         unmapped.push(storeName)

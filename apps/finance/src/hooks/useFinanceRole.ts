@@ -9,7 +9,7 @@ import { useAuth } from '@suka/auth'
  */
 export function useFinanceRole() {
   const { outletStaff } = useAuth()
-  const role = outletStaff?.role ?? null
+  const role = (outletStaff?.role as string) ?? null
   const isChecker = role === 'owner' || role === 'admin'
   const isFinance = role === 'owner' || role === 'admin' || role === 'admin_finance'
   const isPurchasing = role === 'owner' || role === 'admin' || role === 'purchasing' || role === 'purchase'

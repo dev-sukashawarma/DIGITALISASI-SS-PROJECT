@@ -1317,7 +1317,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       ) : (
         <>
           {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') ? 'lg:grid-cols-3 2xl:grid-cols-6' : 'xl:grid-cols-4'} gap-4 xl:gap-6`}>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
@@ -1353,14 +1353,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
               </div>
             </div>
+          </div>
 
-            {/* 5. Settlement (Conditional) */}
-            {(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') && (
-              <>
+          {(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') && (
+            <>
+              <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-indigo-500" />
+                  Rekonsiliasi Settlement
+                </h2>
+                <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
+                {/* 5. Settlement (Conditional) */}
                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Dana Terkonsiliasi</p>
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Settlement</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
                   </div>
                 </div>
@@ -1373,9 +1383,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
                   </div>
                 </div>
-              </>
-            )}
-          </div>
+              </div>
+            </>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Success vs Failure Rate */}

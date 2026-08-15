@@ -3,9 +3,18 @@ import { createServiceClient } from '@/lib/supabase/server'
 
 // Dipanggil dari app/kasir saat kasir membatalkan order (cancelOrder)
 // yang sumbernya online (source = 'online').
-// Meneruskan notifikasi ke Edge Function order-system yang sama dipakai
-// notify-online-done (lihat komentar di sana untuk kenapa route ini pindah
-// dari update DB langsung ke webhook ORDER_SYSTEM_NOTIFY_URL).
+// Meneruskan notifikasi ke Edge Function order-system (lihat komentar di
+// notify-online-done/route.ts untuk kenapa route ini pindah dari update DB
+// langsung ke webhook ORDER_SYSTEM_NOTIFY_URL, dan untuk detail bug
+// header/body yang sama juga ada di sini sebelum diperbaiki).
+//
+// Bug ketiga, khusus route ini: ORDER_SYSTEM_NOTIFY_URL selalu menunjuk ke
+// edge function `kasir-order-done` (lihat scripts/setup-integration.js), jadi
+// pembatalan order SELALU memanggil edge function "selesai", bukan
+// `kasir-order-cancel` — order yang dibatalkan malah akan dicoba di-set ke
+// status 'ready', bukan 'cancelled'. Diperbaiki dengan menurunkan URL cancel
+// dari notifyUrl (ganti akhiran nama fungsinya), dengan opsi override lewat
+// ORDER_SYSTEM_CANCEL_URL kalau suatu saat mau dikonfigurasi terpisah.
 export async function POST(request: Request) {
   let body: { order_id: string }
   try {
@@ -30,8 +39,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, skipped: true })
   }
 
-  const notifyUrl = process.env.ORDER_SYSTEM_NOTIFY_URL
+  const doneUrl = process.env.ORDER_SYSTEM_NOTIFY_URL
   const secret = process.env.KASIR_TO_ORDER_SECRET
+  const notifyUrl = process.env.ORDER_SYSTEM_CANCEL_URL || doneUrl?.replace('kasir-order-done', 'kasir-order-cancel')
 
   if (!notifyUrl || !secret) {
     console.error('ORDER_SYSTEM_NOTIFY_URL / KASIR_TO_ORDER_SECRET belum dikonfigurasi')
@@ -43,11 +53,10 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${secret}`,
+        'x-internal-token': secret,
       },
       body: JSON.stringify({
-        order_id: order.external_order_id,
-        status: 'cancelled',
+        external_order_id: order.external_order_id,
       }),
     })
 

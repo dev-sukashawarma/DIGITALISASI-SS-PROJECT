@@ -13,6 +13,18 @@ import { createServiceClient } from '@/lib/supabase/server'
 // gagal dengan 500 dan notifikasi WA tidak pernah terkirim. Env yang benar-benar
 // dikonfigurasi (lihat Dockerfile) adalah ORDER_SYSTEM_NOTIFY_URL +
 // KASIR_TO_ORDER_SECRET, yang dipakai di sini.
+//
+// Bug kedua (ditemukan & diperbaiki belakangan): request ke edge function ini
+// selalu ditolak 403, lalu 400, karena dua hal tidak cocok dengan yang dibaca
+// `kasir-order-done`/index.ts di project order-system:
+//   1. Header token dikirim sebagai `Authorization: Bearer <secret>`, padahal
+//      edge function membaca `x-internal-token`.
+//   2. Body dikirim `{ order_id, status }`, padahal edge function membaca
+//      `{ external_order_id }` saja (field `status` tidak pernah dipakai —
+//      edge function selalu set ke 'ready' untuk kasir-order-done).
+// Akibatnya notifikasi WA "pesanan siap diambil" TIDAK PERNAH terkirim sejak
+// fitur ini dibuat, baik dari web maupun native (native app juga hanya
+// meneruskan ke route Next.js ini, bukan memanggil edge function langsung).
 export async function POST(request: Request) {
   let body: { order_id: string }
   try {
@@ -50,11 +62,10 @@ export async function POST(request: Request) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${secret}`,
+        'x-internal-token': secret,
       },
       body: JSON.stringify({
-        order_id: order.external_order_id,
-        status: 'done',
+        external_order_id: order.external_order_id,
       }),
     })
 

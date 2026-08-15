@@ -703,12 +703,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const grossProfit = kpi.grossProfit
 
     let totalSettlement = 0
+    let totalRealAdmin = 0
     if (selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') {
       const ch = selectedChannel === 'tiktok' ? 'tiktokgo' : selectedChannel
       const relevantSettlements = settlements.filter(s => s.platform === ch)
       totalSettlement = relevantSettlements.reduce((sum, s) => {
         return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
       }, 0)
+      totalRealAdmin = relevantSettlements.reduce((sum, s) => sum + (Number(s.commission) || 0), 0)
     }
 
     return {
@@ -725,7 +727,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       netRevenue,
       totalHPP,
       grossProfit,
-      totalSettlement
+      totalSettlement,
+      totalRealAdmin
     }
   }, [orders, shifts, selectedChannel, hppRows, menuItemByNameMap, settlements])
 
@@ -1314,7 +1317,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       ) : (
         <>
           {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
-          <div className={`grid grid-cols-1 md:grid-cols-2 ${(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') ? 'xl:grid-cols-5' : 'xl:grid-cols-4'} gap-4 xl:gap-6`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 ${(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') ? 'lg:grid-cols-3 2xl:grid-cols-6' : 'xl:grid-cols-4'} gap-4 xl:gap-6`}>
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
@@ -1353,13 +1356,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
             {/* 5. Settlement (Conditional) */}
             {(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') && (
-              <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-                <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-                <div className="relative z-10">
-                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Dana Terkonsiliasi</p>
-                  <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
+              <>
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                  <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                  <div className="relative z-10">
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Dana Terkonsiliasi</p>
+                    <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
+                  </div>
                 </div>
-              </div>
+
+                {/* 6. Admin Real (Conditional) */}
+                <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                  <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                  <div className="relative z-10">
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Real (Settlement)</p>
+                    <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
+                  </div>
+                </div>
+              </>
             )}
           </div>
 

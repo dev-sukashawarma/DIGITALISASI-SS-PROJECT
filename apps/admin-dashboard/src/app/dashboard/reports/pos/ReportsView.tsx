@@ -704,6 +704,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     let totalSettlement = 0
     let totalRealAdmin = 0
+    let settlementDateRange = ''
     if (selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') {
       const ch = selectedChannel === 'tiktok' ? 'tiktokgo' : selectedChannel
       const relevantSettlements = settlements.filter(s => s.platform === ch)
@@ -711,6 +712,26 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
       }, 0)
       totalRealAdmin = relevantSettlements.reduce((sum, s) => sum + (Number(s.commission) || 0), 0)
+
+      if (relevantSettlements.length > 0) {
+        const dates = relevantSettlements.map(s => s.tanggal).filter(Boolean).sort()
+        if (dates.length > 0) {
+          const minDate = dates[0]
+          const maxDate = dates[dates.length - 1]
+          
+          const formatDateStr = (d: string) => {
+            const [y, m, day] = d.split('-')
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+            return `${day} ${months[parseInt(m) - 1]} ${y}`
+          }
+
+          if (minDate === maxDate) {
+            settlementDateRange = formatDateStr(minDate)
+          } else {
+            settlementDateRange = `${formatDateStr(minDate)} - ${formatDateStr(maxDate)}`
+          }
+        }
+      }
     }
 
     return {
@@ -728,7 +749,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       totalHPP,
       grossProfit,
       totalSettlement,
-      totalRealAdmin
+      totalRealAdmin,
+      settlementDateRange
     }
   }, [orders, shifts, selectedChannel, hppRows, menuItemByNameMap, settlements])
 
@@ -1358,12 +1380,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           {(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
-              <div className="mb-4">
-                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Wallet className="w-5 h-5 text-indigo-500" />
-                  Rekonsiliasi Settlement
-                </h2>
-                <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
+              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Wallet className="w-5 h-5 text-indigo-500" />
+                    Rekonsiliasi Settlement
+                  </h2>
+                  <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
+                </div>
+                {analytics.settlementDateRange && (
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100 self-start sm:self-auto">
+                    <Calendar className="w-3.5 h-3.5" />
+                    {analytics.settlementDateRange}
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
                 {/* 5. Settlement (Conditional) */}

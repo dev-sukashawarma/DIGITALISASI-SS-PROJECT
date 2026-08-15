@@ -1394,7 +1394,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Settlement</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Omzet Kotor - Promo Merchant - Komisi Platform</p>
+                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)</p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
                         <Calendar className="w-3.5 h-3.5" />
@@ -1410,7 +1410,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Settlement</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Potongan Komisi Platform sesungguhnya dari data settlement</p>
+                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Platform commission + Creator commission + WHT</p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
                         <Calendar className="w-3.5 h-3.5" />

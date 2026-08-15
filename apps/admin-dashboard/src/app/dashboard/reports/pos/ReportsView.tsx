@@ -1394,8 +1394,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Settlement</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
+                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Omzet Kotor - Promo Merchant - Komisi Platform</p>
                     {analytics.settlementDateRange && (
-                      <p className="text-xs text-white/80 mt-3 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                      <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
                         <Calendar className="w-3.5 h-3.5" />
                         {analytics.settlementDateRange}
                       </p>
@@ -1403,14 +1404,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   </div>
                 </div>
 
-                {/* 6. Admin Real (Conditional) */}
+                {/* 6. Admin Settlement (Conditional) */}
                 <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Real (Settlement)</p>
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Settlement</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
+                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Potongan Komisi Platform sesungguhnya dari data settlement</p>
                     {analytics.settlementDateRange && (
-                      <p className="text-xs text-white/80 mt-3 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                      <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
                         <Calendar className="w-3.5 h-3.5" />
                         {analytics.settlementDateRange}
                       </p>

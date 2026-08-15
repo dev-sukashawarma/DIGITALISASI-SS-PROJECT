@@ -45,6 +45,7 @@ export async function GET(request: Request) {
       .select('id, total_amount, order_items(quantity), outlet:outlets!inner(name)')
       .in('source', ['manual', 'online'])
       .in('channel', ['tiktok_go', 'tiktokgo', 'TikTok Go'])
+      .eq('status', 'completed')
       .gte('created_at', startOfDay.toISOString())
       .lt('created_at', endOfDay.toISOString())
 

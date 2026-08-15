@@ -103,14 +103,32 @@ export default function WasteApprovalPage() {
               : (bal?.saldo || 0)
             const isNegativeWarning = r.qty > currentSaldoBesar
 
+            const createdDate = r.created_at ? new Date(r.created_at) : null
+            const formattedDate = createdDate 
+              ? createdDate.toLocaleString('id-ID', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : '-'
+
             return (
               <div key={r.id} className="bg-white border border-[#d9c2b2]/60 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col relative group">
                 {/* Header Card */}
                 <div className="flex justify-between items-start mb-4">
                   <div className="space-y-1">
-                    <span className="inline-block text-[10px] font-black bg-[#ffdcc2] text-[#6d3900] px-2 py-0.5 rounded uppercase tracking-wider">
-                      Laporan Waste
-                    </span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-block text-[10px] font-black bg-[#ffdcc2] text-[#6d3900] px-2 py-0.5 rounded uppercase tracking-wider">
+                        Laporan Waste
+                      </span>
+                      {r.created_at && (
+                        <span className="text-[10px] font-semibold text-[#544437]/60 flex items-center gap-1">
+                          🕒 {formattedDate}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="font-black text-[#701604] text-lg leading-tight mt-1">{r.bahan_baku?.nama}</h3>
                     <p className="text-[11px] font-bold text-[#544437]/70 uppercase tracking-wide flex items-center gap-1">
                       <span>🏪</span> {r.outlets?.name?.replace('SUKA SHAWARMA ', '') || 'Unknown'}
@@ -132,15 +150,23 @@ export default function WasteApprovalPage() {
                   </div>
                 </div>
 
-                {/* Reporter Info */}
-                <div className="flex items-center gap-2 mb-4 p-2 bg-[#faf2e9] rounded-lg border border-[#d9c2b2]/30">
-                  <div className="w-6 h-6 rounded-full bg-[#d9c2b2] flex items-center justify-center text-[10px] font-bold text-white">
-                    {r.reported_by_staff?.name?.charAt(0) || '?'}
+                {/* Reporter & Time Info */}
+                <div className="flex items-center justify-between gap-2 mb-4 p-2.5 bg-[#faf2e9] rounded-xl border border-[#d9c2b2]/30">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-full bg-[#d9c2b2] flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                      {r.reported_by_staff?.name?.charAt(0) || '?'}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold text-[#544437]/60 uppercase leading-none">Dilaporkan Oleh</p>
+                      <p className="text-xs font-bold text-[#1e1b15] truncate mt-0.5">{r.reported_by_staff?.name || 'Unknown'}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-semibold text-[#544437]/60 uppercase">Dilaporkan Oleh</p>
-                    <p className="text-xs font-bold text-[#1e1b15]">{r.reported_by_staff?.name || 'Unknown'}</p>
-                  </div>
+                  {r.created_at && (
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] font-semibold text-[#544437]/60 uppercase leading-none">Waktu Dibuat</p>
+                      <p className="text-xs font-bold text-[#701604] mt-0.5">{formattedDate}</p>
+                    </div>
+                  )}
                 </div>
 
                 {/* Reason */}

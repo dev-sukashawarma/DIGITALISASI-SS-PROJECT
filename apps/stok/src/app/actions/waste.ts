@@ -166,7 +166,7 @@ export async function fetchPendingWasteReports(outletId?: string) {
   const supabase = makeServiceClient()
   let query = supabase
     .from('stok_waste_reports')
-    .select('*, bahan_baku(nama, satuan), outlets(name), reported_by_staff:outlet_staff!reported_by(name)')
+    .select('*, bahan_baku(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan), outlets(name), reported_by_staff:outlet_staff!reported_by(name)')
     .eq('status', 'PENDING')
     .order('created_at', { ascending: false })
 
@@ -213,7 +213,7 @@ export async function fetchMyWasteReports() {
   const supabase = makeServiceClient()
   const { data, error } = await supabase
     .from('stok_waste_reports')
-    .select('*, bahan_baku(nama, satuan)')
+    .select('*, bahan_baku(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan)')
     .eq('reported_by', currentUserId)
     .order('created_at', { ascending: false })
     .limit(50)

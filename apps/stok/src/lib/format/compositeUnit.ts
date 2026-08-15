@@ -40,6 +40,10 @@ export function formatCompositeSaldo(
     return `${whole} ${satuan}`
   }
   
+  if (whole === 0) {
+    return `${remainder < 0 ? '-' : ''}${absRemainder} ${satuanKecil}`
+  }
+
   const separator = remainder < 0 ? '-' : '+'
   const joiner = multiline ? `\n${separator} ` : ` ${separator} `
   return `${whole} ${satuan}${joiner}${absRemainder} ${satuanKecil}`

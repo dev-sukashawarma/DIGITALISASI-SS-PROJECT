@@ -11,13 +11,45 @@ function getOutletRegion(slug: string, address: string | null): string {
   const addr = (address || '').toLowerCase();
   const slg = (slug || '').toLowerCase();
 
-  if (slg.includes('bogor') || slg.includes('cibinong') || slg.includes('citayam') || slg.includes('ciseeng') || addr.includes('bogor')) {
+  // Developer category: global outlet, outlet tes, shoppe/shopee, titkoshop/tiktok
+  if (
+    slg.includes('global') || 
+    slg.includes('tes') || 
+    slg.includes('test') || 
+    slg.includes('shoop') || 
+    slg.includes('shopee') || 
+    slg.includes('titko') || 
+    slg.includes('tiktok')
+  ) {
+    return 'DEVELOPER';
+  }
+
+  // BNR explicitly to Bogor
+  if (
+    slg.includes('bnr') || 
+    slg.includes('bogor') || 
+    slg.includes('cibinong') || 
+    slg.includes('citayam') || 
+    slg.includes('ciseeng') || 
+    slg.includes('cibubur') ||
+    slg.includes('dramaga') ||
+    slg.includes('empang') ||
+    slg.includes('cimanggu') ||
+    slg.includes('pajajaran') ||
+    slg.includes('paledang') ||
+    slg.includes('sentul') ||
+    slg.includes('cileungsi') ||
+    slg.includes('cicurug') ||
+    addr.includes('bnr') ||
+    addr.includes('bogor') ||
+    addr.includes('sukabumi')
+  ) {
     return 'BOGOR';
   }
-  if (slg.includes('depok') || addr.includes('depok')) {
+  if (slg.includes('depok') || addr.includes('depok') || slg.includes('sawangan') || slg.includes('sukmajaya') || slg.includes('beji')) {
     return 'DEPOK';
   }
-  if (slg.includes('jakarta') || slg.includes('tebet') || slg.includes('kalisari') || addr.includes('jakarta')) {
+  if (slg.includes('jakarta') || slg.includes('tebet') || slg.includes('kalisari') || slg.includes('jagakarsa') || addr.includes('jakarta')) {
     return 'JAKARTA';
   }
   if (slg.includes('bekasi') || slg.includes('pekayon') || slg.includes('jatiwaringin') || slg.includes('jatiasih') || addr.includes('bekasi') || addr.includes('bks')) {
@@ -126,9 +158,9 @@ export function LiveMonitoringPage() {
       };
     });
 
-    // Sort outlets: BOGOR -> DEPOK -> JAKARTA -> BEKASI -> TANGERANG -> LAINNYA.
+    // Sort outlets: BOGOR -> DEPOK -> JAKARTA -> BEKASI -> TANGERANG -> DEVELOPER -> LAINNYA.
     // Within same region, sort by status (below -> warning -> ok), then by name
-    const regionOrder: Record<string, number> = { BOGOR: 0, DEPOK: 1, JAKARTA: 2, BEKASI: 3, TANGERANG: 4, LAINNYA: 5 };
+    const regionOrder: Record<string, number> = { BOGOR: 0, DEPOK: 1, JAKARTA: 2, BEKASI: 3, TANGERANG: 4, DEVELOPER: 5, LAINNYA: 6 };
     return list.sort((a, b) => {
       const regA = regionOrder[a.region] ?? 99;
       const regB = regionOrder[b.region] ?? 99;

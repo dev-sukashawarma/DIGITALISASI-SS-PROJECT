@@ -8,13 +8,12 @@ import { TransferModal } from './TransferModal';
 import {
   useSPVMonitoringData,
   useLeaderMonitoringData,
-  useRecentLedger,
   useStockoutForecast,
   useWasteToday,
   useMonitoringRealtime
 } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
@@ -26,20 +25,54 @@ import { LogOut, RefreshCw } from 'lucide-react';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
 import { BottomNav } from '@/components/common/BottomNav';
-import { ProductionEstimateWidget } from './ProductionEstimateWidget';
 import { updateThresholdAction } from '@/app/actions/threshold';
 import { useOutletScope } from '@/hooks/useOutletScope';
 
-const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Jakarta' | 'Bogor' | 'Depok' | 'Bekasi' | 'Tangerang' => {
+const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jakarta' | 'Depok' | 'Bekasi' | 'Tangerang' | 'Developer' => {
   const name = outletName.toUpperCase();
   
+  // Developer category: Global Outlet, Outlet Tes, Shopee, TikTok Shop
+  if (
+    name.includes('GLOBAL OUTLET') || 
+    name.includes('GLOBAL SYSTEM') || 
+    name.includes('OUTLET TES') || 
+    name.includes('OUTLET TEST') || 
+    name.includes('SHOOPE') || 
+    name.includes('SHOPEE') || 
+    name.includes('TITKOSHOP') || 
+    name.includes('TIKTOK') || 
+    name.includes('TIKTOKSHOP') || 
+    name.includes('TIKTOK SHOP')
+  ) {
+    return 'Developer';
+  }
+
+  // BNR explicitly under Bogor
+  if (name.includes('BNR')) return 'Bogor';
+
   if (name.includes('GUDANG PUSAT') || name.includes('KANTOR PUSAT')) return 'Central Kitchen';
   if (name.includes('KITCHEN (PUSAT)')) return 'Bogor';
   if (name.includes('KITCHEN')) return 'Central Kitchen';
   
   if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN') || name.includes('JATIWANGIN')) return 'Bekasi';
   if (name.includes('CIRENDEU')) return 'Tangerang';
-  if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('CITAYAM') || name.includes('DRAMAGA') || name.includes('EMPANG') || name.includes('CIMANGGU') || name.includes('CIBUBUR') || name.includes('PAJAJARAN') || name.includes('PAJA JARAN') || name.includes('PALEDANG')) return 'Bogor';
+  if (
+    name.includes('CIBINONG') || 
+    name.includes('CISEENG') || 
+    name.includes('CITAYAM') || 
+    name.includes('DRAMAGA') || 
+    name.includes('EMPANG') || 
+    name.includes('CIMANGGU') || 
+    name.includes('CIBUBUR') || 
+    name.includes('PAJAJARAN') || 
+    name.includes('PAJA JARAN') || 
+    name.includes('PALEDANG') || 
+    name.includes('CICURUG') || 
+    name.includes('SENTUL') || 
+    name.includes('CILEUNGSI')
+  ) {
+    return 'Bogor';
+  }
   if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('WANGAN')) return 'Depok';
   if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('JAGAKARSA')) return 'Jakarta';
   
@@ -86,6 +119,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Search and filter states for the right-hand detail pane
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
+  
+  // Search state for outlets list
+  const [outletSearchTerm, setOutletSearchTerm] = useState('');
 
   // Auth context for username
   const { outletStaff } = useAuth();
@@ -103,7 +139,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const { data, isLoading, isError } = isLeaderScoped ? leaderQuery : spvQuery;
 
   // Real-time and proactive hooks
-  const recentLedgerQuery = useRecentLedger(15);
   const stockoutForecastQuery = useStockoutForecast(1, 6);
   const wasteTodayQuery = useWasteToday();
 
@@ -115,13 +150,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     queryFn: () => fetchPendingWasteReports(),
     refetchInterval: 30000
   })
-
-  // Filter pro-active hooks data based on leader scoped access (allowedOutletIds)
-  const recentLedger = useMemo(() => {
-    const raw = recentLedgerQuery.data || [];
-    if (!allowedOutletIds) return raw;
-    return raw.filter(entry => allowedOutletIds.includes(entry.outlet_id));
-  }, [recentLedgerQuery.data, allowedOutletIds]);
 
   const stockoutForecast = useMemo(() => {
     const raw = stockoutForecastQuery.data || [];
@@ -281,6 +309,24 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const visibleOutlets = React.useMemo(() => {
     return outlets.byOutlet;
   }, [outlets.byOutlet, outletStaff?.role]);
+
+  const filteredVisibleOutlets = useMemo(() => {
+    const q = outletSearchTerm.trim().toLowerCase();
+    if (!q) return visibleOutlets;
+    return visibleOutlets.filter(o => o.outlet_name.toLowerCase().includes(q));
+  }, [visibleOutlets, outletSearchTerm]);
+
+  const filteredRegionMap = useMemo(() => {
+    const q = outletSearchTerm.trim().toLowerCase();
+    const result: Record<string, typeof visibleOutlets> = {};
+    for (const [region, list] of Object.entries(outlets.byRegion)) {
+      const filtered = q ? list.filter(o => o.outlet_name.toLowerCase().includes(q)) : list;
+      if (filtered.length > 0) {
+        result[region] = filtered;
+      }
+    }
+    return result;
+  }, [outlets.byRegion, outletSearchTerm]);
 
   // Automatically set first outlet as active on initial load
   React.useEffect(() => {
@@ -528,34 +574,62 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
       {/* Mobile Outlets Horizontal Strip */}
       {activeTab === 'overview' && (
-        <div className="flex lg:hidden overflow-x-auto gap-2 px-4 py-2.5 bg-suka-cream/50 border-b border-suka-brown/20 scrollbar-none flex-shrink-0 w-full">
-          {visibleOutlets.map((outlet) => {
-            const isActive = selectedOutletId === outlet.outlet_id;
-            const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
-            let statusCircleColor = 'bg-suka-green';
-            if (outlet.status === 'below') statusCircleColor = 'bg-red-650 animate-pulse';
-            else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
+        <div className="flex lg:hidden flex-col bg-suka-cream/50 border-b border-suka-brown/20 flex-shrink-0 w-full">
+          {/* Quick search input on mobile */}
+          <div className="px-3 pt-2.5 pb-1">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40 text-xs">🔍</span>
+              <input
+                type="text"
+                placeholder="Cari outlet..."
+                value={outletSearchTerm}
+                onChange={(e) => setOutletSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-7 py-1.5 bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-xs font-bold placeholder-suka-brown/40 text-suka-ink shadow-2xs"
+              />
+              {outletSearchTerm && (
+                <button
+                  onClick={() => setOutletSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full hover:bg-suka-brown/10 transition-colors"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex overflow-x-auto gap-2 px-3 py-2 scrollbar-none w-full">
+            {filteredVisibleOutlets.map((outlet) => {
+              const isActive = selectedOutletId === outlet.outlet_id;
+              const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+              let statusCircleColor = 'bg-suka-green';
+              if (outlet.status === 'below') statusCircleColor = 'bg-red-650 animate-pulse';
+              else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
 
-            return (
-              <button
-                key={outlet.outlet_id}
-                onClick={() => setSelectedOutletId(outlet.outlet_id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
-                  isActive
-                    ? 'border-suka-orange bg-white text-suka-orange shadow-sm scale-102'
-                    : 'border-suka-brown/10 bg-white/80 text-suka-brown hover:border-suka-orange/30'
-                }`}
-              >
-                <span className={`w-2 h-2 rounded-full ${statusCircleColor}`} />
-                <span>{cleanName}</span>
-                {outlet.status !== 'ok' && (
-                  <span className="text-[10px] text-suka-brown/40 font-normal">
-                    ({outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount})
-                  </span>
-                )}
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={outlet.outlet_id}
+                  onClick={() => setSelectedOutletId(outlet.outlet_id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
+                    isActive
+                      ? 'border-suka-orange bg-white text-suka-orange shadow-sm scale-102'
+                      : 'border-suka-brown/10 bg-white/80 text-suka-brown hover:border-suka-orange/30'
+                  }`}
+                >
+                  <span className={`w-2 h-2 rounded-full ${statusCircleColor}`} />
+                  <span>{cleanName}</span>
+                  {outlet.status !== 'ok' && (
+                    <span className="text-[10px] text-suka-brown/40 font-normal">
+                      ({outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount})
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+            {filteredVisibleOutlets.length === 0 && (
+              <div className="text-xs text-suka-brown/50 py-1 px-2 italic">
+                Outlet &ldquo;{outletSearchTerm}&rdquo; tidak ditemukan
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -571,11 +645,13 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         {activeTab === 'overview' && (
           <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
             {/* Left Column: Outlets (Collapsible) - Desktop Only */}
-            <aside className={`hidden lg:block ${isSidebarCollapsed ? 'lg:w-[100px] p-3' : 'lg:w-[300px] xl:w-[25%] p-6'} bg-suka-cream/50 border-r border-suka-brown/20 overflow-y-auto space-y-6 transition-all duration-300 flex-shrink-0`}>
+            <aside className={`hidden lg:block ${isSidebarCollapsed ? 'lg:w-[100px] p-3' : 'lg:w-[300px] xl:w-[25%] p-6'} bg-suka-cream/50 border-r border-suka-brown/20 overflow-y-auto space-y-4 transition-all duration-300 flex-shrink-0`}>
               <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
                 {!isSidebarCollapsed && (
                   <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
-                    {allowedOutletIds ? `Outlet Binaan (${allowedOutletIds.length})` : 'Daftar 19 Outlet'}
+                    {allowedOutletIds 
+                      ? `Outlet Binaan (${filteredVisibleOutlets.length})` 
+                      : `Daftar ${filteredVisibleOutlets.length} Outlet`}
                   </h3>
                 )}
                 <button
@@ -586,6 +662,28 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                   {isSidebarCollapsed ? "→" : "←"}
                 </button>
               </div>
+
+              {!isSidebarCollapsed && (
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40 text-xs">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Cari outlet..."
+                    value={outletSearchTerm}
+                    onChange={(e) => setOutletSearchTerm(e.target.value)}
+                    className="w-full pl-8 pr-7 py-2 bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-xs font-bold placeholder-suka-brown/40 text-suka-ink transition-all shadow-2xs"
+                  />
+                  {outletSearchTerm && (
+                    <button
+                      onClick={() => setOutletSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full hover:bg-suka-brown/10 transition-colors"
+                      title="Hapus pencarian"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              )}
               
               <div className="flex flex-col gap-6">
                 {isLoading && !data ? (
@@ -595,9 +693,14 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       <Skeleton className="h-16 w-full" />
                     </div>
                   ))
+                ) : Object.keys(filteredRegionMap).length === 0 ? (
+                  <div className="text-center py-8 px-2 text-suka-brown/50 text-xs font-semibold">
+                    <p className="text-xl mb-1.5">🔍</p>
+                    <p>Outlet &ldquo;{outletSearchTerm}&rdquo; tidak ditemukan</p>
+                  </div>
                 ) : (
-                  ['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang'].map((region) => {
-                    const regionOutlets = outlets.byRegion[region] || [];
+                  ['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
+                    const regionOutlets = filteredRegionMap[region] || [];
                     if (regionOutlets.length === 0) return null;
                   
                   return (
@@ -911,17 +1014,17 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               )}
             </section>
 
-            {/* Right Column: Action & Predictive Hub (Collapsible) */}
-            <aside className={`w-full lg:flex flex-col gap-4 flex-shrink-0 bg-suka-cream/50 border-t lg:border-t-0 border-suka-brown/20 transition-all duration-300 ${
+            {/* Right Column: Approval Permintaan (Collapsible) */}
+            <aside className={`w-full lg:flex flex-col gap-3 flex-shrink-0 bg-suka-cream/50 border-t lg:border-t-0 border-suka-brown/20 transition-all duration-300 ${
               isRightSidebarCollapsed 
                 ? 'lg:w-[60px] p-2 overflow-hidden items-center' 
-                : 'lg:w-[320px] xl:w-[23%] p-4 overflow-y-auto'
+                : 'lg:w-[340px] xl:w-[25%] p-4 overflow-hidden'
             }`}>
               {/* Header Toggle inside Right Sidebar */}
-              <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2 w-full">
+              <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2 w-full flex-shrink-0">
                 {!isRightSidebarCollapsed && (
                   <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
-                    Panel Aktivitas & Permintaan
+                    Panel Permintaan
                   </h3>
                 )}
                 <button
@@ -936,15 +1039,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               {isRightSidebarCollapsed ? (
                 /* Collapsed Icon Action Bar */
                 <div className="hidden lg:flex flex-col items-center gap-3 py-2 w-full">
-                  {(outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin_finance') && currentOutletItems.length > 0 && (
-                    <button 
-                      onClick={() => setIsRightSidebarCollapsed(false)}
-                      className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all"
-                      title="Buka Estimasi Produksi"
-                    >
-                      🧪
-                    </button>
-                  )}
                   <button 
                     onClick={() => setIsRightSidebarCollapsed(false)}
                     className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all relative"
@@ -957,87 +1051,24 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       </span>
                     )}
                   </button>
-                  <button 
-                    onClick={() => setIsRightSidebarCollapsed(false)}
-                    className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all"
-                    title="Buka Live Activity"
-                  >
-                    ⚡
-                  </button>
                 </div>
               ) : (
-                /* Expanded Content */
-                <>
-                  {/* Widget: Estimasi Produksi (khusus kitchen) */}
-                  {(outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin_finance') && currentOutletItems.length > 0 && (
-                    <ProductionEstimateWidget items={currentOutletItems} />
-                  )}
-
-                  {/* Widget 0: Approval Permintaan */}
-                  <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm" open>
-                    <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
-                      <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
-                        <span>📝</span> Approval Permintaan
-                        {pendingApprovals.length > 0 && (
-                          <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                            {pendingApprovals.length}
-                          </span>
-                        )}
-                      </h3>
-                      <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
-                    </summary>
-                    <div className="max-h-[300px] overflow-y-auto px-4 pb-4">
-                      <ApprovalList />
-                    </div>
-                  </details>
-
-                  {/* Widget 3: Live Activity Feed */}
-                  <details className="group bg-white rounded-2xl border border-[#d9c2b2]/60 shadow-[0px_2px_8px_rgba(112,22,4,0.02)]" open>
-                    <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
-                      <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
-                        <span>⚡</span> Live Activity
-                      </h3>
-                      <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
-                    </summary>
-                    <div className="space-y-2.5 max-h-[300px] overflow-y-auto px-4 pb-4">
-                      {selectedOutletId ? (
-                        recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).length === 0 ? (
-                          <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
-                            Belum ada aktivitas hari ini
-                          </p>
-                        ) : (
-                          recentLedger.filter(l => l.outlet_id === selectedOutletId).slice(0, 5).map((l) => {
-                            const dateObj = new Date(l.created_at);
-                            const timeStr = dateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-                            const isAdd = l.qty > 0;
-                            return (
-                              <div key={l.id} className="p-2.5 bg-suka-cream/5 border border-suka-brown/10 rounded-xl flex flex-col gap-1 text-[11px]">
-                                <div className="flex justify-between items-center">
-                                  <span className="font-bold text-suka-ink uppercase tracking-wide truncate max-w-[120px]">{l.item_name}</span>
-                                  <span className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-black ${
-                                    isAdd ? 'bg-suka-green/10 text-suka-green' : 'bg-red-50 text-[#ba1a1a]'
-                                  }`}>
-                                    {formatCompositeDeltaAdaptive(l.qty, l.saldo_is_gram, l.satuan ?? '', l.satuan_kecil, l.faktor_tampilan)}
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center text-[9px] text-suka-brown/50">
-                                  <span className="bg-suka-brown/5 px-1.5 py-0.5 rounded uppercase font-semibold">
-                                    {l.tipe.replace('_', ' ')}
-                                  </span>
-                                  <span className="font-mono">{timeStr}</span>
-                                </div>
-                              </div>
-                            );
-                          })
-                        )
-                      ) : (
-                        <p className="text-[11px] text-suka-brown/50 italic text-center py-2">
-                          Pilih outlet untuk melihat log aktivitas
-                        </p>
+                /* Expanded Content - Full Height Approval Permintaan */
+                <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-suka-brown/20 shadow-sm overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3.5 border-b border-suka-brown/10 bg-white select-none flex-shrink-0">
+                    <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+                      <span>📝</span> Approval Permintaan
+                      {pendingApprovals.length > 0 && (
+                        <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                          {pendingApprovals.length}
+                        </span>
                       )}
-                    </div>
-                  </details>
-                </>
+                    </h3>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4">
+                    <ApprovalList />
+                  </div>
+                </div>
               )}
             </aside>
           </div>

@@ -438,7 +438,9 @@ export async function getAttendanceReportData(
   }>()
 
   for (const r of attRows) {
-    const dateStr = r.ts_server ? r.ts_server.split('T')[0] : ''
+    const dateStr = r.ts_server
+      ? new Date(r.ts_server).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
+      : ''
     const key = `${r.outlet_staff_id}|${r.outlet_id}|${dateStr}`
     const st = staffMap.get(r.outlet_staff_id)
     const outletName = outletMap.get(r.outlet_id)
@@ -470,7 +472,7 @@ export async function getAttendanceReportData(
 
     const item = grouped.get(key)!
     if (r.type === 'in') {
-      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.raw_photo_in = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
@@ -482,7 +484,7 @@ export async function getAttendanceReportData(
         item.late_minutes = r.telat_menit || 0
       }
     } else if (r.type === 'out') {
-      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
+      item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.raw_photo_out = r.selfie_url || null
       if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)

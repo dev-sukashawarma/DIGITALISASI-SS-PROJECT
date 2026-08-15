@@ -171,6 +171,15 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
 
             let qtyFisikText = it.qty_fisik !== null ? formatGram(it.qty_fisik) : '-';
 
+            // Cek apakah ada data target kitchen di field catatan
+            let targetKitchenText: string | null = null;
+            try {
+              const parsed = JSON.parse(String(it.catatan || '').replace(/^\[RAW\]\s*/, ''));
+              if (parsed?.t) targetKitchenText = parsed.t as string;
+            } catch {
+              // catatan bukan format JSON — lewati
+            }
+
             return (
               <div
                 key={it.id}
@@ -196,9 +205,14 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                     {name}
                   </h4>
                   <p className="text-[9px] text-[#544437]/65">
-                    Fisik: <span className="font-bold text-[#1e1b15]">{qtyFisikText}</span> • Sistem: <span className="font-semibold">{formatGram(it.qty_system)}</span>
+                    Fisik Crew: <span className="font-bold text-[#1e1b15]">{qtyFisikText}</span> • Sistem: <span className="font-semibold">{formatGram(it.qty_system)}</span>
                   </p>
-                  {it.catatan && (
+                  {targetKitchenText && (
+                    <p className="text-[9px] font-bold text-[#0a7d2c] mt-0.5">
+                      🎯 Target Kitchen: <span>{targetKitchenText}</span>
+                    </p>
+                  )}
+                  {it.catatan && !it.catatan.startsWith('[RAW]') && (
                     <p className="text-[8px] text-gray-500 font-medium italic mt-0.5">
                       * {it.catatan}
                     </p>

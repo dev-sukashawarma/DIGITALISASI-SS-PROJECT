@@ -6,11 +6,15 @@
 
 /* Palet Suka Shawarma (selaras tokens @suka/design-system) */
 @theme {
+  /* Brand Colors — selaras @suka/design-system tokens.ts */
+  --color-suka-primary: #f29744;
   --color-suka-orange: #f29744;
   --color-suka-brown: #701604;
   --color-suka-ink: #400a07;
   --color-suka-cream: #fff7ed;
   --color-suka-green: #0a7d2c;
+
+  /* Gray Scale */
   --color-suka-gray-50: #f9fafb;
   --color-suka-gray-100: #f3f4f6;
   --color-suka-gray-200: #e5e7eb;
@@ -21,6 +25,25 @@
   --color-suka-gray-700: #374151;
   --color-suka-gray-800: #1f2937;
   --color-suka-gray-900: #111827;
+
+  /* Typography */
+  --font-display: "Lilita One", sans-serif;
+  --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
+
+  /* Spacing */
+  --spacing-0: 0;
+  --spacing-1: 0.25rem;
+  --spacing-2: 0.5rem;
+  --spacing-3: 0.75rem;
+  --spacing-4: 1rem;
+  --spacing-6: 1.5rem;
+  --spacing-8: 2rem;
+  --spacing-10: 2.5rem;
+  --spacing-12: 3rem;
+  --spacing-16: 4rem;
+  --spacing-20: 5rem;
+  --spacing-24: 6rem;
+  --spacing-32: 8rem;
 }
 
 @layer base {

@@ -78,7 +78,8 @@ function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
   return totalSmallestQty < 0 ? `-${formattedStr}` : formattedStr;
 }
 
-export function OpnameForm({ outletId, createdBy }: { outletId: string; createdBy: string; role?: string }) {
+export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
+  const isKitchen = role === 'kitchen';
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);
@@ -91,6 +92,8 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
   const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
 
   const [inputs, setInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>({});
+  // State target khusus kitchen: menggantikan qty_fisik saat finalisasi
+  const [targets, setTargets] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>({}); 
 
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -118,6 +121,7 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
         const draft = await fetchTodayDraft(outletId);
         if (!cancelled && draft) {
           const resumedInputs: Record<string, { besar?: string; tengah?: string; kecil?: string }> = {};
+          const resumedTargets: Record<string, { besar?: string; tengah?: string; kecil?: string }> = {};
           for (const item of draft.opname_item || []) {
             try {
               const parsed = JSON.parse(String(item.catatan || '').replace(/^\[RAW\]\s*/, ''));
@@ -128,12 +132,20 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                   kecil: parsed.raw.kecil,
                 };
               }
+              if (parsed?.traw) {
+                resumedTargets[item.bahan_baku_id] = {
+                  besar: parsed.traw.besar,
+                  tengah: parsed.traw.tengah,
+                  kecil: parsed.traw.kecil,
+                };
+              }
             } catch {
               // item lama dari sebelum fitur draft ada — tak bisa di-resume otomatis, lewati
             }
           }
           if (Object.keys(resumedInputs).length > 0) {
             setInputs(resumedInputs);
+            if (Object.keys(resumedTargets).length > 0) setTargets(resumedTargets);
             setLastDraftSavedAt(draft.updated_at || draft.created_at);
             showToast('📝 Draft opname sebelumnya dilanjutkan.', 'success');
           }
@@ -167,6 +179,16 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
     }));
   };
 
+  const handleTargetChange = (bahanId: string, level: 'besar' | 'tengah' | 'kecil', value: string) => {
+    setTargets(prev => ({
+      ...prev,
+      [bahanId]: {
+        ...(prev[bahanId] || {}),
+        [level]: value
+      }
+    }));
+  };
+
   const filteredBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
       const source = getBahanBakuSource(b.nama);
@@ -186,7 +208,12 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       })
       .map((b) => {
         const inp = inputs[b.id] || {};
-        const qtyFisik = calculateTotalFisik(b, inp);
+        const tgt = targets[b.id];
+        const hasTarget = isKitchen && tgt && (tgt.besar !== undefined || tgt.tengah !== undefined || tgt.kecil !== undefined);
+
+        // Jika kitchen mengisi target → target menggantikan qty_fisik (Opsi A)
+        const effectiveInp = hasTarget ? tgt! : inp;
+        const qtyFisik = calculateTotalFisik(b, effectiveInp);
         const qtySystem = saldoOf[b.id] ?? 0;
         const selisih = computeSelisih(qtyFisik, qtySystem);
 
@@ -196,7 +223,12 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
 
         // `raw` (besar/tengah/kecil mentah) disimpan supaya "Simpan Draft" bisa
         // di-resume persis seperti input aslinya, bukan cuma teks berformat.
-        const rawData = { f: rawInputText, s: rawSystemText, d: rawSelisihText, raw: inp };
+        // `t` dan `traw` disimpan jika kitchen mengisi target.
+        const rawData: Record<string, unknown> = { f: rawInputText, s: rawSystemText, d: rawSelisihText, raw: inp };
+        if (hasTarget) {
+          rawData.t = formatRawInput(b, tgt!);
+          rawData.traw = tgt;
+        }
 
         return {
           opname_id: opnameId,
@@ -345,12 +377,18 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {filteredBahan.map((b) => {
           const inp = inputs[b.id] || {};
+          const tgt = targets[b.id] || {};
           const isSaved = inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined;
+          const hasTarget = isKitchen && (tgt.besar !== undefined || tgt.tengah !== undefined || tgt.kecil !== undefined);
 
           return (
             <div
               key={b.id}
-              className="p-5 rounded-xl border flex flex-col justify-between min-h-[150px] transition-all duration-200 border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45"
+              className={`p-5 rounded-xl border flex flex-col justify-between transition-all duration-200 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] ${
+                hasTarget
+                  ? 'border-[#0a7d2c]/40 shadow-[0px_4px_12px_rgba(10,125,44,0.06)]'
+                  : 'border-[#d9c2b2]/45 hover:border-[#f29744]/45'
+              }`}
             >
               <div className="flex justify-between items-start gap-3">
                 <div className="space-y-1 min-w-0">
@@ -370,67 +408,139 @@ export function OpnameForm({ outletId, createdBy }: { outletId: string; createdB
                 </div>
 
                 <div className="text-right min-w-[65px] flex-shrink-0">
-                  {isSaved && (
+                  {hasTarget ? (
+                    <div className="space-y-0.5">
+                      <p className="text-[9px] font-black text-[#0a7d2c] uppercase tracking-wider">🎯 Target</p>
+                    </div>
+                  ) : isSaved ? (
                     <div className="space-y-0.5">
                       <p className="text-xs font-black text-[#0a7d2c]">✓ Diisi</p>
                     </div>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Input Fisik Crew */}
+              <div className="mt-4">
+                <span className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider">
+                  Stok Fisik Crew
+                </span>
+                <div className="mt-1.5 flex flex-wrap gap-2 items-center justify-end">
+                  {/* Input untuk Satuan Besar */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                      placeholder="0"
+                      value={inp.besar ?? ''}
+                      onChange={(e) => handleInputChange(b.id, 'besar', e.target.value)}
+                    />
+                  </div>
+                  
+                  {/* Input untuk Satuan Tengah */}
+                  {b.satuan_tengah && (
+                    <>
+                      <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_tengah}</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                          placeholder="0"
+                          value={inp.tengah ?? ''}
+                          onChange={(e) => handleInputChange(b.id, 'tengah', e.target.value)}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Input untuk Satuan Kecil */}
+                  {b.satuan_kecil && (
+                    <>
+                      <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_kecil}</span>
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          min={0}
+                          className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                          placeholder="0"
+                          value={inp.kecil ?? ''}
+                          onChange={(e) => handleInputChange(b.id, 'kecil', e.target.value)}
+                        />
+                      </div>
+                    </>
                   )}
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2 items-center justify-end">
-                {/* Input untuk Satuan Besar */}
-                <div className="flex flex-col items-center">
-                  <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan}</span>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min={0}
-                    className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                    placeholder="0"
-                    value={inp.besar ?? ''}
-                    onChange={(e) => handleInputChange(b.id, 'besar', e.target.value)}
-                  />
-                </div>
-                
-                {/* Input untuk Satuan Tengah */}
-                {b.satuan_tengah && (
-                  <>
-                    <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+              {/* Input Target — hanya untuk role kitchen */}
+              {isKitchen && (
+                <div className="mt-3 pt-3 border-t border-[#0a7d2c]/15">
+                  <span className="text-[9px] font-bold text-[#0a7d2c]/70 uppercase tracking-wider">
+                    🎯 Target Kitchen <span className="font-normal text-[#544437]/50">(opsional — override fisik)</span>
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap gap-2 items-center justify-end">
+                    {/* Target Satuan Besar */}
                     <div className="flex flex-col items-center">
-                      <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_tengah}</span>
+                      <span className="text-[9px] font-bold text-[#0a7d2c]/60 uppercase mb-1">{b.satuan}</span>
                       <input
                         type="number"
                         inputMode="decimal"
                         min={0}
-                        className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                        placeholder="0"
-                        value={inp.tengah ?? ''}
-                        onChange={(e) => handleInputChange(b.id, 'tengah', e.target.value)}
+                        className="w-16 text-center bg-[#e8f5e9]/40 border border-[#0a7d2c]/30 rounded-lg font-extrabold text-sm text-[#0a7d2c] py-1.5 shadow-inner focus:ring-1 focus:ring-[#0a7d2c]/50 focus:border-[#0a7d2c]/60 placeholder-[#0a7d2c]/30"
+                        placeholder="–"
+                        value={tgt.besar ?? ''}
+                        onChange={(e) => handleTargetChange(b.id, 'besar', e.target.value)}
                       />
                     </div>
-                  </>
-                )}
 
-                {/* Input untuk Satuan Kecil */}
-                {b.satuan_kecil && (
-                  <>
-                    <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
-                    <div className="flex flex-col items-center">
-                      <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_kecil}</span>
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min={0}
-                        className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                        placeholder="0"
-                        value={inp.kecil ?? ''}
-                        onChange={(e) => handleInputChange(b.id, 'kecil', e.target.value)}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+                    {/* Target Satuan Tengah */}
+                    {b.satuan_tengah && (
+                      <>
+                        <span className="text-[10px] font-bold text-[#0a7d2c]/30 mt-3">+</span>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-[#0a7d2c]/60 uppercase mb-1">{b.satuan_tengah}</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            className="w-16 text-center bg-[#e8f5e9]/40 border border-[#0a7d2c]/30 rounded-lg font-extrabold text-sm text-[#0a7d2c] py-1.5 shadow-inner focus:ring-1 focus:ring-[#0a7d2c]/50 focus:border-[#0a7d2c]/60 placeholder-[#0a7d2c]/30"
+                            placeholder="–"
+                            value={tgt.tengah ?? ''}
+                            onChange={(e) => handleTargetChange(b.id, 'tengah', e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Target Satuan Kecil */}
+                    {b.satuan_kecil && (
+                      <>
+                        <span className="text-[10px] font-bold text-[#0a7d2c]/30 mt-3">+</span>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-[#0a7d2c]/60 uppercase mb-1">{b.satuan_kecil}</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            className="w-16 text-center bg-[#e8f5e9]/40 border border-[#0a7d2c]/30 rounded-lg font-extrabold text-sm text-[#0a7d2c] py-1.5 shadow-inner focus:ring-1 focus:ring-[#0a7d2c]/50 focus:border-[#0a7d2c]/60 placeholder-[#0a7d2c]/30"
+                            placeholder="–"
+                            value={tgt.kecil ?? ''}
+                            onChange={(e) => handleTargetChange(b.id, 'kecil', e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}

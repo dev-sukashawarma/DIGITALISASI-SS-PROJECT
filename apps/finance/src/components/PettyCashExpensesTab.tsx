@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useOutlets } from '@/hooks/useOutlets'
 import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, tanggal } from '@/lib/format'
-import { Receipt, FileText, ExternalLink, Store, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Receipt, FileText, ExternalLink, Store, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 import { TargetCombobox } from '@/components/TargetCombobox'
 
@@ -223,6 +223,30 @@ export default function PettyCashExpensesTab() {
     })
   }, [outlets, realBalances])
 
+  const handleDownloadCSV = () => {
+    if (!data || data.length === 0) return
+
+    const headers = ['Tanggal', 'Outlet', 'Kategori', 'Deskripsi', 'Jumlah', 'Tipe']
+    const rows = data.map(item => [
+      item.date.substring(0, 10),
+      `"${item.outletName}"`,
+      item.category,
+      `"${(item.description || '').replace(/"/g, '""')}"`,
+      item.amount,
+      item.type
+    ])
+
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n')
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    
+    link.href = URL.createObjectURL(blob)
+    link.setAttribute('download', `Riwayat_Petty_Cash_${startDate}_to_${endDate}.csv`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
+
   if (error) {
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-red-700">
@@ -352,6 +376,14 @@ export default function PettyCashExpensesTab() {
       <div className="bg-white rounded-[2rem] p-6 shadow-sm border border-suka-brown/5">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-display text-xl text-suka-brown">Rincian Riwayat (Pengeluaran & Topup)</h3>
+          <button
+            onClick={handleDownloadCSV}
+            disabled={!data || data.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-suka-orange text-white rounded-xl font-bold text-sm hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download size={16} />
+            Download CSV
+          </button>
         </div>
 
         {selectedOutletId === 'all' ? (

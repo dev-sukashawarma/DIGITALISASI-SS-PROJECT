@@ -1380,20 +1380,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           {(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-indigo-500" />
-                    Rekonsiliasi Settlement
-                  </h2>
-                  <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
-                </div>
-                {analytics.settlementDateRange && (
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 text-indigo-700 rounded-full text-xs font-semibold border border-indigo-100 self-start sm:self-auto">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {analytics.settlementDateRange}
-                  </div>
-                )}
+              <div className="mb-4">
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <Wallet className="w-5 h-5 text-indigo-500" />
+                  Rekonsiliasi Settlement
+                </h2>
+                <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
                 {/* 5. Settlement (Conditional) */}
@@ -1402,6 +1394,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Settlement</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
+                    {analytics.settlementDateRange && (
+                      <p className="text-xs text-white/80 mt-3 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {analytics.settlementDateRange}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -1411,6 +1409,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Real (Settlement)</p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
+                    {analytics.settlementDateRange && (
+                      <p className="text-xs text-white/80 mt-3 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                        <Calendar className="w-3.5 h-3.5" />
+                        {analytics.settlementDateRange}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

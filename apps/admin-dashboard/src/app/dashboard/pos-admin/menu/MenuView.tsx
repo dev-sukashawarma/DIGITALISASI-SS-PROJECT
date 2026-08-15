@@ -51,6 +51,22 @@ function ChannelLogoIcon({ channelKey }: { channelKey: string }) {
   }
 
   const ch = getChannel(norm)
+
+  const officialLogos: Record<string, string> = {
+    'gofood': '/logos/gofood.svg',
+    'grabfood': '/logos/grabfood.svg',
+    'shopeefood': '/logos/shopeefood.svg',
+    'tiktokgo': '/logos/tiktokgo.svg'
+  }
+
+  if (ch && officialLogos[ch.id]) {
+    return (
+      <span className="w-5 h-5 rounded-md flex items-center justify-center shrink-0 shadow-xs bg-white overflow-hidden border border-slate-200">
+        <Image src={officialLogos[ch.id]} alt={ch.label} width={16} height={16} className="object-contain" unoptimized={true} />
+      </span>
+    )
+  }
+
   if (ch && ch.logoPath) {
     return (
       <span 

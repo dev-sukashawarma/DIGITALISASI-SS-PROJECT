@@ -2,7 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Calendar } from 'lucide-react'
+import { Calendar, X } from 'lucide-react'
+
+const getTodayJakarta = () => {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+}
 
 export function CustomDateFilter() {
   const router = useRouter()
@@ -18,8 +22,9 @@ export function CustomDateFilter() {
 
   useEffect(() => {
     if (open) {
-      setLocalFrom(searchParams.get('from') || '')
-      setLocalTo(searchParams.get('to') || '')
+      const today = getTodayJakarta()
+      setLocalFrom(searchParams.get('from') || today)
+      setLocalTo(searchParams.get('to') || today)
     }
   }, [open, searchParams])
 
@@ -45,50 +50,92 @@ export function CustomDateFilter() {
     }
   }
 
+  const fromParam = searchParams.get('from')
+  const toParam = searchParams.get('to')
+
   return (
-    <div ref={rootRef} className="relative flex">
+    <div ref={rootRef} className="relative flex items-center">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
-        className={`px-4 py-1.5 text-sm font-bold rounded-md flex items-center justify-center gap-1.5 transition-colors ${
-          isCustom || open ? 'bg-suka-orange text-white' : 'text-suka-gray-500 hover:bg-suka-gray-50'
+        title="Pilih Rentang Tanggal Kustom"
+        className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+          isCustom || open
+            ? 'bg-suka-orange text-white shadow-xs'
+            : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'
         }`}
       >
-        <Calendar className="w-4 h-4" />
-        <span className="hidden sm:inline">Kustom</span>
+        <Calendar className="w-3.5 h-3.5" />
+        <span>
+          {isCustom && fromParam && toParam
+            ? `${fromParam} - ${toParam}`
+            : 'Kustom'}
+        </span>
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-2 p-4 w-[280px] bg-white border border-suka-brown/10 rounded-xl shadow-xl z-[100]">
-          <h4 className="text-sm font-bold text-suka-brown mb-3">Pilih Rentang Tanggal</h4>
-          <div className="space-y-3">
-            <div>
-              <label className="block text-[10px] font-bold text-suka-gray-400 uppercase mb-1">Dari Tanggal</label>
-              <input 
-                type="date" 
-                value={localFrom} 
-                onChange={(e) => setLocalFrom(e.target.value)} 
-                className="w-full px-3 py-2 border border-suka-brown/10 focus:border-suka-orange rounded-lg text-xs outline-none"
-              />
+        <>
+          {/* Backdrop for mobile */}
+          <div 
+            className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[1px] md:hidden" 
+            onClick={() => setOpen(false)} 
+          />
+          
+          <div className="fixed md:absolute top-1/2 md:top-full left-1/2 md:left-auto md:right-0 -translate-x-1/2 md:translate-x-0 -translate-y-1/2 md:translate-y-0 mt-0 md:mt-2 p-5 w-[calc(100vw-2rem)] max-w-[320px] bg-white border border-suka-brown/10 rounded-2xl shadow-[0_10px_40px_rgba(44,24,16,0.15)] z-50">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-xs font-black text-suka-brown uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-suka-orange" />
+                Pilih Rentang Tanggal
+              </h4>
+              <button 
+                type="button" 
+                onClick={() => setOpen(false)} 
+                className="p-1 text-suka-gray-400 hover:text-suka-brown rounded-lg hover:bg-suka-brown/5 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
-            <div>
-              <label className="block text-[10px] font-bold text-suka-gray-400 uppercase mb-1">Sampai Tanggal</label>
-              <input 
-                type="date" 
-                value={localTo} 
-                onChange={(e) => setLocalTo(e.target.value)} 
-                min={localFrom}
-                className="w-full px-3 py-2 border border-suka-brown/10 focus:border-suka-orange rounded-lg text-xs outline-none"
-              />
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[10px] font-extrabold text-suka-gray-400 uppercase tracking-wider mb-1">Dari Tanggal</label>
+                <input 
+                  type="date" 
+                  value={localFrom} 
+                  onChange={(e) => setLocalFrom(e.target.value)} 
+                  className="w-full px-3 py-2 border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-xs outline-none font-bold text-suka-brown bg-suka-brown/[0.02]"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-extrabold text-suka-gray-400 uppercase tracking-wider mb-1">Sampai Tanggal</label>
+                <input 
+                  type="date" 
+                  value={localTo} 
+                  onChange={(e) => setLocalTo(e.target.value)} 
+                  min={localFrom}
+                  className="w-full px-3 py-2 border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-xs outline-none font-bold text-suka-brown bg-suka-brown/[0.02]"
+                />
+              </div>
+              <div className="pt-2 flex gap-2">
+                <button 
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="flex-1 px-3 py-2 border border-suka-brown/10 hover:bg-suka-brown/5 text-suka-brown font-extrabold rounded-xl text-xs transition-colors cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button 
+                  type="button" 
+                  onClick={handleApply}
+                  disabled={!localFrom || !localTo || localTo < localFrom}
+                  className="flex-1 bg-suka-orange hover:bg-orange-600 disabled:bg-suka-gray-200 disabled:text-suka-gray-400 text-white font-extrabold py-2 rounded-xl text-xs transition-colors shadow-xs cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Terapkan
+                </button>
+              </div>
             </div>
-            <button 
-              onClick={handleApply}
-              disabled={!localFrom || !localTo || localTo < localFrom}
-              className="w-full mt-2 bg-suka-orange hover:bg-orange-600 disabled:bg-suka-gray-200 disabled:text-suka-gray-400 text-white font-bold py-2 rounded-lg text-xs transition-colors"
-            >
-              Terapkan
-            </button>
           </div>
-        </div>
+        </>
       )}
     </div>
   )

@@ -357,11 +357,11 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         </div>
 
         {/* Segmented Filter Control */}
-        <div className="flex bg-suka-brown/[0.04] rounded-2xl p-1 border border-suka-brown/10 self-stretch md:self-auto overflow-x-auto">
-          <Link href="?period=today" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'today' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Hari Ini</Link>
-          <Link href="?period=yesterday" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'yesterday' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Kemarin</Link>
-          <Link href="?period=week" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'week' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>7 Hari Terakhir</Link>
-          <Link href="?period=month" className={`px-4 py-2 text-xs font-extrabold rounded-xl transition-all ${period === 'month' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>1 Bulan Terakhir</Link>
+        <div className="flex items-center gap-0.5 sm:gap-1 bg-suka-brown/[0.04] rounded-2xl p-1 border border-suka-brown/10 shrink-0">
+          <Link href="?period=today" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'today' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Hari Ini</Link>
+          <Link href="?period=yesterday" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'yesterday' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>Kemarin</Link>
+          <Link href="?period=week" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'week' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>7 Hari</Link>
+          <Link href="?period=month" className={`px-2.5 sm:px-3.5 py-1.5 sm:py-2 text-xs font-extrabold rounded-xl transition-all whitespace-nowrap ${period === 'month' ? 'bg-suka-orange text-white shadow-xs' : 'text-suka-brown/70 hover:text-suka-brown hover:bg-white/50'}`}>30 Hari</Link>
           <CustomDateFilter />
         </div>
       </div>

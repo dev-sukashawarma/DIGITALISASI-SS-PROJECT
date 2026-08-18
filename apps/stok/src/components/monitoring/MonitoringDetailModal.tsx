@@ -8,6 +8,7 @@ import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/li
 import { WasteModal } from '../stok/WasteModal';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
+import { useAuth } from '@suka/auth';
 
 interface MonitoringDetailModalProps {
   item: MonitoringItem;
@@ -16,6 +17,8 @@ interface MonitoringDetailModalProps {
 }
 
 export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetailModalProps) {
+  const { outletStaff } = useAuth();
+  const isOwner = outletStaff?.role === 'owner';
   const [detail, setDetail] = useState<DetailItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -201,16 +204,18 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
         </div>
 
         {/* Footer */}
-        <div className="bg-[#faf2e9]/50 p-4 border-t border-[#d9c2b2]/25 flex justify-between rounded-b-2xl">
-          <button
-            onClick={() => setIsWasteModalOpen(true)}
-            className="px-4 py-2 border border-[#f29744] text-[#a43c26] bg-[#ffdcc2]/30 rounded-xl text-xs font-bold hover:bg-[#ffdcc2]/50 active:scale-95 transition-all shadow-xs"
-          >
-            🗑️ Lapor Waste
-          </button>
+        <div className={`bg-[#faf2e9]/50 p-4 border-t border-[#d9c2b2]/25 flex ${isOwner ? 'justify-end' : 'justify-between'} rounded-b-2xl`}>
+          {!isOwner && (
+            <button
+              onClick={() => setIsWasteModalOpen(true)}
+              className="px-4 py-2 border border-[#f29744] text-[#a43c26] bg-[#ffdcc2]/30 rounded-xl text-xs font-bold hover:bg-[#ffdcc2]/50 active:scale-95 transition-all shadow-xs cursor-pointer"
+            >
+              🗑️ Lapor Waste
+            </button>
+          )}
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-[#d9c2b2]/50 text-[#544437] bg-white rounded-xl text-xs font-bold hover:bg-[#faf2e9] active:scale-95 transition-all shadow-xs"
+            className="px-4 py-2 border border-[#d9c2b2]/50 text-[#544437] bg-white rounded-xl text-xs font-bold hover:bg-[#faf2e9] active:scale-95 transition-all shadow-xs cursor-pointer"
           >
             Close
           </button>

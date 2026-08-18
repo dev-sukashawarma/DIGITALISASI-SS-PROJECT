@@ -11,6 +11,15 @@ import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import type { BahanBaku } from '@/types/stok';
 
+const TIMEOUT_MS = 15000;
+async function withTimeout<T>(promise: Promise<T>, ms: number, actionName: string): Promise<T> {
+  let timer: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`Koneksi lambat/terputus (${actionName} melebihi batas waktu ${ms/1000}s). Silakan periksa jaringan Anda.`)), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer));
+}
+
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Semua',
   'item core': 'Item Core',
@@ -244,7 +253,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   async function handleSaveDraft() {
     setBusy(true);
     try {
-      const opname = await createOrReuseDraft(outletId, 'harian', createdBy, notes);
+      const opname = await withTimeout(createOrReuseDraft(outletId, 'harian', createdBy, notes), TIMEOUT_MS, 'membuat draft');
       const itemsToSave = buildItemsToSave(opname.id);
 
       if (itemsToSave.length === 0) {
@@ -253,7 +262,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         return;
       }
 
-      await upsertItems(itemsToSave);
+      await withTimeout(upsertItems(itemsToSave), TIMEOUT_MS, 'menyimpan data');
       setLastDraftSavedAt(new Date().toISOString());
       showToast('💾 Draft opname tersimpan. Bisa dilanjutkan nanti sebelum finalisasi.', 'success');
     } catch (err: any) {
@@ -266,7 +275,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   async function handleFinalize() {
     setBusy(true);
     try {
-      const opname = await createOrReuseDraft(outletId, 'harian', createdBy, notes);
+      const opname = await withTimeout(createOrReuseDraft(outletId, 'harian', createdBy, notes), TIMEOUT_MS, 'membuat draft');
       const itemsToSave = buildItemsToSave(opname.id);
 
       if (itemsToSave.length === 0) {
@@ -275,9 +284,11 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         return;
       }
 
-      await upsertItems(itemsToSave);
+      await withTimeout(upsertItems(itemsToSave), TIMEOUT_MS, 'menyimpan data item');
       const hasFlagged = itemsToSave.some(i => i.flagged);
-      const res = await finalize(opname.id);
+      // finalize uses offline queue internally, so a timeout here is mostly to catch local hang,
+      // but if the queue adds synchronously, the rpc hangs inside finalize.
+      const res = await withTimeout(finalize(opname.id), TIMEOUT_MS, 'finalisasi opname');
 
       if (hasFlagged) {
          showToast('✅ Opname difinalisasi (Selisih dicatat).', 'success');

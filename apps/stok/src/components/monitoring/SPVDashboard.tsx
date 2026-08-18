@@ -125,6 +125,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
   // Auth context for username
   const { outletStaff } = useAuth();
+  const isOwner = outletStaff?.role === 'owner';
   const [showDropdown, setShowDropdown] = useState(false);
 
   const handleLogout = async () => {
@@ -569,6 +570,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           approvalCount={pendingApprovals.length} 
           wasteApprovalCount={pendingWaste?.length || 0}
           poInboundCount={inboundPos.length}
+          readOnlyTabs={isOwner}
         />
       </div>
 
@@ -999,9 +1001,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       filterStatus={filterStatus}
                       hideFilters={true}
                       onRowClick={setSelectedItem}
-                      onThresholdChange={handleThresholdChange}
-                      onRestockRequest={handleRestockRequest}
-                      onTransferRequest={setTransferItem}
+                      onThresholdChange={isOwner ? undefined : handleThresholdChange}
+                      onRestockRequest={isOwner ? undefined : handleRestockRequest}
+                      onTransferRequest={isOwner ? undefined : setTransferItem}
                       loading={isLoading && !data}
                     />
                   </div>
@@ -1014,63 +1016,65 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               )}
             </section>
 
-            {/* Right Column: Approval Permintaan (Collapsible) */}
-            <aside className={`w-full lg:flex flex-col gap-3 flex-shrink-0 bg-suka-cream/50 border-t lg:border-t-0 border-suka-brown/20 transition-all duration-300 ${
-              isRightSidebarCollapsed 
-                ? 'lg:w-[60px] p-2 overflow-hidden items-center' 
-                : 'lg:w-[340px] xl:w-[25%] p-4 overflow-hidden'
-            }`}>
-              {/* Header Toggle inside Right Sidebar */}
-              <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2 w-full flex-shrink-0">
-                {!isRightSidebarCollapsed && (
-                  <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
-                    Panel Permintaan
-                  </h3>
-                )}
-                <button
-                  onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 text-xs font-bold transition-all mx-auto"
-                  title={isRightSidebarCollapsed ? "Buka Panel Kanan" : "Sembunyikan Panel Kanan"}
-                >
-                  {isRightSidebarCollapsed ? "←" : "→"}
-                </button>
-              </div>
-
-              {isRightSidebarCollapsed ? (
-                /* Collapsed Icon Action Bar */
-                <div className="hidden lg:flex flex-col items-center gap-3 py-2 w-full">
-                  <button 
-                    onClick={() => setIsRightSidebarCollapsed(false)}
-                    className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all relative"
-                    title="Buka Approval Permintaan"
+            {/* Right Column: Approval Permintaan (Collapsible) - Hidden for Owner */}
+            {!isOwner && (
+              <aside className={`w-full lg:flex flex-col gap-3 flex-shrink-0 bg-suka-cream/50 border-t lg:border-t-0 border-suka-brown/20 transition-all duration-300 ${
+                isRightSidebarCollapsed 
+                  ? 'lg:w-[60px] p-2 overflow-hidden items-center' 
+                  : 'lg:w-[340px] xl:w-[25%] p-4 overflow-hidden'
+              }`}>
+                {/* Header Toggle inside Right Sidebar */}
+                <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2 w-full flex-shrink-0">
+                  {!isRightSidebarCollapsed && (
+                    <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
+                      Panel Permintaan
+                    </h3>
+                  )}
+                  <button
+                    onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
+                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 text-xs font-bold transition-all mx-auto"
+                    title={isRightSidebarCollapsed ? "Buka Panel Kanan" : "Sembunyikan Panel Kanan"}
                   >
-                    <span>📝</span>
-                    {pendingApprovals.length > 0 && (
-                      <span className="absolute -top-1 -right-1 bg-suka-orange text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                        {pendingApprovals.length}
-                      </span>
-                    )}
+                    {isRightSidebarCollapsed ? "←" : "→"}
                   </button>
                 </div>
-              ) : (
-                /* Expanded Content - Full Height Approval Permintaan */
-                <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-suka-brown/20 shadow-sm overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-3.5 border-b border-suka-brown/10 bg-white select-none flex-shrink-0">
-                    <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
-                      <span>📝</span> Approval Permintaan
+
+                {isRightSidebarCollapsed ? (
+                  /* Collapsed Icon Action Bar */
+                  <div className="hidden lg:flex flex-col items-center gap-3 py-2 w-full">
+                    <button 
+                      onClick={() => setIsRightSidebarCollapsed(false)}
+                      className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all relative"
+                      title="Buka Approval Permintaan"
+                    >
+                      <span>📝</span>
                       {pendingApprovals.length > 0 && (
-                        <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                        <span className="absolute -top-1 -right-1 bg-suka-orange text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
                           {pendingApprovals.length}
                         </span>
                       )}
-                    </h3>
+                    </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4">
-                    <ApprovalList />
+                ) : (
+                  /* Expanded Content - Full Height Approval Permintaan */
+                  <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-suka-brown/20 shadow-sm overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3.5 border-b border-suka-brown/10 bg-white select-none flex-shrink-0">
+                      <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
+                        <span>📝</span> Approval Permintaan
+                        {pendingApprovals.length > 0 && (
+                          <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                            {pendingApprovals.length}
+                          </span>
+                        )}
+                      </h3>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4">
+                      <ApprovalList />
+                    </div>
                   </div>
-                </div>
-              )}
-            </aside>
+                )}
+              </aside>
+            )}
           </div>
         )}
 
@@ -1085,9 +1089,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                 items={items}
                 tab="alerts"
                 onRowClick={setSelectedItem}
-                onThresholdChange={handleThresholdChange}
-                onRestockRequest={handleRestockRequest}
-                onTransferRequest={setTransferItem}
+                onThresholdChange={isOwner ? undefined : handleThresholdChange}
+                onRestockRequest={isOwner ? undefined : handleRestockRequest}
+                onTransferRequest={isOwner ? undefined : setTransferItem}
                 loading={isLoading && !data}
               />
             </div>
@@ -1127,13 +1131,15 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       )}
 
       {/* Transfer Stock Modal */}
-      <TransferModal
-        item={transferItem}
-        allInventory={items}
-        isOpen={!!transferItem}
-        onClose={() => setTransferItem(null)}
-        onConfirm={handleTransferConfirm}
-      />
+      {!isOwner && (
+        <TransferModal
+          item={transferItem}
+          allInventory={items}
+          isOpen={!!transferItem}
+          onClose={() => setTransferItem(null)}
+          onConfirm={handleTransferConfirm}
+        />
+      )}
       
       <BottomNav />
     </div>

@@ -60,8 +60,8 @@ export default async function LauncherPage() {
     redirect(APP_URL.finance)
   }
 
-  // Owner, Mitra, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
-  if (['owner', 'mitra', 'korlap'].includes(staff.role)) {
+  // Mitra, Korlap, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
+  if (['mitra', 'korlap'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
   }
   const apps = accessibleApps(staff.role, staff.username)

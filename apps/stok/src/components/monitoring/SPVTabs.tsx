@@ -9,16 +9,21 @@ interface SPVTabsProps {
   approvalCount: number;
   wasteApprovalCount?: number;
   poInboundCount?: number;
+  readOnlyTabs?: boolean;
 }
 
-export function SPVTabs({ activeTab, onTabChange, alertCount, approvalCount, wasteApprovalCount, poInboundCount }: SPVTabsProps) {
-  const tabs = [
+export function SPVTabs({ activeTab, onTabChange, alertCount, approvalCount, wasteApprovalCount, poInboundCount, readOnlyTabs = false }: SPVTabsProps) {
+  const allTabs = [
     { id: 'overview', label: 'Overview', count: null },
     { id: 'alerts', label: 'Alerts', count: alertCount },
     { id: 'approval', label: 'Approval Permintaan', count: approvalCount },
     { id: 'waste_approval', label: 'Approval Waste', count: wasteApprovalCount || 0 },
     { id: 'po_inbound', label: 'Penerimaan PO Supplier', count: poInboundCount || 0 },
   ] as const;
+
+  const tabs = readOnlyTabs
+    ? allTabs.filter(t => t.id === 'overview' || t.id === 'alerts')
+    : allTabs;
 
   return (
     <nav className="bg-white border-b border-suka-brown/10 px-4 md:px-6 flex items-center gap-6 md:gap-8 overflow-x-auto scrollbar-none whitespace-nowrap">

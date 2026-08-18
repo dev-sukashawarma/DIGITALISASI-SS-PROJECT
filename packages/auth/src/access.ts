@@ -4,7 +4,7 @@ import type { AppName, Role } from './types'
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['admin-dashboard', 'stok', 'distribusi', 'finance'],
   admin_hr: ['absensi', 'admin-dashboard'],
-  owner: ['owner-dashboard', 'admin-dashboard', 'finance'],
+  owner: ['owner-dashboard', 'stok'],
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
   regional_manager: ['manager', 'absensi', 'stok', 'distribusi', 'pos-kasir'],
   kitchen: ['stok', 'distribusi'],

@@ -201,6 +201,7 @@ export function SPVTable({
   };
 
   const startEditing = (item: MonitoringItem, e: React.MouseEvent) => {
+    if (!onThresholdChange) return;
     e.stopPropagation(); // Prevent row click details modal
     setEditingId(`${item.outlet_id}-${item.bahan_baku_id}`);
     setEditingValue(item.threshold.toString());
@@ -427,13 +428,15 @@ export function SPVTable({
                               ) : (
                                 <div className="flex items-center gap-1 justify-end group">
                                   <span className="font-semibold">{item.threshold}</span>
-                                  <button
-                                    onClick={(e) => startEditing(item, e)}
-                                    className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title="Ubah Threshold"
-                                  >
-                                    ✎
-                                  </button>
+                                  {onThresholdChange && (
+                                    <button
+                                      onClick={(e) => startEditing(item, e)}
+                                      className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                                      title="Ubah Threshold"
+                                    >
+                                      ✎
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </td>
@@ -572,13 +575,15 @@ export function SPVTable({
                       ) : (
                         <div className="flex items-center gap-1 justify-end group">
                           <span className="font-semibold">{item.threshold}</span>
-                          <button
-                            onClick={(e) => startEditing(item, e)}
-                            className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity"
-                            title="Ubah Threshold"
-                          >
-                            ✎
-                          </button>
+                          {onThresholdChange && (
+                            <button
+                              onClick={(e) => startEditing(item, e)}
+                              className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              title="Ubah Threshold"
+                            >
+                              ✎
+                            </button>
+                          )}
                         </div>
                       )}
                     </td>
@@ -727,10 +732,15 @@ export function SPVTable({
                           <button onClick={cancelEditing} className="p-1 text-red-600 bg-red-50 rounded">✕</button>
                         </div>
                       ) : (
-                        <div className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => startEditing(item, e)}>
+                        <div 
+                          className={`flex items-center gap-1.5 ${onThresholdChange ? 'cursor-pointer' : ''}`} 
+                          onClick={(e) => onThresholdChange && startEditing(item, e)}
+                        >
                           <span className="text-[10px] text-suka-brown/60 uppercase tracking-wider font-semibold">Thresh:</span>
                           <span className="font-bold text-suka-ink text-xs">{item.threshold}</span>
-                          <span className="text-suka-brown/40 text-xs hover:text-suka-orange transition-colors">✎</span>
+                          {onThresholdChange && (
+                            <span className="text-suka-brown/40 text-xs hover:text-suka-orange transition-colors">✎</span>
+                          )}
                         </div>
                       )}
                     </div>

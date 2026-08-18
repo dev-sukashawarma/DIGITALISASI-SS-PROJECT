@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { SPVTabs } from './SPVTabs';
 import { SPVTable } from './SPVTable';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { TransferModal } from './TransferModal';
@@ -14,14 +13,10 @@ import {
 } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
-import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
+import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
-import { ApprovalList } from '../permintaan/ApprovalList';
-import WasteApprovalPage from '@/app/stok/waste-approval/page';
-import { POInboundTabContent } from './POInboundTabContent';
-import { HargaBahanBoard } from '@/components/harga-bahan/HargaBahanBoard';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
-import { RefreshCw, Search, X, Bell, AlertTriangle, CheckCircle2, TrendingDown, Trash2, Store } from 'lucide-react';
+import { RefreshCw, Search, X, Bell, CheckCircle2, TrendingDown, Trash2, Store } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
@@ -79,23 +74,7 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jak
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
   useMonitoringRealtime();
   const { boundOutlets } = useOutletScope();
-  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound' | 'harga_bahan'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
-
-  const { data: inboundPos = [] } = useQuery({
-    queryKey: ['spv_inbound_pos'],
-    queryFn: async () => {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.rpc('get_purchase_orders', {
-        p_from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
-        p_to: new Date().toISOString().split('T')[0],
-        p_status: null
-      });
-      if (error) return [];
-      return (data ?? []).filter((p: any) => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima');
-    },
-    refetchInterval: 30000
-  });
   
   // State for split view outlet selection
   const [selectedOutletId, setSelectedOutletId] = useState<string | null>(null);
@@ -190,10 +169,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       return item;
     });
   }, [data?.items, localThresholdOverrides, allowedOutletIds]);
-
-  const alertCount = useMemo(() => {
-    return items.filter((item) => item.status !== 'ok' || item.is_flagged).length;
-  }, [items]);
 
   const criticalAlertItems = useMemo(() => {
     return items.filter(it => it.status === 'below');
@@ -455,182 +430,131 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         </div>
       </header>
 
-      {/* Tabs Bar */}
-      <div className="flex-shrink-0">
-        <SPVTabs 
-          activeTab={activeTab} 
-          onTabChange={setActiveTab} 
-          alertCount={alertCount} 
-          approvalCount={pendingApprovals.length} 
-          wasteApprovalCount={pendingWaste?.length || 0}
-          poInboundCount={inboundPos.length}
-          readOnlyTabs={isOwner}
-          showPOInbound={['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(outletStaff?.role ?? '')}
-        />
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {activeTab === 'waste_approval' && (
-          <div className="flex-1 overflow-y-auto">
-            <WasteApprovalPage />
+      {/* Main Content Area - 100% Full-Width Clean Workspace */}
+      <div className="flex-1 flex flex-col overflow-y-auto">
+        {isLoading && !data ? (
+          <div className="flex-1 p-6 space-y-6">
+            <Skeleton className="h-8 w-64 rounded-xl" />
+            <Skeleton className="h-16 w-full rounded-2xl" />
+            <Skeleton className="h-96 w-full rounded-2xl" />
           </div>
-        )}
-
-        {/* Overview Tab - 100% Full-Width Clean Workspace */}
-        {activeTab === 'overview' && (
-          <div className="flex-1 flex flex-col overflow-y-auto">
-            {isLoading && !data ? (
-              <div className="flex-1 p-6 space-y-6">
-                <Skeleton className="h-8 w-64 rounded-xl" />
-                <Skeleton className="h-16 w-full rounded-2xl" />
-                <Skeleton className="h-96 w-full rounded-2xl" />
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col">
-                {/* Top Workspace Toolbar: Outlet Dropdown Filter + Search + Status Filter Pills */}
-                <div className="p-4 md:p-6 bg-white border-b border-suka-brown/10 flex flex-col gap-4 shadow-2xs">
-                  {/* Row 1: Outlet Dropdown Filter & Search Bar */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    {/* Compact Outlet Dropdown */}
-                    <div className="flex items-center gap-2 flex-1 max-w-md">
-                      <div className="relative w-full flex items-center bg-suka-cream/40 border border-suka-brown/15 rounded-2xl px-3 py-2 hover:border-suka-orange transition-colors">
-                        <Store className="w-4 h-4 text-suka-orange shrink-0 mr-2" />
-                        <select
-                          value={selectedOutletId || ''}
-                          onChange={(e) => setSelectedOutletId(e.target.value)}
-                          className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer pr-2 font-sans"
-                        >
-                          {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
-                            const regionOutlets = outlets.byRegion[region] || [];
-                            if (regionOutlets.length === 0) return null;
-                            return (
-                              <optgroup key={region} label={`📍 ${region.toUpperCase()}`}>
-                                {regionOutlets.map((o) => {
-                                  const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
-                                  const alertBadge = o.status === 'below' ? ` (🚨 ${o.kritisCount} Kritis)` : o.status === 'warning' ? ` (⚠️ ${o.menipisCount})` : '';
-                                  return (
-                                    <option key={o.outlet_id} value={o.outlet_id}>
-                                      {cleanName}{alertBadge}
-                                    </option>
-                                  );
-                                })}
-                              </optgroup>
-                            );
-                          })}
-                        </select>
-                      </div>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="relative w-full sm:w-72">
-                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40" />
-                      <input
-                        type="text"
-                        placeholder="Cari nama bahan baku..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2 bg-suka-cream/40 border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange placeholder:text-suka-brown/40"
-                      />
-                      {searchTerm && (
-                        <button
-                          onClick={() => setSearchTerm('')}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Row 2: Status Filter Pills + Secondary Proactive Stats */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-suka-brown/5">
-                    {/* Status Filter Pills */}
-                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-                      {[
-                        { id: 'all', label: 'Semua Bahan', count: currentOutletItems.length },
-                        { id: 'below', label: '🚨 Kritis', count: criticalCount },
-                        { id: 'warning', label: '⚠️ Menipis', count: warningCount },
-                        { id: 'ok', label: '✅ Aman', count: okCount },
-                      ].map((btn) => {
-                        const isActive = filterStatus === btn.id;
+        ) : (
+          <div className="flex-1 flex flex-col">
+            {/* Top Workspace Toolbar: Outlet Dropdown Filter + Search + Status Filter Pills */}
+            <div className="p-4 md:p-6 bg-white border-b border-suka-brown/10 flex flex-col gap-4 shadow-2xs">
+              {/* Row 1: Outlet Dropdown Filter & Search Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                {/* Compact Outlet Dropdown */}
+                <div className="flex items-center gap-2 flex-1 max-w-md">
+                  <div className="relative w-full flex items-center bg-suka-cream/40 border border-suka-brown/15 rounded-2xl px-3 py-2 hover:border-suka-orange transition-colors">
+                    <Store className="w-4 h-4 text-suka-orange shrink-0 mr-2" />
+                    <select
+                      value={selectedOutletId || ''}
+                      onChange={(e) => setSelectedOutletId(e.target.value)}
+                      className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer pr-2 font-sans"
+                    >
+                      {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
+                        const regionOutlets = outlets.byRegion[region] || [];
+                        if (regionOutlets.length === 0) return null;
                         return (
-                          <button
-                            key={btn.id}
-                            onClick={() => setFilterStatus(btn.id as any)}
-                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
-                              isActive
-                                ? 'bg-suka-brown text-white shadow-2xs'
-                                : 'bg-suka-cream/40 text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown'
-                            }`}
-                          >
-                            <span>{btn.label}</span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                              isActive ? 'bg-white/20 text-white' : 'bg-black/5 text-suka-brown/70'
-                            }`}>
-                              {btn.count}
-                            </span>
-                          </button>
+                          <optgroup key={region} label={`📍 ${region.toUpperCase()}`}>
+                            {regionOutlets.map((o) => {
+                              const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+                              const alertBadge = o.status === 'below' ? ` (🚨 ${o.kritisCount} Kritis)` : o.status === 'warning' ? ` (⚠️ ${o.menipisCount})` : '';
+                              return (
+                                <option key={o.outlet_id} value={o.outlet_id}>
+                                  {cleanName}{alertBadge}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
                         );
                       })}
-                    </div>
-
-                    {/* Secondary Proactive Stats */}
-                    <div className="flex items-center gap-4 text-xs font-bold text-suka-brown/70">
-                      {outletForecastCount > 0 && (
-                        <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                          <TrendingDown className="w-3.5 h-3.5" /> {outletForecastCount} habis dalam 24j
-                        </span>
-                      )}
-                      {outletWasteCount > 0 && (
-                        <span className="flex items-center gap-1 text-suka-brown/70 bg-suka-cream/60 px-2 py-1 rounded-lg border border-suka-brown/10">
-                          <Trash2 className="w-3.5 h-3.5" /> {outletWasteCount} waste hari ini
-                        </span>
-                      )}
-                      <span className="text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Health: {healthScore}%
-                      </span>
-                    </div>
+                    </select>
                   </div>
                 </div>
 
-                {/* Full-Width Table View */}
-                <div className="flex-1 p-4 md:p-6 overflow-y-auto">
-                  <SPVTable
-                    items={items}
-                    tab="overview"
-                    selectedOutletId={selectedOutletId || undefined}
-                    searchTerm={searchTerm}
-                    filterStatus={filterStatus}
-                    hideFilters={true}
-                    onRowClick={setSelectedItem}
-                    onThresholdChange={isOwner ? undefined : handleThresholdChange}
-                    onRestockRequest={isOwner ? undefined : handleRestockRequest}
-                    onTransferRequest={isOwner ? undefined : setTransferItem}
-                    loading={isLoading && !data}
+                {/* Search Bar */}
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama bahan baku..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 bg-suka-cream/40 border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange placeholder:text-suka-brown/40"
                   />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {/* Alerts Tab */}
-        {activeTab === 'alerts' && (
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
-            <div className="bg-white rounded-3xl border border-suka-brown/10 shadow-xs p-5 md:p-6 max-w-7xl mx-auto space-y-4">
-              <div className="flex items-center justify-between border-b border-suka-brown/10 pb-3">
-                <h2 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight flex items-center gap-2">
-                  <AlertTriangle className="w-5 h-5 text-red-600" />
-                  <span>Peringatan Stok Kritis & Menipis Seluruh Outlet</span>
-                </h2>
-                <span className="text-xs font-black text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
-                  {alertCount} Item Butuh Perhatian
-                </span>
+              {/* Row 2: Status Filter Pills + Secondary Proactive Stats */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-suka-brown/5">
+                {/* Status Filter Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                  {[
+                    { id: 'all', label: 'Semua Bahan', count: currentOutletItems.length },
+                    { id: 'below', label: '🚨 Kritis', count: criticalCount },
+                    { id: 'warning', label: '⚠️ Menipis', count: warningCount },
+                    { id: 'ok', label: '✅ Aman', count: okCount },
+                  ].map((btn) => {
+                    const isActive = filterStatus === btn.id;
+                    return (
+                      <button
+                        key={btn.id}
+                        onClick={() => setFilterStatus(btn.id as any)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-suka-brown text-white shadow-2xs'
+                            : 'bg-suka-cream/40 text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown'
+                        }`}
+                      >
+                        <span>{btn.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                          isActive ? 'bg-white/20 text-white' : 'bg-black/5 text-suka-brown/70'
+                        }`}>
+                          {btn.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Secondary Proactive Stats */}
+                <div className="flex items-center gap-4 text-xs font-bold text-suka-brown/70">
+                  {outletForecastCount > 0 && (
+                    <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                      <TrendingDown className="w-3.5 h-3.5" /> {outletForecastCount} habis dalam 24j
+                    </span>
+                  )}
+                  {outletWasteCount > 0 && (
+                    <span className="flex items-center gap-1 text-suka-brown/70 bg-suka-cream/60 px-2 py-1 rounded-lg border border-suka-brown/10">
+                      <Trash2 className="w-3.5 h-3.5" /> {outletWasteCount} waste hari ini
+                    </span>
+                  )}
+                  <span className="text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Health: {healthScore}%
+                  </span>
+                </div>
               </div>
+            </div>
+
+            {/* Full-Width Table View */}
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto">
               <SPVTable
                 items={items}
-                tab="alerts"
+                tab="overview"
+                selectedOutletId={selectedOutletId || undefined}
+                searchTerm={searchTerm}
+                filterStatus={filterStatus}
+                hideFilters={true}
                 onRowClick={setSelectedItem}
                 onThresholdChange={isOwner ? undefined : handleThresholdChange}
                 onRestockRequest={isOwner ? undefined : handleRestockRequest}
@@ -638,35 +562,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                 loading={isLoading && !data}
               />
             </div>
-          </main>
-        )}
-
-        {/* Approval Tab */}
-        {activeTab === 'approval' && (
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
-            <div className="bg-white rounded-3xl border border-suka-brown/10 shadow-xs p-5 md:p-6 max-w-4xl mx-auto space-y-4">
-              <h2 className="text-base md:text-lg font-black text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
-                Persetujuan Permintaan Bahan Baku Outlet
-              </h2>
-              <ApprovalList />
-            </div>
-          </main>
-        )}
-
-        {/* PO Inbound Tab */}
-        {activeTab === 'po_inbound' && (
-          <main className="flex-1 overflow-y-auto bg-[#faf2e9]/30">
-            <POInboundTabContent />
-          </main>
-        )}
-
-        {/* Board Harga Vendor Tab */}
-        {activeTab === 'harga_bahan' && (
-          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
-            <div className="max-w-7xl mx-auto">
-              <HargaBahanBoard showBackButton={false} />
-            </div>
-          </main>
+          </div>
         )}
       </div>
 

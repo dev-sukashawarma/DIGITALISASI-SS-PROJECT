@@ -3,9 +3,11 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@suka/auth'
+import { useAuth, createSupabaseBrowserClient } from '@suka/auth'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { isApproverRole } from '@/lib/stok/approver'
+import { useQuery } from '@tanstack/react-query'
+import { fetchPendingWasteReports } from '@/app/actions/waste'
 import {
   LayoutDashboard,
   Tag,
@@ -39,8 +41,36 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer'].includes(role ?? '')
   const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
 
+  // 1. Pending Approvals Permintaan
   const { permintaan } = useApprovalList(isApprover)
   const pendingApprovalsCount = permintaan.length
+
+  // 2. Pending Waste Reports
+  const { data: pendingWaste = [] } = useQuery<any[]>({
+    queryKey: ['sidebar-pending-waste'],
+    queryFn: () => fetchPendingWasteReports(),
+    enabled: canApproveWaste,
+    staleTime: 30000,
+  })
+  const pendingWasteCount = pendingWaste.length
+
+  // 3. Pending Inbound POs
+  const { data: inboundPos = [] } = useQuery({
+    queryKey: ['sidebar-inbound-pos'],
+    queryFn: async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { data, error } = await supabase.rpc('get_purchase_orders', {
+        p_from: new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0],
+        p_to: new Date().toISOString().split('T')[0],
+        p_status: null
+      })
+      if (error) return []
+      return (data ?? []).filter((p: any) => p.status === 'dikirim_ke_supplier' || p.status === 'sebagian_diterima')
+    },
+    enabled: canReceivePO,
+    staleTime: 30000,
+  })
+  const inboundPosCount = inboundPos.length
 
   const handleLogout = async () => {
     await signOut()
@@ -92,6 +122,8 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 label: 'Penerimaan PO (Inbound)',
                 href: '/stok/penerimaan-po',
                 icon: Truck,
+                badge: inboundPosCount > 0 ? `${inboundPosCount}` : undefined,
+                badgeColor: 'bg-amber-500 text-white',
               },
             ]
           : []),
@@ -113,6 +145,8 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 label: 'Persetujuan Waste',
                 href: '/stok/waste-approval',
                 icon: Trash2,
+                badge: pendingWasteCount > 0 ? `${pendingWasteCount}` : undefined,
+                badgeColor: 'bg-orange-500 text-white',
               },
             ]
           : []),

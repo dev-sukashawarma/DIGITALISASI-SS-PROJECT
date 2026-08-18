@@ -33,6 +33,7 @@ export interface ReceiptData {
   items: ReceiptLine[]
   subtotal: number
   discount: number
+  posPromoDiscount?: number
   total: number
   paymentMethod: 'cash' | 'qris' | 'card'
   amountReceived?: number | null
@@ -65,9 +66,15 @@ export function buildReceiptHtml(
       <div class="row"><span>Kembalian</span><span>${formatRupiah(d.changeAmount ?? 0)}</span></div>`
     : ''
 
-  const discRow = d.discount > 0 && d.receiptType !== 'kitchen'
-    ? `<div class="row"><span>Diskon</span><span>-${formatRupiah(d.discount)}</span></div>`
-    : ''
+  let discRow = ''
+  if (d.receiptType !== 'kitchen') {
+    if ((d.posPromoDiscount || 0) > 0) {
+      discRow += `<div class="row"><span>Diskon Item (POS)</span><span>-${formatRupiah(d.posPromoDiscount || 0)}</span></div>`
+    }
+    if (d.discount > 0) {
+      discRow += `<div class="row"><span>Diskon Promo</span><span>-${formatRupiah(d.discount)}</span></div>`
+    }
+  }
 
   const logoSrc = d.logoUrl || `${origin}/logo.png`
   const isKitchen = d.receiptType === 'kitchen'

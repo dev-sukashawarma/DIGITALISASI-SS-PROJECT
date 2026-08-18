@@ -106,9 +106,10 @@ export function usePromos(outletId: string | undefined) {
     menuId: string,
     cartBaseSubtotal?: number,
     salesSource?: string,
-    channelPrices?: Record<string, number> | null
+    channelPrices?: Record<string, number> | null,
+    opts?: { ignoreFoodAppRule?: boolean }
   ): number => {
-    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource, channelPrices, now)
+    return calculateItemPrice(originalPrice, menuId, promos, cartBaseSubtotal, salesSource, channelPrices, now, opts)
   }
 
   const calcGlobalDiscount = (subtotal: number): number => {

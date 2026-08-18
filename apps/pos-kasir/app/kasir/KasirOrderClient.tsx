@@ -988,9 +988,19 @@ export default function KasirOrderClient({
       orderNumber: order.order_number ?? '-',
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: buildReceiptItems(order),
-      subtotal: order.total_amount,
-      discount: 0,
+      ...(() => {
+        const items = buildReceiptItems(order);
+        const grossSubtotal = items.reduce((s, it) => s + it.subtotal, 0);
+        const globalDiscount = (order as any).discount_amount || 0;
+        const promoSubsidy = order.promo_subsidy || 0;
+        const posPromoDiscount = Math.max(0, grossSubtotal - globalDiscount - promoSubsidy - order.total_amount);
+        return {
+          items,
+          subtotal: grossSubtotal,
+          discount: globalDiscount,
+          posPromoDiscount,
+        };
+      })(),
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
       logoUrl: brandLogo || undefined,
@@ -1056,9 +1066,19 @@ export default function KasirOrderClient({
       orderNumber: order.order_number ?? '-',
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: buildReceiptItems(order),
-      subtotal: order.total_amount,
-      discount: 0,
+      ...(() => {
+        const items = buildReceiptItems(order);
+        const grossSubtotal = items.reduce((s, it) => s + it.subtotal, 0);
+        const globalDiscount = (order as any).discount_amount || 0;
+        const promoSubsidy = order.promo_subsidy || 0;
+        const posPromoDiscount = Math.max(0, grossSubtotal - globalDiscount - promoSubsidy - order.total_amount);
+        return {
+          items,
+          subtotal: grossSubtotal,
+          discount: globalDiscount,
+          posPromoDiscount,
+        };
+      })(),
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
       amountReceived: order.amount_received,
@@ -1091,9 +1111,19 @@ export default function KasirOrderClient({
       orderNumber: order.order_number ?? '-',
       dateISO: new Date().toISOString(),
       customerName: order.customer_name,
-      items: buildReceiptItems(order),
-      subtotal: order.total_amount,
-      discount: 0,
+      ...(() => {
+        const items = buildReceiptItems(order);
+        const grossSubtotal = items.reduce((s, it) => s + it.subtotal, 0);
+        const globalDiscount = (order as any).discount_amount || 0;
+        const promoSubsidy = order.promo_subsidy || 0;
+        const posPromoDiscount = Math.max(0, grossSubtotal - globalDiscount - promoSubsidy - order.total_amount);
+        return {
+          items,
+          subtotal: grossSubtotal,
+          discount: globalDiscount,
+          posPromoDiscount,
+        };
+      })(),
       total: order.total_amount,
       paymentMethod: order.payment_method === 'qris' ? 'qris' : 'cash',
       amountReceived: order.amount_received,

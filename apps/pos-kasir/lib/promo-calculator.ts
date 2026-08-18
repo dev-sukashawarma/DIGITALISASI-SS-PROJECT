@@ -81,11 +81,16 @@ export function calculateItemPrice(
   cartBaseSubtotal?: number,
   salesSource?: string,
   channelPrices?: Record<string, number> | null,
-  now: number = Date.now()
+  now: number = Date.now(),
+  opts?: { ignoreFoodAppRule?: boolean }
 ): number {
   const isFoodApp = salesSource ? FOOD_APP_CHANNELS.includes(salesSource.toLowerCase()) : false;
 
   const basePrice = resolveBasePrice(originalPrice, salesSource, channelPrices);
+
+  if (isFoodApp && !opts?.ignoreFoodAppRule) {
+    return basePrice;
+  }
 
   // Gunakan isPromoEligible (bukan sekadar .is_active) agar jadwal & kuota
   // diperiksa di titik yang sama — mencegah promo aktif sebelum start_date.

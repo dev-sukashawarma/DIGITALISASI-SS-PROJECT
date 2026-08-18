@@ -160,12 +160,13 @@ export async function POST(request: Request) {
     }
     
     let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal, body.channel, menuItem.channel_prices)
+    const discountedPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal, body.channel, menuItem.channel_prices, Date.now(), { ignoreFoodAppRule: true })
 
     const subtotal = unitPrice * quantity
     total += subtotal
     itemDiscountTotal += calculateItemDiscount(
       resolveBasePrice(menuItem.price, body.channel, menuItem.channel_prices),
-      unitPrice,
+      discountedPrice,
       quantity
     )
 
@@ -195,8 +196,11 @@ export async function POST(request: Request) {
   // Hitung Global Promo
   let globalDiscount = calculateGlobalDiscount(total, activePromos as BasePromo[])
 
+  const isFoodApp = body.channel ? ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(body.channel.toLowerCase()) : false;
+  const posPromoDeduction = isFoodApp ? itemDiscountTotal : 0;
+
   const promoSubsidy = body.promo_subsidy || 0
-  const finalTotal = total - globalDiscount - promoSubsidy
+  const finalTotal = total - globalDiscount - promoSubsidy - posPromoDeduction
 
   // Track applied promos to increment usage limits
   const appliedPromoIds = new Set<string>()
@@ -204,8 +208,11 @@ export async function POST(request: Request) {
   
   for (const item of validatedItems) {
     const menuItem = menuItems?.find(m => m.id === item.menu_item_id)
-    if (menuItem && item.unit_price < menuItem.price) {
-      // Find if it was global or item promo. In calculateItemPrice, global promo has priority.
+    if (menuItem) {
+      const baseUnitPrice = resolveBasePrice(menuItem.price, body.channel, menuItem.channel_prices);
+      const discountedPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal, body.channel, menuItem.channel_prices, Date.now(), { ignoreFoodAppRule: true });
+      if (discountedPrice < baseUnitPrice) {
+        // Find if it was global or item promo. In calculateItemPrice, global promo has priority.
       let globalApplied = false
       if (globalPromo && isPromoEligible(globalPromo as BasePromo)) {
         if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
@@ -223,6 +230,7 @@ export async function POST(request: Request) {
         }
       }
     }
+  }
   }
 
   // ── Validasi pembayaran tunai & hitung kembalian ────────────────────────

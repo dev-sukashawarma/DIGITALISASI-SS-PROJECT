@@ -461,8 +461,19 @@ export default function OrderManualPage() {
 
   const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
+  
+  const posPromoDiscount = lineList.reduce((sum, l) => {
+    if (mode === 'endorse') return sum;
+    const activeChannel = channel || (mode === 'online' ? 'gofood' : undefined);
+    const isFoodApp = activeChannel ? ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(activeChannel.toLowerCase()) : false;
+    if (!isFoodApp) return sum;
+    const baseP = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices);
+    const cutP = calculateItemPrice(l.item.price, l.item.id, baseSubtotal, activeChannel, l.item.channel_prices, { ignoreFoodAppRule: true });
+    return sum + (baseP - cutP) * l.quantity;
+  }, 0);
+
   const parsedPromoSubsidy = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? (Number(promoSubsidy) || 0) : 0
-  const totalPrice = Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy)
+  const totalPrice = Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy - posPromoDiscount)
 
   // globalPromo dari usePromos sudah lolos isPromoEligible (jadwal + kuota),
   // sehingga tidak perlu cek ulang di sini. Booleans di bawah hanya untuk UI.
@@ -540,8 +551,9 @@ export default function OrderManualPage() {
         }
       }),
       subtotal: subtotalAmount,
-      discount: globalDiscount,
-      total: totalPrice,
+        discount: globalDiscount,
+        posPromoDiscount,
+        total: totalPrice,
       paymentMethod: payment as 'cash' | 'qris',
       amountReceived: payment === 'cash' ? amountReceived : null,
       changeAmount,
@@ -1137,13 +1149,14 @@ export default function OrderManualPage() {
             />
           ) : (
             <CartPanel
-              mode={mode}
-              pickupTime={pickupTime}
-              setPickupTime={setPickupTime}
-              lineList={lineList}
-              totalItems={totalItems}
-              totalPrice={totalPrice}
-              channel={channel}
+                mode={mode}
+                pickupTime={pickupTime}
+                setPickupTime={setPickupTime}
+                lineList={lineList}
+                totalItems={totalItems}
+                totalPrice={totalPrice}
+                posPromoDiscount={posPromoDiscount}
+                channel={channel}
               payment={payment}
               setPayment={setPayment}
               customerName={customerName}
@@ -1222,6 +1235,7 @@ export default function OrderManualPage() {
                 lineList={lineList}
                 totalItems={totalItems}
                 totalPrice={totalPrice}
+                posPromoDiscount={posPromoDiscount}
                 channel={channel}
                 payment={payment}
                 setPayment={setPayment}
@@ -1500,6 +1514,7 @@ function CartPanel(props: {
   lineList: Line[]
   totalItems: number
   totalPrice: number
+  posPromoDiscount: number
   channel: string | null
   payment: Payment | null
   setPayment: (p: Payment) => void
@@ -1526,7 +1541,7 @@ function CartPanel(props: {
   setOnlineQrisOpen: (v: boolean) => void
 }) {
   const {
-    lineList, totalItems, totalPrice, channel, payment, setPayment,
+    lineList, totalItems, totalPrice, posPromoDiscount, channel, payment, setPayment,
     customerName, setCustomerName, pickupTime, setPickupTime, mode, promoSubsidy, setPromoSubsidy, setQty, setNote, canSubmit, submitting, error, onSubmit,
     calculateItemPrice, globalDiscount, globalPromo, needsMoreForPromo, missingAmount, embedded,
     onlineQrisOpen, setOnlineQrisOpen
@@ -1796,6 +1811,14 @@ function CartPanel(props: {
               <span>Tambah <b>{formatRupiah(missingAmount)}</b> lagi untuk dapat diskon promo!</span>
             </div>
           ) : null}
+          {posPromoDiscount > 0 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-500 font-medium">
+                Diskon Item (POS)
+              </span>
+              <span className="text-red-500 font-bold">-{formatRupiah(posPromoDiscount)}</span>
+            </div>
+          )}
           {globalDiscount > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500 font-medium">

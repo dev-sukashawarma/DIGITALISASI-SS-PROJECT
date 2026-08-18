@@ -84,10 +84,10 @@ export async function fetchAnalyticsData(
 
     completedOrders.forEach((o: any) => {
       const pm = o.payment_method || 'unknown'
-      const grossAmount = (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+      const netAmount = Number(o.total_amount) || 0
       if (!paymentBreakdown[pm]) paymentBreakdown[pm] = { count: 0, revenue: 0 }
       paymentBreakdown[pm].count++
-      paymentBreakdown[pm].revenue += grossAmount
+      paymentBreakdown[pm].revenue += netAmount
 
       const d = new Date(o.created_at)
       const h = (d.getUTCHours() + 7) % 24

@@ -15,8 +15,9 @@ import {
   UtensilsCrossed,
   ArrowLeft,
   RefreshCw,
-  SlidersHorizontal
+  SlidersHorizontal,
 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
@@ -163,7 +164,8 @@ export default function LaporanPenjualanClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-28">
+    <AppLayout>
+      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-28">
       {/* ── Top Header Bar ── */}
       <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#d9c2b2]/40 shadow-xs px-4 sm:px-6 py-3.5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -753,5 +755,6 @@ export default function LaporanPenjualanClient({
         </div>
       </main>
     </div>
+    </AppLayout>
   );
 }

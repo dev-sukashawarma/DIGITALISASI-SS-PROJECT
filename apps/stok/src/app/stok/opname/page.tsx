@@ -7,8 +7,8 @@ import { useOpnameList } from '@/hooks/useOpname';
 import { OpnameList } from '@/components/stok/OpnameList';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import Link from 'next/link';
-import { BottomNav } from '@/components/common/BottomNav';
-import { ArrowLeft, Plus, Loader2 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Plus, Loader2 } from 'lucide-react';
 
 export default function OpnamePage() {
   const { outletStaff } = useAuth();
@@ -27,42 +27,41 @@ export default function OpnamePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-32">
-      {/* Header Banner */}
-      <header className="bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-4 py-4 flex items-center justify-between shadow-[0_2px_8px_rgba(144,77,0,0.03)] sticky top-0 z-40">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/dashboard" className="shrink-0 w-9 h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm" title="Kembali ke Dashboard">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <h1 className="text-xl font-extrabold text-[#701604] tracking-tight truncate">
-            Riwayat Opname
-          </h1>
-        </div>
-
-        <div className="flex items-center shrink-0">
-          <OutletSwitcher />
-        </div>
-      </header>
-
-      {/* Main Container */}
-      <main className="max-w-3xl mx-auto px-4 mt-6 space-y-6">
-        <Link href="/stok/opname/new" className="block">
-          <button className="w-full py-3.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-sm transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center justify-center gap-2">
-            <Plus className="w-5 h-5" /> Buat Opname Baru
-          </button>
-        </Link>
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <Loader2 className="w-10 h-10 animate-spin text-[#701604] mx-auto" />
-            <p className="text-[#701604]/70 font-bold uppercase tracking-wider text-xs mt-4 animate-pulse">Memuat riwayat opname...</p>
+    <AppLayout>
+      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
+        {/* Header Banner */}
+        <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-4 flex items-center justify-between shadow-2xs sticky top-0 z-20">
+          <div>
+            <h1 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight truncate">
+              Riwayat Opname
+            </h1>
+            <p className="text-[10px] text-suka-brown/60 font-bold uppercase tracking-wider mt-0.5">
+              Pencatatan Fisik & Selisih Stok
+            </p>
           </div>
-        ) : (
-          <OpnameList items={opnameList} />
-        )}
-      </main>
 
-      {/* Bottom Navigation Bar */}
-      <BottomNav />
-    </div>
+          <div className="flex items-center shrink-0">
+            <OutletSwitcher />
+          </div>
+        </header>
+
+        {/* Main Container */}
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 mt-6 space-y-6">
+          <Link href="/stok/opname/new" className="block">
+            <button className="w-full py-3.5 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-2xl font-black text-sm transition-all shadow-xs uppercase tracking-wider active:scale-95 flex items-center justify-center gap-2 cursor-pointer">
+              <Plus className="w-5 h-5" /> Buat Opname Baru
+            </button>
+          </Link>
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <Loader2 className="w-10 h-10 animate-spin text-suka-orange mx-auto" />
+              <p className="text-suka-brown/70 font-bold uppercase tracking-wider text-xs mt-4 animate-pulse">Memuat riwayat opname...</p>
+            </div>
+          ) : (
+            <OpnameList items={opnameList} />
+          )}
+        </main>
+      </div>
+    </AppLayout>
   );
 }

@@ -5,7 +5,7 @@ import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
-
+import { ChevronUp, ChevronDown, ArrowUpDown, Eye, Edit3, Check, X } from 'lucide-react';
 
 /** Label kategori untuk SPV Dashboard */
 const getKategoriLabel = (kategori: string): string => {
@@ -17,6 +17,32 @@ const getKategoriLabel = (kategori: string): string => {
     case 'OPERASIONAL': return '📋 Operasional';
     default: return kategori || 'Bahan Baku';
   }
+};
+
+const formatNum = (val: number | string | null | undefined): string | number => {
+  if (val === null || val === undefined || val === '') return '0';
+  const num = typeof val === 'number' ? val : parseFloat(val);
+  if (isNaN(num)) return val;
+  if (Number.isInteger(num)) return num;
+  return Number(num.toFixed(1));
+};
+
+const formatUnit = (unit: string | null | undefined): string => {
+  if (!unit) return '';
+  const u = unit.trim();
+  const lower = u.toLowerCase();
+  if (lower === 'gram' || lower === 'gr') return 'Gr';
+  if (lower === 'kg' || lower === 'kilogram') return 'Kg';
+  if (lower === 'lembar' || lower === 'lbr') return 'Lbr';
+  if (lower === 'bungkus' || lower === 'bks') return 'Bks';
+  if (lower === 'kompan' || lower === 'jerigen') return 'Kompan';
+  if (lower === 'tabung') return 'Tabung';
+  if (lower === 'bal') return 'Bal';
+  if (lower === 'dus') return 'Dus';
+  if (lower === 'pack' || lower === 'pck') return 'Pack';
+  if (lower === 'roll') return 'Roll';
+  if (lower === 'pcs' || lower === 'biji') return 'Pcs';
+  return u.charAt(0).toUpperCase() + u.slice(1).toLowerCase();
 };
 
 interface SPVTableProps {
@@ -33,7 +59,7 @@ interface SPVTableProps {
   loading?: boolean;
 }
 
-type SortField = 'item_name' | 'status' | 'last_updated' | 'last_opname_date' | 'outlet_name';
+type SortField = 'item_name' | 'status' | 'current_qty' | 'last_opname_date';
 type SortDir = 'asc' | 'desc';
 
 export function SPVTable({
@@ -42,26 +68,14 @@ export function SPVTable({
   onRowClick,
   selectedOutletId,
   onThresholdChange,
-  // onRestockRequest/onTransferRequest: bagian dari SPVTableProps untuk konsumen
-  // (SPVDashboard mengirim handler asli), tapi belum ada trigger UI di tabel ini.
-  searchTerm: externalSearchTerm,
-  filterStatus: externalFilterStatus,
-  hideFilters = false,
+  searchTerm = '',
+  filterStatus = 'all',
   loading = false,
 }: SPVTableProps) {
   const [sortField, setSortField] = useState<SortField>('item_name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-  const [internalFilterStatus, setInternalFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
-  const [internalSearchTerm, setInternalSearchTerm] = useState('');
-  // Hook-hook di bawah WAJIB dieksekusi sebelum early-return `loading`
-  // (Rules of Hooks). Sebelumnya editingId/editingValue + filteredItems
-  // ada di bawah `if (loading) return`, sehingga jumlah hook berubah saat
-  // loading flip true→false → React error #310 (crash di useMemo).
-  const [editingId, setEditingId] = useState<string | null>(null); // format: `${outlet_id}-${bahan_baku_id}`
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
-
-  const filterStatus = externalFilterStatus !== undefined ? externalFilterStatus : internalFilterStatus;
-  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
 
   const filteredItems = useMemo(() => {
     let result = items;
@@ -99,82 +113,51 @@ export function SPVTable({
 
     // Sort
     result.sort((a, b) => {
-      let aVal: any = a[sortField];
-      let bVal: any = b[sortField];
-
-      if (sortField === 'status') {
-        const statusOrder = { below: 0, warning: 1, ok: 2 };
-        aVal = statusOrder[a.status as keyof typeof statusOrder];
-        bVal = statusOrder[b.status as keyof typeof statusOrder];
+      let comparison = 0;
+      if (sortField === 'item_name') {
+        comparison = a.item_name.localeCompare(b.item_name);
+      } else if (sortField === 'status') {
+        const order = { below: 0, warning: 1, ok: 2 };
+        comparison = order[a.status] - order[b.status];
+      } else if (sortField === 'current_qty') {
+        comparison = a.current_qty - b.current_qty;
+      } else if (sortField === 'last_opname_date') {
+        comparison = new Date(a.last_opname_date || 0).getTime() - new Date(b.last_opname_date || 0).getTime();
       }
-
-      if (aVal === null || aVal === undefined) return 1;
-      if (bVal === null || bVal === undefined) return -1;
-
-      if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
-      if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
-      return 0;
+      return sortDir === 'asc' ? comparison : -comparison;
     });
 
-    // Make copy to avoid mutation errors
     return [...result];
   }, [items, tab, selectedOutletId, filterStatus, searchTerm, sortField, sortDir]);
 
   if (loading) {
     return (
       <div className="space-y-4">
-        {!hideFilters && (
-          <div className="flex flex-col sm:flex-row gap-3 bg-white p-4 rounded-xl border border-suka-brown/15 shadow-sm">
-            <Skeleton className="h-10 w-full sm:max-w-xs" />
-            <Skeleton className="h-10 w-full sm:max-w-md" />
-          </div>
-        )}
-        <div className="overflow-x-auto border border-suka-brown/10 rounded-xl shadow-sm bg-white">
-          <table className="w-full text-left border-collapse text-suka-ink">
+        <div className="overflow-hidden border border-suka-brown/10 rounded-2xl shadow-xs bg-white">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
-                {/* tab === 'alerts' now uses grouped rows, so no Outlet column needed here */}
-                <th className="p-4">Nama Bahan</th>
-                <th className="p-4 text-right">Threshold</th>
-                <th className="p-4 text-right">Sat. Besar</th>
-                <th className="p-4 text-right">Sat. Tengah</th>
-                <th className="p-4 text-right">Sat. Kecil</th>
-                <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
-                <th className="py-4 pl-4 pr-6 hidden sm:table-cell">Status</th>
+              <tr className="bg-suka-cream/40 text-suka-brown/70 border-b border-suka-brown/10 text-[10px] font-black uppercase tracking-wider">
+                <th className="py-4 px-5">Nama Bahan</th>
+                <th className="py-4 px-3 text-right">Threshold</th>
+                <th className="py-4 px-3 text-right">Sat. Besar</th>
+                <th className="py-4 px-3 text-right">Sat. Tengah</th>
+                <th className="py-4 px-3 text-right">Sat. Kecil</th>
+                <th className="py-4 px-3 text-center">Status</th>
+                <th className="py-4 px-3 text-right">Opname</th>
+                <th className="py-4 pr-5 pl-2 text-center w-16">Aksi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-suka-brown/10">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <tr key={i} className="text-sm">
-                  <td className="p-4">
-                    <Skeleton className="h-4 w-40" />
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end">
-                      <Skeleton className="h-4 w-12" />
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end">
-                      <Skeleton className="h-4 w-12" />
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end">
-                      <Skeleton className="h-4 w-12" />
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="flex justify-end">
-                      <Skeleton className="h-4 w-12" />
-                    </div>
-                  </td>
-                  <td className="p-4 hidden md:table-cell">
-                    <Skeleton className="h-4 w-28" />
-                  </td>
-                  <td className="py-4 pl-4 pr-6 hidden sm:table-cell">
-                    <Skeleton className="h-6 w-16" />
-                  </td>
+            <tbody className="divide-y divide-suka-brown/5">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <tr key={i} className="py-4">
+                  <td className="py-4 px-5"><Skeleton className="h-4 w-40" /></td>
+                  <td className="py-4 px-3 text-right"><Skeleton className="h-4 w-12 ml-auto" /></td>
+                  <td className="py-4 px-3 text-right"><Skeleton className="h-4 w-14 ml-auto" /></td>
+                  <td className="py-4 px-3 text-right"><Skeleton className="h-4 w-14 ml-auto" /></td>
+                  <td className="py-4 px-3 text-right"><Skeleton className="h-4 w-14 ml-auto" /></td>
+                  <td className="py-4 px-3 text-center"><Skeleton className="h-5 w-16 mx-auto rounded-full" /></td>
+                  <td className="py-4 px-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                  <td className="py-4 pr-5 pl-2 text-center"><Skeleton className="h-7 w-7 mx-auto rounded-lg" /></td>
                 </tr>
               ))}
             </tbody>
@@ -193,9 +176,20 @@ export function SPVTable({
     }
   };
 
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) {
+      return <ArrowUpDown className="w-3 h-3 opacity-30 group-hover:opacity-100" />;
+    }
+    return sortDir === 'asc' ? (
+      <ChevronUp className="w-3 h-3 text-suka-orange" />
+    ) : (
+      <ChevronDown className="w-3 h-3 text-suka-orange" />
+    );
+  };
+
   const startEditing = (item: MonitoringItem, e: React.MouseEvent) => {
     if (!onThresholdChange) return;
-    e.stopPropagation(); // Prevent row click details modal
+    e.stopPropagation();
     setEditingId(`${item.outlet_id}-${item.bahan_baku_id}`);
     setEditingValue(item.threshold.toString());
   };
@@ -234,247 +228,240 @@ export function SPVTable({
     }
   };
 
+  const renderItemRow = (item: MonitoringItem) => {
+    const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
+    const isEditing = editingId === editKey;
+    const { large, medium, small } = decomposeTriUnitRaw(
+      item.current_qty,
+      item.saldo_is_gram,
+      item.satuan_tengah,
+      item.faktor_tengah,
+      item.satuan_kecil,
+      item.faktor_tampilan
+    );
+
+    const source = getBahanBakuSource(item.item_name);
+
+    const statusTextColor = 
+      item.status === 'below' 
+        ? 'text-red-600' 
+        : item.status === 'warning' 
+        ? 'text-amber-600' 
+        : 'text-suka-brown';
+
+    return (
+      <tr
+        key={editKey}
+        onClick={() => onRowClick(item)}
+        className="hover:bg-suka-cream/20 cursor-pointer transition-colors group"
+      >
+        {/* Nama Bahan Baku */}
+        <td className="py-3.5 px-5">
+          <div className="font-extrabold text-sm text-suka-brown group-hover:text-suka-orange transition-colors">
+            {item.item_name}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-suka-brown/60 mt-0.5">
+            <span className="text-[11px] font-medium">{getKategoriLabel(item.kategori)}</span>
+            {source !== 'UNKNOWN' && (
+              <>
+                <span>·</span>
+                <span className={`text-[10px] font-bold px-1.5 py-0.2 rounded-md ${
+                  source === 'KITCHEN' || source === 'GUDANG_PUSAT'
+                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                    : 'bg-blue-50 text-blue-700 border border-blue-200'
+                }`}>
+                  {source === 'KITCHEN' || source === 'GUDANG_PUSAT' ? 'Pusat' : 'Outlet'}
+                </span>
+              </>
+            )}
+          </div>
+        </td>
+
+        {/* Batas Minimum (Threshold) */}
+        <td className="py-3.5 px-3 text-right" onClick={(e) => e.stopPropagation()}>
+          {isEditing ? (
+            <div className="flex items-center gap-1 justify-end">
+              <input
+                type="number"
+                value={editingValue}
+                onChange={(e) => setEditingValue(e.target.value)}
+                className="w-14 border border-suka-orange rounded-lg p-1 text-xs text-right font-bold focus:outline-none bg-white shadow-2xs"
+                autoFocus
+              />
+              <button
+                onClick={(e) => saveEditing(item, e)}
+                className="p-1 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                title="Simpan"
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={cancelEditing}
+                className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                title="Batal"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 justify-end">
+              <span className="font-bold text-suka-brown/80 text-xs">
+                {item.threshold} <span className="text-[10px] font-normal text-suka-brown/50">{formatUnit(item.satuan)}</span>
+              </span>
+              {onThresholdChange && (
+                <button
+                  onClick={(e) => startEditing(item, e)}
+                  className="p-0.5 text-suka-brown/30 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                  title="Ubah Nilai Threshold"
+                >
+                  <Edit3 className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          )}
+        </td>
+
+        {/* Satuan Besar */}
+        <td className={`py-3.5 px-3 text-right font-bold text-xs ${statusTextColor}`}>
+          {formatNum(large)} <span className="text-[10px] font-normal opacity-70">{formatUnit(item.satuan)}</span>
+        </td>
+
+        {/* Satuan Tengah */}
+        <td className={`py-3.5 px-3 text-right font-bold text-xs ${statusTextColor}`}>
+          {item.satuan_tengah ? (
+            <>{formatNum(medium)} <span className="text-[10px] font-normal opacity-70">{formatUnit(item.satuan_tengah)}</span></>
+          ) : (
+            <span className="text-suka-brown/30 font-normal">—</span>
+          )}
+        </td>
+
+        {/* Satuan Kecil */}
+        <td className={`py-3.5 px-3 text-right font-bold text-xs ${statusTextColor}`}>
+          {item.satuan_kecil ? (
+            <>{formatNum(small)} <span className="text-[10px] font-normal opacity-70">{formatUnit(item.satuan_kecil)}</span></>
+          ) : (
+            <span className="text-suka-brown/30 font-normal">—</span>
+          )}
+        </td>
+
+        {/* Status Badge */}
+        <td className="py-3.5 px-3 text-center">
+          {item.status === 'below' && (
+            <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 border border-red-200/80 px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-wider shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+              Kritis
+            </span>
+          )}
+          {item.status === 'warning' && (
+            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 border border-amber-200/80 px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-wider shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Menipis
+            </span>
+          )}
+          {item.status === 'ok' && (
+            <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200/80 px-2 py-0.5 rounded-full font-black text-[9px] uppercase tracking-wider shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Aman
+            </span>
+          )}
+        </td>
+
+        {/* Opname Terakhir */}
+        <td className="py-3.5 px-3 text-right text-[11px] font-medium text-suka-brown/60 whitespace-nowrap">
+          {getRelativeTimeString(item.last_opname_date)}
+        </td>
+
+        {/* Aksi Button */}
+        <td className="py-3.5 pr-5 pl-2 text-center">
+          <button
+            type="button"
+            onClick={() => onRowClick(item)}
+            title="Lihat Detail Riwayat Stok"
+            className="p-1.5 rounded-xl bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-cream hover:text-suka-orange transition-all shadow-2xs cursor-pointer active:scale-95"
+          >
+            <Eye className="w-3.5 h-3.5" />
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      {/* Search & Filter Header (Conditional) */}
-      {!hideFilters && (
-        <div className="flex gap-4 flex-wrap bg-white p-3 rounded-lg border border-suka-brown/10 shadow-sm items-center justify-between">
-          <div className="flex-1 min-w-[200px]">
-            <input
-              type="text"
-              placeholder="Cari nama bahan..."
-              value={searchTerm}
-              onChange={(e) => setInternalSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 border border-suka-brown/20 rounded text-sm text-suka-ink focus:outline-none focus:ring-1 focus:ring-suka-orange"
-            />
-          </div>
-
-          <div className="flex gap-3 text-suka-brown text-sm font-medium">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="radio"
-                name="status"
-                value="all"
-                checked={filterStatus === 'all'}
-                onChange={(e) => setInternalFilterStatus(e.target.value as typeof filterStatus)}
-                className="accent-suka-orange"
-              />
-              Semua
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer text-red-600">
-              <input
-                type="radio"
-                name="status"
-                value="below"
-                checked={filterStatus === 'below'}
-                onChange={(e) => setInternalFilterStatus(e.target.value as typeof filterStatus)}
-                className="accent-suka-orange"
-              />
-              Kritis (Below)
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer text-yellow-600">
-              <input
-                type="radio"
-                name="status"
-                value="warning"
-                checked={filterStatus === 'warning'}
-                onChange={(e) => setInternalFilterStatus(e.target.value as typeof filterStatus)}
-                className="accent-suka-orange"
-              />
-              Menipis (Warning)
-            </label>
-            <label className="flex items-center gap-1.5 cursor-pointer text-green-700">
-              <input
-                type="radio"
-                name="status"
-                value="ok"
-                checked={filterStatus === 'ok'}
-                onChange={(e) => setInternalFilterStatus(e.target.value as typeof filterStatus)}
-                className="accent-suka-orange"
-              />
-              Aman (OK)
-            </label>
-          </div>
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="hidden md:block overflow-x-auto border border-suka-brown/10 rounded-xl shadow-sm bg-white">
-        <table className="w-full text-left border-collapse text-suka-ink">
+      {/* Desktop Table View (>= md) */}
+      <div className="hidden md:block overflow-hidden border border-suka-brown/10 rounded-2xl shadow-xs bg-white">
+        <table className="w-full text-left border-collapse min-w-[840px]">
           <thead>
-            <tr className="bg-suka-cream/20 text-suka-brown border-b border-suka-brown/10 text-xs font-bold uppercase tracking-wider">
-              {/* Outlet column removed because we group by outlet in alerts tab */}
-              <th className="p-4">
-                <button onClick={() => handleSort('item_name')} className="hover:text-suka-orange font-bold">
-                  Nama Bahan {sortField === 'item_name' && (sortDir === 'asc' ? '↑' : '↓')}
-                </button>
+            <tr className="bg-suka-cream/40 text-suka-brown/70 border-b border-suka-brown/10 text-[10px] font-black uppercase tracking-widest">
+              <th className="py-3.5 px-5 cursor-pointer group" onClick={() => handleSort('item_name')}>
+                <div className="flex items-center gap-1.5">
+                  <span>Nama Bahan Baku</span>
+                  {renderSortIcon('item_name')}
+                </div>
               </th>
-              <th className="p-4 text-right">Threshold</th>
-              <th className="p-4 text-right">Sat. Besar</th>
-              <th className="p-4 text-right">Sat. Tengah</th>
-              <th className="p-4 text-right">Sat. Kecil</th>
-              <th className="p-4 hidden md:table-cell">Opname Terakhir</th>
-              <th className="py-4 pl-4 pr-6 hidden sm:table-cell">
-                <button onClick={() => handleSort('status')} className="hover:text-suka-orange font-bold whitespace-nowrap">
-                  Status {sortField === 'status' && (sortDir === 'asc' ? '↑' : '↓')}
-                </button>
+              <th className="py-3.5 px-3 text-right">
+                <span>Threshold</span>
+              </th>
+              <th className="py-3.5 px-3 text-right cursor-pointer group" onClick={() => handleSort('current_qty')}>
+                <div className="flex items-center justify-end gap-1.5">
+                  <span>Sat. Besar</span>
+                  {renderSortIcon('current_qty')}
+                </div>
+              </th>
+              <th className="py-3.5 px-3 text-right">
+                <span>Sat. Tengah</span>
+              </th>
+              <th className="py-3.5 px-3 text-right">
+                <span>Sat. Kecil</span>
+              </th>
+              <th className="py-3.5 px-3 text-center cursor-pointer group" onClick={() => handleSort('status')}>
+                <div className="flex items-center justify-center gap-1.5">
+                  <span>Status</span>
+                  {renderSortIcon('status')}
+                </div>
+              </th>
+              <th className="py-3.5 px-3 text-right cursor-pointer group" onClick={() => handleSort('last_opname_date')}>
+                <div className="flex items-center justify-end gap-1.5">
+                  <span>Opname</span>
+                  {renderSortIcon('last_opname_date')}
+                </div>
+              </th>
+              <th className="py-3.5 pr-5 pl-2 text-center w-16">
+                <span>Aksi</span>
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-suka-brown/10">
+          <tbody className="divide-y divide-suka-brown/5 text-xs">
             {filteredItems.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-suka-brown/50 text-sm">
-                  Tidak ada data bahan baku ditemukan
+                <td colSpan={8} className="text-center py-12 text-suka-brown/50">
+                  Tidak ada data bahan baku yang sesuai filter
                 </td>
               </tr>
-            ) : (
+            ) : tab === 'alerts' ? (
+              /* Alerts grouped by Outlet */
               (() => {
-                if (tab === 'alerts') {
-                  // Group by outlet
-                  const grouped = filteredItems.reduce((acc, item) => {
-                    if (!acc[item.outlet_name]) acc[item.outlet_name] = [];
-                    acc[item.outlet_name].push(item);
-                    return acc;
-                  }, {} as Record<string, MonitoringItem[]>);
+                const grouped = filteredItems.reduce((acc, item) => {
+                  if (!acc[item.outlet_name]) acc[item.outlet_name] = [];
+                  acc[item.outlet_name].push(item);
+                  return acc;
+                }, {} as Record<string, MonitoringItem[]>);
 
-                  // Sort outlets alphabetically
-                  const sortedOutlets = Object.keys(grouped).sort();
-
-                  return sortedOutlets.map(outletName => (
-                    <React.Fragment key={outletName}>
-                      <tr className="bg-suka-brown/5 border-t border-suka-brown/10">
-                        <td colSpan={6} className="p-4 font-black text-suka-brown text-sm uppercase">
-                          🏢 {outletName}
-                        </td>
-                      </tr>
-                      {grouped[outletName].map((item) => {
-                        const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
-                        const isEditing = editingId === editKey;
-                        const { large, medium, small } = decomposeTriUnitRaw(
-                          item.current_qty,
-                          item.saldo_is_gram,
-                          item.satuan_tengah,
-                          item.faktor_tengah,
-                          item.satuan_kecil,
-                          item.faktor_tampilan
-                        );
-
-                        const statusColor = item.status === 'below' ? 'text-red-600' :
-                                            item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
-
-                        return (
-                          <tr
-                            key={editKey}
-                            onClick={() => onRowClick(item)}
-                            className="hover:bg-suka-cream/10 cursor-pointer text-sm transition-colors"
-                          >
-                            <td className="p-4 pl-8">
-                              <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
-                              <div className="flex gap-2 items-center text-xs text-suka-brown/60 mt-0.5">
-                                <span>{getKategoriLabel(item.kategori)}</span>
-                                {(() => {
-                                  const source = getBahanBakuSource(item.item_name);
-                                  if (source === 'UNKNOWN') return null;
-                                  let badgeClass = '';
-                                  let badgeLabel = '';
-                                  if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
-                                    badgeClass = 'bg-red-50 text-red-700 border-red-200';
-                                    badgeLabel = 'Gedung Pusat';
-                                  } else if (source === 'OUTLET') {
-                                    badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
-                                    badgeLabel = 'Outlet';
-                                  }
-                                  return (
-                                    <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border ${badgeClass}`}>
-                                      {badgeLabel}
-                                    </span>
-                                  )
-                                })()}
-                              </div>
-                            </td>
-                            <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                              {isEditing ? (
-                                <div className="flex items-center gap-1 justify-end">
-                                  <input
-                                    type="number"
-                                    value={editingValue}
-                                    onChange={(e) => setEditingValue(e.target.value)}
-                                    className="w-16 border border-suka-brown/30 rounded p-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-suka-orange bg-white"
-                                    autoFocus
-                                  />
-                                  <button
-                                    onClick={(e) => saveEditing(item, e)}
-                                    className="p-1 text-green-600 hover:bg-green-50 rounded"
-                                    title="Simpan"
-                                  >
-                                    ✓
-                                  </button>
-                                  <button
-                                    onClick={cancelEditing}
-                                    className="p-1 text-red-600 hover:bg-red-50 rounded"
-                                    title="Batal"
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
-                                <div className="flex items-center gap-1 justify-end group">
-                                  <span className="font-semibold">{item.threshold}</span>
-                                  {onThresholdChange && (
-                                    <button
-                                      onClick={(e) => startEditing(item, e)}
-                                      className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                      title="Ubah Threshold"
-                                    >
-                                      ✎
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </td>
-                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                              {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
-                            </td>
-                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                              {item.satuan_tengah ? (
-                                <>{medium} <span className="text-[10px] font-normal opacity-70">{item.satuan_tengah}</span></>
-                              ) : '-'}
-                            </td>
-                            <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                              {item.satuan_kecil ? (
-                                <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
-                              ) : '-'}
-                            </td>
-                            <td className="p-4 text-xs font-medium text-suka-brown/80 hidden md:table-cell whitespace-nowrap">
-                              {getRelativeTimeString(item.last_opname_date)}
-                            </td>
-                            <td className="py-4 pl-4 pr-6 hidden sm:table-cell">
-                              {item.status === 'below' && (
-                                <span className="bg-red-50 text-red-700 border border-red-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
-                                  Below Threshold
-                                </span>
-                              )}
-                              {item.status === 'warning' && (
-                                <span className="bg-orange-50 text-orange-700 border border-orange-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
-                                  Warning Threshold
-                                </span>
-                              )}
-                              {item.status === 'ok' && (
-                                <span className="bg-green-50 text-green-700 border border-green-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
-                                  OK
-                                </span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </React.Fragment>
-                  ));
-                }
-
-                // Default rendering for other tabs (e.g. overview)
-                const groupedOverview = filteredItems.reduce((acc, item) => {
+                return Object.keys(grouped).sort().map((outletName) => (
+                  <React.Fragment key={outletName}>
+                    <tr className="bg-suka-cream/30 border-y border-suka-brown/10">
+                      <td colSpan={8} className="py-2.5 px-5 font-black text-suka-brown text-xs uppercase tracking-wide">
+                        🏢 {outletName} ({grouped[outletName].length} Item Peringatan)
+                      </td>
+                    </tr>
+                    {grouped[outletName].map((item) => renderItemRow(item))}
+                  </React.Fragment>
+                ));
+              })()
+            ) : (
+              /* Overview grouped by Category */
+              (() => {
+                const grouped = filteredItems.reduce((acc, item) => {
                   const label = getKategoriLabel(item.kategori);
                   if (!acc[label]) acc[label] = [];
                   acc[label].push(item);
@@ -482,316 +469,118 @@ export function SPVTable({
                 }, {} as Record<string, MonitoringItem[]>);
 
                 const KATEGORI_LABELS = ['🥩 Food & Beverage', '📦 Packaging', '📋 Operasional'];
-                const sortedLabels = KATEGORI_LABELS.filter(label => groupedOverview[label] && groupedOverview[label].length > 0);
-                Object.keys(groupedOverview).forEach(label => {
-                  if (!sortedLabels.includes(label)) sortedLabels.push(label);
+                const sortedLabels = KATEGORI_LABELS.filter((l) => grouped[l] && grouped[l].length > 0);
+                Object.keys(grouped).forEach((l) => {
+                  if (!sortedLabels.includes(l)) sortedLabels.push(l);
                 });
 
-                return sortedLabels.map(label => (
+                return sortedLabels.map((label) => (
                   <React.Fragment key={label}>
-                    <tr className="bg-suka-brown/5 border-t border-suka-brown/10">
-                      <td colSpan={6} className="p-4 font-black text-suka-brown text-sm uppercase">
-                        {label}
+                    <tr className="bg-[#faf2e9] border-y border-suka-brown/15">
+                      <td colSpan={8} className="py-2.5 px-5 font-black text-suka-brown text-xs uppercase tracking-wide">
+                        {label} ({grouped[label].length} Item)
                       </td>
                     </tr>
-                    {groupedOverview[label].map((item) => {
-                      const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
-                const isEditing = editingId === editKey;
-
-                const { large, medium, small } = decomposeTriUnitRaw(
-                  item.current_qty,
-                  item.saldo_is_gram,
-                  item.satuan_tengah,
-                  item.faktor_tengah,
-                  item.satuan_kecil,
-                  item.faktor_tampilan
-                );
-
-                const statusColor = item.status === 'below' ? 'text-red-600' :
-                                    item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
-
-                return (
-                  <tr
-                    key={editKey}
-                    onClick={() => onRowClick(item)}
-                    className="hover:bg-suka-cream/10 cursor-pointer text-sm transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="font-bold text-sm text-suka-ink uppercase tracking-wide">{item.item_name}</div>
-                      <div className="flex gap-2 items-center text-xs text-suka-brown/60 mt-0.5">
-                        <span>{getKategoriLabel(item.kategori)}</span>
-                        {(() => {
-                          const source = getBahanBakuSource(item.item_name);
-                          if (source === 'UNKNOWN') return null;
-                          let badgeClass = '';
-                          let badgeLabel = '';
-                          if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
-                            badgeClass = 'bg-red-50 text-red-700 border-red-200';
-                            badgeLabel = 'Gedung Pusat';
-                          } else if (source === 'OUTLET') {
-                            badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
-                            badgeLabel = 'Outlet';
-                          }
-                          return (
-                            <span className={`inline-block px-1.5 py-0.5 text-[9px] font-bold uppercase rounded border ${badgeClass}`}>
-                              {badgeLabel}
-                            </span>
-                          )
-                        })()}
-                      </div>
-                    </td>
-                    <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      {isEditing ? (
-                        <div className="flex items-center gap-1 justify-end">
-                          <input
-                            type="number"
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
-                            className="w-16 border border-suka-brown/30 rounded p-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-suka-orange bg-white"
-                            autoFocus
-                          />
-                          <button
-                            onClick={(e) => saveEditing(item, e)}
-                            className="p-1 text-green-600 hover:bg-green-50 rounded"
-                            title="Simpan"
-                          >
-                            ✓
-                          </button>
-                          <button
-                            onClick={cancelEditing}
-                            className="p-1 text-red-600 hover:bg-red-50 rounded"
-                            title="Batal"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 justify-end group">
-                          <span className="font-semibold">{item.threshold}</span>
-                          {onThresholdChange && (
-                            <button
-                              onClick={(e) => startEditing(item, e)}
-                              className="p-1 text-suka-brown/40 hover:text-suka-orange rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                              title="Ubah Threshold"
-                            >
-                              ✎
-                            </button>
-                          )}
-                        </div>
-                      )}
-                    </td>
-                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                      {large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span>
-                    </td>
-                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                      {item.satuan_tengah ? (
-                        <>{medium} <span className="text-[10px] font-normal opacity-70">{item.satuan_tengah}</span></>
-                      ) : '-'}
-                    </td>
-                    <td className={`p-4 font-bold text-sm text-right ${statusColor}`}>
-                      {item.satuan_kecil ? (
-                        <>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></>
-                      ) : '-'}
-                    </td>
-                    <td className="p-4 text-xs font-medium text-suka-brown/80 hidden md:table-cell whitespace-nowrap">
-                      {getRelativeTimeString(item.last_opname_date)}
-                    </td>
-                    <td className="py-4 pl-4 pr-6 hidden sm:table-cell">
-                      {item.status === 'below' && (
-                        <span className="bg-red-50 text-red-700 border border-red-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
-                          Below Threshold
-                        </span>
-                      )}
-                      {item.status === 'warning' && (
-                        <span className="bg-orange-50 text-orange-700 border border-orange-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
-                          Warning Threshold
-                        </span>
-                      )}
-                      {item.status === 'ok' && (
-                        <span className="bg-green-50 text-green-700 border border-green-200/80 px-2.5 py-1 rounded-md font-bold text-[11px] uppercase tracking-wide whitespace-nowrap">
-                          OK
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-              </React.Fragment>
-            ));
-            })()
+                    {grouped[label].map((item) => renderItemRow(item))}
+                  </React.Fragment>
+                ));
+              })()
             )}
           </tbody>
         </table>
       </div>
 
       {/* Mobile Card View (< md) */}
-      <div className="md:hidden space-y-3 mt-4">
+      <div className="md:hidden space-y-3">
         {filteredItems.length === 0 ? (
-          <div className="text-center py-8 text-suka-brown/50 text-sm bg-white rounded-xl border border-suka-brown/10">
+          <div className="text-center py-10 text-suka-brown/50 text-xs bg-white rounded-2xl border border-suka-brown/10">
             Tidak ada data bahan baku ditemukan
           </div>
         ) : (
-          (() => {
-            const renderCard = (item: MonitoringItem) => {
-              const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
-              const isEditing = editingId === editKey;
-              const { large, medium, small } = decomposeTriUnitRaw(
-                item.current_qty,
-                item.saldo_is_gram,
-                item.satuan_tengah,
-                item.faktor_tengah,
-                item.satuan_kecil,
-                item.faktor_tampilan
-              );
-              const statusColor = item.status === 'below' ? 'text-red-600' : item.status === 'warning' ? 'text-orange-600' : 'text-green-700';
-
-              return (
-                <div key={editKey} className="p-4 rounded-xl border flex flex-col min-h-[135px] transition-all duration-200 border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45" onClick={() => onRowClick(item)}>
-                  <div className="flex justify-between items-start gap-3">
-                    <div className="space-y-0.5 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1">
-                        <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/30">
-                          {getKategoriLabel(item.kategori)}
-                        </span>
-                        {(() => {
-                          const source = getBahanBakuSource(item.item_name);
-                          if (source === 'UNKNOWN') return null;
-                          let badgeClass = '';
-                          let badgeLabel = '';
-                          if (source === 'KITCHEN' || source === 'GUDANG_PUSAT') {
-                            badgeClass = 'bg-red-50 text-red-700 border-red-200';
-                            badgeLabel = 'Gedung Pusat';
-                          } else if (source === 'OUTLET') {
-                            badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
-                            badgeLabel = 'Outlet';
-                          }
-                          return (
-                            <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border ${badgeClass}`}>
-                              {badgeLabel}
-                            </span>
-                          )
-                        })()}
-                        {item.status !== 'ok' && (
-                          <span className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${item.status === 'below' ? 'bg-red-50 text-red-700 border border-red-200/80' : 'bg-orange-50 text-orange-700 border border-orange-200/80'}`}>
-                            {item.status === 'below' ? 'Kritis' : 'Menipis'}
-                          </span>
-                        )}
-                      </div>
-                      <h3 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide mt-1.5 leading-tight truncate">
-                        {item.item_name}
-                      </h3>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 flex items-center justify-between bg-suka-cream/10 p-2.5 rounded-lg border border-suka-brown/5">
-                    <div>
-                      <p className="text-[9px] text-[#544437]/60 font-semibold mb-0.5 uppercase tracking-wider">Sat. Besar</p>
-                      <p className={`font-black text-sm ${statusColor}`}>{large} <span className="text-[10px] font-normal opacity-70">{item.satuan || 'kg'}</span></p>
-                    </div>
-                    {item.satuan_tengah && (
-                      <div className="text-center">
-                        <p className="text-[9px] text-[#544437]/60 font-semibold mb-0.5 uppercase tracking-wider">Sat. Tengah</p>
-                        <p className={`font-black text-sm ${statusColor}`}>{medium} <span className="text-[10px] font-normal opacity-70">{item.satuan_tengah}</span></p>
-                      </div>
-                    )}
-                    {item.satuan_kecil && (
-                      <div className="text-right">
-                        <p className="text-[9px] text-[#544437]/60 font-semibold mb-0.5 uppercase tracking-wider">Sat. Kecil</p>
-                        <p className={`font-black text-sm ${statusColor}`}>{small} <span className="text-[10px] font-normal opacity-70">{item.satuan_kecil}</span></p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-3 flex items-center justify-between pt-3 border-t border-suka-brown/10">
-                    <div className="text-[10px] font-medium text-suka-brown/60">
-                      Upd: {getRelativeTimeString(item.last_opname_date)}
-                    </div>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      {isEditing ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={editingValue}
-                            onChange={(e) => setEditingValue(e.target.value)}
-                            className="w-16 border border-suka-brown/30 rounded p-1 text-xs text-right focus:outline-none focus:ring-1 focus:ring-suka-orange bg-white"
-                            autoFocus
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') saveEditing(item, e);
-                              if (e.key === 'Escape') cancelEditing();
-                            }}
-                          />
-                          <button onClick={(e) => saveEditing(item, e)} className="p-1 text-green-600 bg-green-50 rounded">✓</button>
-                          <button onClick={cancelEditing} className="p-1 text-red-600 bg-red-50 rounded">✕</button>
-                        </div>
-                      ) : (
-                        <div 
-                          className={`flex items-center gap-1.5 ${onThresholdChange ? 'cursor-pointer' : ''}`} 
-                          onClick={(e) => onThresholdChange && startEditing(item, e)}
-                        >
-                          <span className="text-[10px] text-suka-brown/60 uppercase tracking-wider font-semibold">Thresh:</span>
-                          <span className="font-bold text-suka-ink text-xs">{item.threshold}</span>
-                          {onThresholdChange && (
-                            <span className="text-suka-brown/40 text-xs hover:text-suka-orange transition-colors">✎</span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            };
-
-            if (tab === 'alerts') {
-              const grouped = filteredItems.reduce((acc, item) => {
-                if (!acc[item.outlet_name]) acc[item.outlet_name] = [];
-                acc[item.outlet_name].push(item);
-                return acc;
-              }, {} as Record<string, MonitoringItem[]>);
-              return Object.keys(grouped).sort().map(outletName => (
-                <div key={outletName} className="space-y-3 mb-6">
-                  <h4 className="font-black text-suka-brown text-sm uppercase px-2 flex items-center gap-2">
-                    <span>🏢</span> {outletName}
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {grouped[outletName].map(item => renderCard(item))}
-                  </div>
-                </div>
-              ));
-            }
-
-            const groupedOverview = filteredItems.reduce((acc, item) => {
-              const label = getKategoriLabel(item.kategori);
-              if (!acc[label]) acc[label] = [];
-              acc[label].push(item);
-              return acc;
-            }, {} as Record<string, MonitoringItem[]>);
-            const KATEGORI_LABELS = ['🥩 Food & Beverage', '📦 Packaging', '📋 Operasional'];
-            const sortedLabels = KATEGORI_LABELS.filter(label => groupedOverview[label] && groupedOverview[label].length > 0);
-            Object.keys(groupedOverview).forEach(label => {
-              if (!sortedLabels.includes(label)) sortedLabels.push(label);
-            });
+          filteredItems.map((item) => {
+            const editKey = `${item.outlet_id}-${item.bahan_baku_id}`;
+            const { large, medium, small } = decomposeTriUnitRaw(
+              item.current_qty,
+              item.saldo_is_gram,
+              item.satuan_tengah,
+              item.faktor_tengah,
+              item.satuan_kecil,
+              item.faktor_tampilan
+            );
 
             return (
-              <>
-                {sortedLabels.map(label => (
-                  <div key={label} className="space-y-3 mb-6">
-                    <h4 className="font-black text-suka-brown text-sm uppercase px-2 flex items-center gap-2">
-                      {label}
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                      {groupedOverview[label].map(item => renderCard(item))}
-                    </div>
+              <div
+                key={editKey}
+                onClick={() => onRowClick(item)}
+                className="p-4 rounded-2xl border border-suka-brown/10 bg-white shadow-2xs hover:border-suka-orange transition-all cursor-pointer space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-suka-brown/60 bg-suka-cream/80 px-2 py-0.5 rounded-md">
+                      {getKategoriLabel(item.kategori)}
+                    </span>
+                    <h3 className="font-extrabold text-suka-brown text-sm mt-1">
+                      {item.item_name}
+                    </h3>
                   </div>
-                ))}
-              </>
+
+                  {item.status === 'below' ? (
+                    <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 text-[9px] font-black uppercase">
+                      Kritis
+                    </span>
+                  ) : item.status === 'warning' ? (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-black uppercase">
+                      Menipis
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-black uppercase">
+                      Aman
+                    </span>
+                  )}
+                </div>
+
+                {/* 3 Units Breakdown */}
+                <div className="grid grid-cols-3 gap-2 bg-suka-cream/20 p-2.5 rounded-xl border border-suka-brown/5 text-center">
+                  <div>
+                    <span className="text-[9px] text-suka-brown/50 font-bold uppercase tracking-wider block">Sat. Besar</span>
+                    <span className="text-xs font-black text-suka-brown">
+                      {formatNum(large)} <span className="text-[9px] font-normal text-suka-brown/60">{formatUnit(item.satuan)}</span>
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-suka-brown/50 font-bold uppercase tracking-wider block">Sat. Tengah</span>
+                    <span className="text-xs font-black text-suka-brown">
+                      {item.satuan_tengah ? (
+                        <>{formatNum(medium)} <span className="text-[9px] font-normal text-suka-brown/60">{formatUnit(item.satuan_tengah)}</span></>
+                      ) : '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] text-suka-brown/50 font-bold uppercase tracking-wider block">Sat. Kecil</span>
+                    <span className="text-xs font-black text-suka-brown">
+                      {item.satuan_kecil ? (
+                        <>{formatNum(small)} <span className="text-[9px] font-normal text-suka-brown/60">{formatUnit(item.satuan_kecil)}</span></>
+                      ) : '—'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <span className="text-[10px] text-suka-brown/50">
+                    Batas Min: <strong className="text-suka-brown font-bold">{item.threshold} {formatUnit(item.satuan)}</strong>
+                  </span>
+                  <span className="text-[10px] text-suka-brown/50">
+                    Opname: {getRelativeTimeString(item.last_opname_date)}
+                  </span>
+                </div>
+              </div>
             );
-          })()
+          })
         )}
       </div>
 
-      <div className="text-xs text-suka-brown/50 font-medium">
-        Menampilkan {filteredItems.length} item bahan baku
+      <div className="text-xs text-suka-brown/50 font-medium px-1">
+        Total: <strong className="text-suka-brown font-bold">{filteredItems.length}</strong> bahan baku
       </div>
     </div>
   );

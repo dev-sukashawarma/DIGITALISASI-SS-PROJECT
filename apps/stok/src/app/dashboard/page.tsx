@@ -1,11 +1,12 @@
 'use client'
 
 import { MonitoringPage } from '@/components/monitoring/MonitoringPage'
+import { AppLayout } from '@/components/layout/AppLayout'
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-[#fff8f1]">
+    <AppLayout>
       <MonitoringPage />
-    </div>
+    </AppLayout>
   )
 }

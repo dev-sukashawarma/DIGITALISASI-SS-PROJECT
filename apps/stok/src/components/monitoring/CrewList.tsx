@@ -5,7 +5,7 @@ import type { MonitoringItem } from '@/lib/types/monitoring';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
 import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
-
+import { Search, X, MapPin } from 'lucide-react';
 
 interface CrewListProps {
   items: MonitoringItem[];
@@ -19,7 +19,6 @@ const getStorageLocation = (category: string, name: string) => {
   const nameLower = name.toLowerCase();
   const catLower = (category || '').toLowerCase();
 
-  // Kategori baru: item core, bumbu, minuman, kemasan, lainnya
   if (catLower === 'item core' || nameLower.includes('daging') || nameLower.includes('ayam')) {
     return 'Frozen Storage';
   }
@@ -30,7 +29,6 @@ const getStorageLocation = (category: string, name: string) => {
     return 'Utility Area';
   }
 
-  // Bumbu, kemasan, lainnya → Dry Storage
   return 'Dry Storage';
 };
 
@@ -72,18 +70,14 @@ const KATEGORI_ORDER: { key: string; label: string; headerColor: string }[] = [
   { key: 'OPERASIONAL',     label: '📋 Operasional',     headerColor: 'text-[#006496]' },
 ];
 
-
-
 export function CrewList({ items, onItemClick, loading = false }: CrewListProps) {
   const [sortBy, setSortBy] = useState<SortBy>('name');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'flagged'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
-  // useMemo WAJIB dieksekusi sebelum early-return `loading` (Rules of Hooks).
   const groupedItems = useMemo(() => {
     let result = [...items];
 
-    // Filter out GUDANG_PUSAT items if the outlet is not a Gudang
     result = result.filter((item) => {
       const source = getBahanBakuSource(item.item_name);
       const isGudang = (item.outlet_name || '').toUpperCase().includes('GUDANG');
@@ -93,14 +87,12 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       return true;
     });
 
-    // Filter by status
     if (filterStatus === 'below') {
       result = result.filter((item) => item.status === 'below');
     } else if (filterStatus === 'flagged') {
       result = result.filter((item) => item.is_flagged);
     }
 
-    // Filter by search
     if (searchTerm.trim() !== '') {
       const term = searchTerm.toLowerCase();
       result = result.filter((item) => item.item_name.toLowerCase().includes(term));
@@ -116,7 +108,6 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       return a.item_name.localeCompare(b.item_name);
     };
 
-    // Grup berdasarkan 5 kategori baru
     const map: Record<string, MonitoringItem[]> = {};
     for (const cat of KATEGORI_ORDER) map[cat.key] = [];
 
@@ -126,7 +117,6 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       else map['OPERASIONAL'].push(item);
     }
 
-    // Sort tiap grup
     for (const key of Object.keys(map)) map[key].sort(compare);
 
     return map;
@@ -137,35 +127,15 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
   if (loading) {
     return (
       <div className="space-y-4">
-        {/* Skeleton summary counts */}
         <div className="grid grid-cols-3 gap-3">
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
-          <Skeleton className="h-16" />
+          <Skeleton className="h-16 rounded-2xl" />
+          <Skeleton className="h-16 rounded-2xl" />
+          <Skeleton className="h-16 rounded-2xl" />
         </div>
-
-        {/* Skeleton search */}
-        <Skeleton className="h-10 w-full" />
-
-        {/* Skeleton sort options */}
-        <Skeleton className="h-10 w-full" />
-
-        {/* Skeleton list */}
-        <div className="bg-white rounded-xl border border-[#d9c2b2]/40 divide-y divide-[#d9c2b2]/20 shadow-sm overflow-hidden p-2 space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="flex justify-between items-center p-3">
-              <div className="flex items-center gap-3">
-                <Skeleton className="w-4 h-4 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-              </div>
-              <div className="space-y-2 flex flex-col items-end">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-3 w-14" />
-              </div>
-            </div>
+        <Skeleton className="h-11 w-full rounded-2xl" />
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-2xl" />
           ))}
         </div>
       </div>
@@ -176,28 +146,7 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
   const flaggedCount = items.filter((item) => item.is_flagged).length;
   const okCount = items.filter((item) => item.status === 'ok' && !item.is_flagged).length;
 
-  const renderItemRow = (item: MonitoringItem) => {
-    const statusDotColor =
-      item.status === 'below'
-        ? 'bg-[#ba1a1a] ring-[#ffdad6]'
-        : item.status === 'warning'
-        ? 'bg-[#fd7e62] ring-[#ffdad3]'
-        : 'bg-[#006e24] ring-[#93f997]/35';
-
-    const statusLabelText =
-      item.status === 'below'
-        ? 'Kritis'
-        : item.status === 'warning'
-        ? 'Warning'
-        : 'Ready';
-
-    const statusLabelColor =
-      item.status === 'below'
-        ? 'text-[#ba1a1a]'
-        : item.status === 'warning'
-        ? 'text-[#a43c26]'
-        : 'text-[#006e24]';
-
+  const renderItemCard = (item: MonitoringItem) => {
     const { large, medium, small } = decomposeTriUnitRaw(
       item.current_qty,
       item.saldo_is_gram,
@@ -211,47 +160,67 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
       <div
         key={item.bahan_baku_id}
         onClick={() => onItemClick(item)}
-        className="grid grid-cols-[2.4fr_1.1fr_1.1fr_1.1fr_1.3fr_1fr] gap-1.5 items-center px-3 py-2.5 hover:bg-amber-50/40 cursor-pointer transition-colors min-h-[52px] text-xs sm:text-sm"
+        className="p-4 rounded-2xl border border-suka-brown/10 bg-white shadow-2xs hover:border-suka-orange transition-all cursor-pointer space-y-3 group"
       >
-        <div className="flex items-center gap-2 overflow-hidden">
-          <div className={`hidden sm:block shrink-0 w-2 h-2 rounded-full ${statusDotColor} ring-2`}></div>
-          <div className="flex flex-col overflow-hidden">
-            <span className="font-semibold text-gray-900 truncate" title={item.item_name}>{item.item_name}</span>
-            <span className="text-[10px] text-gray-400 truncate">
-              {getStorageLocation(item.kategori, item.item_name)}
-            </span>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h3 className="font-extrabold text-suka-brown text-sm sm:text-base group-hover:text-suka-orange transition-colors truncate">
+              {item.item_name}
+            </h3>
+            <div className="flex items-center gap-2 text-[11px] text-suka-brown/60 mt-0.5 font-medium">
+              <span className="flex items-center gap-1">
+                <MapPin className="w-3 h-3 text-suka-brown/40" />
+                {getStorageLocation(item.kategori, item.item_name)}
+              </span>
+              <span>·</span>
+              <span>Min: <strong>{item.threshold} {formatUnit(item.satuan)}</strong></span>
+            </div>
+          </div>
+
+          <div>
+            {item.status === 'below' ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 text-[10px] font-black uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-600 animate-pulse" />
+                Kritis
+              </span>
+            ) : item.status === 'warning' ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-black uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Menipis
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-black uppercase">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                Aman
+              </span>
+            )}
           </div>
         </div>
 
-        <div className="text-gray-600 text-center text-xs">
-          <span className="font-medium">{formatNum(item.threshold)}</span> <span className="text-[9px] opacity-70">{formatUnit(item.satuan)}</span>
-        </div>
-
-        <div className="font-bold text-gray-800 text-center text-xs">
-          {formatNum(large)} <span className="text-[9px] font-normal opacity-70">{formatUnit(item.satuan)}</span>
-        </div>
-
-        <div className="font-bold text-gray-800 text-center text-xs">
-          {item.satuan_tengah ? (
-            <>{formatNum(medium)} <span className="text-[9px] font-normal opacity-70">{formatUnit(item.satuan_tengah)}</span></>
-          ) : (
-            <span className="text-gray-300 font-normal">-</span>
-          )}
-        </div>
-
-        <div className="font-bold text-gray-800 text-center text-xs">
-          {item.satuan_kecil ? (
-            <>{formatNum(small)} <span className="text-[9px] font-normal opacity-70">{formatUnit(item.satuan_kecil)}</span></>
-          ) : (
-            <span className="text-gray-300 font-normal">-</span>
-          )}
-        </div>
-
-        <div className="flex flex-col items-end justify-center pr-0.5">
-          <span className={`text-[10px] font-extrabold uppercase tracking-wider ${statusLabelColor}`}>
-            {statusLabelText} {item.is_flagged && <span className="text-[#ba1a1a] font-bold">*</span>}
-          </span>
-          <div className={`sm:hidden w-1.5 h-1.5 rounded-full mt-0.5 ${statusDotColor} ring-2`}></div>
+        {/* 3 Unit Breakdown Grid */}
+        <div className="grid grid-cols-3 gap-2 bg-suka-cream/20 p-2.5 rounded-xl border border-suka-brown/5 text-center">
+          <div>
+            <span className="text-[9px] text-suka-brown/50 font-bold uppercase tracking-wider block">Sat. Besar</span>
+            <span className="text-xs font-black text-suka-brown">
+              {formatNum(large)} <span className="text-[9px] font-normal text-suka-brown/60">{formatUnit(item.satuan)}</span>
+            </span>
+          </div>
+          <div>
+            <span className="text-[9px] text-suka-brown/50 font-bold uppercase tracking-wider block">Sat. Tengah</span>
+            <span className="text-xs font-black text-suka-brown">
+              {item.satuan_tengah ? (
+                <>{formatNum(medium)} <span className="text-[9px] font-normal text-suka-brown/60">{formatUnit(item.satuan_tengah)}</span></>
+              ) : '—'}
+            </span>
+          </div>
+          <div>
+            <span className="text-[9px] text-suka-brown/50 font-bold uppercase tracking-wider block">Sat. Kecil</span>
+            <span className="text-xs font-black text-suka-brown">
+              {item.satuan_kecil ? (
+                <>{formatNum(small)} <span className="text-[9px] font-normal text-suka-brown/60">{formatUnit(item.satuan_kecil)}</span></>
+              ) : '—'}
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -259,69 +228,64 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
 
   return (
     <div className="space-y-4">
-      {/* Summary counts */}
+      {/* Summary KPI Cards */}
       <div className="grid grid-cols-3 gap-3">
         <button
           onClick={() => setFilterStatus(filterStatus === 'below' ? 'all' : 'below')}
-          className={`p-3 rounded-xl border text-center transition-all active:scale-95 ${
+          className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer active:scale-95 ${
             filterStatus === 'below'
-              ? 'bg-[#ffdad6] border-[#ba1a1a] text-[#ba1a1a] shadow-sm'
-              : belowCount > 0
-              ? 'bg-[#ffdad6]/35 border-[#ba1a1a]/30 text-[#ba1a1a] hover:bg-[#ffdad6]/50 shadow-sm'
-              : 'bg-white border-[#d9c2b2]/40 text-[#544437] hover:border-[#ba1a1a]/30 shadow-sm'
+              ? 'bg-red-500 text-white border-red-600 shadow-2xs'
+              : 'bg-white border-suka-brown/10 text-suka-brown hover:bg-red-50/50'
           }`}
         >
-          <div className={`text-2xl font-black ${belowCount > 0 ? 'text-[#ba1a1a]' : 'text-[#544437]'}`}>{belowCount}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Kritis</div>
+          <div className="text-xl font-black">{belowCount}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider mt-0.5">Kritis</div>
         </button>
 
         <button
           onClick={() => setFilterStatus(filterStatus === 'flagged' ? 'all' : 'flagged')}
-          className={`p-3 rounded-xl border text-center transition-all active:scale-95 ${
+          className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer active:scale-95 ${
             filterStatus === 'flagged'
-              ? 'bg-[#ffdcc2] border-[#f29744] text-[#904d00] shadow-sm'
-              : flaggedCount > 0
-              ? 'bg-[#ffdcc2]/40 border-[#f29744]/40 text-[#904d00] hover:bg-[#ffdcc2]/60 shadow-sm'
-              : 'bg-white border-[#d9c2b2]/40 text-[#544437] hover:border-[#f29744]/30 shadow-sm'
+              ? 'bg-amber-500 text-white border-amber-600 shadow-2xs'
+              : 'bg-white border-suka-brown/10 text-suka-brown hover:bg-amber-50/50'
           }`}
         >
-          <div className={`text-2xl font-black ${flaggedCount > 0 ? 'text-[#904d00]' : 'text-[#544437]'}`}>{flaggedCount}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Selisih</div>
+          <div className="text-xl font-black">{flaggedCount}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider mt-0.5">Selisih</div>
         </button>
 
-        <div className="p-3 rounded-xl border border-[#93f997]/30 bg-[#93f997]/15 text-center text-[#006e24] shadow-sm">
-          <div className="text-2xl font-black">{okCount}</div>
-          <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Aman</div>
+        <div className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50 text-center text-emerald-800">
+          <div className="text-xl font-black text-emerald-700">{okCount}</div>
+          <div className="text-[10px] font-bold uppercase tracking-wider mt-0.5">Aman</div>
         </div>
       </div>
 
-      {/* Search & Sort inline on mobile */}
+      {/* Search & Sort Toolbar */}
       <div className="flex gap-2 items-center">
         <div className="relative flex-1">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#544437]/60">🔍</span>
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-brown/40" />
           <input
             type="text"
-            placeholder="Cari nama bahan..."
+            placeholder="Cari nama bahan baku..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-7 py-2 bg-white border border-[#d9c2b2]/50 rounded-xl text-xs sm:text-sm text-[#1e1b15] placeholder-[#544437]/50 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
+            className="w-full pl-10 pr-8 py-2.5 bg-white border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown placeholder:text-suka-brown/40 focus:outline-none focus:border-suka-orange shadow-xs"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-[#544437]/50 hover:text-[#ba1a1a] p-1"
-              title="Clear search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown"
             >
-              ✕
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
         
-        <div className="w-36 sm:w-44 shrink-0">
+        <div className="w-36 shrink-0">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="w-full px-2.5 py-2 bg-white border border-[#d9c2b2]/50 rounded-xl text-xs sm:text-sm font-medium text-[#544437] focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm cursor-pointer"
+            className="w-full px-3 py-2.5 bg-white border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange shadow-xs cursor-pointer"
           >
             <option value="name">Sort: Nama</option>
             <option value="status">Sort: Status</option>
@@ -329,37 +293,32 @@ export function CrewList({ items, onItemClick, loading = false }: CrewListProps)
         </div>
       </div>
 
-      {/* Header table */}
-      <div className="grid grid-cols-[2.4fr_1.1fr_1.1fr_1.1fr_1.3fr_1fr] gap-1.5 px-3 py-2 bg-[#f4e9de] text-[#544437] text-[9px] sm:text-[10px] font-bold uppercase tracking-wider rounded-xl border border-[#d9c2b2]/40 shadow-sm items-center">
-        <div className="col-span-1 pl-1">Nama Item</div>
-        <div className="text-center">Threshold</div>
-        <div className="text-center">Sat. Besar</div>
-        <div className="text-center">Sat. Tengah</div>
-        <div className="text-center">Sat. Kecil</div>
-        <div className="text-right pr-0.5">Status</div>
-      </div>
-
-      {/* Items list — dikelompokkan per kategori */}
-      <div className="bg-white rounded-xl border border-[#d9c2b2]/40 shadow-sm overflow-hidden">
+      {/* Items list grouped by category */}
+      <div className="space-y-4">
         {filteredAndSorted.length === 0 ? (
-          <div className="text-center py-8 text-xs text-[#544437] font-medium bg-white">
-            {searchTerm ? 'Bahan tidak ditemukan' : (filterStatus === 'all' ? 'No items found' : `No ${filterStatus} items`)}
+          <div className="text-center py-12 text-xs font-bold text-suka-brown/50 bg-white rounded-3xl border border-suka-brown/10">
+            {searchTerm ? 'Bahan baku tidak ditemukan' : 'Tidak ada data bahan baku'}
           </div>
         ) : (
-          <>
-            {KATEGORI_ORDER.map((cat) => {
-              const catItems = groupedItems[cat.key] ?? [];
-              if (catItems.length === 0) return null;
-              return (
-                <div key={cat.key} className="divide-y divide-[#d9c2b2]/20">
-                  <div className={`px-4 py-2 bg-[#faf2e9] text-[10px] font-extrabold uppercase tracking-wider ${cat.headerColor}`}>
+          KATEGORI_ORDER.map((cat) => {
+            const catItems = groupedItems[cat.key] ?? [];
+            if (catItems.length === 0) return null;
+            return (
+              <div key={cat.key} className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                  <h4 className="font-extrabold text-xs text-suka-brown uppercase tracking-wider">
                     {cat.label}
-                  </div>
-                  {catItems.map((item) => renderItemRow(item))}
+                  </h4>
+                  <span className="text-[10px] font-bold text-suka-brown/50">
+                    {catItems.length} Item
+                  </span>
                 </div>
-              );
-            })}
-          </>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {catItems.map((item) => renderItemCard(item))}
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
     </div>

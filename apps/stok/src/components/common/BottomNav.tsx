@@ -10,33 +10,42 @@ import { isApproverRole } from '@/lib/stok/approver'
 // Sebelumnya tiap halaman copy-paste nav sendiri dengan isi berbeda
 // (Dashboard punya "Permintaan", Ledger/Opname punya "Terima", halaman
 // Permintaan tak punya nav sama sekali).
-const ITEMS = [
-  { href: '/dashboard', icon: '📊', label: 'Dashboard' },
-  { href: '/stok/ledger', icon: '📒', label: 'Ledger' },
-  { href: '/stok/opname', icon: '📋', label: 'Opname' },
-  { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
-  { href: '/stok/mutasi', icon: '🔄', label: 'Mutasi' },
-] as const
-
 export function BottomNav() {
   const pathname = usePathname()
   const { outletStaff } = useAuth()
 
-  const isApprover = isApproverRole(outletStaff?.role)
-  const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner'
+  const role = outletStaff?.role
+  const isApprover = isApproverRole(role)
+  const isKitchenOrAdmin = ['kitchen', 'admin', 'admin_finance', 'owner', 'developer'].includes(role ?? '')
+  const isLeaderOrSPV = ['spv', 'regional_manager', 'leader', 'area_manager'].includes(role ?? '')
+
   const { permintaan } = useApprovalList(isApprover)
   const pendingCount = permintaan.length
 
-  const navItems = isKitchen
+  const navItems = isKitchenOrAdmin
     ? [
         { href: '/dashboard', icon: '📊', label: 'Dashboard' },
+        { href: '/stok/harga-bahan', icon: '💰', label: 'Harga' },
         { href: '/stok/laporan-penjualan', icon: '📈', label: 'Penjualan' },
-        { href: '/stok/ledger', icon: '📒', label: 'Ledger' },
+        { href: '/stok/penerimaan-po', icon: '🚚', label: 'Terima PO' },
         { href: '/stok/opname', icon: '📋', label: 'Opname' },
         { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
-        { href: '/stok/mutasi', icon: '🔄', label: 'Mutasi' },
+        { href: '/stok/ledger', icon: '📒', label: 'Ledger' },
       ]
-    : ITEMS
+    : isLeaderOrSPV
+    ? [
+        { href: '/dashboard', icon: '📊', label: 'Dashboard' },
+        { href: '/stok/opname', icon: '📋', label: 'Opname' },
+        { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
+        { href: '/stok/waste-approval', icon: '🗑️', label: 'Waste' },
+        { href: '/stok/ledger', icon: '📒', label: 'Ledger' },
+      ]
+    : [
+        { href: '/dashboard', icon: '📊', label: 'Dashboard' },
+        { href: '/stok/opname', icon: '📋', label: 'Opname' },
+        { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
+        { href: '/stok/ledger', icon: '📒', label: 'Ledger' },
+      ]
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)

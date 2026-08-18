@@ -19,19 +19,17 @@ import { useApprovalList } from '@/hooks/usePermintaan';
 import { ApprovalList } from '../permintaan/ApprovalList';
 import WasteApprovalPage from '@/app/stok/waste-approval/page';
 import { POInboundTabContent } from './POInboundTabContent';
+import { HargaBahanBoard } from '@/components/harga-bahan/HargaBahanBoard';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
-import { Avatar } from '@suka/design-system/src/components/Avatar';
-import { LogOut, RefreshCw } from 'lucide-react';
+import { RefreshCw, Search, X, Bell, AlertTriangle, CheckCircle2, TrendingDown, Trash2, Store } from 'lucide-react';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
-import { BottomNav } from '@/components/common/BottomNav';
 import { updateThresholdAction } from '@/app/actions/threshold';
 import { useOutletScope } from '@/hooks/useOutletScope';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jakarta' | 'Depok' | 'Bekasi' | 'Tangerang' | 'Developer' => {
   const name = outletName.toUpperCase();
   
-  // Developer category: Global Outlet, Outlet Tes, Shopee, TikTok Shop
   if (
     name.includes('GLOBAL OUTLET') || 
     name.includes('GLOBAL SYSTEM') || 
@@ -47,9 +45,7 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jak
     return 'Developer';
   }
 
-  // BNR explicitly under Bogor
   if (name.includes('BNR')) return 'Bogor';
-
   if (name.includes('GUDANG PUSAT') || name.includes('KANTOR PUSAT')) return 'Central Kitchen';
   if (name.includes('KITCHEN (PUSAT)')) return 'Bogor';
   if (name.includes('KITCHEN')) return 'Central Kitchen';
@@ -76,13 +72,13 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jak
   if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('WANGAN')) return 'Depok';
   if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('JAGAKARSA')) return 'Jakarta';
   
-  return 'Jakarta'; // Default
+  return 'Jakarta';
 };
 
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
   useMonitoringRealtime();
   const { boundOutlets } = useOutletScope();
-  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound' | 'harga_bahan'>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
 
   const { data: inboundPos = [] } = useQuery({
@@ -109,35 +105,21 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Toast notification state
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Collapsible sidebar state
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isRightSidebarCollapsed, setIsRightSidebarCollapsed] = useState(false);
-
   // Notification dropdown open state
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
 
-  // Search and filter states for the right-hand detail pane
+  // Search and filter states for table
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
-  
-  // Search state for outlets list
-  const [outletSearchTerm, setOutletSearchTerm] = useState('');
 
   // Auth context for username
   const { outletStaff } = useAuth();
   const isOwner = outletStaff?.role === 'owner';
-  const [showDropdown, setShowDropdown] = useState(false);
-
-  const handleLogout = async () => {
-    const supabase = createSupabaseBrowserClient();
-    await supabase.auth.signOut();
-    window.location.href = '/';
-  };
 
   const isLeaderScoped = !!allowedOutletIds;
   const spvQuery = useSPVMonitoringData(!isLeaderScoped);
   const leaderQuery = useLeaderMonitoringData(isLeaderScoped);
-  const { data, isLoading, isError } = isLeaderScoped ? leaderQuery : spvQuery;
+  const { data, isLoading } = isLeaderScoped ? leaderQuery : spvQuery;
 
   // Real-time and proactive hooks
   const stockoutForecastQuery = useStockoutForecast(1, 6);
@@ -150,7 +132,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     queryKey: ['waste_pending_all'],
     queryFn: () => fetchPendingWasteReports(),
     refetchInterval: 30000
-  })
+  });
 
   const stockoutForecast = useMemo(() => {
     const raw = stockoutForecastQuery.data || [];
@@ -175,7 +157,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return wasteToday.filter(w => w.outlet_id === selectedOutletId).length;
   }, [wasteToday, selectedOutletId]);
 
-
   // Local state override for edited thresholds to allow immediate UI response
   const [localThresholdOverrides, setLocalThresholdOverrides] = useState<Record<string, number>>({});
 
@@ -191,7 +172,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       const overrideKey = `${item.outlet_id}-${item.bahan_baku_id}`;
       if (localThresholdOverrides[overrideKey] !== undefined) {
         const customVal = localThresholdOverrides[overrideKey];
-        // Re-evaluate status based on new threshold
         let newStatus = item.status;
         if (item.current_qty < customVal / 2) {
           newStatus = 'below';
@@ -214,7 +194,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return items.filter((item) => item.status !== 'ok' || item.is_flagged).length;
   }, [items]);
 
-  // Filter items that are critical globally for notifications
   const criticalAlertItems = useMemo(() => {
     return items.filter(it => it.status === 'below');
   }, [items]);
@@ -231,12 +210,19 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return currentOutletItems.filter(item => item.status === 'below').length;
   }, [currentOutletItems]);
 
+  const warningCount = useMemo(() => {
+    return currentOutletItems.filter(item => item.status === 'warning').length;
+  }, [currentOutletItems]);
+
+  const okCount = useMemo(() => {
+    return currentOutletItems.filter(item => item.status === 'ok').length;
+  }, [currentOutletItems]);
+
   const healthScore = useMemo(() => {
     const total = currentOutletItems.length;
     if (total === 0) return 100;
-    const okCount = currentOutletItems.filter(item => item.status === 'ok').length;
     return Math.round((okCount / total) * 100);
-  }, [currentOutletItems]);
+  }, [currentOutletItems, okCount]);
 
   // Group items by outlet, then by region
   const outlets = useMemo(() => {
@@ -250,7 +236,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
       status: 'below' | 'warning' | 'ok';
     }> = {};
 
-    // Pre-populate outlets from boundOutlets so that outlets with no stock balances are still shown
     for (const outlet of boundOutlets) {
       if (outlet.name.toUpperCase().includes('KANTOR PUSAT')) continue;
       if (allowedOutletIds && !allowedOutletIds.includes(outlet.id)) continue;
@@ -267,6 +252,9 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     }
 
     for (const item of items) {
+      if (item.outlet_name.toUpperCase().includes('KANTOR PUSAT')) continue;
+      if (allowedOutletIds && !allowedOutletIds.includes(item.outlet_id)) continue;
+
       if (!outletMap[item.outlet_id]) {
         outletMap[item.outlet_id] = {
           outlet_id: item.outlet_id,
@@ -309,25 +297,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
   const visibleOutlets = React.useMemo(() => {
     return outlets.byOutlet;
-  }, [outlets.byOutlet, outletStaff?.role]);
-
-  const filteredVisibleOutlets = useMemo(() => {
-    const q = outletSearchTerm.trim().toLowerCase();
-    if (!q) return visibleOutlets;
-    return visibleOutlets.filter(o => o.outlet_name.toLowerCase().includes(q));
-  }, [visibleOutlets, outletSearchTerm]);
-
-  const filteredRegionMap = useMemo(() => {
-    const q = outletSearchTerm.trim().toLowerCase();
-    const result: Record<string, typeof visibleOutlets> = {};
-    for (const [region, list] of Object.entries(outlets.byRegion)) {
-      const filtered = q ? list.filter(o => o.outlet_name.toLowerCase().includes(q)) : list;
-      if (filtered.length > 0) {
-        result[region] = filtered;
-      }
-    }
-    return result;
-  }, [outlets.byRegion, outletSearchTerm]);
+  }, [outlets.byOutlet]);
 
   // Automatically set first outlet as active on initial load
   React.useEffect(() => {
@@ -365,18 +335,15 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   };
 
   const handleThresholdChange = async (outletId: string, bahanBakuId: string, value: number) => {
-    // Optimistic update
     const overrideKey = `${outletId}-${bahanBakuId}`;
     setLocalThresholdOverrides(prev => ({
       ...prev,
       [overrideKey]: value
     }));
     
-    // Save to DB
     try {
       await updateThresholdAction(outletId, bahanBakuId, value);
-      showToast(`✅ Batas minimum (Threshold) diperbarui menjadi ${value}`);
-      // Refresh real data to ensure sync
+      showToast(`✅ Batas minimum diperbarui menjadi ${value}`);
       if (isLeaderScoped) {
         leaderQuery.refetch();
       } else {
@@ -385,7 +352,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     } catch (error) {
       console.error('Failed to update threshold:', error);
       showToast('❌ Gagal menyimpan threshold. Silakan coba lagi.');
-      // Revert optimistic update
       setLocalThresholdOverrides(prev => {
         const next = { ...prev };
         delete next[overrideKey];
@@ -394,32 +360,24 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     }
   };
 
-
-
-  const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
-  let resolvedPortalUrl = portalUrl
-  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    resolvedPortalUrl = 'http://localhost:3010'
-  }
-
   const renderNotificationBell = () => {
     return (
       <div className="relative">
         <button
           onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-          className="text-suka-brown/60 hover:text-suka-orange p-2 rounded-full transition-colors relative flex items-center justify-center hover:bg-suka-brown/5"
+          className="text-suka-brown/70 hover:text-suka-orange p-2 rounded-2xl transition-colors relative flex items-center justify-center hover:bg-suka-cream/50 cursor-pointer"
           title="Notifikasi"
         >
-          <span className="text-xl">🔔</span>
+          <Bell className="w-5 h-5" />
           {totalNotificationCount > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 bg-red-650 text-white text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center font-bold border-2 border-white shadow-sm">
+            <span className="absolute 0 top-0.5 right-0.5 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold border-2 border-white">
               {totalNotificationCount}
             </span>
           )}
         </button>
         
         {isNotificationOpen && (
-          <div className="absolute right-0 mt-3 w-80 bg-white border border-[#d9c2b2] rounded-2xl shadow-xl z-50 p-4 space-y-3 text-sm text-[#1e1b15] animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="absolute right-0 mt-3 w-80 bg-white border border-suka-brown/15 rounded-2xl shadow-xl z-50 p-4 space-y-3 text-sm animate-in fade-in slide-in-from-top-2 duration-150">
             <h4 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex justify-between items-center">
               <span>Notifikasi ({totalNotificationCount})</span>
             </h4>
@@ -430,9 +388,8 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                 </p>
               ) : (
                 <>
-                  {/* Critical Stock Alerts */}
                   {criticalAlertItems.map((alert) => (
-                    <div key={`${alert.outlet_id}-${alert.bahan_baku_id}`} className="p-2.5 bg-red-50/50 border border-red-200/60 rounded-xl flex items-start gap-2">
+                    <div key={`${alert.outlet_id}-${alert.bahan_baku_id}`} className="p-2.5 bg-red-50/70 border border-red-200 rounded-xl flex items-start gap-2">
                       <span className="text-xs">🚨</span>
                       <div className="flex-1">
                         <p className="text-xs font-black text-red-950 uppercase tracking-wide">{alert.item_name}</p>
@@ -443,13 +400,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                     </div>
                   ))}
                   
-                  {/* Request Approvals Alerts */}
                   {pendingApprovals.map((req) => (
-                    <div key={req.id} className="p-2.5 bg-[#ffdcc2]/20 border border-[#ffdcc2]/65 rounded-xl flex items-start gap-2">
+                    <div key={req.id} className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
                       <span className="text-xs">⏳</span>
                       <div className="flex-1">
-                        <p className="text-xs font-black text-[#6d3900] uppercase tracking-wide">Persetujuan Bahan</p>
-                        <p className="text-[10px] text-[#544437] font-medium">
+                        <p className="text-xs font-black text-amber-900 uppercase tracking-wide">Persetujuan Bahan</p>
+                        <p className="text-[10px] text-amber-800 font-medium">
                           Permintaan dari {req.outlet_name ?? req.outlet_id} ({req.items.length} item)
                         </p>
                       </div>
@@ -465,196 +421,51 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   };
 
   return (
-    <div className="flex flex-col md:h-screen md:overflow-hidden bg-suka-cream text-suka-ink min-h-screen pb-24 md:pb-24">
+    <div className="flex flex-col text-suka-brown w-full">
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed top-4 right-4 bg-suka-orange text-white px-4 py-3 rounded-lg shadow-lg border border-white/20 z-50 animate-bounce font-bold text-sm">
+        <div className="fixed top-4 right-4 bg-suka-orange text-white px-4 py-3 rounded-2xl shadow-xl border border-white/20 z-50 font-bold text-xs animate-in slide-in-from-top-2">
           {toastMessage}
         </div>
       )}
 
-      {/* Header */}
-      <header className="sticky top-0 z-45 bg-white/80 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-3 md:py-4 flex flex-col md:flex-row md:justify-between md:items-center shadow-sm relative gap-3 md:gap-0 flex-shrink-0">
-        {/* Row 1: Logo & Title (left) & Avatar (right on mobile) */}
-        <div className="flex justify-between items-center w-full md:w-auto">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 bg-white rounded-xl sm:rounded-2xl p-1 shadow-sm border border-suka-orange/10 flex items-center justify-center shrink-0">
-              <img
-                alt="Suka Shawarma Logo"
-                className="w-full h-full object-contain"
-                src="/logo.png"
-              />
-            </div>
-            <div className="flex flex-col">
-              <h1 className="font-black text-sm sm:text-base text-suka-brown leading-tight font-display tracking-wide">
-                SPV Monitoring Dashboard
-              </h1>
-              <p className="text-[10px] text-suka-gray-500 font-extrabold tracking-widest uppercase mt-0.5">
-                Kitchen Logistics
-              </p>
-            </div>
-          </div>
-          {/* Mobile-only tools */}
-          <div className="md:hidden flex items-center gap-3 relative">
-            {isError && <span className="text-xs" title="Koneksi tidak stabil">⚠️</span>}
-            {renderNotificationBell()}
-            <button 
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="w-8 h-8 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
-            >
-              <Avatar name={outletStaff?.name || ''} size={32} />
-            </button>
-            {showDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
-                <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
-                  ← Portal Utama
-                </a>
-                {outletStaff?.role === 'kitchen' && (
-                  <a href="/stok/laporan-penjualan" className="px-4 py-2.5 text-xs font-bold text-[#701604] hover:bg-[#ffdcc2] transition-colors flex items-center gap-2 border-t border-suka-brown/5">
-                    <span>📈</span> Laporan Penjualan
-                  </a>
-                )}
-                <button onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch() }} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
-                  <RefreshCw size={12} /> Refresh Data
-                </button>
-                <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
-                  <LogOut size={12} /> Keluar
-                </button>
-              </div>
-            )}
-          </div>
+      {/* Header Bar */}
+      <header className="sticky top-0 z-20 bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-3.5 flex items-center justify-between shadow-2xs">
+        <div>
+          <h1 className="font-black text-base sm:text-lg text-suka-brown leading-tight font-display tracking-tight">
+            Monitoring Stok Bahan Baku
+          </h1>
+          <p className="text-[10px] text-suka-brown/60 font-extrabold tracking-widest uppercase mt-0.5">
+            Real-Time Balance & Opname Control
+          </p>
         </div>
 
-        {/* User Session Bar - Stacks below on mobile, inline on desktop */}
-        <div className="flex items-center justify-between w-full md:w-auto gap-3 border-t md:border-t-0 border-suka-brown/5 pt-2.5 md:pt-0">
-          {outletStaff?.role === 'kitchen' && (
-            <a
-              href="/stok/laporan-penjualan"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f29744] hover:bg-orange-600 text-white rounded-xl text-xs font-black shadow-xs active:scale-95 transition-all"
-              title="Lihat Laporan Penjualan Semua Outlet"
-            >
-              <span>📈</span>
-              <span>Laporan Penjualan</span>
-            </a>
-          )}
-
-          <div className="flex flex-col text-left md:text-right">
-            <span className="text-xs font-extrabold text-[#1e1b15]">{outletStaff?.name || 'Supervisor'}</span>
-            <span className="text-[10px] text-suka-orange font-bold uppercase tracking-wider mt-0.5">
-              {outletStaff?.role ? outletStaff.role.replace('_', ' ').toUpperCase() : 'SPV KITCHEN'}
-            </span>
-          </div>
-
-          <div className="hidden md:flex items-center gap-4 relative">
-            {isError && (
-              <div className="bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded-lg text-xs border border-yellow-200">
-                Data lokal cache
-              </div>
-            )}
-            
-            {renderNotificationBell()}
-            
-            <button 
-              onClick={() => setShowDropdown(!showDropdown)}
-              className="w-9 h-9 rounded-full ring-2 ring-suka-orange/20 overflow-hidden bg-gray-100 shrink-0 flex items-center justify-center cursor-pointer transition-transform active:scale-95"
-            >
-              <Avatar name={outletStaff?.name || ''} size={36} />
-            </button>
-            {showDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
-                <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
-                  ← Portal Utama
-                </a>
-                {outletStaff?.role === 'kitchen' && (
-                  <a href="/stok/laporan-penjualan" className="px-4 py-2.5 text-xs font-bold text-[#701604] hover:bg-[#ffdcc2] transition-colors flex items-center gap-2 border-t border-suka-brown/5">
-                    <span>📈</span> Laporan Penjualan
-                  </a>
-                )}
-                <button onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch() }} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
-                  <RefreshCw size={12} /> Refresh Data
-                </button>
-                <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
-                  <LogOut size={12} /> Keluar
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-suka-cream/50 hover:bg-suka-cream text-suka-brown border border-suka-brown/10 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-suka-orange" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          {renderNotificationBell()}
         </div>
       </header>
 
-      {/* Tabs */}
+      {/* Tabs Bar */}
       <div className="flex-shrink-0">
         <SPVTabs 
-          activeTab={activeTab as any} 
+          activeTab={activeTab} 
           onTabChange={setActiveTab} 
           alertCount={alertCount} 
           approvalCount={pendingApprovals.length} 
           wasteApprovalCount={pendingWaste?.length || 0}
           poInboundCount={inboundPos.length}
           readOnlyTabs={isOwner}
+          showPOInbound={['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(outletStaff?.role ?? '')}
         />
       </div>
-
-      {/* Mobile Outlets Horizontal Strip */}
-      {activeTab === 'overview' && (
-        <div className="flex lg:hidden flex-col bg-suka-cream/50 border-b border-suka-brown/20 flex-shrink-0 w-full">
-          {/* Quick search input on mobile */}
-          <div className="px-3 pt-2.5 pb-1">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40 text-xs">🔍</span>
-              <input
-                type="text"
-                placeholder="Cari outlet..."
-                value={outletSearchTerm}
-                onChange={(e) => setOutletSearchTerm(e.target.value)}
-                className="w-full pl-8 pr-7 py-1.5 bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-xs font-bold placeholder-suka-brown/40 text-suka-ink shadow-2xs"
-              />
-              {outletSearchTerm && (
-                <button
-                  onClick={() => setOutletSearchTerm('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full hover:bg-suka-brown/10 transition-colors"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
-          <div className="flex overflow-x-auto gap-2 px-3 py-2 scrollbar-none w-full">
-            {filteredVisibleOutlets.map((outlet) => {
-              const isActive = selectedOutletId === outlet.outlet_id;
-              const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
-              let statusCircleColor = 'bg-suka-green';
-              if (outlet.status === 'below') statusCircleColor = 'bg-red-650 animate-pulse';
-              else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
-
-              return (
-                <button
-                  key={outlet.outlet_id}
-                  onClick={() => setSelectedOutletId(outlet.outlet_id)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold whitespace-nowrap transition-all flex-shrink-0 ${
-                    isActive
-                      ? 'border-suka-orange bg-white text-suka-orange shadow-sm scale-102'
-                      : 'border-suka-brown/10 bg-white/80 text-suka-brown hover:border-suka-orange/30'
-                  }`}
-                >
-                  <span className={`w-2 h-2 rounded-full ${statusCircleColor}`} />
-                  <span>{cleanName}</span>
-                  {outlet.status !== 'ok' && (
-                    <span className="text-[10px] text-suka-brown/40 font-normal">
-                      ({outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount})
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-            {filteredVisibleOutlets.length === 0 && (
-              <div className="text-xs text-suka-brown/50 py-1 px-2 italic">
-                Outlet &ldquo;{outletSearchTerm}&rdquo; tidak ditemukan
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -664,448 +475,157 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           </div>
         )}
 
-        {/* Overview Tab - Split view */}
+        {/* Overview Tab - 100% Full-Width Clean Workspace */}
         {activeTab === 'overview' && (
-          <div className="flex-1 flex flex-col lg:flex-row overflow-y-auto lg:overflow-hidden">
-            {/* Left Column: Outlets (Collapsible) - Desktop Only */}
-            <aside className={`hidden lg:block ${isSidebarCollapsed ? 'lg:w-[100px] p-3' : 'lg:w-[300px] xl:w-[25%] p-6'} bg-suka-cream/50 border-r border-suka-brown/20 overflow-y-auto space-y-4 transition-all duration-300 flex-shrink-0`}>
-              <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
-                {!isSidebarCollapsed && (
-                  <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
-                    {allowedOutletIds 
-                      ? `Outlet Binaan (${filteredVisibleOutlets.length})` 
-                      : `Daftar ${filteredVisibleOutlets.length} Outlet`}
-                  </h3>
-                )}
-                <button
-                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                  className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 text-xs font-bold transition-all mx-auto"
-                  title={isSidebarCollapsed ? "Tampilkan Sidebar" : "Sembunyikan Sidebar"}
-                >
-                  {isSidebarCollapsed ? "→" : "←"}
-                </button>
+          <div className="flex-1 flex flex-col overflow-y-auto">
+            {isLoading && !data ? (
+              <div className="flex-1 p-6 space-y-6">
+                <Skeleton className="h-8 w-64 rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-2xl" />
+                <Skeleton className="h-96 w-full rounded-2xl" />
               </div>
-
-              {!isSidebarCollapsed && (
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40 text-xs">🔍</span>
-                  <input
-                    type="text"
-                    placeholder="Cari outlet..."
-                    value={outletSearchTerm}
-                    onChange={(e) => setOutletSearchTerm(e.target.value)}
-                    className="w-full pl-8 pr-7 py-2 bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-xs font-bold placeholder-suka-brown/40 text-suka-ink transition-all shadow-2xs"
-                  />
-                  {outletSearchTerm && (
-                    <button
-                      onClick={() => setOutletSearchTerm('')}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown text-xs font-bold w-4 h-4 flex items-center justify-center rounded-full hover:bg-suka-brown/10 transition-colors"
-                      title="Hapus pencarian"
-                    >
-                      ✕
-                    </button>
-                  )}
-                </div>
-              )}
-              
-              <div className="flex flex-col gap-6">
-                {isLoading && !data ? (
-                  [1, 2, 3].map((i) => (
-                    <div key={i} className="space-y-2 px-2">
-                      {!isSidebarCollapsed && <Skeleton className="h-3 w-16" />}
-                      <Skeleton className="h-16 w-full" />
-                    </div>
-                  ))
-                ) : Object.keys(filteredRegionMap).length === 0 ? (
-                  <div className="text-center py-8 px-2 text-suka-brown/50 text-xs font-semibold">
-                    <p className="text-xl mb-1.5">🔍</p>
-                    <p>Outlet &ldquo;{outletSearchTerm}&rdquo; tidak ditemukan</p>
-                  </div>
-                ) : (
-                  ['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
-                    const regionOutlets = filteredRegionMap[region] || [];
-                    if (regionOutlets.length === 0) return null;
-                  
-                  return (
-                    <div key={region} className="flex flex-col gap-2">
-                      {!isSidebarCollapsed && (
-                        <h4 className="text-xs font-bold text-suka-orange/70 uppercase tracking-widest px-2">
-                          {region}
-                        </h4>
-                      )}
-                      <div className="flex flex-col gap-2">
-                        {regionOutlets.map((outlet) => {
-                          const isActive = selectedOutletId === outlet.outlet_id;
-                          const cleanName = outlet.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
-                          const shortName = cleanName.slice(0, 3);
-                          
-                          let statusCircleColor = 'bg-suka-green';
-                          if (outlet.status === 'below') statusCircleColor = 'bg-red-650 animate-pulse';
-                          else if (outlet.status === 'warning') statusCircleColor = 'bg-suka-orange';
-
-                          if (isSidebarCollapsed) {
+            ) : (
+              <div className="flex-1 flex flex-col">
+                {/* Top Workspace Toolbar: Outlet Dropdown Filter + Search + Status Filter Pills */}
+                <div className="p-4 md:p-6 bg-white border-b border-suka-brown/10 flex flex-col gap-4 shadow-2xs">
+                  {/* Row 1: Outlet Dropdown Filter & Search Bar */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    {/* Compact Outlet Dropdown */}
+                    <div className="flex items-center gap-2 flex-1 max-w-md">
+                      <div className="relative w-full flex items-center bg-suka-cream/40 border border-suka-brown/15 rounded-2xl px-3 py-2 hover:border-suka-orange transition-colors">
+                        <Store className="w-4 h-4 text-suka-orange shrink-0 mr-2" />
+                        <select
+                          value={selectedOutletId || ''}
+                          onChange={(e) => setSelectedOutletId(e.target.value)}
+                          className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer pr-2 font-sans"
+                        >
+                          {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
+                            const regionOutlets = outlets.byRegion[region] || [];
+                            if (regionOutlets.length === 0) return null;
                             return (
-                              <button
-                                key={outlet.outlet_id}
-                                onClick={() => setSelectedOutletId(outlet.outlet_id)}
-                                className={`flex flex-col items-center justify-center py-2 px-1 w-full rounded-xl border relative transition-all ${
-                                  isActive
-                                    ? 'border-suka-orange bg-white shadow-sm ring-1 ring-suka-orange'
-                                    : 'border-suka-brown/10 bg-white hover:border-suka-orange/50 hover:bg-orange-50'
-                                }`}
-                                title={`${cleanName} (${outlet.status === 'below' ? 'Kritis' : outlet.status === 'warning' ? 'Menipis' : 'Aman'})`}
-                              >
-                                <div className="relative mb-1">
-                                  <span className={`w-4 h-4 rounded-full ${statusCircleColor} flex items-center justify-center text-[9px] text-white font-bold`}>
-                                    {outlet.status !== 'ok' ? (outlet.status === 'below' ? outlet.kritisCount : outlet.menipisCount) : ''}
-                                  </span>
-                                </div>
-                                <span className={`text-[10px] font-black tracking-wider ${isActive ? 'text-suka-orange' : 'text-suka-brown'}`}>
-                                  {shortName}
-                                </span>
-                              </button>
+                              <optgroup key={region} label={`📍 ${region.toUpperCase()}`}>
+                                {regionOutlets.map((o) => {
+                                  const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+                                  const alertBadge = o.status === 'below' ? ` (🚨 ${o.kritisCount} Kritis)` : o.status === 'warning' ? ` (⚠️ ${o.menipisCount})` : '';
+                                  return (
+                                    <option key={o.outlet_id} value={o.outlet_id}>
+                                      {cleanName}{alertBadge}
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
                             );
-                          }
-
-                          return (
-                            <button
-                              key={outlet.outlet_id}
-                              onClick={() => setSelectedOutletId(outlet.outlet_id)}
-                              className={`text-left p-4 rounded-xl border transition-all ${
-                                isActive
-                                  ? 'border-2 border-suka-orange bg-white shadow-sm'
-                                  : 'border-suka-brown/20 bg-white hover:border-suka-orange/30 hover:scale-[1.02]'
-                              }`}
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className={`font-bold text-sm uppercase tracking-wide ${isActive ? 'text-suka-orange' : 'text-suka-ink'}`}>
-                                  {cleanName}
-                                </h4>
-                                <div className={`w-3 h-3 rounded-full ${statusCircleColor}`} />
-                              </div>
-                              <div className="flex items-center gap-2 text-xs font-semibold">
-                                {outlet.status === 'below' && (
-                                  <span className="text-red-650 font-bold">{outlet.kritisCount} Kritis</span>
-                                )}
-                                {outlet.status === 'warning' && (
-                                  <span className="text-orange-650 font-bold">{outlet.menipisCount} Menipis</span>
-                                )}
-                                {outlet.status === 'ok' && (
-                                  <span className="text-green-700">Aman</span>
-                                )}
-                              </div>
-                            </button>
-                          );
-                        })}
+                          })}
+                        </select>
                       </div>
                     </div>
-                  );
-                })
-              )}
-              </div>
-            </aside>
 
-            {/* Middle Column: Details & Tables */}
-            <section className="flex-shrink-0 lg:flex-1 bg-white flex flex-col border-b lg:border-b-0 lg:border-r border-suka-brown/20 overflow-visible lg:overflow-hidden">
-              {isLoading && !data ? (
-                <div className="flex-1 flex flex-col p-4 md:p-6 bg-white border border-suka-brown/10 rounded-xl space-y-6 overflow-y-auto">
-                  <Skeleton className="h-8 w-48" />
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                    <Skeleton className="h-16 w-full" />
-                  </div>
-                  <SPVTable
-                    items={[]}
-                    tab="overview"
-                    loading={true}
-                    onRowClick={setSelectedItem}
-                  />
-                </div>
-              ) : selectedOutletId ? (
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  {/* Sub-header with search & filters */}
-                  <div className="p-4 md:p-6 border-b border-suka-brown/10 flex flex-col gap-4 bg-white z-10 flex-shrink-0 shadow-sm">
-                    <div className="flex justify-between items-center flex-wrap gap-4">
-                      <div className="flex items-center gap-3">
+                    {/* Search Bar */}
+                    <div className="relative w-full sm:w-72">
+                      <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40" />
+                      <input
+                        type="text"
+                        placeholder="Cari nama bahan baku..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-9 pr-8 py-2 bg-suka-cream/40 border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange placeholder:text-suka-brown/40"
+                      />
+                      {searchTerm && (
                         <button
-                          onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                          className="hidden lg:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-suka-cream/80 border border-suka-brown/20 hover:border-suka-orange text-suka-brown text-xs font-bold transition-all active:scale-95 shadow-2xs"
-                          title={isSidebarCollapsed ? "Tampilkan Sidebar Outlet" : "Sembunyikan Sidebar Outlet"}
+                          onClick={() => setSearchTerm('')}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown cursor-pointer"
                         >
-                          <span>{isSidebarCollapsed ? "▶ Outlet" : "◀ Outlet"}</span>
+                          <X className="w-3.5 h-3.5" />
                         </button>
-                        <h3 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight">
-                          DETAIL STOK: {visibleOutlets.find(o => o.outlet_id === selectedOutletId)?.outlet_name.replace('SUKA SHAWARMA ', '')}
-                        </h3>
-                      </div>
-                      <div className="flex items-center gap-2 w-full sm:w-auto">
-                        <div className="relative w-full sm:w-auto flex-1 sm:flex-initial">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50 text-sm">🔍</span>
-                          <input
-                            className="pl-9 pr-4 py-2 bg-suka-cream/50 border border-suka-brown/20 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl text-sm w-full sm:w-64 transition-all font-bold placeholder-suka-brown/40"
-                            placeholder="Cari nama bahan..."
-                            type="text"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                        </div>
-                        <button
-                          onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-                          className="hidden lg:flex items-center gap-1.5 px-2.5 py-2 rounded-xl bg-suka-cream/80 border border-suka-brown/20 hover:border-suka-orange text-suka-brown text-xs font-bold transition-all active:scale-95 shadow-2xs"
-                          title={isRightSidebarCollapsed ? "Tampilkan Panel Kanan" : "Sembunyikan Panel Kanan"}
-                        >
-                          <span>{isRightSidebarCollapsed ? "◀ Panel" : "Panel ▶"}</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Filter buttons - Desktop (Pills) */}
-                    <div className="hidden md:flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-bold flex-wrap">
-                      <button
-                        onClick={() => setFilterStatus('all')}
-                        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border transition-all ${
-                          filterStatus === 'all'
-                            ? 'bg-suka-brown text-white border-suka-brown shadow-sm'
-                            : 'bg-white text-suka-brown/70 border-suka-brown/20 hover:border-suka-brown hover:text-suka-brown'
-                        }`}
-                      >
-                        Semua
-                      </button>
-                      <button
-                        onClick={() => setFilterStatus('below')}
-                        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border transition-all ${
-                          filterStatus === 'below'
-                            ? 'bg-red-650 text-white border-red-650 shadow-sm'
-                            : 'bg-white text-red-650/70 border-red-200 hover:border-red-650 hover:text-red-650'
-                        }`}
-                      >
-                        Kritis (Below)
-                      </button>
-                      <button
-                        onClick={() => setFilterStatus('warning')}
-                        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border transition-all ${
-                          filterStatus === 'warning'
-                            ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                            : 'bg-white text-orange-500/70 border-orange-200 hover:border-orange-500 hover:text-orange-500'
-                        }`}
-                      >
-                        Menipis (Warning)
-                      </button>
-                      <button
-                        onClick={() => setFilterStatus('ok')}
-                        className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border transition-all ${
-                          filterStatus === 'ok'
-                            ? 'bg-green-650 text-white border-green-650 shadow-sm'
-                            : 'bg-white text-green-650/70 border-green-200 hover:border-green-650 hover:text-green-650'
-                        }`}
-                      >
-                        Aman (OK)
-                      </button>
-                    </div>
-
-                    {/* Filter buttons - Mobile (Radio) */}
-                    <div className="flex md:hidden items-center gap-3 text-xs font-bold text-suka-brown flex-wrap mt-2">
-                      <label className="flex items-center gap-1.5 cursor-pointer group">
-                        <input
-                          type="radio"
-                          name="filter-mobile"
-                          checked={filterStatus === 'all'}
-                          onChange={() => setFilterStatus('all')}
-                          className="w-4 h-4 text-suka-orange border-suka-brown/30 focus:ring-suka-orange accent-suka-orange"
-                        />
-                        <span className="group-hover:text-suka-orange transition-colors">Semua</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer group text-red-650">
-                        <input
-                          type="radio"
-                          name="filter-mobile"
-                          checked={filterStatus === 'below'}
-                          onChange={() => setFilterStatus('below')}
-                          className="w-4 h-4 border-red-300 focus:ring-red-500 accent-red-650"
-                        />
-                        <span className="group-hover:opacity-80 transition-opacity">Kritis (Below)</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer group text-orange-650">
-                        <input
-                          type="radio"
-                          name="filter-mobile"
-                          checked={filterStatus === 'warning'}
-                          onChange={() => setFilterStatus('warning')}
-                          className="w-4 h-4 border-orange-300 focus:ring-orange-500 accent-orange-650"
-                        />
-                        <span className="group-hover:opacity-80 transition-opacity">Menipis (Warning)</span>
-                      </label>
-                      <label className="flex items-center gap-1.5 cursor-pointer group text-green-700">
-                        <input
-                          type="radio"
-                          name="filter-mobile"
-                          checked={filterStatus === 'ok'}
-                          onChange={() => setFilterStatus('ok')}
-                          className="w-4 h-4 border-green-300 focus:ring-green-500 accent-green-650"
-                        />
-                        <span className="group-hover:opacity-80 transition-opacity">Aman (OK)</span>
-                      </label>
+                      )}
                     </div>
                   </div>
 
-                  {/* Scrollable table & KPI Summary Grid */}
-                  <div className="flex-1 p-4 md:p-6 overflow-visible md:overflow-y-auto space-y-6">
-                    {/* KPI Widgets Grid */}
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-                      {/* KPI 1: Stok Kritis */}
-                      <button
-                        onClick={() => setFilterStatus('below')}
-                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-sm hover:scale-[1.02] transition-all flex flex-col justify-between group h-24 ${
-                          filterStatus === 'below' ? 'border-red-600 bg-red-50' : 'border-suka-brown/20'
-                        }`}
-                      >
-                        <span className="text-[10px] font-black uppercase text-red-600 tracking-wider flex items-center gap-1">
-                          <span className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></span>
-                          Stok Kritis
-                        </span>
-                        <div className="flex items-baseline gap-1 mt-2">
-                          <span className="text-2xl font-black text-red-600">{criticalCount}</span>
-                          <span className="text-[10px] text-suka-brown/60 font-semibold">bahan</span>
-                        </div>
-                      </button>
-
-                      {/* KPI 2: Forecasted Stockouts */}
-                      <div className="bg-white border-2 border-suka-brown/20 rounded-2xl p-4 text-left shadow-sm flex flex-col justify-between h-24">
-                        <span className="text-[10px] font-black uppercase text-suka-orange tracking-wider flex items-center gap-1">
-                          <span>⏳</span>
-                          Forecast 24j
-                        </span>
-                        <div className="flex items-baseline gap-1 mt-2">
-                          <span className="text-2xl font-black text-suka-orange">{outletForecastCount}</span>
-                          <span className="text-[10px] text-suka-brown/60 font-semibold">akan habis</span>
-                        </div>
-                      </div>
-
-                      {/* KPI 3: Waste Events Today */}
-                      <div className="bg-white border-2 border-suka-brown/20 rounded-2xl p-4 text-left shadow-sm flex flex-col justify-between h-24">
-                        <span className="text-[10px] font-black uppercase text-suka-brown tracking-wider flex items-center gap-1">
-                          <span>🗑️</span>
-                          Waste Hari Ini
-                        </span>
-                        <div className="flex items-baseline gap-1 mt-2">
-                          <span className="text-2xl font-black text-suka-brown">{outletWasteCount}</span>
-                          <span className="text-[10px] text-suka-brown/60 font-semibold">kejadian</span>
-                        </div>
-                      </div>
-
-                      {/* KPI 4: Health Score */}
-                      <button
-                        onClick={() => setFilterStatus('ok')}
-                        className={`bg-white border-2 rounded-2xl p-4 text-left shadow-sm hover:scale-[1.02] transition-all flex flex-col justify-between group h-24 ${
-                          filterStatus === 'ok' ? 'border-suka-green bg-green-50/50' : 'border-suka-brown/20'
-                        }`}
-                      >
-                        <span className="text-[10px] font-black uppercase text-suka-green tracking-wider flex items-center gap-1">
-                          <span>✅</span>
-                          Health Score
-                        </span>
-                        <div className="flex items-baseline gap-1 mt-2">
-                          <span className="text-2xl font-black text-suka-green">{healthScore}%</span>
-                          <span className="text-[10px] text-suka-brown/60 font-semibold">optimal</span>
-                        </div>
-                      </button>
+                  {/* Row 2: Status Filter Pills + Secondary Proactive Stats */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-suka-brown/5">
+                    {/* Status Filter Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                      {[
+                        { id: 'all', label: 'Semua Bahan', count: currentOutletItems.length },
+                        { id: 'below', label: '🚨 Kritis', count: criticalCount },
+                        { id: 'warning', label: '⚠️ Menipis', count: warningCount },
+                        { id: 'ok', label: '✅ Aman', count: okCount },
+                      ].map((btn) => {
+                        const isActive = filterStatus === btn.id;
+                        return (
+                          <button
+                            key={btn.id}
+                            onClick={() => setFilterStatus(btn.id as any)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                              isActive
+                                ? 'bg-suka-brown text-white shadow-2xs'
+                                : 'bg-suka-cream/40 text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown'
+                            }`}
+                          >
+                            <span>{btn.label}</span>
+                            <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                              isActive ? 'bg-white/20 text-white' : 'bg-black/5 text-suka-brown/70'
+                            }`}>
+                              {btn.count}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
 
-                    {/* Stock Detail Table */}
-                    <SPVTable
-                      items={items}
-                      tab="overview"
-                      selectedOutletId={selectedOutletId}
-                      searchTerm={searchTerm}
-                      filterStatus={filterStatus}
-                      hideFilters={true}
-                      onRowClick={setSelectedItem}
-                      onThresholdChange={isOwner ? undefined : handleThresholdChange}
-                      onRestockRequest={isOwner ? undefined : handleRestockRequest}
-                      onTransferRequest={isOwner ? undefined : setTransferItem}
-                      loading={isLoading && !data}
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-suka-brown/50 text-sm font-semibold bg-white p-6 text-center gap-2">
-                  <span className="text-4xl">🥙</span>
-                  <p>Pilih outlet untuk melihat detail bahan baku</p>
-                </div>
-              )}
-            </section>
-
-            {/* Right Column: Approval Permintaan (Collapsible) - Hidden for Owner */}
-            {!isOwner && (
-              <aside className={`w-full lg:flex flex-col gap-3 flex-shrink-0 bg-suka-cream/50 border-t lg:border-t-0 border-suka-brown/20 transition-all duration-300 ${
-                isRightSidebarCollapsed 
-                  ? 'lg:w-[60px] p-2 overflow-hidden items-center' 
-                  : 'lg:w-[340px] xl:w-[25%] p-4 overflow-hidden'
-              }`}>
-                {/* Header Toggle inside Right Sidebar */}
-                <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2 w-full flex-shrink-0">
-                  {!isRightSidebarCollapsed && (
-                    <h3 className="font-bold text-xs text-suka-brown/70 tracking-wider uppercase">
-                      Panel Permintaan
-                    </h3>
-                  )}
-                  <button
-                    onClick={() => setIsRightSidebarCollapsed(!isRightSidebarCollapsed)}
-                    className="w-6 h-6 flex items-center justify-center rounded-lg bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 text-xs font-bold transition-all mx-auto"
-                    title={isRightSidebarCollapsed ? "Buka Panel Kanan" : "Sembunyikan Panel Kanan"}
-                  >
-                    {isRightSidebarCollapsed ? "←" : "→"}
-                  </button>
-                </div>
-
-                {isRightSidebarCollapsed ? (
-                  /* Collapsed Icon Action Bar */
-                  <div className="hidden lg:flex flex-col items-center gap-3 py-2 w-full">
-                    <button 
-                      onClick={() => setIsRightSidebarCollapsed(false)}
-                      className="w-9 h-9 rounded-xl bg-white border border-suka-brown/20 flex items-center justify-center text-sm shadow-2xs hover:border-suka-orange hover:scale-105 transition-all relative"
-                      title="Buka Approval Permintaan"
-                    >
-                      <span>📝</span>
-                      {pendingApprovals.length > 0 && (
-                        <span className="absolute -top-1 -right-1 bg-suka-orange text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border border-white">
-                          {pendingApprovals.length}
+                    {/* Secondary Proactive Stats */}
+                    <div className="flex items-center gap-4 text-xs font-bold text-suka-brown/70">
+                      {outletForecastCount > 0 && (
+                        <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
+                          <TrendingDown className="w-3.5 h-3.5" /> {outletForecastCount} habis dalam 24j
                         </span>
                       )}
-                    </button>
-                  </div>
-                ) : (
-                  /* Expanded Content - Full Height Approval Permintaan */
-                  <div className="flex-1 flex flex-col min-h-0 bg-white rounded-2xl border border-suka-brown/20 shadow-sm overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3.5 border-b border-suka-brown/10 bg-white select-none flex-shrink-0">
-                      <h3 className="font-black text-xs text-suka-brown tracking-wider uppercase flex items-center gap-1.5">
-                        <span>📝</span> Approval Permintaan
-                        {pendingApprovals.length > 0 && (
-                          <span className="ml-1 bg-suka-orange text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
-                            {pendingApprovals.length}
-                          </span>
-                        )}
-                      </h3>
-                    </div>
-                    <div className="flex-1 overflow-y-auto p-4">
-                      <ApprovalList />
+                      {outletWasteCount > 0 && (
+                        <span className="flex items-center gap-1 text-suka-brown/70 bg-suka-cream/60 px-2 py-1 rounded-lg border border-suka-brown/10">
+                          <Trash2 className="w-3.5 h-3.5" /> {outletWasteCount} waste hari ini
+                        </span>
+                      )}
+                      <span className="text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Health: {healthScore}%
+                      </span>
                     </div>
                   </div>
-                )}
-              </aside>
+                </div>
+
+                {/* Full-Width Table View */}
+                <div className="flex-1 p-4 md:p-6 overflow-y-auto">
+                  <SPVTable
+                    items={items}
+                    tab="overview"
+                    selectedOutletId={selectedOutletId || undefined}
+                    searchTerm={searchTerm}
+                    filterStatus={filterStatus}
+                    hideFilters={true}
+                    onRowClick={setSelectedItem}
+                    onThresholdChange={isOwner ? undefined : handleThresholdChange}
+                    onRestockRequest={isOwner ? undefined : handleRestockRequest}
+                    onTransferRequest={isOwner ? undefined : setTransferItem}
+                    loading={isLoading && !data}
+                  />
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        {/* Alerts Tab - Global alerting view */}
+        {/* Alerts Tab */}
         {activeTab === 'alerts' && (
           <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
-            <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-7xl mx-auto space-y-4">
-              <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
-                PERINGATAN BAHAN BAKU GLOBAL (KRITIS/MENIPIS)
-              </h2>
+            <div className="bg-white rounded-3xl border border-suka-brown/10 shadow-xs p-5 md:p-6 max-w-7xl mx-auto space-y-4">
+              <div className="flex items-center justify-between border-b border-suka-brown/10 pb-3">
+                <h2 className="text-base md:text-lg font-black text-suka-brown uppercase tracking-tight flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-red-600" />
+                  <span>Peringatan Stok Kritis & Menipis Seluruh Outlet</span>
+                </h2>
+                <span className="text-xs font-black text-red-600 bg-red-50 border border-red-200 px-2.5 py-1 rounded-full">
+                  {alertCount} Item Butuh Perhatian
+                </span>
+              </div>
               <SPVTable
                 items={items}
                 tab="alerts"
@@ -1122,14 +642,11 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         {/* Approval Tab */}
         {activeTab === 'approval' && (
           <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
-            <div className="bg-white rounded-xl border border-suka-brown/10 shadow-sm p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-
-              <div className="space-y-4">
-                <h2 className="text-base md:text-lg font-bold text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
-                  Approval Permintaan Bahan
-                </h2>
-                <ApprovalList />
-              </div>
+            <div className="bg-white rounded-3xl border border-suka-brown/10 shadow-xs p-5 md:p-6 max-w-4xl mx-auto space-y-4">
+              <h2 className="text-base md:text-lg font-black text-suka-brown border-b border-suka-brown/10 pb-3 uppercase tracking-tight">
+                Persetujuan Permintaan Bahan Baku Outlet
+              </h2>
+              <ApprovalList />
             </div>
           </main>
         )}
@@ -1138,6 +655,15 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         {activeTab === 'po_inbound' && (
           <main className="flex-1 overflow-y-auto bg-[#faf2e9]/30">
             <POInboundTabContent />
+          </main>
+        )}
+
+        {/* Board Harga Vendor Tab */}
+        {activeTab === 'harga_bahan' && (
+          <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#faf2e9]/30">
+            <div className="max-w-7xl mx-auto">
+              <HargaBahanBoard showBackButton={false} />
+            </div>
           </main>
         )}
       </div>
@@ -1161,8 +687,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           onConfirm={handleTransferConfirm}
         />
       )}
-      
-      <BottomNav />
     </div>
   );
 }

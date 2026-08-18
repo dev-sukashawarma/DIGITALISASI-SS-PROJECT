@@ -43,23 +43,29 @@ export function POInboundTabContent() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6 animate-fade-in">
-      <div className="bg-gradient-to-r from-suka-ink via-suka-brown to-black text-white rounded-3xl p-6 shadow-md flex flex-wrap items-center justify-between gap-4">
+      {/* Top Banner Card */}
+      <div className="bg-white rounded-3xl border border-suka-brown/10 p-5 md:p-6 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div>
-          <span className="text-[10px] font-black uppercase tracking-widest bg-white/10 px-3 py-1 rounded-full border border-white/10">
-            Dapur Inbound Control
+          <span className="text-[10px] font-black uppercase tracking-wider bg-suka-cream text-suka-orange px-2.5 py-1 rounded-md">
+            Inbound Kitchen Control
           </span>
-          <h2 className="text-xl md:text-2xl font-black mt-2 font-display">Penerimaan PO Supplier (Inbound)</h2>
-          <p className="text-xs text-white/70 mt-1 max-w-xl">
+          <h2 className="text-xl md:text-2xl font-black text-suka-brown mt-1.5 font-display">
+            Penerimaan PO Supplier (Inbound)
+          </h2>
+          <p className="text-xs text-suka-brown/70 mt-0.5 max-w-xl">
             Verifikasi fisik barang yang datang dari supplier langsung di sini. Stok akan otomatis bertambah ke Ledger Dapur secara real-time.
           </p>
         </div>
-        <div className="bg-white/10 backdrop-blur-md rounded-2xl px-5 py-3 border border-white/10 text-center">
-          <div className="text-2xl font-black text-amber-400">{inboundPos.length}</div>
-          <div className="text-[10px] font-bold text-white/80 uppercase tracking-wider mt-0.5">PO Supplier Tiba</div>
+        <div className="bg-suka-cream/50 rounded-2xl px-5 py-3 border border-suka-brown/10 text-center min-w-[140px]">
+          <div className="text-2xl font-black text-suka-orange">{inboundPos.length}</div>
+          <div className="text-[10px] font-bold text-suka-brown/70 uppercase tracking-wider mt-0.5">
+            PO Menunggu Tiba
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-suka-brown/10 shadow-xs p-6 space-y-4">
+      {/* PO List Container */}
+      <div className="bg-white rounded-3xl border border-suka-brown/10 shadow-xs p-5 md:p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-suka-brown/10 pb-4">
           <div>
             <h3 className="font-black text-suka-brown text-base flex items-center gap-2">
@@ -76,7 +82,7 @@ export function POInboundTabContent() {
                 placeholder="Cari nomor PO / supplier..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-xs font-bold text-suka-brown bg-suka-cream/50 border border-suka-brown/10 rounded-xl focus:outline-none focus:border-suka-orange"
+                className="w-full pl-9 pr-3 py-2 text-xs font-bold text-suka-brown bg-suka-cream/40 border border-suka-brown/10 rounded-xl focus:outline-none focus:border-suka-orange"
               />
             </div>
           )}
@@ -101,7 +107,7 @@ export function POInboundTabContent() {
             {filtered.map(po => (
               <div 
                 key={po.id}
-                className="bg-suka-cream/30 hover:bg-white rounded-2xl border border-suka-brown/10 hover:border-suka-orange/50 p-4 space-y-3 transition-all shadow-2xs hover:shadow-md relative overflow-hidden"
+                className="bg-white hover:bg-suka-cream/10 rounded-2xl border border-suka-brown/10 hover:border-suka-orange/50 p-4 space-y-3 transition-all shadow-2xs hover:shadow-xs relative overflow-hidden"
               >
                 <div className="flex items-center justify-between">
                   <span className="font-mono font-black text-sm text-suka-brown uppercase tracking-tight">{po.nomor_po}</span>
@@ -123,7 +129,7 @@ export function POInboundTabContent() {
                   </div>
                   <button
                     onClick={() => setSelectedPoId(po.id)}
-                    className="px-4 py-2 bg-gradient-to-r from-suka-orange to-orange-600 text-white text-xs font-black rounded-xl hover:opacity-90 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+                    className="px-4 py-2 bg-suka-orange hover:bg-orange-600 text-white text-xs font-black rounded-xl active:scale-95 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <PackageCheck className="w-4 h-4" />
                     Terima Barang

@@ -25,6 +25,12 @@ export const Header = () => {
         {outletStaff && <p className="text-sm text-suka-gray-600">{outletStaff.name}</p>}
       </div>
       <div className="flex items-center gap-3">
+        <a
+          href="/stok/harga-bahan"
+          className="px-3 py-1.5 bg-[#faf2e9] hover:bg-[#ffdcc2] text-[#701604] border border-[#d9c2b2] rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+        >
+          <span>🏷️</span> Board Harga Vendor
+        </a>
         {isKitchen && (
           <a
             href="/stok/laporan-penjualan"

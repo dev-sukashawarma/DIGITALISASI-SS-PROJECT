@@ -10,6 +10,7 @@ import { useStokBalance } from '@/hooks/useStokBalance'
 import { useWasteApprovalList } from '@/hooks/useWaste'
 import { useAuth } from '@suka/auth'
 import { formatTriUnitSaldo, convertGramToBesar } from '@/lib/format/compositeUnit'
+import { AppLayout } from '@/components/layout/AppLayout'
 
 export default function WasteApprovalPage() {
   const { outletStaff } = useAuth()
@@ -67,7 +68,8 @@ export default function WasteApprovalPage() {
   )
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex flex-col h-full bg-[#faf2e9]/30">
+    <AppLayout>
+      <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto flex flex-col h-full bg-[#faf2e9]/30">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-2xl font-black text-[#701604] tracking-tight flex items-center gap-2">
@@ -248,5 +250,6 @@ export default function WasteApprovalPage() {
         </div>
       )}
     </div>
+    </AppLayout>
   )
 }

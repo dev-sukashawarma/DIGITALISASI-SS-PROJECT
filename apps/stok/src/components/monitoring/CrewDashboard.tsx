@@ -1,22 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { CrewList } from './CrewList';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import Link from 'next/link';
-import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { Avatar } from '@suka/design-system/src/components/Avatar';
 import { LogOut, RefreshCw } from 'lucide-react';
 import { BottomNav } from '@/components/common/BottomNav';
-import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 
 export function CrewDashboard() {
   useMonitoringRealtime();
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
-  const { data, isLoading, isError, error, lastFetched, refetch } = useCrewMonitoringData();
+  const { data, isLoading, isError, error, refetch } = useCrewMonitoringData();
   const { outletStaff } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
 

@@ -21,22 +21,17 @@ interface BahanBakuAddModalProps {
   isSaving: boolean
 }
 
-// Rekomendasi kategori umum
+// Kategori resmi database
 const KATEGORI_OPTIONS = [
-  'Sayur',
-  'Daging',
-  'Ayam',
-  'Bumbu',
-  'Saus',
-  'Bahan Kering',
-  'Packaging',
-  'Minuman',
-  'Lain-lain'
+  'FOOD & BEVERAGE',
+  'BUMBU',
+  'PACKAGING',
+  'OPERASIONAL'
 ]
 
 export function BahanBakuAddModal({ isOpen, onClose, onAdd, isSaving }: BahanBakuAddModalProps) {
   const [nama, setNama] = useState('')
-  const [kategori, setKategori] = useState('Sayur')
+  const [kategori, setKategori] = useState('FOOD & BEVERAGE')
   const [kategoriCustom, setKategoriCustom] = useState('')
   
   // Satuan Bertingkat
@@ -72,7 +67,7 @@ export function BahanBakuAddModal({ isOpen, onClose, onAdd, isSaving }: BahanBak
   const handleClose = () => {
     if (isSaving) return
     setNama('')
-    setKategori('Sayur')
+    setKategori('FOOD & BEVERAGE')
     setKategoriCustom('')
     setSatuanBesar('')
     setSatuanTengah('')

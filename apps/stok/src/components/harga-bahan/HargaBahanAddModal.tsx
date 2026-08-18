@@ -21,22 +21,17 @@ interface HargaBahanAddModalProps {
   isSaving: boolean
 }
 
-// Rekomendasi kategori umum
+// Kategori resmi database
 const KATEGORI_OPTIONS = [
-  'Sayur',
-  'Daging',
-  'Ayam',
-  'Bumbu',
-  'Saus',
-  'Bahan Kering',
-  'Packaging',
-  'Minuman',
-  'Lain-lain'
+  'FOOD & BEVERAGE',
+  'BUMBU',
+  'PACKAGING',
+  'OPERASIONAL'
 ]
 
 export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBahanAddModalProps) {
   const [nama, setNama] = useState('')
-  const [kategori, setKategori] = useState('Sayur')
+  const [kategori, setKategori] = useState('FOOD & BEVERAGE')
   const [kategoriCustom, setKategoriCustom] = useState('')
   
   // Satuan Bertingkat
@@ -72,7 +67,7 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
   const handleClose = () => {
     if (isSaving) return
     setNama('')
-    setKategori('Sayur')
+    setKategori('FOOD & BEVERAGE')
     setKategoriCustom('')
     setSatuanBesar('')
     setSatuanTengah('')

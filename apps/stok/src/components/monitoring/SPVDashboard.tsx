@@ -505,11 +505,16 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               <Avatar name={outletStaff?.name || ''} size={32} />
             </button>
             {showDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
                 <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
                   ← Portal Utama
                 </a>
-                <button onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch() }} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
+                {outletStaff?.role === 'kitchen' && (
+                  <a href="/stok/laporan-penjualan" className="px-4 py-2.5 text-xs font-bold text-[#701604] hover:bg-[#ffdcc2] transition-colors flex items-center gap-2 border-t border-suka-brown/5">
+                    <span>📈</span> Laporan Penjualan
+                  </a>
+                )}
+                <button onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch() }} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
                   <RefreshCw size={12} /> Refresh Data
                 </button>
                 <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
@@ -522,6 +527,17 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
         {/* User Session Bar - Stacks below on mobile, inline on desktop */}
         <div className="flex items-center justify-between w-full md:w-auto gap-3 border-t md:border-t-0 border-suka-brown/5 pt-2.5 md:pt-0">
+          {outletStaff?.role === 'kitchen' && (
+            <a
+              href="/stok/laporan-penjualan"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#f29744] hover:bg-orange-600 text-white rounded-xl text-xs font-black shadow-xs active:scale-95 transition-all"
+              title="Lihat Laporan Penjualan Semua Outlet"
+            >
+              <span>📈</span>
+              <span>Laporan Penjualan</span>
+            </a>
+          )}
+
           <div className="flex flex-col text-left md:text-right">
             <span className="text-xs font-extrabold text-[#1e1b15]">{outletStaff?.name || 'Supervisor'}</span>
             <span className="text-[10px] text-suka-orange font-bold uppercase tracking-wider mt-0.5">
@@ -545,11 +561,16 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
               <Avatar name={outletStaff?.name || ''} size={36} />
             </button>
             {showDropdown && (
-              <div className="absolute right-0 top-full mt-2 w-40 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-lg border border-suka-brown/10 py-1.5 z-50 flex flex-col">
                 <a href={resolvedPortalUrl} className="px-4 py-2.5 text-xs font-bold text-[#544437] hover:bg-[#faf2e9] transition-colors">
                   ← Portal Utama
                 </a>
-                <button onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch() }} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors">
+                {outletStaff?.role === 'kitchen' && (
+                  <a href="/stok/laporan-penjualan" className="px-4 py-2.5 text-xs font-bold text-[#701604] hover:bg-[#ffdcc2] transition-colors flex items-center gap-2 border-t border-suka-brown/5">
+                    <span>📈</span> Laporan Penjualan
+                  </a>
+                )}
+                <button onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch() }} className="px-4 py-2.5 text-xs font-bold text-suka-brown hover:bg-suka-cream text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">
                   <RefreshCw size={12} /> Refresh Data
                 </button>
                 <button onClick={handleLogout} className="px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 text-left flex items-center gap-2 transition-colors border-t border-suka-brown/5">

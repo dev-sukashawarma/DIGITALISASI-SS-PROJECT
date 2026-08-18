@@ -16,15 +16,27 @@ export const Header = () => {
     window.location.href = url
   }
 
+  const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner'
+
   return (
     <header className="border-b border-suka-gray-200 bg-white px-6 py-4 flex justify-between items-center">
       <div>
         <h1 className="text-2xl font-bold text-suka-brown">Stok Bahan Baku</h1>
         {outletStaff && <p className="text-sm text-suka-gray-600">{outletStaff.name}</p>}
       </div>
-      <Button variant="secondary" size="sm" onClick={handleLogout}>
-        Keluar
-      </Button>
+      <div className="flex items-center gap-3">
+        {isKitchen && (
+          <a
+            href="/stok/laporan-penjualan"
+            className="px-3 py-1.5 bg-[#faf2e9] hover:bg-[#ffdcc2] text-[#701604] border border-[#d9c2b2] rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+          >
+            <span>📈</span> Laporan Penjualan
+          </a>
+        )}
+        <Button variant="secondary" size="sm" onClick={handleLogout}>
+          Keluar
+        </Button>
+      </div>
     </header>
   )
 }

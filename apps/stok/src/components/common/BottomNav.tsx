@@ -23,15 +23,27 @@ export function BottomNav() {
   const { outletStaff } = useAuth()
 
   const isApprover = isApproverRole(outletStaff?.role)
+  const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner'
   const { permintaan } = useApprovalList(isApprover)
   const pendingCount = permintaan.length
+
+  const navItems = isKitchen
+    ? [
+        { href: '/dashboard', icon: '📊', label: 'Dashboard' },
+        { href: '/stok/laporan-penjualan', icon: '📈', label: 'Penjualan' },
+        { href: '/stok/ledger', icon: '📒', label: 'Ledger' },
+        { href: '/stok/opname', icon: '📋', label: 'Opname' },
+        { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
+        { href: '/stok/mutasi', icon: '🔄', label: 'Mutasi' },
+      ]
+    : ITEMS
 
   const isActive = (href: string) =>
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href)
 
   return (
     <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-1 py-3 pb-safe bg-[#f5ede3] border-t border-[#877365]/20 shadow-2xl rounded-t-2xl overflow-x-auto hide-scrollbar">
-      {ITEMS.map((item) => {
+      {navItems.map((item) => {
         const active = isActive(item.href)
         const showBadge = item.href === '/stok/permintaan' && pendingCount > 0
         

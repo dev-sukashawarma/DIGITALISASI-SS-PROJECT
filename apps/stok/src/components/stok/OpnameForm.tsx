@@ -191,7 +191,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             setLastDraftSavedAt(draft.updated_at || draft.created_at);
             showToast('📝 Draft opname sebelumnya dilanjutkan.', 'success');
           }
-          if (draft.notes) setNotes(prev => prev || draft.notes);
+          if (draft.notes) setNotes((prev: string) => prev || draft.notes);
         }
       } catch {
         // gagal ambil draft (mis. offline) — biarkan form kosong seperti biasa

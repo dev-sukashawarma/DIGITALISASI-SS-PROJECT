@@ -100,11 +100,42 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   });
   const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
 
-  const [inputs, setInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>({});
+  const [inputs, setInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`opname_draft_${outletId}`);
+        if (saved) return JSON.parse(saved).inputs || {};
+      } catch {}
+    }
+    return {};
+  });
   // State target khusus kitchen: menggantikan qty_fisik saat finalisasi
-  const [targets, setTargets] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>({}); 
+  const [targets, setTargets] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`opname_draft_${outletId}`);
+        if (saved) return JSON.parse(saved).targets || {};
+      } catch {}
+    }
+    return {};
+  }); 
 
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`opname_draft_${outletId}`);
+        if (saved) return JSON.parse(saved).notes || '';
+      } catch {}
+    }
+    return '';
+  });
+
+  // Auto-save ke localStorage tiap kali input berubah
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({ inputs, targets, notes }));
+    }
+  }, [inputs, targets, notes, outletId]);
   const [busy, setBusy] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -153,12 +184,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             }
           }
           if (Object.keys(resumedInputs).length > 0) {
-            setInputs(resumedInputs);
-            if (Object.keys(resumedTargets).length > 0) setTargets(resumedTargets);
+            setInputs(prev => Object.keys(prev).length > 0 ? prev : resumedInputs);
+            if (Object.keys(resumedTargets).length > 0) {
+              setTargets(prev => Object.keys(prev).length > 0 ? prev : resumedTargets);
+            }
             setLastDraftSavedAt(draft.updated_at || draft.created_at);
             showToast('📝 Draft opname sebelumnya dilanjutkan.', 'success');
           }
-          if (draft.notes) setNotes(draft.notes);
+          if (draft.notes) setNotes(prev => prev || draft.notes);
         }
       } catch {
         // gagal ambil draft (mis. offline) — biarkan form kosong seperti biasa
@@ -298,6 +331,9 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
            : '🟢 Berhasil: Formulir opname berhasil disimpan dan difinalisasi!';
          showToast(successMsg, res.queued ? 'warning' : 'success');
       }
+      
+      // Bersihkan local storage karena sudah berhasil difinalisasi
+      localStorage.removeItem(`opname_draft_${outletId}`);
 
       setTimeout(() => {
         router.push('/stok/opname');

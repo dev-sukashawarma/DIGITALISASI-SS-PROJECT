@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { CrewList } from './CrewList';
-import { ProductionEstimateWidget } from './ProductionEstimateWidget';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth';
@@ -17,34 +16,9 @@ import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 export function CrewDashboard() {
   useMonitoringRealtime();
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
-  const [isOpnameOverdue, setIsOpnameOverdue] = useState(false);
-  const [opnameAgeText, setOpnameAgeText] = useState('');
   const { data, isLoading, isError, error, lastFetched, refetch } = useCrewMonitoringData();
   const { outletStaff } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
-
-  useEffect(() => {
-    // Calculate opname status client-side to avoid hydration mismatch
-    const items = data?.items || [];
-    const overdue = items.some((item) => {
-      if (!item.last_opname_date) return true;
-      const days = Math.floor((Date.now() - new Date(item.last_opname_date).getTime()) / (1000 * 60 * 60 * 24));
-      return days > 7;
-    });
-    setIsOpnameOverdue(overdue);
-
-    let oldestDate: Date | null = null;
-    for (const item of items) {
-      if (item.last_opname_date) {
-        const d = new Date(item.last_opname_date);
-        if (!oldestDate || d < oldestDate) oldestDate = d;
-      }
-    }
-    const ageText = !oldestDate ? 'Belum pernah opname' : `Terakhir ${Math.floor((Date.now() - oldestDate.getTime()) / (1000 * 60 * 60 * 24))} hari lalu`;
-    setOpnameAgeText(ageText);
-  }, [lastFetched, data?.items]);
-
-  const criticalItems = (data?.items || []).filter((item) => item.status === 'below');
 
   const portalUrl = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
   let resolvedPortalUrl = portalUrl
@@ -166,68 +140,6 @@ export function CrewDashboard() {
 
           {/* List */}
           <CrewList items={data?.items || []} onItemClick={setSelectedItem} loading={isLoading && !data} />
-
-          {/* Alerts Row (stacked vertically) */}
-          <div className="flex flex-col gap-4 w-full pt-4">
-            {/* Critical Alerts Widget */}
-            {isLoading && !data ? (
-              <Skeleton className="h-14 w-full rounded-2xl" />
-            ) : (
-              (criticalItems.length > 0 || isOpnameOverdue) && (
-                <details className="group bg-white rounded-2xl border border-suka-brown/20 shadow-sm flex flex-col h-fit">
-                  <summary className="flex items-center justify-between cursor-pointer list-none [&::-webkit-details-marker]:hidden px-4 py-3.5 select-none">
-                    <div className="flex items-center gap-2 text-red-600">
-                      <span className="text-xl">⚠️</span>
-                      <h2 className="font-bold text-gray-900 text-sm uppercase tracking-wider">Peringatan Kritis</h2>
-                    </div>
-                    <span className="text-suka-brown/50 transition-transform group-open:rotate-180">▼</span>
-                  </summary>
-                  
-                  <div className="px-4 pb-4 flex flex-col gap-4">
-                    <div className="space-y-2">
-                      {criticalItems.map((item) => (
-                        <div key={item.bahan_baku_id} className="flex justify-between items-center p-3 bg-red-50 rounded-xl border border-red-200">
-                          <div className="flex flex-col">
-                            <span className="font-bold text-red-700 text-sm">{item.item_name}</span>
-                            <span className="text-xs text-gray-600">
-                              {formatCompositeSaldoAdaptive(item.current_qty, item.saldo_is_gram, item.satuan, item.satuan_kecil, item.faktor_tampilan)} / <span className="font-bold text-red-700">Reorder {item.threshold} {item.satuan}</span>
-                            </span>
-                          </div>
-                          <span className="text-red-600 font-bold text-lg">↓</span>
-                        </div>
-                      ))}
-
-                      {isOpnameOverdue && (
-                        <div className="flex items-start gap-3 p-3 bg-suka-cream rounded-xl border border-suka-brown/20">
-                          <span className="text-xl">📅</span>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 text-sm">Opname Jatuh Tempo</span>
-                            <p className="text-xs text-gray-600">
-                              {opnameAgeText} (<span className="text-red-600 font-bold uppercase text-[9px]">Overdue</span>)
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <Link
-                      href="/stok/opname/new"
-                      className="w-full bg-suka-orange hover:bg-suka-orange/90 text-suka-ink font-bold text-xs py-3 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm text-center active:scale-95"
-                    >
-                      📋 Mulai Opname Baru
-                    </Link>
-                  </div>
-                </details>
-              )
-            )}
-
-            {/* Production Estimate Widget */}
-            {!isLoading && data?.items && data.items.length > 0 && (
-              <div className="h-fit">
-                <ProductionEstimateWidget items={data.items} />
-              </div>
-            )}
-          </div>
         </div>
       </main>
 

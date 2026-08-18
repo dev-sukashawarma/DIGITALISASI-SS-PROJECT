@@ -22,23 +22,23 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, actionName: strin
 
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Semua',
-  'item core': 'Item Core',
-  bumbu: 'Bumbu',
-  minuman: 'Minuman',
-  kemasan: 'Packaging',
-  lainnya: 'Lainnya',
+  'FOOD & BEVERAGE': 'Food & Beverage',
+  'PACKAGING': 'Packaging',
+  'OPERASIONAL': 'Operasional',
 };
 
-// Helper for dynamic 3-level unit conversion
 function calculateTotalFisik(b: BahanBaku, input: { besar?: string; tengah?: string; kecil?: string }) {
   const besar = Number(input.besar || 0);
   const tengah = Number(input.tengah || 0);
   const kecil = Number(input.kecil || 0);
   
+  const unitBesarInKecil = b.faktor_tampilan || 1;
+  const unitTengahInKecil = b.faktor_tengah ? unitBesarInKecil / b.faktor_tengah : 1;
+
   if (b.satuan_tengah && b.satuan_kecil) {
-    return (besar * (b.faktor_tengah || 1) * (b.faktor_konversi || 1)) + (tengah * (b.faktor_konversi || 1)) + kecil;
+    return (besar * unitBesarInKecil) + (tengah * unitTengahInKecil) + kecil;
   } else if (b.satuan_kecil) {
-    return (besar * (b.faktor_konversi || 1)) + kecil;
+    return (besar * unitBesarInKecil) + kecil;
   }
   return besar;
 }
@@ -55,9 +55,10 @@ function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
   let remaining = Math.abs(totalSmallestQty);
   let besar = 0, tengah = 0, kecil = 0;
 
+  const unitBesarInKecil = b.faktor_tampilan || 1;
+
   if (b.satuan_tengah && b.satuan_kecil) {
-    const unitTengahInKecil = b.faktor_konversi || 1;
-    const unitBesarInKecil = (b.faktor_tengah || 1) * unitTengahInKecil;
+    const unitTengahInKecil = b.faktor_tengah ? unitBesarInKecil / b.faktor_tengah : 1;
 
     besar = Math.floor(remaining / unitBesarInKecil);
     remaining = remaining % unitBesarInKecil;
@@ -68,7 +69,6 @@ function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
     // Round to handle floating point issues
     kecil = Math.round(kecil * 100) / 100;
   } else if (b.satuan_kecil) {
-    const unitBesarInKecil = b.faktor_konversi || 1;
     besar = Math.floor(remaining / unitBesarInKecil);
     kecil = remaining % unitBesarInKecil;
     

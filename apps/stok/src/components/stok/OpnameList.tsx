@@ -3,19 +3,20 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import type { Opname } from '@/types/stok';
+import { Search, Calendar, User, Package, Scale, FileText, Clock, AlertTriangle, Inbox } from 'lucide-react';
 
 const TIPE_LABEL: Record<string, string> = {
-  harian: 'Harian 📅',
-  mingguan: 'Mingguan 📆',
-  ad_hoc: 'Ad Hoc ⚡',
+  harian: 'Harian',
+  mingguan: 'Mingguan',
+  ad_hoc: 'Ad Hoc',
 };
 
 const FILTER_LABELS: Record<string, string> = {
   all: 'Semua',
-  finalized: 'Selesai 🟢',
-  pending_approval: 'Menunggu Leader ⏳',
-  rejected: 'Ditolak ❌',
-  draft: 'Draft 📝',
+  finalized: 'Selesai',
+  pending_approval: 'Menunggu Leader',
+  rejected: 'Ditolak',
+  draft: 'Draft',
 };
 
 export function OpnameList({ items }: { items: Opname[] }) {
@@ -72,28 +73,28 @@ export function OpnameList({ items }: { items: Opname[] }) {
     <div className="space-y-5">
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <div className="p-3 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#544437]/50">
+        <div className="p-3 bg-[#93f997]/15 border border-[#93f997]/30 rounded-2xl shadow-sm flex flex-col justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#006e24]">
             Selesai Hari Ini
           </span>
-          <span className="text-lg font-black text-[#0a7d2c] mt-1">
-            {finalToday} <span className="text-xs font-bold text-[#544437]/40">laporan</span>
+          <span className="text-lg font-black text-[#006e24] mt-1">
+            {finalToday} <span className="text-xs font-bold opacity-75">laporan</span>
           </span>
         </div>
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl shadow-sm flex flex-col justify-center">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700/70">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">
             Menunggu Leader
           </span>
           <span className="text-lg font-black text-amber-700 mt-1">
-            {pendingCount} <span className="text-xs font-bold text-amber-600/60">opname</span>
+            {pendingCount} <span className="text-xs font-bold text-amber-600/70">opname</span>
           </span>
         </div>
-        <div className="p-3 bg-white border border-[#d9c2b2]/45 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)] flex flex-col justify-center">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#544437]/50">
+        <div className="p-3 bg-[#ffdcc2]/35 border border-[#f29744]/35 rounded-2xl shadow-sm flex flex-col justify-center">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#904d00]">
             Draft Tertunda
           </span>
-          <span className="text-lg font-black text-[#f29744] mt-1">
-            {draftCount} <span className="text-xs font-bold text-[#544437]/40">draft</span>
+          <span className="text-lg font-black text-[#904d00] mt-1">
+            {draftCount} <span className="text-xs font-bold opacity-75">draft</span>
           </span>
         </div>
       </div>
@@ -109,7 +110,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#544437]/40 text-xs">🔍</span>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#544437]/50" />
         </div>
 
         {/* Status Filter Pills */}
@@ -137,7 +138,6 @@ export function OpnameList({ items }: { items: Opname[] }) {
       {/* Opname List Cards */}
       <div className="space-y-3">
         {filteredItems.map((o) => {
-          // const isFinalized = o.status === 'finalized';
           const formattedDate = formatOpnameDate(o.tanggal);
           
           const totalCounted = o.opname_item?.filter((item) => item.qty_fisik !== null).length || 0;
@@ -150,7 +150,8 @@ export function OpnameList({ items }: { items: Opname[] }) {
                 {/* Left Section */}
                 <div className="space-y-2 min-w-0 flex-1 pr-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
+                    <span className="inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wider text-[#701604] bg-[#faf2e9] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
+                      <Calendar className="w-2.5 h-2.5" />
                       {TIPE_LABEL[o.tipe] || o.tipe}
                     </span>
                   </div>
@@ -164,14 +165,14 @@ export function OpnameList({ items }: { items: Opname[] }) {
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[9px] text-[#544437]/65 font-bold mt-1">
                       {o.outlet_staff?.name && (
                         <span className="flex items-center gap-1 bg-[#faf2e9] text-[#701604] px-2 py-0.5 rounded border border-[#d9c2b2]/30">
-                          👤 {o.outlet_staff.name}
+                          <User className="w-2.5 h-2.5" /> {o.outlet_staff.name}
                         </span>
                       )}
                       
                       {o.opname_item && o.opname_item.length > 0 ? (
                         <>
                           <span className="flex items-center gap-1 text-[#544437]/70 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                            📦 {totalCounted} Bahan
+                            <Package className="w-2.5 h-2.5" /> {totalCounted} Bahan
                           </span>
                           {discrepancyCount > 0 && (
                             <span className={`flex items-center gap-1 px-2 py-0.5 rounded border ${
@@ -179,7 +180,7 @@ export function OpnameList({ items }: { items: Opname[] }) {
                                 ? 'bg-red-50 text-red-700 border-red-100'
                                 : 'bg-amber-50 text-amber-700 border-amber-100'
                             }`}>
-                              ⚖️ {discrepancyCount} Selisih
+                              <Scale className="w-2.5 h-2.5" /> {discrepancyCount} Selisih
                               {flaggedCount > 0 && (
                                 <span className="ml-0.5 px-1.5 py-0.2 text-[7px] bg-[#ba1a1a] text-white font-extrabold rounded-full">
                                   {flaggedCount} Kritis
@@ -195,8 +196,8 @@ export function OpnameList({ items }: { items: Opname[] }) {
                   </div>
 
                   {o.notes && (
-                    <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-1 max-w-md">
-                      📝 {o.notes}
+                    <p className="text-[9px] text-[#544437]/60 font-medium truncate mt-1 max-w-md flex items-center gap-1">
+                      <FileText className="w-2.5 h-2.5 shrink-0" /> {o.notes}
                     </p>
                   )}
                 </div>
@@ -208,12 +209,12 @@ export function OpnameList({ items }: { items: Opname[] }) {
                       Selesai
                     </span>
                   ) : o.status === 'pending_approval' ? (
-                    <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider animate-pulse">
-                      ⏳ Menunggu
+                    <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider animate-pulse flex items-center gap-1">
+                      <Clock className="w-2.5 h-2.5" /> Menunggu
                     </span>
                   ) : o.status === 'rejected' ? (
-                    <span className="bg-red-50 text-[#ba1a1a] border border-red-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">
-                      ❌ Ditolak
+                    <span className="bg-red-50 text-[#ba1a1a] border border-red-200 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider flex items-center gap-1">
+                      <AlertTriangle className="w-2.5 h-2.5" /> Ditolak
                     </span>
                   ) : (
                     <span className="bg-[#ffdcc2] text-[#904d00] border border-[#ffdcc2]/10 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase tracking-wider">
@@ -227,9 +228,11 @@ export function OpnameList({ items }: { items: Opname[] }) {
         })}
 
         {filteredItems.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-2xl border border-[#d9c2b2]/40 p-8 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-            <span className="text-3xl">📭</span>
-            <p className="font-bold text-sm text-[#701604]/80 mt-2">Belum Ada Catatan Opname</p>
+          <div className="flex flex-col items-center justify-center py-12 bg-white rounded-2xl border border-[#d9c2b2]/40 p-8 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+            <div className="w-12 h-12 bg-[#faf2e9] rounded-2xl flex items-center justify-center mb-3">
+              <Inbox className="w-6 h-6 text-[#701604]/50" />
+            </div>
+            <p className="font-bold text-sm text-[#701604]">Belum Ada Catatan Opname</p>
             <p className="text-xs text-gray-500 mt-1">Tidak ada opname yang cocok dengan pencarian atau filter.</p>
           </div>
         )}

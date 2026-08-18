@@ -7,22 +7,15 @@ import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
 
 
-/** Konsisten dengan kategori di admin-dashboard: item core, bumbu, minuman, kemasan, lainnya */
+/** Label kategori untuk SPV Dashboard */
 const getKategoriLabel = (kategori: string): string => {
-  let catLower = (kategori || '').toLowerCase();
+  const upper = (kategori || '').toUpperCase();
   
-  // Normalisasi kategori lama ke kategori baru (5 group)
-  if (catLower === 'protein' || catLower === 'sayur') catLower = 'item core';
-  else if (catLower === 'saus') catLower = 'bumbu';
-  else if (catLower === 'gas') catLower = 'lainnya';
-  
-  switch (catLower) {
-    case 'item core': return '⭐ Item Core';
-    case 'bumbu':     return '🌶️ Bumbu';
-    case 'minuman':   return '🥤 Minuman';
-    case 'kemasan':   return '📦 Kemasan';
-    case 'lainnya':   return '📋 Lainnya';
-    default:          return kategori || 'Bahan Baku';
+  switch (upper) {
+    case 'FOOD & BEVERAGE': return '🥩 Food & Beverage';
+    case 'PACKAGING': return '📦 Packaging';
+    case 'OPERASIONAL': return '📋 Operasional';
+    default: return kategori || 'Bahan Baku';
   }
 };
 
@@ -488,7 +481,7 @@ export function SPVTable({
                   return acc;
                 }, {} as Record<string, MonitoringItem[]>);
 
-                const KATEGORI_LABELS = ['⭐ Item Core', '🌶️ Bumbu', '🥤 Minuman', '📦 Kemasan', '📋 Lainnya'];
+                const KATEGORI_LABELS = ['🥩 Food & Beverage', '📦 Packaging', '📋 Operasional'];
                 const sortedLabels = KATEGORI_LABELS.filter(label => groupedOverview[label] && groupedOverview[label].length > 0);
                 Object.keys(groupedOverview).forEach(label => {
                   if (!sortedLabels.includes(label)) sortedLabels.push(label);
@@ -773,7 +766,7 @@ export function SPVTable({
               acc[label].push(item);
               return acc;
             }, {} as Record<string, MonitoringItem[]>);
-            const KATEGORI_LABELS = ['⭐ Item Core', '🌶️ Bumbu', '🥤 Minuman', '📦 Kemasan', '📋 Lainnya'];
+            const KATEGORI_LABELS = ['🥩 Food & Beverage', '📦 Packaging', '📋 Operasional'];
             const sortedLabels = KATEGORI_LABELS.filter(label => groupedOverview[label] && groupedOverview[label].length > 0);
             Object.keys(groupedOverview).forEach(label => {
               if (!sortedLabels.includes(label)) sortedLabels.push(label);

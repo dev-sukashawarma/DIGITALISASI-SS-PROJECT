@@ -1,6 +1,6 @@
 export type Satuan = 'kg'|'gram'|'liter'|'ml'|'pcs'|'box'|'pack'|'ikat'|'botol'|'crt'|'kompan'|'blok'
 export type SatuanKecil = 'liter'|'ml'|'gram'|'cm'|'lembar'
-export type Kategori = 'protein'|'sayur'|'bumbu'|'saus'|'roti'|'kemasan'|'minuman'|'lainnya'
+export type Kategori = 'FOOD & BEVERAGE'|'PACKAGING'|'OPERASIONAL'
 export type LedgerTipe =
   | 'terima_kiriman' | 'pemakaian' | 'waste' | 'adjustment'
   | 'opname_selisih' | 'transfer_keluar' | 'transfer_masuk' | 'waste_pending'

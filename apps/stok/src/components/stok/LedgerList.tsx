@@ -325,15 +325,15 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
         <div className="relative">
           <input
             type="text"
-            className="w-full px-4 py-3 pl-10 rounded-2xl border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 text-sm text-gray-900 placeholder-gray-400 font-medium transition-all shadow-sm"
+            className="w-full px-4 py-2.5 pl-9 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs sm:text-sm text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm"
             placeholder="Cari nama bahan baku atau nomor order/opname..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#544437]/50" />
         </div>
 
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4 no-scrollbar">
           {Object.entries(FILTER_LABELS).map(([key, item]) => {
             const isActive = activeFilter === key;
             const Icon = item.icon;
@@ -342,13 +342,13 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
                 key={key}
                 type="button"
                 onClick={() => setActiveFilter(key)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold tracking-wide transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm ${
                   isActive
-                    ? 'bg-gray-900 border-gray-900 text-white'
-                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300'
+                    ? 'bg-[#701604] border-[#701604] text-white shadow-sm'
+                    : 'bg-white border-[#d9c2b2]/40 text-[#544437]/80 hover:bg-[#fff8f1]/50 hover:border-[#d9c2b2]'
                 }`}
               >
-                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-gray-500'}`} />
+                <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : 'text-[#544437]/60'}`} />
                 {item.label}
               </button>
             );
@@ -356,7 +356,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           <button
             type="button"
             onClick={() => setShowGlosarium(true)}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-[11px] font-bold tracking-wide transition-all border whitespace-nowrap cursor-pointer shadow-sm bg-white border-[#f29744]/40 text-[#f29744] hover:bg-orange-50"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm bg-white border-[#f29744]/40 text-[#f29744] hover:bg-orange-50"
           >
             <BookOpen className="w-3.5 h-3.5" />
             Glosarium
@@ -377,13 +377,6 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           const relativeTime = getRelativeTimeString(t.created_at);
           const isExpanded = expandedKey === t.transaksi_key;
           const detailId = `transaksi-detail-${t.transaksi_key}`;
-          // waste_pending = baris stok_waste_reports yang BELUM di-approve --
-          // qty-nya sengaja masih besar-scale mentah (WasteModal.tsx/
-          // ManualEntryForm tak pernah mengonversinya di client; konversi
-          // baru terjadi di trigger process_waste_report_approval SAAT
-          // approve, lihat migration 20300105000017 §4). Kalau ditampilkan
-          // dengan formatter sadar-gram di sini, angka mentah itu disangka
-          // sudah gram-scale dan salah tampil (mis. "1 Blok" jadi "1 Gram").
           const isGram = isPending ? false : (t.single_bahan_baku_id ? (gramMap?.get(t.single_bahan_baku_id) ?? false) : false);
 
           const { icon: TransIcon, iconColor, bgClass } = transaksiVisual(t);
@@ -450,7 +443,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           if (isManual) {
             const innerClasses = isPending
               ? "bg-white rounded-2xl border border-amber-200 p-4.5 shadow-sm mb-3 opacity-90 block"
-              : "bg-white rounded-2xl border border-gray-100 p-4.5 shadow-[0_4px_16px_rgba(0,0,0,0.02)] hover:border-gray-200 hover:shadow-md transition-all duration-200 mb-3 cursor-pointer active:scale-[0.98] block";
+              : "bg-white rounded-2xl border border-[#d9c2b2]/45 p-4.5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-3 cursor-pointer active:scale-[0.98] block";
 
             const inner = (
               <div className={innerClasses}>
@@ -472,7 +465,7 @@ export function LedgerList({ items }: { items: LedgerTransaksiSummary[] }) {
           return (
             <div
               key={t.transaksi_key}
-              className="bg-white rounded-2xl border border-gray-100 p-4.5 shadow-[0_4px_16px_rgba(0,0,0,0.02)] hover:border-gray-200 hover:shadow-md transition-all duration-200 mb-3"
+              className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-4.5 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] hover:border-[#f29744]/45 hover:shadow-md transition-all duration-200 mb-3"
             >
               <button
                 type="button"

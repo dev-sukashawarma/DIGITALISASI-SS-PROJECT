@@ -140,9 +140,6 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
       const masterPrice = hData ? (hData.hargaBeliDisplay || hData.hargaBeli) : 0
       const qtyPorsi = Number(it.qty_per_porsi) || 0
       const satuanResep = it.satuan || bb.satuan || ''
-
-      const satuanResepLower = satuanResep.toLowerCase().trim()
-      const satuanMasterLower = (bb.satuan || '').toLowerCase().trim()
       
       const fallbackFaktor = Number(bb.faktor_tampilan) || Number(bb.faktor_konversi) || 1
       const faktor = (hData && hData.kemasanQty > 0) ? hData.kemasanQty : fallbackFaktor

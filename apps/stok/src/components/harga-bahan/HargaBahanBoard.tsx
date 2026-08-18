@@ -1,15 +1,19 @@
 'use client'
 
 import React, { useState, useMemo } from 'react'
-import { ArrowLeft, AlertCircle } from 'lucide-react'
+import { ArrowLeft, AlertCircle, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { Spinner } from '@suka/design-system'
+import { toast } from 'sonner'
 import { useFluktuasiHarga, type FluktuasiHargaItem } from '@/hooks/useFluktuasiHarga'
+import { useBahanBakuMutations } from '@/hooks/useBahanBakuMutations'
 import { HargaBahanSummaryCards } from './HargaBahanSummaryCards'
 import { HargaBahanFilterBar } from './HargaBahanFilterBar'
 import { HargaBahanTable } from './HargaBahanTable'
 import { HargaBahanDetailModal } from './HargaBahanDetailModal'
+import { HargaBahanAddModal } from './HargaBahanAddModal'
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
+import { useAuth } from '@suka/auth'
 
 interface HargaBahanBoardProps {
   showBackButton?: boolean
@@ -28,6 +32,11 @@ export function HargaBahanBoard({
 
   // State Detail Modal
   const [detailItem, setDetailItem] = useState<FluktuasiHargaItem | null>(null)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+
+  const { outletStaff } = useAuth()
+  const role = outletStaff?.role || ''
+  const canAddBahanBaku = role === 'admin' || role === 'kitchen' || role === 'developer' || role === 'owner'
 
   // Query Hook
   const {
@@ -37,6 +46,8 @@ export function HargaBahanBoard({
     refetch,
     error
   } = useFluktuasiHarga(daysFilter)
+
+  const { addBahanBaku } = useBahanBakuMutations()
 
   // Extract unique category names
   const categories = useMemo(() => {
@@ -151,9 +162,35 @@ export function HargaBahanBoard({
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {canAddBahanBaku && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white rounded-xl font-bold shadow-sm transition-colors text-sm"
+            >
+              <Plus size={16} />
+              <span className="hidden sm:inline">Tambah Bahan Baku</span>
+            </button>
+          )}
           <UserAvatarDropdown />
         </div>
       </div>
+
+      <HargaBahanAddModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        isSaving={addBahanBaku.isPending}
+        onAdd={(vars) => {
+          addBahanBaku.mutate(vars, {
+            onSuccess: () => {
+              toast.success('Bahan baku berhasil ditambahkan')
+              setIsAddModalOpen(false)
+            },
+            onError: (e: any) => {
+              toast.error(e.message)
+            }
+          })
+        }}
+      />
 
       {/* KPI Metric Summary Cards */}
       <HargaBahanSummaryCards

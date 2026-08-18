@@ -2,21 +2,28 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Spinner } from '@suka/design-system'
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react'
+import { TrendingUp, TrendingDown, AlertTriangle, Plus } from 'lucide-react'
 import { useBahanBakuHarga } from '@/hooks/useBahanBakuHarga'
 import { useBahanBakuHargaMutations } from '@/hooks/useBahanBakuHargaMutations'
 import { usePOPriceAlerts } from '@/hooks/usePOPriceAlerts'
 import { filterAndSortBahanBaku, type SortOption } from '@/lib/bahanBaku'
 import { BahanBakuFilters } from '@/components/BahanBakuFilters'
 import { BahanBakuTable } from '@/components/BahanBakuTable'
+import { BahanBakuAddModal } from '@/components/BahanBakuAddModal'
+import { useAuth } from '@suka/auth'
 
 export default function BahanBakuPage() {
   const { data: rows = [], isLoading } = useBahanBakuHarga()
-  const { setHarga, setMerek, setNama, setSatuan, setThreshold, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage } = useBahanBakuHargaMutations()
+  const { setHarga, setMerek, setNama, setSatuan, setThreshold, setImage, addSku, updateSku, deleteSku, setDefaultSku, setSkuImage, addBahanBaku } = useBahanBakuHargaMutations()
   const { data: priceAlerts = [] } = usePOPriceAlerts()
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('nama-asc')
   const [alertDismissed, setAlertDismissed] = useState(false)
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const { outletStaff } = useAuth()
+
+  const role = outletStaff?.role || 'admin' // Fallback to admin if not found in this app context, though useAuth should provide it.
+  const canAddBahanBaku = role === 'admin' || role === 'kitchen' || role === 'developer' || role === 'owner'
 
   const filtered = useMemo(() => filterAndSortBahanBaku(rows, search, sortBy), [rows, search, sortBy])
 
@@ -57,10 +64,39 @@ export default function BahanBakuPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-extrabold text-suka-brown tracking-tight">Master Bahan Baku</h1>
-        <p className="text-sm text-gray-500">Kelola gambar, konversi satuan bertingkat, dan harga beli bahan baku.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-extrabold text-suka-brown tracking-tight">Master Bahan Baku</h1>
+          <p className="text-sm text-gray-500">Kelola gambar, konversi satuan bertingkat, dan harga beli bahan baku.</p>
+        </div>
+        
+        {canAddBahanBaku && (
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-suka-orange hover:bg-suka-orange/90 text-white rounded-xl font-bold shadow-sm transition-colors w-fit"
+          >
+            <Plus size={18} />
+            <span>Tambah Bahan Baku</span>
+          </button>
+        )}
       </div>
+
+      <BahanBakuAddModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        isSaving={addBahanBaku.isPending}
+        onAdd={(vars) => {
+          addBahanBaku.mutate(vars, {
+            onSuccess: () => {
+              toast.success('Bahan baku berhasil ditambahkan')
+              setIsAddModalOpen(false)
+            },
+            onError: (e: any) => {
+              toast.error(e.message)
+            }
+          })
+        }}
+      />
 
       {/* Price Alert Banner */}
       {priceAlerts.length > 0 && !alertDismissed && (

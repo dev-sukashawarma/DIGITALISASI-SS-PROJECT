@@ -29,17 +29,48 @@ const KATEGORI_OPTIONS = [
   'OPERASIONAL'
 ]
 
+const SATUAN_OPTIONS = [
+  'Bal',
+  'Blok',
+  'Bungkus',
+  'Dus',
+  'Gram',
+  'Ikat',
+  'Kaleng',
+  'Karton',
+  'Karung',
+  'Kg',
+  'Kompan',
+  'Lembar',
+  'Liter',
+  'Lusin',
+  'Ml',
+  'Pack',
+  'Pcs',
+  'Renceng',
+  'Roll',
+  'Sachet',
+  'Sisir',
+  'Toples',
+  'Tube'
+]
+
 export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBahanAddModalProps) {
   const [nama, setNama] = useState('')
   const [kategori, setKategori] = useState('FOOD & BEVERAGE')
   const [kategoriCustom, setKategoriCustom] = useState('')
   
   // Satuan Bertingkat
-  const [satuanBesar, setSatuanBesar] = useState('')
-  const [satuanTengah, setSatuanTengah] = useState('')
-  const [faktorTengah, setFaktorTengah] = useState('')
-  const [satuanKecil, setSatuanKecil] = useState('')
-  const [faktorTampilan, setFaktorTampilan] = useState('')
+  const [satuanBesar, setSatuanBesar] = useState('Kg')
+  const [satuanBesarCustom, setSatuanBesarCustom] = useState('')
+
+  const [satuanTengah, setSatuanTengah] = useState('Kg')
+  const [satuanTengahCustom, setSatuanTengahCustom] = useState('')
+  const [faktorTengah, setFaktorTengah] = useState('1')
+
+  const [satuanKecil, setSatuanKecil] = useState('Gram')
+  const [satuanKecilCustom, setSatuanKecilCustom] = useState('')
+  const [faktorTampilan, setFaktorTampilan] = useState('1000')
 
   const [harga, setHarga] = useState('')
 
@@ -47,7 +78,11 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
     e.preventDefault()
     
     const finalKategori = kategori === 'custom' ? kategoriCustom : kategori
-    if (!nama.trim() || !finalKategori.trim() || !satuanBesar.trim() || !satuanTengah.trim() || !satuanKecil.trim() || !faktorTengah || !faktorTampilan) {
+    const finalBesar = satuanBesar === 'custom' ? satuanBesarCustom : satuanBesar
+    const finalTengah = satuanTengah === 'custom' ? satuanTengahCustom : satuanTengah
+    const finalKecil = satuanKecil === 'custom' ? satuanKecilCustom : satuanKecil
+
+    if (!nama.trim() || !finalKategori.trim() || !finalBesar.trim() || !finalTengah.trim() || !finalKecil.trim() || !faktorTengah || !faktorTampilan) {
       alert('Semua field wajib diisi (kecuali harga beli).')
       return
     }
@@ -55,10 +90,10 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
     onAdd({
       nama: nama.trim(),
       kategori: finalKategori.trim(),
-      satuan: satuanBesar.trim(),
-      satuan_tengah: satuanTengah.trim(),
+      satuan: finalBesar.trim(),
+      satuan_tengah: finalTengah.trim(),
       faktor_tengah: Number(faktorTengah),
-      satuan_kecil: satuanKecil.trim(),
+      satuan_kecil: finalKecil.trim(),
       faktor_tampilan: Number(faktorTampilan),
       harga_beli: harga ? Number(harga) : undefined
     })
@@ -69,14 +104,21 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
     setNama('')
     setKategori('FOOD & BEVERAGE')
     setKategoriCustom('')
-    setSatuanBesar('')
-    setSatuanTengah('')
-    setFaktorTengah('')
-    setSatuanKecil('')
-    setFaktorTampilan('')
+    setSatuanBesar('Kg')
+    setSatuanBesarCustom('')
+    setSatuanTengah('Kg')
+    setSatuanTengahCustom('')
+    setFaktorTengah('1')
+    setSatuanKecil('Gram')
+    setSatuanKecilCustom('')
+    setFaktorTampilan('1000')
     setHarga('')
     onClose()
   }
+
+  const effectiveBesar = satuanBesar === 'custom' ? (satuanBesarCustom || 'Besar') : satuanBesar
+  const effectiveTengah = satuanTengah === 'custom' ? (satuanTengahCustom || 'Tengah') : satuanTengah
+  const effectiveKecil = satuanKecil === 'custom' ? (satuanKecilCustom || 'Kecil') : satuanKecil
 
   return (
     <Transition appear show={isOpen} as={Fragment}>
@@ -174,37 +216,65 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
                     
                     <div>
                       <label className="block text-xs font-bold text-suka-ink mb-1">
-                        Satuan Besar (Dasar)
+                        Satuan Besar (Dasar) <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
-                        required
+                      <select
                         value={satuanBesar}
                         onChange={(e) => setSatuanBesar(e.target.value)}
                         disabled={isSaving}
-                        placeholder="Contoh: Karung"
-                        className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200"
-                      />
+                        className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
+                      >
+                        {SATUAN_OPTIONS.map((opt) => (
+                          <option key={opt} value={opt}>{opt}</option>
+                        ))}
+                        <option value="custom">Satuan Lainnya (Tulis Manual)</option>
+                      </select>
+
+                      {satuanBesar === 'custom' && (
+                        <input
+                          type="text"
+                          required
+                          value={satuanBesarCustom}
+                          onChange={(e) => setSatuanBesarCustom(e.target.value)}
+                          disabled={isSaving}
+                          placeholder="Ketik satuan besar baru..."
+                          className="w-full mt-1.5 rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
+                        />
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-suka-ink mb-1">
-                          Satuan Tengah
+                          Satuan Tengah <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
-                          required
+                        <select
                           value={satuanTengah}
                           onChange={(e) => setSatuanTengah(e.target.value)}
                           disabled={isSaving}
-                          placeholder="Contoh: Kg"
-                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200"
-                        />
+                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
+                        >
+                          {SATUAN_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                          <option value="custom">Satuan Lainnya (Tulis Manual)</option>
+                        </select>
+
+                        {satuanTengah === 'custom' && (
+                          <input
+                            type="text"
+                            required
+                            value={satuanTengahCustom}
+                            onChange={(e) => setSatuanTengahCustom(e.target.value)}
+                            disabled={isSaving}
+                            placeholder="Ketik satuan tengah..."
+                            className="w-full mt-1.5 rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-suka-ink mb-1">
-                          1 {satuanBesar || 'Besar'} = ... {satuanTengah || 'Tengah'}
+                          1 {effectiveBesar} = ... {effectiveTengah}
                         </label>
                         <input
                           type="number"
@@ -215,7 +285,7 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
                           onChange={(e) => setFaktorTengah(e.target.value)}
                           disabled={isSaving}
                           placeholder="Contoh: 10"
-                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200"
+                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
                         />
                       </div>
                     </div>
@@ -223,21 +293,35 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-bold text-suka-ink mb-1">
-                          Satuan Kecil (Tampilan)
+                          Satuan Kecil (Tampilan) <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
-                          required
+                        <select
                           value={satuanKecil}
                           onChange={(e) => setSatuanKecil(e.target.value)}
                           disabled={isSaving}
-                          placeholder="Contoh: Gram"
-                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200"
-                        />
+                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
+                        >
+                          {SATUAN_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt}>{opt}</option>
+                          ))}
+                          <option value="custom">Satuan Lainnya (Tulis Manual)</option>
+                        </select>
+
+                        {satuanKecil === 'custom' && (
+                          <input
+                            type="text"
+                            required
+                            value={satuanKecilCustom}
+                            onChange={(e) => setSatuanKecilCustom(e.target.value)}
+                            disabled={isSaving}
+                            placeholder="Ketik satuan kecil..."
+                            className="w-full mt-1.5 rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
+                          />
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-suka-ink mb-1">
-                          1 {satuanTengah || 'Tengah'} = ... {satuanKecil || 'Kecil'}
+                          1 {effectiveTengah} = ... {effectiveKecil}
                         </label>
                         <input
                           type="number"
@@ -248,7 +332,7 @@ export function HargaBahanAddModal({ isOpen, onClose, onAdd, isSaving }: HargaBa
                           onChange={(e) => setFaktorTampilan(e.target.value)}
                           disabled={isSaving}
                           placeholder="Contoh: 1000"
-                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200"
+                          className="w-full rounded-xl border border-suka-gray-300 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange disabled:bg-gray-200 bg-white"
                         />
                       </div>
                     </div>

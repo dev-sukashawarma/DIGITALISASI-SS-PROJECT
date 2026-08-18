@@ -52,6 +52,7 @@ export function BottomNav() {
   const navItems = isKitchenOrAdmin
     ? [
         { href: '/dashboard', icon: '📊', label: 'Dashboard' },
+        { href: '/stok/hpp-menu', icon: '🍱', label: 'HPP Menu' },
         { href: '/stok/harga-bahan', icon: '💰', label: 'Harga' },
         { href: '/stok/laporan-penjualan', icon: '📈', label: 'Penjualan' },
         { href: '/stok/penerimaan-po', icon: '🚚', label: 'Terima PO' },

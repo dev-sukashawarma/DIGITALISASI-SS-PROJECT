@@ -18,6 +18,7 @@ import {
   TrendingUp,
   BookOpen,
   ArrowLeftRight,
+  Calculator,
   LogOut,
   ExternalLink,
   ChefHat,
@@ -40,6 +41,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
   const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer'].includes(role ?? '')
   const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
+  const canViewHPP = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
 
   // 1. Pending Approvals Permintaan
   const { permintaan } = useApprovalList(isApprover)
@@ -155,6 +157,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
     {
       title: 'ANALISIS & LAPORAN',
       items: [
+        ...(canViewHPP
+          ? [
+              {
+                label: 'HPP Setiap Menu',
+                href: '/stok/hpp-menu',
+                icon: Calculator,
+              },
+            ]
+          : []),
         ...(canViewSales
           ? [
               {

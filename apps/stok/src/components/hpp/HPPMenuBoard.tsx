@@ -564,18 +564,18 @@ export function HPPMenuBoard() {
                       <tr key={ing.bahan_baku_id} className="hover:bg-suka-cream/20">
                         <td className="py-2.5 px-3">
                           <div className="font-bold text-suka-brown text-xs">{ing.nama_bahan}</div>
-                          {ing.satuan_kecil && ing.faktor_konversi > 1 && (
-                            <div className="text-[9px] text-suka-brown/50">
-                              1 {ing.satuan_master} = {ing.faktor_konversi} {ing.satuan_kecil}
-                            </div>
-                          )}
+                          <div className="text-[9px] text-suka-brown/50">
+                            Stok ref: {ing.faktor_konversi} {ing.satuan_kecil || ing.satuan_resep}
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 text-center font-black text-suka-brown">
                           {ing.qty_per_porsi} <span className="text-[10px] font-normal text-suka-brown/60">{ing.satuan_resep}</span>
                         </td>
                         <td className="py-2.5 px-3 text-right">
                           <div className="font-bold text-suka-brown/80">{formatRp(ing.harga_beli_master)}</div>
-                          <div className="text-[9px] text-suka-brown/50">per {ing.satuan_master}</div>
+                          <div className="text-[9px] text-suka-brown/50 font-medium bg-suka-cream/30 inline-block px-1.5 py-0.5 rounded mt-0.5">
+                            Rp {ing.biaya_per_satuan_resep.toLocaleString('id-ID', { maximumFractionDigits: 2 })} / {ing.satuan_kecil || ing.satuan_resep}
+                          </div>
                         </td>
                         <td className="py-2.5 px-3 text-right font-black text-suka-orange">
                           {formatRp(ing.subtotal_biaya)}

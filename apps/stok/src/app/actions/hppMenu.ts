@@ -79,6 +79,7 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
           satuan,
           satuan_kecil,
           faktor_konversi,
+          faktor_tampilan,
           kategori,
           kategori_core
         )
@@ -108,11 +109,15 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
   // 3. Ambil harga beli master bahan baku
   const { data: hargaData } = await supabase
     .from('bahan_baku_harga')
-    .select('bahan_baku_id, harga_beli')
+    .select('bahan_baku_id, harga_beli, harga_beli_display, kemasan_qty')
 
-  const hargaMap = new Map<string, number>()
+  const hargaMap = new Map<string, { hargaBeli: number, hargaBeliDisplay: number, kemasanQty: number }>()
   for (const h of (hargaData || [])) {
-    hargaMap.set(h.bahan_baku_id, Number(h.harga_beli) || 0)
+    hargaMap.set(h.bahan_baku_id, {
+      hargaBeli: Number(h.harga_beli) || 0,
+      hargaBeliDisplay: Number(h.harga_beli_display) || 0,
+      kemasanQty: Number(h.kemasan_qty) || 0
+    })
   }
 
   // 4. Hitung HPP dan komposisi untuk tiap resep
@@ -131,17 +136,20 @@ export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
     for (const it of rawItems) {
       if (!it.bahan_baku) continue
       const bb = it.bahan_baku
-      const masterPrice = hargaMap.get(bb.id) || 0
+      const hData = hargaMap.get(bb.id)
+      const masterPrice = hData ? (hData.hargaBeliDisplay || hData.hargaBeli) : 0
       const qtyPorsi = Number(it.qty_per_porsi) || 0
       const satuanResep = it.satuan || bb.satuan || ''
 
-      let unitCost = masterPrice
       const satuanResepLower = satuanResep.toLowerCase().trim()
       const satuanMasterLower = (bb.satuan || '').toLowerCase().trim()
-      const faktor = Number(bb.faktor_konversi) || 1
+      
+      const fallbackFaktor = Number(bb.faktor_tampilan) || Number(bb.faktor_konversi) || 1
+      const faktor = (hData && hData.kemasanQty > 0) ? hData.kemasanQty : fallbackFaktor
 
-      // Konversi jika satuan resep berbeda dengan satuan master
-      if (satuanResepLower !== satuanMasterLower && faktor > 0) {
+      // Match admin-dashboard logic: always divide by kemasanQty
+      let unitCost = masterPrice
+      if (faktor > 0) {
         unitCost = masterPrice / faktor
       }
 

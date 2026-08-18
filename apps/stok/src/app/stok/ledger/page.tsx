@@ -8,6 +8,7 @@ import { useLedgerTransaksiList } from '@/hooks/useLedger';
 import { LedgerList } from '@/components/stok/LedgerList';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { Plus, AlertCircle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export default function LedgerPage() {
@@ -40,8 +41,9 @@ export default function LedgerPage() {
               Buku Kas & Riwayat Mutasi Bahan
             </p>
           </div>
-          <div className="flex items-center shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <OutletSwitcher />
+            <UserAvatarDropdown />
           </div>
         </header>
 

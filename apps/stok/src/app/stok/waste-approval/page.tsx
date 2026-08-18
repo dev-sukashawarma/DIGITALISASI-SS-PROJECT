@@ -11,6 +11,7 @@ import { useWasteApprovalList } from '@/hooks/useWaste'
 import { useAuth } from '@suka/auth'
 import { formatTriUnitSaldo, convertGramToBesar } from '@/lib/format/compositeUnit'
 import { AppLayout } from '@/components/layout/AppLayout'
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 
 export default function WasteApprovalPage() {
   const { outletStaff } = useAuth()
@@ -77,12 +78,15 @@ export default function WasteApprovalPage() {
           </h1>
           <p className="text-sm font-semibold text-[#544437]/70 mt-1">Kelola dan tinjau laporan waste dari outlet.</p>
         </div>
-        <button
-          onClick={() => loadReports()}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-[#d9c2b2] text-[#544437] rounded-xl text-sm font-bold shadow-sm hover:bg-[#faf2e9] active:scale-95 transition-all"
-        >
-          <span>🔄</span> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadReports()}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-[#d9c2b2] text-[#544437] rounded-xl text-sm font-bold shadow-sm hover:bg-[#faf2e9] active:scale-95 transition-all"
+          >
+            <span>🔄</span> Refresh
+          </button>
+          <UserAvatarDropdown />
+        </div>
       </div>
 
       {reports.length === 0 ? (

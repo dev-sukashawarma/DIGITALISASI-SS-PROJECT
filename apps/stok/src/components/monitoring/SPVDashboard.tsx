@@ -22,6 +22,7 @@ import { POInboundTabContent } from './POInboundTabContent';
 import { HargaBahanBoard } from '@/components/harga-bahan/HargaBahanBoard';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
 import { RefreshCw, Search, X, Bell, AlertTriangle, CheckCircle2, TrendingDown, Trash2, Store } from 'lucide-react';
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
 import { updateThresholdAction } from '@/app/actions/threshold';
@@ -450,6 +451,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
             <span className="hidden sm:inline">Refresh</span>
           </button>
           {renderNotificationBell()}
+          <UserAvatarDropdown />
         </div>
       </header>
 

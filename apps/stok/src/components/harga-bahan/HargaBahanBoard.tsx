@@ -9,6 +9,7 @@ import { HargaBahanSummaryCards } from './HargaBahanSummaryCards'
 import { HargaBahanFilterBar } from './HargaBahanFilterBar'
 import { HargaBahanTable } from './HargaBahanTable'
 import { HargaBahanDetailModal } from './HargaBahanDetailModal'
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 
 interface HargaBahanBoardProps {
   showBackButton?: boolean
@@ -148,6 +149,9 @@ export function HargaBahanBoard({
               Pantau pergerakan dan fluktuasi harga bahan baku setelah pembelian dari vendor.
             </p>
           </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <UserAvatarDropdown />
         </div>
       </div>
 

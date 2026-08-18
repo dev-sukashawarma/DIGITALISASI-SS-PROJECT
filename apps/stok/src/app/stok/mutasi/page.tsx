@@ -6,6 +6,7 @@ import { useOutletScope } from '@/hooks/useOutletScope';
 import { useMutasiList } from '@/hooks/useMutasi';
 import { MutasiList } from '@/components/stok/MutasiList';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { Plus, Loader2 } from 'lucide-react';
 
@@ -42,8 +43,9 @@ export default function MutasiPage() {
               Transfer & Perpindahan Stok Fisik
             </p>
           </div>
-          <div className="flex items-center shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <OutletSwitcher />
+            <UserAvatarDropdown />
           </div>
         </header>
 

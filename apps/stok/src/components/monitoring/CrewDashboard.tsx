@@ -6,6 +6,7 @@ import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { useCrewMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import type { MonitoringItem } from '@/lib/types/monitoring';
 import { RefreshCw } from 'lucide-react';
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 
 export function CrewDashboard() {
   useMonitoringRealtime();
@@ -24,14 +25,17 @@ export function CrewDashboard() {
             Saldo Stok Real-time
           </h1>
         </div>
-        <button
-          onClick={() => refetch()}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-suka-cream/50 hover:bg-suka-cream text-suka-brown border border-suka-brown/10 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
-          title="Refresh Data"
-        >
-          <RefreshCw className="w-3.5 h-3.5 text-suka-orange" />
-          <span className="hidden sm:inline">Refresh</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => refetch()}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-suka-cream/50 hover:bg-suka-cream text-suka-brown border border-suka-brown/10 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer active:scale-95"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-suka-orange" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          <UserAvatarDropdown />
+        </div>
       </div>
 
       <main className="px-4 md:px-6 flex flex-col gap-6 mt-4 pb-24 max-w-7xl mx-auto w-full">

@@ -6,6 +6,7 @@ import { PermintaanForm } from '@/components/permintaan/PermintaanForm'
 import { PermintaanList } from '@/components/permintaan/PermintaanList'
 import { ApprovalList } from '@/components/permintaan/ApprovalList'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { canApprovePermintaan } from '@/lib/stok/approver'
 
@@ -46,7 +47,10 @@ export default function PermintaanPage() {
                 Alur Distribusi Kitchen & Outlet
               </p>
             </div>
-            <OutletSwitcher />
+            <div className="flex items-center gap-2 shrink-0">
+              <OutletSwitcher />
+              <UserAvatarDropdown />
+            </div>
           </header>
         )}
 

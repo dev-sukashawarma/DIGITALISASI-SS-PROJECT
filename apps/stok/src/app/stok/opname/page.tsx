@@ -8,6 +8,7 @@ import { OpnameList } from '@/components/stok/OpnameList';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import Link from 'next/link';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { Plus, Loader2 } from 'lucide-react';
 
 export default function OpnamePage() {
@@ -40,8 +41,9 @@ export default function OpnamePage() {
             </p>
           </div>
 
-          <div className="flex items-center shrink-0">
+          <div className="flex items-center gap-2 shrink-0">
             <OutletSwitcher />
+            <UserAvatarDropdown />
           </div>
         </header>
 

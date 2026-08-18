@@ -23,6 +23,7 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, actionName: strin
 const CATEGORY_LABELS: Record<string, string> = {
   all: 'Semua',
   'FOOD & BEVERAGE': 'Food & Beverage',
+  'BUMBU': 'Bumbu',
   'PACKAGING': 'Packaging',
   'OPERASIONAL': 'Operasional',
 };

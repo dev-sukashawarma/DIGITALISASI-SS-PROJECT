@@ -13,8 +13,9 @@ const getKategoriLabel = (kategori: string): string => {
   
   switch (upper) {
     case 'FOOD & BEVERAGE': return '🥩 Food & Beverage';
-    case 'PACKAGING': return '📦 Packaging';
-    case 'OPERASIONAL': return '📋 Operasional';
+    case 'BUMBU':           return '🌶️ Bumbu';
+    case 'PACKAGING':       return '📦 Packaging';
+    case 'OPERASIONAL':     return '📋 Operasional';
     default: return kategori || 'Bahan Baku';
   }
 };
@@ -468,7 +469,7 @@ export function SPVTable({
                   return acc;
                 }, {} as Record<string, MonitoringItem[]>);
 
-                const KATEGORI_LABELS = ['🥩 Food & Beverage', '📦 Packaging', '📋 Operasional'];
+                const KATEGORI_LABELS = ['🥩 Food & Beverage', '🌶️ Bumbu', '📦 Packaging', '📋 Operasional'];
                 const sortedLabels = KATEGORI_LABELS.filter((l) => grouped[l] && grouped[l].length > 0);
                 Object.keys(grouped).forEach((l) => {
                   if (!sortedLabels.includes(l)) sortedLabels.push(l);

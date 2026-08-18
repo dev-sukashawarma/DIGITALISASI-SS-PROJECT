@@ -34,7 +34,7 @@ const getStorageLocation = (category: string, name: string) => {
 
 const normalizeKategori = (kategori: string): string => {
   const upper = (kategori || '').toUpperCase();
-  if (['FOOD & BEVERAGE', 'PACKAGING', 'OPERASIONAL'].includes(upper)) return upper;
+  if (['FOOD & BEVERAGE', 'PACKAGING', 'OPERASIONAL', 'BUMBU'].includes(upper)) return upper;
   return 'OPERASIONAL';
 };
 
@@ -66,6 +66,7 @@ const formatUnit = (unit: string | null | undefined): string => {
 
 const KATEGORI_ORDER: { key: string; label: string; headerColor: string }[] = [
   { key: 'FOOD & BEVERAGE', label: '🥩 Food & Beverage', headerColor: 'text-[#904d00]' },
+  { key: 'BUMBU',           label: '🌶️ Bumbu',           headerColor: 'text-[#7c3300]' },
   { key: 'PACKAGING',       label: '📦 Packaging',       headerColor: 'text-[#544437]' },
   { key: 'OPERASIONAL',     label: '📋 Operasional',     headerColor: 'text-[#006496]' },
 ];

@@ -10,6 +10,10 @@ export function useBahanBakuMutations() {
       nama: string; 
       kategori: string; 
       satuan: string;
+      satuan_tengah?: string;
+      faktor_tengah?: number;
+      satuan_kecil?: string;
+      faktor_tampilan?: number;
       harga_beli?: number;
     }) => {
       // 1. Insert ke tabel bahan_baku
@@ -17,6 +21,10 @@ export function useBahanBakuMutations() {
         nama: vars.nama,
         kategori: vars.kategori,
         satuan: vars.satuan,
+        satuan_tengah: vars.satuan_tengah,
+        faktor_tengah: vars.faktor_tengah,
+        satuan_kecil: vars.satuan_kecil,
+        faktor_tampilan: vars.faktor_tampilan,
         is_active: true,
         is_fisik_checked: false
       }).select('id').single()
@@ -47,3 +55,4 @@ export function useBahanBakuMutations() {
 
   return { addBahanBaku }
 }
+

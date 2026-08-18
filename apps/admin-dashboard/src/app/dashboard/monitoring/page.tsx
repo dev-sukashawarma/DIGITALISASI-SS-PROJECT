@@ -6,7 +6,7 @@ import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
 import type { PeriodFilterValue } from '@/lib/types'
 import { presetRange } from '@/lib/period'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardList, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock } from 'lucide-react'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardList, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock, Smartphone, Globe } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import OpnameDetailModal from './OpnameDetailModal'
 
@@ -205,6 +205,7 @@ export default function MonitoringPage() {
   const [staffOutletMappings, setStaffOutletMappings] = useState<StaffOutletMap[]>([])
   const [attendances, setAttendances] = useState<Attendance[]>([])
   const [opnames, setOpnames] = useState<Opname[]>([])
+  const [clientTypes, setClientTypes] = useState<Record<string, string>>({})
   const [connectedPrinters, setConnectedPrinters] = useState<Set<string>>(new Set())
   const [crewLocations, setCrewLocations] = useState<any[]>([])
   
@@ -248,7 +249,7 @@ export default function MonitoringPage() {
       const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
       const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
 
-      const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes] = await Promise.all([
+      const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes, ordersRes] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv', 'regional_manager', 'area_manager']),
         supabase.from('staff_outlets').select('staff_id, outlet_id'),
@@ -266,6 +267,10 @@ export default function MonitoringPage() {
           .lte('date', toDate),
         supabase.from('opname')
           .select('id, outlet_id, created_at')
+          .gte('created_at', start)
+          .lte('created_at', end),
+        supabase.from('orders')
+          .select('outlet_id, pos_client, created_at')
           .gte('created_at', start)
           .lte('created_at', end)
       ])
@@ -296,6 +301,19 @@ export default function MonitoringPage() {
         }
       }
 
+      const ordersData = (ordersRes.data || []) as any[]
+      const latestPerOutlet: Record<string, {pos_client: string, time: number}> = {}
+      ordersData.forEach(o => {
+          const time = new Date(o.created_at).getTime()
+          if (!latestPerOutlet[o.outlet_id] || time > latestPerOutlet[o.outlet_id].time) {
+              latestPerOutlet[o.outlet_id] = { pos_client: o.pos_client || 'web', time }
+          }
+      })
+      const newClientTypes: Record<string, string> = {}
+      for (const outletId in latestPerOutlet) {
+          newClientTypes[outletId] = latestPerOutlet[outletId].pos_client
+      }
+
       setOutlets(validOutlets)
       setStaffList((stfRes.data || []) as Staff[])
       setStaffOutletMappings((mapRes.data || []) as StaffOutletMap[])
@@ -303,6 +321,7 @@ export default function MonitoringPage() {
       setChecklistReq(reqMap)
       setChecklistTicks(ticksMap)
       setOpnames((opnRes.data || []) as Opname[])
+      setClientTypes(newClientTypes)
       
     } catch (err) {
       console.error(err)
@@ -322,6 +341,7 @@ export default function MonitoringPage() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'opname' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_outlets' }, () => fetchData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'outlet_staff' }, () => fetchData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchData())
       .subscribe()
 
     const presenceRoom = supabase.channel('room:printer_status')
@@ -543,6 +563,17 @@ export default function MonitoringPage() {
                 {connectedPrinters.has(outlet.id) ? <BluetoothConnected className="w-3 h-3 mr-1" /> : <Bluetooth className="w-3 h-3 mr-1" />}
                 Printer
               </span>
+              {clientTypes[outlet.id] === 'native' ? (
+                <span title="Outlet ini menggunakan POS Native Android" className="flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-emerald-50 text-emerald-600 border-emerald-200">
+                  <Smartphone className="w-3 h-3 mr-1" />
+                  Native POS
+                </span>
+              ) : clientTypes[outlet.id] === 'web' ? (
+                <span title="Outlet ini menggunakan POS Web" className="flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-blue-50 text-blue-600 border-blue-200">
+                  <Globe className="w-3 h-3 mr-1" />
+                  Web POS
+                </span>
+              ) : null}
             </div>
           </div>
 

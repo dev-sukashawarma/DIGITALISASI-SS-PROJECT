@@ -108,6 +108,7 @@ export interface Order {
   source: OrderSource
   channel: string | null
   external_order_id: string | null
+  pos_client?: string
   created_at: string
   updated_at: string
 }

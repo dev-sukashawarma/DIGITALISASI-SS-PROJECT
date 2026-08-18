@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total_amount   DECIMAL(10,2) NOT NULL CHECK (total_amount >= 0),
   kitchen_receipt_printed BOOLEAN DEFAULT false,
   notes          TEXT,
+  pos_client     TEXT          DEFAULT 'web' CHECK (pos_client IN ('web', 'native')),
   created_at     TIMESTAMPTZ   DEFAULT NOW(),
   updated_at     TIMESTAMPTZ   DEFAULT NOW()
 );

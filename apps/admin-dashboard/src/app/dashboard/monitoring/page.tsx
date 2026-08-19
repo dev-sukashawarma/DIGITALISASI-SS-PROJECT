@@ -564,7 +564,7 @@ export default function MonitoringPage() {
                 Printer
               </span>
               {clientTypes[outlet.id] === 'native' ? (
-                <span title="Outlet ini menggunakan POS Native Android" className="flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-emerald-50 text-emerald-600 border-emerald-200">
+                <span title="Outlet ini menggunakan POS Native Android" className="flex shrink-0 items-center justify-center rounded-md px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider border bg-red-50 text-red-600 border-red-200">
                   <Smartphone className="w-3 h-3 mr-1" />
                   Native POS
                 </span>

@@ -24,6 +24,7 @@ export function BottomNav() {
 
   const isApprover = isApproverRole(outletStaff?.role)
   const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner'
+  const isOwner = outletStaff?.role === 'owner'
   const { permintaan } = useApprovalList(isApprover)
   const pendingCount = permintaan.length
 
@@ -35,6 +36,7 @@ export function BottomNav() {
         { href: '/stok/opname', icon: '📋', label: 'Opname' },
         { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
         { href: '/stok/mutasi', icon: '🔄', label: 'Mutasi' },
+        ...(isOwner ? [{ href: '/stok/budget-outlet', icon: '💰', label: 'Budget' }] : []),
       ]
     : ITEMS
 

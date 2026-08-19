@@ -14,7 +14,7 @@ import { createServiceClient } from '@/lib/supabase/server'
  * setiap export adalah endpoint POST publik (lihat komentar di lib/authz.ts).
  */
 
-export type PeriodType = 'harian' | 'mingguan' | 'bulanan'
+export type PeriodType = 'harian' | 'mingguan' | 'bulanan' | 'custom'
 
 export interface BudgetStatus {
   outletId: string
@@ -25,6 +25,7 @@ export interface BudgetStatus {
   terpakai: number
   sisa: number
   hasConfig: boolean
+  customDays: number | null
 }
 
 function mapBudgetRow(row: any, outletId: string): BudgetStatus {
@@ -37,6 +38,7 @@ function mapBudgetRow(row: any, outletId: string): BudgetStatus {
     terpakai: Number(row?.terpakai ?? 0),
     sisa: Number(row?.sisa ?? 0),
     hasConfig: !!row?.has_config,
+    customDays: row?.custom_days != null ? Number(row.custom_days) : null,
   }
 }
 
@@ -69,10 +71,16 @@ export async function listOutletBudgets(): Promise<Array<BudgetStatus & { outlet
 export async function setOutletBudgetConfig(
   outletId: string,
   nominal: number,
-  periodType: PeriodType
+  periodType: PeriodType,
+  customDays?: number | null,
 ): Promise<void> {
   const { userId } = await requireRole(['owner', 'admin'])
   if (!Number.isFinite(nominal) || nominal < 0) throw new Error('Nominal budget tidak valid')
+  if (periodType === 'custom') {
+    if (!customDays || !Number.isFinite(customDays) || customDays < 1) {
+      throw new Error('Jumlah hari custom harus minimal 1')
+    }
+  }
 
   const supabase = createServiceClient()
 
@@ -90,6 +98,7 @@ export async function setOutletBudgetConfig(
     outlet_id: outletId,
     nominal,
     period_type: periodType,
+    custom_days: periodType === 'custom' ? (customDays ?? null) : null,
     effective_from: existing?.effective_from ?? new Date().toISOString().slice(0, 10),
     updated_by: userId,
     updated_at: new Date().toISOString(),

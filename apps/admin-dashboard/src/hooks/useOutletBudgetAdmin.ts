@@ -11,8 +11,8 @@ export function useOutletBudgetAdmin() {
     gcTime: 60000,
   })
 
-  const save = async (outletId: string, nominal: number, periodType: PeriodType) => {
-    await setOutletBudgetConfig(outletId, nominal, periodType)
+  const save = async (outletId: string, nominal: number, periodType: PeriodType, customDays?: number | null) => {
+    await setOutletBudgetConfig(outletId, nominal, periodType, customDays)
     await refetch()
   }
 

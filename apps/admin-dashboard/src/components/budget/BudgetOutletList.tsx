@@ -12,27 +12,39 @@ const PERIOD_LABELS: Record<PeriodType, string> = {
   harian: 'Harian',
   mingguan: 'Mingguan',
   bulanan: 'Bulanan',
+  custom: 'Custom',
 }
 
-const PERIOD_OPTIONS: PeriodType[] = ['harian', 'mingguan', 'bulanan']
+const PERIOD_OPTIONS: PeriodType[] = ['harian', 'mingguan', 'bulanan', 'custom']
 
 function formatRupiah(n: number): string {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`
 }
 
+function formatPeriodLabel(periodType: PeriodType | null, customDays: number | null): string {
+  if (!periodType) return '-'
+  if (periodType === 'custom' && customDays) return `Per ${customDays} Hari`
+  return PERIOD_LABELS[periodType]
+}
+
 function EditForm({
   initialNominal,
   initialPeriod,
+  initialCustomDays,
   onCancel,
   onSave,
 }: {
   initialNominal: number
   initialPeriod: PeriodType
+  initialCustomDays: number | null
   onCancel: () => void
-  onSave: (nominal: number, periodType: PeriodType) => Promise<void>
+  onSave: (nominal: number, periodType: PeriodType, customDays?: number | null) => Promise<void>
 }) {
   const [nominal, setNominal] = useState(initialNominal > 0 ? String(initialNominal) : '')
   const [periodType, setPeriodType] = useState<PeriodType>(initialPeriod)
+  const [customDays, setCustomDays] = useState<string>(
+    initialCustomDays != null ? String(initialCustomDays) : ''
+  )
   const [saving, setSaving] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
 
@@ -42,10 +54,18 @@ function EditForm({
       setLocalError('Nominal harus berupa angka 0 atau lebih')
       return
     }
+    if (periodType === 'custom') {
+      const parsedDays = Number(customDays)
+      if (!Number.isInteger(parsedDays) || parsedDays < 1) {
+        setLocalError('Jumlah hari custom harus berupa bilangan bulat minimal 1')
+        return
+      }
+    }
     setLocalError(null)
     setSaving(true)
     try {
-      await onSave(parsed, periodType)
+      const days = periodType === 'custom' ? Number(customDays) : null
+      await onSave(parsed, periodType, days)
       toast.success('Budget outlet tersimpan')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Gagal menyimpan budget')
@@ -70,13 +90,13 @@ function EditForm({
 
       <div>
         <label className="block text-xs font-semibold text-suka-ink/60 mb-1">Periode</label>
-        <div className="flex gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {PERIOD_OPTIONS.map((p) => (
             <button
               key={p}
               type="button"
               onClick={() => setPeriodType(p)}
-              className={`flex-1 text-sm font-semibold rounded-lg px-3 py-2 border transition-colors ${
+              className={`text-sm font-semibold rounded-lg px-3 py-2 border transition-colors ${
                 periodType === p
                   ? 'bg-suka-orange/10 border-suka-orange text-suka-brown'
                   : 'bg-white border-suka-gray-200 text-suka-ink/60 hover:border-suka-gray-300'
@@ -87,6 +107,23 @@ function EditForm({
           ))}
         </div>
       </div>
+
+      {periodType === 'custom' && (
+        <div>
+          <label className="block text-xs font-semibold text-suka-ink/60 mb-1">
+            Jumlah Hari (contoh: 3 = reset setiap 3 hari)
+          </label>
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={customDays}
+            onChange={(e) => setCustomDays(e.target.value)}
+            placeholder="mis. 3"
+            className="w-full border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20"
+          />
+        </div>
+      )}
 
       {localError && <p className="text-xs text-red-600 font-medium">{localError}</p>}
 
@@ -147,7 +184,7 @@ export function BudgetOutletList() {
                 <h3 className="font-bold text-suka-brown truncate">{b.outletName}</h3>
                 {b.hasConfig ? (
                   <p className="text-xs text-suka-ink/60 mt-0.5">
-                    {b.periodType ? PERIOD_LABELS[b.periodType] : '-'}
+                    {b.periodType ? formatPeriodLabel(b.periodType, b.customDays) : '-'}
                     {b.periodStart && b.periodEnd ? ` · ${b.periodStart} s/d ${b.periodEnd}` : ''}
                   </p>
                 ) : (
@@ -199,9 +236,10 @@ export function BudgetOutletList() {
               <EditForm
                 initialNominal={b.nominal}
                 initialPeriod={b.periodType ?? 'bulanan'}
+                initialCustomDays={b.customDays}
                 onCancel={() => setEditingOutletId(null)}
-                onSave={async (nominal, periodType) => {
-                  await save(b.outletId, nominal, periodType)
+                onSave={async (nominal, periodType, customDays) => {
+                  await save(b.outletId, nominal, periodType, customDays)
                   setEditingOutletId(null)
                 }}
               />

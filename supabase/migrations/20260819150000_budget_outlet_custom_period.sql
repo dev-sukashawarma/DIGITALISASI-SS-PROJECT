@@ -18,6 +18,8 @@ ALTER TABLE public.outlet_budget_config
     CHECK (period_type IN ('harian', 'mingguan', 'bulanan', 'custom'));
 
 -- 3. Perbarui RPC get_outlet_budget_status untuk mendukung period_type = 'custom'
+DROP FUNCTION IF EXISTS get_outlet_budget_status(UUID);
+
 CREATE OR REPLACE FUNCTION get_outlet_budget_status(p_outlet_id UUID)
 RETURNS TABLE (
   nominal      NUMERIC,

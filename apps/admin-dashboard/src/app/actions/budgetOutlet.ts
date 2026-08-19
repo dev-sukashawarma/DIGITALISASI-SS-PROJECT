@@ -41,7 +41,7 @@ function mapBudgetRow(row: any, outletId: string): BudgetStatus {
 }
 
 export async function listOutletBudgets(): Promise<Array<BudgetStatus & { outletName: string }>> {
-  await requireRole(['owner'])
+  await requireRole(['owner', 'admin'])
   const supabase = createServiceClient()
 
   const { data: outlets, error: outletsError } = await supabase
@@ -71,7 +71,7 @@ export async function setOutletBudgetConfig(
   nominal: number,
   periodType: PeriodType
 ): Promise<void> {
-  const { userId } = await requireRole(['owner'])
+  const { userId } = await requireRole(['owner', 'admin'])
   if (!Number.isFinite(nominal) || nominal < 0) throw new Error('Nominal budget tidak valid')
 
   const supabase = createServiceClient()

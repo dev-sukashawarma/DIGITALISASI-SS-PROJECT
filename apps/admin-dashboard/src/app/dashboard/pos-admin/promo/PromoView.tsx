@@ -110,47 +110,68 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
   const isGlobalActive = globalPromo.is_active
 
   const handleGlobalPromoChange = (field: keyof OutletPromo, value: any) => {
-    const updated = [...promos]
-    const idx = updated.findIndex(p => p.scope === 'global')
+    setPromos(prev => {
+      const updated = [...prev]
+      const idx = updated.findIndex(p => p.scope === 'global')
 
-    if (field === 'is_active' && value === true) {
-      updated.forEach(p => {
-        if (p.scope === 'item') p.is_active = false
-      })
-    }
+      if (field === 'is_active' && value === true) {
+        for (let i = 0; i < updated.length; i++) {
+          if (updated[i].scope === 'item') {
+            updated[i] = { ...updated[i], is_active: false }
+          }
+        }
+      }
 
-    if (idx >= 0) {
-      updated[idx] = { ...updated[idx], [field]: value }
-    } else {
-      updated.push({ ...globalPromo, [field]: value })
-    }
-    setPromos(updated)
+      if (idx >= 0) {
+        updated[idx] = { ...updated[idx], [field]: value }
+      } else {
+        const defaultGlobal: OutletPromo = {
+          scope: 'global',
+          menu_item_id: null,
+          discount_type: 'percentage',
+          discount_value: 0,
+          is_active: false,
+          min_purchase: null,
+          usage_limit: null,
+          current_usage: 0,
+          start_date: null,
+          end_date: null,
+          apply_to_food_apps: false,
+          sync_to_order_online: false,
+          promo_name: ''
+        }
+        updated.push({ ...defaultGlobal, [field]: value })
+      }
+      return updated
+    })
   }
 
   const handleItemPromoChange = (menuId: string, field: keyof OutletPromo, value: any) => {
-    const updated = [...promos]
-    const idx = updated.findIndex(p => p.scope === 'item' && p.menu_item_id === menuId)
+    setPromos(prev => {
+      const updated = [...prev]
+      const idx = updated.findIndex(p => p.scope === 'item' && p.menu_item_id === menuId)
 
-    if (idx >= 0) {
-      updated[idx] = { ...updated[idx], [field]: value }
-    } else {
-      updated.push({
-        scope: 'item',
-        menu_item_id: menuId,
-        discount_type: 'nominal',
-        discount_value: 0,
-        is_active: field === 'is_active' ? value : false,
-        min_purchase: null,
-        usage_limit: null,
-        current_usage: 0,
-        start_date: null,
-        end_date: null,
-        apply_to_food_apps: false,
-        sync_to_order_online: false,
-        [field]: value
-      })
-    }
-    setPromos(updated)
+      if (idx >= 0) {
+        updated[idx] = { ...updated[idx], [field]: value }
+      } else {
+        updated.push({
+          scope: 'item',
+          menu_item_id: menuId,
+          discount_type: 'nominal',
+          discount_value: 0,
+          is_active: field === 'is_active' ? value : false,
+          min_purchase: null,
+          usage_limit: null,
+          current_usage: 0,
+          start_date: null,
+          end_date: null,
+          apply_to_food_apps: false,
+          sync_to_order_online: false,
+          [field]: value
+        })
+      }
+      return updated
+    })
   }
 
   const handleSave = async () => {

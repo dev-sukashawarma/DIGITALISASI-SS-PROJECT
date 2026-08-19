@@ -197,7 +197,7 @@ export async function getPettyCashData(
     .from('petty_cash_topups')
     .select('*, outlets(name)')
     .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-    .eq('status', 'completed')
+    .in('status', ['forwarded_by_leader', 'approved', 'completed'])
     .order('created_at', { ascending: false })
     .limit(500)
 

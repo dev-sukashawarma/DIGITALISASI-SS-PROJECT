@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock } from 'lucide-react'
+import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { CurrencyInput } from '@suka/design-system'
 import { savePromosAction } from './actions'

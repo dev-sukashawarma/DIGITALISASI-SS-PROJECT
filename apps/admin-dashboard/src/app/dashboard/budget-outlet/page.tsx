@@ -8,10 +8,10 @@ import { BudgetOutletList } from '@/components/budget/BudgetOutletList'
 export default function BudgetOutletPage() {
   const { role } = useRole()
 
-  if (role !== 'OWNER') {
+  if (role !== 'OWNER' && role !== 'ADMIN') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3 px-4 text-center">
-        <p className="text-suka-brown font-bold">Halaman ini khusus owner.</p>
+        <p className="text-suka-brown font-bold">Halaman ini khusus owner dan admin.</p>
       </div>
     )
   }

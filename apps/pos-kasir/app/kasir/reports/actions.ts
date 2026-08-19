@@ -69,7 +69,10 @@ export async function fetchAnalyticsData(
     const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
 
     const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-      return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+      // Sesuai instruksi: promo_subsidy (Potongan App) tidak dimasukkan ke perhitungan omzet kotor,
+      // sehingga Omzet Kotor untuk food apps hanya senilai uang yang dibayar (total_amount / harga asli).
+      // Diskon Offline (discount_amount) tetap disertakan.
+      return s + (Number(o.discount_amount) || 0)
     }, 0)
 
     const totalRevenue = netRevenue + totalDeductions

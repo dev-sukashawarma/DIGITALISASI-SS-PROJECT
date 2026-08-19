@@ -200,7 +200,12 @@ export async function POST(request: Request) {
   const posPromoDeduction = isFoodApp ? itemDiscountTotal : 0;
 
   const promoSubsidy = body.promo_subsidy || 0
-  const finalTotal = total - globalDiscount - promoSubsidy - posPromoDeduction
+  
+  // Solusi: Untuk Food Apps, total_amount (finalTotal) HARUS utuh (harga asli), tidak boleh dipotong subsidi
+  // Untuk selain Food Apps (misal manual offline yang pakai diskon), berlaku potongan normal.
+  const finalTotal = isFoodApp 
+    ? total 
+    : (total - globalDiscount - promoSubsidy)
 
   // Track applied promos to increment usage limits
   const appliedPromoIds = new Set<string>()

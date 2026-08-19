@@ -1,19 +1,49 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
-import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
-import type { PermintaanWithItems } from '@/types/permintaan'
+import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
+import { estimateCartValue } from '@/app/actions/budget'
+import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
+import type { BahanBaku } from '@/types/stok'
 import { ApprovalModal } from './ApprovalModal'
+import { BudgetBadge } from './BudgetBadge'
 
 interface Props {
   canApprove?: boolean
+}
+
+function ApprovalCardBudget({ outletId, items, bahanBakuMap }: {
+  outletId: string
+  items: PermintaanItem[]
+  bahanBakuMap: Map<string, BahanBaku>
+}) {
+  const { status } = useOutletBudgetStatus(outletId)
+  const [estimate, setEstimate] = useState(0)
+
+  useEffect(() => {
+    if (!status?.hasConfig || items.length === 0) {
+      setEstimate(0)
+      return
+    }
+    const payload = items.map(it => {
+      const b = bahanBakuMap.get(it.bahan_baku_id)
+      const qtyBase = b ? convertToBaseUnit(it.qty_diminta, b) : it.qty_diminta
+      return { bahan_baku_id: it.bahan_baku_id, qty: qtyBase }
+    })
+    estimateCartValue(payload).then(r => setEstimate(r.totalNilai)).catch(() => setEstimate(0))
+  }, [status?.hasConfig, items, bahanBakuMap])
+
+  if (!status) return null
+  return <BudgetBadge status={status} projectedAdd={estimate} compact />
 }
 
 export function ApprovalList({ canApprove = true }: Props) {
   const { permintaan, loading, error, refresh } = useApprovalList()
   const { bahanBaku } = useBahanBaku()
   const [selected, setSelected] = useState<PermintaanWithItems | null>(null)
+  const bahanBakuMap = useMemo(() => new Map(bahanBaku.map(b => [b.id, b])), [bahanBaku])
 
   if (loading) return <p className="text-xs text-suka-brown/60">Memuat antrean permintaan…</p>
   if (error) return <p className="text-xs text-red-600 font-bold">{error}</p>
@@ -63,6 +93,11 @@ export function ApprovalList({ canApprove = true }: Props) {
                     Menunggu Persetujuan
                   </span>
                   <span className="text-xs font-bold text-suka-brown/60">{reqCode}</span>
+                  <ApprovalCardBudget
+                    outletId={p.outlet_id}
+                    items={p.items}
+                    bahanBakuMap={bahanBakuMap}
+                  />
                   {omzetKotor > 0 && (
                     <span className="text-[10px] font-black bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-md border border-emerald-200">
                       Potensi Omzet: Rp {omzetKotor.toLocaleString('id-ID')}

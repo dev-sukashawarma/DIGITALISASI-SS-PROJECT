@@ -2,6 +2,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePermintaanActions } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
+import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
+import { estimateCartValue } from '@/app/actions/budget'
+import { BudgetBadge } from './BudgetBadge'
 import type { PermintaanWithItems } from '@/types/permintaan'
 import { fetchCrosscheckStok } from '@/app/actions/permintaan'
 import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
@@ -69,6 +72,29 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
     fetchCrosscheck()
     fetchKebutuhan()
   }, [permintaan.outlet_id, permintaan.items, permintaan.target_metadata])
+
+  const { status: budgetStatus } = useOutletBudgetStatus(permintaan.outlet_id)
+  const [liveEstimate, setLiveEstimate] = useState<{ totalNilai: number; itemTanpaHarga: string[] }>({ totalNilai: 0, itemTanpaHarga: [] })
+
+  useEffect(() => {
+    const items = permintaan.items
+      .map(it => {
+        const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+        const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
+        return { bahan_baku_id: it.bahan_baku_id, qty: qtyDisetujuiBase }
+      })
+      .filter(it => it.qty > 0)
+
+    if (items.length === 0) {
+      setLiveEstimate({ totalNilai: 0, itemTanpaHarga: [] })
+      return
+    }
+
+    const timer = setTimeout(() => {
+      estimateCartValue(items).then(setLiveEstimate).catch(console.error)
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [qtys, permintaan.items, bahanBaku])
 
   const hasOverStock = permintaan.items.some(
     it => {
@@ -283,6 +309,15 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
             })}
           </div>
           <p className="text-[10px] text-[#544437]/50">Set qty 0 untuk menolak item tertentu</p>
+        </div>
+
+        {/* Nilai & Budget */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center text-xs font-bold text-[#544437] bg-[#faf2e9] p-2.5 rounded-xl">
+            <span>Total Nilai Permintaan</span>
+            <span className="text-[#701604]">Rp {liveEstimate.totalNilai.toLocaleString('id-ID')}</span>
+          </div>
+          <BudgetBadge status={budgetStatus} projectedAdd={liveEstimate.totalNilai} />
         </div>
 
         {/* Alasan */}

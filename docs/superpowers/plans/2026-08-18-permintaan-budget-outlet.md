@@ -12,6 +12,8 @@
 
 ## Global Constraints
 
+> **⚠️ SUPERSEDED (final whole-branch review, 2026-08-19):** aturan timestamp 2030 di bawah ini ternyata bentrok dengan CI guard repo (`scripts/migration-timestamp-lint.mjs`) yang menolak migration >2 hari ke depan. Diverifikasi aman untuk di-rename ke tanggal asli (tak ada migration 2030 lain yang menyentuh `approve_permintaan_svc`/`get_outlet_budget_status`/`estimate_permintaan_value`). Nama file final: `supabase/migrations/20260819100000_permintaan_budget_outlet_schema.sql` dan `20260819100001_permintaan_budget_outlet_rpcs.sql`. Detail: `.superpowers/sdd/final-review-fix-report.md`.
+
 - **Migration timestamp landmine (WAJIB):** repo ini punya migration bertimestamp 2030 (`20300108000006` adalah yang terbaru per penulisan plan ini) yang selalu jalan paling akhir secara alfabetis. Migration baru untuk fitur ini HARUS pakai timestamp `>= 20300108000007` supaya benar-benar berlaku, bukan tertimpa. Jangan pakai timestamp 2026-nyata.
 - **Snapshot harga, bukan live** — nilai Rupiah permintaan yang sudah disetujui dihitung dari `harga_snapshot` yang dicatat permanen saat approve, tidak pernah dihitung ulang dari `bahan_beli` terkini (spec §4.2, §12).
 - **Tidak ada blokir otomatis** — melebihi budget hanya menghasilkan badge visual "Melebihi Budget", tidak pernah men-disable tombol submit/approve.

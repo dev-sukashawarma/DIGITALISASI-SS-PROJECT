@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
@@ -48,6 +48,7 @@ export function ApprovalList({ canApprove = true }: Props) {
   const { permintaan, loading, error, refresh } = useApprovalList()
   const { bahanBaku } = useBahanBaku()
   const [selected, setSelected] = useState<PermintaanWithItems | null>(null)
+  const bahanBakuMap = useMemo(() => new Map(bahanBaku.map(b => [b.id, b])), [bahanBaku])
 
   if (loading) return <p className="text-xs text-[#544437]/60">Memuat…</p>
   if (error) return <p className="text-xs text-[#ba1a1a]">{error}</p>
@@ -101,7 +102,7 @@ export function ApprovalList({ canApprove = true }: Props) {
                   <ApprovalCardBudget
                     outletId={p.outlet_id}
                     items={p.items}
-                    bahanBakuMap={new Map(bahanBaku.map(b => [b.id, b]))}
+                    bahanBakuMap={bahanBakuMap}
                   />
                   {omzetKotor > 0 && (
                     <span className="text-[10px] font-bold bg-[#e3f5d5] text-[#2b5914] px-2 py-0.5 rounded-md border border-[#c3e3af]">

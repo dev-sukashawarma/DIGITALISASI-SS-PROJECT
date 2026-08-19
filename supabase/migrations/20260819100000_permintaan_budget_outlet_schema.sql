@@ -1,4 +1,4 @@
--- 20300108000007_permintaan_budget_outlet_schema.sql
+-- 20260819100000_permintaan_budget_outlet_schema.sql
 -- Budget pembelian per outlet: plafon Rupiah per periode, diset owner.
 -- Lihat docs/superpowers/specs/2026-08-18-permintaan-budget-outlet-design.md §4.
 -- Aditif & idempoten.
@@ -25,7 +25,7 @@ CREATE POLICY obc_write ON outlet_budget_config FOR ALL TO authenticated
   USING (EXISTS (SELECT 1 FROM outlet_staff WHERE id = auth.uid() AND role = 'owner' AND status = 'active'))
   WITH CHECK (EXISTS (SELECT 1 FROM outlet_staff WHERE id = auth.uid() AND role = 'owner' AND status = 'active'));
 
--- Snapshot harga saat item disetujui (diisi oleh approve_permintaan_svc, lihat migration 20300108000008).
+-- Snapshot harga saat item disetujui (diisi oleh approve_permintaan_svc, lihat migration 20260819100001).
 ALTER TABLE permintaan_bahan_item
   ADD COLUMN IF NOT EXISTS harga_snapshot NUMERIC;
 

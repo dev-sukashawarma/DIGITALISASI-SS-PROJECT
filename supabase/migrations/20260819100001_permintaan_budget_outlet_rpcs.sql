@@ -1,4 +1,4 @@
--- 20300108000008_permintaan_budget_outlet_rpcs.sql
+-- 20260819100001_permintaan_budget_outlet_rpcs.sql
 -- RPC budget outlet + approve_permintaan_svc kini snapshot harga_beli saat approve.
 -- Lihat docs/superpowers/specs/2026-08-18-permintaan-budget-outlet-design.md §4.3, §4.4, §6.
 -- Aditif. approve_permintaan_svc di-CREATE OR REPLACE berdasarkan definisi live
@@ -54,7 +54,7 @@ BEGIN
   JOIN permintaan_bahan_item pbi ON pbi.permintaan_id = pb.id
   WHERE pb.outlet_id = p_outlet_id
     AND pb.status = 'disetujui'
-    AND (pb.created_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN v_start AND v_end;
+    AND (pb.updated_at AT TIME ZONE 'Asia/Jakarta')::date BETWEEN v_start AND v_end;
 
   RETURN QUERY SELECT v_cfg.nominal, v_cfg.period_type, v_start, v_end, v_terpakai, (v_cfg.nominal - v_terpakai), true;
 END;
@@ -79,7 +79,7 @@ BEGIN
     v_bahan := (v_item->>'bahan_baku_id')::UUID;
     v_qty := (v_item->>'qty')::NUMERIC;
     SELECT harga_beli INTO v_harga FROM bahan_baku_harga WHERE bahan_baku_id = v_bahan;
-    IF v_harga IS NULL THEN
+    IF v_harga IS NULL OR v_harga = 0 THEN
       v_missing := array_append(v_missing, v_bahan);
       v_harga := 0;
     END IF;
@@ -153,6 +153,20 @@ BEGIN
   RETURN v_p;
 END;
 $function$;
+
+-- Batasi EXECUTE: kedua RPC baru di atas SECURITY DEFINER dan membaca
+-- bahan_baku_harga (RLS admin-only). Default privilege Supabase membuat
+-- fungsi public callable oleh authenticated/anon lewat PostgREST -- tanpa
+-- REVOKE/GRANT ini, crew mana pun bisa panggil langsung & bypass gerbang
+-- otorisasi app/actions/budget.ts (lihat CLAUDE.md "Server Action authz gap").
+-- Hanya dipanggil dari service-role client (makeServiceClient()).
+-- approve_permintaan_svc SENGAJA tidak disentuh -- fungsi lama yang sudah
+-- callable authenticated & dipakai di tempat lain.
+REVOKE EXECUTE ON FUNCTION get_outlet_budget_status(uuid) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION get_outlet_budget_status(uuid) TO service_role;
+
+REVOKE EXECUTE ON FUNCTION estimate_permintaan_value(jsonb) FROM PUBLIC, anon, authenticated;
+GRANT  EXECUTE ON FUNCTION estimate_permintaan_value(jsonb) TO service_role;
 
 -- DOWN: tidak ada rollback aman untuk CREATE OR REPLACE (akan menghapus fitur
 -- snapshot). Kalau perlu revert, restore definisi lama dari histori git file ini.

@@ -145,11 +145,18 @@ export async function setOutletBudgetConfig(
   if (!(nominal >= 0)) throw new Error('Nominal budget tidak valid')
 
   const supabase = makeServiceClient()
+
+  const { data: existing } = await supabase
+    .from('outlet_budget_config')
+    .select('effective_from')
+    .eq('outlet_id', outletId)
+    .maybeSingle()
+
   const { error } = await supabase.from('outlet_budget_config').upsert({
     outlet_id: outletId,
     nominal,
     period_type: periodType,
-    effective_from: new Date().toISOString().slice(0, 10),
+    effective_from: existing?.effective_from ?? new Date().toISOString().slice(0, 10),
     updated_by: userId,
     updated_at: new Date().toISOString(),
   })

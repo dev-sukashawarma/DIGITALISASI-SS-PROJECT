@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { useAuth } from '@suka/auth'
 import { BottomNav } from '@/components/common/BottomNav'
 import { BudgetOutletList } from '@/components/permintaan/BudgetOutletList'
+import { canManageOutletBudget } from '@/lib/stok/budget'
 
 export default function BudgetOutletPage() {
   const { outletStaff, loading } = useAuth()
@@ -10,7 +11,7 @@ export default function BudgetOutletPage() {
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500">Memuat…</p></div>
   }
-  if (!outletStaff || outletStaff.role !== 'owner') {
+  if (!outletStaff || !canManageOutletBudget(outletStaff.role)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-3 px-4 text-center">
         <p className="text-suka-brown font-bold">Halaman ini khusus owner.</p>

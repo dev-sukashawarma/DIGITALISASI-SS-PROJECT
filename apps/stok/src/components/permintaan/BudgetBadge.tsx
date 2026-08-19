@@ -29,9 +29,12 @@ export function BudgetBadge({ status, projectedAdd = 0, compact = false }: Props
   const sisaProyeksi = status.sisa - projectedAdd
 
   if (compact) {
-    const label = variant === 'red'
-      ? `Melebihi Budget${sisaProyeksi < 0 ? ` +Rp ${Math.abs(sisaProyeksi).toLocaleString('id-ID')}` : ''}`
-      : 'Dalam Budget'
+    const label =
+      variant === 'red'
+        ? `Melebihi Budget${sisaProyeksi < 0 ? ` +Rp ${Math.abs(sisaProyeksi).toLocaleString('id-ID')}` : ''}`
+        : variant === 'orange'
+        ? 'Mendekati Budget'
+        : 'Dalam Budget'
     return (
       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${VARIANT_STYLE[variant]}`}>
         {label}

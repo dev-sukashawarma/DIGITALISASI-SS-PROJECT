@@ -65,6 +65,7 @@ function mapBudgetRow(row: any, outletId: string): BudgetStatus {
     terpakai: Number(row?.terpakai ?? 0),
     sisa: Number(row?.sisa ?? 0),
     hasConfig: !!row?.has_config,
+    customDays: row?.custom_days != null ? Number(row.custom_days) : null,
   }
 }
 

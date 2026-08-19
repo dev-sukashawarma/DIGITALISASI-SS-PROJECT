@@ -18,6 +18,13 @@ const PERIOD_LABEL: Record<string, string> = {
   harian: 'Hari Ini',
   mingguan: 'Minggu Ini',
   bulanan: 'Bulan Ini',
+  custom: 'Periode Ini',
+}
+
+function getPeriodLabel(periodType: string | null, customDays?: number | null): string {
+  if (!periodType) return ''
+  if (periodType === 'custom' && customDays) return `${customDays} Hari Ini`
+  return PERIOD_LABEL[periodType] ?? periodType
 }
 
 export function BudgetBadge({ status, projectedAdd = 0, compact = false }: Props) {
@@ -25,7 +32,7 @@ export function BudgetBadge({ status, projectedAdd = 0, compact = false }: Props
   const variant = budgetBadgeVariant(status, projectedAdd)
   if (variant === 'hidden') return null
 
-  const periodLabel = status.periodType ? PERIOD_LABEL[status.periodType] : ''
+  const periodLabel = getPeriodLabel(status.periodType, status.customDays)
   const sisaProyeksi = status.sisa - projectedAdd
 
   if (compact) {

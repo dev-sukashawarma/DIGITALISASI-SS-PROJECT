@@ -1,4 +1,4 @@
-export type PeriodType = 'harian' | 'mingguan' | 'bulanan'
+export type PeriodType = 'harian' | 'mingguan' | 'bulanan' | 'custom'
 
 export interface BudgetStatus {
   outletId: string
@@ -9,6 +9,7 @@ export interface BudgetStatus {
   terpakai: number
   sisa: number
   hasConfig: boolean
+  customDays?: number | null
 }
 
 export type BudgetBadgeVariant = 'hidden' | 'green' | 'orange' | 'red'

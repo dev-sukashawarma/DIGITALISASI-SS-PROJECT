@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
+import { convertBesarToGram } from '@/lib/format/compositeUnit';
 import type { BahanBaku } from '@/types/stok';
 
 const TIMEOUT_MS = 15000;
@@ -204,10 +205,10 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outletId, isBahanLoading, draftChecked]);
 
-  const saldoOf = useMemo(() => {
-    const m: Record<string, number> = {};
+  const balanceDataOf = useMemo(() => {
+    const m: Record<string, { saldo: number, saldo_is_gram: boolean }> = {};
     for (const b of balances) {
-      m[b.bahan_baku_id] = b.saldo;
+      m[b.bahan_baku_id] = { saldo: b.saldo, saldo_is_gram: b.saldo_is_gram };
     }
     return m;
   }, [balances]);
@@ -257,7 +258,13 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         // Jika kitchen mengisi target → target menggantikan qty_fisik (Opsi A)
         const effectiveInp = hasTarget ? tgt! : inp;
         const qtyFisik = calculateTotalFisik(b, effectiveInp);
-        const qtySystem = saldoOf[b.id] ?? 0;
+        
+        const balanceData = balanceDataOf[b.id] ?? { saldo: 0, saldo_is_gram: true };
+        let qtySystem = balanceData.saldo;
+        if (!balanceData.saldo_is_gram) {
+          qtySystem = convertBesarToGram(qtySystem, b);
+        }
+
         const selisih = computeSelisih(qtyFisik, qtySystem);
 
         const rawInputText = formatRawInput(b, inp);

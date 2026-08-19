@@ -263,7 +263,8 @@ export function formatCompositeSaldoFromGram(
   const besar = Math.trunc(remaining / faktorTampilan)
   const kecil = round2(remaining - besar * faktorTampilan)
 
-  const joiner = multiline ? '\n+ ' : ' + '
+  const separator = sign === '-' ? ' - ' : ' + '
+  const joiner = multiline ? `\n${separator.trimStart()}` : separator
   const parts: string[] = []
   if (besar !== 0 || kecil === 0) parts.push(`${besar} ${satuan}`)
   if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
@@ -297,7 +298,8 @@ export function formatTriUnitSaldoFromGram(
   const tengah = Math.trunc(sisaSetelahBesar / kecilPerTengah)
   const kecil = round2(sisaSetelahBesar - tengah * kecilPerTengah)
 
-  const joiner = multiline ? '\n+ ' : ' + '
+  const separator = sign === '-' ? ' - ' : ' + '
+  const joiner = multiline ? `\n${separator.trimStart()}` : separator
   const parts: string[] = []
   if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
   if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)

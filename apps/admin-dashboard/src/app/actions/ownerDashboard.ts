@@ -266,7 +266,7 @@ export async function getPettyCashData(
       outlet_id: r.outlet_id || outlets[0]?.id || '',
       outlet_name: r.outlets?.name || 'Global Outlet',
       transaction_date: tDate,
-      type: (r.type as 'in' | 'out') || 'out',
+      type: 'out',
       category: r.category || 'Operasional',
       description: r.description || 'Pengeluaran petty cash kasir',
       amount: Number(r.amount) || 0,

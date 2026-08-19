@@ -95,7 +95,8 @@ export async function fetchAnalyticsData(
 
       if (Array.isArray(o.order_items)) {
         o.order_items.forEach((oi: any) => {
-          const name = oi.menu_item_name || 'Item'
+          let name = oi.menu_item_name || 'Item'
+          name = name.split('|NOTE|')[0].split('|PARENT|')[0].split('|ID|')[0]
           if (!itemMap[name]) itemMap[name] = { name, qty: 0, revenue: 0 }
           itemMap[name].qty += Number(oi.quantity) || 0
           itemMap[name].revenue += Number(oi.subtotal) || 0

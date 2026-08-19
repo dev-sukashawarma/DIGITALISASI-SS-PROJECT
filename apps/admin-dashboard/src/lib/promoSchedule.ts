@@ -21,6 +21,25 @@ export function getPromoStatus(promo: PromoScheduleInput, now: number = Date.now
 
   if (end !== null && !isNaN(end) && end <= now) return 'berakhir'
   if (start !== null && !isNaN(start) && start > now) return 'terjadwal'
+
+  if (start !== null && end !== null && !isNaN(start) && !isNaN(end)) {
+    const WIB_OFFSET = 7 * 60 * 60 * 1000;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const startTimeInDay = (start + WIB_OFFSET) % DAY_MS;
+    const endTimeInDay = (end + WIB_OFFSET) % DAY_MS;
+    const nowTimeInDay = (now + WIB_OFFSET) % DAY_MS;
+
+    if (startTimeInDay <= endTimeInDay) {
+      if (nowTimeInDay < startTimeInDay || nowTimeInDay >= endTimeInDay) {
+        return 'terjadwal'
+      }
+    } else {
+      if (nowTimeInDay < startTimeInDay && nowTimeInDay >= endTimeInDay) {
+        return 'terjadwal'
+      }
+    }
+  }
+
   return 'berjalan'
 }
 

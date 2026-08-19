@@ -34,15 +34,40 @@ const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktok
 export function isPromoScheduleRunning(promo: BasePromo, now: number = Date.now()): boolean {
   if (promo.start_date) {
     const start = new Date(promo.start_date).getTime();
-    // Jadwal yang rusak harus fail-closed. Mengabaikannya akan membuat promo
-    // aktif tanpa batas waktu dan memotong harga sebelum jadwal yang dimaksud.
-    if (isNaN(start) || start > now) return false; // rusak / belum mulai
+    if (isNaN(start) || start > now) return false;
   }
   if (promo.end_date) {
     const end = new Date(promo.end_date).getTime();
-    // Jendela berlaku adalah [start, end): tepat pada end promo sudah selesai.
-    if (isNaN(end) || end <= now) return false; // rusak / sudah selesai
+    if (isNaN(end) || end <= now) return false;
   }
+
+  // Cek jam operasional harian (Happy Hour)
+  // Jika start_date dan end_date diset, ambil komponen waktunya (dalam WIB UTC+7)
+  // dan pastikan 'now' berada di dalam jam tersebut setiap harinya.
+  if (promo.start_date && promo.end_date) {
+    const startMs = new Date(promo.start_date).getTime();
+    const endMs = new Date(promo.end_date).getTime();
+    
+    // WIB adalah UTC + 7 jam. Kita hitung sisa milidetik dari tengah malam WIB.
+    const WIB_OFFSET = 7 * 60 * 60 * 1000;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    
+    const startTimeInDay = (startMs + WIB_OFFSET) % DAY_MS;
+    const endTimeInDay = (endMs + WIB_OFFSET) % DAY_MS;
+    const nowTimeInDay = (now + WIB_OFFSET) % DAY_MS;
+
+    if (startTimeInDay <= endTimeInDay) {
+      if (nowTimeInDay < startTimeInDay || nowTimeInDay >= endTimeInDay) {
+        return false;
+      }
+    } else {
+      // Promo melewati tengah malam (misal 22:00 - 02:00)
+      if (nowTimeInDay < startTimeInDay && nowTimeInDay >= endTimeInDay) {
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 

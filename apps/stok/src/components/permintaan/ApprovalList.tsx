@@ -1,10 +1,14 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
-import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
-import type { PermintaanWithItems } from '@/types/permintaan'
+import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
+import { estimateCartValue } from '@/app/actions/budget'
+import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
+import type { BahanBaku } from '@/types/stok'
 import { ApprovalModal } from './ApprovalModal'
+import { BudgetBadge } from './BudgetBadge'
 
 interface Props {
   /**
@@ -13,6 +17,31 @@ interface Props {
    * dijelaskan — server akan menolaknya juga lewat `requirePermintaanApprover`.
    */
   canApprove?: boolean
+}
+
+function ApprovalCardBudget({ outletId, items, bahanBakuMap }: {
+  outletId: string
+  items: PermintaanItem[]
+  bahanBakuMap: Map<string, BahanBaku>
+}) {
+  const { status } = useOutletBudgetStatus(outletId)
+  const [estimate, setEstimate] = useState(0)
+
+  useEffect(() => {
+    if (!status?.hasConfig || items.length === 0) {
+      setEstimate(0)
+      return
+    }
+    const payload = items.map(it => {
+      const b = bahanBakuMap.get(it.bahan_baku_id)
+      const qtyBase = b ? convertToBaseUnit(it.qty_diminta, b) : it.qty_diminta
+      return { bahan_baku_id: it.bahan_baku_id, qty: qtyBase }
+    })
+    estimateCartValue(payload).then(r => setEstimate(r.totalNilai)).catch(() => setEstimate(0))
+  }, [status?.hasConfig, items, bahanBakuMap])
+
+  if (!status) return null
+  return <BudgetBadge status={status} projectedAdd={estimate} compact />
 }
 
 export function ApprovalList({ canApprove = true }: Props) {
@@ -69,6 +98,11 @@ export function ApprovalList({ canApprove = true }: Props) {
                     Persetujuan
                   </span>
                   <span className="text-xs font-semibold text-[#544437]">{reqCode}</span>
+                  <ApprovalCardBudget
+                    outletId={p.outlet_id}
+                    items={p.items}
+                    bahanBakuMap={new Map(bahanBaku.map(b => [b.id, b]))}
+                  />
                   {omzetKotor > 0 && (
                     <span className="text-[10px] font-bold bg-[#e3f5d5] text-[#2b5914] px-2 py-0.5 rounded-md border border-[#c3e3af]">
                       Potensi Omzet: Rp {omzetKotor.toLocaleString('id-ID')}

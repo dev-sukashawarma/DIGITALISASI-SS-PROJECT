@@ -27,6 +27,8 @@ type OutletPromo = {
   current_usage?: number
   start_date?: string | null
   end_date?: string | null
+  daily_start_time?: string | null
+  daily_end_time?: string | null
   apply_to_food_apps?: boolean
   sync_to_order_online?: boolean
   promo_name?: string | null
@@ -311,6 +313,63 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                     <p className="text-xs text-gray-500">Kosongkan agar tanpa batas akhir.</p>
                   </div>
                 </div>
+
+                {/* Pembatasan Jam Harian */}
+                <div className="pt-2 border-t border-amber-200/50 space-y-3">
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative flex items-center pt-0.5">
+                      <input
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={!!(globalPromo.daily_start_time || globalPromo.daily_end_time)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            handleGlobalPromoChange('daily_start_time', '17:00:00')
+                            handleGlobalPromoChange('daily_end_time', '20:00:00')
+                          } else {
+                            handleGlobalPromoChange('daily_start_time', null)
+                            handleGlobalPromoChange('daily_end_time', null)
+                          }
+                        }}
+                      />
+                      <div className="w-5 h-5 rounded-md border-2 border-amber-300 bg-white peer-checked:bg-amber-500 peer-checked:border-amber-500 transition-all flex items-center justify-center">
+                        <Check className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all" strokeWidth={3} />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <span className="block text-sm font-bold text-gray-800 group-hover:text-amber-700 transition-colors">
+                        Hanya berlaku di jam tertentu setiap harinya (Happy Hour)
+                      </span>
+                      <span className="block text-xs text-gray-500 mt-0.5">
+                        Promo otomatis dinonaktifkan di luar jam ini meskipun tanggal masih berlaku.
+                      </span>
+                    </div>
+                  </label>
+
+                  {(globalPromo.daily_start_time || globalPromo.daily_end_time) && (
+                    <div className="grid grid-cols-2 gap-4 pl-8 mt-2">
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-gray-700">Jam Mulai</label>
+                        <input
+                          type="time"
+                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-gray-900"
+                          value={globalPromo.daily_start_time?.substring(0, 5) || ''}
+                          onChange={(e) => handleGlobalPromoChange('daily_start_time', e.target.value ? e.target.value + ':00' : null)}
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="block text-xs font-bold text-gray-700">Jam Selesai</label>
+                        <input
+                          type="time"
+                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-gray-900"
+                          value={globalPromo.daily_end_time?.substring(0, 5) || ''}
+                          onChange={(e) => handleGlobalPromoChange('daily_end_time', e.target.value ? e.target.value + ':00' : null)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {mounted && <ScheduleSummary promo={globalPromo} />}
               </div>
 
@@ -533,6 +592,60 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                               />
                             </div>
                           </div>
+
+                          {/* Pembatasan Jam Harian (Item) */}
+                          <div className="pt-2 border-t border-blue-200/50 space-y-3">
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                              <div className="relative flex items-center pt-0.5">
+                                <input
+                                  type="checkbox"
+                                  className="peer sr-only"
+                                  checked={!!(promo.daily_start_time || promo.daily_end_time)}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      handleItemPromoChange(menu.id, 'daily_start_time', '17:00:00')
+                                      handleItemPromoChange(menu.id, 'daily_end_time', '20:00:00')
+                                    } else {
+                                      handleItemPromoChange(menu.id, 'daily_start_time', null)
+                                      handleItemPromoChange(menu.id, 'daily_end_time', null)
+                                    }
+                                  }}
+                                />
+                                <div className="w-5 h-5 rounded-md border-2 border-blue-300 bg-white peer-checked:bg-blue-500 peer-checked:border-blue-500 transition-all flex items-center justify-center">
+                                  <Check className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 scale-50 peer-checked:scale-100 transition-all" strokeWidth={3} />
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <span className="block text-sm font-bold text-blue-900 group-hover:text-blue-700 transition-colors">
+                                  Hanya berlaku di jam tertentu (Happy Hour)
+                                </span>
+                              </div>
+                            </label>
+
+                            {(promo.daily_start_time || promo.daily_end_time) && (
+                              <div className="grid grid-cols-2 gap-4 pl-8 mt-2">
+                                <div className="space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-800">Jam Mulai</label>
+                                  <input
+                                    type="time"
+                                    className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-blue-900"
+                                    value={promo.daily_start_time?.substring(0, 5) || ''}
+                                    onChange={(e) => handleItemPromoChange(menu.id, 'daily_start_time', e.target.value ? e.target.value + ':00' : null)}
+                                  />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="block text-xs font-bold text-blue-800">Jam Selesai</label>
+                                  <input
+                                    type="time"
+                                    className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm outline-none transition-colors font-semibold text-blue-900"
+                                    value={promo.daily_end_time?.substring(0, 5) || ''}
+                                    onChange={(e) => handleItemPromoChange(menu.id, 'daily_end_time', e.target.value ? e.target.value + ':00' : null)}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
                           {mounted && <ScheduleSummary promo={promo} />}
                         </div>
 

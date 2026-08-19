@@ -75,6 +75,8 @@ export async function savePromosAction(
         usage_limit: p.usage_limit,
         start_date: p.start_date ?? null,
         end_date: p.end_date ?? null,
+        daily_start_time: p.daily_start_time ?? null,
+        daily_end_time: p.daily_end_time ?? null,
         apply_to_food_apps: p.apply_to_food_apps || false
         ,promo_name: String(p.promo_name || '').trim() || null
       })

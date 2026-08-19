@@ -15,20 +15,34 @@ export interface BasePromo {
   /** Promo terjadwal: belum berlaku sebelum waktu ini. NULL = berlaku sejak diaktifkan. */
   start_date?: string | null;
   end_date?: string | null;
+  /** Promo harian (Happy Hour): hanya berlaku dalam rentang jam ini setiap harinya. Format 'HH:mm:ss' */
+  daily_start_time?: string | null;
+  daily_end_time?: string | null;
   apply_to_food_apps?: boolean;
 }
 
 export function isScheduledPromo(promo: BasePromo): boolean {
-  return Boolean(promo.start_date || promo.end_date);
+  return Boolean(promo.start_date || promo.end_date || promo.daily_start_time || promo.daily_end_time);
 }
 
 const FOOD_APP_CHANNELS = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'];
+
+function parseTimeStr(timeStr: string | null | undefined): number | null {
+  if (!timeStr) return null;
+  const parts = timeStr.split(':');
+  if (parts.length < 2) return null;
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const s = parts.length > 2 ? parseInt(parts[2], 10) : 0;
+  if (isNaN(h) || isNaN(m)) return null;
+  return (h * 60 * 60 + m * 60 + s) * 1000;
+}
 
 /**
  * Promo sedang berada di dalam jendela jadwalnya?
  *
  * start_date/end_date bertipe timestamptz (instant absolut), jadi perbandingan
- * ini benar tanpa peduli zona waktu perangkat kasir — perangkat yang diset
+ * ini benar tanpa peduli zona waktu perangkat kasir ?" perangkat yang diset
  * WITA tidak akan menyalakan promo satu jam lebih awal.
  */
 export function isPromoScheduleRunning(promo: BasePromo, now: number = Date.now()): boolean {
@@ -42,27 +56,23 @@ export function isPromoScheduleRunning(promo: BasePromo, now: number = Date.now(
   }
 
   // Cek jam operasional harian (Happy Hour)
-  // Jika start_date dan end_date diset, ambil komponen waktunya (dalam WIB UTC+7)
-  // dan pastikan 'now' berada di dalam jam tersebut setiap harinya.
-  if (promo.start_date && promo.end_date) {
-    const startMs = new Date(promo.start_date).getTime();
-    const endMs = new Date(promo.end_date).getTime();
-    
+  const dailyStart = parseTimeStr(promo.daily_start_time);
+  const dailyEnd = parseTimeStr(promo.daily_end_time);
+  
+  if (dailyStart !== null && dailyEnd !== null) {
     // WIB adalah UTC + 7 jam. Kita hitung sisa milidetik dari tengah malam WIB.
     const WIB_OFFSET = 7 * 60 * 60 * 1000;
     const DAY_MS = 24 * 60 * 60 * 1000;
     
-    const startTimeInDay = (startMs + WIB_OFFSET) % DAY_MS;
-    const endTimeInDay = (endMs + WIB_OFFSET) % DAY_MS;
     const nowTimeInDay = (now + WIB_OFFSET) % DAY_MS;
 
-    if (startTimeInDay <= endTimeInDay) {
-      if (nowTimeInDay < startTimeInDay || nowTimeInDay >= endTimeInDay) {
+    if (dailyStart <= dailyEnd) {
+      if (nowTimeInDay < dailyStart || nowTimeInDay >= dailyEnd) {
         return false;
       }
     } else {
       // Promo melewati tengah malam (misal 22:00 - 02:00)
-      if (nowTimeInDay < startTimeInDay && nowTimeInDay >= endTimeInDay) {
+      if (nowTimeInDay < dailyStart && nowTimeInDay >= dailyEnd) {
         return false;
       }
     }

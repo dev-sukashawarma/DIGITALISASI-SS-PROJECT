@@ -3,7 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import { canManageOutletBudget, type BudgetStatus, type PeriodType } from '@/lib/stok/budget'
+import type { BudgetStatus, PeriodType } from '@/lib/stok/budget'
 import { assertOutletAccessible } from '@/lib/stok/outletAccess'
 
 // ---------------------------------------------------------------------------
@@ -35,24 +35,6 @@ async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedCli
     throw new Error('Unauthorized: No active user session found')
   }
   return user.id
-}
-
-/** Gerbang owner-only untuk menulis outlet_budget_config. */
-async function requireOwner(): Promise<string> {
-  const authedClient = await getAuthedClient()
-  const userId = await getCurrentUserId(authedClient)
-
-  const { data: staff, error } = await makeServiceClient()
-    .from('outlet_staff')
-    .select('role, status')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (error) throw new Error(error.message)
-  if (!staff || staff.status !== 'active' || !canManageOutletBudget(staff.role)) {
-    throw new Error('Forbidden: hanya owner yang boleh mengatur budget outlet')
-  }
-  return userId
 }
 
 /** Gerbang minimal untuk aksi read-only ringan (estimasi nilai) -- cukup staff aktif. */
@@ -100,67 +82,6 @@ export async function getOutletBudgetStatus(outletId: string): Promise<BudgetSta
   if (error) throw new Error(error.message)
   const row = Array.isArray(data) ? data[0] : data
   return mapBudgetRow(row, outletId)
-}
-
-// ---------------------------------------------------------------------------
-// listOutletBudgets — owner-only, semua outlet operasional (exclude Gudang/Kantor Pusat)
-// ---------------------------------------------------------------------------
-
-export async function listOutletBudgets(): Promise<Array<BudgetStatus & { outletName: string }>> {
-  await requireOwner()
-  const supabase = makeServiceClient()
-
-  const { data: outlets, error: outletsError } = await supabase
-    .from('outlets')
-    .select('id, name')
-    .eq('is_active', true)
-    .eq('type', 'outlet')
-    .order('name')
-  if (outletsError) throw new Error(outletsError.message)
-
-  const operational = (outlets ?? []).filter(
-    (o) => !o.name.toUpperCase().includes('GUDANG') && !o.name.toUpperCase().includes('KANTOR PUSAT')
-  )
-
-  const results: Array<BudgetStatus & { outletName: string }> = []
-  for (const o of operational) {
-    const { data, error } = await supabase.rpc('get_outlet_budget_status', { p_outlet_id: o.id })
-    if (error) throw new Error(error.message)
-    const row = Array.isArray(data) ? data[0] : data
-    results.push({ ...mapBudgetRow(row, o.id), outletName: o.name })
-  }
-  return results
-}
-
-// ---------------------------------------------------------------------------
-// setOutletBudgetConfig — owner-only
-// ---------------------------------------------------------------------------
-
-export async function setOutletBudgetConfig(
-  outletId: string,
-  nominal: number,
-  periodType: PeriodType
-): Promise<void> {
-  const userId = await requireOwner()
-  if (!(nominal >= 0)) throw new Error('Nominal budget tidak valid')
-
-  const supabase = makeServiceClient()
-
-  const { data: existing } = await supabase
-    .from('outlet_budget_config')
-    .select('effective_from')
-    .eq('outlet_id', outletId)
-    .maybeSingle()
-
-  const { error } = await supabase.from('outlet_budget_config').upsert({
-    outlet_id: outletId,
-    nominal,
-    period_type: periodType,
-    effective_from: existing?.effective_from ?? new Date().toISOString().slice(0, 10),
-    updated_by: userId,
-    updated_at: new Date().toISOString(),
-  })
-  if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------

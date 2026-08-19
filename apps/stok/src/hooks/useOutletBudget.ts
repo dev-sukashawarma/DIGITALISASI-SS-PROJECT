@@ -2,8 +2,7 @@
 import { useId } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRealtimeInvalidate } from '@suka/realtime'
-import { getOutletBudgetStatus, listOutletBudgets, setOutletBudgetConfig } from '@/app/actions/budget'
-import type { PeriodType } from '@/lib/stok/budget'
+import { getOutletBudgetStatus } from '@/app/actions/budget'
 
 export function useOutletBudgetStatus(outletId: string | undefined) {
   const { data, isLoading, error, refetch } = useQuery({
@@ -37,27 +36,5 @@ export function useOutletBudgetStatus(outletId: string | undefined) {
     loading: isLoading,
     error: error ? (error as Error).message : null,
     refresh: refetch,
-  }
-}
-
-export function useOutletBudgetAdmin() {
-  const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['outlet_budget_admin_list'],
-    queryFn: () => listOutletBudgets(),
-    staleTime: 15000,
-    gcTime: 60000,
-  })
-
-  const save = async (outletId: string, nominal: number, periodType: PeriodType) => {
-    await setOutletBudgetConfig(outletId, nominal, periodType)
-    await refetch()
-  }
-
-  return {
-    budgets: data ?? [],
-    loading: isLoading,
-    error: error ? (error as Error).message : null,
-    refresh: refetch,
-    save,
   }
 }

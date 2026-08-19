@@ -11,15 +11,6 @@ export interface BudgetStatus {
   hasConfig: boolean
 }
 
-// Role yang boleh mengatur plafon budget outlet. Hanya owner (keputusan
-// produk: owner yang menentukan nominal & periode per outlet — lihat
-// docs/superpowers/specs/2026-08-18-permintaan-budget-outlet-design.md §9).
-const BUDGET_MANAGER_ROLES = ['owner'] as const
-
-export function canManageOutletBudget(role: string | null | undefined): boolean {
-  return !!role && (BUDGET_MANAGER_ROLES as readonly string[]).includes(role)
-}
-
 export type BudgetBadgeVariant = 'hidden' | 'green' | 'orange' | 'red'
 
 /**

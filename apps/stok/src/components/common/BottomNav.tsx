@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { isApproverRole } from '@/lib/stok/approver'
-import { canManageOutletBudget } from '@/lib/stok/budget'
 
 // Bottom nav crew tunggal & konsisten — dipakai di semua halaman stok.
 // Sebelumnya tiap halaman copy-paste nav sendiri dengan isi berbeda
@@ -25,7 +24,6 @@ export function BottomNav() {
 
   const isApprover = isApproverRole(outletStaff?.role)
   const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner'
-  const isOwner = canManageOutletBudget(outletStaff?.role)
   const { permintaan } = useApprovalList(isApprover)
   const pendingCount = permintaan.length
 
@@ -37,7 +35,6 @@ export function BottomNav() {
         { href: '/stok/opname', icon: '📋', label: 'Opname' },
         { href: '/stok/permintaan', icon: '📝', label: 'Permintaan' },
         { href: '/stok/mutasi', icon: '🔄', label: 'Mutasi' },
-        ...(isOwner ? [{ href: '/stok/budget-outlet', icon: '💰', label: 'Budget' }] : []),
       ]
     : ITEMS
 

@@ -1,20 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canManageOutletBudget, budgetBadgeVariant } from './budget'
-
-describe('canManageOutletBudget', () => {
-  it('owner boleh atur budget', () => {
-    expect(canManageOutletBudget('owner')).toBe(true)
-  })
-
-  it('role lain tidak boleh atur budget', () => {
-    expect(canManageOutletBudget('kitchen')).toBe(false)
-    expect(canManageOutletBudget('admin')).toBe(false)
-    expect(canManageOutletBudget('spv')).toBe(false)
-    expect(canManageOutletBudget('crew')).toBe(false)
-    expect(canManageOutletBudget(null)).toBe(false)
-    expect(canManageOutletBudget(undefined)).toBe(false)
-  })
-})
+import { budgetBadgeVariant } from './budget'
 
 describe('budgetBadgeVariant', () => {
   const base = { hasConfig: true, nominal: 1_000_000, terpakai: 0 }

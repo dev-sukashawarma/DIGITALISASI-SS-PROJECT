@@ -544,8 +544,8 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (5 Spacious Cards) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* ── KPI Cards (4 Spacious Cards) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Net Revenue (Omzet Bersih) -> Changed to Gross Revenue (Omzet Kotor) per user request */}
             <div className="card p-5 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
@@ -557,19 +557,6 @@ export default function ReportsPage() {
                 <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
               <p className="text-[10px] text-white/70 mt-2 font-medium">*Sudah dipotong promo offline · food apps pakai harga asli</p>
-            </div>
-
-            {/* Potongan App: subsidi promo food apps — info saja, TIDAK mengurangi Omzet Kotor
-                (food apps dicatat dengan harga menu asli, lihat lib/channel-filter.ts) */}
-            <div className="card p-5 flex flex-col justify-between min-w-0">
-              <div className="min-w-0">
-                <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center mb-2">
-                  <XCircle className="w-4 h-4 text-red-500" strokeWidth={1.5} />
-                </div>
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Potongan App</p>
-                <p className="text-xl sm:text-2xl font-black text-red-500 mt-1 whitespace-nowrap">{formatRupiah(analytics.totalPromoSubsidy)}</p>
-              </div>
-              <p className="text-[10px] text-gray-400 mt-2 font-medium">Subsidi promo GoFood/GrabFood/dll</p>
             </div>
 
             {/* Total Orders */}

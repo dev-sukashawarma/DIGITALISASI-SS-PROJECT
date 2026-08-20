@@ -188,12 +188,6 @@ export default function AdminOrdersPage() {
     .filter((o) => o.payment_method === 'card')
     .reduce((s, o) => s + getOrderGrossAmount(o), 0)
 
-  // Potongan App: subsidi promo food apps (GoFood/GrabFood/ShopeeFood/TikTok) yang
-  // diinput kasir saat order manual — TIDAK mengurangi omzet (food apps dicatat
-  // dengan harga menu asli), tapi tetap perlu diketahui berapa besarnya.
-  const totalPromoSubsidy = activeOrders
-    .filter((o) => isFoodAppOrder(o as any))
-    .reduce((s, o) => s + (Number((o as any).promo_subsidy) || 0), 0)
 
   return (
     <div className="space-y-6" suppressHydrationWarning>
@@ -248,7 +242,7 @@ export default function AdminOrdersPage() {
           </div>
 
       {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="card p-5 bg-white text-gray-900 border border-gray-100">
           <div className="w-9 h-9 bg-emerald-100 rounded-2xl flex items-center justify-center mb-3">
             <Banknote className="w-4.5 h-4.5 text-emerald-600" strokeWidth={1.5} />
@@ -280,16 +274,6 @@ export default function AdminOrdersPage() {
           </div>
           <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Omzet Kotor</p>
           <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(totalRevenue)}</p>
-        </div>
-
-        {/* Potongan App (subsidi promo food apps) — info saja, tidak mengurangi Omzet Kotor di atas */}
-        <div className="card p-5 bg-white text-gray-900 border border-gray-100">
-          <div className="w-9 h-9 bg-red-100 rounded-2xl flex items-center justify-center mb-3">
-            <XCircle className="w-4.5 h-4.5 text-red-500" strokeWidth={1.5} />
-          </div>
-          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Potongan App</p>
-          <p className="text-xl font-bold mt-0.5 leading-tight text-red-500">{formatRupiah(totalPromoSubsidy)}</p>
-          <p className="text-[10px] text-gray-400 mt-1 font-medium">Subsidi promo GoFood/GrabFood/dll</p>
         </div>
       </div>
 

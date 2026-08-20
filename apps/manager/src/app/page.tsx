@@ -35,6 +35,51 @@ const formatWIBTime = (tsServerStr: string) => {
   }
 };
 
+// Sinkron dengan apps/admin-dashboard/src/lib/order-item-name.ts (cleanItemName)
+// & apps/admin-dashboard/src/app/dashboard/reports/pos/ReportsView.tsx (getItemHpp),
+// supaya Gross Profit di manager identik dengan Laporan POS admin.
+const cleanItemName = (raw: string): string => {
+  let name = raw ?? '';
+  const noteSplit = name.split('|NOTE|');
+  if (noteSplit.length > 1) name = noteSplit[0];
+  const parentSplit = name.split('|PARENT|');
+  if (parentSplit.length > 1) name = parentSplit[0];
+  const idSplit = name.split('|ID|');
+  if (idSplit.length > 1) name = idSplit[0];
+  return name;
+};
+
+const getItemHpp = (
+  menuItem: any,
+  outletType: string | undefined,
+  fallbackName: string | undefined,
+  menuItemByNameMap: Map<string, any>
+): number => {
+  let itemObj = menuItem;
+  if ((!itemObj || (!itemObj.hpp_override && !itemObj.is_package)) && fallbackName) {
+    const cleanKey = cleanItemName(fallbackName);
+    if (menuItemByNameMap.has(cleanKey)) {
+      itemObj = menuItemByNameMap.get(cleanKey);
+    }
+  }
+  if (!itemObj) return 0;
+
+  let baseHpp = 0;
+  if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+    baseHpp = Number(itemObj.hpp_override);
+  } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
+    baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
+      const compHpp = pkg.component?.hpp_override || 0;
+      const qty = pkg.quantity || 1;
+      return sum + compHpp * qty;
+    }, 0);
+  }
+  if (outletType === 'mitra' && baseHpp > 0) {
+    return Math.round(baseHpp * 1.10);
+  }
+  return baseHpp;
+};
+
 const getAMName = (outletId: string, outletName: string, amMap: Map<string, string>, staffRole?: string, staffName?: string) => {
   if (staffRole === 'area_manager') {
     return staffName || 'Area Anda';
@@ -177,21 +222,30 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     return all;
   };
 
-  let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region');
-  
+  // Sub-select order_items(menu_items...) sama persis dengan Laporan POS admin
+  // (ReportsView.tsx) agar Total COGS/Gross Profit identik.
+  const ORDER_ITEMS_HPP_SELECT =
+    'order_items(quantity, menu_item_name, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))';
+
+  let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region, type');
+
   let qOrdersToday = supabaseAdmin
     .from('orders')
-    .select('id, outlet_id, total_amount, discount_amount, promo_subsidy, order_items(quantity)')
+    .select(`id, outlet_id, total_amount, discount_amount, promo_subsidy, ${ORDER_ITEMS_HPP_SELECT}`)
     .gte('created_at', new Date(`${mainStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${mainEndDate}T23:59:59+07:00`).toISOString())
     .eq('status', 'completed');
 
   let qOrdersYesterday = supabaseAdmin
     .from('orders')
-    .select('total_amount, discount_amount, promo_subsidy')
+    .select(`outlet_id, total_amount, discount_amount, promo_subsidy, ${ORDER_ITEMS_HPP_SELECT}`)
     .gte('created_at', new Date(`${prevStartDate}T00:00:00+07:00`).toISOString())
     .lte('created_at', new Date(`${prevEndDate}T23:59:59+07:00`).toISOString())
     .eq('status', 'completed');
+
+  let qMenuItems = supabaseAdmin
+    .from('menu_items')
+    .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))');
 
   let qAttendance = supabaseAdmin.from('attendance')
     .select('outlet_id, ts_server, type, outlet_staff_id')
@@ -250,21 +304,46 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     ordersYesterday,
     { data: outlets },
     { data: attendanceToday },
-    { data: staffOutlets }
+    { data: staffOutlets },
+    { data: menuItems }
   ] = await Promise.all([
     fetchAllPages(qOrdersToday),
     fetchAllPages(qOrdersYesterday),
     qOutlets,
     qAttendance,
-    qStaffOutlets
+    qStaffOutlets,
+    qMenuItems
   ]);
 
-  const getOrderRevenue = (o: any) => (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
+  // Logic KPI identik dengan admin-dashboard Laporan POS
+  // (posReportKpi.ts / ReportsView.tsx, keputusan owner 2026-07-31):
+  //   Gross Revenue = SUM(total_amount) order completed (sudah net di DB)
+  //   Total COGS    = HPP per item (order_items -> menu_items)
+  //   Admin Platform (deductions) = discount_amount + promo_subsidy
+  //   Gross Profit  = Gross Revenue - (Total COGS + Admin Platform)
+  const outletTypeMap = new Map<string, string>();
+  (outlets || []).forEach((o: any) => outletTypeMap.set(o.id, o.type || 'outlet'));
 
-  const omzetToday = (ordersToday || []).reduce((sum, o) => sum + getOrderRevenue(o), 0);
+  const menuItemByNameMap = new Map<string, any>();
+  (menuItems || []).forEach((mi: any) => {
+    if (mi.name) menuItemByNameMap.set(cleanItemName(mi.name), mi);
+  });
+
+  const getOrderHpp = (o: any) => {
+    const outletType = outletTypeMap.get(o.outlet_id);
+    const items = o.order_items || [];
+    // @ts-ignore
+    return items.reduce((s, item) => s + getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap) * (Number(item.quantity) || 0), 0);
+  };
+
+  const getOrderDeductions = (o: any) => (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
+
+  const getOrderGrossProfit = (o: any) => (Number(o.total_amount) || 0) - getOrderHpp(o) - getOrderDeductions(o);
+
+  const omzetToday = Math.max(0, (ordersToday || []).reduce((sum, o) => sum + getOrderGrossProfit(o), 0));
   const txToday = (ordersToday || []).length;
-  const omzetYesterday = (ordersYesterday || []).reduce((sum, o) => sum + getOrderRevenue(o), 0);
-  
+  const omzetYesterday = Math.max(0, (ordersYesterday || []).reduce((sum, o) => sum + getOrderGrossProfit(o), 0));
+
   const itemsSoldToday = (ordersToday || []).reduce((sum, order) => {
     const items = order.order_items || [];
     // @ts-ignore
@@ -302,8 +381,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   const outletOmzetMap = new Map<string, number>();
   (ordersToday || []).forEach(o => {
     const current = outletOmzetMap.get(o.outlet_id) || 0;
-    outletOmzetMap.set(o.outlet_id, current + getOrderRevenue(o));
+    outletOmzetMap.set(o.outlet_id, current + getOrderGrossProfit(o));
   });
+  outletOmzetMap.forEach((v, k) => outletOmzetMap.set(k, Math.max(0, v)));
 
   const amMap = new Map<string, string>();
   if (staffOutlets) {
@@ -372,7 +452,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         {/* KPI 1: Pendapatan */}
         <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-suka-orange/30 transition-all duration-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Pendapatan</h3>
+            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Gross Profit</h3>
             <div className="p-2.5 bg-suka-orange/10 text-suka-orange rounded-2xl group-hover:scale-110 transition-transform">
               <TrendingUp size={20} />
             </div>
@@ -464,7 +544,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         <div className="bg-white p-6 sm:p-7 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 lg:col-span-2 min-h-[300px]">
           <div className="flex items-center justify-between mb-6 pb-3 border-b border-suka-brown/10">
             <h3 className="text-sm font-black text-suka-brown uppercase tracking-wider">
-              Ranking Outlet (Berdasarkan Omzet)
+              Ranking Outlet (Berdasarkan Gross Profit)
             </h3>
             <span className="text-xs font-bold text-suka-gray-400">
               {outletRanking.length} Outlet Terdaftar

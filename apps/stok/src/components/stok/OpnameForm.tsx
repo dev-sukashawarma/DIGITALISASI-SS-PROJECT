@@ -139,6 +139,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     }
   }, [inputs, targets, notes, outletId]);
   const [busy, setBusy] = useState(false);
+  const [showUnfilledModal, setShowUnfilledModal] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
@@ -233,16 +234,39 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     }));
   };
 
-  const filteredBahan = useMemo(() => {
+  const relevantBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
       const source = getBahanBakuSource(b.nama);
       if (source === 'GUDANG_PUSAT' && !isGudang) return false;
+      return true;
+    });
+  }, [bahanBaku, isGudang]);
 
+  const filledCount = useMemo(() => {
+    return relevantBahan.filter((b) => {
+      const inp = inputs[b.id];
+      return inp && (inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined);
+    }).length;
+  }, [relevantBahan, inputs]);
+
+  const unfilledCount = relevantBahan.length - filledCount;
+
+  const filteredBahan = useMemo(() => {
+    return relevantBahan.filter((b) => {
       const matchesSearch = b.nama.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCategory = activeCategory === 'all' || b.kategori === activeCategory;
+      
+      let matchesCategory = true;
+      if (activeCategory === 'unfilled') {
+        const inp = inputs[b.id];
+        const isFilled = inp && (inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined);
+        matchesCategory = !isFilled;
+      } else if (activeCategory !== 'all') {
+        matchesCategory = b.kategori === activeCategory;
+      }
+
       return matchesSearch && matchesCategory;
     });
-  }, [bahanBaku, searchTerm, activeCategory, isGudang]);
+  }, [relevantBahan, searchTerm, activeCategory, inputs]);
 
   function buildItemsToSave(opnameId: string) {
     return bahanBaku
@@ -313,7 +337,19 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     }
   }
 
-  async function handleFinalize() {
+  function handleFinalizeClick() {
+    if (filledCount === 0) {
+      showToast('🔴 Belum ada item yang diinput.', 'warning');
+      return;
+    }
+    if (unfilledCount > 0) {
+      setShowUnfilledModal(true);
+      return;
+    }
+    executeFinalize();
+  }
+
+  async function executeFinalize() {
     setBusy(true);
     try {
       const opname = await withTimeout(createOrReuseDraft(outletId, 'harian', createdBy, notes), TIMEOUT_MS, 'membuat draft');
@@ -396,6 +432,34 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         </div>
       )}
 
+      {/* Progress Widget */}
+      <div className="bg-white border border-[#d9c2b2]/45 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-black uppercase tracking-wider text-[#701604]">📊 Progres Opname</span>
+            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#f29744]/15 text-[#701604] border border-[#f29744]/30">
+              {filledCount} dari {relevantBahan.length} Bahan Terisi
+            </span>
+            {unfilledCount === 0 && relevantBahan.length > 0 && (
+              <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-[#e8f5e9] text-[#0a7d2c] border border-[#0a7d2c]/20">
+                ✅ Lengkap
+              </span>
+            )}
+          </div>
+          <p className="text-[10px] text-[#544437]/70">
+            {unfilledCount > 0
+              ? `${unfilledCount} bahan belum diisi (akan dilewati jika tidak diisi)`
+              : 'Semua bahan baku telah dihitung'}
+          </p>
+        </div>
+        <div className="w-full sm:w-48 bg-gray-100 rounded-full h-2.5 overflow-hidden border border-gray-200/60 flex-shrink-0">
+          <div
+            className={`h-full transition-all duration-300 ${filledCount === relevantBahan.length && relevantBahan.length > 0 ? 'bg-[#0a7d2c]' : 'bg-[#f29744]'}`}
+            style={{ width: `${relevantBahan.length > 0 ? (filledCount / relevantBahan.length) * 100 : 0}%` }}
+          />
+        </div>
+      </div>
+
       <div className="space-y-3">
         <div className="relative">
           <input
@@ -426,6 +490,25 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
               </button>
             );
           })}
+
+          {unfilledCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveCategory('unfilled')}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all border whitespace-nowrap cursor-pointer shadow-sm flex items-center gap-1 ${
+                activeCategory === 'unfilled'
+                  ? 'bg-amber-600 border-amber-600 text-white shadow-sm'
+                  : 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100'
+              }`}
+            >
+              <span>Belum Terisi</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[8px] font-black ${
+                activeCategory === 'unfilled' ? 'bg-white text-amber-700' : 'bg-amber-200 text-amber-900'
+              }`}>
+                {unfilledCount}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -633,7 +716,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
           <button
             disabled={busy}
-            onClick={handleFinalize}
+            onClick={handleFinalizeClick}
             className="w-full sm:w-auto sm:flex-[2] py-3 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white transition-all rounded-xl font-bold uppercase tracking-wider text-xs shadow-md disabled:opacity-50 disabled:hover:bg-[#701604] active:scale-[0.99] cursor-pointer"
           >
             {busy ? (
@@ -647,6 +730,57 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           </button>
         </div>
       </div>
+
+      {/* Confirmation Modal when there are unfilled items */}
+      {showUnfilledModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#d9c2b2]/60 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 border border-amber-300/60 flex items-center justify-center text-xl flex-shrink-0">
+                ⚠️
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-sm text-[#701604]">
+                  Ada {unfilledCount} Bahan Belum Diisi
+                </h3>
+                <p className="text-xs text-[#544437]/80">
+                  {filledCount} dari {relevantBahan.length} bahan terisi.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 leading-relaxed space-y-1">
+              <p className="font-bold">⚠️ Perhatian Stok Sistem:</p>
+              <p>
+                Bahan yang dikosongkan <strong>tidak akan di-opname (dilewati)</strong>. Saldo sistem untuk bahan tersebut tetap aman dan tidak akan berubah.
+              </p>
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnfilledModal(false);
+                  setActiveCategory('unfilled');
+                }}
+                className="flex-1 py-2.5 px-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs cursor-pointer transition-all active:scale-[0.99]"
+              >
+                🔍 Periksa Bahan
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUnfilledModal(false);
+                  executeFinalize();
+                }}
+                className="flex-1 py-2.5 px-3 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-md active:scale-[0.99]"
+              >
+                Lanjutkan ({filledCount} Item)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

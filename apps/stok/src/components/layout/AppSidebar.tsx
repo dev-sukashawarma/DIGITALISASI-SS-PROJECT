@@ -4,6 +4,8 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth'
+import { useOutletScope } from '@/hooks/useOutletScope'
+import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { isApproverRole } from '@/lib/stok/approver'
 import { useQuery } from '@tanstack/react-query'
@@ -23,7 +25,19 @@ import {
   ExternalLink,
   ChefHat,
   Store,
+  Wallet,
 } from 'lucide-react'
+
+function formatRp(n: number) {
+  return `Rp ${Math.round(n).toLocaleString('id-ID')}`
+}
+
+function getPeriodLabel(periodType: string | null, customDays?: number | null): string {
+  if (!periodType) return ''
+  if (periodType === 'custom' && customDays) return `${customDays} Hari`
+  const labels: Record<string, string> = { harian: 'Harian', mingguan: 'Mingguan', bulanan: 'Bulanan' }
+  return labels[periodType] ?? periodType
+}
 
 interface AppSidebarProps {
   onCloseMobile?: () => void
@@ -32,6 +46,16 @@ interface AppSidebarProps {
 export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const pathname = usePathname()
   const { outletStaff, signOut } = useAuth()
+  const { selectedOutletId } = useOutletScope()
+
+  const targetOutletId = selectedOutletId || outletStaff?.outlet_id || undefined
+  const { status: budget } = useOutletBudgetStatus(targetOutletId)
+
+  const pct = budget?.hasConfig && budget.nominal > 0
+    ? Math.min(100, (budget.terpakai / budget.nominal) * 100)
+    : 0
+  const isOver = budget?.hasConfig && budget.terpakai > budget.nominal
+  const isNear = !isOver && pct >= 80
 
   const role = outletStaff?.role
 
@@ -203,10 +227,10 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
 
   return (
     <aside className="w-64 h-full flex flex-col justify-between bg-white border-r border-suka-brown/10 select-none">
-      {/* Top Branding & Header */}
-      <div className="flex flex-col">
+      {/* Top Branding, Profile, Budget & Navigation */}
+      <div className="flex flex-col flex-1 min-h-0">
         {/* Brand Logo & Name */}
-        <div className="p-5 border-b border-suka-brown/10 flex items-center justify-between">
+        <div className="p-5 border-b border-suka-brown/10 flex items-center justify-between shrink-0">
           <Link
             href="/dashboard"
             onClick={onCloseMobile}
@@ -228,7 +252,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
 
         {/* User Profile Card */}
         {outletStaff && (
-          <div className="p-3 mx-3 mt-3 bg-suka-cream/40 rounded-2xl border border-suka-brown/10 flex items-center gap-2.5">
+          <div className="p-3 mx-3 mt-3 bg-suka-cream/40 rounded-2xl border border-suka-brown/10 flex items-center gap-2.5 shrink-0">
             <div className="w-8 h-8 rounded-full bg-suka-orange/20 text-suka-orange flex items-center justify-center font-black text-xs shrink-0">
               {outletStaff.name?.charAt(0) || 'U'}
             </div>
@@ -243,8 +267,74 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
           </div>
         )}
 
+        {/* Plafon Budget Saldo Card */}
+        {budget?.hasConfig && (
+          <div className={`p-3 mx-3 mt-2.5 rounded-2xl border transition-all shadow-2xs shrink-0 ${
+            isOver
+              ? 'bg-red-50/90 border-red-200 text-red-950'
+              : isNear
+              ? 'bg-amber-50/90 border-amber-200 text-amber-950'
+              : 'bg-emerald-50/80 border-emerald-200/80 text-emerald-950'
+          }`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 ${
+                  isOver
+                    ? 'bg-red-200/70 text-red-700'
+                    : isNear
+                    ? 'bg-amber-200/70 text-amber-700'
+                    : 'bg-emerald-200/70 text-emerald-700'
+                }`}>
+                  <Wallet className="w-3.5 h-3.5" />
+                </div>
+                <div className="min-w-0">
+                  <span className="text-[9px] font-black uppercase tracking-wider opacity-60 block leading-none truncate">
+                    Plafon Budget
+                  </span>
+                  <span className="text-[10px] font-extrabold leading-tight truncate block">
+                    {getPeriodLabel(budget.periodType ?? null, budget.customDays)}
+                  </span>
+                </div>
+              </div>
+              {budget.periodStart && budget.periodEnd && (
+                <span className="text-[8px] opacity-75 font-bold bg-white/80 px-1.5 py-0.5 rounded-md border border-black/5 shrink-0 ml-1">
+                  {budget.periodStart} - {budget.periodEnd}
+                </span>
+              )}
+            </div>
+
+            {/* Progress bar */}
+            <div className="w-full h-1.5 bg-black/10 rounded-full overflow-hidden my-2">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isOver ? 'bg-red-500' : isNear ? 'bg-amber-500' : 'bg-emerald-500'
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+
+            {/* Saldo Details */}
+            <div className="space-y-1 pt-0.5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="opacity-75 font-bold">Sisa Saldo:</span>
+                <span className={`font-black ${
+                  isOver ? 'text-red-600' : isNear ? 'text-amber-700' : 'text-emerald-700'
+                }`}>
+                  {isOver
+                    ? `⚠ Lebih ${formatRp(budget.terpakai - budget.nominal)}`
+                    : formatRp(budget.sisa)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[9px] opacity-65 font-medium">
+                <span>Terpakai: {formatRp(budget.terpakai)}</span>
+                <span>Plafon: {formatRp(budget.nominal)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Navigation Menu List */}
-        <nav className="p-3 space-y-5 overflow-y-auto max-h-[calc(100vh-280px)] scrollbar-thin">
+        <nav className="p-3 space-y-5 overflow-y-auto flex-1 min-h-0 scrollbar-thin">
           {navGroups.map((group) => (
             <div key={group.title} className="space-y-1">
               <div className="px-3 text-[9px] font-black uppercase tracking-widest text-suka-brown/40">

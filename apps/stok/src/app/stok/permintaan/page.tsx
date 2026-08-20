@@ -10,6 +10,8 @@ import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { canApprovePermintaan } from '@/lib/stok/approver'
 
+import { Plus, History, CheckCircle2, X } from 'lucide-react'
+
 const KITCHEN_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
 export default function PermintaanPage() {
@@ -29,8 +31,12 @@ export default function PermintaanPage() {
 
   const canApprove = canApprovePermintaan(outletStaff.role)
 
+  const [justSubmittedMessage, setJustSubmittedMessage] = useState<string | null>(null)
+
   const handleSubmitSuccess = () => {
     setRefreshKey(k => k + 1)
+    setMainTab('riwayat')
+    setJustSubmittedMessage('Permintaan berhasil dikirim dan masuk antrean persetujuan kitchen!')
   }
 
   return (
@@ -38,9 +44,9 @@ export default function PermintaanPage() {
       <div className="bg-[#fff8f1] min-h-screen pb-24">
         {/* Top Header */}
         {!isCartView && (
-          <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-4 flex items-center justify-between shadow-2xs sticky top-0 z-20">
+          <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between shadow-2xs sticky top-0 z-20">
             <div>
-              <h1 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight truncate">
+              <h1 className="text-lg sm:text-xl font-extrabold text-suka-brown tracking-tight truncate font-display">
                 Permintaan Bahan Baku
               </h1>
               <p className="text-[10px] text-suka-brown/60 font-bold uppercase tracking-wider mt-0.5">
@@ -54,7 +60,7 @@ export default function PermintaanPage() {
           </header>
         )}
 
-        <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
           {isKitchen ? (
             <section className="space-y-3">
               <h2 className="text-xs font-bold uppercase tracking-wider text-suka-orange">Antrean Persetujuan</h2>
@@ -63,18 +69,28 @@ export default function PermintaanPage() {
           ) : (
             <>
               {!isCartView && (
-                <div className="flex bg-white p-1.5 rounded-2xl shadow-xs border border-suka-brown/10">
+                <div className="flex bg-white p-1.5 rounded-2xl shadow-xs border border-suka-brown/10 max-w-md mx-auto sm:mx-0">
                   <button
                     onClick={() => setMainTab('buat')}
-                    className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${mainTab === 'buat' ? 'bg-suka-orange text-white shadow-2xs' : 'text-suka-brown/70 hover:bg-suka-cream/50'}`}
+                    className={`flex-1 py-2.5 px-4 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      mainTab === 'buat'
+                        ? 'bg-suka-orange text-white shadow-2xs'
+                        : 'text-suka-brown/70 hover:bg-suka-cream/50'
+                    }`}
                   >
-                    Buat Baru
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Buat Baru</span>
                   </button>
                   <button
                     onClick={() => setMainTab('riwayat')}
-                    className={`flex-1 py-3 text-xs font-black uppercase tracking-wider rounded-xl transition-all cursor-pointer ${mainTab === 'riwayat' ? 'bg-suka-orange text-white shadow-2xs' : 'text-suka-brown/70 hover:bg-suka-cream/50'}`}
+                    className={`flex-1 py-2.5 px-4 text-xs font-extrabold uppercase tracking-wider rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      mainTab === 'riwayat'
+                        ? 'bg-suka-orange text-white shadow-2xs'
+                        : 'text-suka-brown/70 hover:bg-suka-cream/50'
+                    }`}
                   >
-                    Riwayat
+                    <History className="w-3.5 h-3.5" />
+                    <span>Riwayat</span>
                   </button>
                 </div>
               )}
@@ -84,7 +100,18 @@ export default function PermintaanPage() {
               )}
               
               {mainTab === 'riwayat' && selectedOutletId && (
-                <section className="space-y-3 animate-in fade-in slide-in-from-bottom-2">
+                <section className="space-y-4 animate-in fade-in slide-in-from-bottom-2 max-w-4xl">
+                  {justSubmittedMessage && (
+                    <div className="text-xs font-bold text-emerald-900 bg-emerald-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between gap-3 shadow-2xs animate-in fade-in">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>{justSubmittedMessage}</span>
+                      </div>
+                      <button onClick={() => setJustSubmittedMessage(null)} className="text-emerald-700 hover:text-emerald-900 font-black cursor-pointer">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
                   <PermintaanList key={`${selectedOutletId}-${refreshKey}`} outletId={selectedOutletId} />
                 </section>
               )}

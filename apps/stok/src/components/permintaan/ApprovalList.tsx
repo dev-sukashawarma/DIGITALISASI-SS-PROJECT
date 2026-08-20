@@ -4,7 +4,7 @@ import { useApprovalList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
-import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
 import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
 import type { BahanBaku } from '@/types/stok'
 import { ApprovalModal } from './ApprovalModal'
@@ -29,8 +29,8 @@ function ApprovalCardBudget({ outletId, items, bahanBakuMap }: {
     }
     const payload = items.map(it => {
       const b = bahanBakuMap.get(it.bahan_baku_id)
-      const qtyBase = b ? convertToBaseUnit(it.qty_diminta, b) : it.qty_diminta
-      return { bahan_baku_id: it.bahan_baku_id, qty: qtyBase }
+      const qtyDist = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta, b)) : it.qty_diminta
+      return { bahan_baku_id: it.bahan_baku_id, qty: qtyDist }
     })
     estimateCartValue(payload).then(r => setEstimate(r.totalNilai)).catch(() => setEstimate(0))
   }, [status?.hasConfig, items, bahanBakuMap])

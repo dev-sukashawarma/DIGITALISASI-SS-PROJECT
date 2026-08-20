@@ -79,9 +79,8 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
   useEffect(() => {
     const items = permintaan.items
       .map(it => {
-        const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
-        const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
-        return { bahan_baku_id: it.bahan_baku_id, qty: qtyDisetujuiBase }
+        const qtyDisetujuiDist = qtys[it.bahan_baku_id] ?? 0
+        return { bahan_baku_id: it.bahan_baku_id, qty: qtyDisetujuiDist }
       })
       .filter(it => it.qty > 0)
 
@@ -97,7 +96,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
       estimateCartValue(items).then(setLiveEstimate).catch(console.error)
     }, 400)
     return () => clearTimeout(timer)
-  }, [qtys, permintaan.items, bahanBaku])
+  }, [qtys, permintaan.items])
 
   const hasOverStock = permintaan.items.some(
     it => {

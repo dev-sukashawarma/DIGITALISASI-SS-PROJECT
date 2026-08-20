@@ -62,10 +62,16 @@ export function HargaBahanDetailModal({
               </span>
             </div>
             <h2 className="text-xl font-black text-suka-brown font-display">{item.nama}</h2>
-            <p className="text-xs text-suka-brown/70">
-              Satuan: <span className="font-bold text-suka-brown">{item.satuan || 'PCS'}</span> · Harga Pembelian Terakhir:{' '}
-              <span className="font-black text-suka-orange text-sm">
-                {item.harga_terakhir ? formatRupiah(item.harga_terakhir) : 'Belum ada pembelian'}
+            <p className="text-xs text-suka-brown/70 flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+              <span>Satuan: <strong className="text-suka-brown">{item.satuan || 'PCS'}</strong></span>
+              <span>·</span>
+              <span>Harga Master: <strong className="text-suka-brown">{item.harga_master != null ? formatRupiah(item.harga_master) : '—'}</strong></span>
+              <span>·</span>
+              <span>
+                PO Terakhir:{' '}
+                <strong className={item.harga_terakhir ? "text-suka-orange" : "text-suka-brown/50"}>
+                  {item.harga_terakhir ? formatRupiah(item.harga_terakhir) : 'Belum ada PO'}
+                </strong>
               </span>
             </p>
           </div>

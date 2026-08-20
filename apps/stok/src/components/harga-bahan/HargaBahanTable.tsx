@@ -80,7 +80,7 @@ export function HargaBahanTable({
           comparison = a.nama.localeCompare(b.nama)
           break
         case 'harga_terakhir':
-          comparison = (a.harga_terakhir ?? 0) - (b.harga_terakhir ?? 0)
+          comparison = (a.harga_terakhir ?? a.harga_master ?? 0) - (b.harga_terakhir ?? b.harga_master ?? 0)
           break
         case 'selisih_pct_prev':
           comparison = (a.selisih_pct_prev ?? -999) - (b.selisih_pct_prev ?? -999)
@@ -179,16 +179,19 @@ export function HargaBahanTable({
           )}
         </td>
 
-        {/* Harga Terakhir (Harga Beli Terbaru) */}
+        {/* Harga Terakhir / Master */}
         <td className="py-3.5 px-4 text-right">
           <div className="font-black text-suka-brown text-sm">
-            {formatRupiah(item.harga_terakhir)}
+            {formatRupiah(item.harga_terakhir ?? item.harga_master)}
           </div>
-          {item.satuan && (
-            <div className="text-[10px] text-suka-brown/50 font-bold">
-              /{item.satuan}
-            </div>
-          )}
+          <div className="flex items-center justify-end gap-1 text-[10px] text-suka-brown/50 font-bold">
+            {item.harga_terakhir === null && item.harga_master !== null && (
+              <span className="px-1.5 py-0.2 rounded bg-amber-100 text-amber-700 font-bold text-[9px] border border-amber-200">
+                Master
+              </span>
+            )}
+            {item.satuan && <span>/{item.satuan}</span>}
+          </div>
         </td>
 
         {/* Harga Pembelian Sebelumnya */}

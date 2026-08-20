@@ -99,6 +99,7 @@ export interface Order {
   payment_proof_url?: string | null
   cashier_name?: string | null
   pos_client?: string | null
+  is_offline_sync?: boolean | null
   created_at: string
   updated_at: string
 }

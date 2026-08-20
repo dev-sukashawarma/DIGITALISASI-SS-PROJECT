@@ -3,7 +3,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
-  FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote,
+  FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote, Store,
   QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
@@ -16,6 +16,7 @@ import { useHppByChannel } from '@/hooks/useHppByChannel'
 import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
 
 import type { Outlet } from '@/pos-types'
+import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import BranchFilter from '@/components/BranchFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
@@ -160,8 +161,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
-  const [selectedOutlet, setSelectedOutlet] = useState<string>(
-    initialOutlets.length === 1 ? initialOutlets[0].id : 'all'
+  const [selectedOutlets, setSelectedOutlets] = useState<string[]>(
+    initialOutlets.length === 1 ? [initialOutlets[0].id] : ['all']
   )
   const { physical: physicalOutlets, marketplace: marketplaceOutlets } = useMemo(
     () => splitOutletsByType(outlets),
@@ -172,8 +173,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     [marketplaceOutlets]
   )
   // selectedOutlet menunjuk salah satu dari outlet fisik.
-  const branchFilterValue = selectedOutlet
-  const [selectedChannel, setSelectedChannel] = useState<string>('all')
+  const branchFilterValue = selectedOutlets
+  const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
 
@@ -347,7 +348,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         .from('orders')
         .select('*, order_items(*, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))')
         .order('created_at', { ascending: false })
-      if (selectedOutlet !== 'all') query = query.eq('outlet_id', selectedOutlet)
+      if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
       if (ordersLt) query = query.lt('created_at', ordersLt)
       if (ordersLte) query = query.lte('created_at', ordersLte)
@@ -361,8 +362,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .eq('status', 'closed')
       .order('end_time', { ascending: false })
       
-    if (selectedOutlet !== 'all') {
-      qShifts = qShifts.eq('outlet_id', selectedOutlet)
+    if (!selectedOutlets.includes('all')) {
+      qShifts = qShifts.in('outlet_id', selectedOutlets)
     }
 
     if (range === 'today') {
@@ -422,7 +423,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }
 
     const fetchEcommerceOrders = async () => {
-      if (selectedOutlet !== 'all' && selectedOutlet !== 'ss-online') return []
+      if (!selectedOutlets.includes('all') && !selectedOutlets.includes('ss-online')) return []
 
       const allEc: any[] = []
       let offset = 0
@@ -469,8 +470,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
 
     let qSettlements = supabase.from('platform_settlements').select('*')
-    if (selectedOutlet !== 'all') {
-      qSettlements = qSettlements.eq('outlet_id', selectedOutlet)
+    if (!selectedOutlets.includes('all')) {
+      qSettlements = qSettlements.in('outlet_id', selectedOutlets)
     }
     if (dateStrRange.from) {
       qSettlements = qSettlements.gte('tanggal', dateStrRange.from)
@@ -480,7 +481,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }
 
     const [ordersData, ecommerceData, { data: shiftsData }, { data: menuItemsData }, { data: settlementsData }] = await Promise.all([
-      selectedOutlet !== 'ss-online' ? fetchAllOrders() : Promise.resolve([]), 
+      !selectedOutlets.includes('ss-online') ? fetchAllOrders() : Promise.resolve([]), 
       fetchEcommerceOrders(),
       qShifts, 
       menuItemsQuery,
@@ -498,7 +499,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     setMenuItems(menuItemsData ?? [])
     setSettlements(settlementsData ?? [])
     setLoading(false)
-  }, [range, selectedOutlet, customStartDate, customEndDate, dateStrRange])
+  }, [range, selectedOutlets, customStartDate, customEndDate, dateStrRange])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
@@ -506,8 +507,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   // tidak relevan untuk range yang dipilih (Agustus 2026 ke atas).
   const PAWOON_CHANNEL_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
   useEffect(() => {
-    if (!isPawoonVisible && PAWOON_CHANNEL_KEYS.has(selectedChannel)) {
-      setSelectedChannel('all')
+    if (!isPawoonVisible && selectedChannels.some(ch => PAWOON_CHANNEL_KEYS.has(ch))) {
+      setSelectedChannels(['all'])
     }
   }, [isPawoonVisible])
 
@@ -548,40 +549,31 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   // ─── Shared helper (used in analytics useMemo AND downloadCSVAllChannels) ───
   const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
+  const isChannelSelected = (target: string, order: any, src: string) => {
+    if (target === 'food_apps') return isFoodApp(src)
+    if (target === 'pos_kasir') return src === 'pos_kasir'
+    if (target === 'pos_pawoon_all') return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
+    if (target === 'pos_pawoon') {
+      if (src !== 'pos_pawoon' && src !== 'pos') return false
+      return !order.order_items.some((item: any) => item.menu_item_name.includes('FA'))
+    }
+    if (target === 'pos_fa') {
+      if (src !== 'pos_pawoon' && src !== 'pos') return false
+      return order.order_items.some((item: any) => item.menu_item_name.includes('FA'))
+    }
+    if (target === 'tiktokgo' || target === 'tiktok') return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(src)
+    return src === target
+  }
+
   // ─── Derived Analytics ───
   const analytics = useMemo(() => {
 
-    const filteredOrders = selectedChannel === 'all' 
+    const filteredOrders = selectedChannels.includes('all') 
       ? orders 
-      : selectedChannel === 'food_apps'
-        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key))
-        : selectedChannel === 'pos_kasir'
-        ? orders.filter(o => resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key === 'pos_kasir')
-        : selectedChannel === 'pos_pawoon_all'
-        ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
-          })
-        : selectedChannel === 'pos_pawoon'
-        ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            if (src !== 'pos_pawoon' && src !== 'pos') return false
-            return !o.order_items.some(item => item.menu_item_name.includes('FA'))
-          })
-        : selectedChannel === 'pos_fa'
-        ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            if (src !== 'pos_pawoon' && src !== 'pos') return false
-            return o.order_items.some(item => item.menu_item_name.includes('FA'))
-          })
-        : orders.filter(o => {
-            const k = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            const target = selectedChannel.toLowerCase()
-            if (target === 'tiktokgo' || target === 'tiktok') {
-              return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(k)
-            }
-            return k === target
-          })
+      : orders.filter(o => {
+          const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+          return selectedChannels.some(target => isChannelSelected(target.toLowerCase(), o, src))
+        })
 
     const completed = filteredOrders.filter(o => o.status === 'completed' || o.status === 'settled')
     const totalOrders = completed.length
@@ -683,9 +675,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let totalSettlement = 0
     let totalRealAdmin = 0
     let settlementDateRange = ''
-    if (selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') {
-      const ch = selectedChannel === 'tiktok' ? 'tiktokgo' : selectedChannel
-      const relevantSettlements = settlements.filter(s => s.platform === ch)
+    if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
+      const relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
       totalSettlement = relevantSettlements.reduce((sum, s) => {
         return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
       }, 0)
@@ -730,11 +721,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       totalRealAdmin,
       settlementDateRange
     }
-  }, [orders, shifts, selectedChannel, hppRows, menuItemByNameMap, settlements])
+  }, [orders, shifts, selectedChannels, hppRows, menuItemByNameMap, settlements])
 
-  const selectedOutletName = selectedOutlet === 'all' 
-    ? 'Semua Cabang' 
-    : outlets.find(o => o.id === selectedOutlet)?.name || 'Cabang Tidak Ditemukan'
+  const selectedOutletName = selectedOutlets.includes('all') 
+      ? 'Semua Cabang' 
+      : selectedOutlets.map(id => outlets.find(o => o.id === id)?.name).filter(Boolean).join(', ') || 'Cabang Tidak Ditemukan'
 
   const PAYMENT_META: Record<string, { label: string; color: string; bg: string; icon: any }> = {
     cash: { label: 'Tunai', color: '#10b981', bg: 'bg-emerald-50', icon: Banknote },
@@ -895,12 +886,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       dateRangeText = `${customStartDate || 'Awal'} s/d ${customEndDate || 'Sekarang'}`
     }
 
-    const channelObj = availableChannels.find(c => c.key === selectedChannel)
-    const channelLabelText = selectedChannel === 'all' 
+    const channelLabelText = selectedChannels.includes('all') 
       ? 'Semua Channel' 
-      : selectedChannel === 'food_apps' 
-        ? 'Semua Food Apps' 
-        : (channelObj?.label || selectedChannel)
+      : selectedChannels.map(ch => ch === 'food_apps' ? 'Semua Food Apps' : (availableChannels.find(c => c.key === ch)?.label || ch)).join(', ')
 
     await generateExecutiveItemReportPDF({
       outletName: selectedOutletName,
@@ -1036,37 +1024,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
   const downloadCSVAllChannels = () => {
     // 1. Gunakan filteredOrders agar sesuai dengan filter channel yang aktif di UI
-    const filteredForCSV = selectedChannel === 'all' 
+    const filteredForCSV = selectedChannels.includes('all') 
       ? orders
-      : selectedChannel === 'food_apps'
-        ? orders.filter(o => isFoodApp(resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key))
-        : selectedChannel === 'pos_kasir'
-        ? orders.filter(o => resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key === 'pos_kasir')
-        : selectedChannel === 'pos_pawoon_all'
-        ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            return src === 'pos_pawoon' || src === 'pos_fa' || src === 'pos'
-          })
-        : selectedChannel === 'pos_pawoon'
-        ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            if (src !== 'pos_pawoon' && src !== 'pos') return false
-            return !o.order_items.some(item => item.menu_item_name.includes('FA'))
-          })
-        : selectedChannel === 'pos_fa'
-        ? orders.filter(o => {
-            const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            if (src !== 'pos_pawoon' && src !== 'pos') return false
-            return o.order_items.some(item => item.menu_item_name.includes('FA'))
-          })
-        : orders.filter(o => {
-            const k = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
-            const target = selectedChannel.toLowerCase()
-            if (target === 'tiktokgo' || target === 'tiktok') {
-              return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(k)
-            }
-            return k === target
-          })
+      : orders.filter(o => {
+          const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+          return selectedChannels.some(target => isChannelSelected(target.toLowerCase(), o, src))
+        })
     const validOrders = filteredForCSV.filter(o => o.status === 'completed' || o.status === 'settled')
     if (validOrders.length === 0) return
 
@@ -1176,7 +1139,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    const channelSuffix = selectedChannel === 'all' ? 'Semua_Channel' : selectedChannel.replace(/[^a-zA-Z0-9]/g, '_')
+    const channelSuffix = selectedChannels.includes('all') ? 'Semua_Channel' : selectedChannels.join('_').replace(/[^a-zA-Z0-9]/g, '_')
     link.setAttribute('download', `Laporan_${channelSuffix}_${selectedOutletName}_${dateRangeText}.csv`)
     document.body.appendChild(link)
     link.click()
@@ -1201,27 +1164,27 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
           <div className="flex flex-wrap items-center gap-3">
             {initialOutlets.length > 1 && (
-              <BranchFilter
-                outlets={[
-                  { id: 'ss-online', name: 'SS Online (Semua Channel)', type: 'online' },
-                  ...physicalOutlets
+              <MultiSelectDropdown
+                icon={Store}
+                  options={[
+                  { id: 'ss-online', name: 'SS Online (Semua Channel)' },
+                  ...physicalOutlets.map(o => ({ id: o.id, name: o.name }))
                 ]}
-                selectedOutlet={branchFilterValue}
-                onChange={setSelectedOutlet}
+                selectedIds={branchFilterValue}
+                onChange={setSelectedOutlets}
+                allLabel="Semua Cabang"
               />
             )}
 
-            <select
-              value={selectedChannel}
-              onChange={e => setSelectedChannel(e.target.value)}
-              className="bg-white border border-gray-200 hover:border-gray-300 px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 transition-all shadow-sm outline-none cursor-pointer"
-            >
-              <option value="all">Semua Channel</option>
-              <option value="food_apps">Semua Food Apps</option>
-              {availableChannels.map(ch => (
-                <option key={ch.key} value={ch.key}>{ch.label}</option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              options={[
+                { id: 'food_apps', name: 'Semua Food Apps' },
+                ...availableChannels.map(ch => ({ id: ch.key, name: ch.label }))
+              ]}
+              selectedIds={selectedChannels}
+              onChange={setSelectedChannels}
+              allLabel="Semua Channel"
+            />
 
             <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
               <button
@@ -1355,7 +1318,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
           </div>
 
-          {(selectedChannel === 'tiktokgo' || selectedChannel === 'tiktok') && (
+          {(selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
               <div className="mb-4">
@@ -1562,14 +1525,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h2 className="font-bold text-gray-900 text-lg">Histori Transaksi Detail</h2>
-                  {selectedChannel !== 'all' && (
+                  {!selectedChannels.includes('all') && (
                     <button
                       type="button"
-                      onClick={() => { setSelectedChannel('all'); setCurrentPage(1); }}
+                      onClick={() => { setSelectedChannels(['all']); setCurrentPage(1); }}
                       className="inline-flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
                       title="Klik untuk hapus filter sumber"
                     >
-                      <span>Sumber: <strong className="font-bold">{availableChannels.find(c => c.key === selectedChannel)?.label || selectedChannel}</strong></span>
+                      <span>Sumber: <strong className="font-bold">{selectedChannels.map(ch => ch === 'food_apps' ? 'Semua Food Apps' : (availableChannels.find(c => c.key === ch)?.label || ch)).join(', ')}</strong></span>
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -1586,7 +1549,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   )}
                 </div>
                 <p className="text-gray-400 text-xs mt-0.5">
-                  {selectedChannel === 'all' && selectedPaymentMethod === 'all'
+                  {selectedChannels.includes('all') && selectedPaymentMethod === 'all'
                     ? 'Semua transaksi sukses pada periode ini' 
                     : `Menampilkan transaksi terfilter (${filteredTableData.length} transaksi)`}
                 </p>
@@ -1594,24 +1557,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 {/* Dropdown Select Sumber */}
-                <div className="relative flex-1 sm:flex-none min-w-[150px]">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <Filter className="h-4 w-4 text-amber-500" />
-                  </div>
-                  <select
-                    value={selectedChannel}
-                    onChange={(e) => {
-                      setSelectedChannel(e.target.value)
+                <div className="relative flex-1 sm:flex-none min-w-[180px]">
+                  <MultiSelectDropdown
+                    options={[
+                      { id: 'food_apps', name: 'Semua Food Apps' },
+                      ...availableChannels.map(ch => ({ id: ch.key, name: ch.label }))
+                    ]}
+                    selectedIds={selectedChannels}
+                    onChange={(ids) => {
+                      setSelectedChannels(ids)
                       setCurrentPage(1)
                     }}
-                    className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
-                  >
-                    <option value="all">Semua Sumber</option>
-                    <option value="food_apps">Semua Food Apps</option>
-                    {availableChannels.map(ch => (
-                      <option key={ch.key} value={ch.key}>{ch.label}</option>
-                    ))}
-                  </select>
+                    allLabel="Semua Sumber"
+                    className="w-full"
+                  />
                 </div>
 
                 {/* Dropdown Select Metode Bayar */}
@@ -1662,7 +1621,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                     <th className="px-5 py-4">
                       <div className="flex items-center gap-1.5">
                         <span>Sumber</span>
-                        <Filter className={`w-3.5 h-3.5 ${selectedChannel !== 'all' ? 'text-amber-600' : 'text-gray-400 opacity-50'}`} />
+                        <Filter className={`w-3.5 h-3.5 ${!selectedChannels.includes('all') ? 'text-amber-600' : 'text-gray-400 opacity-50'}`} />
                       </div>
                     </th>
                     <th className="px-5 py-4">
@@ -1769,7 +1728,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                               type="button"
                               onClick={() => {
                                 const srcKey = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse).key
-                                setSelectedChannel(prev => prev === srcKey ? 'all' : srcKey)
+                                setSelectedChannels(prev => prev.includes(srcKey) ? (prev.length === 1 ? ['all'] : prev.filter(x => x !== srcKey)) : [...prev.filter(x => x !== 'all'), srcKey])
                                 setCurrentPage(1)
                               }}
                               className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
@@ -2062,7 +2021,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           
           
           {/* Laporan Tutup Shift */}
-          {selectedOutlet !== 'ss-online' && (
+          {!selectedOutlets.includes('ss-online') && (
             <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80 mt-6 overflow-hidden no-print">
             <div>
               <h2 className="font-bold text-gray-900 text-lg">Laporan Laci Cash</h2>
@@ -2070,9 +2029,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {selectedOutlet === 'all' ? (
+              {selectedOutlets.includes('all') || selectedOutlets.length !== 1 ? (
                 <div className="col-span-full p-10 text-center bg-amber-50 rounded-xl border border-amber-100">
-                  <p className="text-amber-700 font-medium">Silakan pilih spesifik outlet di filter atas untuk melihat Laporan Laci Cash (Petty Cash).</p>
+                  <p className="text-amber-700 font-medium">Silakan pilih 1 spesifik outlet di filter atas untuk melihat Laporan Laci Cash (Petty Cash).</p>
                 </div>
               ) : shifts.length === 0 ? (
                 <div className="col-span-full p-10 text-center bg-gray-50 rounded-xl border border-gray-100">
@@ -2370,6 +2329,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     </div>
   )
 }
+
+
+
 
 
 

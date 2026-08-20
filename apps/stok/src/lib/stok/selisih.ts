@@ -24,7 +24,7 @@ export function isSelisihFlagged(
   satuan?: string,
   satuanKecil?: string | null,
 ): boolean {
-  if (qtySystem === 0) return false;
+  if (qtySystem === 0) return selisih !== 0;
 
   let threshold = 0.0; // default: countable (0%)
 

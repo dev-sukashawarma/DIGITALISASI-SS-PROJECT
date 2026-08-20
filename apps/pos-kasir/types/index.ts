@@ -97,6 +97,8 @@ export interface Order {
   promo_subsidy?: number | null
   scheduled_promo_names?: string[]
   payment_proof_url?: string | null
+  cashier_name?: string | null
+  pos_client?: string | null
   created_at: string
   updated_at: string
 }

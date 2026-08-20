@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, Clock, XCircle, ChevronDown, ChevronUp,
-  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap, AlertTriangle, Flame
+  Banknote, ShoppingBag, Search, Loader2, CornerDownRight, ChefHat, Store, Globe, PlusCircle, BellRing, User, Plus, Info, Printer, MessageSquare, Zap, AlertTriangle, Flame, Smartphone
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -340,6 +340,11 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                 <span className="uppercase font-bold text-[9px] tracking-wider bg-slate-200/80 px-2 py-0.5 rounded text-slate-800">
                   {order.payment_method?.toUpperCase() || 'CASH'}
                 </span>
+                {order.pos_client === 'native' && (
+                  <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-violet-100 px-1.5 py-0.5 rounded text-violet-700 border border-violet-200">
+                    <Smartphone className="w-2.5 h-2.5" /> Sync POS Native
+                  </span>
+                )}
                 {order.cashier_name && (
                   <span className="font-semibold text-[10px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wider">
                     Kasir: {order.cashier_name}
@@ -1640,6 +1645,11 @@ export default function KasirOrderClient({
                           <span className="uppercase font-bold text-[9px] tracking-wider bg-[#701604]/5 px-1.5 py-0.5 rounded text-slate-800/80">
                             {order.payment_method}
                           </span>
+                          {order.pos_client === 'native' && (
+                            <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-violet-100 px-1.5 py-0.5 rounded text-violet-700 border border-violet-200">
+                              <Smartphone className="w-2.5 h-2.5" /> Sync POS Native
+                            </span>
+                          )}
                         </p>
                       </div>
                     </div>

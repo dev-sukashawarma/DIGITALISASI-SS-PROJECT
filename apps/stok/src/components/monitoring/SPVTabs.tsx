@@ -32,7 +32,7 @@ export function SPVTabs({
     { id: 'budget_outlet', label: 'Plafon & Belanja Outlet', count: null },
     { id: 'waste_approval', label: 'Approval Waste', count: wasteApprovalCount || 0 },
     ...(showPOInbound ? [{ id: 'po_inbound' as SPVTabId, label: 'Penerimaan PO Supplier', count: poInboundCount || 0 }] : []),
-    { id: 'harga_bahan', label: 'Board Harga Vendor', count: null },
+    { id: 'harga_bahan', label: 'Master Harga Bahan Baku', count: null },
   ];
 
   const tabs = readOnlyTabs

@@ -154,10 +154,10 @@ export function HargaBahanBoard({
           )}
           <div>
             <h1 className="text-xl md:text-2xl font-black text-suka-brown font-display flex items-center gap-2">
-              <span>Board Informasi Harga Bahan Baku</span>
+              <span>Master Harga Bahan Baku</span>
             </h1>
             <p className="text-xs text-suka-brown/70 mt-0.5">
-              Pantau pergerakan dan fluktuasi harga bahan baku setelah pembelian dari vendor.
+              Kelola master data dan pantau pergerakan harga beli bahan baku dari vendor.
             </p>
           </div>
         </div>

@@ -148,8 +148,13 @@ export async function getAllOutletsBudgetStatus(): Promise<OutletBudgetSummaryIt
 
   if (errOutlets) throw new Error(errOutlets.message)
 
+  const hiddenOutletNames = ['GUDANG PUSAT (HQ)', 'KANTOR PUSAT', 'Shopee', 'TikTok Shop']
+  
   const filteredOutlets = (outlets ?? []).filter(
-    (o) => o.id !== '00000000-0000-0000-0000-000000000000' && (accessibleIds.size === 0 || accessibleIds.has(o.id))
+    (o) => 
+      o.id !== '00000000-0000-0000-0000-000000000000' && 
+      !hiddenOutletNames.includes(o.name) &&
+      (accessibleIds.size === 0 || accessibleIds.has(o.id))
   )
 
   // Ambil info config terakhir beserta nama staf pengubah

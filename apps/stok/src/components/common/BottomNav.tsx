@@ -78,7 +78,7 @@ export function BottomNav() {
     {
       href: '/stok/harga-bahan',
       icon: Tag,
-      label: 'Board Harga Vendor',
+      label: 'Master Harga Bahan Baku',
       desc: 'Master harga beli & supplier bahan baku',
       badge: 0,
     },

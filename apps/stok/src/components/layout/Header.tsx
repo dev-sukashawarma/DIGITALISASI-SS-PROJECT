@@ -29,7 +29,7 @@ export const Header = () => {
           href="/stok/harga-bahan"
           className="px-3 py-1.5 bg-[#faf2e9] hover:bg-[#ffdcc2] text-[#701604] border border-[#d9c2b2] rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
         >
-          <span>🏷️</span> Board Harga Vendor
+          <span>🏷️</span> Master Harga Bahan Baku
         </a>
         {isKitchen && (
           <a

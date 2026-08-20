@@ -62,7 +62,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // Role permissions
   const isApprover = isApproverRole(role)
   const canReceivePO = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
-  const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
+  const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
   const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer'].includes(role ?? '')
   const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
   const canViewHPP = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
@@ -131,7 +131,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
         ...(canViewVendorPrices
           ? [
               {
-                label: 'Board Harga Vendor',
+                label: 'Master Harga Bahan Baku',
                 href: '/stok/harga-bahan',
                 icon: Tag,
               },

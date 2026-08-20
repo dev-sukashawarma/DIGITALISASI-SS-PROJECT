@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { X, Sliders, History, User, Clock, Check, AlertCircle } from 'lucide-react'
 import { useOutletBudgetHistory, useUpdateOutletBudgetConfig } from '@/hooks/useOutletBudget'
 import type { OutletBudgetSummaryItem } from '@/types/budgetMonitoring'
-import type { PeriodType } from '@/lib/stok/budget'
+
 
 interface Props {
   outlet: OutletBudgetSummaryItem | null
@@ -24,8 +24,6 @@ function formatRupiah(val: number): string {
 
 export function OutletBudgetConfigModal({ outlet, onClose, onSuccess }: Props) {
   const [nominal, setNominal] = useState<string>('')
-  const [periodType, setPeriodType] = useState<PeriodType>('mingguan')
-  const [customDays, setCustomDays] = useState<string>('7')
   const [catatan, setCatatan] = useState<string>('')
   const [showHistory, setShowHistory] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -36,8 +34,6 @@ export function OutletBudgetConfigModal({ outlet, onClose, onSuccess }: Props) {
   useEffect(() => {
     if (outlet) {
       setNominal(outlet.hasConfig ? String(outlet.nominal) : '10000000')
-      setPeriodType(outlet.periodType || 'mingguan')
-      setCustomDays(outlet.customDays ? String(outlet.customDays) : '7')
       setCatatan('')
       setErrorMsg(null)
     }
@@ -61,18 +57,12 @@ export function OutletBudgetConfigModal({ outlet, onClose, onSuccess }: Props) {
       return
     }
 
-    const numDays = periodType === 'custom' ? Number(customDays) : null
-    if (periodType === 'custom' && (!numDays || numDays < 1)) {
-      setErrorMsg('Jumlah hari kustom minimal 1 hari')
-      return
-    }
-
     try {
       await updateMutation.mutateAsync({
         outletId: outlet.outletId,
         nominal: numNominal,
-        periodType,
-        customDays: numDays,
+        periodType: 'mingguan',
+        customDays: null,
         catatan: catatan.trim() || undefined,
       })
       onSuccess?.()
@@ -164,56 +154,6 @@ export function OutletBudgetConfigModal({ outlet, onClose, onSuccess }: Props) {
             </div>
           </div>
 
-          {/* Pilihan Tipe Periode */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-suka-brown uppercase tracking-wider">
-              Tipe Siklus Periode
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {(
-                [
-                  { id: 'harian', label: 'Harian', desc: 'Reset tiap hari' },
-                  { id: 'mingguan', label: 'Mingguan', desc: 'Reset 7 hari' },
-                  { id: 'bulanan', label: 'Bulanan', desc: 'Reset tgl 1' },
-                  { id: 'custom', label: 'Kustom', desc: 'Pilihan hari' },
-                ] as const
-              ).map((p) => (
-                <button
-                  type="button"
-                  key={p.id}
-                  onClick={() => setPeriodType(p.id)}
-                  className={`p-3 rounded-2xl border text-left transition-all cursor-pointer ${
-                    periodType === p.id
-                      ? 'bg-suka-orange/10 border-suka-orange ring-1 ring-suka-orange'
-                      : 'bg-white hover:bg-suka-cream/30 border-suka-brown/15'
-                  }`}
-                >
-                  <p className={`text-xs font-black ${periodType === p.id ? 'text-suka-orange' : 'text-suka-brown'}`}>
-                    {p.label}
-                  </p>
-                  <p className="text-[10px] text-suka-brown/60 mt-0.5">{p.desc}</p>
-                </button>
-              ))}
-            </div>
-
-            {/* Custom days input */}
-            {periodType === 'custom' && (
-              <div className="pt-2 animate-in fade-in duration-150">
-                <label className="block text-[11px] font-bold text-suka-brown/70 mb-1">
-                  Durasi Siklus (Jumlah Hari)
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="365"
-                  value={customDays}
-                  onChange={(e) => setCustomDays(e.target.value)}
-                  className="w-32 px-3 py-2 bg-white border border-suka-brown/20 rounded-xl text-xs font-bold text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange"
-                />
-              </div>
-            )}
-          </div>
-
           {/* Catatan / Alasan Perubahan (Audit Trail) */}
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-suka-brown uppercase tracking-wider">
@@ -223,7 +163,7 @@ export function OutletBudgetConfigModal({ outlet, onClose, onSuccess }: Props) {
               type="text"
               value={catatan}
               onChange={(e) => setCatatan(e.target.value)}
-              placeholder="Contoh: Penyesuaian event akhir bulan / kenaikan omzet"
+              placeholder="Contoh: Kenaikan batas top-up karena event akhir bulan"
               className="w-full px-4 py-2.5 bg-white border border-suka-brown/20 rounded-xl text-xs text-suka-brown focus:outline-none focus:ring-2 focus:ring-suka-orange"
             />
           </div>

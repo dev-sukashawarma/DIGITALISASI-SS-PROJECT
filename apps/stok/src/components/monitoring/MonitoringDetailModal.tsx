@@ -183,7 +183,7 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                             <span>🍽️</span> Terpakai Penjualan (BOM):
                           </dt>
                           <dd className="font-bold text-[#a43c26]">
-                            -{formattedPemakaian}
+                            {formattedPemakaian}
                           </dd>
                         </div>
                       )}

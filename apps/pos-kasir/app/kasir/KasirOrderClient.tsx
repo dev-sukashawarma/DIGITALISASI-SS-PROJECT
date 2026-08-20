@@ -340,9 +340,9 @@ const cardBg = isPending ? 'bg-amber-50/50 border-amber-200/60' : 'bg-blue-50/50
                 <span className="uppercase font-bold text-[9px] tracking-wider bg-slate-200/80 px-2 py-0.5 rounded text-slate-800">
                   {order.payment_method?.toUpperCase() || 'CASH'}
                 </span>
-                {order.pos_client === 'native' && (
+                {order.pos_client === 'native' && order.source !== 'online' && (
                   <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-violet-100 px-1.5 py-0.5 rounded text-violet-700 border border-violet-200">
-                    <Smartphone className="w-2.5 h-2.5" /> Sync POS Native
+                    <Smartphone className="w-2.5 h-2.5" /> Offline Sync Native
                   </span>
                 )}
                 {order.cashier_name && (
@@ -1645,9 +1645,9 @@ export default function KasirOrderClient({
                           <span className="uppercase font-bold text-[9px] tracking-wider bg-[#701604]/5 px-1.5 py-0.5 rounded text-slate-800/80">
                             {order.payment_method}
                           </span>
-                          {order.pos_client === 'native' && (
+                          {order.pos_client === 'native' && order.source !== 'online' && (
                             <span className="flex items-center gap-1 uppercase font-bold text-[9px] tracking-wider bg-violet-100 px-1.5 py-0.5 rounded text-violet-700 border border-violet-200">
-                              <Smartphone className="w-2.5 h-2.5" /> Sync POS Native
+                              <Smartphone className="w-2.5 h-2.5" /> Offline Sync Native
                             </span>
                           )}
                         </p>

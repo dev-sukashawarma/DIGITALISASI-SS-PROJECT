@@ -27,6 +27,10 @@ export interface SaranItem {
   status: 'below' | 'warning'
 }
 
+const EMPTY_SARAN: SaranItem[] = []
+const EMPTY_PERMINTAAN_OUTLET: Awaited<ReturnType<typeof fetchPermintaanOutlet>> = []
+const EMPTY_PERMINTAAN_PENDING: Awaited<ReturnType<typeof fetchPermintaanPending>> = []
+
 // ---------------------------------------------------------------------------
 // Hook: useSaranItem — pakai monitoring_view_crew (SECURITY DEFINER, bypass RLS)
 // ---------------------------------------------------------------------------
@@ -69,7 +73,7 @@ export function useSaranItem(outletId: string | undefined) {
     }
   }, [error])
 
-  return { saran: data ?? [], loading: isLoading }
+  return { saran: data ?? EMPTY_SARAN, loading: isLoading }
 }
 
 // ---------------------------------------------------------------------------
@@ -101,7 +105,7 @@ export function usePermintaanList(outletId: string | undefined) {
   })
 
   return {
-    permintaan: data ?? [],
+    permintaan: data ?? EMPTY_PERMINTAAN_OUTLET,
     loading: isLoading,
     error: error ? (error as Error).message : null,
     refresh: refetch,
@@ -138,7 +142,7 @@ export function useApprovalList(enabled: boolean = true) {
   })
 
   return {
-    permintaan: data ?? [],
+    permintaan: data ?? EMPTY_PERMINTAAN_PENDING,
     loading: isLoading,
     error: error ? (error as Error).message : null,
     refresh: refetch,

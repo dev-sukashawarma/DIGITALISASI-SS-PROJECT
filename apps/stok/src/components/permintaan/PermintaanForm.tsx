@@ -1,6 +1,6 @@
 // apps/stok/src/components/permintaan/PermintaanForm.tsx
 'use client'
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useSaranItem, usePermintaanActions, usePermintaanList } from '@/hooks/usePermintaan'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
@@ -41,9 +41,11 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
     )
   }, [existingList])
 
+  const prevCartViewRef = useRef(isCartView)
   useEffect(() => {
-    if (onCartViewChange) {
-      onCartViewChange(isCartView)
+    if (prevCartViewRef.current !== isCartView) {
+      prevCartViewRef.current = isCartView
+      onCartViewChange?.(isCartView)
     }
   }, [isCartView, onCartViewChange])
 
@@ -80,12 +82,17 @@ export function PermintaanForm({ outletId, onSubmitSuccess, onCartViewChange }: 
       .filter(it => it.qty > 0)
 
     if (items.length === 0) {
-      setCartEstimate({ totalNilai: 0, itemTanpaHarga: [] })
+      setCartEstimate(prev => {
+        if (prev.totalNilai === 0 && prev.itemTanpaHarga.length === 0) return prev
+        return { totalNilai: 0, itemTanpaHarga: [] }
+      })
       return
     }
 
     const timer = setTimeout(() => {
-      estimateCartValue(items).then(setCartEstimate).catch(console.error)
+      estimateCartValue(items).then(res => {
+        setCartEstimate(res)
+      }).catch(console.error)
     }, 500)
 
     return () => clearTimeout(timer)

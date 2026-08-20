@@ -14,6 +14,8 @@ async function fetchBahanBaku(): Promise<BahanBaku[]> {
   return (data as BahanBaku[]) ?? []
 }
 
+const EMPTY_BAHAN: BahanBaku[] = []
+
 /**
  * Master bahan baku (reference data, jarang berubah). Di-cache via react-query
  * dengan staleTime panjang supaya tidak refetch tiap komponen mount/navigasi.
@@ -26,7 +28,7 @@ export function useBahanBaku() {
     gcTime: 30 * 60 * 1000,
   })
   return {
-    bahanBaku: data ?? [],
+    bahanBaku: data ?? EMPTY_BAHAN,
     loading: isLoading,
     error: error ? (error as Error).message : null,
   }

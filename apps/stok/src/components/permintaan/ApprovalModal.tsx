@@ -86,7 +86,10 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
       .filter(it => it.qty > 0)
 
     if (items.length === 0) {
-      setLiveEstimate({ totalNilai: 0, itemTanpaHarga: [] })
+      setLiveEstimate(prev => {
+        if (prev.totalNilai === 0 && prev.itemTanpaHarga.length === 0) return prev
+        return { totalNilai: 0, itemTanpaHarga: [] }
+      })
       return
     }
 

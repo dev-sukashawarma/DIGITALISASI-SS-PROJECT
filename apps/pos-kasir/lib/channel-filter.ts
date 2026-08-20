@@ -69,3 +69,33 @@ export function matchesChannelFilter(
   const ids = filter === 'food_apps' ? FOOD_APP_IDS : idsFor(filter)
   return ids.includes(channel ?? '') || ids.includes(salesSource ?? '')
 }
+
+/** Order ini dari food app (GoFood/GrabFood/ShopeeFood/TikTok)? Cek `channel` DAN `sales_source`. */
+export function isFoodAppOrder(order: { channel?: string | null; sales_source?: string | null }): boolean {
+  const channel = (order.channel ?? '').toLowerCase()
+  const salesSource = (order.sales_source ?? '').toLowerCase()
+  return FOOD_APP_IDS.includes(channel) || FOOD_APP_IDS.includes(salesSource)
+}
+
+/**
+ * Omzet satu order = `total_amount`, apa adanya. JANGAN menambahkan
+ * `discount_amount` / `promo_subsidy` ke sini — itu bug yang sudah dua kali terjadi.
+ *
+ * Alasannya, di SEMUA jalur pembuatan order (checkout, walk-in, manual) `total_amount`
+ * sudah menjadi angka final yang benar untuk masing-masing kasus:
+ *
+ * - Promo offline (dine-in/walk-in/website): diskon dibakar ke `unit_price`, jadi
+ *   `total_amount` = harga SETELAH diskon. Diskon harus MENGURANGI omzet, maka cukup
+ *   pakai total_amount. `discount_amount` cuma catatan berapa yang sudah dipotong —
+ *   menambahkannya balik justru bikin promo menaikkan omzet.
+ * - Food apps (GoFood/GrabFood/ShopeeFood/TikTok): `total_amount` = harga menu ASLI;
+ *   subsidi promo app sengaja tidak dipotong (lihat app/api/orders/manual/route.ts,
+ *   `finalTotal = isFoodApp ? total : ...`). `promo_subsidy` murni info "Potongan App"
+ *   dan ditampilkan terpisah, bukan bagian dari omzet.
+ *
+ * Helper ini sengaja dibuat agar semua permukaan (histori, laporan, dashboard kasir,
+ * analitik admin) memakai satu definisi yang sama.
+ */
+export function getOrderGrossAmount(order: { total_amount?: number | null }): number {
+  return Number(order.total_amount) || 0
+}

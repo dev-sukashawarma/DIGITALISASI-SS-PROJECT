@@ -16,7 +16,7 @@ import { cleanItemName } from '@/lib/order-item-name'
 import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
-import { applyChannelFilter } from '@/lib/channel-filter'
+import { applyChannelFilter, isFoodAppOrder } from '@/lib/channel-filter'
 import { db } from '@/lib/db'
 import { fetchWithTimeout } from '@/lib/offline-utils'
 import { fetchAnalyticsData } from './actions'
@@ -94,7 +94,7 @@ async function fetchOutletAnalytics(
     console.warn('Network error fetching report analytics, falling back to Dexie cache', err)
     const cached = await db.app_state.get(`reports_analytics:${outletId}:${range}:${channelFilter}:${paymentFilter}:${statusFilter}`).catch(() => undefined)
     return cached?.value ?? {
-      totalRevenue: 0, totalDeductions: 0, netRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
+      totalRevenue: 0, totalDeductions: 0, totalPromoSubsidy: 0, netRevenue: 0, totalOrders: 0, avgOrderValue: 0, pendingCount: 0, canceledCount: 0,
       paymentBreakdown: {}, hourly: Array(24).fill(0), dailyEntries: [], bestSellers: [], categoryData: []
     }
   }
@@ -319,8 +319,11 @@ export default function ReportsPage() {
     const totalCashVariance = (shifts || []).reduce((s, shift) => s + (shift.variance || 0), 0)
 
     let totalDeductions = base.totalDeductions || 0
+    let totalPromoSubsidy = base.totalPromoSubsidy || 0
     let netRevenue = base.netRevenue || 0
-    let totalRevenue = base.totalRevenue || (netRevenue + totalDeductions)
+    // Omzet = total_amount apa adanya. Diskon offline sudah terpotong di dalamnya,
+    // subsidi food apps tidak pernah memotongnya. Jangan tambahkan totalDeductions.
+    let totalRevenue = base.totalRevenue || netRevenue
     let totalOrders = base.totalOrders || 0
     let totalItemsSold = base.totalItemsSold || 0
     let pendingCount = base.pendingCount || 0
@@ -352,6 +355,7 @@ export default function ReportsPage() {
     return {
       totalRevenue,
       totalDeductions,
+      totalPromoSubsidy,
       netRevenue,
       totalOrders,
       totalItemsSold,
@@ -540,8 +544,8 @@ export default function ReportsPage() {
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (4 Spacious Cards) ── */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* ── KPI Cards (5 Spacious Cards) ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Net Revenue (Omzet Bersih) -> Changed to Gross Revenue (Omzet Kotor) per user request */}
             <div className="card p-5 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
@@ -552,7 +556,20 @@ export default function ReportsPage() {
                 <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
                 <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sebelum potongan promo/diskon</p>
+              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sudah dipotong promo offline · food apps pakai harga asli</p>
+            </div>
+
+            {/* Potongan App: subsidi promo food apps — info saja, TIDAK mengurangi Omzet Kotor
+                (food apps dicatat dengan harga menu asli, lihat lib/channel-filter.ts) */}
+            <div className="card p-5 flex flex-col justify-between min-w-0">
+              <div className="min-w-0">
+                <div className="w-8 h-8 bg-red-50 rounded-xl flex items-center justify-center mb-2">
+                  <XCircle className="w-4 h-4 text-red-500" strokeWidth={1.5} />
+                </div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Potongan App</p>
+                <p className="text-xl sm:text-2xl font-black text-red-500 mt-1 whitespace-nowrap">{formatRupiah(analytics.totalPromoSubsidy)}</p>
+              </div>
+              <p className="text-[10px] text-gray-400 mt-2 font-medium">Subsidi promo GoFood/GrabFood/dll</p>
             </div>
 
             {/* Total Orders */}
@@ -940,8 +957,14 @@ export default function ReportsPage() {
                     </tr>
                   ) : (
                     paginatedData.map((order: any) => {
-                      const orderSubtotal = (order.order_items || []).reduce((sum: number, i: any) => sum + (Number(i.subtotal) || 0), 0)
-                      const discount = orderSubtotal - (Number(order.total_amount) || 0)
+                      // Diskon promo offline yang SUDAH terpotong dari Total Transaksi.
+                      // Pakai kolom discount_amount, bukan (subtotal item − total_amount):
+                      // diskon dibakar ke unit_price sehingga selisih itu selalu 0.
+                      // Food apps dikecualikan — di sana discount_amount tidak memotong total,
+                      // yang relevan adalah promo_subsidy (baris "Potongan App" di bawah).
+                      const discount = isFoodAppOrder(order)
+                        ? 0
+                        : (Number(order.discount_amount) || 0)
                       return (
                       <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
                         <td className="px-5 py-4 font-bold text-gray-900">
@@ -966,6 +989,12 @@ export default function ReportsPage() {
                             <div className="whitespace-normal leading-tight text-[11px] flex items-center gap-1.5 mt-1 pt-1 border-t border-gray-100/60">
                               <span className="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">Promo</span>
                               <span className="text-red-500">- {formatRupiah(discount)}</span>
+                            </div>
+                          )}
+                          {(Number(order.promo_subsidy) || 0) > 0 && (
+                            <div className="whitespace-normal leading-tight text-[11px] flex items-center gap-1.5 mt-1 pt-1 border-t border-gray-100/60">
+                              <span className="font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap">Potongan App</span>
+                              <span className="text-orange-500">- {formatRupiah(order.promo_subsidy)}</span>
                             </div>
                           )}
                           {order.status === 'cancelled' && (order.cancellation_reason || order.void_reason) && (

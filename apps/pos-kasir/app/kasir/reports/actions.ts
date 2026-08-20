@@ -1,7 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { applyChannelFilter } from '@/lib/channel-filter'
+import { applyChannelFilter, isFoodAppOrder } from '@/lib/channel-filter'
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
 
@@ -68,14 +68,20 @@ export async function fetchAnalyticsData(
 
     const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
 
+    // Potongan promo offline yang SUDAH terpotong dari total_amount — info saja,
+    // jangan ditambahkan balik ke omzet (lihat getOrderGrossAmount di lib/channel-filter.ts).
     const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-      // Sesuai instruksi: promo_subsidy (Potongan App) tidak dimasukkan ke perhitungan omzet kotor,
-      // sehingga Omzet Kotor untuk food apps hanya senilai uang yang dibayar (total_amount / harga asli).
-      // Diskon Offline (discount_amount) tetap disertakan.
+      if (isFoodAppOrder(o)) return s
       return s + (Number(o.discount_amount) || 0)
     }, 0)
 
-    const totalRevenue = netRevenue + totalDeductions
+    // Potongan App: subsidi promo food apps. Tidak memotong total_amount (food apps
+    // dicatat dengan harga menu asli), ditampilkan terpisah untuk rekonsiliasi.
+    const totalPromoSubsidy = completedOrders.reduce((s: number, o: any) => {
+      return isFoodAppOrder(o) ? s + (Number(o.promo_subsidy) || 0) : s
+    }, 0)
+
+    const totalRevenue = netRevenue
     const totalOrders = completedOrders.length
     const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length
     const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled' || o.cancellation_status === 'pending_approval').length
@@ -122,6 +128,7 @@ export async function fetchAnalyticsData(
     return {
       totalRevenue,
       totalDeductions,
+      totalPromoSubsidy,
       netRevenue,
       totalOrders,
       totalItemsSold,

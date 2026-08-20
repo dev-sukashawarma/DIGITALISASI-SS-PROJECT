@@ -5,6 +5,7 @@
 
 import type { Outlet } from '@/types'
 import { resolveOrderSource, type OrderSourceInfo } from './order-source'
+import { getOrderGrossAmount } from './channel-filter'
 
 export type ChartRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom'
 
@@ -132,8 +133,7 @@ export function computeAnalytics(
     ? orders.filter(o => inRange(o.created_at, prevStart, prevEnd))
     : []
 
-  const getOrderGross = (o: OrderRow) =>
-    (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+  const getOrderGross = (o: OrderRow) => getOrderGrossAmount(o)
 
   const todayRevenue = periodOrders.reduce((s, o) => s + getOrderGross(o), 0)
   const totalOrdersCount = periodOrders.length

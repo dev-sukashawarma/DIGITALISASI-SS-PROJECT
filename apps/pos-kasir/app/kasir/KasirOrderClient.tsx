@@ -17,6 +17,7 @@ import {
 } from '@/lib/offline'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
+import { getOrderGrossAmount } from '@/lib/channel-filter'
 import ChannelBadge from '@/components/ChannelBadge'
 import StockMarquee from '@/components/StockMarquee'
 import { useStockAlerts } from '@/lib/useStockAlerts'
@@ -1259,7 +1260,7 @@ export default function KasirOrderClient({
     return (o.order_number?.toString() || '').includes(searchQuery)
   })
 
-  const todayRevenue = completedOrders.reduce((sum, o) => sum + (o.total_amount || 0) + ((o as any).discount_amount || 0) + ((o as any).promo_subsidy || 0), 0)
+  const todayRevenue = completedOrders.reduce((sum, o) => sum + getOrderGrossAmount(o), 0)
 
   // Helper untuk merender card pesanan aktif (Pending & Preparing)
 

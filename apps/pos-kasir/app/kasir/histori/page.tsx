@@ -13,7 +13,7 @@ import { cacheOrders, readCachedOrders, localOrderRowsToOrders } from '@/lib/off
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import { CHANNELS } from '@/lib/channels'
-import { applyChannelFilter, matchesChannelFilter } from '@/lib/channel-filter'
+import { applyChannelFilter, matchesChannelFilter, getOrderGrossAmount, isFoodAppOrder } from '@/lib/channel-filter'
 import { formatRupiah } from '@/lib/validations'
 import { Skeleton } from '@/components/Skeleton'
 import type { OrderWithItems, OrderStatus } from '@/types'
@@ -170,24 +170,30 @@ export default function AdminOrdersPage() {
     return matchesChannelFilter(order as any, channelFilter);
   });
 
-  const getGrossAmount = (o: any) =>
-    (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+  const activeOrders = filteredOrders.filter(
+    (o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval'
+  )
 
-  const totalRevenue = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval')
-    .reduce((s, o) => s + getGrossAmount(o), 0)
+  const totalRevenue = activeOrders.reduce((s, o) => s + getOrderGrossAmount(o), 0)
 
-  const revenueCash = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'cash')
-    .reduce((s, o) => s + getGrossAmount(o), 0)
+  const revenueCash = activeOrders
+    .filter((o) => o.payment_method === 'cash')
+    .reduce((s, o) => s + getOrderGrossAmount(o), 0)
 
-  const revenueQris = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'qris')
-    .reduce((s, o) => s + getGrossAmount(o), 0)
+  const revenueQris = activeOrders
+    .filter((o) => o.payment_method === 'qris')
+    .reduce((s, o) => s + getOrderGrossAmount(o), 0)
 
-  const revenueDebit = filteredOrders
-    .filter((o) => o.status !== 'cancelled' && (o as any).cancellation_status !== 'pending_approval' && o.payment_method === 'card')
-    .reduce((s, o) => s + getGrossAmount(o), 0)
+  const revenueDebit = activeOrders
+    .filter((o) => o.payment_method === 'card')
+    .reduce((s, o) => s + getOrderGrossAmount(o), 0)
+
+  // Potongan App: subsidi promo food apps (GoFood/GrabFood/ShopeeFood/TikTok) yang
+  // diinput kasir saat order manual — TIDAK mengurangi omzet (food apps dicatat
+  // dengan harga menu asli), tapi tetap perlu diketahui berapa besarnya.
+  const totalPromoSubsidy = activeOrders
+    .filter((o) => isFoodAppOrder(o as any))
+    .reduce((s, o) => s + (Number((o as any).promo_subsidy) || 0), 0)
 
   return (
     <div className="space-y-6" suppressHydrationWarning>
@@ -242,7 +248,7 @@ export default function AdminOrdersPage() {
           </div>
 
       {/* ── Stat cards ── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="card p-5 bg-white text-gray-900 border border-gray-100">
           <div className="w-9 h-9 bg-emerald-100 rounded-2xl flex items-center justify-center mb-3">
             <Banknote className="w-4.5 h-4.5 text-emerald-600" strokeWidth={1.5} />
@@ -274,6 +280,16 @@ export default function AdminOrdersPage() {
           </div>
           <p className="text-xs font-semibold text-amber-100/80 uppercase tracking-widest">Omzet Kotor</p>
           <p className="text-xl font-bold mt-0.5 leading-tight">{formatRupiah(totalRevenue)}</p>
+        </div>
+
+        {/* Potongan App (subsidi promo food apps) — info saja, tidak mengurangi Omzet Kotor di atas */}
+        <div className="card p-5 bg-white text-gray-900 border border-gray-100">
+          <div className="w-9 h-9 bg-red-100 rounded-2xl flex items-center justify-center mb-3">
+            <XCircle className="w-4.5 h-4.5 text-red-500" strokeWidth={1.5} />
+          </div>
+          <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Potongan App</p>
+          <p className="text-xl font-bold mt-0.5 leading-tight text-red-500">{formatRupiah(totalPromoSubsidy)}</p>
+          <p className="text-[10px] text-gray-400 mt-1 font-medium">Subsidi promo GoFood/GrabFood/dll</p>
         </div>
       </div>
 
@@ -555,9 +571,15 @@ export default function AdminOrdersPage() {
                     </div>
 
                     {(() => {
-                      const itemsSubtotal = order.order_items.reduce((sum, item) => sum + item.subtotal, 0);
-                      const discountAmount = Math.max(0, itemsSubtotal - order.total_amount);
-                      
+                      // Diskon promo offline yang SUDAH terpotong dari total di atas.
+                      // Sumbernya kolom discount_amount — bukan (subtotal item − total_amount),
+                      // karena diskon sudah dibakar ke unit_price sehingga selisih itu selalu 0.
+                      // Food apps dikecualikan: di sana total_amount = harga menu asli dan
+                      // discount_amount tidak pernah memotongnya (lihat baris Potongan App di bawah).
+                      const discountAmount = isFoodAppOrder(order as any)
+                        ? 0
+                        : (Number((order as any).discount_amount) || 0);
+
                       if (discountAmount > 0) {
                         return (
                           <div className="mt-3 py-2 flex justify-between text-sm items-center gap-2 border-t border-red-100 bg-red-50/50 rounded-lg px-3">
@@ -570,6 +592,17 @@ export default function AdminOrdersPage() {
                       }
                       return null;
                     })()}
+
+                    {/* Potongan App: subsidi promo food apps — TIDAK memotong total di atas
+                        (total_amount = harga menu asli), murni info untuk rekonsiliasi. */}
+                    {isFoodAppOrder(order as any) && (Number((order as any).promo_subsidy) || 0) > 0 && (
+                      <div className="py-2 flex justify-between text-sm items-center gap-2 border-t border-orange-100 bg-orange-50/50 rounded-lg px-3">
+                        <span className="font-semibold text-orange-600">Potongan App (info)</span>
+                        <span className="font-bold text-orange-600 flex-shrink-0">
+                          - {formatRupiah((order as any).promo_subsidy)}
+                        </span>
+                      </div>
+                    )}
 
                     {order.notes && (
                       <div className="bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 text-sm text-amber-800 break-words whitespace-pre-wrap">

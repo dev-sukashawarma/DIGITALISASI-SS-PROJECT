@@ -665,42 +665,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
     const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
-    // Deductions calculation (Meliputi diskon order, diskon item menu POS Kasir, dan subsidi promo Food Apps di semua channel)
+    // Deductions calculation (Potongan promo subsidi food apps & diskon)
     const totalDeductions = completed.reduce((s, o) => {
       const disc = Number((o as any).discount_amount) || 0
       const promo = Number((o as any).promo_subsidy) || 0
-      if (disc > 0 || promo > 0) {
-        return s + disc + promo
-      }
-      const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
-      return s + itemDiff
+      return s + disc + promo
     }, 0)
 
-
-
-    // CATATAN (diperbarui 2026-07-31): actualNetRevenue SUDAH menghitung void
-    // (lihat computeNetRevenueVoidAware di atas) — JANGAN kurangi void lagi di
-    // sini, itu akan jadi double-subtract. Sebelum perbaikan 2026-07-31, void
-    // hanya di-exclude (bukan dikurangkan), sehingga kartu Gross Revenue lebih
-    // besar dari yang seharusnya (contoh: EMPANG 24 Juli, void Rp94.000 tidak
-    // pernah mengurangi Rp4.015.000). Riwayat sebelum itu: ada bug SEBALIKNYA
-    // (double-subtract) yang membuat revenue kurang sebesar total void — contoh
-    // Cibubur Rp118.000 — jadi dua arah kesalahan ini sama-sama pernah terjadi.
     const netRevenue = actualNetRevenue
 
-    // Aturan bisnis (owner, 2026-07-31):
-    //   Gross Revenue = omzet SEBELUM dipotong apa pun
-    //   Gross Profit  = Gross Revenue - (Total COGS + Admin Platform)
-    // orders.total_amount SUDAH net, jadi gross direkonstruksi dgn menambahkan
-    // potongan kembali. Potongan lalu dikurangi lagi di grossProfit sehingga
-    // saling hapus — angka laba identik dengan (net - HPP), lihat unit test
-    // di src/lib/posReportKpi.test.ts.
-    // TIDAK pakai SUM(item.subtotal) karena data Pawoon multi-row bisa punya
-    // rounding kecil yang membuat hasil berbeda dari angka resmi Pawoon.
-    const kpi = computePosReportKpi(actualNetRevenue, totalDeductions, totalHPP)
-    const grossRevenue = kpi.grossRevenue
-    const grossProfit = kpi.grossProfit
+    // Aturan bisnis: orders.total_amount di DB sudah merupakan angka omzet kotor
+    // (food apps sudah harga menu asli, offline sudah setelah diskon promo).
+    // Jangan menambahkan totalDeductions lagi ke actualNetRevenue agar tidak double counting.
+    const grossRevenue = actualNetRevenue
+    const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
     let totalSettlement = 0
     let totalRealAdmin = 0
@@ -1704,7 +1682,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   ) : (
                     paginatedData.map((order) => {
                       const orderSubtotal = order.order_items.reduce((sum, i) => sum + (i.subtotal || 0), 0);
-                      const discount = orderSubtotal - order.total_amount;
+                      const offlineDiscount = Number((order as any).discount_amount) || 0;
+                      const appSubsidy = Number((order as any).promo_subsidy) || 0;
                       const pkgs = extractOrderPackages(order);
                       
                       return (
@@ -1742,10 +1721,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                                   <span>{cleanItemName(i.menu_item_name)}</span>
                                 </div>
                               ))}
-                              {discount > 0 && (
+                              {offlineDiscount > 0 && (
                                 <div className="whitespace-normal leading-tight text-[12px] flex items-start gap-1.5 mt-0.5 pt-1.5 border-t border-gray-100/60">
                                   <span className="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">Promo</span>
-                                  <span className="text-red-500">- {formatRupiah(discount)}</span>
+                                  <span className="text-red-500">- {formatRupiah(offlineDiscount)}</span>
+                                </div>
+                              )}
+                              {appSubsidy > 0 && (
+                                <div className="whitespace-normal leading-tight text-[12px] flex items-start gap-1.5 mt-0.5 pt-1.5 border-t border-gray-100/60">
+                                  <span className="font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">Potongan App</span>
+                                  <span className="text-orange-500">- {formatRupiah(appSubsidy)}</span>
                                 </div>
                               )}
                             </div>
@@ -1810,15 +1795,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                             </button>
                           </td>
                           <td className="px-5 py-4 text-right">
-                            {discount > 0 && (
+                            {offlineDiscount > 0 && (
                               <div className="text-gray-400 text-[11px] font-medium line-through mb-0.5" title="Harga awal sebelum diskon">
-                                {formatRupiah(orderSubtotal)}
+                                {formatRupiah(Number(order.total_amount) + offlineDiscount)}
                               </div>
                             )}
                             <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
-                            {discount > 0 && (
+                            {offlineDiscount > 0 && (
                               <div className="text-[11px] font-medium text-red-500 mt-1">
-                                (Diskon: -{formatRupiah(discount)})
+                                (Diskon: -{formatRupiah(offlineDiscount)})
+                              </div>
+                            )}
+                            {appSubsidy > 0 && (
+                              <div className="text-[11px] font-medium text-orange-600 mt-1">
+                                (Subsidi App: -{formatRupiah(appSubsidy)})
                               </div>
                             )}
                           </td>
@@ -1829,12 +1819,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </tbody>
                 <tfoot className="bg-amber-50/50">
                   {(() => {
-                    const totalNet = filteredTableData.reduce((acc, curr) => acc + curr.total_amount, 0);
-                    const totalGross = filteredTableData.reduce((acc, curr) => {
-                      const currSubtotal = curr.order_items.reduce((sum, item) => sum + (item.subtotal || 0), 0);
-                      return acc + currSubtotal;
-                    }, 0);
-                    const totalDiscount = totalGross - totalNet;
+                    const totalGross = filteredTableData.reduce((acc, curr) => acc + Number(curr.total_amount), 0);
+                    const totalOfflineDiscount = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).discount_amount) || 0), 0);
+                    const totalAppSubsidy = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).promo_subsidy) || 0), 0);
                     const totalItems = filteredTableData.reduce((acc, curr) => {
                       return acc + curr.order_items.reduce((sum, item) => sum + item.quantity, 0);
                     }, 0);
@@ -1854,13 +1841,23 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                             {formatRupiah(totalGross)}
                           </td>
                         </tr>
-                        {totalDiscount > 0 && (
+                        {totalOfflineDiscount > 0 && (
                           <tr>
                             <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
-                              Potongan Diskon / Promo
+                              Potongan Diskon Promo Offline
                             </td>
                             <td className="px-5 py-3 text-right text-sm font-bold text-red-600 whitespace-nowrap">
-                              - {formatRupiah(totalDiscount)}
+                              - {formatRupiah(totalOfflineDiscount)}
+                            </td>
+                          </tr>
+                        )}
+                        {totalAppSubsidy > 0 && (
+                          <tr>
+                            <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
+                              Total Subsidi Promo Food Apps
+                            </td>
+                            <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
+                              - {formatRupiah(totalAppSubsidy)}
                             </td>
                           </tr>
                         )}

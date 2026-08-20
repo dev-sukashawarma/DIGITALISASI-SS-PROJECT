@@ -136,7 +136,7 @@ export function computeAnalytics(
     : []
 
   const getOrderGross = (o: OrderRow) =>
-    (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0)
+    Number(o.total_amount) || 0
 
   const todayRevenue = periodOrders.reduce((s, o) => s + getOrderGross(o), 0)
   const totalOrdersCount = periodOrders.length

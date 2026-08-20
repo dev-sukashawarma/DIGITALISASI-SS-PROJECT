@@ -71,5 +71,6 @@ export interface DetailItem extends MonitoringItem {
     qty_fisik: number;
     catatan: string;
     foto_path?: string;
+    pemakaian_bom?: number;
   };
 }

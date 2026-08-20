@@ -159,6 +159,9 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                   );
                 };
 
+                const formattedPemakaian = detail.discrepancy_details.pemakaian_bom
+                  ? formatDiscrepancyQty(detail.discrepancy_details.pemakaian_bom)
+                  : null;
                 const formattedSystem = parsedRaw?.s || formatDiscrepancyQty(detail.discrepancy_details.qty_system);
                 const formattedFisik = parsedRaw?.f || formatDiscrepancyQty(detail.discrepancy_details.qty_fisik);
                 const deltaQty = detail.discrepancy_details.qty_fisik - detail.discrepancy_details.qty_system;
@@ -174,6 +177,16 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
                         <dt className="text-[#544437]/70">Jenis Selisih:</dt>
                         <dd className="font-bold text-[#a43c26] capitalize">{detail.discrepancy_details.type.replace('_', ' ')}</dd>
                       </div>
+                      {formattedPemakaian && (
+                        <div className="flex justify-between border-b border-[#f29744]/15 pb-1 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                          <dt className="text-[#701604] font-semibold flex items-center gap-1">
+                            <span>🍽️</span> Terpakai Penjualan (BOM):
+                          </dt>
+                          <dd className="font-bold text-[#a43c26]">
+                            -{formattedPemakaian}
+                          </dd>
+                        </div>
+                      )}
                       <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
                         <dt className="text-[#544437]/70">Stok Sistem:</dt>
                         <dd className="font-bold text-[#1e1b15]">

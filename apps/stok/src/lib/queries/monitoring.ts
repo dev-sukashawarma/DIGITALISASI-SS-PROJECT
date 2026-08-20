@@ -241,7 +241,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
 
   if (itemError) throw itemError;
 
-  // The 3 queries below only depend on bahan_baku_id/outletId (already known
+  // The 4 queries below only depend on bahan_baku_id/outletId (already known
   // at this point) — run them in parallel instead of one-by-one to avoid
   // unnecessary sequential network round-trips.
   const [
@@ -258,6 +258,8 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
     // so recency is taken from the parent opname row (ordering directly by
     // created_at returns HTTP 400).
     { data: opnameData },
+    // Query pemakaian (BOM sales deduction) to provide context for discrepancy
+    { data: pemakaianData },
   ] = await Promise.all([
     supabase
       .from('bahan_baku')
@@ -278,9 +280,31 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
       .order('created_at', { ascending: false, referencedTable: 'opname' })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from('ledger_stok')
+      .select('qty, created_at')
+      .eq('outlet_id', outletId)
+      .eq('bahan_baku_id', bahan_baku_id)
+      .eq('tipe', 'pemakaian')
+      .order('created_at', { ascending: false })
+      .limit(30),
   ]);
 
   if (ledgerError) throw ledgerError;
+
+  const opnameDateStr = (opnameData?.opname as any)?.created_at;
+  const opnameDate = opnameDateStr ? new Date(opnameDateStr) : new Date();
+  const startOfDay = new Date(opnameDate);
+  startOfDay.setHours(0, 0, 0, 0);
+  const endOfDay = new Date(opnameDate);
+  endOfDay.setHours(23, 59, 59, 999);
+
+  const pemakaianToday = (pemakaianData || [])
+    .filter(p => {
+      const d = new Date(p.created_at);
+      return d >= startOfDay && d <= endOfDay;
+    })
+    .reduce((sum, p) => sum + Math.abs(p.qty || 0), 0);
 
   const discrepancyDetails = opnameData?.flagged
     ? {
@@ -290,6 +314,7 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
         qty_system: opnameData.qty_system,
         qty_fisik: opnameData.qty_fisik,
         catatan: opnameData.catatan || '',
+        pemakaian_bom: pemakaianToday > 0 ? pemakaianToday : undefined,
       }
     : undefined;
 

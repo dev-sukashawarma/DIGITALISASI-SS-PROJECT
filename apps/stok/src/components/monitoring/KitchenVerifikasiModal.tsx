@@ -20,6 +20,8 @@ type ItemState = {
   satuan: string
   qty_pesan: number
   qty_terima: number
+  harga_pesan: number
+  harga_terima: number
   kondisi: 'baik' | 'rusak'
   catatan: string
   bahan_baku_id?: string
@@ -65,6 +67,8 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
           satuan: it.bahan_baku?.satuan || it.satuan_ad_hoc || 'pcs',
           qty_pesan: Number(it.qty_pesan || 0),
           qty_terima: Number(it.qty_terima ?? it.qty_pesan ?? 0),
+          harga_pesan: Number(it.harga_pesan || 0),
+          harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
           kondisi: (it.kondisi as 'baik' | 'rusak') ?? 'baik',
           catatan: it.catatan || ''
         }))
@@ -114,11 +118,12 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
         }
       }
 
-      // 2. Execute verifikasi_terima_po RPC
+      // 2. Execute verifikasi_terima_po RPC with harga_terima
       const payloadItems = items.map(it => ({
         id: it.id,
         bahan_baku_id: it.bahan_baku_id,
         qty_terima: Number(it.qty_terima),
+        harga_terima: Number(it.harga_terima || 0),
         kondisi: it.kondisi,
         catatan: it.catatan
       }))
@@ -138,7 +143,10 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
         queryClient.invalidateQueries({ queryKey: ['stok-inbound-pos'] }),
         queryClient.invalidateQueries({ queryKey: ['spv_inbound_pos'] }),
         queryClient.invalidateQueries({ queryKey: ['spv-monitoring'] }),
-        queryClient.invalidateQueries({ queryKey: ['leader-monitoring'] })
+        queryClient.invalidateQueries({ queryKey: ['leader-monitoring'] }),
+        queryClient.invalidateQueries({ queryKey: ['fluktuasi-harga-bahan-baku'] }),
+        queryClient.invalidateQueries({ queryKey: ['bahan_baku_harga'] }),
+        queryClient.invalidateQueries({ queryKey: ['po-price-alerts'] })
       ])
 
       setIsSuccess(true)
@@ -249,7 +257,7 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-suka-brown/10">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-suka-brown/10">
                           <div>
                             <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
                               Jumlah Fisik Tiba ({it.satuan}):
@@ -261,6 +269,20 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                               onChange={e => updateItem(it.id, 'qty_terima', Number(e.target.value))}
                               className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
                               required
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
+                              Harga Beli Faktur (Rp/{it.satuan}):
+                            </label>
+                            <input
+                              type="number"
+                              step="any"
+                              value={it.harga_terima}
+                              onChange={e => updateItem(it.id, 'harga_terima', Number(e.target.value))}
+                              className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
+                              placeholder="Harga per unit"
                             />
                           </div>
 

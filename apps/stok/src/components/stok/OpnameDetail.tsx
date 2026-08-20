@@ -14,6 +14,7 @@ const TIPE_LABEL: Record<string, string> = {
 export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const [opname, setOpname] = useState<Opname | null>(null)
   const [items, setItems] = useState<OpnameItem[]>([])
+  const [bomUsage, setBomUsage] = useState<Record<string, number>>({})
   const [error, setError] = useState<string | null>(null)
   const { bahanBaku, loading: bahanLoading } = useBahanBaku()
 
@@ -46,8 +47,28 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
         if (opnameRes.error) throw opnameRes.error
         if (itemsRes.error) throw itemsRes.error
 
-        setOpname(opnameRes.data as Opname)
+        const opData = opnameRes.data as Opname
+        setOpname(opData)
         setItems((itemsRes.data as OpnameItem[]) ?? [])
+
+        // Fetch daily BOM usage for the opname date
+        if (opData?.tanggal && opData?.outlet_id) {
+          const startIso = `${opData.tanggal}T00:00:00+07:00`
+          const endIso = `${opData.tanggal}T23:59:59+07:00`
+          const { data: usageData } = await supabase
+            .from('ledger_stok')
+            .select('bahan_baku_id, qty')
+            .eq('outlet_id', opData.outlet_id)
+            .eq('tipe', 'pemakaian')
+            .gte('created_at', startIso)
+            .lte('created_at', endIso)
+
+          const usageMap: Record<string, number> = {}
+          for (const row of usageData || []) {
+            usageMap[row.bahan_baku_id] = (usageMap[row.bahan_baku_id] || 0) + Math.abs(row.qty || 0)
+          }
+          setBomUsage(usageMap)
+        }
       } catch (err: any) {
         setError(`Gagal memuat detail opname: ${err.message || err}`)
       }
@@ -260,6 +281,11 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                     <p className="text-[9px] text-[#544437]/65">
                       Fisik Crew: <span className="font-bold text-[#1e1b15]">{qtyFisikText}</span> • Sistem: <span className="font-semibold">{formatGram(it.qty_system)}</span>
                     </p>
+                    {bomUsage[it.bahan_baku_id] !== undefined && bomUsage[it.bahan_baku_id] > 0 && (
+                      <p className="text-[9px] font-semibold text-[#a43c26] bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md inline-flex items-center gap-1 mt-0.5">
+                        <span>🍽️</span> Terpakai Penjualan (BOM): <span className="font-bold">{formatGram(bomUsage[it.bahan_baku_id])}</span>
+                      </p>
+                    )}
                     {targetKitchenText && (
                       <p className="text-[9px] font-bold text-[#0a7d2c] mt-0.5">
                         🎯 Target Kitchen: <span>{targetKitchenText}</span>

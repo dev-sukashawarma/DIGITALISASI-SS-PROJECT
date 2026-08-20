@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useMyOutlet } from '@/lib/useMyOutlet'
 import { formatRupiah } from '@/lib/validations'
 import { CHANNELS, getChannel } from '@/lib/channels'
+import { FOOD_APP_IDS } from '@/lib/channel-filter'
 import { usePromos } from '@/lib/usePromos'
 import type { MenuItem, Category } from '@/types'
 import { postToNative } from '@suka/design-system'
@@ -472,8 +473,16 @@ export default function OrderManualPage() {
     return sum + (baseP - cutP) * l.quantity;
   }, 0);
 
-  const parsedPromoSubsidy = ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(channel || '') ? (Number(promoSubsidy) || 0) : 0
-  const totalPrice = Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy - posPromoDiscount)
+  const isFoodAppChannel = channel ? FOOD_APP_IDS.includes(channel.toLowerCase()) : false
+  const parsedPromoSubsidy = isFoodAppChannel ? (Number(promoSubsidy) || 0) : 0
+  // Food apps: total yang ditampilkan/dibayar kasir = harga menu ASLI (subtotalAmount
+  // sudah tidak terpengaruh promo untuk channel ini, lihat wrappedCalculateItemPrice).
+  // posPromoDiscount & parsedPromoSubsidy murni info ("Diskon Item (POS)" / "Potongan
+  // App"), TIDAK memotong total — samakan dengan aturan server di
+  // app/api/orders/manual/route.ts (`finalTotal = isFoodApp ? total : ...`).
+  const totalPrice = isFoodAppChannel
+    ? subtotalAmount
+    : Math.max(0, subtotalAmount - globalDiscount - parsedPromoSubsidy - posPromoDiscount)
 
   // globalPromo dari usePromos sudah lolos isPromoEligible (jadwal + kuota),
   // sehingga tidak perlu cek ulang di sini. Booleans di bawah hanya untuk UI.
@@ -620,7 +629,7 @@ export default function OrderManualPage() {
         payment_method: payment as string,
         customer_name: finalCustomerName || null,
         total_amount: totalPrice,
-        discount_amount: globalDiscount > 0 ? globalDiscount : null,
+        discount_amount: (globalDiscount + posPromoDiscount) > 0 ? globalDiscount + posPromoDiscount : null,
         promo_subsidy: promoSubsidyValue,
         amount_received: payment === 'cash' ? amountReceived : null,
         change_amount: payment === 'cash' && amountReceived !== null ? amountReceived - totalPrice : null,
@@ -640,7 +649,7 @@ export default function OrderManualPage() {
         payment_method: payment as string,
         customer_name: finalCustomerName || null,
         total_amount: totalPrice,
-        discount_amount: globalDiscount > 0 ? globalDiscount : null,
+        discount_amount: (globalDiscount + posPromoDiscount) > 0 ? globalDiscount + posPromoDiscount : null,
         source: 'manual',
         channel: reqChannel,
         promo_subsidy: promoSubsidyValue,
@@ -1814,7 +1823,7 @@ function CartPanel(props: {
           {posPromoDiscount > 0 && (
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-500 font-medium">
-                Diskon Item (POS)
+                Diskon Item (POS){FOOD_APP_IDS.includes((channel || '').toLowerCase()) ? ' (info, tidak memotong total)' : ''}
               </span>
               <span className="text-red-500 font-bold">-{formatRupiah(posPromoDiscount)}</span>
             </div>

@@ -522,9 +522,14 @@ export function PermintaanForm({
               {/* Total Estimasi Card */}
               <div className="flex items-center justify-between bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-brown/15 shadow-xs">
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block">
-                    Total Estimasi Pesanan
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block">
+                      Total Estimasi Pesanan
+                    </span>
+                    <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                      Tahap Developer (Bisa Diabaikan)
+                    </span>
+                  </div>
                   <span className="text-xs text-suka-brown/70 font-medium">
                     {finalCart.length} item bahan baku
                   </span>

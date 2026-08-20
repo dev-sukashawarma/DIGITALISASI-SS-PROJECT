@@ -316,8 +316,13 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
         {/* Nilai & Budget */}
         <div className="space-y-2">
           <div className="flex justify-between items-center text-xs font-bold text-[#544437] bg-[#faf2e9] p-2.5 rounded-xl">
-            <span>Total Nilai Permintaan</span>
-            <span className="text-[#701604]">Rp {liveEstimate.totalNilai.toLocaleString('id-ID')}</span>
+            <div className="flex items-center gap-2">
+              <span>Total Nilai Permintaan</span>
+              <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-200">
+                Tahap Developer (Bisa Diabaikan)
+              </span>
+            </div>
+            <span className="text-[#701604] font-black">Rp {liveEstimate.totalNilai.toLocaleString('id-ID')}</span>
           </div>
           <BudgetBadge status={budgetStatus} projectedAdd={liveEstimate.totalNilai} />
         </div>

@@ -46,27 +46,33 @@ export function BudgetBadge({ status, projectedAdd = 0, compact = false }: Props
     return (
       <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border inline-flex items-center gap-1 ${VARIANT_STYLE[variant]}`}>
         {variant === 'red' && <AlertTriangle className="w-2.5 h-2.5" />}
-        {label}
+        <span>{label}</span>
+        <span className="text-[8px] opacity-75 font-normal">(Tahap Dev - Bisa Diabaikan)</span>
       </span>
     )
   }
 
   return (
     <div className={`text-xs font-bold p-3.5 rounded-2xl border shadow-2xs ${VARIANT_STYLE[variant]}`}>
-      <div className="flex items-center gap-2">
-        <Wallet className={`w-4 h-4 shrink-0 ${variant === 'red' ? 'text-red-600' : variant === 'orange' ? 'text-amber-600' : 'text-emerald-600'}`} />
-        <div className="flex-1">
-          <span>
-            Sisa Budget {periodLabel}: <strong className="font-black">Rp {Math.max(0, sisaProyeksi).toLocaleString('id-ID')}</strong> dari Rp {status.nominal.toLocaleString('id-ID')}
-          </span>
+      <div className="flex items-start gap-2.5">
+        <Wallet className={`w-4 h-4 mt-0.5 shrink-0 ${variant === 'red' ? 'text-red-600' : variant === 'orange' ? 'text-amber-600' : 'text-emerald-600'}`} />
+        <div className="flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span>
+              Sisa Budget {periodLabel}: <strong className="font-black">Rp {Math.max(0, sisaProyeksi).toLocaleString('id-ID')}</strong> dari Rp {status.nominal.toLocaleString('id-ID')}
+            </span>
+            <span className="text-[9px] font-extrabold text-amber-800 bg-amber-100/90 px-1.5 py-0.5 rounded border border-amber-300 shadow-2xs">
+              Tahap Developer (Bisa Diabaikan)
+            </span>
+          </div>
           {projectedAdd > 0 && (
-            <span className="block font-medium opacity-80 text-[11px] mt-0.5">
+            <span className="block font-medium opacity-80 text-[11px]">
               (Termasuk estimasi keranjang saat ini: -Rp {projectedAdd.toLocaleString('id-ID')})
             </span>
           )}
           {sisaProyeksi < 0 && (
-            <span className="block font-black text-red-700 text-[11px] mt-1.5 bg-red-100/80 p-2 rounded-lg border border-red-200">
-              ⚠️ Catatan: Saldo tidak mencukupi (Minus Rp {Math.abs(sisaProyeksi).toLocaleString('id-ID')}). Pengajuan tetap dapat dilakukan selama tahap development.
+            <span className="block font-black text-red-700 text-[11px] mt-1 bg-red-100/80 p-2 rounded-lg border border-red-200">
+              ⚠️ Catatan: Saldo tidak mencukupi (Minus Rp {Math.abs(sisaProyeksi).toLocaleString('id-ID')}). Pengajuan tetap dapat dilakukan selama tahap developer (bisa diabaikan).
             </span>
           )}
         </div>

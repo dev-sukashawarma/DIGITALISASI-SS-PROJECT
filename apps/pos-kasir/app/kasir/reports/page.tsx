@@ -556,7 +556,6 @@ export default function ReportsPage() {
                 <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
                 <p className="text-xl sm:text-2xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
               </div>
-              <p className="text-[10px] text-white/70 mt-2 font-medium">*Sudah dipotong promo offline · food apps pakai harga asli</p>
             </div>
 
             {/* Total Orders */}

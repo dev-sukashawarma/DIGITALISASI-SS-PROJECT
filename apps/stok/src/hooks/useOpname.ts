@@ -138,10 +138,14 @@ export function useOpnameActions() {
     const JATIASIH_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440012'
     const JATIASIH_DATES = ['2026-07-30', '2026-08-01', '2026-08-02', '2026-08-07']
 
+    const TODAY_EXCEPTION_DATE = '2026-08-20'
+    const ALLOWED_OUTLETS = ['550e8400-e29b-41d4-a716-446655440017', '550e8400-e29b-41d4-a716-446655440006']
+
     const isCompensation = todayWIB === COMPENSATION_DATE
     const isJatiasihException = outletId === JATIASIH_OUTLET_ID && JATIASIH_DATES.includes(todayWIB)
+    const isTodayException = todayWIB === TODAY_EXCEPTION_DATE && ALLOWED_OUTLETS.includes(outletId)
 
-    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException)) {
+    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException || isTodayException)) {
       const { count } = await supabase.from('opname')
         .select('id', { count: 'exact', head: true })
         .eq('outlet_id', outletId)

@@ -13,6 +13,13 @@ let browserClient: ReturnType<typeof createBrowserClient> | undefined
 
 export function createSupabaseBrowserClient() {
   if (browserClient) return browserClient
+  // Pada handoff dari POS, halaman `/auth/sso` menangani token fragmen sendiri
+  // agar bisa mengubahnya menjadi cookie sesi. Bila client global juga mencoba
+  // mendeteksi fragmen tersebut, dua proses auth memakai lock yang sama dan
+  // handoff Android dapat berakhir time-out. Rute login normal tetap memakai
+  // perilaku bawaan Supabase untuk memproses URL auth.
+  const isSsoHandoff =
+    typeof window !== 'undefined' && window.location.pathname === '/auth/sso'
   browserClient = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -23,6 +30,9 @@ export function createSupabaseBrowserClient() {
         sameSite: 'lax',
         secure: process.env.NODE_ENV === 'production',
         maxAge: 31536000,
+      },
+      auth: {
+        detectSessionInUrl: !isSsoHandoff,
       },
     }
   )

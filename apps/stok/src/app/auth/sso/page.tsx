@@ -1,9 +1,58 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { createBrowserClient } from '@supabase/ssr'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
+const SESSION_TIMEOUT_MS = 15_000
+
+/**
+ * Client khusus halaman handoff.
+ *
+ * Root `Providers` sudah membuat client global yang mendeteksi token URL secara
+ * otomatis. Jika client itu dan halaman ini sama-sama memproses fragment SSO,
+ * Chrome Android dapat menunggu inisialisasi yang sama tanpa selesai. Client
+ * ini sengaja mematikan deteksi fragment otomatis; token di bawah hanya diproses
+ * satu kali dan cookie yang dihasilkan tetap memakai konfigurasi suite yang sama.
+ */
+function createSsoHandoffClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookieOptions: {
+        domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined,
+        path: '/',
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 31536000,
+      },
+      auth: {
+        detectSessionInUrl: false,
+        autoRefreshToken: false,
+      },
+    }
+  )
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(
+      () => reject(new Error('Sesi Stok tidak merespons. Silakan coba lagi.')),
+      timeoutMs
+    )
+    promise.then(
+      (value) => {
+        window.clearTimeout(timeoutId)
+        resolve(value)
+      },
+      (error: unknown) => {
+        window.clearTimeout(timeoutId)
+        reject(error)
+      }
+    )
+  })
+}
 
 /**
  * Serah-terima sesi dari app native (POS Android) ke web stok.
@@ -33,8 +82,11 @@ export default function SsoHandoffPage() {
       return
     }
 
-    createSupabaseBrowserClient()
-      .auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+    const client = createSsoHandoffClient()
+    withTimeout(
+      client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
+      SESSION_TIMEOUT_MS
+    )
       .then(({ error }) => {
         if (error) {
           setError(error.message)

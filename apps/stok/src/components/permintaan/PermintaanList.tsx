@@ -26,7 +26,11 @@ export function PermintaanList({ outletId }: { outletId: string }) {
     <div className="space-y-3">
       {permintaan.map(p => {
         const reqCode = `#REQ-${p.id.slice(0, 4).toUpperCase()}`
-        const totalQty = p.items.reduce((acc, it) => acc + (it.qty_diminta || 0), 0)
+        const totalQty = p.items.reduce((acc, it) => {
+          const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+          const qty = b ? Math.ceil(convertToDistribusiUnit(it.qty_diminta || 0, b)) : (it.qty_diminta || 0)
+          return acc + qty
+        }, 0)
         
         return (
           <div key={p.id} className="bg-white border border-[#d9c2b2]/40 rounded-2xl p-5 shadow-sm space-y-3">

@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { StatusBadge } from './StatusBadge';
 import { fetchItemDetail } from '@/lib/queries/monitoring';
 import type { MonitoringItem, DetailItem } from '@/lib/types/monitoring';
-import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive } from '@/lib/format/compositeUnit';
+import { formatCompositeSaldoAdaptive, formatCompositeDeltaAdaptive, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import { WasteModal } from '../stok/WasteModal';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
@@ -131,41 +131,87 @@ export function MonitoringDetailModal({ item, onClose, isOpen }: MonitoringDetai
               </div>
 
               {/* Discrepancy Details */}
-              {detail.discrepancy_details && (
-                <div className="bg-[#ffdcc2]/20 border border-[#f29744]/35 p-4 rounded-xl space-y-2.5">
-                  <h3 className="font-bold text-xs text-[#a43c26] uppercase tracking-wider flex items-center gap-1.5">
-                    <span>⚠️</span> Flagged Discrepancy
-                  </h3>
-                  <dl className="space-y-1.5 text-xs text-[#544437] font-medium">
-                    <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
-                      <dt className="text-[#544437]/70">Jenis Selisih:</dt>
-                      <dd className="font-bold text-[#a43c26] capitalize">{detail.discrepancy_details.type.replace('_', ' ')}</dd>
-                    </div>
-                    <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
-                      <dt className="text-[#544437]/70">Stok Sistem:</dt>
-                      <dd className="font-bold">
-                        <span>{detail.discrepancy_details.qty_system}</span>
-                        <span className="text-xs font-normal text-[#544437]/60 ml-1 capitalize">{detail.satuan}</span>
-                      </dd>
-                    </div>
-                    <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
-                      <dt className="text-[#544437]/70">Stok Fisik:</dt>
-                      <dd className="font-bold text-[#ba1a1a]">
-                        <span>{detail.discrepancy_details.qty_fisik}</span>
-                        <span className="text-xs font-normal text-[#544437]/60 ml-1 capitalize">{detail.satuan}</span>
-                      </dd>
-                    </div>
-                    {detail.discrepancy_details.catatan && (
-                      <div className="pt-1">
-                        <dt className="text-[#544437]/70 font-semibold mb-1">Catatan SPV:</dt>
-                        <dd className="font-bold text-[#1e1b15] bg-white/60 p-2 rounded-lg border border-[#f29744]/15 italic">
-                          {detail.discrepancy_details.catatan}
+              {detail.discrepancy_details && (() => {
+                let parsedRaw: { f?: string; s?: string; d?: string; t?: string } | null = null;
+                let manualCatatan: string | null = null;
+
+                if (detail.discrepancy_details.catatan) {
+                  const rawCatatan = detail.discrepancy_details.catatan;
+                  if (rawCatatan.startsWith('[RAW]')) {
+                    try {
+                      parsedRaw = JSON.parse(rawCatatan.replace(/^\[RAW\]\s*/, ''));
+                    } catch {
+                      manualCatatan = rawCatatan;
+                    }
+                  } else {
+                    manualCatatan = rawCatatan;
+                  }
+                }
+
+                const formatDiscrepancyQty = (qty: number) => {
+                  return formatTriUnitSaldoFromGram(
+                    qty,
+                    detail.satuan ?? '',
+                    detail.satuan_tengah,
+                    detail.faktor_tengah,
+                    detail.satuan_kecil,
+                    detail.faktor_tampilan
+                  );
+                };
+
+                const formattedSystem = parsedRaw?.s || formatDiscrepancyQty(detail.discrepancy_details.qty_system);
+                const formattedFisik = parsedRaw?.f || formatDiscrepancyQty(detail.discrepancy_details.qty_fisik);
+                const deltaQty = detail.discrepancy_details.qty_fisik - detail.discrepancy_details.qty_system;
+                const formattedDelta = parsedRaw?.d || formatDiscrepancyQty(deltaQty);
+
+                return (
+                  <div className="bg-[#ffdcc2]/20 border border-[#f29744]/35 p-4 rounded-xl space-y-2.5">
+                    <h3 className="font-bold text-xs text-[#a43c26] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>⚠️</span> Flagged Discrepancy
+                    </h3>
+                    <dl className="space-y-1.5 text-xs text-[#544437] font-medium">
+                      <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
+                        <dt className="text-[#544437]/70">Jenis Selisih:</dt>
+                        <dd className="font-bold text-[#a43c26] capitalize">{detail.discrepancy_details.type.replace('_', ' ')}</dd>
+                      </div>
+                      <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
+                        <dt className="text-[#544437]/70">Stok Sistem:</dt>
+                        <dd className="font-bold text-[#1e1b15]">
+                          {formattedSystem}
                         </dd>
                       </div>
-                    )}
-                  </dl>
-                </div>
-              )}
+                      <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
+                        <dt className="text-[#544437]/70">Stok Fisik:</dt>
+                        <dd className="font-bold text-[#ba1a1a]">
+                          {formattedFisik}
+                        </dd>
+                      </div>
+                      <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
+                        <dt className="text-[#544437]/70">Selisih:</dt>
+                        <dd className={`font-black ${deltaQty < 0 ? 'text-[#ba1a1a]' : 'text-[#006e24]'}`}>
+                          {deltaQty > 0 && !formattedDelta.startsWith('+') && !formattedDelta.startsWith('-') ? `+${formattedDelta}` : formattedDelta}
+                        </dd>
+                      </div>
+                      {parsedRaw?.t && (
+                        <div className="flex justify-between border-b border-[#f29744]/15 pb-1">
+                          <dt className="text-[#0a7d2c] font-bold">🎯 Target Kitchen:</dt>
+                          <dd className="font-bold text-[#0a7d2c]">
+                            {parsedRaw.t}
+                          </dd>
+                        </div>
+                      )}
+                      {manualCatatan && (
+                        <div className="pt-1">
+                          <dt className="text-[#544437]/70 font-semibold mb-1">Catatan Opname:</dt>
+                          <dd className="font-bold text-[#1e1b15] bg-white/60 p-2 rounded-lg border border-[#f29744]/15 italic">
+                            {manualCatatan}
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  </div>
+                );
+              })()}
 
               {/* Recent Ledger */}
               {detail.recent_ledger && detail.recent_ledger.length > 0 && (

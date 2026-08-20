@@ -61,7 +61,12 @@ export function BudgetBadge({ status, projectedAdd = 0, compact = false }: Props
           </span>
           {projectedAdd > 0 && (
             <span className="block font-medium opacity-80 text-[11px] mt-0.5">
-              (Termasuk estimasi keranjang saat ini: +Rp {projectedAdd.toLocaleString('id-ID')})
+              (Termasuk estimasi keranjang saat ini: -Rp {projectedAdd.toLocaleString('id-ID')})
+            </span>
+          )}
+          {sisaProyeksi < 0 && (
+            <span className="block font-black text-red-700 text-[11px] mt-1.5 bg-red-100/80 p-2 rounded-lg border border-red-200">
+              ⚠️ Catatan: Saldo tidak mencukupi (Minus Rp {Math.abs(sisaProyeksi).toLocaleString('id-ID')}). Pengajuan tetap dapat dilakukan selama tahap development.
             </span>
           )}
         </div>

@@ -9,6 +9,7 @@ import { RefreshCw, Wallet } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { useAuth } from '@suka/auth';
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget';
+import { RequestTopUpModal } from './budget/OutletTopUpRequests';
 
 function formatRp(n: number) {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`
@@ -107,6 +108,13 @@ export function CrewDashboard() {
                   : `Sisa ${formatRp(budget.sisa)} dari ${formatRp(budget.nominal)}`}
               </span>
             </div>
+            
+            {/* Top Up Button directly inside the card */}
+            {outletId && (
+              <div className="mt-4 flex justify-end border-t border-black/5 pt-3">
+                <RequestTopUpModal outletId={outletId} plafon={budget.nominal} sisa={budget.sisa} />
+              </div>
+            )}
           </div>
         )}
 

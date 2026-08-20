@@ -5,6 +5,7 @@ import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
 import { BudgetBadge } from './BudgetBadge'
+import { RequestTopUpModal } from '@/components/monitoring/budget/OutletTopUpRequests'
 import { formatTriUnitSaldoAdaptive, convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
 import {
   Search,
@@ -57,9 +58,14 @@ export function PermintaanForm({
   const [isCartView, setIsCartView] = useState(false)
   const [showBatchNudge, setShowBatchNudge] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
-  const [cartEstimate, setCartEstimate] = useState<{ totalNilai: number; itemTanpaHarga: string[] }>({
+  const [cartEstimate, setCartEstimate] = useState<{
+    totalNilai: number
+    itemTanpaHarga: string[]
+    kategoriNilai: Record<string, number>
+  }>({
     totalNilai: 0,
     itemTanpaHarga: [],
+    kategoriNilai: {},
   })
 
   // Permintaan 'menunggu' yang sudah >12 jam dibebaskan dari daftar hide
@@ -92,6 +98,7 @@ export function PermintaanForm({
         return {
           id,
           nama: b?.nama ?? id,
+          kategori: b?.kategori || 'LAIN-LAIN',
           satuan: b?.satuan ?? '',
           dist_satuan: distUnit,
           qty,
@@ -100,6 +107,23 @@ export function PermintaanForm({
         }
       })
   }, [manualBahan, bahanBaku, saran, pendingItemIds])
+
+  const cartGroupedByCategory = useMemo(() => {
+    const map = new Map<string, typeof finalCart>()
+    for (const item of finalCart) {
+      const cat = item.kategori || 'LAIN-LAIN'
+      if (!map.has(cat)) {
+        map.set(cat, [])
+      }
+      map.get(cat)!.push(item)
+    }
+
+    return Array.from(map.entries()).map(([category, items]) => ({
+      category,
+      items,
+      subtotal: cartEstimate.kategoriNilai?.[category] ?? 0,
+    }))
+  }, [finalCart, cartEstimate.kategoriNilai])
 
   // Estimasi nilai Rupiah keranjang (debounce) — dikalikan langsung dengan Qty Satuan Pesan (Distribusi)
   useEffect(() => {
@@ -111,8 +135,8 @@ export function PermintaanForm({
 
     if (items.length === 0) {
       setCartEstimate(prev => {
-        if (prev.totalNilai === 0 && prev.itemTanpaHarga.length === 0) return prev
-        return { totalNilai: 0, itemTanpaHarga: [] }
+        if (prev.totalNilai === 0 && prev.itemTanpaHarga.length === 0 && Object.keys(prev.kategoriNilai).length === 0) return prev
+        return { totalNilai: 0, itemTanpaHarga: [], kategoriNilai: {} }
       })
       return
     }
@@ -347,7 +371,14 @@ export function PermintaanForm({
           </div>
         )}
 
-        <BudgetBadge status={budgetStatus} projectedAdd={cartEstimate.totalNilai} />
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
+          <div className="flex-1 w-full">
+            <BudgetBadge status={budgetStatus} projectedAdd={cartEstimate.totalNilai} />
+          </div>
+          {budgetStatus && budgetStatus.hasConfig && (
+            <RequestTopUpModal outletId={outletId} plafon={budgetStatus.nominal} sisa={budgetStatus.sisa} />
+          )}
+        </div>
 
         <div className="bg-white rounded-3xl shadow-xs border border-suka-brown/10 overflow-hidden">
           <div className="p-4 bg-suka-cream/40 border-b border-suka-brown/10 flex justify-between items-center">
@@ -357,14 +388,9 @@ export function PermintaanForm({
                 Rincian Bahan Baku yang Diminta
               </span>
             </div>
-            {cartEstimate.totalNilai > 0 && (
-              <span className="text-xs font-black text-suka-brown bg-white px-2.5 py-1 rounded-lg border border-suka-brown/10">
-                Estimasi: {formatRp(cartEstimate.totalNilai)}
-              </span>
-            )}
           </div>
 
-          <div className="divide-y divide-suka-brown/5 max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[60vh] overflow-y-auto">
             {finalCart.length === 0 ? (
               <div className="p-12 text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-suka-cream/60 text-suka-brown/40 flex items-center justify-center mx-auto">
@@ -379,89 +405,153 @@ export function PermintaanForm({
                 </button>
               </div>
             ) : (
-              finalCart.map(item => {
-                const b = bahanBaku.find(x => x.id === item.id)
-                const hargaBelumDiset = cartEstimate.itemTanpaHarga.includes(item.id)
-                return (
-                  <div
-                    key={item.id}
-                    className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-suka-cream/10 transition-colors"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-extrabold text-suka-brown text-sm sm:text-base">{item.nama}</h3>
-                        {hargaBelumDiset && (
-                          <span className="text-[9px] font-bold text-suka-brown/50 bg-suka-cream px-2 py-0.5 rounded-full border border-suka-brown/10">
-                            Harga belum diset
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs">
-                        {item.current_qty !== undefined && (
-                          <span className="text-red-500 font-bold">
-                            Sisa Stok:{' '}
-                            {formatTriUnitSaldoAdaptive(
-                              item.current_qty,
-                              item.saldo_is_gram ?? false,
-                              item.satuan,
-                              b?.satuan_tengah,
-                              b?.faktor_tengah,
-                              b?.satuan_kecil,
-                              b?.faktor_tampilan,
-                              true
-                            )}
-                          </span>
-                        )}
-                      </div>
+              cartGroupedByCategory.map(group => (
+                <div key={group.category} className="border-b border-suka-brown/10 last:border-b-0">
+                  {/* Category Header with Subtotal */}
+                  <div className="px-4 sm:px-5 py-2.5 bg-suka-cream/50 border-b border-suka-brown/10 flex items-center justify-between sticky top-0 z-10 backdrop-blur-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-3.5 rounded-full bg-suka-orange" />
+                      <span className="font-black text-xs text-suka-brown uppercase tracking-wider">
+                        {group.category}
+                      </span>
+                      <span className="text-[10px] font-bold text-suka-brown/50 bg-white px-2 py-0.5 rounded-full border border-suka-brown/10">
+                        {group.items.length} item
+                      </span>
                     </div>
-
-                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-0 border-suka-brown/5">
-                      <span className="sm:hidden text-xs font-bold text-suka-brown/60">Jumlah Dipesan:</span>
-                      {/* Main Stepper */}
-                      <div className="flex items-center bg-suka-cream/40 rounded-xl p-1 border border-suka-brown/10">
-                        <button
-                          onClick={() => updateManualBahan(item.id, -1)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-suka-brown hover:bg-red-50 hover:text-red-600 font-bold shadow-2xs transition-colors cursor-pointer"
-                        >
-                          {item.qty === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
-                        </button>
-                        <div className="flex items-center px-3">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.qty || ''}
-                            onChange={e => setManualBahanExact(item.id, Number(e.target.value))}
-                            className="w-12 text-center bg-transparent border-none p-0 font-extrabold text-sm text-suka-brown focus:ring-0"
-                          />
-                          <span className="text-xs font-bold text-suka-brown/60 ml-1">{item.dist_satuan}</span>
-                        </div>
-                        <button
-                          onClick={() => updateManualBahan(item.id, 1)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-suka-orange text-white hover:bg-orange-600 font-bold shadow-2xs transition-colors cursor-pointer"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
+                    {group.subtotal > 0 && (
+                      <span className="text-xs font-black text-suka-orange bg-white px-2.5 py-0.5 rounded-lg border border-suka-orange/20 shadow-2xs">
+                        Subtotal: {formatRp(group.subtotal)}
+                      </span>
+                    )}
                   </div>
-                )
-              })
+
+                  {/* Items list in this category */}
+                  <div className="divide-y divide-suka-brown/5">
+                    {group.items.map(item => {
+                      const b = bahanBaku.find(x => x.id === item.id)
+                      const hargaBelumDiset = cartEstimate.itemTanpaHarga.includes(item.id)
+                      return (
+                        <div
+                          key={item.id}
+                          className="p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-suka-cream/10 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h3 className="font-extrabold text-suka-brown text-sm sm:text-base">{item.nama}</h3>
+                              {hargaBelumDiset && (
+                                <span className="text-[9px] font-bold text-suka-brown/50 bg-suka-cream px-2 py-0.5 rounded-full border border-suka-brown/10">
+                                  Harga belum diset
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-xs">
+                              {item.current_qty !== undefined && (
+                                <span className="text-red-500 font-bold">
+                                  Sisa Stok:{' '}
+                                  {formatTriUnitSaldoAdaptive(
+                                    item.current_qty,
+                                    item.saldo_is_gram ?? false,
+                                    item.satuan,
+                                    b?.satuan_tengah,
+                                    b?.faktor_tengah,
+                                    b?.satuan_kecil,
+                                    b?.faktor_tampilan,
+                                    true
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-0 border-suka-brown/5">
+                            <span className="sm:hidden text-xs font-bold text-suka-brown/60">Jumlah Dipesan:</span>
+                            {/* Main Stepper */}
+                            <div className="flex items-center bg-suka-cream/40 rounded-xl p-1 border border-suka-brown/10">
+                              <button
+                                onClick={() => updateManualBahan(item.id, -1)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-suka-brown hover:bg-red-50 hover:text-red-600 font-bold shadow-2xs transition-colors cursor-pointer"
+                              >
+                                {item.qty === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
+                              </button>
+                              <div className="flex items-center px-3">
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={item.qty || ''}
+                                  onChange={e => setManualBahanExact(item.id, Number(e.target.value))}
+                                  className="w-12 text-center bg-transparent border-none p-0 font-extrabold text-sm text-suka-brown focus:ring-0"
+                                />
+                                <span className="text-xs font-bold text-suka-brown/60 ml-1">{item.dist_satuan}</span>
+                              </div>
+                              <button
+                                onClick={() => updateManualBahan(item.id, 1)}
+                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-suka-orange text-white hover:bg-orange-600 font-bold shadow-2xs transition-colors cursor-pointer"
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))
             )}
           </div>
 
+          {/* Category Subtotal & Total Estimasi Summary at the Bottom */}
+          {cartEstimate.totalNilai > 0 && (
+            <div className="p-4 sm:p-5 bg-suka-cream/30 border-t border-suka-brown/10 space-y-3">
+              {Object.keys(cartEstimate.kategoriNilai).length > 0 && (
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block">
+                    Subtotal per Kategori:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
+                    {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                      <div key={cat} className="flex items-center justify-between bg-white px-3.5 py-2 rounded-xl border border-suka-brown/10 shadow-2xs">
+                        <span className="font-bold text-suka-brown/80 truncate pr-2">{cat}</span>
+                        <span className="font-black text-suka-brown shrink-0">{formatRp(val)}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Total Estimasi Card */}
+              <div className="flex items-center justify-between bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-brown/15 shadow-xs">
+                <div>
+                  <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block">
+                    Total Estimasi Pesanan
+                  </span>
+                  <span className="text-xs text-suka-brown/70 font-medium">
+                    {finalCart.length} item bahan baku
+                  </span>
+                </div>
+                <span className="text-base sm:text-lg font-black text-suka-orange">
+                  {formatRp(cartEstimate.totalNilai)}
+                </span>
+              </div>
+            </div>
+          )}
+
           {finalCart.length > 0 && (
-            <div className="p-4 sm:p-5 bg-suka-cream/20 border-t border-suka-brown/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-4 sm:p-5 bg-suka-cream/20 border-t border-suka-brown/10 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
               <button
+                type="button"
                 onClick={() => setIsCartView(false)}
-                className="w-full sm:w-auto px-4 py-3 text-xs font-bold text-suka-brown/70 hover:text-suka-brown hover:bg-white rounded-xl border border-transparent hover:border-suka-brown/10 transition-all cursor-pointer"
+                className="flex-1 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] transition-all cursor-pointer"
               >
-                + Tambah Bahan Lain
+                <Plus className="w-4 h-4" />
+                <span>Tambah Bahan Lain</span>
               </button>
 
               <button
+                type="button"
                 disabled={busy || finalCart.length === 0}
                 onClick={handleInitiateSubmit}
-                className="w-full sm:w-auto flex-1 max-w-sm bg-suka-orange hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
+                className="flex-1 w-full bg-suka-orange hover:bg-orange-600 text-white font-extrabold text-sm py-3.5 px-6 rounded-2xl flex items-center justify-center gap-2 shadow-xs active:scale-[0.98] transition-all disabled:opacity-50 cursor-pointer"
               >
                 <Send className="w-4 h-4" />
                 <span>{busy ? 'Mengirim Permintaan...' : `Kirim ${finalCart.length} Permintaan Bahan`}</span>
@@ -525,7 +615,7 @@ export function PermintaanForm({
               </div>
 
               {/* Item summary box */}
-              <div className="bg-suka-cream/30 rounded-2xl p-3 border border-suka-brown/10 max-h-48 overflow-y-auto space-y-1.5 divide-y divide-suka-brown/5 text-xs">
+              <div className="bg-suka-cream/30 rounded-2xl p-3 border border-suka-brown/10 max-h-40 overflow-y-auto space-y-1.5 divide-y divide-suka-brown/5 text-xs">
                 {finalCart.map(item => (
                   <div key={item.id} className="pt-1.5 first:pt-0 flex items-center justify-between">
                     <span className="font-bold text-suka-brown truncate pr-2">{item.nama}</span>
@@ -536,10 +626,22 @@ export function PermintaanForm({
                 ))}
               </div>
 
-              {cartEstimate.totalNilai > 0 && (
-                <div className="flex items-center justify-between text-xs px-1">
-                  <span className="font-bold text-suka-brown/60">Estimasi Nilai:</span>
-                  <span className="font-black text-suka-brown">{formatRp(cartEstimate.totalNilai)}</span>
+              {/* Category Breakdown in Modal */}
+              {Object.keys(cartEstimate.kategoriNilai).length > 0 && (
+                <div className="bg-suka-cream/20 rounded-2xl p-3 border border-suka-brown/10 space-y-1 text-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block mb-1">
+                    Subtotal per Kategori:
+                  </span>
+                  {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                    <div key={cat} className="flex justify-between items-center text-suka-brown">
+                      <span className="text-suka-brown/80 font-medium">{cat}</span>
+                      <span className="font-bold text-suka-brown">{formatRp(val)}</span>
+                    </div>
+                  ))}
+                  <div className="pt-2 mt-1 border-t border-suka-brown/10 flex justify-between items-center">
+                    <span className="font-extrabold text-suka-brown">Total Estimasi</span>
+                    <span className="font-black text-suka-orange text-sm">{formatRp(cartEstimate.totalNilai)}</span>
+                  </div>
                 </div>
               )}
 
@@ -884,7 +986,14 @@ export function PermintaanForm({
             </div>
 
             {/* Budget status badge */}
-            <BudgetBadge status={budgetStatus} projectedAdd={cartEstimate.totalNilai} />
+            <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between mb-4">
+              <div className="flex-1 w-full">
+                <BudgetBadge status={budgetStatus} projectedAdd={cartEstimate.totalNilai} />
+              </div>
+              {budgetStatus && budgetStatus.hasConfig && (
+                <RequestTopUpModal outletId={outletId} plafon={budgetStatus.nominal} sisa={budgetStatus.sisa} />
+              )}
+            </div>
 
             {/* Cart items list */}
             {finalCart.length === 0 ? (
@@ -926,9 +1035,23 @@ export function PermintaanForm({
 
             {/* Submit Action */}
             <div className="pt-3 border-t border-suka-brown/10 space-y-2">
+              {Object.keys(cartEstimate.kategoriNilai).length > 1 && (
+                <div className="bg-suka-cream/30 rounded-xl p-2.5 border border-suka-brown/10 space-y-1 text-[11px]">
+                  <span className="text-[9px] font-black uppercase text-suka-brown/50 tracking-wider block">
+                    Subtotal Kategori:
+                  </span>
+                  {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                    <div key={cat} className="flex justify-between items-center text-suka-brown/80">
+                      <span className="truncate pr-1">{cat}</span>
+                      <span className="font-bold text-suka-brown shrink-0">{formatRp(val)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {cartEstimate.totalNilai > 0 && (
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-suka-brown/60">Estimasi Nilai:</span>
+                  <span className="font-bold text-suka-brown/60">Total Estimasi:</span>
                   <span className="font-extrabold text-suka-brown">{formatRp(cartEstimate.totalNilai)}</span>
                 </div>
               )}
@@ -1032,7 +1155,7 @@ export function PermintaanForm({
             </div>
 
             {/* Item summary box */}
-            <div className="bg-suka-cream/30 rounded-2xl p-3 border border-suka-brown/10 max-h-48 overflow-y-auto space-y-1.5 divide-y divide-suka-brown/5 text-xs">
+            <div className="bg-suka-cream/30 rounded-2xl p-3 border border-suka-brown/10 max-h-40 overflow-y-auto space-y-1.5 divide-y divide-suka-brown/5 text-xs">
               {finalCart.map(item => (
                 <div key={item.id} className="pt-1.5 first:pt-0 flex items-center justify-between">
                   <span className="font-bold text-suka-brown truncate pr-2">{item.nama}</span>
@@ -1043,10 +1166,22 @@ export function PermintaanForm({
               ))}
             </div>
 
-            {cartEstimate.totalNilai > 0 && (
-              <div className="flex items-center justify-between text-xs px-1">
-                <span className="font-bold text-suka-brown/60">Estimasi Nilai:</span>
-                <span className="font-black text-suka-brown">{formatRp(cartEstimate.totalNilai)}</span>
+            {/* Category Breakdown in Desktop Modal */}
+            {Object.keys(cartEstimate.kategoriNilai).length > 0 && (
+              <div className="bg-suka-cream/20 rounded-2xl p-3 border border-suka-brown/10 space-y-1 text-xs">
+                <span className="text-[10px] font-extrabold uppercase text-suka-brown/60 tracking-wider block mb-1">
+                  Subtotal per Kategori:
+                </span>
+                {Object.entries(cartEstimate.kategoriNilai).map(([cat, val]) => (
+                  <div key={cat} className="flex justify-between items-center text-suka-brown">
+                    <span className="text-suka-brown/80 font-medium">{cat}</span>
+                    <span className="font-bold text-suka-brown">{formatRp(val)}</span>
+                  </div>
+                ))}
+                <div className="pt-2 mt-1 border-t border-suka-brown/10 flex justify-between items-center">
+                  <span className="font-extrabold text-suka-brown">Total Estimasi</span>
+                  <span className="font-black text-suka-orange text-sm">{formatRp(cartEstimate.totalNilai)}</span>
+                </div>
               </div>
             )}
 

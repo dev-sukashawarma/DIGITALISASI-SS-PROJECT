@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export type SPVTabId = 'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound' | 'harga_bahan';
+export type SPVTabId = 'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound' | 'harga_bahan' | 'budget_outlet';
 
 interface SPVTabsProps {
   activeTab: SPVTabId;
@@ -29,6 +29,7 @@ export function SPVTabs({
     { id: 'overview', label: 'Overview Stok', count: null },
     { id: 'alerts', label: 'Peringatan Stok', count: alertCount },
     { id: 'approval', label: 'Approval Permintaan', count: approvalCount },
+    { id: 'budget_outlet', label: 'Plafon & Belanja Outlet', count: null },
     { id: 'waste_approval', label: 'Approval Waste', count: wasteApprovalCount || 0 },
     ...(showPOInbound ? [{ id: 'po_inbound' as SPVTabId, label: 'Penerimaan PO Supplier', count: poInboundCount || 0 }] : []),
     { id: 'harga_bahan', label: 'Board Harga Vendor', count: null },

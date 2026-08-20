@@ -197,6 +197,11 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 href: '/stok/laporan-penjualan',
                 icon: TrendingUp,
               },
+              {
+                label: 'Plafon & Belanja Outlet',
+                href: '/stok/budget-outlet',
+                icon: Wallet,
+              },
             ]
           : []),
         {

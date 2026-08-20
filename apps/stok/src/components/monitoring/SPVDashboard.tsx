@@ -1,9 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { SPVTable } from './SPVTable';
 import { MonitoringDetailModal } from './MonitoringDetailModal';
 import { TransferModal } from './TransferModal';
+import { SPVTabs, type SPVTabId } from './SPVTabs';
+import { BudgetOutletTabContent } from './budget/BudgetOutletTabContent';
 import {
   useSPVMonitoringData,
   useLeaderMonitoringData,
@@ -72,8 +75,10 @@ const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jak
 };
 
 export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
+  const router = useRouter();
   useMonitoringRealtime();
   const { boundOutlets } = useOutletScope();
+  const [activeTab, setActiveTab] = useState<SPVTabId>('overview');
   const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
   
   // State for split view outlet selection
@@ -430,9 +435,38 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         </div>
       </header>
 
+      {/* SPV Multi-Outlet Navigation Tabs */}
+      <SPVTabs
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          if (tab === 'approval') {
+            router.push('/stok/permintaan');
+          } else if (tab === 'waste_approval') {
+            router.push('/stok/waste-approval');
+          } else if (tab === 'po_inbound') {
+            router.push('/stok/penerimaan-po');
+          } else if (tab === 'harga_bahan') {
+            router.push('/stok/harga-bahan');
+          } else {
+            setActiveTab(tab);
+            if (tab === 'alerts') {
+              setFilterStatus('below');
+            } else if (tab === 'overview') {
+              setFilterStatus('all');
+            }
+          }
+        }}
+        alertCount={criticalCount}
+        approvalCount={pendingApprovals.length}
+        wasteApprovalCount={pendingWaste?.length ?? 0}
+        showPOInbound={true}
+      />
+
       {/* Main Content Area - 100% Full-Width Clean Workspace */}
       <div className="flex-1 flex flex-col overflow-y-auto">
-        {isLoading && !data ? (
+        {activeTab === 'budget_outlet' ? (
+          <BudgetOutletTabContent />
+        ) : isLoading && !data ? (
           <div className="flex-1 p-6 space-y-6">
             <Skeleton className="h-8 w-64 rounded-xl" />
             <Skeleton className="h-16 w-full rounded-2xl" />

@@ -24,6 +24,18 @@ describe('budgetBadgeVariant', () => {
     expect(budgetBadgeVariant({ ...base, nominal: 0 })).toBe('red')
   })
 
+  it('orange kalau persis 80%', () => {
+    expect(budgetBadgeVariant({ ...base, terpakai: 800_000 }, 0)).toBe('orange')
+  })
+
+  it('orange kalau persis 100%', () => {
+    expect(budgetBadgeVariant({ ...base, terpakai: 1_000_000 }, 0)).toBe('orange')
+  })
+
+  it('red kalau 100.01%', () => {
+    expect(budgetBadgeVariant({ ...base, terpakai: 1_000_100 }, 0)).toBe('red')
+  })
+
   it('default projectedAdd = 0', () => {
     expect(budgetBadgeVariant({ ...base, terpakai: 100_000 })).toBe('green')
   })

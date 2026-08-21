@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { username, password, role, outlet_id, is_active, inactive_reason } = body
+    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason } = body
 
     if (!username || !password || !role) {
       return NextResponse.json({ error: 'Username, password, dan role harus diisi' }, { status: 400 })
@@ -41,9 +41,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Role yang dipilih tidak valid' }, { status: 400 })
     }
 
-    if (!outlet_id) {
+    const isMultiOutletRole = ['admin', 'owner', 'regional_manager', 'leader'].includes(role);
+    const finalOutletIds = (isMultiOutletRole && Array.isArray(outlet_ids) && outlet_ids.length > 0) 
+      ? outlet_ids 
+      : [outlet_id].filter(Boolean);
+
+    if (finalOutletIds.length === 0) {
       return NextResponse.json({ error: 'Cabang (Outlet) harus dipilih' }, { status: 400 })
     }
+
+    const primaryOutletId = finalOutletIds[0];
 
     const usernameRegex = /^[a-zA-Z0-9_]+$/
     if (!usernameRegex.test(username)) {
@@ -91,7 +98,7 @@ export async function POST(request: Request) {
       id: authData.user.id,
       name: username,
       role,
-      outlet_id,
+      outlet_id: primaryOutletId,
       username,
       status: (is_active ?? true) ? 'active' : 'inactive',
       is_active: is_active ?? true,
@@ -106,6 +113,16 @@ export async function POST(request: Request) {
         { error: `Gagal menyimpan profil user: ${profileError.message}` },
         { status: 500 }
       )
+    }
+
+    // Insert staff_outlets mapping so they have POS access to the new outlet(s)
+    const staffOutletsData = finalOutletIds.map((oId: string) => ({
+      staff_id: authData.user.id,
+      outlet_id: oId
+    }));
+    const { error: insertStaffOutletsError } = await supabaseService.from('staff_outlets').insert(staffOutletsData)
+    if (insertStaffOutletsError) {
+      console.error('Gagal menambahkan staff_outlets baru:', insertStaffOutletsError)
     }
 
     return NextResponse.json({ success: true })

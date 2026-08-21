@@ -50,7 +50,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { username, password, role, outlet_id, is_active, inactive_reason } = body
+    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason } = body
 
     if (!username || !role) {
       return NextResponse.json({ error: 'Username dan role harus diisi' }, { status: 400 })
@@ -61,9 +61,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
     }
 
-    if (!outlet_id) {
+    const isMultiOutletRole = ['admin', 'owner', 'regional_manager', 'leader'].includes(role);
+    const finalOutletIds = (isMultiOutletRole && Array.isArray(outlet_ids) && outlet_ids.length > 0) 
+      ? outlet_ids 
+      : [outlet_id].filter(Boolean);
+
+    if (finalOutletIds.length === 0) {
       return NextResponse.json({ error: 'Cabang (Outlet) harus dipilih' }, { status: 400 })
     }
+
+    const primaryOutletId = finalOutletIds[0];
 
     const usernameRegex = /^[a-zA-Z0-9_]+$/
     if (!usernameRegex.test(username)) {
@@ -107,7 +114,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // Update Profile
     const { error: profileError } = await supabaseService.from('outlet_staff').update({
       role,
-      outlet_id,
+      outlet_id: primaryOutletId,
       username,
       is_active: is_active ?? true,
       inactive_reason: inactive_reason || null
@@ -122,22 +129,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // Update attendance_logs to point to the new outlet, allowing them to clock in/out at the new outlet
     // We do NOT move financial data like shifts, cash_transaction, or petty_cash to keep accounting history intact.
     const { error: attendanceError } = await supabaseService.from('attendance_logs').update({
-      outlet_id
+      outlet_id: primaryOutletId
     }).eq('staff_id', userId)
 
     if (attendanceError) {
       console.error('Gagal memindahkan data absensi:', attendanceError)
     }
 
-    // Update staff_outlets mapping so they have POS access to the new outlet
+    // Update staff_outlets mapping so they have POS access to the new outlet(s)
     const { error: deleteStaffOutletsError } = await supabaseService.from('staff_outlets').delete().eq('staff_id', userId)
     if (deleteStaffOutletsError) {
       console.error('Gagal mereset staff_outlets:', deleteStaffOutletsError)
     } else {
-      const { error: insertStaffOutletsError } = await supabaseService.from('staff_outlets').insert({
+      const staffOutletsData = finalOutletIds.map((oId: string) => ({
         staff_id: userId,
-        outlet_id
-      })
+        outlet_id: oId
+      }));
+      const { error: insertStaffOutletsError } = await supabaseService.from('staff_outlets').insert(staffOutletsData)
       if (insertStaffOutletsError) {
         console.error('Gagal menambahkan staff_outlets baru:', insertStaffOutletsError)
       }

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Users, Plus, X, Loader2, Store, Search, ChevronDown, Check } from 'lucide-react'
+import { Users, Plus, X, Loader2, Store, Search, ChevronDown, Check, Eye, EyeOff, Lock, User } from 'lucide-react'
 import type { Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { toast } from 'sonner'
@@ -38,6 +38,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
   // Form state
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [role, setRole] = useState<string>('crew')
   const [outletId, setOutletId] = useState('')
   const [outletIds, setOutletIds] = useState<string[]>([])
@@ -90,6 +91,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       setIsActive(true)
       setInactiveReason('')
     }
+    setShowPassword(false)
     setError('')
     setIsModalOpen(true)
   }
@@ -239,8 +241,11 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                 </div>
                 <div 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full bg-gray-50 border-2 border-transparent focus-within:border-amber-400 focus-within:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium flex items-center justify-between cursor-pointer"
+                  className="w-full bg-gray-50 border-2 border-transparent focus-within:border-amber-400 focus-within:bg-white rounded-xl pl-11 pr-4 py-3 outline-none transition-colors font-medium flex items-center justify-between cursor-pointer relative"
                 >
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Store className="h-5 w-5 text-gray-400" />
+                  </div>
                   <span className={outletId || outletIds.length > 0 ? 'text-gray-900 truncate pr-4' : 'text-gray-400 truncate pr-4'}>
                     {isMultiOutletRole 
                       ? (outletIds.length === initialOutlets.length ? 'Semua Cabang' : outletIds.length > 0 ? `${outletIds.length} cabang dipilih` : 'Pilih Cabang...')
@@ -362,41 +367,61 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
               
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Username Login</label>
-                <input 
-                  type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
-                  className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
-                  placeholder={"Misal: kiosk_sudirman1"}
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input 
+                    type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-4 py-3 outline-none transition-colors font-medium"
+                    placeholder={"Misal: kiosk_sudirman1"}
+                  />
+                </div>
               </div>
               
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Password</label>
-                <input 
-                  type="password" required={!editingUser} value={password} onChange={(e) => setPassword(e.target.value)} minLength={6}
-                  className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium"
-                  placeholder={editingUser ? "Kosongkan jika tidak ingin mengubah" : "Minimal 6 karakter"}
-                />
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <Lock className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input 
+                    type={showPassword ? "text" : "password"} required={!editingUser} value={password} onChange={(e) => setPassword(e.target.value)} minLength={6}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-12 py-3 outline-none transition-colors font-medium"
+                    placeholder={editingUser ? "Kosongkan jika tidak ingin mengubah" : "Minimal 6 karakter"}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-amber-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
               </div>
               
               {editingUser && (
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Status Akun</label>
-                    <select 
-                      value={isActive ? 'true' : 'false'} onChange={(e) => setIsActive(e.target.value === 'true')}
-                      className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium appearance-none"
-                    >
-                      <option value="true">Aktif</option>
-                      <option value="false">Nonaktif</option>
-                    </select>
+                  <div 
+                    className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between cursor-pointer transition-colors hover:bg-gray-100/80" 
+                    onClick={() => setIsActive(!isActive)}
+                  >
+                    <div>
+                      <h4 className="font-bold text-gray-900 text-sm">Status Akun</h4>
+                      <p className="text-xs text-gray-500 mt-0.5">{isActive ? 'Akun dapat digunakan untuk login' : 'Akun diblokir sementara'}</p>
+                    </div>
+                    <div className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors shrink-0 ${isActive ? 'bg-green-500' : 'bg-gray-300'}`}>
+                      <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform ${isActive ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </div>
                   </div>
+                  
                   {!isActive && (
-                    <div className="animate-fade-in">
-                      <label className="block text-sm font-bold text-gray-700 mb-1">Alasan Penonaktifan</label>
+                    <div className="animate-fade-in p-4 bg-red-50/50 rounded-xl border border-red-100">
+                      <label className="block text-sm font-bold text-red-900 mb-2">Alasan Penonaktifan</label>
                       <textarea 
                         required value={inactiveReason} onChange={(e) => setInactiveReason(e.target.value)}
-                        className="w-full bg-red-50 text-red-900 border-2 border-transparent focus:border-red-400 focus:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium placeholder-red-300"
-                        placeholder="Berikan alasan mengapa akun dinonaktifkan..." rows={2}
+                        className="w-full bg-white border-2 border-red-100 focus:border-red-400 rounded-xl px-4 py-3 outline-none transition-colors font-medium text-red-900 placeholder-red-300"
+                        placeholder="Contoh: Karyawan resign, Cuti panjang, dll..." rows={2}
                       />
                     </div>
                   )}

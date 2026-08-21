@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@suka/auth'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
+import { getThresholdPersen, computeSelisihPersen } from '@/lib/stok/selisih'
 
 const TIPE_LABEL: Record<string, string> = {
   harian: 'Harian 📅',
@@ -12,6 +14,9 @@ const TIPE_LABEL: Record<string, string> = {
 };
 
 export function OpnameDetail({ opnameId }: { opnameId: string }) {
+  const { outletStaff } = useAuth()
+  const role = outletStaff?.role
+  const canViewThresholdAndLoss = ['kitchen', 'admin', 'admin_finance', 'owner', 'developer'].includes((role as string) ?? '')
   const [opname, setOpname] = useState<Opname | null>(null)
   const [items, setItems] = useState<OpnameItem[]>([])
   const [bomUsage, setBomUsage] = useState<Record<string, number>>({})
@@ -77,6 +82,36 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   }, [opnameId])
 
   const [activeTab, setActiveTab] = useState<'opnamed' | 'skipped'>('opnamed');
+
+  const roleLabel = useMemo(() => {
+    switch (role) {
+      case 'kitchen': return 'Kitchen'
+      case 'admin_finance': return 'Finance'
+      case 'admin': return 'Admin'
+      case 'owner': return 'Owner'
+      case 'developer': return 'Developer'
+      default: return (role as string) || 'Staff'
+    }
+  }, [role])
+
+  const stats = useMemo(() => {
+    let pas = 0;
+    let withinTol = 0;
+    let flagged = 0;
+
+    for (const it of items) {
+      if (it.qty_fisik === null) continue;
+      if (it.selisih === 0) {
+        pas++;
+      } else if (it.flagged) {
+        flagged++;
+      } else {
+        withinTol++;
+      }
+    }
+
+    return { pas, withinTol, flagged };
+  }, [items]);
 
   const opnamedBahanIds = useMemo(() => new Set(items.map(it => it.bahan_baku_id)), [items]);
   const skippedBahan = useMemo(() => {
@@ -192,6 +227,43 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
         </div>
       </div>
 
+      {/* Threshold & Loss Analysis Summary for Kitchen, Admin, and Finance */}
+      {canViewThresholdAndLoss && items.length > 0 && (
+        <div className="bg-[#fff4e5]/70 border border-[#f29744]/35 rounded-2xl p-4 space-y-3 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📊</span>
+              <div>
+                <h4 className="text-xs font-black text-[#701604] uppercase tracking-wide">
+                  Analisis Threshold & Loss ({roleLabel})
+                </h4>
+                <p className="text-[10px] text-[#544437]/75 font-medium">
+                  Toleransi: <strong className="text-[#701604]">±5%</strong> (Item Timbang) • <strong className="text-[#701604]">0%</strong> (Item Hitung)
+                </p>
+              </div>
+            </div>
+            <span className="self-start sm:self-auto text-[9px] font-extrabold uppercase tracking-wider bg-[#f29744]/20 text-[#701604] border border-[#f29744]/40 px-2.5 py-1 rounded-lg">
+              Mode Analisis Aktif
+            </span>
+          </div>
+
+          <div className="grid grid-cols-3 gap-2 pt-0.5">
+            <div className="bg-white border border-[#d9c2b2]/30 rounded-xl p-2.5 text-center">
+              <span className="text-[8px] font-bold uppercase tracking-wider text-gray-500">Pas (0 Selisih)</span>
+              <p className="text-base font-black text-gray-700 mt-0.5">{stats.pas} Bahan</p>
+            </div>
+            <div className="bg-[#e8f5e9]/80 border border-[#0a7d2c]/20 rounded-xl p-2.5 text-center">
+              <span className="text-[8px] font-bold uppercase tracking-wider text-[#0a7d2c]">Dalam Toleransi</span>
+              <p className="text-base font-black text-[#0a7d2c] mt-0.5">{stats.withinTol} Bahan</p>
+            </div>
+            <div className="bg-red-50 border border-red-200 rounded-xl p-2.5 text-center">
+              <span className="text-[8px] font-bold uppercase tracking-wider text-[#ba1a1a]">Melebihi Toleransi</span>
+              <p className="text-base font-black text-[#ba1a1a] mt-0.5">{stats.flagged} Bahan</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Opname Items Log List */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#d9c2b2]/30 pb-2">
@@ -232,6 +304,9 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
               const unit = bahan ? bahan.satuan : '';
               const category = bahan ? bahan.kategori : '';
 
+              const thresholdPersen = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil);
+              const selisihPersenInfo = computeSelisihPersen(it.selisih, it.qty_system);
+
               // qty_fisik/qty_system/selisih SELALU dalam satuan kecil (gram) --
               // OpnameForm.calculateTotalFisik menghitungnya begitu, tanpa
               // pengecualian (beda dari stok_balance.saldo yang campur besar/gram).
@@ -265,7 +340,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                 >
                   {/* Left: Material Name and Category Badge */}
                   <div className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/25">
                         {category || 'Bahan'}
                       </span>
@@ -296,6 +371,48 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                         * {it.catatan}
                       </p>
                     )}
+
+                    {/* Keterangan Threshold & Persentase Loss Khusus Kitchen, Admin, Finance */}
+                    {canViewThresholdAndLoss && it.qty_fisik !== null && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
+                        {/* Persentase Loss / Surplus */}
+                        <span className={`text-[9px] font-black px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
+                          selisihPersenInfo.isLoss
+                            ? it.flagged
+                              ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/25'
+                              : 'bg-orange-100 text-orange-800 border-orange-200'
+                            : selisihPersenInfo.isSurplus
+                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-gray-100 text-gray-700 border-gray-200'
+                        }`}>
+                          <span>{selisihPersenInfo.isLoss ? '📉' : selisihPersenInfo.isSurplus ? '📈' : '⚖️'}</span>
+                          <span>
+                            {selisihPersenInfo.isLoss
+                              ? `Loss: ${selisihPersenInfo.formatted}`
+                              : selisihPersenInfo.isSurplus
+                                ? `Surplus: ${selisihPersenInfo.formatted}`
+                                : '0.0% (Pas)'}
+                          </span>
+                        </span>
+
+                        {/* Nilai Toleransi Threshold */}
+                        <span className="text-[9px] font-medium text-[#544437]/80 bg-[#faf2e9] border border-[#d9c2b2]/40 px-2 py-0.5 rounded">
+                          Threshold: <strong className="text-[#701604] font-bold">±{thresholdPersen}%</strong>
+                          <span className="text-[8px] text-[#544437]/60 ml-0.5">({thresholdPersen === 0 ? 'Hitung' : 'Timbang'})</span>
+                        </span>
+
+                        {/* Status Terhadap Threshold */}
+                        {it.selisih !== 0 && (
+                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
+                            it.flagged
+                              ? 'bg-red-50 text-[#ba1a1a] border-red-200 animate-pulse-subtle'
+                              : 'bg-emerald-50 text-[#0a7d2c] border-emerald-200'
+                          }`}>
+                            {it.flagged ? '⚠️ Melebihi Toleransi' : '✅ Dalam Batas'}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Right: Discrepancy indicator */}
@@ -303,19 +420,33 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                     {it.qty_fisik === null ? (
                       <span className="text-[10px] text-gray-400 font-bold italic">Belum terhitung</span>
                     ) : it.selisih === 0 ? (
-                      <span className="text-[10px] text-gray-500 font-bold bg-[#faf2e9]/50 border border-[#d9c2b2]/20 px-2.5 py-0.5 rounded">
-                        Pas (0)
-                      </span>
+                      <div className="flex flex-col items-end">
+                        <span className="text-[10px] text-gray-500 font-bold bg-[#faf2e9]/50 border border-[#d9c2b2]/20 px-2.5 py-0.5 rounded">
+                          Pas (0)
+                        </span>
+                        {canViewThresholdAndLoss && (
+                          <span className="text-[9px] font-semibold text-gray-400 mt-0.5">0.0%</span>
+                        )}
+                      </div>
                     ) : (
-                      <span className={`text-[10px] font-black px-2.5 py-0.5 rounded border ${
-                        it.flagged
-                          ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/15 font-black animate-pulse-subtle'
-                          : it.selisih < 0
-                            ? 'bg-orange-50 text-orange-700 border-orange-100'
-                            : 'bg-green-50 text-green-700 border-green-100'
-                      }`}>
-                        {it.selisih > 0 ? '+' : ''}{formatGram(it.selisih)}
-                      </span>
+                      <div className="flex flex-col items-end">
+                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded border ${
+                          it.flagged
+                            ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/15 font-black animate-pulse-subtle'
+                            : it.selisih < 0
+                              ? 'bg-orange-50 text-orange-700 border-orange-100'
+                              : 'bg-green-50 text-green-700 border-green-100'
+                        }`}>
+                          {it.selisih > 0 ? '+' : ''}{formatGram(it.selisih)}
+                        </span>
+                        {canViewThresholdAndLoss && (
+                          <span className={`text-[9px] font-black mt-0.5 ${
+                            it.flagged ? 'text-[#ba1a1a]' : it.selisih < 0 ? 'text-orange-700' : 'text-green-700'
+                          }`}>
+                            {selisihPersenInfo.formatted}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

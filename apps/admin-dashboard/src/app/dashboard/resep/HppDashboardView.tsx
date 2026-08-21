@@ -1,18 +1,24 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
-import { Store, Globe, Search, X, Check, Package, Sandwich, Edit2, Calculator, PanelRightClose, RefreshCw, Save, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Store, Globe, Search, X, Check, Package, Sandwich, Edit2, Calculator, PanelRightClose, RefreshCw, Save, ArrowUpDown, ChevronUp, ChevronDown, Layers, Sparkles } from 'lucide-react'
 import type { Outlet, MenuOutletPrice } from '@/pos-types'
+import { CATEGORY_GROUPS, type CategoryGroupMeta } from './categoryHelper'
 
 interface HppMenuItem {
   id: string
   name: string
   category: string
+  categoryFullName?: string
+  categoryId?: string
   categoryOrder: number
+  categoryIcon?: string
+  categoryBadgeBg?: string
+  categoryBorderAccent?: string
   sortOrder: number
   price: number
   channelPrices: Record<string, number>
@@ -45,6 +51,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
   const supabase = createClient()
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [sortField, setSortField] = useState<'default' | 'name' | 'price' | 'hpp' | 'profit' | 'margin'>('default')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   
@@ -93,6 +100,16 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
     fetchOutletData()
   }, [supabase])
 
+  // Count items per category
+  const categoryCountMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    items.forEach(i => {
+      const catId = i.categoryId || 'other'
+      map[catId] = (map[catId] || 0) + 1
+    })
+    return map
+  }, [items])
+
   // Open Drawer and initialize local state
   const handleOpenDrawer = (menuId: string) => {
     const menuPrices = allOutletPrices.filter(p => p.menu_item_id === menuId)
@@ -127,12 +144,19 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
   // Filtered Main Table Items
   const filteredItems = useMemo(() => {
     let res = items
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim()
-      res = res.filter(r => r.name.toLowerCase().includes(q))
+
+    // Filter by Category
+    if (selectedCategory !== 'all') {
+      res = res.filter(r => r.categoryId === selectedCategory)
     }
 
-    // Sort by categoryOrder, then sortOrder, then name to exactly match POS Menu
+    // Filter by Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      res = res.filter(r => r.name.toLowerCase().includes(q) || (r.categoryFullName && r.categoryFullName.toLowerCase().includes(q)))
+    }
+
+    // Sort by categoryOrder, then sortOrder, then name
     const sortedByCategory = [...res].sort((a, b) => {
       // 1. Sort by Category Order
       if (a.categoryOrder !== b.categoryOrder) {
@@ -187,7 +211,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
 
       return sortDir === 'asc' ? comparison : -comparison
     })
-  }, [items, searchQuery, sortField, sortDir])
+  }, [items, selectedCategory, searchQuery, sortField, sortDir])
 
   const handleSort = (field: 'default' | 'name' | 'price' | 'hpp' | 'profit' | 'margin') => {
     if (sortField === field) {
@@ -374,6 +398,64 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
   return (
     <div className="space-y-6 relative overflow-hidden">
       
+      {/* Category Pills Filter Bar */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-200">
+        {/* 'Semua' Pill */}
+        <button
+          onClick={() => setSelectedCategory('all')}
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-extrabold whitespace-nowrap transition-all duration-200 border shadow-sm ${
+            selectedCategory === 'all'
+              ? 'bg-suka-primary text-white border-suka-primary shadow-amber-500/20 scale-[1.02]'
+              : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>Semua Menu</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+            selectedCategory === 'all' ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-600'
+          }`}>
+            {items.length}
+          </span>
+        </button>
+
+        {/* 9 Category Groups */}
+        {CATEGORY_GROUPS.map((cat) => {
+          const count = categoryCountMap[cat.id] || 0
+          const isSelected = selectedCategory === cat.id
+          const isTikTok = cat.id === 'tiktok'
+
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all duration-200 border shadow-sm ${
+                isSelected
+                  ? isTikTok
+                    ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-rose-500/30 scale-[1.02]'
+                    : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-amber-500/30 scale-[1.02]'
+                  : isTikTok
+                    ? 'bg-rose-50/70 text-rose-700 border-rose-200 hover:bg-rose-100/80'
+                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+              }`}
+            >
+              <span className="text-sm">{cat.icon}</span>
+              <span>{cat.shortName}</span>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                  isSelected
+                    ? 'bg-white/20 text-white'
+                    : isTikTok
+                      ? 'bg-rose-200/60 text-rose-800'
+                      : 'bg-gray-100 text-gray-600'
+                }`}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
       {/* Search Bar & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/60 backdrop-blur-xl p-4 border rounded-2xl shadow-sm">
         <div className="relative w-full md:w-96">
@@ -446,7 +528,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredItems.map(row => {
+              {filteredItems.map((row, idx) => {
                 const effHpp = row.hppOverride !== null ? row.hppOverride : row.hpp
                 const profit = effHpp !== null ? row.price - effHpp : null
                 
@@ -529,134 +611,177 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
 
                 const rowClasses = "flex items-center h-8 border-b border-gray-100 last:border-0";
 
+                // Check category section divider header
+                const prevRow = idx > 0 ? filteredItems[idx - 1] : null
+                const isFirstOfCategory = !prevRow || prevRow.categoryId !== row.categoryId
+                const showCategoryHeader = sortField === 'default' && isFirstOfCategory && selectedCategory === 'all' && !searchQuery.trim()
+                const isTikTokRow = row.categoryId === 'tiktok'
+
                 return (
-                  <tr key={row.id} className="hover:bg-gray-50/60 transition-colors group">
-                    <td className="px-5 py-4 text-center">
-                      {row.isPackage ? <Package className="w-4 h-4 text-purple-400 inline-block" /> : <Sandwich className="w-4 h-4 text-blue-400 inline-block" />}
-                    </td>
-                    <td className="px-5 py-4 font-bold text-gray-900">
-                      {row.name}
-                      <div className="text-[10px] text-gray-400 uppercase tracking-wider mt-0.5">{row.category}</div>
-                    </td>
-                    
-                    {/* Channel Column */}
-                    <td className="py-4">
-                      <div className="flex flex-col">
-                        {channelRows.map((ch, idx) => (
-                          <div key={`ch-${idx}`} className={rowClasses}>
-                            <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 ${ch.label === 'OFFLINE' ? 'text-gray-500' : 'text-gray-400'}`}>
-                              {ch.label}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* Harga Jual Column */}
-                    <td className="py-4 text-right">
-                      <div className="flex flex-col">
-                        {channelRows.map((ch, idx) => (
-                          <div key={`pr-${idx}`} className={`${rowClasses} justify-end px-5`}>
-                            <span className="font-bold text-gray-900">{rupiah(ch.price)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </td>
-
-                    {/* HPP Pusat Column */}
-                    <td className="px-5 py-4 text-right align-middle">
-                      {editingPusatId === row.id ? (
-                        <div className="flex items-center justify-end gap-1.5">
-                          <input
-                            type="number"
-                            placeholder={row.hpp ? String(row.hpp) : 'HPP BOM...'}
-                            value={pusatHppValue}
-                            onChange={(e) => setPusatHppValue(e.target.value)}
-                            className="w-24 px-2 py-1 text-xs text-right border rounded focus:ring-1 focus:ring-suka-primary"
-                          />
-                          <button onClick={() => handleSavePusatHpp(row.id, row.name)} disabled={isSaving} className="p-1.5 text-white bg-green-500 hover:bg-green-600 rounded">
-                            <Check className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => setEditingPusatId(null)} disabled={isSaving} className="p-1.5 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="group/edit flex items-center justify-end gap-2">
-                          <div className="text-right">
-                            <div className={`font-bold ${row.hppOverride !== null ? 'text-amber-600' : 'text-gray-600'}`}>
-                              {effHpp !== null ? rupiah(effHpp) : <span className="text-red-400 text-xs italic">Belum Set</span>}
+                  <React.Fragment key={row.id}>
+                    {showCategoryHeader && (
+                      <tr className={`${isTikTokRow ? 'bg-gradient-to-r from-pink-50/80 via-rose-50/40 to-transparent border-t-2 border-b border-rose-200' : 'bg-gradient-to-r from-amber-50/80 via-orange-50/30 to-transparent border-t-2 border-b border-amber-200/60'}`}>
+                        <td colSpan={9} className="px-5 py-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2.5">
+                              <span className="text-lg">{row.categoryIcon || '📁'}</span>
+                              <span className="font-black text-xs text-gray-900 tracking-wider uppercase">
+                                {row.categoryFullName || row.category}
+                              </span>
+                              <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border ${row.categoryBadgeBg || 'bg-gray-100 text-gray-700'}`}>
+                                {categoryCountMap[row.categoryId || ''] || 0} Menu
+                              </span>
                             </div>
-                            {row.hppOverride !== null && row.hpp !== null && (
-                              <div className="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">BOM: {rupiah(row.hpp)}</div>
-                            )}
+                            <button
+                              onClick={() => setSelectedCategory(row.categoryId || 'all')}
+                              className="text-[11px] font-bold text-suka-primary hover:underline hover:text-suka-primary/80"
+                            >
+                              Fokus Kategori Ini &rarr;
+                            </button>
                           </div>
-                          <button onClick={() => { setEditingPusatId(row.id); setPusatHppValue(row.hppOverride !== null ? String(row.hppOverride) : ''); }} className="opacity-0 group-hover/edit:opacity-100 p-1 w-6 h-6 flex items-center justify-center shrink-0 text-gray-400 hover:text-suka-primary transition-opacity rounded hover:bg-gray-100">
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="hover:bg-gray-50/60 transition-colors group">
+                      <td className="px-5 py-4 text-center">
+                        {row.isPackage ? <Package className="w-4 h-4 text-purple-400 inline-block" /> : <Sandwich className="w-4 h-4 text-blue-400 inline-block" />}
+                      </td>
+                      <td className="px-5 py-4 font-bold text-gray-900">
+                        {row.name}
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${row.categoryBadgeBg || 'bg-gray-100 text-gray-600'}`}>
+                            {row.categoryIcon} {row.category}
+                          </span>
                         </div>
-                      )}
-                    </td>
+                      </td>
+                      
+                      {/* Channel Column */}
+                      <td className="py-4">
+                        <div className="flex flex-col">
+                          {channelRows.map((ch, cIdx) => (
+                            <div key={`ch-${cIdx}`} className={rowClasses}>
+                              <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 ${ch.label === 'OFFLINE' ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {ch.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
 
-                    {/* Profit Pusat Column */}
-                    <td className="py-4 text-right">
-                      <div className="flex flex-col">
-                        {channelRows.map((ch, idx) => {
-                          const profit = effHpp !== null ? ch.price - effHpp : null;
-                          return (
-                            <div key={`pft-pst-${idx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
-                              {profit !== null ? (
-                                <>
-                                  <span className="font-bold text-gray-900 text-sm text-right w-[70px]">{rupiah(profit)}</span>
-                                  <div className="w-12 text-right">{renderMarginTextOnly(effHpp, ch.price)}</div>
-                                </>
-                              ) : (
-                                <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
+                      {/* Harga Jual Column */}
+                      <td className="py-4 text-right">
+                        <div className="flex flex-col">
+                          {channelRows.map((ch, cIdx) => (
+                            <div key={`pr-${cIdx}`} className={`${rowClasses} justify-end px-5`}>
+                              <span className="font-bold text-gray-900">{rupiah(ch.price)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+
+                      {/* HPP Pusat Column */}
+                      <td className="px-5 py-4 text-right align-middle">
+                        {editingPusatId === row.id ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <input
+                              type="number"
+                              placeholder={row.hpp ? String(row.hpp) : 'HPP BOM...'}
+                              value={pusatHppValue}
+                              onChange={(e) => setPusatHppValue(e.target.value)}
+                              className="w-24 px-2 py-1 text-xs text-right border rounded focus:ring-1 focus:ring-suka-primary"
+                            />
+                            <button onClick={() => handleSavePusatHpp(row.id, row.name)} disabled={isSaving} className="p-1.5 text-white bg-green-500 hover:bg-green-600 rounded">
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => setEditingPusatId(null)} disabled={isSaving} className="p-1.5 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="group/edit flex items-center justify-end gap-2">
+                            <div className="text-right">
+                              <div className={`font-bold ${row.hppOverride !== null ? 'text-amber-600' : 'text-gray-600'}`}>
+                                {effHpp !== null ? rupiah(effHpp) : <span className="text-red-400 text-xs italic">Belum Set</span>}
+                              </div>
+                              {row.hppOverride !== null && row.hpp !== null && (
+                                <div className="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">BOM: {rupiah(row.hpp)}</div>
                               )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    </td>
+                            <button onClick={() => { setEditingPusatId(row.id); setPusatHppValue(row.hppOverride !== null ? String(row.hppOverride) : ''); }} className="opacity-0 group-hover/edit:opacity-100 p-1 w-6 h-6 flex items-center justify-center shrink-0 text-gray-400 hover:text-suka-primary transition-opacity rounded hover:bg-gray-100">
+                              <Edit2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
 
-                    {/* HPP Mitra Column */}
-                    <td className="px-5 py-4 text-right align-middle">
-                      <div className="font-bold text-blue-600">
-                        {avgMitraHpp !== null ? rupiah(avgMitraHpp) : <span className="text-gray-400 text-xs italic">Belum Set</span>}
-                      </div>
-                    </td>
+                      {/* Profit Pusat Column */}
+                      <td className="py-4 text-right">
+                        <div className="flex flex-col">
+                          {channelRows.map((ch, cIdx) => {
+                            const pft = effHpp !== null ? ch.price - effHpp : null;
+                            return (
+                              <div key={`pft-pst-${cIdx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
+                                {pft !== null ? (
+                                  <>
+                                    <span className="font-bold text-gray-900 text-sm text-right w-[70px]">{rupiah(pft)}</span>
+                                    <div className="w-12 text-right">{renderMarginTextOnly(effHpp, ch.price)}</div>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
 
-                    {/* Profit Mitra Column */}
-                    <td className="py-4 text-right">
-                      <div className="flex flex-col">
-                        {channelRows.map((ch, idx) => {
-                          const profitMitra = avgMitraHpp !== null ? ch.price - avgMitraHpp : null;
-                          return (
-                            <div key={`pft-mtr-${idx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
-                              {profitMitra !== null ? (
-                                <>
-                                  <span className="font-bold text-blue-700 text-sm text-right w-[70px]">{rupiah(profitMitra)}</span>
-                                  <div className="w-12 text-right">{renderMarginTextOnly(avgMitraHpp, ch.price)}</div>
-                                </>
-                              ) : (
-                                <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-right">
-                      <button
-                        onClick={() => handleOpenDrawer(row.id)}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-primary/10 text-suka-primary hover:bg-suka-primary/20 rounded-xl text-xs font-bold transition-colors"
-                      >
-                        <PanelRightClose className="w-4 h-4" /> Kelola Distribusi
-                      </button>
-                    </td>
-                  </tr>
+                      {/* HPP Mitra Column */}
+                      <td className="px-5 py-4 text-right align-middle">
+                        <div className="font-bold text-blue-600">
+                          {avgMitraHpp !== null ? rupiah(avgMitraHpp) : <span className="text-gray-400 text-xs italic">Belum Set</span>}
+                        </div>
+                      </td>
+
+                      {/* Profit Mitra Column */}
+                      <td className="py-4 text-right">
+                        <div className="flex flex-col">
+                          {channelRows.map((ch, cIdx) => {
+                            const profitMitra = avgMitraHpp !== null ? ch.price - avgMitraHpp : null;
+                            return (
+                              <div key={`pft-mtr-${cIdx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
+                                {profitMitra !== null ? (
+                                  <>
+                                    <span className="font-bold text-blue-700 text-sm text-right w-[70px]">{rupiah(profitMitra)}</span>
+                                    <div className="w-12 text-right">{renderMarginTextOnly(avgMitraHpp, ch.price)}</div>
+                                  </>
+                                ) : (
+                                  <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <button
+                          onClick={() => handleOpenDrawer(row.id)}
+                          className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-primary/10 text-suka-primary hover:bg-suka-primary/20 rounded-xl text-xs font-bold transition-colors"
+                        >
+                          <PanelRightClose className="w-4 h-4" /> Kelola Distribusi
+                        </button>
+                      </td>
+                    </tr>
+                  </React.Fragment>
                 )
               })}
+              {filteredItems.length === 0 && (
+                <tr>
+                  <td colSpan={9} className="px-6 py-12 text-center text-gray-500">
+                    <p className="font-semibold text-base">Tidak ada menu ditemukan</p>
+                    <p className="text-xs text-gray-400 mt-1">Coba ganti filter kategori atau kata kunci pencarian.</p>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

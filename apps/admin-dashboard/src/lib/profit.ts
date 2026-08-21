@@ -7,10 +7,10 @@ export interface ProfitResult {
   netRevenue: number
 }
 
-/** Laba Kotor = Net Revenue − HPP; Laba Bersih = Laba Kotor − Expenses − Kerugian Waste. Margin % thd Net Revenue. */
+/** Laba Kotor = Gross Revenue − HPP - Deductions; Laba Bersih = Laba Kotor − Expenses − Kerugian Waste. Margin % thd Net Revenue. */
 export function computeProfit(grossRevenue: number, deductions: number, hpp: number, expenses: number, wasteValue: number = 0): ProfitResult {
-  const netRevenue = grossRevenue - deductions
-  const labaKotor = netRevenue - hpp
+  const netRevenue = grossRevenue // Disamakan dengan Rangkuman Penjualan
+  const labaKotor = grossRevenue - hpp - deductions
   const labaBersih = labaKotor - expenses - wasteValue
   return {
     netRevenue,
@@ -23,10 +23,10 @@ export function computeProfit(grossRevenue: number, deductions: number, hpp: num
 
 export type OutletProfit = ProfitResult
 
-/** Laba Outlet = Net Revenue − HPP − Pengeluaran Outlet − Kerugian Waste (outlet itu saja). */
+/** Laba Outlet = Gross Revenue − HPP - Deductions − Pengeluaran Outlet − Kerugian Waste (outlet itu saja). */
 export function computeOutletProfit(grossRevenue: number, deductions: number, hpp: number, pengeluaranOutlet: number, wasteValue: number = 0): OutletProfit {
-  const netRevenue = grossRevenue - deductions
-  const labaKotor = netRevenue - hpp
+  const netRevenue = grossRevenue // Disamakan dengan Rangkuman Penjualan
+  const labaKotor = grossRevenue - hpp - deductions
   const labaBersih = labaKotor - pengeluaranOutlet - wasteValue
   return {
     netRevenue,

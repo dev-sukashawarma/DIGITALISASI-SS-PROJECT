@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import ResepTabView from './ResepTabView'
+import { getMenuCategoryGroup } from './categoryHelper'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,11 +106,24 @@ export default async function ResepPage() {
       hpp = recipeSet.has(menu.id) ? (recipeHppMap[menu.id] ?? null) : null
     }
 
+    const group = getMenuCategoryGroup({
+      name: menu.name,
+      category: categoryInfo.name,
+      isPackage,
+      availableOnlineChannels: menu.available_online_channels,
+      channelPrices: menu.channel_prices,
+    })
+
     return {
       id: menu.id,
       name: menu.name,
-      category: categoryInfo.name || '—',
-      categoryOrder: categoryInfo.sort_order || 999,
+      category: group.shortName,
+      categoryFullName: group.name,
+      categoryId: group.id,
+      categoryOrder: group.order,
+      categoryIcon: group.icon,
+      categoryBadgeBg: group.badgeBg,
+      categoryBorderAccent: group.borderAccent,
       sortOrder: menu.sort_order || 0,
       price: Number(menu.price) || 0,
       hppOverride: menu.hpp_override !== null && menu.hpp_override !== undefined ? Number(menu.hpp_override) : null,
@@ -150,10 +164,23 @@ export default async function ResepPage() {
       itemCount = bom?.resep_item?.length || 0
     }
 
+    const group = getMenuCategoryGroup({
+      name: menu.name,
+      category: categoryInfo.name,
+      isPackage,
+      availableOnlineChannels: menu.available_online_channels,
+      channelPrices: menu.channel_prices,
+    })
+
     return {
       ...menu,
-      category: categoryInfo.name || '—',
-      categoryOrder: categoryInfo.sort_order || 999,
+      category: group.shortName,
+      categoryFullName: group.name,
+      categoryId: group.id,
+      categoryOrder: group.order,
+      categoryIcon: group.icon,
+      categoryBadgeBg: group.badgeBg,
+      categoryBorderAccent: group.borderAccent,
       hasBOM,
       bomActive,
       itemCount,

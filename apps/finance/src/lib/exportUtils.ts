@@ -1,8 +1,4 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import { rupiah, formatNumber } from '@/lib/format'
-import ExcelJS from 'exceljs'
-import { saveAs } from 'file-saver'
 
 export type RingkasanData = {
   date: string
@@ -31,6 +27,8 @@ export async function exportToExcel(
   outletName: string,
   channelName: string
 ) {
+  const ExcelJS = (await import('exceljs')).default
+  const { saveAs } = await import('file-saver')
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('Laporan Omzet')
 
@@ -162,7 +160,9 @@ export async function exportToPDF(
   outletName: string,
   channelName: string
 ) {
-  const doc = new jsPDF('landscape')
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
+  const doc = new jsPDF({ orientation: 'landscape' })
   
   try {
     const logoUrl = '/logo.png'

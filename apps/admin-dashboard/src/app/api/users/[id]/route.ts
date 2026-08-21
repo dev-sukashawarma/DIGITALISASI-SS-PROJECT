@@ -57,8 +57,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     const allowedRoles = [
-      'crew', 'kitchen', 'kiosk', 'spv', 'leader', 
-      'regional_manager', 'area_manager', 'korlap',
+      'crew', 'kitchen', 'kiosk', 'leader', 
+      'regional_manager', 'area_manager',
       'admin', 'admin_hr', 'admin_finance', 'purchasing', 
       'owner', 'mitra'
     ]
@@ -68,7 +68,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     const isMultiOutletRole = [
       'admin', 'owner', 'regional_manager', 'area_manager', 
-      'leader', 'korlap', 'admin_hr', 'admin_finance', 
+      'leader', 'admin_hr', 'admin_finance', 
       'purchasing', 'mitra'
     ].includes(role);
     const finalOutletIds = (isMultiOutletRole && Array.isArray(outlet_ids) && outlet_ids.length > 0) 

@@ -49,7 +49,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
 
   const isMultiOutletRole = [
     'admin', 'owner', 'regional_manager', 'area_manager', 
-    'leader', 'korlap', 'admin_hr', 'admin_finance', 
+    'leader', 'admin_hr', 'admin_finance', 
     'purchasing', 'mitra'
   ].includes(role)
 
@@ -346,11 +346,9 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                   {[
                     { value: 'crew', label: 'Crew' },
                     { value: 'kitchen', label: 'Kitchen' },
-                    { value: 'spv', label: 'SPV' },
                     { value: 'leader', label: 'Leader' },
                     { value: 'area_manager', label: 'Area Manager' },
                     { value: 'regional_manager', label: 'Regional Manager' },
-                    { value: 'korlap', label: 'Korlap' },
                     { value: 'admin_hr', label: 'Admin HR' },
                     { value: 'admin_finance', label: 'Admin Finance' },
                     { value: 'purchasing', label: 'Purchasing' },
@@ -365,7 +363,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                         // If switching away from multi-role, reset outletIds to just outletId if valid
                         if (![
                           'admin', 'owner', 'regional_manager', 'area_manager', 
-                          'leader', 'korlap', 'admin_hr', 'admin_finance', 
+                          'leader', 'admin_hr', 'admin_finance', 
                           'purchasing', 'mitra'
                         ].includes(e.target.value)) {
                           if (outletIds.length > 1 && outletId) {

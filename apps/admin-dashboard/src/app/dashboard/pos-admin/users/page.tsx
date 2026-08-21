@@ -9,6 +9,7 @@ interface UserProfile {
   username: string
   outlet_id: string | null
   outlets?: { name: string }
+  staff_outlets?: { outlet_id: string }[]
   is_active?: boolean
   inactive_reason?: string | null
 }
@@ -25,7 +26,7 @@ export default async function AdminUsersPage() {
   const [profilesRes, outletsRes] = await Promise.all([
     supabase
       .from('outlet_staff')
-      .select('*, outlets!outlet_staff_outlet_id_fkey(name)')
+      .select('*, outlets!outlet_staff_outlet_id_fkey(name), staff_outlets(outlet_id)')
       .order('created_at', { ascending: false }),
     supabase
       .from('outlets')

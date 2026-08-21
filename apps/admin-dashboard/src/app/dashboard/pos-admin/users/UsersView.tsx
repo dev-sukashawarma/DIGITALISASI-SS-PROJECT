@@ -13,6 +13,7 @@ interface UserProfile {
   username: string
   outlet_id: string | null
   outlets?: { name: string }
+  staff_outlets?: { outlet_id: string }[]
   is_active?: boolean
   inactive_reason?: string | null
 }
@@ -39,10 +40,13 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<string>('crew')
   const [outletId, setOutletId] = useState('')
+  const [outletIds, setOutletIds] = useState<string[]>([])
   const [isActive, setIsActive] = useState(true)
   const [inactiveReason, setInactiveReason] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
+
+  const isMultiOutletRole = ['admin', 'owner', 'regional_manager', 'leader'].includes(role)
 
   const tabFilteredUsers = initialUsers.filter(u => activeTab === 'kiosk' ? u.role === 'kiosk' : u.role !== 'kiosk')
   const filteredUsers = tabFilteredUsers.filter(u => 
@@ -68,6 +72,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       setPassword('') // Password kosongkan saat edit
       setRole(user.role)
       setOutletId(user.outlet_id || '')
+      setOutletIds(user.staff_outlets?.map(so => so.outlet_id) || (user.outlet_id ? [user.outlet_id] : []))
       setIsActive(user.is_active ?? true)
       setInactiveReason(user.inactive_reason || '')
     } else {
@@ -75,7 +80,13 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       setUsername('')
       setPassword('')
       setRole(activeTab === 'kiosk' ? 'kiosk' : 'crew')
-      if (initialOutlets.length > 0) setOutletId(initialOutlets[0].id)
+      if (initialOutlets.length > 0) {
+        setOutletId(initialOutlets[0].id)
+        setOutletIds([initialOutlets[0].id])
+      } else {
+        setOutletId('')
+        setOutletIds([])
+      }
       setIsActive(true)
       setInactiveReason('')
     }
@@ -100,6 +111,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
           password: password || undefined,
           role,
           outlet_id: outletId,
+          outlet_ids: isMultiOutletRole ? outletIds : undefined,
           is_active: isActive,
           inactive_reason: !isActive ? inactiveReason : null
         })
@@ -219,13 +231,21 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                 </div>
               )}
               <div className="relative" ref={dropdownRef}>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Pilih Cabang / Outlet</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-bold text-gray-700">Pilih Cabang / Outlet</label>
+                  {isMultiOutletRole && (
+                    <span className="text-xs text-amber-600 font-medium">Bisa pilih lebih dari satu</span>
+                  )}
+                </div>
                 <div 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                   className="w-full bg-gray-50 border-2 border-transparent focus-within:border-amber-400 focus-within:bg-white rounded-xl px-4 py-3 outline-none transition-colors font-medium flex items-center justify-between cursor-pointer"
                 >
-                  <span className={outletId ? 'text-gray-900' : 'text-gray-400 truncate pr-4'}>
-                    {initialOutlets.find(o => o.id === outletId)?.name || 'Pilih Cabang...'}
+                  <span className={outletId || outletIds.length > 0 ? 'text-gray-900 truncate pr-4' : 'text-gray-400 truncate pr-4'}>
+                    {isMultiOutletRole 
+                      ? (outletIds.length === initialOutlets.length ? 'Semua Cabang' : outletIds.length > 0 ? `${outletIds.length} cabang dipilih` : 'Pilih Cabang...')
+                      : (initialOutlets.find(o => o.id === outletId)?.name || 'Pilih Cabang...')
+                    }
                   </span>
                   <ChevronDown className={`w-5 h-5 text-gray-400 shrink-0 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
@@ -244,25 +264,67 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>
+                      {isMultiOutletRole && dropdownSearch === '' && (
+                        <div 
+                          className="mt-2 flex items-center gap-2 px-2 py-2 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                          onClick={() => {
+                            if (outletIds.length === initialOutlets.length) {
+                              setOutletIds([])
+                              setOutletId('')
+                            } else {
+                              const allIds = initialOutlets.map(o => o.id)
+                              setOutletIds(allIds)
+                              setOutletId(allIds[0] || '')
+                            }
+                          }}
+                        >
+                          <input type="checkbox" checked={outletIds.length === initialOutlets.length} readOnly className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-600" />
+                          <span className="text-sm font-bold text-gray-900">Pilih Semua Outlet</span>
+                        </div>
+                      )}
                     </div>
                     <div className="max-h-60 overflow-y-auto p-1 relative z-50 bg-white">
                       {initialOutlets.filter(o => o.name.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0 ? (
                         <div className="p-3 text-sm text-gray-500 text-center font-medium">Cabang tidak ditemukan</div>
                       ) : (
-                        initialOutlets.filter(o => o.name.toLowerCase().includes(dropdownSearch.toLowerCase())).map(o => (
-                          <div
-                            key={o.id}
-                            onClick={() => {
-                              setOutletId(o.id)
-                              setIsDropdownOpen(false)
-                              setDropdownSearch('')
-                            }}
-                            className={`px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors flex items-center justify-between ${outletId === o.id ? 'bg-amber-50 text-amber-700' : 'hover:bg-gray-50 text-gray-700'}`}
-                          >
-                            {o.name}
-                            {outletId === o.id && <Check className="w-4 h-4 text-amber-600 shrink-0 ml-2" />}
-                          </div>
-                        ))
+                        initialOutlets.filter(o => o.name.toLowerCase().includes(dropdownSearch.toLowerCase())).map(o => {
+                          const isSelected = isMultiOutletRole ? outletIds.includes(o.id) : outletId === o.id;
+                          return (
+                            <div
+                              key={o.id}
+                              onClick={() => {
+                                if (isMultiOutletRole) {
+                                  let newIds = [...outletIds]
+                                  if (isSelected) {
+                                    newIds = newIds.filter(id => id !== o.id)
+                                  } else {
+                                    newIds.push(o.id)
+                                  }
+                                  setOutletIds(newIds)
+                                  if (newIds.length > 0 && !newIds.includes(outletId)) {
+                                    setOutletId(newIds[0])
+                                  } else if (newIds.length === 0) {
+                                    setOutletId('')
+                                  }
+                                } else {
+                                  setOutletId(o.id)
+                                  setOutletIds([o.id])
+                                  setIsDropdownOpen(false)
+                                  setDropdownSearch('')
+                                }
+                              }}
+                              className={`px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer transition-colors flex items-center gap-3 ${isSelected && !isMultiOutletRole ? 'bg-amber-50 text-amber-700' : 'hover:bg-gray-50 text-gray-700'}`}
+                            >
+                              {isMultiOutletRole && (
+                                <input type="checkbox" checked={isSelected} readOnly className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 accent-amber-600" />
+                              )}
+                              <div className="flex-1 flex justify-between items-center">
+                                {o.name}
+                                {isSelected && !isMultiOutletRole && <Check className="w-4 h-4 text-amber-600 shrink-0 ml-2" />}
+                              </div>
+                            </div>
+                          )
+                        })
                       )}
                     </div>
                   </div>
@@ -271,27 +333,30 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
               
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Peran (Role)</label>
-                <div className="flex flex-wrap gap-3">
-                  <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="crew" checked={role === 'crew'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
-                    <span className="font-bold text-gray-700 text-sm">Crew</span>
-                  </label>
-                  <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="spv" checked={role === 'spv'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
-                    <span className="font-bold text-gray-700 text-sm">SPV</span>
-                  </label>
-                  <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="regional_manager" checked={role === 'regional_manager'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
-                    <span className="font-bold text-gray-700 text-sm">Regional Manager</span>
-                  </label>
-                  <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="owner" checked={role === 'owner'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
-                    <span className="font-bold text-gray-700 text-sm">Owner</span>
-                  </label>
-                  <label className="flex-[1_1_45%] flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50">
-                    <input type="radio" name="role" value="kiosk" checked={role === 'kiosk'} onChange={(e) => setRole(e.target.value)} className="w-4 h-4 accent-amber-600" />
-                    <span className="font-bold text-gray-700 text-sm whitespace-nowrap">Mesin Kiosk</span>
-                  </label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'crew', label: 'Crew' },
+                    { value: 'kitchen', label: 'Kitchen' },
+                    { value: 'spv', label: 'SPV' },
+                    { value: 'leader', label: 'Leader' },
+                    { value: 'regional_manager', label: 'Regional Manager' },
+                    { value: 'owner', label: 'Owner' },
+                    { value: 'admin', label: 'Admin' },
+                    { value: 'kiosk', label: 'Mesin Kiosk' }
+                  ].map(r => (
+                    <label key={r.value} className="flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 text-center">
+                      <input type="radio" name="role" value={r.value} checked={role === r.value} onChange={(e) => {
+                        setRole(e.target.value)
+                        // If switching away from multi-role, reset outletIds to just outletId if valid
+                        if (!['admin', 'owner', 'regional_manager', 'leader'].includes(e.target.value)) {
+                          if (outletIds.length > 1 && outletId) {
+                            setOutletIds([outletId])
+                          }
+                        }
+                      }} className="w-4 h-4 accent-amber-600 shrink-0" />
+                      <span className="font-bold text-gray-700 text-sm">{r.label}</span>
+                    </label>
+                  ))}
                 </div>
               </div>
               

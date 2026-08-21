@@ -1,86 +1,86 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { useEffect, useRef, useState } from 'react'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
-const SESSION_TIMEOUT_MS = 15_000
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timeoutId = window.setTimeout(
-      () => reject(new Error('Sesi Stok tidak merespons. Silakan coba lagi.')),
-      timeoutMs
-    )
-    promise.then(
-      (value) => {
-        window.clearTimeout(timeoutId)
-        resolve(value)
-      },
-      (error: unknown) => {
-        window.clearTimeout(timeoutId)
-        reject(error)
-      }
-    )
-  })
+type HandoffResponse = {
+  ok?: boolean
+  error?: string
+}
+
+function safeInternalPath(value: string | null): string {
+  return value?.startsWith('/') && !value.startsWith('//') ? value : '/dashboard'
 }
 
 /**
- * Serah-terima sesi dari app native (POS Android) ke web stok.
+ * Serah-terima sesi dari POS Android.
  *
- * Token dikirim di URL *fragment* (`#access_token=...&refresh_token=...`), bukan
- * query string: fragment tidak pernah ikut ke server, jadi tidak nyangkut di
- * access log Vercel/CDN maupun Referer. Di sini token ditukar jadi cookie sesi
- * lewat browser client @supabase/ssr — cookie yang sama persis dibaca middleware
- * `enforceAppAccess`, jadi user langsung masuk tanpa login ulang.
- *
- * Rute ini dikecualikan dari matcher middleware (lihat src/middleware.ts) karena
- * saat dibuka user memang belum punya cookie.
- *
- * WAJIB pakai singleton `createSupabaseBrowserClient()` yang sama dengan yang
- * dipakai `Providers` (root layout, membungkus halaman ini juga) — JANGAN buat
- * GoTrueClient sendiri di sini. Dua client yang menunjuk storage key sama
- * (project Supabase yang sama) rebutan satu lock browser (`navigator.locks`)
- * milik supabase-js untuk setiap operasi auth, termasuk inisialisasi client itu
- * sendiri dan `setSession()` di bawah. Di Chrome Android yang dibuka lewat
- * Intent dari app native, tab sempat "background" sesaat saat baru terbuka —
- * lock/timer semacam ini dikenal suka telat diproses saat itu, jadi setSession()
- * milik client kedua bisa nyangkut menunggu gilirannya sampai timeout 15 detik
- * ("Sesi Stok tidak merespons"). Singleton ini SUDAH menangani rute `/auth/sso`
- * secara khusus (mematikan `detectSessionInUrl` untuknya) — memakainya berarti
- * cuma ada SATU client di halaman ini, jadi tidak ada lock yang diperebutkan.
+ * Token tetap datang melalui URL fragment agar tidak masuk access log. Halaman
+ * ini segera menghapus fragment dari address bar, lalu menukarnya menjadi cookie
+ * melalui route handler same-origin. Penukaran sengaja dilakukan di server:
+ * AuthProvider pada root layout juga menginisialisasi Supabase di browser dan
+ * operasi auth yang bersamaan dapat saling menunggu di Chrome Android.
  */
 export default function SsoHandoffPage() {
   const [error, setError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  const handoffRef = useRef<{ accessToken: string; refreshToken: string; next: string } | null>(null)
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-    const accessToken = params.get('access_token')
-    const refreshToken = params.get('refresh_token')
-    // Hanya path internal — cegah open redirect lewat `next=https://...`.
-    const nextParam = params.get('next') || '/dashboard'
-    const next = nextParam.startsWith('/') && !nextParam.startsWith('//') ? nextParam : '/dashboard'
+    let cancelled = false
 
-    if (!accessToken || !refreshToken) {
-      window.location.replace(PORTAL_URL)
-      return
-    }
+    async function handoff() {
+      if (!handoffRef.current) {
+        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+        const accessToken = params.get('access_token')
+        const refreshToken = params.get('refresh_token')
 
-    const client = createSupabaseBrowserClient()
-    withTimeout(
-      client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
-      SESSION_TIMEOUT_MS
-    )
-      .then(({ error }) => {
-        if (error) {
-          setError(error.message)
+        if (!accessToken || !refreshToken) {
+          window.location.replace(PORTAL_URL)
           return
         }
-        // Buang token dari history supaya tidak tertinggal di back-stack browser.
+
+        handoffRef.current = {
+          accessToken,
+          refreshToken,
+          next: safeInternalPath(params.get('next')),
+        }
+
+        // Token tidak boleh tertinggal di address bar/history walaupun request gagal.
+        window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`)
+      }
+
+      const { accessToken, refreshToken, next } = handoffRef.current
+      setError(null)
+
+      try {
+        const response = await fetch('/api/auth/sso', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ accessToken, refreshToken }),
+        })
+        const result = (await response.json().catch(() => ({}))) as HandoffResponse
+
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || 'Sesi Stok tidak dapat dibuat. Silakan coba lagi.')
+        }
+
         window.location.replace(next)
-      })
-      .catch((e: unknown) => setError(e instanceof Error ? e.message : 'Gagal memproses sesi'))
-  }, [])
+      } catch (cause) {
+        if (!cancelled) {
+          setError(cause instanceof Error ? cause.message : 'Gagal memproses sesi')
+        }
+      }
+    }
+
+    void handoff()
+    return () => {
+      cancelled = true
+    }
+  }, [attempt])
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-[#fff8f1] px-6 text-center">
@@ -88,7 +88,14 @@ export default function SsoHandoffPage() {
         <>
           <p className="text-base font-semibold text-red-700">Sesi tidak bisa dilanjutkan</p>
           <p className="text-sm text-neutral-600">{error}</p>
-          <a href={PORTAL_URL} className="mt-2 text-sm font-semibold text-orange-700 underline">
+          <button
+            type="button"
+            onClick={() => setAttempt((value) => value + 1)}
+            className="mt-2 text-sm font-semibold text-orange-700 underline"
+          >
+            Coba lagi
+          </button>
+          <a href={PORTAL_URL} className="text-sm text-neutral-600 underline">
             Login manual di portal
           </a>
         </>

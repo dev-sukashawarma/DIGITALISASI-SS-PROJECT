@@ -26,7 +26,16 @@ export function useInboundOutbound(
         .from('inbound_outbound')
         .select(`
           *,
-          bahan_baku:bahan_baku_id(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, satuan_distribusi),
+          bahan_baku:bahan_baku_id(
+            nama, 
+            satuan, 
+            satuan_tengah, 
+            faktor_tengah, 
+            satuan_kecil, 
+            faktor_tampilan, 
+            satuan_distribusi,
+            bahan_baku_harga(harga_beli_display, harga_beli)
+          ),
           outlet_staff:created_by(name)
         `)
         .eq('outlet_id', outletId);

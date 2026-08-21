@@ -63,16 +63,33 @@ const DELIVERY_UNITS_FALLBACK: Record<string, { label: string; factorFromLarge: 
   'ES BATU': { label: 'bal', factorFromLarge: 1 }
 };
 
+function getEffectivePrice(item: InboundOutbound): number | null {
+  if (item.harga_satuan !== null && item.harga_satuan !== undefined) {
+    return Number(item.harga_satuan);
+  }
+  const liveHarga = (item.bahan_baku as any)?.bahan_baku_harga;
+  if (Array.isArray(liveHarga) && liveHarga.length > 0) {
+    const p = liveHarga[0].harga_beli_display ?? liveHarga[0].harga_beli;
+    return p ? Number(p) : null;
+  }
+  if (liveHarga && typeof liveHarga === 'object') {
+    const p = liveHarga.harga_beli_display ?? liveHarga.harga_beli;
+    return p ? Number(p) : null;
+  }
+  return null;
+}
+
 function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; unitLabel: string; displayText: string; totalNilai: number | null } {
   const bahan = item.bahan_baku;
   const numQty = Number(item.qty);
+  const effectivePrice = getEffectivePrice(item);
 
   if (!bahan) {
     return {
       qtyNumber: numQty,
       unitLabel: 'satuan',
       displayText: numQty.toLocaleString('id-ID'),
-      totalNilai: item.harga_satuan ? Math.round(numQty * Number(item.harga_satuan)) : null
+      totalNilai: effectivePrice ? Math.round(numQty * effectivePrice) : null
     };
   }
 
@@ -105,7 +122,7 @@ function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; u
   }
 
   const roundedQty = Math.round(convertedQty * 100) / 100;
-  const totalNilai = item.harga_satuan ? Math.round(roundedQty * Number(item.harga_satuan)) : null;
+  const totalNilai = effectivePrice ? Math.round(roundedQty * effectivePrice) : null;
 
   return {
     qtyNumber: roundedQty,
@@ -265,6 +282,7 @@ export function InboundOutboundList({ items }: Props) {
                         const sign = isOut ? '-' : '+';
                         const colorClass = isOut ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-700 bg-green-50 border-green-200';
                         const calc = getDistribusiCalculation(item);
+                        const effectivePrice = getEffectivePrice(item);
                         const isFirstInBatch = itemIdx === 0;
                         const isNewBatch = isFirstInBatch && bIdx > 0;
                         const batchBorderClass = isNewBatch ? 'border-t-2 border-suka-brown/30' : 'border-t border-suka-brown/5';
@@ -296,9 +314,9 @@ export function InboundOutboundList({ items }: Props) {
                               </span>
                             </td>
                             <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                              {item.harga_satuan ? (
+                              {effectivePrice ? (
                                 <span className="text-xs font-bold text-suka-brown">
-                                  Rp {Number(item.harga_satuan).toLocaleString('id-ID')} <span className="text-[11px] font-medium text-suka-brown/60">/ {calc.unitLabel.toLowerCase()}</span>
+                                  Rp {effectivePrice.toLocaleString('id-ID')} <span className="text-[11px] font-medium text-suka-brown/60">/ {calc.unitLabel.toLowerCase()}</span>
                                 </span>
                               ) : (
                                 <span className="text-xs text-suka-brown/30">-</span>

@@ -83,7 +83,15 @@ export const AuthProvider: React.FC<{
         if (abortController.signal.aborted) return
         setSession(session)
         setUser(session?.user ?? null)
-        await loadStaff(session?.user?.id)
+        // Jangan timpa outletStaff (mis. dari initialStaff via header server,
+        // yang sudah lolos verifikasi middleware) dengan null gara-gara event
+        // sesi kosong yang datang dari client. Ini terjadi mis. tepat setelah
+        // handoff SSO: cookie sudah tervalidasi middleware server-side, tapi
+        // GoTrueClient di browser sempat gagal membaca cookie itu sesaat dan
+        // memancarkan event dengan session null — bukan sign-out sungguhan.
+        // Sign-out asli sudah ditangani langsung oleh signOut() di bawah.
+        if (!session) return
+        await loadStaff(session.user.id)
       }
     )
     return () => {

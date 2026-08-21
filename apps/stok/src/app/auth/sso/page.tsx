@@ -1,39 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createSupabaseBrowserClient } from '@suka/auth'
 
 const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL ?? 'https://app.sukashawarma.com'
 const SESSION_TIMEOUT_MS = 15_000
-
-/**
- * Client khusus halaman handoff.
- *
- * Root `Providers` sudah membuat client global yang mendeteksi token URL secara
- * otomatis. Jika client itu dan halaman ini sama-sama memproses fragment SSO,
- * Chrome Android dapat menunggu inisialisasi yang sama tanpa selesai. Client
- * ini sengaja mematikan deteksi fragment otomatis; token di bawah hanya diproses
- * satu kali dan cookie yang dihasilkan tetap memakai konfigurasi suite yang sama.
- */
-function createSsoHandoffClient() {
-  return createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookieOptions: {
-        domain: process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined,
-        path: '/',
-        sameSite: 'lax',
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 31536000,
-      },
-      auth: {
-        detectSessionInUrl: false,
-        autoRefreshToken: false,
-      },
-    }
-  )
-}
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -65,6 +36,19 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
  *
  * Rute ini dikecualikan dari matcher middleware (lihat src/middleware.ts) karena
  * saat dibuka user memang belum punya cookie.
+ *
+ * WAJIB pakai singleton `createSupabaseBrowserClient()` yang sama dengan yang
+ * dipakai `Providers` (root layout, membungkus halaman ini juga) — JANGAN buat
+ * GoTrueClient sendiri di sini. Dua client yang menunjuk storage key sama
+ * (project Supabase yang sama) rebutan satu lock browser (`navigator.locks`)
+ * milik supabase-js untuk setiap operasi auth, termasuk inisialisasi client itu
+ * sendiri dan `setSession()` di bawah. Di Chrome Android yang dibuka lewat
+ * Intent dari app native, tab sempat "background" sesaat saat baru terbuka —
+ * lock/timer semacam ini dikenal suka telat diproses saat itu, jadi setSession()
+ * milik client kedua bisa nyangkut menunggu gilirannya sampai timeout 15 detik
+ * ("Sesi Stok tidak merespons"). Singleton ini SUDAH menangani rute `/auth/sso`
+ * secara khusus (mematikan `detectSessionInUrl` untuknya) — memakainya berarti
+ * cuma ada SATU client di halaman ini, jadi tidak ada lock yang diperebutkan.
  */
 export default function SsoHandoffPage() {
   const [error, setError] = useState<string | null>(null)
@@ -82,7 +66,7 @@ export default function SsoHandoffPage() {
       return
     }
 
-    const client = createSsoHandoffClient()
+    const client = createSupabaseBrowserClient()
     withTimeout(
       client.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }),
       SESSION_TIMEOUT_MS

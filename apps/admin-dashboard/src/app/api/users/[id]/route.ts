@@ -118,6 +118,32 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: `Gagal update profil user: ${profileError.message}` }, { status: 500 })
     }
 
+    // --- Migrate HR Data (Attendance & Staff Outlets) ---
+    // Update attendance_logs to point to the new outlet, allowing them to clock in/out at the new outlet
+    // We do NOT move financial data like shifts, cash_transaction, or petty_cash to keep accounting history intact.
+    const { error: attendanceError } = await supabaseService.from('attendance_logs').update({
+      outlet_id
+    }).eq('staff_id', userId)
+
+    if (attendanceError) {
+      console.error('Gagal memindahkan data absensi:', attendanceError)
+    }
+
+    // Update staff_outlets mapping so they have POS access to the new outlet
+    const { error: deleteStaffOutletsError } = await supabaseService.from('staff_outlets').delete().eq('staff_id', userId)
+    if (deleteStaffOutletsError) {
+      console.error('Gagal mereset staff_outlets:', deleteStaffOutletsError)
+    } else {
+      const { error: insertStaffOutletsError } = await supabaseService.from('staff_outlets').insert({
+        staff_id: userId,
+        outlet_id
+      })
+      if (insertStaffOutletsError) {
+        console.error('Gagal menambahkan staff_outlets baru:', insertStaffOutletsError)
+      }
+    }
+    // ----------------------------------------------------
+
     return NextResponse.json({ success: true })
   } catch (err) {
     return errorResponse(err)

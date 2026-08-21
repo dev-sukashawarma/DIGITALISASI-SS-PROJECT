@@ -20,6 +20,7 @@ import {
   TrendingUp,
   BookOpen,
   ArrowLeftRight,
+  ArrowDownUp,
   Trash2,
   X,
   ChevronRight,
@@ -104,6 +105,13 @@ export function BottomNav() {
       badge: 0,
     },
     {
+      href: '/stok/inbound-outbound',
+      icon: ArrowDownUp,
+      label: 'Inbound / Outbound',
+      desc: 'Catat mutasi manual masuk/keluar',
+      badge: 0,
+    },
+    {
       href: '/stok/mutasi',
       icon: ArrowLeftRight,
       label: 'Mutasi Antar Outlet',
@@ -132,6 +140,13 @@ export function BottomNav() {
       icon: BookOpen,
       label: 'Buku Ledger Stok',
       desc: 'Kartu stok masuk, keluar & saldo',
+      badge: 0,
+    },
+    {
+      href: '/stok/inbound-outbound',
+      icon: ArrowDownUp,
+      label: 'Inbound / Outbound',
+      desc: 'Catat mutasi manual masuk/keluar',
       badge: 0,
     },
     {

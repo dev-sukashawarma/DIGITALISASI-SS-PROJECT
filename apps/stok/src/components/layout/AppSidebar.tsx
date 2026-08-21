@@ -20,6 +20,7 @@ import {
   TrendingUp,
   BookOpen,
   ArrowLeftRight,
+  ArrowDownUp,
   Calculator,
   LogOut,
   ExternalLink,
@@ -204,6 +205,11 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
               },
             ]
           : []),
+        {
+          label: 'Inbound / Outbound',
+          href: '/stok/inbound-outbound',
+          icon: ArrowDownUp,
+        },
         {
           label: 'Ledger Stok',
           href: '/stok/ledger',

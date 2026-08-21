@@ -109,3 +109,29 @@ export interface WasteReport {
     faktor_tampilan?: number | null;
   } | null
 }
+
+export type InboundOutboundTipe = 'IN' | 'OUT';
+
+export interface InboundOutbound {
+  id: string;
+  outlet_id: string;
+  bahan_baku_id: string;
+  tipe: InboundOutboundTipe;
+  kategori: string;
+  qty: number;
+  harga_satuan: number | null;
+  catatan: string | null;
+  created_by: string | null;
+  created_at: string;
+  bahan_baku?: {
+    nama: string;
+    satuan: string;
+    satuan_tengah?: string | null;
+    faktor_tengah?: number | null;
+    satuan_kecil?: string | null;
+    faktor_tampilan?: number | null;
+  } | null;
+  outlet_staff?: {
+    name: string;
+  } | null;
+}

@@ -14,6 +14,10 @@ export default async function DashboardPage() {
     redirect('/area-manager/petty-cash')
   }
 
+  if ((staff?.role as string) === 'purchasing' || (staff?.role as string) === 'purchase') {
+    redirect('/pembelian/dashboard')
+  }
+
   // admin, admin_finance, dan owner sekarang bisa melihat Dashboard di root (/)
   return <DashboardClient />
 }

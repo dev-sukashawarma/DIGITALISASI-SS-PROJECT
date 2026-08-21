@@ -22,12 +22,12 @@ const STATUS_LABEL: Record<POStatus, string> = {
 }
 
 const STATUS_COLOR: Record<POStatus, string> = {
-  draft: 'bg-suka-gray-100 text-suka-gray-500 border-suka-gray-200',
-  menunggu_approval_finance: 'bg-orange-50 text-suka-orange border-orange-200/80 shadow-2xs',
-  dikirim_ke_supplier: 'bg-blue-50 text-blue-600 border-blue-200/80 shadow-2xs',
-  sebagian_diterima: 'bg-yellow-50 text-yellow-700 border-yellow-200/80 shadow-2xs',
-  diterima_lengkap: 'bg-emerald-50 text-emerald-700 border-emerald-200/80 shadow-2xs',
-  dibatalkan: 'bg-red-50 text-red-600 border-red-200/80 shadow-2xs',
+  draft: 'bg-stone-100 text-stone-600 border-stone-200',
+  menunggu_approval_finance: 'bg-amber-50 text-amber-800 border-amber-200',
+  dikirim_ke_supplier: 'bg-blue-50 text-blue-700 border-blue-200',
+  sebagian_diterima: 'bg-orange-50 text-orange-700 border-orange-200',
+  diterima_lengkap: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+  dibatalkan: 'bg-rose-50 text-rose-700 border-rose-200',
 }
 
 const NEXT_STATUS: Partial<Record<POStatus, POStatus>> = {
@@ -73,20 +73,20 @@ function PriceSyncModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-suka-ink/60 backdrop-blur-md animate-fade-in font-sans">
-      <div className="bg-white/90 backdrop-blur-2xl rounded-3xl shadow-2xl w-full max-w-md border border-suka-gray-200/60 overflow-hidden">
+      <div className="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-2xl w-full max-w-md border border-suka-brown/10 overflow-hidden">
         {/* Header */}
-        <div className="p-5 border-b border-suka-gray-100 flex items-center gap-3 bg-white/40">
-          <div className="w-10 h-10 rounded-2xl bg-orange-50 border border-orange-200/80 text-suka-orange flex items-center justify-center shrink-0 shadow-2xs">
+        <div className="p-5 border-b border-suka-brown/5 flex items-center gap-3 bg-suka-cream/40">
+          <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
             <RefreshCw className="w-5 h-5" />
           </div>
           <div>
-            <h2 className="font-extrabold text-suka-brown text-base">Perbarui Harga Master?</h2>
-            <p className="text-xs text-suka-gray-400 font-medium">Harga aktual berbeda &gt; 5% dari harga master</p>
+            <h2 className="font-bold text-suka-brown text-base">Perbarui Harga Master?</h2>
+            <p className="text-xs text-suka-brown/60 font-medium">Harga aktual berbeda &gt; 5% dari harga master</p>
           </div>
         </div>
 
         {/* Items */}
-        <div className="divide-y divide-suka-gray-100 max-h-72 overflow-y-auto p-2">
+        <div className="divide-y divide-suka-brown/5 max-h-72 overflow-y-auto p-2">
           {diffs.map(({ item, harga_master, selisih_pct }) => {
             const isChecked = checked.has(item.bahan_baku_id)
             const naik = selisih_pct > 0
@@ -94,7 +94,7 @@ function PriceSyncModal({
             return (
               <label
                 key={item.bahan_baku_id}
-                className="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer hover:bg-white transition-all select-none"
+                className="flex items-center gap-3 p-3.5 rounded-2xl cursor-pointer hover:bg-suka-cream/40 transition-all select-none"
               >
                 <input
                   type="checkbox"
@@ -103,19 +103,19 @@ function PriceSyncModal({
                   className="w-4 h-4 accent-suka-orange rounded cursor-pointer"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-extrabold text-suka-brown text-xs truncate">
+                  <div className="font-bold text-suka-brown text-xs truncate">
                     {(item as any).bahan_baku?.nama || (item as any).item_description || (item as any).bahan_baku_id}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[11px] text-suka-gray-400 font-semibold">
+                    <span className="text-[11px] text-suka-brown/60 font-semibold tabular-nums">
                       {harga_master !== null ? rupiah(harga_master) : '—'}
                     </span>
-                    <span className="text-suka-gray-300 text-xs">→</span>
-                    <span className="text-xs font-black text-suka-ink">
+                    <span className="text-suka-brown/30 text-xs">→</span>
+                    <span className="text-xs font-bold text-suka-brown tabular-nums">
                       {rupiah(item.harga_terima!)}
                     </span>
-                    <span className={`flex items-center gap-0.5 text-[9px] font-black px-2 py-0.5 rounded-full border ${
-                      naik ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                    <span className={`flex items-center gap-0.5 text-[9px] font-bold px-2 py-0.5 rounded-lg border ${
+                      naik ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     }`}>
                       {naik ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                       {naik ? '+' : '-'}{pct}%
@@ -128,18 +128,18 @@ function PriceSyncModal({
         </div>
 
         {/* Footer */}
-        <div className="p-5 border-t border-suka-gray-100 flex gap-3 bg-white/40">
+        <div className="p-5 border-t border-suka-brown/5 flex gap-3 bg-suka-cream/30">
           <button
             onClick={onSkip}
             disabled={saving}
-            className="flex-1 py-3 border border-suka-gray-200 text-suka-gray-500 rounded-2xl text-xs font-bold hover:bg-suka-gray-50 transition-colors disabled:opacity-50"
+            className="flex-1 py-2.5 border border-suka-brown/20 text-suka-brown/70 rounded-2xl text-xs font-bold hover:bg-white transition-colors disabled:opacity-50 cursor-pointer"
           >
             Lewati
           </button>
           <button
             onClick={() => onConfirm([...checked])}
             disabled={saving || selectedCount === 0}
-            className="flex-[2] py-3 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl text-xs font-extrabold hover:from-suka-ink hover:to-black transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md"
+            className="flex-[2] py-2.5 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl text-xs font-bold hover:opacity-95 transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
             {saving ? <Spinner className="w-4 h-4" /> : <RefreshCw className="w-4 h-4" />}
             Update {selectedCount > 0 ? `(${selectedCount} item)` : ''}
@@ -172,9 +172,9 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
 
   if (isLoading && !po) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8 text-suka-orange" /></div>
   if (error || !po) return (
-    <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl flex items-center gap-3">
+    <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl flex items-center gap-3 text-xs font-bold">
       <AlertTriangle className="w-5 h-5 shrink-0" />
-      <span className="text-xs font-bold">PO tidak ditemukan atau gagal dimuat.</span>
+      <span>PO tidak ditemukan atau gagal dimuat.</span>
     </div>
   )
 
@@ -227,10 +227,10 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   }
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-12 font-sans">
       {/* Price Sync Modal */}
       {showVerifikasi && <VerifikasiTerimaModal po={po} onClose={() => setShowVerifikasi(false)} />}
-        {showPriceSync && (
+      {showPriceSync && (
         <PriceSyncModal
           diffs={priceDiffs}
           onConfirm={handlePriceSync}
@@ -243,32 +243,32 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
       <div className="flex items-center gap-3">
         <button 
           onClick={() => router.back()} 
-          className="p-2.5 rounded-2xl bg-white border border-suka-gray-200 hover:bg-suka-gray-50 text-suka-gray-500 hover:text-suka-brown transition-all shadow-2xs"
+          className="p-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown/70 hover:text-suka-brown transition-all shadow-2xs cursor-pointer"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl font-black text-suka-brown font-mono tracking-tight">{po.nomor_po}</h1>
-            <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest border ${STATUS_COLOR[po.status]}`}>
+            <h1 className="text-xl sm:text-2xl font-bold text-suka-brown font-mono tracking-tight">{po.nomor_po}</h1>
+            <span className={`text-[10px] font-bold px-3 py-0.5 rounded-lg uppercase tracking-wider border ${STATUS_COLOR[po.status]}`}>
               {STATUS_LABEL[po.status]}
             </span>
           </div>
-          <p className="text-xs font-bold text-suka-gray-400 mt-1">
-            Supplier: <span className="text-suka-brown">{po.supplier_nama}</span> · Dibuat pada {new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+          <p className="text-xs font-semibold text-suka-brown/60 mt-1">
+            Supplier: <span className="text-suka-brown font-bold">{po.supplier_nama}</span> · Dibuat pada {new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </div>
       </div>
 
       {/* Price Sync Banner */}
       {isReceived && priceDiffs.length > 0 && !syncDone && (
-        <div className="bg-amber-50/80 backdrop-blur-xl border border-amber-200/80 rounded-2xl p-4 flex items-center justify-between gap-3 shadow-2xs">
+        <div className="bg-amber-50/90 backdrop-blur-xl border border-amber-200 rounded-3xl p-4 flex items-center justify-between gap-3 shadow-2xs">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
               <RefreshCw className="w-4 h-4" />
             </div>
             <div>
-              <p className="text-xs font-extrabold text-amber-900">
+              <p className="text-xs font-bold text-amber-900">
                 {priceDiffs.length} Bahan baku memiliki harga aktual berbeda dari harga master
               </p>
               <p className="text-[11px] text-amber-700 font-medium">Terdapat selisih harga &gt; 5% dari harga master saat ini.</p>
@@ -276,17 +276,17 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           </div>
           <button
             onClick={() => setShowPriceSync(true)}
-            className="shrink-0 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl transition-all shadow-xs flex items-center gap-1.5 active:scale-95"
+            className="shrink-0 px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
           >
             <RefreshCw className="w-3.5 h-3.5" />
-            Perbarui Harga Master
+            <span>Perbarui Harga Master</span>
           </button>
         </div>
       )}
 
       {/* Sync done confirmation */}
       {syncDone && (
-        <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-200 rounded-2xl p-4 flex items-center gap-3 text-emerald-800 font-bold text-xs shadow-2xs">
+        <div className="bg-emerald-50/90 backdrop-blur-xl border border-emerald-200 rounded-3xl p-4 flex items-center gap-3 text-emerald-800 font-semibold text-xs shadow-2xs">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>Harga master berhasil diperbarui sesuai transaksi PO ini.</span>
         </div>
@@ -298,77 +298,77 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           { label: 'Total Estimasi', value: rupiah(totalPesan), icon: Clock },
           { label: 'Total Diterima', value: totalTerima > 0 ? rupiah(totalTerima) : '—', icon: CheckCircle2 },
           { label: 'Selisih Nilai', value: totalTerima > 0 ? rupiah(selisih) : '—', icon: selisih < 0 ? AlertTriangle : CheckCircle2,
-            color: selisih < 0 ? 'text-red-600' : 'text-emerald-600' },
+            color: selisih < 0 ? 'text-rose-700' : 'text-emerald-800' },
           { label: 'Jumlah Item', value: `${po.items.length} Item`, icon: Truck },
         ].map(({ label, value, icon: Icon, color }) => (
-          <div key={label} className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-4 sm:p-5">
-            <div className="flex items-center gap-1.5 text-suka-gray-400 mb-1">
+          <div key={label} className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-4 sm:p-5">
+            <div className="flex items-center gap-1.5 text-suka-brown/50 mb-1">
               <Icon className="w-3.5 h-3.5 text-suka-orange" />
-              <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider">{label}</span>
             </div>
-            <div className={`text-base font-black tracking-tight ${color ?? 'text-suka-brown'}`}>{value}</div>
+            <div className={`text-base sm:text-lg font-bold tracking-tight tabular-nums ${color ?? 'text-suka-brown'}`}>{value}</div>
           </div>
         ))}
       </div>
 
       {/* Daftar Item Table */}
-      <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] overflow-hidden">
-        <div className="p-5 border-b border-suka-gray-100 bg-white/40">
-          <h2 className="font-black text-suka-brown text-sm uppercase tracking-widest flex items-center gap-2">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden">
+        <div className="p-5 border-b border-suka-brown/5 bg-suka-cream/40">
+          <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-suka-orange" />
             Daftar Item Bahan Baku PO
           </h2>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap">
+          <table className="w-full text-left border-collapse min-w-[750px] whitespace-nowrap text-xs sm:text-sm">
             <thead>
-              <tr className="bg-suka-cream/40 text-suka-gray-500 text-[9px] uppercase font-black tracking-widest border-b border-suka-gray-100">
-                <th className="py-4 px-6">Nama Bahan Baku</th>
-                <th className="py-4 px-6 text-right">Qty Pesan</th>
-                <th className="py-4 px-6 text-right">Harga Pesan</th>
-                <th className="py-4 px-6 text-right">Qty Diterima</th>
-                <th className="py-4 px-6 text-right">Harga Aktual</th>
-                <th className="py-4 px-6 text-right">Subtotal</th>
-                <th className="py-4 px-6 text-center">Kondisi</th>
+              <tr className="bg-suka-cream/70 text-suka-brown/80 text-[11px] uppercase font-bold tracking-wider border-b border-suka-brown/10 select-none">
+                <th className="py-4 px-5">Nama Bahan Baku</th>
+                <th className="py-4 px-5 text-right">Qty Pesan</th>
+                <th className="py-4 px-5 text-right">Harga Pesan</th>
+                <th className="py-4 px-5 text-right">Qty Diterima</th>
+                <th className="py-4 px-5 text-right">Harga Aktual</th>
+                <th className="py-4 px-5 text-right">Subtotal</th>
+                <th className="py-4 px-5 text-center">Kondisi</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-suka-gray-100 text-xs">
+            <tbody className="divide-y divide-suka-brown/5 text-suka-ink font-medium">
               {po.items.map(item => {
                 const priceDiff = item.harga_terima && Math.abs((item.harga_terima - item.harga_pesan) / item.harga_pesan) > 0.05
                 return (
-                  <tr key={item.id} className="hover:bg-white/80 transition-all">
-                    <td className="py-4 px-6 font-extrabold text-suka-brown text-sm">
+                  <tr key={item.id} className="hover:bg-amber-50/40 transition-colors">
+                    <td className="py-4 px-5 font-bold text-suka-brown">
                       {(item as any).bahan_baku?.nama ?? '—'}
-                      <span className="text-xs text-suka-gray-400 font-semibold ml-1.5">({(item as any).bahan_baku?.satuan || (item as any).satuan_ad_hoc || '�'})</span>
+                      <span className="text-[11px] text-suka-brown/60 font-semibold ml-1.5">({(item as any).bahan_baku?.satuan || (item as any).satuan_ad_hoc || '—'})</span>
                     </td>
-                    <td className="py-4 px-6 text-right font-bold text-suka-ink">{item.qty_pesan}</td>
-                    <td className="py-4 px-6 text-right text-suka-gray-400 font-medium">{rupiah(item.harga_pesan)}</td>
-                    <td className="py-4 px-6 text-right font-black">
+                    <td className="py-4 px-5 text-right font-bold text-suka-ink tabular-nums">{item.qty_pesan}</td>
+                    <td className="py-4 px-5 text-right text-suka-brown/60 font-semibold tabular-nums">{rupiah(item.harga_pesan)}</td>
+                    <td className="py-4 px-5 text-right font-bold tabular-nums">
                       {item.qty_terima !== null ? (
-                        <span className={item.qty_terima < item.qty_pesan ? 'text-amber-600 font-extrabold' : 'text-emerald-600 font-extrabold'}>
+                        <span className={item.qty_terima < item.qty_pesan ? 'text-amber-800' : 'text-emerald-800'}>
                           {item.qty_terima}
                         </span>
-                      ) : <span className="text-suka-gray-300 font-normal">—</span>}
+                      ) : <span className="text-suka-brown/30 font-normal">—</span>}
                     </td>
-                    <td className="py-4 px-6 text-right font-black">
+                    <td className="py-4 px-5 text-right font-bold tabular-nums">
                       {item.harga_terima !== null ? (
-                        <span className={priceDiff ? 'text-orange-600 font-black' : 'text-suka-brown'}>
+                        <span className={priceDiff ? 'text-rose-700' : 'text-suka-brown'}>
                           {rupiah(item.harga_terima)}
-                          {priceDiff && <span className="text-[10px] ml-1 text-orange-600">⚠</span>}
+                          {priceDiff && <span className="text-[10px] ml-1 text-rose-700">⚠</span>}
                         </span>
-                      ) : <span className="text-suka-gray-300 font-normal">—</span>}
+                      ) : <span className="text-suka-brown/30 font-normal">—</span>}
                     </td>
-                    <td className="py-4 px-6 text-right font-black text-suka-brown text-sm">
+                    <td className="py-4 px-5 text-right font-bold text-suka-brown text-sm tabular-nums">
                       {item.subtotal > 0 ? rupiah(item.subtotal) : '—'}
                     </td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-4 px-5 text-center">
                       {item.kondisi ? (
-                        <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-widest border ${
-                          item.kondisi === 'baik' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                          item.kondisi === 'kurang' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                          'bg-red-50 text-red-600 border-red-200'
+                        <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-lg uppercase tracking-wider border ${
+                          item.kondisi === 'baik' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+                          item.kondisi === 'kurang' ? 'bg-amber-50 text-amber-800 border-amber-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>{item.kondisi}</span>
-                      ) : <span className="text-suka-gray-300 text-xs">—</span>}
+                      ) : <span className="text-suka-brown/30 text-xs">—</span>}
                     </td>
                   </tr>
                 )
@@ -379,9 +379,9 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
       </div>
 
       {/* Invoice Photos */}
-      <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-4">
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-black text-suka-brown text-sm uppercase tracking-widest flex items-center gap-2">
+          <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider flex items-center gap-2">
             <Camera className="w-4 h-4 text-suka-orange" />
             Foto Invoice Supplier
           </h2>
@@ -390,10 +390,10 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploadInvoice.isPending}
-                className="flex items-center gap-1.5 text-xs font-black text-suka-orange hover:text-orange-600 bg-orange-50 px-3.5 py-1.5 rounded-xl border border-orange-200/60 transition-all active:scale-95 disabled:opacity-50"
+                className="flex items-center gap-1.5 text-xs font-bold text-suka-orange hover:text-suka-brown bg-suka-orange/10 px-3.5 py-1.5 rounded-xl border border-suka-orange/20 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
               >
-                <Camera className="w-4 h-4" />
-                {uploadInvoice.isPending ? 'Uploading...' : 'Upload Foto Invoice'}
+                <Camera className="w-3.5 h-3.5" />
+                <span>{uploadInvoice.isPending ? 'Uploading...' : 'Upload Foto Invoice'}</span>
               </button>
               <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={handleUploadInvoice} capture="environment" />
             </>
@@ -401,21 +401,21 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
         </div>
 
         {invoiceUrls.length === 0 ? (
-          <div className="text-center py-10 text-suka-gray-400 border-2 border-dashed border-suka-gray-200 rounded-2xl bg-white/40">
-            <Camera className="w-8 h-8 mx-auto mb-2 text-suka-gray-300" />
+          <div className="text-center py-10 text-suka-brown/50 border border-dashed border-suka-brown/20 rounded-2xl bg-suka-cream/20">
+            <Camera className="w-8 h-8 mx-auto mb-2 text-suka-brown/30" />
             <p className="text-xs font-bold text-suka-brown">Belum ada foto invoice</p>
-            <p className="text-[11px] text-suka-gray-400 mt-0.5">Unggah foto fisik invoice dari supplier untuk keperluan rekap & audit.</p>
+            <p className="text-[11px] text-suka-brown/60 mt-0.5">Unggah foto fisik invoice dari supplier untuk keperluan rekap &amp; audit.</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {invoiceUrls.map((url, idx) => (
               <a key={idx} href={url} target="_blank" rel="noopener noreferrer"
-                className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-suka-gray-200/80 hover:border-suka-orange hover:shadow-md transition-all group">
+                className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-suka-brown/10 hover:border-suka-orange hover:shadow-md transition-all group">
                 <img src={url} alt={`Invoice ${idx + 1}`} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-suka-ink/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   <ExternalLink className="w-5 h-5 text-white" />
                 </div>
-                <div className="absolute bottom-2 right-2 bg-suka-ink/80 text-white text-[9px] font-black px-2 py-0.5 rounded-md">
+                <div className="absolute bottom-2 right-2 bg-suka-ink/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
                   Doc {idx + 1}
                 </div>
               </a>
@@ -426,46 +426,48 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
 
       {/* Catatan */}
       {po.catatan && (
-        <div className="bg-amber-50/80 backdrop-blur-xl border border-amber-200/80 rounded-2xl p-4 text-xs font-medium text-amber-900 shadow-2xs">
-          <span className="font-black text-amber-900 uppercase tracking-widest mr-1">Catatan PO:</span>{po.catatan}
+        <div className="bg-amber-50/90 backdrop-blur-xl border border-amber-200 rounded-2xl p-4 text-xs font-medium text-amber-900 shadow-2xs">
+          <span className="font-bold text-amber-900 uppercase tracking-wider mr-1">Catatan PO:</span>{po.catatan}
         </div>
       )}
 
       {/* Verifikasi info */}
       {po.diverifikasi_at && (
-        <div className="bg-emerald-50/80 backdrop-blur-xl border border-emerald-200 rounded-2xl p-4 text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-2xs">
+        <div className="bg-emerald-50/90 backdrop-blur-xl border border-emerald-200 rounded-2xl p-4 text-xs font-semibold text-emerald-800 flex items-center gap-2 shadow-2xs">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>Diverifikasi oleh Kitchen pada {new Date(po.diverifikasi_at).toLocaleString('id-ID')}</span>
         </div>
       )}
 
-            {/* Actions */}
+      {/* Actions */}
       <div className="flex gap-3 flex-wrap pt-2">
         {nextStatus && NEXT_STATUS_LABEL[po.status] && (
           <button
             onClick={() => updateStatus.mutate({ id: po.id, status: nextStatus })}
             disabled={updateStatus.isPending}
-            className="flex-1 py-3.5 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl font-extrabold text-sm hover:from-suka-ink hover:to-black active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(44,24,16,0.15)]"
+            className="flex-1 py-3 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl font-bold text-xs hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-suka-brown/20 cursor-pointer"
           >
-            {updateStatus.isPending ? <Spinner className="w-5 h-5" /> : <Truck className="w-5 h-5" />}
-            {NEXT_STATUS_LABEL[po.status]}
+            {updateStatus.isPending ? <Spinner className="w-4 h-4" /> : <Truck className="w-4 h-4" />}
+            <span>{NEXT_STATUS_LABEL[po.status]}</span>
           </button>
         )}
         {(po.status === 'dikirim_ke_supplier' || po.status === 'sebagian_diterima') && (
           <button
             onClick={() => setShowVerifikasi(true)}
-            className="flex-1 py-3.5 bg-gradient-to-r from-suka-ink to-blue-900 text-white rounded-2xl font-extrabold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-xs"
+            className="flex-1 py-3 bg-gradient-to-r from-suka-ink to-blue-900 text-white rounded-2xl font-bold text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
           >
-            <PackageCheck className="w-5 h-5" /> Terima Barang
+            <PackageCheck className="w-4 h-4" />
+            <span>Terima Barang</span>
           </button>
         )}
         {po.status === 'draft' && (
           <button
             onClick={() => updateStatus.mutate({ id: po.id, status: 'dibatalkan' })}
             disabled={updateStatus.isPending}
-            className="px-6 py-3.5 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-2xl font-extrabold text-sm transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95 shadow-2xs"
+            className="px-5 py-3 border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 rounded-2xl font-bold text-xs transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95 shadow-2xs cursor-pointer"
           >
-            <Ban className="w-4 h-4" /> Batalkan PO
+            <Ban className="w-4 h-4" />
+            <span>Batalkan PO</span>
           </button>
         )}
       </div>

@@ -58,14 +58,6 @@ export default function LoginPage() {
       return
     }
 
-    if (['purchasing', 'purchase'].includes(staff.role)) {
-      const host = typeof window !== 'undefined' ? window.location.hostname : ''
-      const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
-      const financeUrl = process.env.NEXT_PUBLIC_APP_URL_FINANCE || (isLocal ? 'http://localhost:3020' : 'https://finance.sukashawarma.com')
-      window.location.href = financeUrl
-      return
-    }
-
     if (['mitra', 'korlap'].includes(staff.role)) {
       const host = typeof window !== 'undefined' ? window.location.hostname : ''
       const isLocal = host.includes('localhost') || host.includes('127.0.0.1')

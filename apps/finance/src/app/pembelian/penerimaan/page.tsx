@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import PembelianView from '../PembelianView'
+import { PenerimaanClient } from './PenerimaanClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +16,6 @@ export default async function PenerimaanBarangPage() {
   const defaultFrom = d.toISOString().split('T')[0]
   const defaultTo = new Date().toISOString().split('T')[0]
 
-  // Default filter to "dikirim_ke_supplier" to focus on goods ready to be received
   const { data: pos } = await supabase.rpc('get_purchase_orders', {
     p_from: defaultFrom,
     p_to: defaultTo,
@@ -45,14 +44,10 @@ export default async function PenerimaanBarangPage() {
   }
 
   return (
-    <PembelianView 
+    <PenerimaanClient 
       initialData={enrichedPos} 
       defaultFrom={defaultFrom} 
       defaultTo={defaultTo}
-      title="Penerimaan Barang (Goods Receipt)"
-      description="Verifikasi penerimaan fisik barang dari supplier berdasarkan PO."
-      defaultStatusFilter="dikirim_ke_supplier"
-      hideCreateButton={true}
     />
   )
 }

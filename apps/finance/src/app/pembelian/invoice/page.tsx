@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import PembelianView from '../PembelianView'
+import { InvoiceClient } from './InvoiceClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,14 +44,10 @@ export default async function InvoicePembelianPage() {
   }
 
   return (
-    <PembelianView 
+    <InvoiceClient 
       initialData={enrichedPos} 
       defaultFrom={defaultFrom} 
       defaultTo={defaultTo}
-      title="Invoice & 3-Way Matching"
-      description="Pencocokan dokumen Purchase Order, Bukti Penerimaan Barang, dan Tagihan (Invoice) Supplier."
-      defaultStatusFilter="sebagian_diterima" 
-      hideCreateButton={true}
     />
   )
 }

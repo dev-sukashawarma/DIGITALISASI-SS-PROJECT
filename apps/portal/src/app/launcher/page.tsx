@@ -56,10 +56,6 @@ export default async function LauncherPage() {
 
   const APP_URL = await getAppUrls()
 
-  if (['purchasing', 'purchase'].includes(staff.role)) {
-    redirect(APP_URL.finance)
-  }
-
   // Mitra, Korlap, dll tidak punya menu operasional di launcher → langsung ke admin-dashboard.
   if (['mitra', 'korlap'].includes(staff.role)) {
     redirect(APP_URL['admin-dashboard'])
@@ -77,7 +73,11 @@ export default async function LauncherPage() {
     distribusi:        { label: 'Distribusi',       url: APP_URL.distribusi,        desc: 'Pengiriman bahan baku & surat jalan' },
     'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
     'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
-    finance:           { label: 'Finance',          url: APP_URL.finance,           desc: 'Keuangan, petty cash & pengajuan dana' },
+    finance:           { 
+      label: staff.role === 'purchasing' ? 'Finance & Purchasing' : 'Finance', 
+      url: ['purchasing', 'purchase'].includes(staff.role) ? `${APP_URL.finance}/pembelian/dashboard` : APP_URL.finance, 
+      desc: ['purchasing', 'purchase'].includes(staff.role) ? 'Dashboard purchasing, purchase order & pengadaan' : 'Keuangan, petty cash & pengajuan dana' 
+    },
     manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area' },
   }
 
@@ -97,6 +97,13 @@ export default async function LauncherPage() {
           desc: 'Pantau performa bisnis, omzet penjualan, dan profitabilitas seluruh outlet.',
           gradient: 'from-amber-800 via-suka-ink to-amber-950',
           ringColor: 'ring-amber-500/50 shadow-amber-500/10'
+        }
+      case 'purchasing':
+        return {
+          title: 'PURCHASING WORKSPACE',
+          desc: 'Kelola pengadaan barang, supplier, monitoring stok, dan keuangan.',
+          gradient: 'from-emerald-950 via-suka-ink to-emerald-900',
+          ringColor: 'ring-emerald-600/50 shadow-emerald-600/10'
         }
       case 'regional_manager':
       case 'area_manager':

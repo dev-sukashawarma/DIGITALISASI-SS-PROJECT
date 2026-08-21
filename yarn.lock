@@ -3140,7 +3140,7 @@
     "@supabase/phoenix" "0.4.5"
     tslib "2.8.1"
 
-"@supabase/ssr@^0.5.1":
+"@supabase/ssr@^0.5.1", "@supabase/ssr@^0.5.2":
   version "0.5.2"
   resolved "https://registry.npmjs.org/@supabase/ssr/-/ssr-0.5.2.tgz"
   integrity sha512-n3plRhr2Bs8Xun1o4S3k1CDv17iH5QY9YcoEvXX3bxV1/5XSasA0mNXYycFmADIdtdE6BG9MRjP5CGIs8qxC8A==

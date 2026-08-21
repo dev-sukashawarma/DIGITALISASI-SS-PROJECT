@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import PembelianView from '../PembelianView'
+import { LaporanClient } from './LaporanClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,14 +44,10 @@ export default async function LaporanPembelianPage() {
   }
 
   return (
-    <PembelianView 
+    <LaporanClient 
       initialData={enrichedPos} 
       defaultFrom={defaultFrom} 
       defaultTo={defaultTo}
-      title="Laporan Pembelian & Pengadaan"
-      description="Laporan historis seluruh dokumen Purchase Order beserta status pemenuhan dan pembayarannya."
-      defaultStatusFilter="" 
-      hideCreateButton={true}
     />
   )
 }

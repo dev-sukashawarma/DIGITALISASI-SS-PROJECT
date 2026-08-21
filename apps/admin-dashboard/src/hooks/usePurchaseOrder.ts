@@ -271,6 +271,21 @@ export function useUpdateSupplier() {
   })
 }
 
+export function useDeleteSupplier() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('supplier').update({ is_active: false }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['suppliers'] })
+      toast.success('Supplier berhasil dinonaktifkan')
+    },
+    onError: (e: any) => toast.error(e.message),
+  })
+}
+
 export async function getSignedInvoiceUrl(path: string): Promise<string> {
   const supabase = createSupabaseBrowserClient()
   const { data, error } = await supabase.storage

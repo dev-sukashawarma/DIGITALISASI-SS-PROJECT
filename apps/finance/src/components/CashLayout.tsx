@@ -156,7 +156,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
     return null
   }
 
-  // Active logic that respects ?tab=
+  // Active logic that respects ?tab= and specific sub-routes
   const currentTab = searchParams.get('tab')
   let currentNavPath = '/'
   if (pathname === '/') {
@@ -165,7 +165,17 @@ export function CashLayout({ children }: { children: ReactNode }) {
     else if (currentTab === 'stok') currentNavPath = '/?tab=stok'
     else currentNavPath = '/'
   } else {
-    currentNavPath = ALL_LINKS.find(l => l.href !== '/' && pathname.startsWith(l.href))?.href ?? '/'
+    // 1. Check exact match first (e.g. /pembelian/penerimaan, /pembelian/invoice, /pembelian/laporan)
+    const exact = ALL_LINKS.find(l => l.href === pathname)
+    if (exact) {
+      currentNavPath = exact.href
+    } else {
+      // 2. Otherwise find the most specific (longest) matching href for nested routes like /pembelian/[id]
+      const matching = ALL_LINKS
+        .filter(l => l.href !== '/' && !l.href.includes('?') && pathname.startsWith(l.href))
+        .sort((a, b) => b.href.length - a.href.length)
+      currentNavPath = matching[0]?.href ?? '/'
+    }
   }
   const currentLink = ALL_LINKS.find(l => l.href === currentNavPath)
 
@@ -178,7 +188,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-suka-orange/10 rounded-tr-full pointer-events-none"></div>
 
         <div className="p-6 flex flex-col items-center gap-3 relative z-10 border-b border-white/10">
-          <Link href="/" className="flex flex-col items-center gap-3 group">
+          <Link href={isPurchasingRole ? "/pembelian/dashboard" : "/"} className="flex flex-col items-center gap-3 group">
             <img src="/logo.png" alt="Suka Shawarma" className="w-12 h-12 object-contain group-hover:scale-105 transition-transform" />
             <div className="text-center">
               <div className="font-display text-2xl tracking-wide leading-none text-white">
@@ -192,7 +202,7 @@ export function CashLayout({ children }: { children: ReactNode }) {
         <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8 relative z-10 scrollbar-hide">
           {visibleNavGroups.map((group) => (
             <div key={group.title}>
-              <h3 className="px-4 mb-3 text-[10px] font-black tracking-widest text-suka-orange/80 uppercase">
+              <h3 className="px-4 mb-2.5 text-[10px] font-bold tracking-widest text-suka-orange/90 uppercase">
                 {group.title}
               </h3>
               <div className="space-y-1 relative">
@@ -203,10 +213,10 @@ export function CashLayout({ children }: { children: ReactNode }) {
                     <Link
                       key={href}
                       href={href}
-                      className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold transition-colors relative z-10 ${
-                        isSub ? 'ml-6 py-2.5 opacity-90' : ''
+                      className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 font-semibold text-xs sm:text-sm transition-colors relative z-10 ${
+                        isSub ? 'ml-6 py-2 opacity-90' : ''
                       } ${
-                        active ? 'text-suka-brown' : 'text-white/70 hover:text-white hover:bg-white/5'
+                        active ? 'text-suka-brown font-bold' : 'text-white/70 hover:text-white hover:bg-white/5'
                       }`}
                     >
                       {active && (
@@ -216,10 +226,10 @@ export function CashLayout({ children }: { children: ReactNode }) {
                           transition={{ type: 'spring', stiffness: 250, damping: 20 }}
                         />
                       )}
-                      <Icon className={`${isSub ? 'w-4 h-4' : 'w-5 h-5'} transition-colors ${active ? 'text-suka-orange' : 'text-white/50'}`} />
-                      <span className={`flex-1 truncate ${isSub ? 'text-sm' : ''}`}>{label}</span>
+                      <Icon className={`${isSub ? 'w-4 h-4' : 'w-4 h-4 sm:w-5 sm:h-5'} transition-colors ${active ? 'text-suka-orange' : 'text-white/50'}`} />
+                      <span className={`flex-1 truncate ${isSub ? 'text-xs' : ''}`}>{label}</span>
                       {badgeCount !== undefined && badgeCount > 0 && (
-                        <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-black transition-colors ${
+                        <span className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold transition-colors ${
                           active ? 'bg-suka-orange text-white' : 'bg-red-500 text-white shadow-sm'
                         }`}>
                           {badgeCount}
@@ -237,9 +247,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden relative bg-suka-cream md:rounded-[2rem] shadow-2xl shadow-black/20 border-l md:border border-white/10 md:border-suka-brown/10">
         {/* Playful Header */}
-        <header className="bg-suka-cream/80 backdrop-blur-2xl px-4 sm:px-6 py-4 flex justify-between items-center gap-3 z-30 shrink-0 print:hidden sticky top-0 border-b border-suka-brown/5 md:rounded-t-[2rem]">
+        <header className="bg-suka-cream/80 backdrop-blur-2xl px-4 sm:px-6 py-3.5 flex justify-between items-center gap-3 z-30 shrink-0 print:hidden sticky top-0 border-b border-suka-brown/5 md:rounded-t-[2rem]">
           <div className="min-w-0">
-            <h1 className="text-lg sm:text-xl font-display text-suka-brown tracking-wide truncate">
+            <h1 className="text-base sm:text-lg font-bold text-suka-brown tracking-tight truncate">
               {currentLink?.label ?? 'Dashboard'}
             </h1>
           </div>
@@ -248,13 +258,13 @@ export function CashLayout({ children }: { children: ReactNode }) {
               onClick={() => setIsProfileOpen(!isProfileOpen)}
               className="flex items-center gap-2 bg-white p-1.5 pr-3 rounded-2xl border border-suka-brown/5 shadow-sm hover:border-suka-orange/30 transition-colors cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-xl bg-suka-orange/20 text-suka-orange flex items-center justify-center text-xs font-black">
+              <div className="w-8 h-8 rounded-xl bg-suka-orange/20 text-suka-orange flex items-center justify-center text-xs font-bold">
                 {outletStaff ? outletStaff.name.charAt(0).toUpperCase() : 'U'}
               </div>
               {outletStaff && (
                 <div className="hidden sm:flex flex-col items-start justify-center gap-0.5">
                   <span className="text-xs font-bold text-suka-brown leading-none">{outletStaff.name}</span>
-                  <span className="text-[9px] text-suka-brown/60 font-bold uppercase tracking-wider leading-none">{outletStaff.role}</span>
+                  <span className="text-[9px] text-suka-brown/60 font-semibold uppercase tracking-wider leading-none">{outletStaff.role}</span>
                 </div>
               )}
             </button>

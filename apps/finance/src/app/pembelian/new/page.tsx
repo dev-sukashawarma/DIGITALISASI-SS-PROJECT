@@ -108,18 +108,18 @@ export default function NewPOPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in pb-12">
+    <div className="space-y-6 animate-fade-in pb-12 font-sans">
       {/* Header */}
       <div className="flex items-center gap-3">
         <button 
           onClick={() => router.back()} 
-          className="p-2.5 rounded-2xl bg-white border border-suka-gray-200 hover:bg-suka-gray-50 text-suka-gray-500 hover:text-suka-brown transition-all shadow-2xs"
+          className="p-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown/70 hover:text-suka-brown transition-all shadow-2xs cursor-pointer"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
         </button>
         <PageHeader 
           title="Buat Purchase Order Baru" 
-          description="PO baru akan dibuat secara otomatis dengan status Draft."
+          description="Formulir pengadaan barang untuk diterbitkan ke supplier atau diajukan ke finance."
         />
       </div>
 
@@ -128,33 +128,33 @@ export default function NewPOPage() {
       ) : (
         <>
           {/* Info PO */}
-          <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-5">
-            <h2 className="font-black text-suka-brown text-sm uppercase tracking-widest flex items-center gap-2">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-5">
+            <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-suka-orange" />
-              Informasi Pembelian
+              Informasi Pengadaan &amp; Vendor
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-black text-suka-gray-500 mb-1.5 uppercase tracking-widest">Tanggal PO *</label>
+                <label className="block text-[11px] font-bold text-suka-brown/70 mb-1.5 uppercase tracking-wider">Tanggal PO *</label>
                 <input type="date" value={tanggalPo} onChange={e => setTanggalPo(e.target.value)}
-                  className="w-full pl-4 pr-3 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all" />
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold text-suka-ink bg-suka-cream/30 border border-suka-brown/15 rounded-2xl focus:outline-none focus:border-suka-orange focus:bg-white transition-all" />
               </div>
               <div>
-                <label className="block text-[10px] font-black text-suka-gray-500 mb-1.5 uppercase tracking-widest">Supplier *</label>
+                <label className="block text-[11px] font-bold text-suka-brown/70 mb-1.5 uppercase tracking-wider">Supplier / Vendor *</label>
                 <select value={supplierId} onChange={e => handleSupplierChange(e.target.value)}
-                  className="w-full pl-4 pr-3 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all cursor-pointer">
-                  <option value="">— Pilih atau ketik baru —</option>
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold text-suka-brown bg-suka-cream/30 border border-suka-brown/15 rounded-2xl focus:outline-none focus:border-suka-orange focus:bg-white transition-all cursor-pointer">
+                  <option value="">— Pilih supplier terdaftar —</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.nama}</option>)}
                 </select>
                 {supplierId && (() => {
                   const selectedSup = suppliers.find(s => s.id === supplierId)
                   const termin = selectedSup?.termin_hari
                   return (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] font-bold text-suka-brown">
-                      <span className="text-suka-gray-400">Termin Pembayaran:</span>
-                      <span className={`px-2 py-0.5 rounded-md border text-[10px] font-black uppercase tracking-wider ${
-                        termin && termin > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    <div className="mt-2 flex items-center gap-1.5 text-xs font-medium text-suka-brown">
+                      <span className="text-suka-brown/60">Termin Pembayaran:</span>
+                      <span className={`px-2 py-0.5 rounded-lg border text-[10px] font-bold uppercase tracking-wider ${
+                        termin && termin > 0 ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       }`}>
                         {termin && termin > 0 ? `TOP ${termin} Hari` : 'Cash On Delivery (COD)'}
                       </span>
@@ -166,33 +166,34 @@ export default function NewPOPage() {
 
             {!supplierId && (
               <div>
-                <label className="block text-[10px] font-black text-suka-gray-500 mb-1.5 uppercase tracking-widest">
-                  Nama Supplier Manual (jika tidak ada di master)
+                <label className="block text-[11px] font-bold text-suka-brown/70 mb-1.5 uppercase tracking-wider">
+                  Nama Supplier Manual (jika belum terdaftar)
                 </label>
                 <input type="text" value={supplierNama} onChange={e => setSupplierNama(e.target.value)}
-                  placeholder="Contoh: Pak Budi Ayam Bogor"
-                  className="w-full pl-4 pr-3 py-2.5 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all" />
+                  placeholder="Contoh: Pak Budi Sayur Segar"
+                  className="w-full px-3.5 py-2.5 text-xs font-semibold text-suka-ink bg-suka-cream/30 border border-suka-brown/15 rounded-2xl focus:outline-none focus:border-suka-orange focus:bg-white transition-all" />
               </div>
             )}
 
             <div>
-              <label className="block text-[10px] font-black text-suka-gray-500 mb-1.5 uppercase tracking-widest">Catatan Tambahan (opsional)</label>
+              <label className="block text-[11px] font-bold text-suka-brown/70 mb-1.5 uppercase tracking-wider">Catatan Pengiriman / Khusus (opsional)</label>
               <textarea value={catatan} onChange={e => setCatatan(e.target.value)} rows={2}
-                placeholder="Syarat pembayaran, instruksi pengiriman, dll."
-                className="w-full pl-4 pr-3 py-2.5 text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange focus:ring-4 focus:ring-suka-orange/10 transition-all resize-none" />
+                placeholder="Instruksi pengiriman ke outlet Bogor, nomor kontak penerima, dll."
+                className="w-full px-3.5 py-2.5 text-xs font-medium text-suka-ink bg-suka-cream/30 border border-suka-brown/15 rounded-2xl focus:outline-none focus:border-suka-orange focus:bg-white transition-all resize-none" />
             </div>
           </div>
 
           {/* Items */}
-          <div className="bg-white/70 backdrop-blur-xl rounded-3xl border border-suka-gray-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] p-5 sm:p-6 space-y-5">
+          <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 className="font-black text-suka-brown text-sm uppercase tracking-widest flex items-center gap-2">
+              <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-suka-orange" />
-                Daftar Item Bahan Baku ({items.length})
+                Rincian Item Bahan Baku ({items.length})
               </h2>
               <button onClick={addItem}
-                className="flex items-center gap-1.5 text-xs font-extrabold text-suka-orange hover:text-orange-600 bg-orange-50 px-3 py-1.5 rounded-xl border border-orange-200/60 transition-all active:scale-95">
-                <Plus className="w-4 h-4" /> Tambah Item
+                className="flex items-center gap-1.5 text-xs font-bold text-suka-orange hover:text-suka-brown bg-suka-orange/10 px-3 py-1.5 rounded-xl border border-suka-orange/20 transition-all active:scale-95 cursor-pointer">
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambah Item</span>
               </button>
             </div>
 
@@ -201,12 +202,12 @@ export default function NewPOPage() {
                 const bahan = bahanList.find(b => b.id === item.bahan_baku_id)
                 const subtotal = (parseFloat(item.qty_pesan) || 0) * (parseFloat(item.harga_pesan) || 0)
                 return (
-                  <div key={idx} className="flex flex-col sm:flex-row gap-3 p-3.5 bg-white/80 rounded-2xl border border-suka-gray-200/60 shadow-2xs hover:border-suka-brown/20 transition-all">
+                  <div key={idx} className="flex flex-col sm:flex-row gap-3 p-3.5 bg-suka-cream/20 rounded-2xl border border-suka-brown/10 hover:border-suka-orange/30 transition-all">
                     <div className="flex-1 flex flex-col gap-2">
                       <select
                         value={item.bahan_baku_id}
                         onChange={e => handleBahanChange(idx, e.target.value)}
-                        className="w-full pl-3 pr-2 py-2 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange cursor-pointer"
+                        className="w-full px-3 py-2 text-xs font-semibold text-suka-brown bg-white border border-suka-brown/15 rounded-xl focus:outline-none focus:border-suka-orange cursor-pointer"
                       >
                         <option value="">— Pilih bahan baku —</option>
                         {bahanList
@@ -220,13 +221,13 @@ export default function NewPOPage() {
                             value={item.item_description || ''}
                             onChange={e => updateItem(idx, 'item_description', e.target.value)}
                             placeholder="Nama Barang Lainnya"
-                            className="flex-1 px-3 py-2 text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange"
+                            className="flex-1 px-3 py-2 text-xs font-medium text-suka-ink bg-white border border-suka-brown/15 rounded-xl focus:outline-none focus:border-suka-orange"
                           />
                           <input type="text"
                             value={item.satuan_ad_hoc || ''}
                             onChange={e => updateItem(idx, 'satuan_ad_hoc', e.target.value)}
                             placeholder="Satuan (cth: pcs)"
-                            className="w-32 px-3 py-2 text-xs font-medium text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange"
+                            className="w-32 px-3 py-2 text-xs font-medium text-suka-ink bg-white border border-suka-brown/15 rounded-xl focus:outline-none focus:border-suka-orange"
                           />
                         </div>
                       )}
@@ -236,19 +237,19 @@ export default function NewPOPage() {
                         <input type="number" min="0.01" step="0.01"
                           value={item.qty_pesan} onChange={e => updateItem(idx, 'qty_pesan', e.target.value)}
                           placeholder={`Qty${bahan ? ` (${bahan.satuan})` : ''}`}
-                          className="w-full px-3 py-2 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange text-right" />
+                          className="w-full px-3 py-2 text-xs font-bold text-suka-ink bg-white border border-suka-brown/15 rounded-xl focus:outline-none focus:border-suka-orange text-right tabular-nums" />
                       </div>
                       <div className="w-36">
                         <input type="number" min="0"
                           value={item.harga_pesan} onChange={e => updateItem(idx, 'harga_pesan', e.target.value)}
                           placeholder="Harga/unit (Rp)"
-                          className="w-full px-3 py-2 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange text-right" />
+                          className="w-full px-3 py-2 text-xs font-bold text-suka-ink bg-white border border-suka-brown/15 rounded-xl focus:outline-none focus:border-suka-orange text-right tabular-nums" />
                       </div>
-                      <div className="w-28 text-right text-xs font-black text-suka-brown">
+                      <div className="w-32 text-right text-xs font-bold text-suka-brown tabular-nums">
                         {subtotal > 0 ? rupiah(subtotal) : '—'}
                       </div>
                       <button onClick={() => removeItem(idx)} disabled={items.length === 1}
-                        className="p-2 text-suka-gray-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed">
+                        className="p-2 text-suka-brown/40 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -257,14 +258,14 @@ export default function NewPOPage() {
               })}
             </div>
 
-            <div className="flex justify-between items-center p-4 bg-suka-cream/40 rounded-2xl border border-suka-brown/10">
-              <span className="text-xs font-black text-suka-gray-500 uppercase tracking-widest">Total Estimasi Nilai PO</span>
-              <span className="text-xl font-black text-suka-brown">{rupiah(totalEstimasi)}</span>
+            <div className="flex justify-between items-center p-4 bg-suka-cream/50 rounded-2xl border border-suka-brown/10">
+              <span className="text-xs font-bold text-suka-brown/70 uppercase tracking-wider">Total Estimasi Nilai PO</span>
+              <span className="text-lg sm:text-xl font-bold text-suka-brown tabular-nums">{rupiah(totalEstimasi)}</span>
             </div>
           </div>
 
           {createPO.isError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl flex items-start gap-3">
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-2xl flex items-start gap-3">
               <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <span className="text-xs font-bold">{(createPO.error as Error).message}</span>
             </div>
@@ -272,16 +273,18 @@ export default function NewPOPage() {
 
           <div className="flex gap-3 pt-2">
             <button onClick={() => router.back()}
-              className="flex-1 py-3 border border-suka-gray-200 rounded-2xl font-bold text-sm text-suka-gray-500 hover:bg-suka-gray-50 transition-colors">
+              className="flex-1 py-3 border border-suka-brown/20 rounded-2xl font-bold text-xs text-suka-brown/70 hover:bg-white transition-colors cursor-pointer">
               Batal
             </button>
             <button onClick={() => handleSubmit('draft')} disabled={!isValid || createPO.isPending}
-              className="flex-1 py-3 bg-white border border-suka-brown text-suka-brown rounded-2xl font-extrabold text-sm hover:bg-suka-brown/5 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(44,24,16,0.05)]">
-              {createPO.isPending ? <Spinner className="w-5 h-5 text-suka-brown" /> : <Check className="w-5 h-5" />} Simpan Draft
+              className="flex-1 py-3 bg-white border border-suka-brown text-suka-brown rounded-2xl font-bold text-xs hover:bg-suka-cream active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm cursor-pointer">
+              {createPO.isPending ? <Spinner className="w-4 h-4 text-suka-brown" /> : <Check className="w-4 h-4" />}
+              <span>Simpan Draft</span>
             </button>
             <button onClick={() => handleSubmit('menunggu_approval_finance')} disabled={!isValid || createPO.isPending}
-              className="flex-[1.5] py-3 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl font-extrabold text-sm hover:from-suka-ink hover:to-black active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-[0_4px_16px_rgba(44,24,16,0.15)]">
-              {createPO.isPending ? <Spinner className="w-5 h-5 text-white" /> : <ShoppingCart className="w-5 h-5" />} Buat & Ajukan
+              className="flex-[1.5] py-3 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-2xl font-bold text-xs hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-suka-brown/20 cursor-pointer">
+              {createPO.isPending ? <Spinner className="w-4 h-4 text-white" /> : <ShoppingCart className="w-4 h-4" />}
+              <span>Buat &amp; Ajukan PO</span>
             </button>
           </div>
         </>

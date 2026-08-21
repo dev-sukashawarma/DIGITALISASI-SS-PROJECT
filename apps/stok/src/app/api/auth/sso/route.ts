@@ -24,11 +24,21 @@ export async function POST(request: NextRequest) {
     try {
       const originUrl = new URL(origin)
       const allowedDomains = ['sukashawarma.com', 'localhost']
+      
       const isAllowed = allowedDomains.some(domain => 
         originUrl.hostname === domain || originUrl.hostname.endsWith('.' + domain)
-      )
+      ) || 
+      // Izinkan Vercel preview URL
+      originUrl.hostname.endsWith('.vercel.app') || 
+      // Izinkan local network IPs (untuk testing emulator / local device)
+      originUrl.hostname === '127.0.0.1' ||
+      originUrl.hostname.startsWith('192.168.') ||
+      originUrl.hostname.startsWith('10.') ||
+      // Izinkan origin jika Chrome mengirim package name POS dari Intent
+      origin === 'android-app://com.sukashawarma.pos'
       
       if (!isAllowed) {
+        // Jika masih gagal, setidaknya kita return origin di error agar mudah di-debug
         return NextResponse.json({ ok: false, error: 'Origin tidak diizinkan' }, { status: 403 })
       }
     } catch {

@@ -1,5 +1,15 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const workspaceRoot = path.resolve(__dirname, '../../')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  outputFileTracingRoot: workspaceRoot,
+  turbopack: {
+    root: workspaceRoot,
+  },
   // JANGAN tambahkan `output: 'standalone'`. Deploy cPanel di sini mem-boot lewat
   // `server.cjs` custom (next({ dev:false, dir })), bukan `.next/standalone/server.js`.
   // Saat `standalone` aktif (masuk 31 Jul via commit sapu-jagat 79dbcb9b), middleware
@@ -17,14 +27,11 @@ const nextConfig = {
     tsconfigPath: './tsconfig.json',
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'qntuhtkujpwudcpudmbj.supabase.co',
+        hostname: '*.supabase.co',
       },
     ],
   },

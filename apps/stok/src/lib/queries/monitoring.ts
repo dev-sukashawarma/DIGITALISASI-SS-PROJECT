@@ -275,8 +275,9 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
       .limit(5),
     supabase
       .from('opname_item')
-      .select('qty_system, qty_fisik, catatan, flagged, opname!inner(created_at)')
+      .select('qty_system, qty_fisik, catatan, flagged, opname!inner(created_at, outlet_id)')
       .eq('bahan_baku_id', bahan_baku_id)
+      .eq('opname.outlet_id', outletId)
       .order('created_at', { ascending: false, referencedTable: 'opname' })
       .limit(1)
       .maybeSingle(),
@@ -306,7 +307,11 @@ export async function fetchItemDetail(outletId: string, bahan_baku_id: string) {
     })
     .reduce((sum, p) => sum + Math.abs(p.qty || 0), 0);
 
-  const discrepancyDetails = opnameData?.flagged
+  const isGudang = (itemData?.outlet_name || '').toUpperCase().includes('GUDANG');
+
+  // Khusus outlet Gudang, hasil opname fisik berfungsi sebagai patokan awal (baseline) stok riil,
+  // sehingga tidak dimunculkan sebagai flagged discrepancy di modal monitoring.
+  const discrepancyDetails = (!isGudang && opnameData?.flagged)
     ? {
         // Type detection logic: qty_mismatch if qty_fisik < qty_system, otherwise damaged.
         // Note: 'lost' type requires additional context not available from opname_item data.

@@ -32,9 +32,24 @@ export default function SsoHandoffPage() {
 
     async function handoff() {
       if (!handoffRef.current) {
-        const params = new URLSearchParams(window.location.hash.replace(/^#/, ''))
-        const accessToken = params.get('access_token')
-        const refreshToken = params.get('refresh_token')
+        const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+        const searchParams = new URLSearchParams(window.location.search)
+
+        const accessToken =
+          hashParams.get('access_token') ||
+          searchParams.get('access_token') ||
+          hashParams.get('accessToken') ||
+          searchParams.get('accessToken')
+
+        const refreshToken =
+          hashParams.get('refresh_token') ||
+          searchParams.get('refresh_token') ||
+          hashParams.get('refreshToken') ||
+          searchParams.get('refreshToken')
+
+        const nextParam =
+          hashParams.get('next') ||
+          searchParams.get('next')
 
         if (!accessToken || !refreshToken) {
           window.location.replace(PORTAL_URL)
@@ -42,9 +57,9 @@ export default function SsoHandoffPage() {
         }
 
         handoffRef.current = {
-          accessToken,
-          refreshToken,
-          next: safeInternalPath(params.get('next')),
+          accessToken: accessToken.trim(),
+          refreshToken: refreshToken.trim(),
+          next: safeInternalPath(nextParam),
         }
 
         // Token tidak boleh tertinggal di address bar/history walaupun request gagal.
@@ -60,7 +75,12 @@ export default function SsoHandoffPage() {
           credentials: 'same-origin',
           cache: 'no-store',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ accessToken, refreshToken }),
+          body: JSON.stringify({
+            accessToken,
+            refreshToken,
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          }),
         })
         const result = (await response.json().catch(() => ({}))) as HandoffResponse
 

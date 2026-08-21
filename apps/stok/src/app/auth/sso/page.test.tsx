@@ -31,6 +31,8 @@ describe('SsoHandoffPage', () => {
         body: JSON.stringify({
           accessToken: 'access-token-from-pos',
           refreshToken: 'refresh-token-from-pos',
+          access_token: 'access-token-from-pos',
+          refresh_token: 'refresh-token-from-pos',
         }),
       })
     )

@@ -5,12 +5,14 @@ import type { ResponseCookie } from 'next/dist/compiled/@edge-runtime/cookies'
 type HandoffBody = {
   accessToken?: unknown
   refreshToken?: unknown
+  access_token?: unknown
+  refresh_token?: unknown
 }
 
-const MAX_TOKEN_LENGTH = 8_192
+const MAX_TOKEN_LENGTH = 16_384
 
 function isToken(value: unknown): value is string {
-  return typeof value === 'string' && value.length > 20 && value.length <= MAX_TOKEN_LENGTH
+  return typeof value === 'string' && value.trim().length > 0 && value.length <= MAX_TOKEN_LENGTH
 }
 
 /**
@@ -38,7 +40,6 @@ export async function POST(request: NextRequest) {
       origin === 'android-app://com.sukashawarma.pos'
       
       if (!isAllowed) {
-        // Jika masih gagal, setidaknya kita return origin di error agar mudah di-debug
         return NextResponse.json({ ok: false, error: 'Origin tidak diizinkan' }, { status: 403 })
       }
     } catch {
@@ -53,7 +54,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Payload sesi tidak valid' }, { status: 400 })
   }
 
-  if (!isToken(body.accessToken) || !isToken(body.refreshToken)) {
+  const rawAccess = body.accessToken ?? body.access_token
+  const rawRefresh = body.refreshToken ?? body.refresh_token
+
+  const accessToken = typeof rawAccess === 'string' ? rawAccess.trim() : ''
+  const refreshToken = typeof rawRefresh === 'string' ? rawRefresh.trim() : ''
+
+  if (!isToken(accessToken) || !isToken(refreshToken)) {
     return NextResponse.json({ ok: false, error: 'Token sesi tidak lengkap' }, { status: 400 })
   }
 
@@ -68,8 +75,8 @@ export async function POST(request: NextRequest) {
   })
 
   const { data, error } = await supabase.auth.setSession({
-    access_token: body.accessToken,
-    refresh_token: body.refreshToken,
+    access_token: accessToken,
+    refresh_token: refreshToken,
   })
 
   if (error || !data.session || !data.user) {

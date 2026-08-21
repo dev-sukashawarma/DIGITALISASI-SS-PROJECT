@@ -49,13 +49,30 @@ export function getTodayWIB(): string {
   return wibNow.toISOString().slice(0, 10)
 }
 
+export async function getEffectiveTodayWIB(outletId: string, supabase: any): Promise<string> {
+  const today = getTodayWIB()
+  if (outletId === '62a56103-2085-4dd5-9d25-a3c0cffc88ff' && today === '2026-08-21') {
+    // Cileungsi exception: check if there's an unfinalized opname for Aug 20
+    const { data } = await supabase.from('opname')
+      .select('id')
+      .eq('outlet_id', outletId)
+      .eq('tanggal', '2026-08-20')
+      .neq('status', 'finalized')
+      .limit(1)
+      .maybeSingle()
+    if (data) return '2026-08-20'
+  }
+  return today
+}
+
 export function useOpnameActions() {
   const supabase = createClient()
   const { add, flush, isOnline } = useOfflineQueue<FinalizePayload>('stok-opname-finalize')
 
   const createDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
+    const todayWIB = await getEffectiveTodayWIB(outletId, supabase)
     const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
     if (error) throw error
     return data as Opname
   }, [])
@@ -64,7 +81,7 @@ export function useOpnameActions() {
   // outlet ini, beserta item-item yang sudah tersimpan — dipakai OpnameForm
   // untuk resume saat crew buka lagi form setelah "Simpan Draft".
   const fetchTodayDraft = useCallback(async (outletId: string) => {
-    const todayWIB = getTodayWIB()
+    const todayWIB = await getEffectiveTodayWIB(outletId, supabase)
     const { data, error } = await supabase.from('opname')
       .select('*, opname_item(*)')
       .eq('outlet_id', outletId)
@@ -80,7 +97,7 @@ export function useOpnameActions() {
   const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
     // Cek apakah sudah ada opname hari ini untuk outlet ini (semua status kecuali rejected)
     // Gunakan range tanggal hari ini (WIB = UTC+7) agar timezone-safe
-    const todayWIB = getTodayWIB()
+    const todayWIB = await getEffectiveTodayWIB(outletId, supabase)
 
     // Urutan khusus 13 Agustus 2026 (permintaan owner, hari yang sama dgn fix
     // bug finalize opname supabaseKey): SEMUA outlet boleh opname maksimal 2x
@@ -103,7 +120,7 @@ export function useOpnameActions() {
 
       if (list.length === 0) {
         const { data, error } = await supabase.from('opname')
-          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
         if (error) throw error
         return data as Opname
       }
@@ -111,7 +128,7 @@ export function useOpnameActions() {
       if (list.length === 1) {
         if (list[0].status !== 'finalized') return list[0]
         const { data, error } = await supabase.from('opname')
-          .insert({ outlet_id: outletId, tipe: 'harian', status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+          .insert({ outlet_id: outletId, tipe: 'harian', status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
         if (error) throw error
         return data as Opname
       }
@@ -157,7 +174,7 @@ export function useOpnameActions() {
 
       if ((count ?? 0) < maxOpname) {
         const { data, error } = await supabase.from('opname')
-          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
         if (error) throw error
         return data as Opname
       }
@@ -167,7 +184,7 @@ export function useOpnameActions() {
 
     // Tidak ada opname hari ini → buat baru
     const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null }).select().single()
+      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
     if (error) throw error
     return data as Opname
   }, [])

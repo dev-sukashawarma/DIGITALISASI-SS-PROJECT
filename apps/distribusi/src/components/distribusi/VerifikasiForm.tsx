@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient } from '@suka/auth'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { ReceiptSignatureStep } from './ReceiptSignatureStep'
 
-type Kondisi = 'baik' | 'jelek'
+type Kondisi = 'baik' | 'tidak_sesuai'
 
 type ItemVerification = {
   qty_terima: number | ''
@@ -18,6 +18,22 @@ type ItemVerification = {
 }
 
 type Step = 'cards' | 'summary' | 'signature'
+
+type StoredDraft = {
+  verifications: Record<
+    string,
+    {
+      qty_terima: number | ''
+      kondisi: Kondisi
+      catatan: string
+      foto_path: string | null
+    }
+  >
+  currentIndex: number
+  step: Step
+  kondisiConfirmed: boolean
+  updatedAt: number
+}
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
   return (
@@ -58,8 +74,10 @@ export function VerifikasiForm({ id }: { id: string }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [step, setStep] = useState<Step>('cards')
   const [submitting, setSubmitting] = useState(false)
+  const [uploadingFoto, setUploadingFoto] = useState(false)
   const [unlocked, setUnlocked] = useState(false)
   const [kondisiConfirmed, setKondisiConfirmed] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   const items = useMemo(() => {
     if (!data?.surat_jalan_item) return [];
@@ -81,18 +99,47 @@ export function VerifikasiForm({ id }: { id: string }) {
     })
   }, [data])
 
-  // Initialize verifications when data is loaded.
-  // Item yang sudah pernah diverifikasi (verified_at terisi, mis. karena finalize
-  // sebelumnya gagal di RPC lain setelah item ter-update) dihidrasi dari data
-  // tersimpan, supaya crew tidak diminta ulang isi qty/kondisi/foto yang sudah benar.
+  // Hydrate verifications: restore dari localStorage draft terlebih dahulu
+  // (mencegah progress hilang saat browser ter-reload akibat aplikasi kamera HP memakan RAM),
+  // kemudian fallback ke data verified_at yang tersimpan di Supabase.
   useEffect(() => {
     if (items.length === 0) return
     let cancelled = false
     const supabase = createSupabaseBrowserClient()
 
     const hydrate = async () => {
+      let draft: StoredDraft | null = null
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(`verification_draft_${id}`)
+          if (raw) draft = JSON.parse(raw)
+        } catch (e) {
+          console.warn('Gagal membaca draft verifikasi dari localStorage', e)
+        }
+      }
+
       const entries = await Promise.all(
         items.map(async (item: any) => {
+          const draftItem = draft?.verifications?.[item.id]
+
+          if (draftItem) {
+            let foto_preview: string | null = null
+            if (draftItem.foto_path) {
+              const { data: blob } = await supabase.storage.from('verif-foto-bahan').download(draftItem.foto_path)
+              if (blob) foto_preview = URL.createObjectURL(blob)
+            }
+            return [
+              item.id,
+              {
+                qty_terima: draftItem.qty_terima,
+                kondisi: ((draftItem.kondisi as any) === 'jelek' || draftItem.kondisi === 'tidak_sesuai' ? 'tidak_sesuai' : 'baik') as Kondisi,
+                catatan: draftItem.catatan || '',
+                foto_path: draftItem.foto_path || null,
+                foto_preview,
+              },
+            ] as const
+          }
+
           if (!item.verified_at) {
             return [item.id, { qty_terima: '', kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }] as const
           }
@@ -104,7 +151,7 @@ export function VerifikasiForm({ id }: { id: string }) {
           const qty_terima = typeof item.qty_terima === 'number' ? Math.round(item.qty_terima * item.factor * 1000) / 1000 : ''
           return [item.id, {
             qty_terima,
-            kondisi: (item.kondisi === 'rusak' ? 'jelek' : 'baik') as Kondisi,
+            kondisi: (item.kondisi === 'rusak' ? 'tidak_sesuai' : 'baik') as Kondisi,
             catatan: item.catatan || '',
             foto_path: item.foto_path || null,
             foto_preview,
@@ -113,18 +160,61 @@ export function VerifikasiForm({ id }: { id: string }) {
       )
       if (cancelled) return
       setVerifications(Object.fromEntries(entries))
+
+      if (draft) {
+        if (typeof draft.currentIndex === 'number' && draft.currentIndex >= 0 && draft.currentIndex < items.length) {
+          setCurrentIndex(draft.currentIndex)
+        }
+        if (draft.step) {
+          setStep(draft.step)
+        }
+        if (typeof draft.kondisiConfirmed === 'boolean') {
+          setKondisiConfirmed(draft.kondisiConfirmed)
+        }
+      }
+
+      setIsHydrated(true)
     }
 
     hydrate()
     return () => { cancelled = true }
-  }, [items])
+  }, [items, id])
 
+  // Cek status unlock QR dari localStorage maupun sessionStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const isUnlocked = sessionStorage.getItem(`unlocked_verification_${id}`) === 'true'
+      const isUnlocked =
+        localStorage.getItem(`unlocked_verification_${id}`) === 'true' ||
+        sessionStorage.getItem(`unlocked_verification_${id}`) === 'true'
       setUnlocked(isUnlocked)
     }
   }, [id])
+
+  // Auto-save draft ke localStorage setiap kali ada perubahan data/posisi item
+  useEffect(() => {
+    if (!isHydrated || items.length === 0 || typeof window === 'undefined') return
+    try {
+      const storableVerifs: Record<string, any> = {}
+      Object.entries(verifications).forEach(([k, v]) => {
+        storableVerifs[k] = {
+          qty_terima: v.qty_terima,
+          kondisi: v.kondisi,
+          catatan: v.catatan,
+          foto_path: v.foto_path,
+        }
+      })
+      const draft: StoredDraft = {
+        verifications: storableVerifs,
+        currentIndex,
+        step,
+        kondisiConfirmed,
+        updatedAt: Date.now(),
+      }
+      localStorage.setItem(`verification_draft_${id}`, JSON.stringify(draft))
+    } catch (e) {
+      console.warn('Gagal menyimpan draft verifikasi ke localStorage', e)
+    }
+  }, [verifications, currentIndex, step, kondisiConfirmed, isHydrated, id, items.length])
 
   if (loading) return <div className="text-center py-12 text-xs font-bold text-[#544437]/50 animate-pulse bg-[#fff8f1] min-h-screen flex items-center justify-center">Memuat Form Verifikasi...</div>
   if (error || !data) return <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4"><p className="p-4 text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 rounded-xl">Gagal memuat: {error}</p></div>
@@ -187,7 +277,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     foto_preview: null,
   }
   const progress = items.length > 0 ? Math.round(((currentIndex + 1) / items.length) * 100) : 0
-  const isJelekMode = currentVerif.kondisi === 'jelek'
+  const isTidakSesuaiMode = currentVerif.kondisi === 'tidak_sesuai'
 
   const setVerif = (patch: Partial<ItemVerification>) => {
     setVerifications((prev) => ({
@@ -216,7 +306,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     setKondisiConfirmed(true)
   }
 
-  const handleJelekConfirm = () => {
+  const handleTidakSesuaiConfirm = () => {
     if (currentVerif.qty_terima === '') {
       alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
       return
@@ -230,7 +320,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       return
     }
     if (!currentVerif.catatan.trim()) {
-      alert('Wajib isi catatan alasan untuk item bermasalah')
+      alert('Wajib isi catatan alasan untuk item tidak sesuai')
       return
     }
     setKondisiConfirmed(true)
@@ -285,6 +375,7 @@ export function VerifikasiForm({ id }: { id: string }) {
   const handleFotoCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
+    setUploadingFoto(true)
     try {
       const compressed = await compressImage(file, 200 * 1024)
       const supabase = createSupabaseBrowserClient()
@@ -297,6 +388,9 @@ export function VerifikasiForm({ id }: { id: string }) {
       setVerif({ foto_path: path, foto_preview: preview })
     } catch (err) {
       alert(`Gagal upload foto: ${err instanceof Error ? err.message : 'Error'}`)
+    } finally {
+      setUploadingFoto(false)
+      if (e.target) e.target.value = ''
     }
   }
 
@@ -311,9 +405,9 @@ export function VerifikasiForm({ id }: { id: string }) {
           .from('surat_jalan_item')
           .update({
             qty_terima: qty_terima_base,
-            kondisi: v.kondisi === 'jelek' ? 'rusak' : 'baik',
+            kondisi: v.kondisi === 'tidak_sesuai' ? 'rusak' : 'baik',
             catatan: v.catatan || null,
-            flagged: qty_terima_base !== item.qty_dikirim || v.kondisi === 'jelek',
+            flagged: qty_terima_base !== item.qty_dikirim || v.kondisi === 'tidak_sesuai',
             foto_path: v.foto_path || null,
             verified_at: new Date().toISOString(),
           })
@@ -328,6 +422,13 @@ export function VerifikasiForm({ id }: { id: string }) {
         p_surat_jalan_id: id,
       })
       if (rpcError) throw new Error(rpcError.message)
+
+      // Bersihkan draft dan kunci verifikasi setelah berhasil disimpan
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(`verification_draft_${id}`)
+        localStorage.removeItem(`unlocked_verification_${id}`)
+        sessionStorage.removeItem(`unlocked_verification_${id}`)
+      }
 
       router.push('/distribusi/riwayat')
     } catch (err) {
@@ -352,7 +453,7 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   // ── Step: Summary ─────────────────────────────────────────────────
   if (step === 'summary') {
-    const jelekCount = items.filter((it: any) => verifications[it.id]?.kondisi === 'jelek').length
+    const tidakSesuaiCount = items.filter((it: any) => verifications[it.id]?.kondisi === 'tidak_sesuai').length
     return (
       <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
         <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3 shadow-[0_2px_8px_rgba(144,77,0,0.03)] min-w-0">
@@ -373,7 +474,7 @@ export function VerifikasiForm({ id }: { id: string }) {
           <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 divide-y divide-[#d9c2b2]/20 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] overflow-hidden">
             {items.map((item: any) => {
               const v = verifications[item.id]
-              const isJelek = v?.kondisi === 'jelek'
+              const isTidakSesuai = v?.kondisi === 'tidak_sesuai'
               return (
                 <div key={item.id} className="px-4 py-3 flex items-center gap-3">
                   {v?.foto_preview ? (
@@ -383,15 +484,15 @@ export function VerifikasiForm({ id }: { id: string }) {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide truncate">{item.bahan_baku?.nama}</p>
-                    {isJelek && v?.catatan && (
+                    {isTidakSesuai && v?.catatan && (
                       <p className="text-[10px] text-[#ba1a1a] mt-0.5 font-semibold truncate">{v.catatan}</p>
                     )}
                   </div>
                   <span className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide border ${
-                    isJelek ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/20' : 'bg-green-50 text-green-700 border-green-200'
+                    isTidakSesuai ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/20' : 'bg-green-50 text-green-700 border-green-200'
                   }`}>
-                    {isJelek
-                      ? `Jelek · ${v?.qty_terima}/${item.qty_dikirim_dist} ${item.satuan_dist}`
+                    {isTidakSesuai
+                      ? `Tidak Sesuai · ${v?.qty_terima}/${item.qty_dikirim_dist} ${item.satuan_dist}`
                       : `Baik · ${v?.qty_terima} ${item.satuan_dist}`}
                   </span>
                 </div>
@@ -399,10 +500,10 @@ export function VerifikasiForm({ id }: { id: string }) {
             })}
           </div>
 
-          {jelekCount > 0 && (
+          {tidakSesuaiCount > 0 && (
             <div className="p-3 bg-[#ffdad6]/60 border border-[#ba1a1a]/20 rounded-xl text-[#ba1a1a] text-xs font-bold flex items-center gap-2">
               <span>⚠️</span>
-              <span>{jelekCount} item bermasalah — alasan tercatat di catatan</span>
+              <span>{tidakSesuaiCount} item tidak sesuai — alasan tercatat di catatan</span>
             </div>
           )}
 
@@ -471,10 +572,14 @@ export function VerifikasiForm({ id }: { id: string }) {
                   value={currentVerif.qty_terima}
                   onChange={(e) => {
                     const val = e.target.value === '' ? '' : parseFloat(e.target.value) || 0
-                    setVerif({ qty_terima: val, kondisi: typeof val === 'number' && val < (currentItem?.qty_dikirim_dist ?? 0) ? 'jelek' : currentVerif.kondisi })
+                    const isKurang = typeof val === 'number' && val < (currentItem?.qty_dikirim_dist ?? 0)
+                    setVerif({
+                      qty_terima: val,
+                      kondisi: isKurang ? 'tidak_sesuai' : (currentVerif.kondisi === 'tidak_sesuai' && !currentVerif.catatan ? 'baik' : currentVerif.kondisi),
+                    })
                   }}
                   className={`border-2 rounded-xl px-2 py-1.5 text-lg font-extrabold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] transition-all ${
-                    isJelekMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim_dist ?? 0)) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
+                    isTidakSesuaiMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim_dist ?? 0)) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
                   }`}
                 />
                 <span className="text-xs font-bold text-[#544437]/70">{currentItem?.satuan_dist}</span>
@@ -482,7 +587,7 @@ export function VerifikasiForm({ id }: { id: string }) {
             </div>
           </div>
 
-          {isJelekMode && (
+          {isTidakSesuaiMode && (
             <div className="mt-4 space-y-1">
               <label className="text-[8px] font-bold text-[#ba1a1a] block uppercase tracking-wider pl-1">
                 Catatan Masalah / Alasan Selisih (Wajib)
@@ -490,7 +595,7 @@ export function VerifikasiForm({ id }: { id: string }) {
               <textarea
                 value={currentVerif.catatan}
                 onChange={(e) => setVerif({ catatan: e.target.value })}
-                placeholder="Sebutkan alasan (misal: 2 kg busuk, kemasan robek, pecah di jalan, dll)"
+                placeholder="Sebutkan alasan (misal: 2 kg busuk, kemasan robek, pecah di jalan, kurang kirim, dll)"
                 rows={2}
                 className="w-full border border-red-200 rounded-xl px-3 py-2 text-xs bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none font-medium text-[#ba1a1a] min-h-[50px]"
               />
@@ -501,7 +606,7 @@ export function VerifikasiForm({ id }: { id: string }) {
         {/* Action buttons — kondisi belum dikunci */}
         {!kondisiConfirmed && (
           <>
-            {!isJelekMode ? (
+            {!isTidakSesuaiMode ? (
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleBaik}
@@ -515,11 +620,11 @@ export function VerifikasiForm({ id }: { id: string }) {
                       alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
                       return
                     }
-                    setVerif({ kondisi: 'jelek' })
+                    setVerif({ kondisi: 'tidak_sesuai' })
                   }}
                   className="border-2 border-[#ba1a1a]/60 text-[#ba1a1a] rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-red-50 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
                 >
-                  ✗ Jelek
+                  ✗ Tidak Sesuai
                 </button>
               </div>
             ) : (
@@ -531,10 +636,10 @@ export function VerifikasiForm({ id }: { id: string }) {
                   ← Batalkan
                 </button>
                 <button
-                  onClick={handleJelekConfirm}
+                  onClick={handleTidakSesuaiConfirm}
                   className="bg-[#ba1a1a] hover:bg-[#931313] active:bg-[#7a0f0f] text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95"
                 >
-                  Konfirmasi Jelek →
+                  Konfirmasi Tidak Sesuai →
                 </button>
               </div>
             )}
@@ -545,13 +650,13 @@ export function VerifikasiForm({ id }: { id: string }) {
         {kondisiConfirmed && (
           <div className="space-y-3">
             <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${
-              currentVerif.kondisi === 'jelek'
+              currentVerif.kondisi === 'tidak_sesuai'
                 ? 'bg-[#ffdad6]/60 border-[#ba1a1a]/20 text-[#ba1a1a]'
                 : 'bg-green-50 border-green-200 text-green-700'
             }`}>
               <span className="text-xs font-bold uppercase tracking-wide">
-                {currentVerif.kondisi === 'jelek'
-                  ? `✗ Jelek · ${currentVerif.qty_terima}/${currentItem?.qty_dikirim_dist} ${currentItem?.satuan_dist}`
+                {currentVerif.kondisi === 'tidak_sesuai'
+                  ? `✗ Tidak Sesuai · ${currentVerif.qty_terima}/${currentItem?.qty_dikirim_dist} ${currentItem?.satuan_dist}`
                   : `✓ Baik · ${currentVerif.qty_terima} ${currentItem?.satuan_dist}`}
               </span>
               <button
@@ -568,28 +673,39 @@ export function VerifikasiForm({ id }: { id: string }) {
               </div>
             )}
 
-            <label className="block w-full cursor-pointer">
+            <label className={`block w-full ${uploadingFoto ? 'cursor-not-allowed opacity-70' : 'cursor-pointer'}`}>
               <input
                 type="file"
                 accept="image/*"
                 capture="environment"
                 className="hidden"
+                disabled={uploadingFoto}
                 onChange={handleFotoCapture}
               />
               <div className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md ${
-                currentVerif.foto_path
-                  ? 'bg-white border border-[#d9c2b2]/45 text-[#544437]'
-                  : 'bg-[#f29744] text-white'
+                uploadingFoto
+                  ? 'bg-orange-100 text-[#f29744] border border-orange-200 animate-pulse'
+                  : currentVerif.foto_path
+                    ? 'bg-white border border-[#d9c2b2]/45 text-[#544437]'
+                    : 'bg-[#f29744] text-white'
               }`}>
-                {currentVerif.foto_path ? '🔄 Ambil Ulang Foto' : '📷 Foto Barang Sekarang'}
+                {uploadingFoto ? (
+                  <span className="flex items-center gap-2">
+                    <span className="animate-spin text-sm">⏳</span> Mengunggah & Memproses Foto...
+                  </span>
+                ) : currentVerif.foto_path ? (
+                  '🔄 Ambil Ulang Foto'
+                ) : (
+                  '📷 Foto Barang Sekarang'
+                )}
               </div>
             </label>
 
             <button
               onClick={handleAdvance}
-              disabled={!currentVerif.foto_path}
+              disabled={!currentVerif.foto_path || uploadingFoto}
               className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
-                currentVerif.foto_path
+                currentVerif.foto_path && !uploadingFoto
                   ? 'bg-[#701604] hover:bg-[#591002] text-white shadow-md cursor-pointer'
                   : 'bg-[#d9c2b2]/30 text-[#544437]/40 cursor-not-allowed'
               }`}

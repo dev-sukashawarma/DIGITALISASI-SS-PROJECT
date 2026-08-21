@@ -52,6 +52,7 @@ export function QRScanner() {
     }
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(`unlocked_verification_${data.id}`, 'true')
+      localStorage.setItem(`unlocked_verification_${data.id}`, 'true')
     }
     stopCamera()
     router.push(`/distribusi/terima/${data.id}`)

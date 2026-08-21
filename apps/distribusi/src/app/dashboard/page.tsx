@@ -379,7 +379,7 @@ export default function DashboardPage() {
                       <span className="text-xs font-extrabold text-suka-orange bg-suka-orange/10 w-6 h-6 flex items-center justify-center rounded-lg shrink-0 border border-suka-orange/20">2</span>
                       <div className="space-y-0.5">
                         <h4 className="text-xs font-bold text-suka-ink">Verifikasi Kuantitas & Kondisi</h4>
-                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Hitung fisik barang. Jika ada selisih/rusak, masukkan Qty riil dan tandai kondisi "Jelek" beserta catatannya.</p>
+                        <p className="text-[10px] text-suka-gray-500 font-semibold leading-relaxed">Hitung fisik barang. Jika ada selisih/rusak, masukkan Qty riil dan tandai kondisi "Tidak Sesuai" beserta catatannya.</p>
                       </div>
                     </div>
                     <div className="px-6 py-4 flex items-start gap-4 bg-white/40">

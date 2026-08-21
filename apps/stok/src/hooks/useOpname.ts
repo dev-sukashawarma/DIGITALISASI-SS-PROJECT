@@ -52,15 +52,15 @@ export function getTodayWIB(): string {
 export async function getEffectiveTodayWIB(outletId: string, supabase: any): Promise<string> {
   const today = getTodayWIB()
   if (outletId === '62a56103-2085-4dd5-9d25-a3c0cffc88ff' && today === '2026-08-21') {
-    // Cileungsi exception: check if there's an unfinalized opname for Aug 20
+    // Cileungsi exception: check if there's a finalized opname for Aug 20
     const { data } = await supabase.from('opname')
       .select('id')
       .eq('outlet_id', outletId)
       .eq('tanggal', '2026-08-20')
-      .neq('status', 'finalized')
+      .eq('status', 'finalized')
       .limit(1)
       .maybeSingle()
-    if (data) return '2026-08-20'
+    if (!data) return '2026-08-20'
   }
   return today
 }

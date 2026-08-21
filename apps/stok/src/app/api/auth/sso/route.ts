@@ -19,8 +19,21 @@ function isToken(value: unknown): value is string {
  */
 export async function POST(request: NextRequest) {
   const origin = request.headers.get('origin')
-  if (origin && origin !== request.nextUrl.origin) {
-    return NextResponse.json({ ok: false, error: 'Origin tidak diizinkan' }, { status: 403 })
+
+  if (origin) {
+    try {
+      const originUrl = new URL(origin)
+      const allowedDomains = ['sukashawarma.com', 'localhost']
+      const isAllowed = allowedDomains.some(domain => 
+        originUrl.hostname === domain || originUrl.hostname.endsWith('.' + domain)
+      )
+      
+      if (!isAllowed) {
+        return NextResponse.json({ ok: false, error: 'Origin tidak diizinkan' }, { status: 403 })
+      }
+    } catch {
+      return NextResponse.json({ ok: false, error: 'Origin tidak valid' }, { status: 403 })
+    }
   }
 
   let body: HandoffBody

@@ -47,7 +47,11 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
 
-  const isMultiOutletRole = ['admin', 'owner', 'regional_manager', 'leader'].includes(role)
+  const isMultiOutletRole = [
+    'admin', 'owner', 'regional_manager', 'area_manager', 
+    'leader', 'korlap', 'admin_hr', 'admin_finance', 
+    'purchasing', 'mitra'
+  ].includes(role)
 
   const tabFilteredUsers = initialUsers.filter(u => activeTab === 'kiosk' ? u.role === 'kiosk' : u.role !== 'kiosk')
   const filteredUsers = tabFilteredUsers.filter(u => 
@@ -344,7 +348,13 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                     { value: 'kitchen', label: 'Kitchen' },
                     { value: 'spv', label: 'SPV' },
                     { value: 'leader', label: 'Leader' },
+                    { value: 'area_manager', label: 'Area Manager' },
                     { value: 'regional_manager', label: 'Regional Manager' },
+                    { value: 'korlap', label: 'Korlap' },
+                    { value: 'admin_hr', label: 'Admin HR' },
+                    { value: 'admin_finance', label: 'Admin Finance' },
+                    { value: 'purchasing', label: 'Purchasing' },
+                    { value: 'mitra', label: 'Mitra' },
                     { value: 'owner', label: 'Owner' },
                     { value: 'admin', label: 'Admin' },
                     { value: 'kiosk', label: 'Mesin Kiosk' }
@@ -353,7 +363,11 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                       <input type="radio" name="role" value={r.value} checked={role === r.value} onChange={(e) => {
                         setRole(e.target.value)
                         // If switching away from multi-role, reset outletIds to just outletId if valid
-                        if (!['admin', 'owner', 'regional_manager', 'leader'].includes(e.target.value)) {
+                        if (![
+                          'admin', 'owner', 'regional_manager', 'area_manager', 
+                          'leader', 'korlap', 'admin_hr', 'admin_finance', 
+                          'purchasing', 'mitra'
+                        ].includes(e.target.value)) {
                           if (outletIds.length > 1 && outletId) {
                             setOutletIds([outletId])
                           }

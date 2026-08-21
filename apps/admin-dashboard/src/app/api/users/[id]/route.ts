@@ -56,12 +56,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Username dan role harus diisi' }, { status: 400 })
     }
 
-    const allowedRoles = ['crew', 'kiosk', 'spv', 'regional_manager', 'owner', 'leader', 'admin', 'kitchen']
+    const allowedRoles = [
+      'crew', 'kitchen', 'kiosk', 'spv', 'leader', 
+      'regional_manager', 'area_manager', 'korlap',
+      'admin', 'admin_hr', 'admin_finance', 'purchasing', 
+      'owner', 'mitra'
+    ]
     if (!allowedRoles.includes(role)) {
       return NextResponse.json({ error: 'Role tidak valid' }, { status: 400 })
     }
 
-    const isMultiOutletRole = ['admin', 'owner', 'regional_manager', 'leader'].includes(role);
+    const isMultiOutletRole = [
+      'admin', 'owner', 'regional_manager', 'area_manager', 
+      'leader', 'korlap', 'admin_hr', 'admin_finance', 
+      'purchasing', 'mitra'
+    ].includes(role);
     const finalOutletIds = (isMultiOutletRole && Array.isArray(outlet_ids) && outlet_ids.length > 0) 
       ? outlet_ids 
       : [outlet_id].filter(Boolean);

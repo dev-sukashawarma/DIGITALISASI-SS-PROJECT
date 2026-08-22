@@ -93,6 +93,16 @@ function cell(reference: string, value: string | number, style: number, numeric 
   return `<c r="${reference}" s="${style}" t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is></c>`
 }
 
+const FORM_COLUMNS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
+
+// WPS tidak selalu meneruskan border dari sel anchor pada merge. Menulis sel
+// kosong ber-style di seluruh area membuat garis tabel tetap utuh di WPS dan
+// Microsoft Excel.
+function blankFormCells(row: number, style: number, except: string[] = []) {
+  const skipped = new Set(except)
+  return FORM_COLUMNS.filter(column => !skipped.has(column)).map(column => cell(`${column}${row}`, '', style)).join('')
+}
+
 function displayItem(item: SuratJalanItem) {
   const bahan = item.bahan_baku
   const satuan = bahan?.satuan_distribusi || item.satuan || bahan?.satuan || ''
@@ -137,20 +147,18 @@ export function buildSuratJalanExcel(data: SuratJalanExcelData, logo: Uint8Array
   rows.push(`<row r="7" ht="21.75">${cell('A7', 'Nama Outlet', 5)}${cell('C7', ':', 7)}${cell('D7', data.outletName, 7)}${cell('E7', 'Nomor Surat Jalan', 5)}${cell('G7', `: ${data.documentNumber}`, 7)}</row>`)
   rows.push(`<row r="8" ht="18">${cell('A8', 'Kode Verifikasi', 5)}${cell('C8', ': -', 7)}${cell('E8', 'Tanggal Surat Jalan', 5)}${cell('G8', `: ${formattedDate}`, 7)}</row>`)
   rows.push(`<row r="9" ht="14.25">${cell('A9', '', 13)}</row>`)
-  rows.push(`<row r="10" ht="18">${cell('A10', 'No', 8)}${cell('B10', 'Nama Barang', 8)}${cell('E10', 'Satuan', 8)}${cell('F10', 'Jumlah', 8)}${cell('H10', 'Check List', 8)}</row>`)
+  rows.push(`<row r="10" ht="18">${cell('A10', 'No', 8)}${cell('B10', 'Nama Barang', 8)}${cell('E10', 'Satuan', 8)}${cell('F10', 'Jumlah', 8)}${cell('H10', 'Check List', 8)}${blankFormCells(10, 8, ['A', 'B', 'E', 'F', 'H'])}</row>`)
   for (let index = 0; index < itemRows; index++) {
     const row = tableStart + index
     const item = renderedItems[index]
-    rows.push(`<row r="${row}" ht="20.25">${cell(`A${row}`, item ? index + 1 : '', 9, Boolean(item))}${cell(`B${row}`, item?.name || '', 10)}${cell(`E${row}`, item?.unit || '', 9)}${cell(`F${row}`, item?.quantity || '', 11, Boolean(item))}${cell(`H${row}`, '', 9)}</row>`)
+    rows.push(`<row r="${row}" ht="20.25">${cell(`A${row}`, item ? index + 1 : '', 9, Boolean(item))}${cell(`B${row}`, item?.name || '', 10)}${cell(`E${row}`, item?.unit || '', 9)}${cell(`F${row}`, item?.quantity || '', 11, Boolean(item))}${cell(`H${row}`, '', 9)}${blankFormCells(row, 9, ['A', 'B', 'E', 'F', 'H'])}</row>`)
   }
   rows.push(`<row r="${tableEnd + 1}" ht="4">${cell(`A${tableEnd + 1}`, '', 13)}</row>`)
-  rows.push(`<row r="${noteStart}" ht="13">${cell(`A${noteStart}`, 'CATATAN', 8)}</row>`)
-  rows.push(`<row r="${noteStart + 1}" ht="14.25">${cell(`A${noteStart + 1}`, '', 12)}</row>`)
-  for (let row = noteStart + 2; row <= noteEnd; row++) rows.push(`<row r="${row}" ht="14.25"></row>`)
+  rows.push(`<row r="${noteStart}" ht="13">${cell(`A${noteStart}`, 'CATATAN', 8)}${blankFormCells(noteStart, 8, ['A'])}</row>`)
+  for (let row = noteStart + 1; row <= noteEnd; row++) rows.push(`<row r="${row}" ht="14.25">${blankFormCells(row, 12)}</row>`)
   rows.push(`<row r="${noteEnd + 1}" ht="4">${cell(`A${noteEnd + 1}`, '', 13)}</row>`)
-  rows.push(`<row r="${signatureStart}" ht="19.5">${cell(`A${signatureStart}`, 'Admin Gudang', 8)}${cell(`D${signatureStart}`, 'Pengirim', 8)}${cell(`F${signatureStart}`, 'Penerima', 8)}</row>`)
-  rows.push(`<row r="${signatureStart + 1}" ht="14.25">${cell(`A${signatureStart + 1}`, '', 13)}${cell(`D${signatureStart + 1}`, '', 13)}${cell(`F${signatureStart + 1}`, '', 13)}</row>`)
-  for (let row = signatureStart + 2; row <= signatureEnd; row++) rows.push(`<row r="${row}" ht="14.25"></row>`)
+  rows.push(`<row r="${signatureStart}" ht="19.5">${cell(`A${signatureStart}`, 'Admin Gudang', 8)}${cell(`D${signatureStart}`, 'Pengirim', 8)}${cell(`F${signatureStart}`, 'Penerima', 8)}${blankFormCells(signatureStart, 8, ['A', 'D', 'F'])}</row>`)
+  for (let row = signatureStart + 1; row <= signatureEnd; row++) rows.push(`<row r="${row}" ht="14.25">${blankFormCells(row, 13)}</row>`)
 
   const merges = ['C2:G2', 'C3:G3', 'C4:G4', 'H2:K4', 'A7:B7', 'E7:F7', 'A8:B8', 'E8:F8', 'B10:D10', 'F10:G10', 'H10:K10']
   for (let index = 0; index < itemRows; index++) merges.push(`B${tableStart + index}:D${tableStart + index}`, `F${tableStart + index}:G${tableStart + index}`, `H${tableStart + index}:K${tableStart + index}`)

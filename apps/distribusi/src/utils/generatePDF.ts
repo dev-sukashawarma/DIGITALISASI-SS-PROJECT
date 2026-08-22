@@ -22,24 +22,6 @@ export async function fetchFotoAsBase64(foto_path: string): Promise<string | nul
 }
 
 
-// SUKA Design System Tokens
-const TOKENS = {
-  colors: {
-    'suka-orange': '#f29744',
-    'suka-brown': '#701604',
-    'suka-ink': '#400a07',
-    'suka-cream': '#fff7ed',
-    'gray-100': '#f3f4f6',
-    'gray-200': '#e5e7eb',
-    'gray-600': '#4b5563',
-    'gray-900': '#111827',
-  },
-  fonts: {
-    display: '"Lilita One", sans-serif',
-    sans: '"Plus Jakarta Sans", system-ui, sans-serif',
-  },
-}
-
 interface SuratJalanData {
   id: string
   document_number: string
@@ -72,11 +54,6 @@ interface SuratJalanData {
   }> | null
 }
 
-const SIGNATURE_CELL_HEIGHT = '80px'
-const SIGNATURE_IMAGE_MAX_HEIGHT = '70px'
-const SIGNATURE_IMAGE_STYLE = `max-height: ${SIGNATURE_IMAGE_MAX_HEIGHT}; max-width: 100%; display: block; margin: 0 auto;`
-const SIGNATURE_PLACEHOLDER_STYLE = `height: 70px; border-bottom: 2px solid ${TOKENS.colors['suka-brown']};`
-
 export async function generateQRDataUrl(text: string, size = 80): Promise<string> {
   return QRCode.toDataURL(text, { width: size, margin: 1 })
 }
@@ -97,406 +74,187 @@ export async function generatePDFContent(
   const isReceivedOrSelesai = ['diterima_lengkap', 'diterima_sebagian', 'selesai'].includes(data.status)
 
   let statusText = data.status
-  let statusColor = TOKENS.colors['suka-orange']
   if (data.status === 'draft') {
     statusText = 'Draft'
   } else if (data.status === 'dikirim' || data.status === 'dikirim_lengkap') {
     statusText = 'Dikirim'
-    statusColor = '#1d4ed8' // blue
   } else if (data.status === 'diterima_lengkap') {
     statusText = 'Diterima Lengkap'
-    statusColor = '#0a7d2c' // green
   } else if (data.status === 'diterima_sebagian') {
     statusText = 'Diterima Sebagian'
-    statusColor = TOKENS.colors['suka-orange']
   } else if (data.status === 'selesai') {
     statusText = 'Selesai'
-    statusColor = '#0a7d2c' // green
   }
 
-  const tableHeaders = isReceivedOrSelesai
-    ? `
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Nama Barang</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 60px;">Kirim</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 60px;">Terima</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 50px;">Sat.</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Kondisi</th>
-        <th style="border: 1px solid #000; padding: 8px;">Catatan</th>
-      </tr>
-    `
-    : `
-      <tr>
-        <th style="border: 1px solid #000; padding: 8px;">Nama Barang</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Qty</th>
-        <th style="border: 1px solid #000; padding: 8px; text-align: center; width: 80px;">Satuan</th>
-      </tr>
-    `
-
-  const itemRows = data.items
-    .map(
-      (item) => {
-        if (isReceivedOrSelesai) {
-          const isKurang = item.qty_terima !== undefined && item.qty_terima !== null && item.qty_terima < item.qty_dikirim
-          const isRusak = item.kondisi === 'rusak'
-          const qtyTerimaText = item.qty_terima !== undefined && item.qty_terima !== null ? item.qty_terima : '-'
-          const kondisiText = item.kondisi || 'baik'
-          const catatanText = item.catatan || '-'
-          return `
-            <tr>
-              <td style="border: 1px solid #000; padding: 8px;">${item.nama}</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.qty_dikirim}</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${isKurang ? TOKENS.colors['suka-brown'] : '#0a7d2c'};">${qtyTerimaText}</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.satuan}</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: center; font-weight: bold; color: ${isRusak ? '#ba1a1a' : '#0a7d2c'};">${kondisiText.toUpperCase()}</td>
-              <td style="border: 1px solid #000; padding: 8px; font-style: italic; color: #544437;">${catatanText}</td>
-            </tr>
-          `
-        } else {
-          return `
-            <tr>
-              <td style="border: 1px solid #000; padding: 8px;">${item.nama}</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.qty_dikirim}</td>
-              <td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.satuan}</td>
-            </tr>
-          `
-        }
-      }
-    )
-    .join('')
-
-  const signatureRows = data.signatures
-    .map(
-      (sig) => `
-    <tr>
-      <td style="padding: 8px; text-align: center; height: ${SIGNATURE_CELL_HEIGHT};">
-        ${
-          sig.signature_image
-            ? `<img src="${sig.signature_image}" style="${SIGNATURE_IMAGE_STYLE}" />`
-            : `<div style="${SIGNATURE_PLACEHOLDER_STYLE}"></div>`
-        }
-      </td>
-      <td style="padding: 8px; text-align: center; font-weight: bold;">${sig.signed_by}</td>
-      <td style="padding: 8px; text-align: center;">${sig.role}</td>
-      <td style="padding: 8px; text-align: center;">${new Date(sig.signed_at).toLocaleDateString('id-ID')}</td>
-    </tr>
-  `
-    )
-    .join('')
-
   const receiptSigs = data.receipt_signatures || []
-  const receiptSignatureRows = receiptSigs
-    .map(
-      (sig) => `
-    <tr>
-      <td style="padding: 8px; text-align: center; height: ${SIGNATURE_CELL_HEIGHT};">
-        ${
-          sig.signature_image
-            ? `<img src="${sig.signature_image}" style="${SIGNATURE_IMAGE_STYLE}" />`
-            : `<div style="${SIGNATURE_PLACEHOLDER_STYLE}"></div>`
-        }
-      </td>
-      <td style="padding: 8px; text-align: center; font-weight: bold;">${sig.signed_by}</td>
-      <td style="padding: 8px; text-align: center;">${sig.role}</td>
-      <td style="padding: 8px; text-align: center;">${new Date(sig.signed_at).toLocaleDateString('id-ID')}</td>
-    </tr>
-  `
-    )
-    .join('')
+  const adminSignature = data.signatures.find((sig) => ['Admin Kitchen', 'Kitchen SPV'].includes(sig.role))
+  const driverSignature = data.signatures.find((sig) => sig.role === 'Supir')
+  const receiverSignature = receiptSigs.find((sig) => sig.role === 'Crew Penerima')
+  type SuratJalanItem = SuratJalanData['items'][number]
+  const printableItems: Array<SuratJalanItem | null> = [...data.items]
+  while (printableItems.length < 8) printableItems.push(null)
 
-  const missingSigImages = data.signatures.filter((sig) => !sig.signature_image)
-  const sigImageWarning =
-    missingSigImages.length > 0
-      ? `\n  <!-- WARNING: ${missingSigImages.length} signature(s) missing image data: ${missingSigImages.map((s) => s.signed_by).join(', ')} -->`
-      : ''
+  const itemRows = printableItems.map((item, index) => `
+    <tr>
+      <td class="cell-center">${item ? index + 1 : ''}</td>
+      <td>${item?.nama || ''}</td>
+      <td class="cell-center">${item?.satuan || ''}</td>
+      <td class="cell-number">${item?.qty_dikirim ?? ''}</td>
+      <td>${item && isReceivedOrSelesai ? `${item.qty_terima ?? '-'} / ${(item.kondisi || 'baik').toUpperCase()}` : ''}</td>
+    </tr>
+  `).join('')
+
+  const signatureBox = (title: string, signature?: SuratJalanData['signatures'][number]) => `
+    <div class="signature-box">
+      <div class="signature-title">${title}</div>
+      <div class="signature-space">
+        ${signature?.signature_image ? `<img src="${signature.signature_image}" alt="Tanda tangan ${title}" />` : ''}
+      </div>
+      <div class="signature-name">${signature?.signed_by || '( ........................................ )'}</div>
+    </div>
+  `
 
   return `
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
   <meta charset="utf-8">
-  <title>Surat Jalan - ${data.outlet_name}</title>${sigImageWarning}
-  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Surat Jalan - ${data.outlet_name}</title>
   <style>
-    * { margin: 0; padding: 0; }
-    body {
-      font-family: ${TOKENS.fonts.sans};
-      color: ${TOKENS.colors['gray-900']};
-      line-height: 1.6;
-      background: white;
-      padding: 40px 20px;
+    @page { size: A3 landscape; margin: 8mm 10mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.25; }
+    .print-sheet { width: 100%; max-width: 400mm; margin: 0 auto; background: #fff; }
+    .document-header {
+      display: grid;
+      grid-template-columns: 34mm 1fr 72mm;
+      gap: 5mm;
+      min-height: 30mm;
+      align-items: center;
+      border-bottom: 0.45mm solid #000;
+      padding: 0 2mm 3mm;
     }
-
-    .container { max-width: 800px; margin: 0 auto; }
-
-    .header {
-      text-align: center;
-      margin-bottom: 32px;
-      padding-bottom: 24px;
-      border-bottom: 3px solid ${TOKENS.colors['suka-orange']};
-    }
-
-    .brand {
-      font-family: ${TOKENS.fonts.display};
-      font-size: 28px;
-      color: ${TOKENS.colors['suka-brown']};
-      margin-bottom: 8px;
-      letter-spacing: 1px;
-    }
-
-    .header h1 {
-      font-family: ${TOKENS.fonts.display};
-      font-size: 32px;
-      color: ${TOKENS.colors['suka-orange']};
-      margin: 8px 0;
-      letter-spacing: 0.5px;
-    }
-
-    .doc-number {
-      font-size: 14px;
-      color: ${TOKENS.colors['gray-600']};
-      font-weight: 600;
-      margin-top: 8px;
-    }
-
-    .info-grid {
+    .brand-logo { width: auto; height: 24mm; max-width: 30mm; display: block; margin: 0 auto; object-fit: contain; }
+    .company { text-align: center; }
+    .company strong { display: block; font-size: 13pt; line-height: 1.25; }
+    .company .company-unit { font-size: 12pt; }
+    .company address { margin-top: 1.5mm; font-style: normal; font-size: 9.5pt; }
+    .document-title { text-align: center; }
+    .document-title h1 { margin: 0; font-size: 19pt; letter-spacing: 0.5pt; }
+    .compact-qr { margin-top: 1.5mm; display: flex; justify-content: center; align-items: center; gap: 2mm; }
+    .compact-qr img { width: 17mm; height: 17mm; image-rendering: crisp-edges; }
+    .compact-qr span { font-size: 7.5pt; font-weight: 700; line-height: 1.2; max-width: 30mm; }
+    .meta {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin: 24px 0;
-      padding: 16px;
-      background: ${TOKENS.colors['suka-cream']};
-      border-radius: 8px;
+      gap: 12mm;
+      padding: 4mm 2mm 3mm;
+      border-bottom: 0.35mm solid #000;
     }
-
-    .info-item {
-      font-size: 14px;
+    .meta-row { display: grid; grid-template-columns: 42mm 4mm 1fr; min-height: 6mm; align-items: center; }
+    .meta-row strong { font-size: 10pt; }
+    .meta-row span { overflow-wrap: anywhere; }
+    .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3mm; }
+    .items-table col:nth-child(1) { width: 7%; }
+    .items-table col:nth-child(2) { width: 43%; }
+    .items-table col:nth-child(3) { width: 12%; }
+    .items-table col:nth-child(4) { width: 13%; }
+    .items-table col:nth-child(5) { width: 25%; }
+    .items-table th, .items-table td { border: 0.3mm solid #000; padding: 1.2mm 2mm; height: 7mm; vertical-align: middle; }
+    .items-table th { text-align: center; font-weight: 700; font-size: 10pt; }
+    .items-table td { font-size: 9.5pt; }
+    .cell-center { text-align: center; }
+    .cell-number { text-align: right; padding-right: 3mm !important; }
+    .notes { margin-top: 4mm; border: 0.3mm solid #000; height: 30mm; }
+    .notes-title { height: 7mm; display: flex; align-items: center; justify-content: center; border-bottom: 0.3mm solid #000; font-weight: 700; }
+    .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 4mm; border: 0.3mm solid #000; }
+    .signature-box { min-height: 42mm; text-align: center; border-right: 0.3mm solid #000; display: grid; grid-template-rows: 7mm 1fr 8mm; }
+    .signature-box:last-child { border-right: 0; }
+    .signature-title { display: flex; align-items: center; justify-content: center; border-bottom: 0.3mm solid #000; font-weight: 700; }
+    .signature-space { min-height: 24mm; display: flex; align-items: center; justify-content: center; }
+    .signature-space img { max-height: 21mm; max-width: 85%; object-fit: contain; }
+    .signature-name { display: flex; align-items: center; justify-content: center; font-size: 9pt; padding: 1mm; }
+    .document-footer { text-align: center; margin-top: 2mm; font-size: 7.5pt; }
+    .attachment { page-break-before: always; }
+    .attachment h2 { margin: 0 0 5mm; font-size: 15pt; border-bottom: 0.4mm solid #000; padding-bottom: 2mm; }
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
+    .photo-card { border: 0.3mm solid #000; break-inside: avoid; }
+    .photo-card img { display: block; width: 100%; height: 55mm; object-fit: cover; }
+    .photo-caption { padding: 2.5mm; font-size: 9pt; }
+    @media screen {
+      body { padding: 16px; background: #e5e7eb; }
+      .print-sheet, .attachment { padding: 8mm 10mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
+      .print-sheet { min-height: 281mm; }
     }
-
-    .info-label {
-      font-weight: 700;
-      color: ${TOKENS.colors['suka-brown']};
-      margin-bottom: 4px;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .info-value {
-      color: ${TOKENS.colors['gray-900']};
-      font-size: 14px;
-    }
-
-    .section-title {
-      font-family: ${TOKENS.fonts.display};
-      font-size: 16px;
-      color: ${TOKENS.colors['suka-brown']};
-      margin: 24px 0 12px;
-      padding-bottom: 8px;
-      border-bottom: 2px solid ${TOKENS.colors['suka-orange']};
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 16px 0;
-      font-size: 14px;
-    }
-
-    th {
-      background: ${TOKENS.colors['suka-orange']};
-      color: white;
-      padding: 12px;
-      text-align: left;
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    td {
-      padding: 12px;
-      border-bottom: 1px solid ${TOKENS.colors['gray-200']};
-    }
-
-    tbody tr:nth-child(even) {
-      background: ${TOKENS.colors['gray-100']};
-    }
-
-    .signature-section {
-      margin-top: 32px;
-      page-break-inside: avoid;
-    }
-
-    .signature-table {
-      width: 100%;
-      margin-top: 16px;
-    }
-
-    .signature-table th {
-      background: ${TOKENS.colors['suka-brown']};
-      color: white;
-      padding: 10px;
-      font-size: 12px;
-      text-align: center;
-    }
-
-    .signature-table td {
-      padding: 16px 8px;
-      text-align: center;
-      font-size: 13px;
-      border: 1px solid ${TOKENS.colors['gray-200']};
-    }
-
-    .qr-section {
-      margin: 40px 0;
-      padding: 24px;
-      text-align: center;
-      background: ${TOKENS.colors['suka-cream']};
-      border-radius: 8px;
-      border: 2px solid ${TOKENS.colors['suka-orange']};
-    }
-
-    .qr-label {
-      font-family: ${TOKENS.fonts.display};
-      font-size: 16px;
-      color: ${TOKENS.colors['suka-brown']};
-      margin-bottom: 12px;
-      letter-spacing: 0.5px;
-    }
-
-    .qr-code {
-      margin: 16px 0;
-    }
-
-    .qr-number {
-      font-size: 12px;
-      color: ${TOKENS.colors['gray-600']};
-      font-weight: 600;
-      margin-top: 12px;
-    }
-
-    .footer {
-      margin-top: 32px;
-      padding-top: 16px;
-      border-top: 1px solid ${TOKENS.colors['gray-200']};
-      text-align: center;
-      font-size: 11px;
-      color: ${TOKENS.colors['gray-600']};
+    @media print {
+      body { background: #fff; }
+      .print-sheet, .attachment { padding: 0; box-shadow: none; }
+      .print-sheet { page-break-after: auto; }
+      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <img src="${LOGO_BASE64}" alt="Logo Suka Shawarma" style="height: 48px; width: auto; object-fit: contain; margin: 0 auto 12px; display: block;" />
-      <h1>SURAT JALAN${data.status === 'selesai' ? ' (SUDAH DIVERIFIKASI)' : ''}</h1>
-      <div class="doc-number">${data.document_number}</div>
-    </div>
+  <main class="print-sheet">
+    <header class="document-header">
+      <img class="brand-logo" src="${LOGO_BASE64}" alt="Logo Suka Shawarma">
+      <div class="company">
+        <strong>PT SUKA PROFIT BERKAH</strong>
+        <strong class="company-unit">SUKA SHAWARMA KITCHEN</strong>
+        <address>Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat</address>
+      </div>
+      <div class="document-title">
+        <h1>SURAT JALAN</h1>
+        ${data.status !== 'selesai' && !hideQR ? `
+          <div class="compact-qr">
+            <img src="${qrDataUrl}" alt="QR Verifikasi">
+            <span>KODE VERIFIKASI<br>${data.verification_code || '-'}</span>
+          </div>
+        ` : ''}
+      </div>
+    </header>
 
-    <div class="info-grid">
-      <div class="info-item">
-        <div class="info-label">Dari Outlet</div>
-        <div class="info-value">${data.sender_outlet}</div>
+    <section class="meta">
+      <div>
+        <div class="meta-row"><strong>Nama Outlet</strong><b>:</b><span>${data.outlet_name}</span></div>
+        <div class="meta-row"><strong>Nomor PO</strong><b>:</b><span>-</span></div>
       </div>
-      <div class="info-item">
-        <div class="info-label">Ke Outlet</div>
-        <div class="info-value">${data.outlet_name}</div>
+      <div>
+        <div class="meta-row"><strong>Nomor Surat Jalan</strong><b>:</b><span>${data.document_number}</span></div>
+        <div class="meta-row"><strong>Tanggal Surat Jalan</strong><b>:</b><span>${createdDate}</span></div>
       </div>
-      <div class="info-item">
-        <div class="info-label">Tanggal</div>
-        <div class="info-value">${createdDate}</div>
-      </div>
-      <div class="info-item">
-        <div class="info-label">Status</div>
-        <div class="info-value" style="color: ${statusColor}; font-weight: 600;">
-          ${statusText.toUpperCase()}
-        </div>
-      </div>
-    </div>
+    </section>
 
-    <div class="section-title">📦 Detail Barang</div>
-    <table>
-      <thead>
-        ${tableHeaders}
-      </thead>
-      <tbody>
-        ${itemRows}
-      </tbody>
+    <table class="items-table">
+      <colgroup><col><col><col><col><col></colgroup>
+      <thead><tr><th>No</th><th>Nama Barang</th><th>Satuan</th><th>Jumlah</th><th>Check List</th></tr></thead>
+      <tbody>${itemRows}</tbody>
     </table>
 
-    <div class="signature-section">
-      <div class="section-title">✍️ Tanda Tangan Pengirim (Pusat)</div>
-      <table class="signature-table">
-        <thead>
-          <tr>
-            <th style="width: 140px;">Tanda Tangan</th>
-            <th>Nama</th>
-            <th>Jabatan</th>
-            <th style="width: 100px;">Tanggal</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${signatureRows}
-        </tbody>
-      </table>
-    </div>
+    <section class="notes"><div class="notes-title">CATATAN</div></section>
+    <section class="signature-grid">
+      ${signatureBox('Admin Gudang', adminSignature)}
+      ${signatureBox('Pengirim', driverSignature)}
+      ${signatureBox('Penerima', receiverSignature)}
+    </section>
+    <footer class="document-footer">${data.sender_outlet} • ${statusText.toUpperCase()} • Dicetak ${new Date().toLocaleDateString('id-ID')}</footer>
+  </main>
 
-    ${isReceivedOrSelesai && receiptSigs.length > 0 ? `
-    <div class="signature-section" style="margin-top: 24px;">
-      <div class="section-title">✍️ Tanda Tangan Penerima (Cabang)</div>
-      <table class="signature-table">
-        <thead>
-          <tr>
-            <th style="width: 140px;">Tanda Tangan</th>
-            <th>Nama</th>
-            <th>Jabatan</th>
-            <th style="width: 100px;">Tanggal</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${receiptSignatureRows}
-        </tbody>
-      </table>
-    </div>
-    ` : ''}
-
-    ${isReceivedOrSelesai && data.items.some(i => i.foto_base64) ? `
-    <div style="page-break-before: always; padding-top: 32px;">
-      <div class="section-title">📷 Lampiran Foto Bukti Penerimaan</div>
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-top: 16px;">
-        ${data.items.filter(i => i.foto_base64).map(item => {
-          const kondisiText = item.kondisi || 'baik'
-          const isRusak = item.kondisi === 'rusak'
-          const qtyText = item.qty_terima !== undefined && item.qty_terima !== null ? item.qty_terima : item.qty_dikirim
-          return `
-            <div style="border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-              <img src="${item.foto_base64}" style="width: 100%; height: 180px; object-fit: cover; display: block;" />
-              <div style="padding: 10px 12px; background: #fff7ed;">
-                <p style="font-weight: 700; font-size: 13px; color: #111827; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 0.3px;">${item.nama}</p>
-                <p style="font-size: 12px; color: #4b5563; margin: 0 0 4px;">Diterima: <strong>${qtyText} ${item.satuan}</strong> dari ${item.qty_dikirim} ${item.satuan}</p>
-                <span style="display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; background: ${isRusak ? '#ffdad6' : '#dcfce7'}; color: ${isRusak ? '#ba1a1a' : '#166534'};">${kondisiText.toUpperCase()}</span>
-                ${item.catatan ? `<p style="font-size: 11px; color: #ba1a1a; margin: 6px 0 0; font-style: italic;">${item.catatan}</p>` : ''}
-              </div>
-            </div>
-          `
-        }).join('')}
+  ${isReceivedOrSelesai && data.items.some(item => item.foto_base64) ? `
+    <section class="attachment">
+      <h2>Lampiran Foto Bukti Penerimaan</h2>
+      <div class="photo-grid">
+        ${data.items.filter(item => item.foto_base64).map(item => `
+          <article class="photo-card">
+            <img src="${item.foto_base64}" alt="Bukti ${item.nama}">
+            <div class="photo-caption"><strong>${item.nama}</strong><br>Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} • ${(item.kondisi || 'baik').toUpperCase()}</div>
+          </article>
+        `).join('')}
       </div>
-    </div>
-    ` : ''}
-
-    ${data.status !== 'selesai' && !hideQR ? `
-    <div class="qr-section">
-      <div class="qr-label">📱 Scan untuk Verifikasi Penerimaan</div>
-      <div class="qr-code">
-        <img src="${qrDataUrl}" width="200" height="200" alt="QR Verifikasi" />
-      </div>
-      <div class="qr-number" style="font-size: 16px; font-weight: bold; letter-spacing: 2px; color: ${TOKENS.colors['suka-brown']};">KODE VERIFIKASI: ${data.verification_code || '-'}</div>
-    </div>
-    ` : ''}
-
-    <div class="footer">
-      Dokumen ini dicetak otomatis dari Sistem Sukashawarma • ${new Date().toLocaleDateString('id-ID')}
-    </div>
-  </div>
+    </section>
+  ` : ''}
 </body>
 </html>
   `.trim()

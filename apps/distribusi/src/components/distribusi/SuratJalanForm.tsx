@@ -210,50 +210,71 @@ export function SuratJalanForm() {
                   <p className="text-xs text-[#544437]/45 font-semibold pl-1">Memuat barang...</p>
                 ) : (
                   <>
-                    <select
-                      value={selectedBahan}
-                      onChange={(e) => setSelectedBahan(e.target.value)}
-                      className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-semibold transition-all shadow-sm"
-                    >
-                      <option value="">Pilih barang...</option>
-                      {KATEGORI_ORDER.map(({ key, label }) => {
-                        const items = bahanBaku.filter(b => normalizeKategori(b.kategori) === key);
-                        if (items.length === 0) return null;
-                        return (
-                          <optgroup key={key} label={label.toUpperCase()}>
-                            {items.map((bahan) => {
-                              const conv = bahan.faktor_konversi && bahan.satuan_kecil 
-                                ? ` (1 ${bahan.satuan} = ${bahan.faktor_konversi} ${bahan.satuan_kecil})`
-                                : '';
-                              const distUnit = bahan.satuan_distribusi || bahan.satuan;
-                              return (
-                                <option key={bahan.id} value={bahan.id}>
-                                  {bahan.nama.toUpperCase()} - {distUnit}{conv}
-                                </option>
-                              );
-                            })}
-                          </optgroup>
-                        );
-                      })}
-                    </select>
-                    <div className="flex gap-2 w-full sm:w-auto shrink-0">
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={qty}
-                        onChange={(e) => setQty(e.target.value)}
-                        placeholder="Qty"
-                        className="flex-1 sm:w-24 px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white text-center focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-semibold transition-all shadow-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={addItem}
-                        className="flex-1 sm:flex-initial px-5 py-2.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
-                      >
-                        Tambah
-                      </button>
-                    </div>
+                    {(() => {
+                      const currentBahan = bahanBaku.find(b => b.id === selectedBahan);
+                      const currentDistUnit = currentBahan?.satuan_distribusi || currentBahan?.satuan;
+                      return (
+                        <div className="flex flex-col gap-1.5 w-full">
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <select
+                              value={selectedBahan}
+                              onChange={(e) => setSelectedBahan(e.target.value)}
+                              className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] font-semibold transition-all shadow-sm"
+                            >
+                              <option value="">Pilih barang...</option>
+                              {KATEGORI_ORDER.map(({ key, label }) => {
+                                const items = bahanBaku.filter(b => normalizeKategori(b.kategori) === key);
+                                if (items.length === 0) return null;
+                                return (
+                                  <optgroup key={key} label={label.toUpperCase()}>
+                                    {items.map((bahan) => {
+                                      const distUnit = bahan.satuan_distribusi || bahan.satuan;
+                                      return (
+                                        <option key={bahan.id} value={bahan.id}>
+                                          {bahan.nama.toUpperCase()} (Kirim per {distUnit.toUpperCase()})
+                                        </option>
+                                      );
+                                    })}
+                                  </optgroup>
+                                );
+                              })}
+                            </select>
+                            <div className="flex gap-2 w-full sm:w-auto shrink-0 items-center">
+                              <div className="relative flex-1 sm:w-36 flex items-center">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={qty}
+                                  onChange={(e) => setQty(e.target.value)}
+                                  placeholder="0"
+                                  className="w-full pl-3 pr-14 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white text-center focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-bold transition-all shadow-sm"
+                                />
+                                <span className="absolute right-2.5 text-[10px] font-extrabold text-[#904d00] bg-orange-100/90 px-1.5 py-0.5 rounded pointer-events-none uppercase">
+                                  {currentDistUnit || 'Unit'}
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={addItem}
+                                disabled={!selectedBahan || !qty}
+                                className="flex-1 sm:flex-initial px-5 py-2.5 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 disabled:opacity-50 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer shrink-0"
+                              >
+                                Tambah
+                              </button>
+                            </div>
+                          </div>
+                          {currentBahan && (
+                            <p className="text-[10px] text-[#544437]/80 font-semibold pl-1">
+                              📦 Satuan kirim: <strong className="text-[#701604] uppercase font-bold">{currentDistUnit}</strong>
+                              {currentBahan.satuan_distribusi && currentBahan.satuan_distribusi.toLowerCase() !== currentBahan.satuan.toLowerCase() && (
+                                <span className="text-[#544437]/65"> (1 {currentBahan.satuan} = {currentBahan.satuan_tengah ? `${currentBahan.faktor_tengah} ${currentBahan.satuan_tengah}` : `${currentBahan.faktor_konversi || currentBahan.faktor_tampilan} ${currentBahan.satuan_kecil}`})</span>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
               </div>

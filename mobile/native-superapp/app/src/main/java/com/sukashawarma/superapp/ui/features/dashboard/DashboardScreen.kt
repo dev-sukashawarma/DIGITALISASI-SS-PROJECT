@@ -83,6 +83,7 @@ fun DashboardScreen(staff: Staff?, onAppClick: (String) -> Unit = {}) {
             
             val appMeta = mapOf(
                 "Enrollment" to PortalApp("Enrollment", Icons.Default.Face, PortalTheme.Tertiary, PortalTheme.TertiaryContainer),
+                "Setting Absensi" to PortalApp("Setting Absensi", Icons.Default.Settings, Color(0xFF047857), Color(0xFF10B981).copy(alpha = 0.2f)),
                 "Absensi" to PortalApp("Absensi", Icons.Default.Fingerprint, PortalTheme.Primary, PortalTheme.PrimaryContainer),
                 "Kalibrasi Wajah" to PortalApp("Kalibrasi Wajah", Icons.Default.Tune, PortalTheme.Secondary, PortalTheme.SecondaryContainer)
             )

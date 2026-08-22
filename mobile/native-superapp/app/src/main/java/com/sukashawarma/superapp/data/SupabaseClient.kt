@@ -47,6 +47,8 @@ private interface SupabaseClientDelegate : AuthRepository, SyncRepository, Realt
     
     // Attendance Methods
     suspend fun getConfig(outletId: String): OutletAttendanceConfigDto?
+    suspend fun updateAttendanceConfig(config: OutletAttendanceConfigDto): Boolean
+    suspend fun getAllOutlets(): List<Outlet>
     suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto?
     // Submit lewat endpoint web absensi (bukan insert langsung — RLS attendance hanya izinkan service_role).
     // Gate clock-out (shift kasir, dll.) dievaluasi server, dibalas sebagai reason (mis. "shift_not_closed").
@@ -113,6 +115,8 @@ class SupabaseClient(val isTesting: Boolean = true) : AuthRepository, SyncReposi
         delegate.saveEnrollment(staffId, descriptor, photoUrl, isReEnroll, reason, adminId, hasExistingConsent)
 
     suspend fun getConfig(outletId: String): OutletAttendanceConfigDto? = delegate.getConfig(outletId)
+    suspend fun updateAttendanceConfig(config: OutletAttendanceConfigDto): Boolean = delegate.updateAttendanceConfig(config)
+    suspend fun getAllOutlets(): List<Outlet> = delegate.getAllOutlets()
     suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto? = delegate.getTodayAttendance(staffId, type)
     suspend fun submitAttendance(request: AttendanceSubmitRequest): SubmitAttendanceResponse = delegate.submitAttendance(request)
 
@@ -496,6 +500,38 @@ private class ProductionDelegate : SupabaseClientDelegate {
         }
     }
 
+    override suspend fun updateAttendanceConfig(config: OutletAttendanceConfigDto): Boolean {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        return try {
+            clientObj.postgrest["outlet_attendance_config"].upsert(config)
+            true
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to update config", e)
+            false
+        }
+    }
+
+    override suspend fun getAllOutlets(): List<Outlet> {
+        val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
+        return try {
+            @kotlinx.serialization.Serializable
+            data class OutletSimpleDto(
+                val id: String,
+                val name: String,
+                val latitude: Double? = null,
+                val longitude: Double? = null,
+                val radius_meter: Double? = 100.0
+            )
+            val list = clientObj.postgrest["outlets"]
+                .select()
+                .decodeList<OutletSimpleDto>()
+            list.map { Outlet(it.id, it.name, it.latitude ?: 0.0, it.longitude ?: 0.0, it.radius_meter ?: 100.0) }
+        } catch (e: Exception) {
+            android.util.Log.e("SupabaseClient", "Failed to fetch all outlets", e)
+            emptyList()
+        }
+    }
+
     override suspend fun getTodayAttendance(staffId: String, type: String): AttendanceRowDto? {
         val clientObj = realClient ?: throw IllegalStateException("Supabase client not initialized")
         return try {
@@ -723,6 +759,18 @@ private class MockDelegate : SupabaseClientDelegate {
             jamKeluar = "17:00:00",
             toleransiMenit = 15,
             absenWindowMode = "auto"
+        )
+    }
+
+    override suspend fun updateAttendanceConfig(config: OutletAttendanceConfigDto): Boolean {
+        return true
+    }
+
+    override suspend fun getAllOutlets(): List<Outlet> {
+        return listOf(
+            Outlet("outlet-1", "Warung Suka Shawarma Pusat", -6.200000, 106.816666, 100.0),
+            Outlet("outlet-2", "Warung Suka Shawarma Cileungsi", -6.390000, 106.950000, 100.0),
+            Outlet("outlet-3", "Warung Suka Shawarma Cibubur", -6.370000, 106.910000, 100.0)
         )
     }
 

@@ -122,7 +122,8 @@ data class OutletAttendanceConfigDto(
     @SerialName("jam_masuk") val jamMasuk: String,
     @SerialName("jam_keluar") val jamKeluar: String,
     @SerialName("toleransi_menit") val toleransiMenit: Int,
-    @SerialName("absen_window_mode") val absenWindowMode: String
+    @SerialName("absen_window_mode") val absenWindowMode: String = "auto",
+    @SerialName("radius_m") val radiusM: Int? = 100
 )
 
 /** Body request POST /api/submit-attendance (endpoint web absensi — kontrak server). */

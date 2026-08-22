@@ -21,6 +21,7 @@ class NavigationManager(private val authRepository: AuthRepository) {
                 Screen.Login, Screen.Dashboard -> true
                 Screen.Attendance -> staff.role in Roles.ATTENDANCE
                 Screen.Enroll, Screen.FaceDebug -> staff.role in Roles.ENROLLMENT
+                Screen.AttendanceSettings -> staff.role in Roles.ATTENDANCE_SETTINGS
                 Screen.Inventory, Screen.Fulfillment -> staff.role in Roles.STUB_MODULES
             }
             if (!allowed) {

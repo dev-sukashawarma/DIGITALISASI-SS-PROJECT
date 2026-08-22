@@ -96,18 +96,32 @@ class NavigationFlowTest {
     }
 
     @Test
-    fun testRoleGating_CrewBolehAbsensiTapiTidakEnroll() {
+    fun testRoleGating_CrewBolehAbsensiTapiTidakEnrollDanTidakSetting() {
         loginUser()
         val crew = Staff("4", "Crew Andi", "crew", "outlet_1")
         assertTrue(navManager.navigateTo(Screen.Attendance, crew))
         assertFalse(navManager.navigateTo(Screen.Enroll, crew))
+        assertFalse(navManager.navigateTo(Screen.AttendanceSettings, crew))
     }
 
     @Test
-    fun testRoleGating_SpvBolehEnroll() {
+    fun testRoleGating_LeaderDanAmBolehEnrollTapiTidakSetting() {
         loginUser()
-        val spv = Staff("5", "SPV Budi", "spv", "outlet_1")
-        assertTrue(navManager.navigateTo(Screen.Enroll, spv))
+        for (role in listOf("leader", "area_manager", "spv", "korlap")) {
+            val staff = Staff("staff-$role", "User $role", role, "outlet_1")
+            assertTrue("role=$role enroll", navManager.navigateTo(Screen.Enroll, staff))
+            assertFalse("role=$role attendance settings", navManager.navigateTo(Screen.AttendanceSettings, staff))
+        }
+    }
+
+    @Test
+    fun testRoleGating_RmHrAdminOwnerBolehSettingAbsensi() {
+        loginUser()
+        for (role in listOf("regional_manager", "admin_hr", "admin", "owner")) {
+            val staff = Staff("staff-$role", "User $role", role, "outlet_1")
+            assertTrue("role=$role enroll", navManager.navigateTo(Screen.Enroll, staff))
+            assertTrue("role=$role attendance settings", navManager.navigateTo(Screen.AttendanceSettings, staff))
+        }
     }
 
     @Test
@@ -117,6 +131,7 @@ class NavigationFlowTest {
             val staff = Staff("x-$role", "Test $role", role, "outlet_1")
             assertFalse("role=$role attendance", navManager.navigateTo(Screen.Attendance, staff))
             assertFalse("role=$role enroll", navManager.navigateTo(Screen.Enroll, staff))
+            assertFalse("role=$role attendance settings", navManager.navigateTo(Screen.AttendanceSettings, staff))
         }
     }
 

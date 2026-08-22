@@ -13,9 +13,16 @@ class DashboardMenuTest {
     }
 
     @Test
-    fun spvDapatEnrollmentDanAbsensi() {
-        for (role in listOf("spv", "leader", "korlap", "admin", "owner")) {
+    fun leaderDanAmDapatEnrollmentDanAbsensi() {
+        for (role in listOf("leader", "area_manager", "spv", "korlap")) {
             assertEquals("role=$role", listOf("Enrollment", "Kalibrasi Wajah", "Absensi"), DashboardMenu.menuFor(role))
+        }
+    }
+
+    @Test
+    fun rmHrAdminOwnerDapatSettingAbsensiLengkap() {
+        for (role in listOf("regional_manager", "admin_hr", "admin", "owner")) {
+            assertEquals("role=$role", listOf("Enrollment", "Setting Absensi", "Kalibrasi Wajah", "Absensi"), DashboardMenu.menuFor(role))
         }
     }
 

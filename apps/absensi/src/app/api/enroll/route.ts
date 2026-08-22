@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
 
-const SPV_ROLES = ["spv", "leader", "regional_manager", "area_manager", "admin", "admin_hr", "owner", "kitchen"];
+// Hanya Leader, SPV, Area Manager, Regional Manager, Admin, Admin HR, dan Owner yang diizinkan melakukan enrollment
+const ENROLLMENT_ALLOWED_ROLES = ["spv", "leader", "regional_manager", "area_manager", "admin", "admin_hr", "owner"];
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
     if (requester.status !== "active") {
       return NextResponse.json({ ok: false, reason: "requester_inactive" }, { status: 403 });
     }
-    if (!SPV_ROLES.includes(requester.role)) {
+    if (!ENROLLMENT_ALLOWED_ROLES.includes(requester.role)) {
       return NextResponse.json({ ok: false, reason: "forbidden_role", role: requester.role }, { status: 403 });
     }
 

@@ -11,8 +11,8 @@ object Roles {
     /** Boleh absen wajah 1:1 di HP pribadi. */
     val ATTENDANCE = setOf("crew", "kasir", "kitchen", "spv", "leader", "korlap", "admin", "owner")
 
-    /** Boleh mendaftarkan/re-enroll wajah crew (SPV/leader-driven, konsisten kebijakan web). */
-    val ENROLLMENT = setOf("spv", "leader", "korlap", "admin", "owner")
+    /** Boleh mendaftarkan/re-enroll wajah crew (SPV/Leader/Area Manager/Regional Manager/Admin HR/Admin/Owner). */
+    val ENROLLMENT = setOf("spv", "leader", "korlap", "admin", "admin_hr", "area_manager", "regional_manager", "owner")
 
     /** Akses modul stub Inventory/Fulfillment (belum fungsional — fase 3). */
     val STUB_MODULES = setOf("admin", "owner")

@@ -28,7 +28,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
 
-  const isAdminOrHR = ["admin", "admin_hr", "owner", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+  // Hanya Leader, Admin, Area Manager, Regional Manager, dan Admin HR yang boleh akses Enrollment
+  const isEnrollmentAllowed = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+
+  // Hanya Regional Manager, HR, Admin, dan Owner yang boleh akses Pengaturan Absensi (Leader & Area Manager dilarang)
+  const isSettingsAllowed = ["admin", "admin_hr", "owner", "regional_manager"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
@@ -39,8 +43,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
     { href: "/dashboard/kasbon", label: "Kasbon", icon: <Banknote size={20} /> },
-    { href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> },
-    ...(isAdminOrHR ? [{ href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> }] : []),
+    ...(isEnrollmentAllowed ? [{ href: "/dashboard/enroll", label: "Enrollment Crew", icon: <UserPlus size={20} /> }] : []),
+    ...(isSettingsAllowed ? [{ href: "/dashboard/pengaturan", label: "Pengaturan Absensi", icon: <Settings2 size={20} /> }] : []),
     { href: "/dashboard/panduan", label: "Panduan", icon: <Book size={20} /> },
   ] : [
     { href: "/dashboard/kru", label: "Beranda Saya", icon: <LayoutDashboard size={20} /> },
@@ -56,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard", label: "Absen", icon: <Clock size={22} /> },
     { href: "/dashboard/rekap", label: "Rekap", icon: <ClipboardList size={22} /> },
     { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={22} /> },
-    { href: "/dashboard/enroll", label: "Enroll", icon: <UserPlus size={22} /> },
+    ...(isEnrollmentAllowed ? [{ href: "/dashboard/enroll", label: "Enroll", icon: <UserPlus size={22} /> }] : [{ href: "/dashboard/papan-kehadiran", label: "Papan", icon: <LayoutDashboard size={22} /> }]),
   ] : [
     { href: "/dashboard/kru", label: "Beranda", icon: <LayoutDashboard size={22} /> },
     { href: "/dashboard/kru-checklist", label: "Checklist", icon: <ClipboardCheck size={22} /> },
@@ -79,12 +83,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         if (!isAllowed) {
           router.replace("/dashboard/kru");
         }
-      } else if (pathname === "/dashboard/pengaturan" && !isAdminOrHR) {
-        // Blokir akses ke pengaturan absensi untuk role SPV/Leader biasa
-        router.replace("/dashboard");
+      } else {
+        if (pathname === "/dashboard/enroll" && !isEnrollmentAllowed) {
+          router.replace("/dashboard");
+        } else if (pathname === "/dashboard/pengaturan" && !isSettingsAllowed) {
+          router.replace("/dashboard");
+        }
       }
     }
-  }, [outletStaff, isSPV, isAdminOrHR, loading, pathname, router]);
+  }, [outletStaff, isSPV, isEnrollmentAllowed, isSettingsAllowed, loading, pathname, router]);
 
   // Tutup sheet "Lainnya" tiap pindah halaman
   React.useEffect(() => { setMoreOpen(false); }, [pathname]);

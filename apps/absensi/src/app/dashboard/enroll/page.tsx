@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { Button, Card, Spinner } from "@suka/design-system";
-import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowRight, AlertTriangle } from "lucide-react";
+import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowRight, AlertTriangle, Search, X, RefreshCw, Sparkles, UserCheck, ShieldAlert } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
@@ -17,6 +17,8 @@ import { useRealtimeChannel } from "@suka/realtime";
 type Staff = { id: string; name: string; role: string; enrolled_at: string | null };
 type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" | "done";
 
+const ENROLLMENT_ROLES = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"];
+
 export default function EnrollPage() {
   const { outletStaff } = useAuth();
   const supabase = useMemo(() => createClient(), []);
@@ -27,8 +29,11 @@ export default function EnrollPage() {
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [targetStaff, setTargetStaff] = useState<Staff | null>(null);
   
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"unenrolled" | "enrolled" | "all">("unenrolled");
+  
   const [video, setVideo] = useState<HTMLVideoElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null); // selalu up-to-date untuk saveAuto
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [shots, setShots] = useState<number[][]>([]);
   const shotsRef = useRef<number[][]>([]);
   
@@ -43,14 +48,14 @@ export default function EnrollPage() {
   const [modelError, setModelError] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
 
-  // Initialize outlet ID from auth
+  const isEnrollmentAllowed = ENROLLMENT_ROLES.includes(outletStaff?.role || "");
+
   useEffect(() => {
     if (outletStaff?.outlet_id && !selectedOutletId) {
       setSelectedOutletId(outletStaff.outlet_id);
     }
   }, [outletStaff]);
 
-  // Loader stabil untuk daftar staff — dipanggil dari efek awal & dari realtime handler.
   const loadStaff = useCallback(() => {
     if (!selectedOutletId) return;
     setLoadingStaff(true);
@@ -78,7 +83,6 @@ export default function EnrollPage() {
       .then(([primaryRes, assignedRes]) => {
         const staffMap = new Map<string, Staff>();
         (primaryRes.data || []).forEach((s) => {
-          // Tambahkan label "(Anda)" jika ini adalah user SPV yang sedang login
           if (outletStaff?.id === s.id) {
             staffMap.set(s.id, { ...s, name: `${s.name} (Anda)` } as Staff);
           } else {
@@ -105,12 +109,10 @@ export default function EnrollPage() {
       });
   }, [selectedOutletId, supabase, toast, outletStaff]);
 
-  // Load staff when outlet changes
   useEffect(() => {
     loadStaff();
   }, [loadStaff]);
 
-  // Realtime: refresh daftar saat outlet_staff outlet ini berubah (insert/update/delete)
   useRealtimeChannel({
     channelName: `absensi-staff-${selectedOutletId || "none"}`,
     enabled: !!selectedOutletId,
@@ -123,17 +125,14 @@ export default function EnrollPage() {
     ],
   });
 
-  // Pre-load models
   useEffect(() => {
     loadFaceModels().catch((err) => setModelError(err.message || "Gagal memuat AI wajah"));
   }, []);
 
-  // Sync state & ref
   useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => { shotsRef.current = shots; }, [shots]);
-  useEffect(() => { videoRef.current = video; }, [video]); // pastikan saveAuto selalu dapat video terbaru
+  useEffect(() => { videoRef.current = video; }, [video]);
 
-  // Auto capture loop
   useEffect(() => {
     if (phase === "list" || phase === "consent" || phase === "saving" || phase === "done") {
       if (loopRef.current) clearTimeout(loopRef.current);
@@ -155,13 +154,9 @@ export default function EnrollPage() {
           const gList = res.gesture.map(g => g.gesture);
           const currentPhase = phaseRef.current;
 
-          // FRONTAL-ONLY: ambil 3 frame saat wajah menghadap depan (tidak menoleh).
-          // Descriptor frontal-tajam = referensi terbaik untuk absen (kiosk selalu
-          // frontal). Merata-rata depan+kiri+kanan dulu menumpulkan referensi → orang
-          // beda jadi saling mirip. Jeda 800ms antar-capture memberi variasi frontal sehat.
           const facingLeft = gList.includes("facing left");
           const facingRight = gList.includes("facing right");
-          const isFrontal = !facingLeft && !facingRight; // wajah terdeteksi & tidak menoleh
+          const isFrontal = !facingLeft && !facingRight;
           const shouldCapture =
             (currentPhase === "center" || currentPhase === "left" || currentPhase === "right") && isFrontal;
 
@@ -171,12 +166,11 @@ export default function EnrollPage() {
             
             if (currentPhase === "center") {
               setPhase("left");
-              phaseRef.current = "left"; // sync langsung agar loop tidak re-trigger
+              phaseRef.current = "left";
             } else if (currentPhase === "left") {
               setPhase("right");
               phaseRef.current = "right";
             } else if (currentPhase === "right") {
-              // Langsung set ref ke saving agar loop berhenti sebelum re-render
               phaseRef.current = "saving";
               setPhase("saving");
               await saveAuto(newShots, videoRef.current);
@@ -207,15 +201,11 @@ export default function EnrollPage() {
       const refPath = `${selectedOutletId}/${targetStaff.id}.jpg`;
       const blob = await (await fetch(dataUrl)).blob();
 
-      // Upload foto referensi ke storage — tangkap error secara eksplisit
       const { error: storageError } = await supabase.storage
         .from("face-refs")
         .upload(refPath, blob, { upsert: true, contentType: "image/jpeg" });
       if (storageError) throw new Error(`Upload foto gagal: ${storageError.message}`);
 
-      // Update DB via server-side API route (service_role) — bypass RLS sepenuhnya.
-      // Kirim JWT token di header agar server bisa verifikasi identity user
-      // (server-side tidak bisa akses localStorage browser).
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Sesi login tidak ditemukan, coba login ulang.");
 
@@ -240,7 +230,6 @@ export default function EnrollPage() {
         throw new Error(result.detail || result.reason || "Gagal menyimpan ke server");
       }
 
-      // Tandai staff sebagai terdaftar (pindah ke section "Sudah Terdaftar")
       setStaffList(prev => prev.map(s =>
         s.id === targetStaff.id ? { ...s, enrolled_at: new Date().toISOString() } : s
       ));
@@ -257,7 +246,7 @@ export default function EnrollPage() {
     setTargetStaff(s);
     setConsent(false);
     setIsReEnroll(false);
-    setCameraError(null); // reset error kamera dari sesi sebelumnya
+    setCameraError(null);
     setVideo(null);
     setPhase("consent");
   }
@@ -274,7 +263,7 @@ export default function EnrollPage() {
 
   function startEnroll() {
     setShots([]);
-    shotsRef.current = []; // sync ref langsung agar loop baca data baru
+    shotsRef.current = [];
     setPhase("center");
     phaseRef.current = "center";
   }
@@ -286,9 +275,9 @@ export default function EnrollPage() {
     setReEnrollReason("");
     setShots([]);
     shotsRef.current = [];
-    setVideo(null);       // bersihkan referensi video lama
+    setVideo(null);
     videoRef.current = null;
-    setCameraError(null); // bersihkan error kamera
+    setCameraError(null);
     setPhase("list");
     phaseRef.current = "list";
   }
@@ -301,111 +290,300 @@ export default function EnrollPage() {
       setIsReEnroll(false);
       setReEnrollReason("");
       setShots([]);
+      shotsRef.current = [];
       setPhase("consent");
     } else {
       handleCancel();
     }
   }
 
+  if (!isEnrollmentAllowed) {
+    return (
+      <div className="max-w-xl mx-auto py-12 px-4">
+        <div className="bg-white rounded-3xl p-8 border border-amber-200/80 shadow-xl shadow-amber-500/5 text-center space-y-5">
+          <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl mx-auto flex items-center justify-center border border-amber-200">
+            <ShieldAlert size={32} />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">Akses Pendaftaran Dibatasi</h3>
+            <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
+              Fitur pendaftaran biometrik wajah kru hanya dapat dilakukan oleh <strong>Leader, SPV, Area Manager, Regional Manager, Admin HR, dan Admin</strong>.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Button onClick={() => window.history.back()} className="px-6 py-2.5 rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800">
+              Kembali ke Menu Utama
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const { unenrolled, enrolled } = splitByEnrollment(staffList);
 
-  return (
-    <div className="max-w-2xl mx-auto space-y-5 pb-12">
-      <PageHeader
-        icon={<Camera size={20} />}
-        title="Enrollment Crew"
-        subtitle="Daftarkan data biometrik wajah crew yang baru bergabung"
-      />
+  const filteredUnenrolled = unenrolled.filter(s =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.role.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
-      <OutletSwitcher 
-        currentOutletId={selectedOutletId} 
-        onChange={(id) => {
-          setSelectedOutletId(id);
-          setPhase("list");
-          setTargetStaff(null);
-        }} 
-      />
+  const filteredEnrolled = enrolled.filter(s =>
+    s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    s.role.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const roleBadgeColor = (role: string) => {
+    switch (role.toLowerCase()) {
+      case "leader":
+      case "spv":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "admin_hr":
+      case "regional_manager":
+      case "area_manager":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      case "admin":
+      case "owner":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      default:
+        return "bg-slate-100 text-slate-700 border-slate-200";
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto space-y-6 pb-16">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-gradient-to-r from-orange-950 via-slate-900 to-slate-900 p-6 rounded-3xl text-white shadow-xl shadow-orange-950/10">
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold tracking-wide uppercase bg-orange-500/20 text-orange-400 border border-orange-500/30">
+            <Sparkles size={12} />
+            Biometric Management
+          </div>
+          <h1 className="text-2xl font-black tracking-tight">Enrollment Wajah Crew</h1>
+          <p className="text-xs sm:text-sm text-slate-300">Daftarkan dan kalibrasi referensi biometrik wajah kru resmi Suka Shawarma</p>
+        </div>
+        <div className="shrink-0 flex items-center gap-2 bg-white/10 backdrop-blur px-3.5 py-2 rounded-2xl border border-white/15">
+          <ShieldCheck size={18} className="text-emerald-400" />
+          <div className="text-xs">
+            <span className="text-slate-300 block text-[10px] leading-tight">Otoritas Aktif</span>
+            <span className="font-bold text-white capitalize">{outletStaff?.role?.replace("_", " ") || "Staff"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="w-full sm:w-auto flex-1">
+          <OutletSwitcher 
+            currentOutletId={selectedOutletId} 
+            onChange={(id) => {
+              setSelectedOutletId(id);
+              setPhase("list");
+              setTargetStaff(null);
+            }} 
+          />
+        </div>
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button 
+            onClick={loadStaff} 
+            disabled={loadingStaff}
+            className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all border border-slate-200/80 shrink-0 disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loadingStaff ? "animate-spin" : ""} />
+            Refresh
+          </button>
+        </div>
+      </div>
 
       {modelError && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm font-semibold flex items-start gap-2 mb-4">
-          <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-          Peringatan AI: {modelError}
+        <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-2xl text-sm font-semibold flex items-start gap-3 shadow-sm">
+          <AlertTriangle size={18} className="shrink-0 mt-0.5 text-red-500" />
+          <div>
+            <p className="font-bold">Status Engine AI Biometrik</p>
+            <p className="text-xs text-red-600 mt-0.5">{modelError}</p>
+          </div>
         </div>
       )}
 
       {phase === "list" && (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-suka-ink mb-2">Pilih Crew Belum Terdaftar</h3>
-          
+          <div className="space-y-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari kru berdasarkan nama atau peran (misal: kasir, crew, leader)..."
+                className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-bold">
+              <button
+                onClick={() => setActiveTab("unenrolled")}
+                className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "unenrolled"
+                    ? "bg-white text-orange-600 shadow-sm font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>Belum Terdaftar</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  activeTab === "unenrolled" ? "bg-orange-100 text-orange-700 font-black" : "bg-slate-200 text-slate-600"
+                }`}>
+                  {unenrolled.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("enrolled")}
+                className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "enrolled"
+                    ? "bg-white text-emerald-600 shadow-sm font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>Sudah Terdaftar</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                  activeTab === "enrolled" ? "bg-emerald-100 text-emerald-700 font-black" : "bg-slate-200 text-slate-600"
+                }`}>
+                  {enrolled.length}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab("all")}
+                className={`py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  activeTab === "all"
+                    ? "bg-white text-slate-900 shadow-sm font-black"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <span>Semua Crew</span>
+                <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-200 text-slate-600">
+                  {staffList.length}
+                </span>
+              </button>
+            </div>
+          </div>
+
           {loadingStaff ? (
-            <div className="p-8 flex justify-center"><Spinner /></div>
+            <div className="py-16 flex flex-col items-center justify-center gap-3 bg-white rounded-3xl border border-slate-200">
+              <Spinner className="w-8 h-8 text-orange-500" />
+              <p className="text-xs font-semibold text-slate-500">Memuat data kru outlet...</p>
+            </div>
           ) : staffList.length === 0 ? (
-            <Card className="p-8 text-center space-y-4 border-dashed border-2">
-              <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-500 rounded-full flex items-center justify-center">
+            <div className="bg-white p-10 text-center space-y-4 rounded-3xl border-2 border-dashed border-slate-200 shadow-sm">
+              <div className="mx-auto w-16 h-16 bg-emerald-50 text-emerald-500 rounded-2xl flex items-center justify-center border border-emerald-100">
                 <CheckCircle2 size={32} />
               </div>
-              <div>
-                <h3 className="text-lg font-bold text-suka-ink">Semua Selesai!</h3>
-                <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
-                  Semua crew di outlet ini sudah menyelesaikan enrollment wajah. Jika Anda butuh menambah crew baru, silakan minta Admin HR untuk mendaftarkannya terlebih dahulu.
+              <div className="space-y-1">
+                <h3 className="text-lg font-black text-slate-900">Semua Kru Sudah Terdaftar!</h3>
+                <p className="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto">
+                  Semua kru aktif pada outlet ini telah memiliki referensi biometrik wajah. Jika ada kru baru, pastikan Admin HR mendaftarkannya terlebih dahulu di sistem HR.
                 </p>
               </div>
-            </Card>
+            </div>
           ) : (
-            <div className="space-y-8">
-              {/* Section: Belum Terdaftar */}
-              {unenrolled.length > 0 && (
+            <div className="space-y-6">
+              {(activeTab === "unenrolled" || activeTab === "all") && (
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-amber-600 uppercase tracking-wider">Belum Terdaftar ({unenrolled.length})</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {unenrolled.map((s) => (
-                      <div
-                        key={s.id}
-                        onClick={() => handleSelectCrew(s)}
-                        className="bg-white p-4 rounded-2xl border-2 border-gray-200 hover:border-suka-orange hover:shadow-md transition-all cursor-pointer flex items-center gap-4 group"
-                      >
-                        <div className="w-12 h-12 bg-suka-cream rounded-full flex items-center justify-center text-suka-brown font-bold shrink-0">
-                          {s.name.charAt(0)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-suka-ink truncate group-hover:text-suka-orange transition-colors">{s.name}</h4>
-                          <p className="text-xs text-gray-500 capitalize">{s.role}</p>
-                        </div>
-                        <div className="shrink-0 text-suka-orange/0 group-hover:text-suka-orange transition-colors">
-                          <ArrowRight size={20} />
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="text-xs font-extrabold text-orange-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <AlertTriangle size={14} />
+                      Kru Belum Terdaftar ({filteredUnenrolled.length})
+                    </h4>
                   </div>
+
+                  {filteredUnenrolled.length === 0 ? (
+                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xs text-slate-500 font-medium">
+                      {searchQuery ? "Tidak ditemukan kru yang cocok dengan pencarian." : "Tidak ada kru yang belum terdaftar."}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {filteredUnenrolled.map((s) => (
+                        <div
+                          key={s.id}
+                          onClick={() => handleSelectCrew(s)}
+                          className="bg-white p-4 rounded-2xl border-2 border-slate-200/80 hover:border-orange-500 hover:shadow-lg hover:shadow-orange-500/5 transition-all cursor-pointer flex items-center gap-3.5 group relative overflow-hidden"
+                        >
+                          <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-amber-500 text-white rounded-2xl flex items-center justify-center font-black text-lg shrink-0 shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
+                            {s.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-slate-900 truncate group-hover:text-orange-600 transition-colors text-sm">
+                              {s.name}
+                            </h4>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${roleBadgeColor(s.role)}`}>
+                                {s.role.replace("_", " ")}
+                              </span>
+                              <span className="text-[10px] text-amber-600 font-semibold bg-amber-50 px-1.5 py-0.5 rounded">
+                                Belum Terdaftar
+                              </span>
+                            </div>
+                          </div>
+                          <div className="shrink-0 text-slate-400 group-hover:text-orange-500 group-hover:translate-x-0.5 transition-all">
+                            <ArrowRight size={18} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Section: Sudah Terdaftar (Enroll Ulang) */}
-              {enrolled.length > 0 && (
+              {(activeTab === "enrolled" || activeTab === "all") && (
                 <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-suka-green uppercase tracking-wider">Sudah Terdaftar ({enrolled.length})</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {enrolled.map((s) => (
-                      <div
-                        key={s.id}
-                        className="bg-white p-4 rounded-2xl border-2 border-gray-100 flex items-center gap-4"
-                      >
-                        <div className="w-12 h-12 bg-emerald-50 text-suka-green rounded-full flex items-center justify-center font-bold shrink-0">
-                          {s.name.charAt(0)}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-suka-ink truncate">{s.name}</h4>
-                          <p className="text-xs text-gray-500 capitalize">{s.role} · <span className="text-suka-green font-semibold">Terdaftar</span></p>
-                        </div>
-                        <button
-                          onClick={() => handleReEnroll(s)}
-                          className="shrink-0 text-xs font-bold text-suka-brown bg-suka-cream border border-suka-orange/30 px-3 py-2 rounded-lg hover:bg-suka-orange hover:text-white transition-colors"
-                        >
-                          Enroll Ulang
-                        </button>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between px-1">
+                    <h4 className="text-xs font-extrabold text-emerald-600 uppercase tracking-wider flex items-center gap-1.5">
+                      <UserCheck size={14} />
+                      Kru Sudah Terdaftar ({filteredEnrolled.length})
+                    </h4>
                   </div>
+
+                  {filteredEnrolled.length === 0 ? (
+                    <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl text-center text-xs text-slate-500 font-medium">
+                      {searchQuery ? "Tidak ditemukan kru yang cocok dengan pencarian." : "Belum ada kru yang terdaftar di outlet ini."}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      {filteredEnrolled.map((s) => (
+                        <div
+                          key={s.id}
+                          className="bg-white p-4 rounded-2xl border border-slate-200/80 flex items-center gap-3.5 hover:border-slate-300 transition-all shadow-sm"
+                        >
+                          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-2xl flex items-center justify-center font-black text-lg shrink-0">
+                            {s.name.charAt(0)}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <h4 className="font-bold text-slate-900 truncate text-sm">{s.name}</h4>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${roleBadgeColor(s.role)}`}>
+                                {s.role.replace("_", " ")}
+                              </span>
+                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-0.5">
+                                <CheckCircle2 size={10} />
+                                Aktif
+                              </span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleReEnroll(s)}
+                            className="shrink-0 text-xs font-bold text-slate-700 bg-slate-50 hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 border border-slate-200 px-3 py-1.5 rounded-xl transition-all"
+                          >
+                            Enroll Ulang
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -414,91 +592,124 @@ export default function EnrollPage() {
       )}
 
       {phase === "consent" && targetStaff && (
-        <Card className="p-5 sm:p-6 space-y-6 rounded-2xl animate-in fade-in slide-in-from-bottom-2">
-          <div className="flex items-center justify-between border-b border-gray-100 pb-4">
-            <h3 className="font-bold text-lg text-suka-ink">Konfirmasi Perekaman</h3>
-            <button onClick={handleCancel} className="text-sm font-semibold text-gray-500 hover:text-gray-800 px-3 py-1 bg-gray-100 rounded-lg">
+        <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-xl space-y-6 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-black text-xl text-slate-900">Konfirmasi Perekaman Biometrik</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Langkah 1 dari 2: Verifikasi Identitas & Persetujuan Legal</p>
+            </div>
+            <button 
+              onClick={handleCancel} 
+              className="text-xs font-bold text-slate-600 hover:text-slate-900 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors"
+            >
               Kembali
             </button>
           </div>
 
-          <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl border border-gray-100">
-            <div className="w-14 h-14 bg-suka-brown rounded-full flex items-center justify-center text-white text-xl font-bold">
+          <div className="flex items-center gap-4 p-4 bg-gradient-to-br from-slate-50 to-orange-50/40 rounded-2xl border border-orange-200/60">
+            <div className="w-16 h-16 bg-gradient-to-br from-orange-600 to-amber-500 text-white rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg shadow-orange-500/20">
               {targetStaff.name.charAt(0)}
             </div>
-            <div>
-              <p className="text-xs font-bold text-suka-orange uppercase tracking-wider mb-0.5">Crew Terpilih</p>
-              <h4 className="font-bold text-suka-ink text-lg">{targetStaff.name}</h4>
-              <p className="text-sm text-gray-500 capitalize">{targetStaff.role}</p>
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-extrabold text-orange-600 uppercase tracking-widest">Kandidat Terpilih</span>
+              <h4 className="font-black text-slate-900 text-lg leading-tight">{targetStaff.name}</h4>
+              <div className="flex items-center gap-2 pt-0.5">
+                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border uppercase tracking-wider ${roleBadgeColor(targetStaff.role)}`}>
+                  {targetStaff.role.replace("_", " ")}
+                </span>
+                <span className="text-xs text-slate-500">ID: {targetStaff.id.slice(0, 8)}...</span>
+              </div>
             </div>
           </div>
 
           {isReEnroll && (
-            <div className="space-y-2">
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-700 font-semibold flex items-start gap-2">
-                <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                Enroll Ulang: data wajah lama {targetStaff.name} akan ditimpa dan tidak bisa dikembalikan.
+            <div className="space-y-2 p-4 bg-amber-50/70 border border-amber-200 rounded-2xl">
+              <div className="text-xs text-amber-800 font-bold flex items-start gap-2">
+                <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-600" />
+                <span>Peringatan Enroll Ulang: Data biometrik lama {targetStaff.name} akan ditimpa dan diganti dengan citra baru.</span>
               </div>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Alasan (opsional)</label>
-              <input
-                type="text"
-                value={reEnrollReason}
-                onChange={(e) => setReEnrollReason(e.target.value)}
-                placeholder="mis. wajah sering gagal terdeteksi"
-                className="w-full border-2 border-gray-200 rounded-xl px-3 py-2 text-sm focus:border-suka-orange outline-none"
-              />
+              <div className="pt-2">
+                <label className="text-[11px] font-bold text-amber-900 uppercase tracking-wider block mb-1">
+                  Alasan Pendaftaran Ulang (Opsional)
+                </label>
+                <input
+                  type="text"
+                  value={reEnrollReason}
+                  onChange={(e) => setReEnrollReason(e.target.value)}
+                  placeholder="Misal: Penampilan rambut/kacamata baru, kamera kiosk sering gagal cocok"
+                  className="w-full bg-white border border-amber-300/80 rounded-xl px-3 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-amber-500/30 text-slate-900 placeholder:text-slate-400"
+                />
+              </div>
             </div>
           )}
 
           <div className="space-y-3">
-            <label className="text-sm font-bold text-suka-ink flex items-center gap-2">
-              <ShieldCheck size={18} className="text-suka-green" />
-              Persetujuan Privasi (Wajib)
+            <label className="text-xs font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
+              <ShieldCheck size={16} className="text-emerald-600" />
+              Kepatuhan Privasi Data Pribadi (UU PDP No. 27/2022)
             </label>
-            <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-colors ${consent ? 'border-suka-green bg-green-50/30' : 'border-gray-200 hover:bg-gray-50'}`}>
+            <label className={`flex items-start gap-3.5 p-4 border-2 rounded-2xl cursor-pointer transition-all ${
+              consent 
+                ? 'border-emerald-500 bg-emerald-50/40 shadow-sm' 
+                : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+            }`}>
               <input
                 type="checkbox"
-                className="mt-1 w-5 h-5 accent-suka-green shrink-0"
+                className="mt-1 w-5 h-5 accent-emerald-600 shrink-0 rounded cursor-pointer"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
               />
-              <span className="text-sm text-gray-600 leading-relaxed">
-                <strong className="text-suka-ink">Persetujuan UU PDP: </strong>
-                Saya, <span className="font-semibold">{targetStaff.name}</span>, menyetujui perekaman serta pemrosesan data biometrik wajah saya secara digital untuk keperluan operasional internal Suka Shawarma.
+              <span className="text-xs text-slate-600 leading-relaxed">
+                <strong className="text-slate-900 font-bold">Pernyataan Persetujuan Kru: </strong>
+                Saya menyatakan bahwa kru yang bersangkutan telah memberikan izin secara sadar untuk perekaman dan pemrosesan vektor fitur wajah digital semata-mata untuk verifikasi kehadiran absensi internal Suka Shawarma.
               </span>
             </label>
           </div>
 
           <div className="pt-2">
-            <Button 
+            <button 
               onClick={startEnroll} 
               disabled={!consent}
-              className="w-full py-4 text-lg font-bold shadow-md"
+              className="w-full py-4 text-base font-black rounded-2xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 text-white shadow-xl shadow-orange-500/25 hover:opacity-95 active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              Mulai Perekaman Kamera
-            </Button>
+              <Camera size={20} />
+              Buka Kamera & Mulai Perekaman Biometrik
+            </button>
           </div>
-        </Card>
+        </div>
       )}
 
       {(phase === "center" || phase === "left" || phase === "right" || phase === "saving" || phase === "done") && targetStaff && (
-        <Card className="p-0 overflow-hidden rounded-2xl border-2 border-suka-green/30 shadow-lg animate-in fade-in zoom-in-95">
-          <div className="p-4 bg-suka-ink text-white flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold">Perekaman: {targetStaff.name}</h2>
-              <p className="text-xs text-gray-400">Sistem mengambil gambar otomatis</p>
+        <div className="bg-slate-950 overflow-hidden rounded-3xl border-2 border-orange-500/30 shadow-2xl animate-in fade-in zoom-in-95 text-white">
+          <div className="p-4 bg-slate-900/90 backdrop-blur border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-orange-500 text-white rounded-xl flex items-center justify-center font-bold text-sm">
+                {targetStaff.name.charAt(0)}
+              </div>
+              <div>
+                <h2 className="text-sm font-bold leading-tight">Perekaman: {targetStaff.name}</h2>
+                <p className="text-[10px] text-slate-400">Sistem mengambil 3 sampel posisi frontal otomatis</p>
+              </div>
             </div>
             {phase !== "saving" && phase !== "done" && (
-              <button onClick={() => setPhase("consent")} className="text-sm font-medium bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg transition-colors">Batal</button>
+              <button 
+                onClick={() => setPhase("consent")} 
+                className="text-xs font-semibold bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl transition-colors"
+              >
+                Batal
+              </button>
             )}
           </div>
 
-          <div className="relative bg-black min-h-[400px] flex items-center justify-center">
+          <div className="relative bg-black min-h-[440px] flex items-center justify-center overflow-hidden">
             {cameraError || modelError ? (
-              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-gray-950/95 text-white p-6 text-center">
-                <h2 className="text-xl font-bold text-red-400">Gagal Memuat Kamera/AI</h2>
-                <p className="text-gray-300 mt-2 text-sm">{cameraError || modelError}</p>
-                <Button onClick={() => setPhase("consent")} className="mt-4 bg-white text-black font-bold">Kembali</Button>
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-slate-950/95 text-white p-6 text-center space-y-3">
+                <AlertTriangle size={48} className="text-red-400" />
+                <h2 className="text-lg font-bold text-red-400">Gagal Mengakses Kamera / AI</h2>
+                <p className="text-slate-300 text-xs max-w-xs">{cameraError || modelError}</p>
+                <Button onClick={() => setPhase("consent")} className="mt-2 bg-white text-slate-900 font-bold">
+                  Kembali ke Konfirmasi
+                </Button>
               </div>
             ) : phase !== "done" && (
               <CameraCapture 
@@ -507,54 +718,79 @@ export default function EnrollPage() {
               />
             )}
             
-            {/* Guide Overlays */}
             {phase !== "done" && (
-              <div className="absolute inset-x-0 top-8 flex justify-center z-20">
-                <div className="bg-white/90 backdrop-blur px-6 py-3 rounded-full shadow-xl flex items-center gap-3 text-suka-brown font-bold text-lg animate-bounce">
-                  {phase === "center" && <><UserRound size={24} className="text-blue-500" /> Tatap Lurus ke Kamera (1/3)</>}
-                  {phase === "left" && <><UserRound size={24} className="text-blue-500" /> Tetap Tatap Lurus (2/3)</>}
-                  {phase === "right" && <><UserRound size={24} className="text-blue-500" /> Tetap Tatap Lurus (3/3)</>}
-                  {phase === "saving" && <><Spinner className="w-5 h-5 text-suka-green" /> Menyimpan Data...</>}
+              <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+                <div className="w-64 h-64 sm:w-72 sm:h-72 rounded-full border-2 border-dashed border-orange-500/40 animate-pulse flex items-center justify-center relative">
+                  <div className="w-52 h-52 sm:w-60 sm:h-60 rounded-full border border-orange-400/60 flex items-center justify-center">
+                    <div className="w-4 h-4 border-t-2 border-l-2 border-orange-400 absolute top-4 left-4" />
+                    <div className="w-4 h-4 border-t-2 border-r-2 border-orange-400 absolute top-4 right-4" />
+                    <div className="w-4 h-4 border-b-2 border-l-2 border-orange-400 absolute bottom-4 left-4" />
+                    <div className="w-4 h-4 border-b-2 border-r-2 border-orange-400 absolute bottom-4 right-4" />
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Progress indicators */}
-            {phase !== "done" && phase !== "saving" && (
-              <div className="absolute bottom-8 flex gap-4 z-20">
-                <div className={`w-3 h-3 rounded-full transition-all ${shots.length >= 1 ? 'bg-suka-green scale-125 shadow-[0_0_10px_#22c55e]' : 'bg-gray-400'}`} />
-                <div className={`w-3 h-3 rounded-full transition-all ${shots.length >= 2 ? 'bg-suka-green scale-125 shadow-[0_0_10px_#22c55e]' : 'bg-gray-400'}`} />
-                <div className={`w-3 h-3 rounded-full transition-all ${shots.length >= 3 ? 'bg-suka-green scale-125 shadow-[0_0_10px_#22c55e]' : 'bg-gray-400'}`} />
+            {phase !== "done" && (
+              <div className="absolute inset-x-0 top-6 flex justify-center z-20 px-4">
+                <div className="bg-slate-900/90 backdrop-blur-md border border-orange-500/40 px-5 py-2.5 rounded-full shadow-2xl flex items-center gap-2.5 text-white font-black text-sm tracking-wide animate-bounce">
+                  {phase === "center" && <><UserRound size={18} className="text-orange-400" /> Tatap Lurus ke Kamera (1/3)</>}
+                  {phase === "left" && <><UserRound size={18} className="text-orange-400" /> Pertahankan Tatapan (2/3)</>}
+                  {phase === "right" && <><UserRound size={18} className="text-orange-400" /> Tahan Sebentar (3/3)</>}
+                  {phase === "saving" && <><Spinner className="w-4 h-4 text-emerald-400" /> Mengenkripsi & Menyimpan Vektor Biometrik...</>}
+                </div>
               </div>
             )}
 
-            {/* Done Overlay */}
+            {phase !== "done" && phase !== "saving" && (
+              <div className="absolute bottom-6 flex items-center gap-3 z-20 bg-slate-900/80 backdrop-blur px-4 py-2 rounded-full border border-white/10">
+                <div className={`w-3.5 h-3.5 rounded-full transition-all ${shots.length >= 1 ? 'bg-emerald-500 scale-110 shadow-[0_0_12px_#10b981]' : 'bg-slate-700'}`} />
+                <div className={`w-3.5 h-3.5 rounded-full transition-all ${shots.length >= 2 ? 'bg-emerald-500 scale-110 shadow-[0_0_12px_#10b981]' : 'bg-slate-700'}`} />
+                <div className={`w-3.5 h-3.5 rounded-full transition-all ${shots.length >= 3 ? 'bg-emerald-500 scale-110 shadow-[0_0_12px_#10b981]' : 'bg-slate-700'}`} />
+              </div>
+            )}
+
             {phase === "done" && (
-              <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-8 text-center z-30">
-                <CheckCircle2 size={80} className="text-suka-green mb-4" />
-                <h2 className="text-2xl font-bold text-suka-ink mb-2">Enrollment Selesai!</h2>
-                <p className="text-gray-500 mb-8 max-w-sm">Wajah <span className="font-bold text-suka-ink">{targetStaff.name}</span> berhasil didaftarkan. Crew sudah dapat melakukan absensi mulai sekarang.</p>
+              <div className="absolute inset-0 bg-white text-slate-900 flex flex-col items-center justify-center p-8 text-center z-30 space-y-4">
+                <div className="w-20 h-20 bg-emerald-50 text-emerald-500 rounded-3xl flex items-center justify-center border border-emerald-200 shadow-xl shadow-emerald-500/10">
+                  <CheckCircle2 size={48} />
+                </div>
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-black text-slate-900">Enrollment Berhasil!</h2>
+                  <p className="text-slate-600 text-xs sm:text-sm max-w-sm mx-auto">
+                    Data biometrik wajah <span className="font-bold text-slate-900">{targetStaff.name}</span> telah terdaftar secara resmi. Kru sudah dapat melakukan absensi di Kiosk Outlet maupun Android SuperApp.
+                  </p>
+                </div>
                 
-                <div className="flex flex-col w-full max-w-xs gap-3">
+                <div className="flex flex-col w-full max-w-xs gap-2.5 pt-2">
                   {unenrolled.length > 0 ? (
                     <>
-                      <Button onClick={resetToNext} className="w-full font-bold py-3 text-base">
+                      <button 
+                        onClick={resetToNext} 
+                        className="w-full py-3.5 font-bold text-sm bg-orange-600 hover:bg-orange-700 text-white rounded-2xl shadow-lg shadow-orange-600/20 transition-all"
+                      >
                         Lanjut Enroll Crew Berikutnya
-                      </Button>
-                      <Button variant="ghost" onClick={handleCancel} className="w-full font-semibold">
-                        Kembali ke Daftar
-                      </Button>
+                      </button>
+                      <button 
+                        onClick={handleCancel} 
+                        className="w-full py-3 font-semibold text-xs text-slate-600 hover:bg-slate-100 rounded-2xl transition-all"
+                      >
+                        Kembali ke Daftar Crew
+                      </button>
                     </>
                   ) : (
-                    <Button onClick={handleCancel} className="w-full font-bold py-3 text-base">
+                    <button 
+                      onClick={handleCancel} 
+                      className="w-full py-3.5 font-bold text-sm bg-slate-900 hover:bg-slate-800 text-white rounded-2xl shadow-lg transition-all"
+                    >
                       Selesai (Semua Crew Terdaftar)
-                    </Button>
+                    </button>
                   )}
                 </div>
               </div>
             )}
           </div>
-        </Card>
+        </div>
       )}
     </div>
   );

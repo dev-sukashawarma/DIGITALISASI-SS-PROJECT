@@ -3,6 +3,8 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
+const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "owner", "regional_manager"];
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,8 +12,24 @@ function getSupabaseAdmin() {
   );
 }
 
+async function verifySettingsRole(supabaseAdmin: ReturnType<typeof getSupabaseAdmin>, callerStaffId?: string | null) {
+  if (!callerStaffId) return;
+  const { data: staff } = await supabaseAdmin
+    .from("outlet_staff")
+    .select("role, status")
+    .eq("id", callerStaffId)
+    .maybeSingle();
+
+  if (!staff || staff.status !== "active" || !SETTINGS_ALLOWED_ROLES.includes(staff.role)) {
+    throw new Error("Akses Ditolak: Hanya Admin, Admin HR, Regional Manager, dan Owner yang diizinkan mengubah konfigurasi absensi.");
+  }
+}
+
 export async function saveGlobalConfig(formData: FormData) {
   const supabaseAdmin = getSupabaseAdmin();
+  const caller_staff_id = formData.get("caller_staff_id") as string | null;
+  await verifySettingsRole(supabaseAdmin, caller_staff_id);
+
   const jam_masuk = formData.get("jam_masuk") as string;
   const jam_keluar = formData.get("jam_keluar") as string;
   const toleransi_menit = parseInt(formData.get("toleransi_menit") as string || "0", 10);
@@ -48,6 +66,9 @@ export async function saveGlobalConfig(formData: FormData) {
 
 export async function saveOutletException(formData: FormData) {
   const supabaseAdmin = getSupabaseAdmin();
+  const caller_staff_id = formData.get("caller_staff_id") as string | null;
+  await verifySettingsRole(supabaseAdmin, caller_staff_id);
+
   const outlet_id = formData.get("outlet_id") as string;
   const jam_masuk = formData.get("jam_masuk") as string;
   const jam_keluar = formData.get("jam_keluar") as string;
@@ -83,8 +104,10 @@ export async function saveOutletException(formData: FormData) {
   return { success: true };
 }
 
-export async function deleteOutletException(outlet_id: string) {
+export async function deleteOutletException(outlet_id: string, callerStaffId?: string) {
   const supabaseAdmin = getSupabaseAdmin();
+  await verifySettingsRole(supabaseAdmin, callerStaffId);
+
   const { error } = await supabaseAdmin
     .from("outlet_attendance_config")
     .delete()
@@ -96,8 +119,10 @@ export async function deleteOutletException(outlet_id: string) {
   return { success: true };
 }
 
-export async function deleteAllExceptions() {
+export async function deleteAllExceptions(callerStaffId?: string) {
   const supabaseAdmin = getSupabaseAdmin();
+  await verifySettingsRole(supabaseAdmin, callerStaffId);
+
   const { error } = await supabaseAdmin
     .from("outlet_attendance_config")
     .delete()

@@ -65,6 +65,7 @@ export function SuratJalanList() {
   }
 
   const handleDownloadPDF = async (sjId: string) => {
+    const { generatePDFContent, downloadPDF } = await import('@/utils/generatePDF')
     const supabase = createSupabaseBrowserClient()
 
     // Fetch full surat jalan detail with items
@@ -316,8 +317,11 @@ export function SuratJalanList() {
                       <div className="mt-1 flex gap-2">
                         <button
                           onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadPDF(sj.id);
+                            e.stopPropagation()
+                            void handleDownloadPDF(sj.id).catch((error) => {
+                              console.error('Gagal mengunduh PDF surat jalan:', error)
+                              alert('Gagal membuat file PDF Surat Jalan')
+                            })
                           }}
                           className="flex-1 py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
                         >

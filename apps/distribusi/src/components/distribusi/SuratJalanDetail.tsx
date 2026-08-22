@@ -182,6 +182,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
       documentNumber: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
       outletName: data.outlets?.name || 'Unknown',
       createdAt: data.created_at,
+      verificationCode: data.verification_code,
       items: data.surat_jalan_item,
     })
   }

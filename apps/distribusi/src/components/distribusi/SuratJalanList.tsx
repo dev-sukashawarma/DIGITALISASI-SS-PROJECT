@@ -123,7 +123,7 @@ export function SuratJalanList() {
     const supabase = createSupabaseBrowserClient()
     const { data: sj, error: suratJalanError } = await supabase
       .from('surat_jalan')
-      .select('id, document_number, created_at')
+      .select('id, document_number, created_at, verification_code')
       .eq('id', sjId)
       .single()
 
@@ -144,6 +144,7 @@ export function SuratJalanList() {
       documentNumber: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
       outletName: outletData?.outlet?.name || 'Unknown',
       createdAt: sj.created_at,
+      verificationCode: sj.verification_code,
       items: items || [],
     })
   }

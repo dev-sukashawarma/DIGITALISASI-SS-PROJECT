@@ -17,6 +17,7 @@ export type SuratJalanExcelData = {
   documentNumber: string
   outletName: string
   createdAt: string
+  verificationCode?: string
   items: SuratJalanItem[]
 }
 
@@ -124,7 +125,7 @@ function fileName(value: string) {
   return value.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-') || 'Surat-Jalan'
 }
 
-export function buildSuratJalanExcel(data: SuratJalanExcelData, logo: Uint8Array | null = null) {
+export function buildSuratJalanExcel(data: SuratJalanExcelData) {
   const date = new Date(data.createdAt)
   const formattedDate = Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
   const renderedItems = data.items.map(displayItem)
@@ -141,57 +142,56 @@ export function buildSuratJalanExcel(data: SuratJalanExcelData, logo: Uint8Array
   const signatureEnd = signatureStart + 5
   const signatureBottom = signatureEnd + 1
   const printEnd = signatureBottom
-
   const rows: string[] = []
-  rows.push(`<row r="1" ht="14.25">${cell('A1', '', 13)}</row>`)
-  rows.push(`<row r="2" ht="23.25">${cell('C2', 'PT SUKA PROFIT BERKAH', 3)}${cell('H2', 'SURAT JALAN', 3)}</row>`)
-  rows.push(`<row r="3" ht="23.25">${cell('C3', 'SUKA SHAWARMA KITCHEN', 2)}</row>`)
-  rows.push(`<row r="4" ht="23.25">${cell('C4', 'Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat', 4)}</row>`)
-  rows.push(`<row r="5" ht="14.25">${cell('A5', '', 13)}</row>`)
-  rows.push(`<row r="6" ht="14.25">${cell('A6', '', 13)}</row>`)
-  rows.push(`<row r="7" ht="21.75">${cell('A7', 'Nama Outlet', 5)}${cell('C7', ':', 7)}${cell('D7', data.outletName, 7)}${cell('E7', 'Nomor Surat Jalan', 5)}${cell('G7', `: ${data.documentNumber}`, 7)}</row>`)
-  rows.push(`<row r="8" ht="18">${cell('A8', 'Kode Verifikasi', 5)}${cell('C8', ': -', 7)}${cell('E8', 'Tanggal Surat Jalan', 5)}${cell('G8', `: ${formattedDate}`, 7)}</row>`)
-  rows.push(`<row r="9" ht="14.25">${cell('A9', '', 13)}</row>`)
-  rows.push(`<row r="10" ht="18">${formCells(10, 8, {
-    A: { value: 'No', style: 8 },
-    B: { value: 'Nama Barang', style: 8 },
-    E: { value: 'Satuan', style: 8 },
-    F: { value: 'Jumlah', style: 8 },
-    H: { value: 'Check List', style: 8 },
+  rows.push(`<row r="1" ht="14.25">${formCells(1, 0)}</row>`)
+  rows.push(`<row r="2" ht="23.25">${cell('A2', 'PT SUKA PROFIT BERKAH', 2)}${cell('H2', 'SURAT JALAN', 2)}</row>`)
+  rows.push(`<row r="3" ht="23.25">${cell('A3', 'SUKA SHAWARMA KITCHEN', 15)}</row>`)
+  rows.push(`<row r="4" ht="23.25">${cell('A4', 'Jl. Bukit Nirwana Raya No. 3, Mulyaharja, Kec Bogor Selatan, Kota Bogor, Jawa Barat', 15)}</row>`)
+  rows.push(`<row r="5" ht="21">${formCells(5, 14)}</row>`)
+  rows.push(`<row r="6" ht="14.25">${formCells(6, 0)}</row>`)
+  rows.push(`<row r="7" ht="21.75">${cell('A7', 'Nama Outlet', 5)}${cell('C7', ':', 5)}${cell('D7', data.outletName, 6)}${cell('E7', 'Nomor Surat Jalan', 5)}${cell('G7', ':', 5)}${cell('H7', data.documentNumber, 16)}</row>`)
+  rows.push(`<row r="8" ht="14.25">${cell('A8', 'Kode Verifikasi', 5)}${cell('C8', ':', 5)}${cell('D8', data.verificationCode || '-', 6)}${cell('E8', 'Tanggal Surat Jalan', 5)}${cell('G8', ':', 5)}${cell('H8', formattedDate, 1)}</row>`)
+  rows.push(`<row r="9" ht="14.25">${formCells(9, 0)}</row>`)
+  rows.push(`<row r="10" ht="25.5">${formCells(10, 7, {
+    A: { value: 'No', style: 7 },
+    B: { value: 'Nama Barang', style: 7 },
+    E: { value: 'Satuan', style: 7 },
+    F: { value: 'Jumlah', style: 7 },
+    H: { value: 'Check List', style: 7 },
   })}</row>`)
   for (let index = 0; index < itemRows; index++) {
     const row = tableStart + index
     const item = renderedItems[index]
-    rows.push(`<row r="${row}" ht="20.25">${formCells(row, 9, {
-      A: { value: item ? index + 1 : '', style: 9, numeric: Boolean(item) },
-      B: { value: item?.name || '', style: 10 },
-      E: { value: item?.unit || '', style: 9 },
-      F: { value: item?.quantity || '', style: 11, numeric: Boolean(item) },
-      H: { value: '', style: 9 },
+    rows.push(`<row r="${row}" ht="20.25">${formCells(row, 8, {
+      A: { value: item ? index + 1 : '', style: 8, numeric: Boolean(item) },
+      B: { value: item?.name || '', style: 9 },
+      E: { value: item?.unit || '', style: 8 },
+      F: { value: item?.quantity || '', style: 10, numeric: Boolean(item) },
+      H: { value: '', style: 8 },
     })}</row>`)
   }
-  rows.push(`<row r="${tableEnd + 1}" ht="4">${cell(`A${tableEnd + 1}`, '', 13)}</row>`)
-  rows.push(`<row r="${noteStart}" ht="13">${formCells(noteStart, 8, { A: { value: 'CATATAN', style: 8 } })}</row>`)
+  rows.push(`<row r="${tableEnd + 1}" ht="14.25">${formCells(tableEnd + 1, 0)}</row>`)
+  rows.push(`<row r="${noteStart}" ht="19.5">${formCells(noteStart, 11, { A: { value: 'CATATAN', style: 11 } })}</row>`)
   for (let row = noteStart + 1; row <= noteEnd; row++) rows.push(`<row r="${row}" ht="14.25">${formCells(row, 12)}</row>`)
-  rows.push(`<row r="${noteEnd + 1}" ht="4">${cell(`A${noteEnd + 1}`, '', 13)}</row>`)
-  rows.push(`<row r="${signatureStart}" ht="19.5">${formCells(signatureStart, 8, {
-    A: { value: 'Admin Gudang', style: 8 },
-    D: { value: 'Pengirim', style: 8 },
-    F: { value: 'Penerima', style: 8 },
+  rows.push(`<row r="${noteEnd + 1}" ht="14.25">${formCells(noteEnd + 1, 0)}</row>`)
+  rows.push(`<row r="${signatureStart}" ht="19.5">${formCells(signatureStart, 13, {
+    A: { value: 'Admin Gudang', style: 13 },
+    D: { value: 'Pengirim', style: 13 },
+    F: { value: 'Penerima', style: 13 },
   })}</row>`)
-  for (let row = signatureStart + 1; row <= signatureEnd; row++) rows.push(`<row r="${row}" ht="14.25">${formCells(row, 13)}</row>`)
-  rows.push(`<row r="${signatureBottom}" ht="23.25">${formCells(signatureBottom, 13)}</row>`)
+  for (let row = signatureStart + 1; row <= signatureEnd; row++) rows.push(`<row r="${row}" ht="14.25">${formCells(row, 12)}</row>`)
+  rows.push(`<row r="${signatureBottom}" ht="23.25">${formCells(signatureBottom, 12)}</row>`)
 
-  const merges = ['C2:G2', 'C3:G3', 'C4:G4', 'H2:K4', 'A7:B7', 'E7:F7', 'A8:B8', 'E8:F8', 'B10:D10', 'F10:G10', 'H10:K10']
+  const merges = ['A2:G2', 'A3:G3', 'A4:G4', 'H2:K2', 'H7:K7', 'H8:K8', 'B10:D10', 'F10:G10', 'H10:K10']
   for (let index = 0; index < itemRows; index++) merges.push(`B${tableStart + index}:D${tableStart + index}`, `F${tableStart + index}:G${tableStart + index}`, `H${tableStart + index}:K${tableStart + index}`)
   merges.push(`A${noteStart}:K${noteStart}`, `A${noteStart + 1}:K${noteEnd}`, `A${signatureStart}:C${signatureStart}`, `D${signatureStart}:E${signatureStart}`, `F${signatureStart}:K${signatureStart}`, `A${signatureStart + 1}:C${signatureEnd}`, `D${signatureStart + 1}:E${signatureEnd}`, `F${signatureStart + 1}:K${signatureEnd}`, `A${signatureBottom}:C${signatureBottom}`, `D${signatureBottom}:E${signatureBottom}`, `F${signatureBottom}:K${signatureBottom}`)
 
-  const sheet = `${XML_HEADER}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1" autoPageBreaks="0"/></sheetPr><dimension ref="A1:K${printEnd}"/><sheetViews><sheetView workbookViewId="0" view="pageLayout" showGridLines="0" zoomScale="100" zoomScaleNormal="100"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="5.5" customWidth="1"/><col min="2" max="2" width="14" customWidth="1"/><col min="3" max="3" width="20" customWidth="1"/><col min="4" max="4" width="17" customWidth="1"/><col min="5" max="5" width="11" customWidth="1"/><col min="6" max="6" width="14" customWidth="1"/><col min="7" max="7" width="8" customWidth="1"/><col min="8" max="8" width="13" customWidth="1"/><col min="9" max="11" width="8" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map(range => `<mergeCell ref="${range}"/>`).join('')}</mergeCells>${logo ? '<drawing r:id="rId1"/>' : ''}<printOptions horizontalCentered="1" gridLines="0"/><pageMargins left="0.13" right="0.13" top="0.12" bottom="0.12" header="0" footer="0"/><pageSetup paperSize="256" paperWidth="${CONTINUOUS_FORM_WIDTH}" paperHeight="${CONTINUOUS_FORM_HEIGHT}" paperUnits="in" orientation="landscape" blackAndWhite="1" fitToWidth="1" fitToHeight="1" horizontalDpi="300" verticalDpi="300" usePrinterDefaults="0"/></worksheet>`
+  const sheet = `${XML_HEADER}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1" autoPageBreaks="0"/></sheetPr><dimension ref="A1:K${printEnd}"/><sheetViews><sheetView workbookViewId="0" view="pageBreakPreview" showGridLines="0" zoomScale="100" zoomScaleNormal="100"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="9.287037037" customWidth="1"/><col min="2" max="2" width="14.138888889" customWidth="1"/><col min="3" max="3" width="26.287037037" customWidth="1"/><col min="4" max="4" width="39.712962963" customWidth="1"/><col min="5" max="5" width="12.287037037" customWidth="1"/><col min="6" max="6" width="17.574074074" customWidth="1"/><col min="7" max="7" width="9.425925926" customWidth="1"/><col min="8" max="8" width="4.425925926" customWidth="1"/><col min="9" max="9" width="10.712962963" customWidth="1" hidden="1"/><col min="10" max="10" width="5.425925926" customWidth="1"/><col min="11" max="11" width="13" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map(range => `<mergeCell ref="${range}"/>`).join('')}</mergeCells><printOptions horizontalCentered="1" gridLines="0"/><pageMargins left="0.13" right="0.13" top="0.17" bottom="0.17" header="0" footer="0"/><pageSetup paperSize="256" paperWidth="${CONTINUOUS_FORM_WIDTH}" paperHeight="${CONTINUOUS_FORM_HEIGHT}" paperUnits="in" orientation="landscape" blackAndWhite="1" fitToWidth="1" fitToHeight="1" horizontalDpi="300" verticalDpi="300" usePrinterDefaults="0"/></worksheet>`
 
-  const styles = `${XML_HEADER}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><color rgb="FF000000"/><sz val="10"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="10"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="15"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="12"/><name val="Arial"/></font><font><i/><color rgb="FF000000"/><sz val="9"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="3"><border><left/><right/><top/><bottom/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top/><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="14"><xf xfId="0" fontId="0" fillId="0" borderId="0"/><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="0"/><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="2" applyAlignment="1"><alignment vertical="bottom"/></xf></cellXfs></styleSheet>`
+  const styles = `${XML_HEADER}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="9"><font><color rgb="FF000000"/><sz val="11"/><name val="Calibri"/></font><font><b/><color rgb="FF000000"/><sz val="16"/><name val="Cambria"/></font><font><color rgb="FF000000"/><sz val="16"/><name val="Cambria"/></font><font><b/><color rgb="FF000000"/><sz val="16"/><name val="Calibri"/></font><font><color rgb="FF000000"/><sz val="16"/><name val="Calibri"/></font><font><b/><color rgb="FF000000"/><sz val="16"/><name val="Arial"/></font><font><color rgb="FF000000"/><sz val="11"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="13"/><name val="Calibri"/></font><font><color rgb="FF000000"/><sz val="9"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="3"><border><left/><right/><top/><bottom/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border><border><left/><right/><top/><bottom style="double"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="17"><xf xfId="0" fontId="0" fillId="0" borderId="0"/><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="3" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="4" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="5" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="6" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="6" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="6" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf xfId="0" fontId="7" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="2"/><xf xfId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="8" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf></cellXfs></styleSheet>`
 
   const files = [
-    { name: '[Content_Types].xml', content: encoder.encode(`${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${logo ? '<Default Extension="png" ContentType="image/png"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="application/vnd.openxmlformats-officedocument.drawing+xml"/>' : ''}<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`) },
+    { name: '[Content_Types].xml', content: encoder.encode(`${XML_HEADER}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`) },
     { name: '_rels/.rels', content: encoder.encode(`${XML_HEADER}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`) },
     { name: 'xl/workbook.xml', content: encoder.encode(`${XML_HEADER}<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Surat Jalan" sheetId="1" r:id="rId1"/></sheets><definedNames><definedName name="_xlnm.Print_Area" localSheetId="0">'Surat Jalan'!$A$1:$K$${printEnd}</definedName></definedNames></workbook>`) },
     { name: 'xl/_rels/workbook.xml.rels', content: encoder.encode(`${XML_HEADER}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`) },
@@ -199,28 +199,11 @@ export function buildSuratJalanExcel(data: SuratJalanExcelData, logo: Uint8Array
     { name: 'xl/styles.xml', content: encoder.encode(styles) },
   ]
 
-  if (logo) {
-    files.push(
-      { name: 'xl/media/logo.png', content: new Uint8Array(logo) },
-      { name: 'xl/worksheets/_rels/sheet1.xml.rels', content: encoder.encode(`${XML_HEADER}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>`) },
-      { name: 'xl/drawings/_rels/drawing1.xml.rels', content: encoder.encode(`${XML_HEADER}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/logo.png"/></Relationships>`) },
-      { name: 'xl/drawings/drawing1.xml', content: encoder.encode(`${XML_HEADER}<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><xdr:oneCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>500000</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>40000</xdr:rowOff></xdr:from><xdr:ext cx="600000" cy="720000"/><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="Logo Suka Shawarma"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="rId1"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="600000" cy="720000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:oneCellAnchor></xdr:wsDr>`) },
-    )
-  }
-
   return zip(files)
 }
 
 export async function downloadSuratJalanExcel(data: SuratJalanExcelData) {
-  let logo: Uint8Array | null = null
-  try {
-    const response = await fetch('/logo.png')
-    if (response.ok) logo = new Uint8Array(await response.arrayBuffer())
-  } catch {
-    // The document remains usable when the logo is unavailable (for example, offline).
-  }
-
-  const workbook = buildSuratJalanExcel(data, logo)
+  const workbook = buildSuratJalanExcel(data)
   const url = URL.createObjectURL(new Blob([workbook], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
   const anchor = document.createElement('a')
   anchor.href = url

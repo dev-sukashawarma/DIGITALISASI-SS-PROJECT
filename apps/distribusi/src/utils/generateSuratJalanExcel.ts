@@ -105,49 +105,46 @@ function fileName(value: string) {
   return value.replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, '-') || 'Surat-Jalan'
 }
 
-export async function downloadSuratJalanExcel(data: SuratJalanExcelData) {
-  let logo: Uint8Array | null = null
-  try {
-    const response = await fetch('/logo.png')
-    if (response.ok) logo = new Uint8Array(await response.arrayBuffer())
-  } catch {
-    // The document remains usable when the logo is unavailable (for example, offline).
-  }
+export function buildSuratJalanExcel(data: SuratJalanExcelData, logo: Uint8Array | null = null) {
   const date = new Date(data.createdAt)
   const formattedDate = Number.isNaN(date.getTime()) ? '-' : date.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })
   const renderedItems = data.items.map(displayItem)
-  const itemRows = Math.max(renderedItems.length, 6)
+  const itemRows = Math.max(renderedItems.length, 8)
   const tableStart = 9
   const tableEnd = tableStart + itemRows - 1
   const noteStart = tableEnd + 2
-  const signatureStart = noteStart + 4
-  const printEnd = signatureStart + 4
+  const noteEnd = noteStart + 1
+  const signatureStart = noteEnd + 2
+  const signatureEnd = signatureStart + 3
+  const printEnd = signatureEnd
 
   const rows: string[] = []
-  rows.push(`<row r="1" ht="22">${cell('C1', 'PT SUKA PROFIT BERKAH', 2)}${cell('G1', 'SURAT JALAN', 3)}</row>`)
-  rows.push(`<row r="2" ht="19">${cell('C2', 'SUKA SHAWARMA KITCHEN', 2)}</row>`)
-  rows.push(`<row r="3" ht="20">${cell('C3', 'Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat', 4)}</row>`)
-  rows.push(`<row r="4" ht="7">${cell('A4', '', 13)}</row>`)
-  rows.push(`<row r="5" ht="21">${cell('A5', 'Nama Outlet', 5)}${cell('C5', `: ${data.outletName}`, 7)}${cell('F5', 'Nomor Surat Jalan', 5)}${cell('H5', `: ${data.documentNumber}`, 7)}</row>`)
-  rows.push(`<row r="6" ht="21">${cell('A6', 'Nomor PO', 5)}${cell('C6', ': -', 7)}${cell('F6', 'Tanggal Surat Jalan', 5)}${cell('H6', `: ${formattedDate}`, 7)}</row>`)
-  rows.push(`<row r="7" ht="7">${cell('A7', '', 13)}</row>`)
-  rows.push(`<row r="8" ht="25">${cell('A8', 'No', 8)}${cell('B8', 'Nama Barang', 8)}${cell('E8', 'Satuan', 8)}${cell('F8', 'Jumlah', 8)}${cell('G8', 'Check List', 8)}</row>`)
+  rows.push(`<row r="1" ht="17">${cell('C1', 'PT SUKA PROFIT BERKAH', 2)}${cell('G1', 'SURAT JALAN', 3)}</row>`)
+  rows.push(`<row r="2" ht="15">${cell('C2', 'SUKA SHAWARMA KITCHEN', 2)}</row>`)
+  rows.push(`<row r="3" ht="13">${cell('C3', 'Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat', 4)}</row>`)
+  rows.push(`<row r="4" ht="4">${cell('A4', '', 13)}</row>`)
+  rows.push(`<row r="5" ht="15">${cell('A5', 'Nama Outlet', 5)}${cell('C5', `: ${data.outletName}`, 7)}${cell('F5', 'Nomor Surat Jalan', 5)}${cell('H5', `: ${data.documentNumber}`, 7)}</row>`)
+  rows.push(`<row r="6" ht="15">${cell('A6', 'Nomor PO', 5)}${cell('C6', ': -', 7)}${cell('F6', 'Tanggal Surat Jalan', 5)}${cell('H6', `: ${formattedDate}`, 7)}</row>`)
+  rows.push(`<row r="7" ht="4">${cell('A7', '', 13)}</row>`)
+  rows.push(`<row r="8" ht="18">${cell('A8', 'No', 8)}${cell('B8', 'Nama Barang', 8)}${cell('E8', 'Satuan', 8)}${cell('F8', 'Jumlah', 8)}${cell('G8', 'Check List', 8)}</row>`)
   for (let index = 0; index < itemRows; index++) {
     const row = tableStart + index
     const item = renderedItems[index]
-    rows.push(`<row r="${row}" ht="22">${cell(`A${row}`, item ? index + 1 : '', 9, Boolean(item))}${cell(`B${row}`, item?.name || '', 10)}${cell(`E${row}`, item?.unit || '', 9)}${cell(`F${row}`, item?.quantity || '', 11, Boolean(item))}${cell(`G${row}`, '', 9)}</row>`)
+    rows.push(`<row r="${row}" ht="17">${cell(`A${row}`, item ? index + 1 : '', 9, Boolean(item))}${cell(`B${row}`, item?.name || '', 10)}${cell(`E${row}`, item?.unit || '', 9)}${cell(`F${row}`, item?.quantity || '', 11, Boolean(item))}${cell(`G${row}`, '', 9)}</row>`)
   }
-  rows.push(`<row r="${noteStart}" ht="20">${cell(`A${noteStart}`, 'CATATAN', 8)}</row>`)
-  for (let row = noteStart + 1; row <= noteStart + 3; row++) rows.push(`<row r="${row}" ht="20">${cell(`A${row}`, '', 12)}</row>`)
-  rows.push(`<row r="${signatureStart}" ht="21">${cell(`A${signatureStart}`, 'Admin Gudang', 8)}${cell(`D${signatureStart}`, 'Pengirim', 8)}${cell(`G${signatureStart}`, 'Penerima', 8)}</row>`)
-  for (let row = signatureStart + 1; row <= signatureStart + 4; row++) rows.push(`<row r="${row}" ht="21">${cell(`A${row}`, '', 13)}${cell(`D${row}`, '', 13)}${cell(`G${row}`, '', 13)}</row>`)
+  rows.push(`<row r="${tableEnd + 1}" ht="4">${cell(`A${tableEnd + 1}`, '', 13)}</row>`)
+  rows.push(`<row r="${noteStart}" ht="13">${cell(`A${noteStart}`, 'CATATAN', 8)}</row>`)
+  rows.push(`<row r="${noteEnd}" ht="18">${cell(`A${noteEnd}`, '', 12)}</row>`)
+  rows.push(`<row r="${noteEnd + 1}" ht="4">${cell(`A${noteEnd + 1}`, '', 13)}</row>`)
+  rows.push(`<row r="${signatureStart}" ht="14">${cell(`A${signatureStart}`, 'Admin Gudang', 8)}${cell(`D${signatureStart}`, 'Pengirim', 8)}${cell(`G${signatureStart}`, 'Penerima', 8)}</row>`)
+  for (let row = signatureStart + 1; row <= signatureEnd; row++) rows.push(`<row r="${row}" ht="18">${cell(`A${row}`, '', 13)}${cell(`D${row}`, '', 13)}${cell(`G${row}`, '', 13)}</row>`)
 
   const merges = ['C1:F1', 'C2:F2', 'C3:F3', 'G1:I3', 'A4:I4', 'A5:B5', 'C5:E5', 'F5:G5', 'H5:I5', 'A6:B6', 'C6:E6', 'F6:G6', 'H6:I6', 'A7:I7', 'B8:D8', 'G8:I8']
   for (let index = 0; index < itemRows; index++) merges.push(`B${tableStart + index}:D${tableStart + index}`, `G${tableStart + index}:I${tableStart + index}`)
-  merges.push(`A${noteStart}:I${noteStart}`, `A${noteStart + 1}:I${noteStart + 3}`, `A${signatureStart}:C${signatureStart}`, `D${signatureStart}:F${signatureStart}`, `G${signatureStart}:I${signatureStart}`)
-  for (let row = signatureStart + 1; row <= signatureStart + 4; row++) merges.push(`A${row}:C${row}`, `D${row}:F${row}`, `G${row}:I${row}`)
+  merges.push(`A${noteStart}:I${noteStart}`, `A${noteEnd}:I${noteEnd}`, `A${signatureStart}:C${signatureStart}`, `D${signatureStart}:F${signatureStart}`, `G${signatureStart}:I${signatureStart}`)
+  for (let row = signatureStart + 1; row <= signatureEnd; row++) merges.push(`A${row}:C${row}`, `D${row}:F${row}`, `G${row}:I${row}`)
 
-  const sheet = `${XML_HEADER}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:I${printEnd}"/><sheetViews><sheetView workbookViewId="0" view="pageLayout" showGridLines="0" zoomScale="85" zoomScaleNormal="85"/></sheetViews><sheetFormatPr defaultRowHeight="18"/><cols><col min="1" max="1" width="6" customWidth="1"/><col min="2" max="2" width="19" customWidth="1"/><col min="3" max="4" width="15" customWidth="1"/><col min="5" max="6" width="13" customWidth="1"/><col min="7" max="7" width="10" customWidth="1"/><col min="8" max="9" width="15" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map(range => `<mergeCell ref="${range}"/>`).join('')}</mergeCells>${logo ? '<drawing r:id="rId1"/>' : ''}<printOptions horizontalCentered="1" verticalCentered="0" gridLines="0"/><pageMargins left="0.25" right="0.25" top="0.3" bottom="0.3" header="0" footer="0.1"/><pageSetup paperSize="8" orientation="landscape" blackAndWhite="1" fitToWidth="1" fitToHeight="1"/><headerFooter><oddFooter>&amp;CPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>`
+  const sheet = `${XML_HEADER}<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:I${printEnd}"/><sheetViews><sheetView workbookViewId="0" view="pageLayout" showGridLines="0" zoomScale="100" zoomScaleNormal="100"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols><col min="1" max="1" width="5.5" customWidth="1"/><col min="2" max="2" width="18" customWidth="1"/><col min="3" max="4" width="14" customWidth="1"/><col min="5" max="6" width="11.5" customWidth="1"/><col min="7" max="7" width="9" customWidth="1"/><col min="8" max="9" width="13.5" customWidth="1"/></cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merges.map(range => `<mergeCell ref="${range}"/>`).join('')}</mergeCells>${logo ? '<drawing r:id="rId1"/>' : ''}<printOptions horizontalCentered="1" verticalCentered="1" gridLines="0"/><pageMargins left="0.12" right="0.12" top="0.12" bottom="0.12" header="0" footer="0"/><pageSetup paperSize="256" paperWidth="9.5in" paperHeight="5.5in" paperUnits="in" orientation="landscape" blackAndWhite="1" fitToWidth="1" fitToHeight="1" horizontalDpi="300" verticalDpi="300" usePrinterDefaults="0"/><headerFooter><oddFooter>&amp;CPage &amp;P of &amp;N</oddFooter></headerFooter></worksheet>`
 
   const styles = `${XML_HEADER}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="5"><font><color rgb="FF000000"/><sz val="10"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="10"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="15"/><name val="Arial"/></font><font><b/><color rgb="FF000000"/><sz val="12"/><name val="Arial"/></font><font><i/><color rgb="FF000000"/><sz val="9"/><name val="Arial"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="3"><border><left/><right/><top/><bottom/></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top style="thin"><color rgb="FF000000"/></top><bottom style="thin"><color rgb="FF000000"/></bottom></border><border><left style="thin"><color rgb="FF000000"/></left><right style="thin"><color rgb="FF000000"/></right><top/><bottom style="thin"><color rgb="FF000000"/></bottom></border></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="14"><xf xfId="0" fontId="0" fillId="0" borderId="0"/><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="left" vertical="center"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="0"/><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="0" applyAlignment="1"><alignment vertical="center"/></xf><xf xfId="0" fontId="1" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment horizontal="right" vertical="center"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf xfId="0" fontId="0" fillId="0" borderId="2" applyAlignment="1"><alignment vertical="bottom"/></xf></cellXfs></styleSheet>`
 
@@ -169,11 +166,26 @@ export async function downloadSuratJalanExcel(data: SuratJalanExcelData) {
     )
   }
 
-  const workbook = zip(files)
+  return zip(files)
+}
+
+export async function downloadSuratJalanExcel(data: SuratJalanExcelData) {
+  let logo: Uint8Array | null = null
+  try {
+    const response = await fetch('/logo.png')
+    if (response.ok) logo = new Uint8Array(await response.arrayBuffer())
+  } catch {
+    // The document remains usable when the logo is unavailable (for example, offline).
+  }
+
+  const workbook = buildSuratJalanExcel(data, logo)
   const url = URL.createObjectURL(new Blob([workbook], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
   const anchor = document.createElement('a')
   anchor.href = url
   anchor.download = `Surat-Jalan-${fileName(data.documentNumber)}.xlsx`
+  anchor.style.display = 'none'
+  document.body.appendChild(anchor)
   anchor.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(anchor)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }

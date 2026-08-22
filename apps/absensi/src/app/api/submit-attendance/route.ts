@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
     const { data: target, error: targetError } = await admin
       .from("outlet_staff")
-      .select("outlet_id, face_descriptor, role, status")
+      .select("outlet_id, face_descriptor, face_descriptor_mobile, role, status")
       .eq("id", body.outlet_staff_id)
       .maybeSingle();
 
@@ -48,7 +48,11 @@ export async function POST(req: Request) {
         return NextResponse.json({ ok: false, reason: "cross_outlet" }, { status: 403 });
       }
     }
-    if (!target.face_descriptor) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
+    const hasEnrollment = Boolean(
+      (target.face_descriptor && Array.isArray(target.face_descriptor) && target.face_descriptor.length > 0) ||
+      (target.face_descriptor_mobile && Array.isArray(target.face_descriptor_mobile) && target.face_descriptor_mobile.length > 0)
+    );
+    if (!hasEnrollment) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
     // Validasi radius GPS server-side = GEOFENCE_RADIUS_M (konsisten dgn client) + toleransi akurasi
     const { data: outlet } = await admin

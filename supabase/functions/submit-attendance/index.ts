@@ -61,7 +61,7 @@ Deno.serve(async (req) => {
     // Target staff harus terdaftar & sesuai dengan outlet_id
     const { data: target } = await admin
       .from("outlet_staff")
-      .select("outlet_id, face_descriptor")
+      .select("outlet_id, face_descriptor, face_descriptor_mobile")
       .eq("id", body.outlet_staff_id).single();
     if (!target) return json(404, { ok: false, reason: "staff_not_found" });
 
@@ -79,7 +79,11 @@ Deno.serve(async (req) => {
       }
     }
     
-    if (!target.face_descriptor) return json(422, { ok: false, reason: "not_enrolled" });
+    const hasEnrollment = Boolean(
+      (target.face_descriptor && Array.isArray(target.face_descriptor) && target.face_descriptor.length > 0) ||
+      (target.face_descriptor_mobile && Array.isArray(target.face_descriptor_mobile) && target.face_descriptor_mobile.length > 0)
+    );
+    if (!hasEnrollment) return json(422, { ok: false, reason: "not_enrolled" });
 
     // Validasi radius GPS server-side ketat 4 meter
     const { data: outlet } = await admin

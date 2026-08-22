@@ -12,6 +12,7 @@ import { BottomNav } from './BottomNav'
 import { PrinterStatus } from './PrinterStatus'
 import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check, QrCode, Printer } from 'lucide-react'
 import { Skeleton } from '@suka/design-system'
+import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
   const text = useFormattedDate(iso, {
@@ -115,6 +116,35 @@ export function SuratJalanList() {
     }, { hideQR })
 
     downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
+  }
+
+  const handleDownloadExcel = async (sjId: string) => {
+    const supabase = createSupabaseBrowserClient()
+    const { data: sj, error: suratJalanError } = await supabase
+      .from('surat_jalan')
+      .select('id, document_number, created_at')
+      .eq('id', sjId)
+      .single()
+
+    if (suratJalanError) throw suratJalanError
+    if (!sj) {
+      alert('Surat Jalan tidak ditemukan')
+      return
+    }
+
+    const { data: items, error: itemsError } = await supabase
+      .from('surat_jalan_item')
+      .select('qty_dikirim, bahan_baku(nama, satuan, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan)')
+      .eq('surat_jalan_id', sjId)
+
+    if (itemsError) throw itemsError
+    const outletData = data.find((entry) => entry.id === sjId)
+    await downloadSuratJalanExcel({
+      documentNumber: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
+      outletName: outletData?.outlet?.name || 'Unknown',
+      createdAt: sj.created_at,
+      items: items || [],
+    })
   }
 
 
@@ -292,6 +322,18 @@ export function SuratJalanList() {
                           className="flex-1 py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
                         >
                           <FileDown size={12} /> PDF
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleDownloadExcel(sj.id).catch((error) => {
+                              console.error('Gagal mengunduh Excel surat jalan:', error)
+                              alert('Gagal membuat file Excel Surat Jalan')
+                            });
+                          }}
+                          className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
+                        >
+                          <FileDown size={12} /> Excel
                         </button>
                         {outletStaff?.role === 'kitchen' && (
                           <>

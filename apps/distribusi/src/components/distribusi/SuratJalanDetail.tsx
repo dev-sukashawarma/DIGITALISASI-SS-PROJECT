@@ -9,6 +9,7 @@ import { SignatureFlow } from './SignatureFlow'
 import { useAuth } from '@suka/auth'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { generatePDFContent, downloadPDF, fetchFotoAsBase64 } from '@/utils/generatePDF'
+import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
 
 function FormattedDate({ iso, extended }: { iso: string | null | undefined; extended?: boolean }) {
   const text = useFormattedDate(iso, extended ? {
@@ -175,6 +176,16 @@ export function SuratJalanDetail({ id }: { id: string }) {
     downloadPDF(`Surat-Jalan-${data.id.substring(0, 8)}.html`, htmlContent)
   }
 
+  const handleDownloadExcel = async () => {
+    if (!data) return
+    await downloadSuratJalanExcel({
+      documentNumber: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
+      outletName: data.outlets?.name || 'Unknown',
+      createdAt: data.created_at,
+      items: data.surat_jalan_item,
+    })
+  }
+
   if (loading) {
     return (
       <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-[#701604] font-medium">
@@ -274,12 +285,23 @@ export function SuratJalanDetail({ id }: { id: string }) {
           </div>
         </div>
         {data.status !== 'draft' && (
-          <button
-            onClick={handleDownloadPDF}
-            className="px-3 py-1.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
-          >
-            📥 Download Surat Jalan
-          </button>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={handleDownloadPDF}
+              className="px-2.5 py-1.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              📥 PDF
+            </button>
+            <button
+              onClick={() => void handleDownloadExcel().catch((error) => {
+                console.error('Gagal mengunduh Excel surat jalan:', error)
+                alert('Gagal membuat file Excel Surat Jalan')
+              })}
+              className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white rounded-xl font-bold text-[10px] transition-colors shadow-sm uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
+            >
+              📥 Excel
+            </button>
+          </div>
         )}
       </header>
 
@@ -331,12 +353,23 @@ export function SuratJalanDetail({ id }: { id: string }) {
             <div className="flex justify-between items-center mb-3 px-1">
               <h3 className="text-[9px] font-black text-[#544437]/50 uppercase tracking-widest">Dokumen Surat Jalan</h3>
               {data.status !== 'draft' && (
-                <button
-                  onClick={handleDownloadPDF}
-                  className="text-[10px] font-bold text-[#701604] hover:text-[#591002] underline cursor-pointer flex items-center gap-1"
-                >
-                  📥 Download PDF
-                </button>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={handleDownloadPDF}
+                    className="text-[10px] font-bold text-[#701604] hover:text-[#591002] underline cursor-pointer flex items-center gap-1"
+                  >
+                    📥 Download PDF
+                  </button>
+                  <button
+                    onClick={() => void handleDownloadExcel().catch((error) => {
+                      console.error('Gagal mengunduh Excel surat jalan:', error)
+                      alert('Gagal membuat file Excel Surat Jalan')
+                    })}
+                    className="text-[10px] font-bold text-emerald-700 hover:text-emerald-900 underline cursor-pointer flex items-center gap-1"
+                  >
+                    📥 Download Excel
+                  </button>
+                </div>
               )}
             </div>
             {pdfHtml ? (

@@ -65,7 +65,7 @@ export function SuratJalanList() {
   }
 
   const handleDownloadPDF = async (sjId: string) => {
-    const { generatePDFContent, downloadPDF } = await import('@/utils/generatePDF')
+    const { generateSuratJalanPDF, downloadPDF } = await import('@/utils/generatePDF')
     const supabase = createSupabaseBrowserClient()
 
     // Fetch full surat jalan detail with items
@@ -102,7 +102,7 @@ export function SuratJalanList() {
     const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
     const hideQR = !isPusat
 
-    const htmlContent = await generatePDFContent({
+    const pdfBlob = await generateSuratJalanPDF({
       id: sj.id,
       document_number: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
       outlet_name: outletData?.outlet?.name || 'Unknown',
@@ -116,7 +116,7 @@ export function SuratJalanList() {
       receipt_signatures: sj.receipt_signatures || [],
     }, { hideQR })
 
-    downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.html`, htmlContent)
+    downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.pdf`, pdfBlob)
   }
 
   const handleDownloadExcel = async (sjId: string) => {

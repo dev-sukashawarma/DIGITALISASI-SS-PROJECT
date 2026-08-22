@@ -8,7 +8,7 @@ import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { SignatureFlow } from './SignatureFlow'
 import { useAuth } from '@suka/auth'
 import { createSupabaseBrowserClient } from '@suka/auth'
-import { generatePDFContent, downloadPDF, fetchFotoAsBase64 } from '@/utils/generatePDF'
+import { generatePDFContent, generateSuratJalanPDF, downloadPDF, fetchFotoAsBase64 } from '@/utils/generatePDF'
 import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
 
 function FormattedDate({ iso, extended }: { iso: string | null | undefined; extended?: boolean }) {
@@ -159,7 +159,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
     const hideQR = !isPusat
 
     const items = await buildItemsWithFoto(data.surat_jalan_item)
-    const htmlContent = await generatePDFContent({
+    const pdfBlob = await generateSuratJalanPDF({
       id: data.id,
       document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
       outlet_name: data.outlets?.name || 'Unknown',
@@ -173,7 +173,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
       receipt_signatures: data.receipt_signatures || [],
     }, { hideQR })
 
-    downloadPDF(`Surat-Jalan-${data.id.substring(0, 8)}.html`, htmlContent)
+    downloadPDF(`Surat-Jalan-${data.id.substring(0, 8)}.pdf`, pdfBlob)
   }
 
   const handleDownloadExcel = async () => {

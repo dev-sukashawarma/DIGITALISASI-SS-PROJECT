@@ -1,4 +1,5 @@
 import QRCode from 'qrcode'
+import { jsPDF } from 'jspdf'
 import { LOGO_BASE64 } from './logoBase64'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { DEFAULT_PRINT_LAYOUT, type QrLayout } from './printLayout'
@@ -260,12 +261,224 @@ export async function generatePDFContent(
   `.trim()
 }
 
-export function downloadPDF(filename: string, htmlContent: string) {
-  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
+function addImageSafely(
+  doc: jsPDF,
+  dataUrl: string | undefined,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+) {
+  if (!dataUrl) return
+  try {
+    doc.addImage(dataUrl, x, y, width, height, undefined, 'FAST')
+  } catch (error) {
+    console.warn('Gambar tidak dapat dimasukkan ke PDF Surat Jalan:', error)
+  }
+}
+
+/** Menghasilkan file PDF A3 landscape yang siap diunduh dan dicetak. */
+export async function generateSuratJalanPDF(
+  data: SuratJalanData,
+  options?: { hideQR?: boolean }
+): Promise<Blob> {
+  const doc = new jsPDF({
+    orientation: 'landscape',
+    unit: 'mm',
+    format: 'a3',
+    compress: true,
+  })
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const marginX = 10
+  const contentWidth = pageWidth - (marginX * 2)
+  const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
+  const completed = ['diterima_lengkap', 'diterima_sebagian', 'selesai'].includes(data.status)
+  const receiptSignatures = data.receipt_signatures || []
+  const adminSignature = data.signatures.find((signature) => ['Admin Kitchen', 'Kitchen SPV'].includes(signature.role))
+  const driverSignature = data.signatures.find((signature) => signature.role === 'Supir')
+  const receiverSignature = receiptSignatures.find((signature) => signature.role === 'Crew Penerima')
+  const printableRows = Math.max(8, data.items.length)
+
+  doc.setProperties({
+    title: `Surat Jalan - ${data.document_number}`,
+    subject: `Surat Jalan untuk ${data.outlet_name}`,
+    author: 'PT Suka Profit Berkah',
+    creator: 'Sistem Distribusi Suka Shawarma',
+  })
+  doc.setTextColor(0, 0, 0)
+  doc.setDrawColor(0, 0, 0)
+
+  // Header
+  const headerTop = 8
+  const headerBottom = 40
+  addImageSafely(doc, LOGO_BASE64, marginX + 3, headerTop + 2, 28, 25)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(14)
+  doc.text('PT SUKA PROFIT BERKAH', pageWidth / 2, headerTop + 8, { align: 'center' })
+  doc.setFontSize(13)
+  doc.text('SUKA SHAWARMA KITCHEN', pageWidth / 2, headerTop + 15, { align: 'center' })
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(10)
+  doc.text('Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat', pageWidth / 2, headerTop + 22, { align: 'center' })
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(20)
+  doc.text('SURAT JALAN', pageWidth - marginX - 36, headerTop + 11, { align: 'center' })
+
+  if (!options?.hideQR && data.status !== 'selesai') {
+    const qrValue = data.verification_url || data.verification_code || data.document_number
+    const qrDataUrl = await generateQRDataUrl(qrValue, 240)
+    addImageSafely(doc, qrDataUrl, pageWidth - marginX - 67, headerTop + 14, 17, 17)
+    doc.setFontSize(8)
+    doc.text('KODE VERIFIKASI', pageWidth - marginX - 46, headerTop + 20)
+    doc.setFont('helvetica', 'normal')
+    doc.text(data.verification_code || '-', pageWidth - marginX - 46, headerTop + 25)
+  }
+  doc.setLineWidth(0.45)
+  doc.line(marginX, headerBottom, pageWidth - marginX, headerBottom)
+
+  // Metadata
+  const metaTop = 44
+  const metaLabelWidth = 43
+  const rightMetaX = pageWidth / 2 + 10
+  const drawMeta = (label: string, value: string, x: number, y: number) => {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text(label, x, y)
+    doc.text(':', x + metaLabelWidth, y)
+    doc.setFont('helvetica', 'normal')
+    doc.text(value || '-', x + metaLabelWidth + 5, y, { maxWidth: (pageWidth / 2) - metaLabelWidth - 25 })
+  }
+  drawMeta('Nama Outlet', data.outlet_name, marginX + 2, metaTop)
+  drawMeta('Nomor PO', '-', marginX + 2, metaTop + 7)
+  drawMeta('Nomor Surat Jalan', data.document_number, rightMetaX, metaTop)
+  drawMeta('Tanggal Surat Jalan', createdDate, rightMetaX, metaTop + 7)
+  doc.setLineWidth(0.3)
+  doc.line(marginX, metaTop + 11, pageWidth - marginX, metaTop + 11)
+
+  // Tabel barang
+  const tableTop = metaTop + 15
+  const headerHeight = 8
+  const reservedAfterTable = 84
+  const availableRowsHeight = pageHeight - tableTop - headerHeight - reservedAfterTable
+  const rowHeight = Math.max(5.5, Math.min(8, availableRowsHeight / printableRows))
+  const columnWidths = [28, 172, 48, 52, 100]
+  const headers = ['No', 'Nama Barang', 'Satuan', 'Jumlah', 'Check List']
+  let columnX = marginX
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  headers.forEach((header, index) => {
+    doc.rect(columnX, tableTop, columnWidths[index], headerHeight)
+    doc.text(header, columnX + (columnWidths[index] / 2), tableTop + 5.3, { align: 'center' })
+    columnX += columnWidths[index]
+  })
+
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(9.5)
+  for (let rowIndex = 0; rowIndex < printableRows; rowIndex += 1) {
+    const item = data.items[rowIndex]
+    const rowY = tableTop + headerHeight + (rowIndex * rowHeight)
+    columnX = marginX
+    columnWidths.forEach((width) => {
+      doc.rect(columnX, rowY, width, rowHeight)
+      columnX += width
+    })
+    if (!item) continue
+
+    const baseline = rowY + (rowHeight / 2) + 1.3
+    doc.text(String(rowIndex + 1), marginX + (columnWidths[0] / 2), baseline, { align: 'center' })
+    doc.text(item.nama || '-', marginX + columnWidths[0] + 2, baseline, { maxWidth: columnWidths[1] - 4 })
+    doc.text(item.satuan || '-', marginX + columnWidths[0] + columnWidths[1] + (columnWidths[2] / 2), baseline, { align: 'center' })
+    doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 3, baseline, { align: 'right' })
+    if (completed) {
+      const checkText = `${item.qty_terima ?? '-'} / ${(item.kondisi || 'baik').toUpperCase()}`
+      doc.text(checkText, marginX + columnWidths.slice(0, 4).reduce((sum, width) => sum + width, 0) + 2, baseline)
+    }
+  }
+
+  // Catatan
+  const tableBottom = tableTop + headerHeight + (printableRows * rowHeight)
+  const notesTop = tableBottom + 4
+  const notesHeight = 27
+  doc.rect(marginX, notesTop, contentWidth, notesHeight)
+  doc.setFont('helvetica', 'bold')
+  doc.text('CATATAN', pageWidth / 2, notesTop + 5, { align: 'center' })
+  doc.line(marginX, notesTop + 7, pageWidth - marginX, notesTop + 7)
+
+  // Tanda tangan
+  const signaturesTop = notesTop + notesHeight + 4
+  const signaturesHeight = 39
+  const signatureWidth = contentWidth / 3
+  const signatureEntries = [
+    { title: 'Admin Gudang', signature: adminSignature },
+    { title: 'Pengirim', signature: driverSignature },
+    { title: 'Penerima', signature: receiverSignature },
+  ]
+  signatureEntries.forEach(({ title, signature }, index) => {
+    const x = marginX + (index * signatureWidth)
+    doc.rect(x, signaturesTop, signatureWidth, signaturesHeight)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.text(title, x + (signatureWidth / 2), signaturesTop + 5, { align: 'center' })
+    doc.line(x, signaturesTop + 7, x + signatureWidth, signaturesTop + 7)
+    addImageSafely(doc, signature?.signature_image, x + (signatureWidth / 2) - 19, signaturesTop + 9, 38, 20)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.text(signature?.signed_by || '( ........................................ )', x + (signatureWidth / 2), signaturesTop + 35, { align: 'center' })
+  })
+
+  doc.setFontSize(7.5)
+  doc.text(
+    `${data.sender_outlet} - ${data.status.replace(/_/g, ' ').toUpperCase()} - Dicetak ${new Date().toLocaleDateString('id-ID')}`,
+    pageWidth / 2,
+    Math.min(pageHeight - 4, signaturesTop + signaturesHeight + 4),
+    { align: 'center' }
+  )
+
+  // Lampiran foto penerimaan pada halaman tersendiri.
+  const photoItems = completed ? data.items.filter((item) => item.foto_base64) : []
+  if (photoItems.length > 0) {
+    doc.addPage('a3', 'landscape')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 15)
+    doc.setLineWidth(0.4)
+    doc.line(marginX, 19, pageWidth - marginX, 19)
+
+    const gap = 5
+    const cardWidth = (contentWidth - (gap * 2)) / 3
+    const cardHeight = 76
+    photoItems.forEach((item, index) => {
+      if (index > 0 && index % 9 === 0) {
+        doc.addPage('a3', 'landscape')
+      }
+      const pageIndex = index % 9
+      const column = pageIndex % 3
+      const row = Math.floor(pageIndex / 3)
+      const x = marginX + (column * (cardWidth + gap))
+      const y = 24 + (row * (cardHeight + gap))
+      doc.rect(x, y, cardWidth, cardHeight)
+      addImageSafely(doc, item.foto_base64 || undefined, x + 2, y + 2, cardWidth - 4, 60)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(9)
+      doc.text(item.nama, x + 3, y + 66, { maxWidth: cardWidth - 6 })
+      doc.setFont('helvetica', 'normal')
+      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} - ${(item.kondisi || 'baik').toUpperCase()}`, x + 3, y + 72)
+    })
+  }
+
+  return doc.output('blob')
+}
+
+export function downloadPDF(filename: string, pdfBlob: Blob) {
+  const url = URL.createObjectURL(pdfBlob)
   const element = document.createElement('a')
   element.setAttribute('href', url)
-  element.setAttribute('download', filename)
+  element.setAttribute('download', filename.toLowerCase().endsWith('.pdf') ? filename : `${filename}.pdf`)
   element.style.display = 'none'
   document.body.appendChild(element)
   element.click()

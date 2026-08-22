@@ -277,17 +277,17 @@ function addImageSafely(
   }
 }
 
-const HALF_CONTINUOUS_FORM: [number, number] = [241.3, 139.7]
+const CONTINUOUS_FORM: [number, number] = [241.3, 279.4]
 
-/** Menghasilkan PDF half continuous form 9,5 × 5,5 inci yang siap dicetak. */
+/** Menghasilkan PDF continuous form 9,5 × 11 inci yang siap dicetak. */
 export async function generateSuratJalanPDF(
   data: SuratJalanData,
   options?: { hideQR?: boolean }
 ): Promise<Blob> {
   const doc = new jsPDF({
-    orientation: 'landscape',
+    orientation: 'portrait',
     unit: 'mm',
-    format: HALF_CONTINUOUS_FORM,
+    format: CONTINUOUS_FORM,
     compress: true,
   })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -316,71 +316,71 @@ export async function generateSuratJalanPDF(
   doc.setDrawColor(0, 0, 0)
 
   // Header
-  const headerTop = 3
-  const headerBottom = 24
-  addImageSafely(doc, LOGO_BASE64, marginX + 1, headerTop + 1, 18, 17)
+  const headerTop = 6
+  const headerBottom = 37
+  addImageSafely(doc, LOGO_BASE64, marginX + 2, headerTop + 2, 24, 23)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10.5)
-  doc.text('PT SUKA PROFIT BERKAH', pageWidth / 2, headerTop + 5, { align: 'center' })
-  doc.setFontSize(10)
-  doc.text('SUKA SHAWARMA KITCHEN', pageWidth / 2, headerTop + 10, { align: 'center' })
+  doc.setFontSize(12.5)
+  doc.text('PT SUKA PROFIT BERKAH', pageWidth / 2, headerTop + 8, { align: 'center' })
+  doc.setFontSize(11.5)
+  doc.text('SUKA SHAWARMA KITCHEN', pageWidth / 2, headerTop + 14, { align: 'center' })
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.text('Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat', pageWidth / 2, headerTop + 15, { align: 'center' })
+  doc.setFontSize(8)
+  doc.text('Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat', pageWidth / 2, headerTop + 20, { align: 'center' })
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(14)
-  doc.text('SURAT JALAN', pageWidth - marginX - 30, headerTop + 7, { align: 'center' })
+  doc.setFontSize(17)
+  doc.text('SURAT JALAN', pageWidth - marginX - 34, headerTop + 11, { align: 'center' })
 
   if (!options?.hideQR && data.status !== 'selesai') {
     const qrValue = data.verification_url || data.verification_code || data.document_number
     const qrDataUrl = await generateQRDataUrl(qrValue, 240)
-    addImageSafely(doc, qrDataUrl, pageWidth - marginX - 59, headerTop + 9, 11, 11)
-    doc.setFontSize(5.5)
-    doc.text('KODE VERIFIKASI', pageWidth - marginX - 46, headerTop + 13)
+    addImageSafely(doc, qrDataUrl, pageWidth - marginX - 66, headerTop + 15, 15, 15)
+    doc.setFontSize(6.5)
+    doc.text('KODE VERIFIKASI', pageWidth - marginX - 48, headerTop + 20)
     doc.setFont('helvetica', 'normal')
-    doc.text(data.verification_code || '-', pageWidth - marginX - 46, headerTop + 17)
+    doc.text(data.verification_code || '-', pageWidth - marginX - 48, headerTop + 24)
   }
   doc.setLineWidth(0.45)
   doc.line(marginX, headerBottom, pageWidth - marginX, headerBottom)
 
   // Metadata
-  const metaTop = 28
-  const metaLabelWidth = 30
+  const metaTop = 43
+  const metaLabelWidth = 37
   const rightMetaX = pageWidth / 2 + 5
   const drawMeta = (label: string, value: string, x: number, y: number) => {
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7.5)
+    doc.setFontSize(9)
     doc.text(label, x, y)
     doc.text(':', x + metaLabelWidth, y)
     doc.setFont('helvetica', 'normal')
-    doc.text(value || '-', x + metaLabelWidth + 3, y, { maxWidth: (pageWidth / 2) - metaLabelWidth - 14 })
+    doc.text(value || '-', x + metaLabelWidth + 4, y, { maxWidth: (pageWidth / 2) - metaLabelWidth - 16 })
   }
-  drawMeta('Nama Outlet', data.outlet_name, marginX + 1, metaTop)
-  drawMeta('Nomor PO', '-', marginX + 1, metaTop + 5)
+  drawMeta('Nama Outlet', data.outlet_name, marginX + 2, metaTop)
+  drawMeta('Nomor PO', '-', marginX + 2, metaTop + 7)
   drawMeta('Nomor Surat Jalan', data.document_number, rightMetaX, metaTop)
-  drawMeta('Tanggal Surat Jalan', createdDate, rightMetaX, metaTop + 5)
-  doc.setLineWidth(0.2)
-  doc.line(marginX, metaTop + 8, pageWidth - marginX, metaTop + 8)
+  drawMeta('Tanggal Surat Jalan', createdDate, rightMetaX, metaTop + 7)
+  doc.setLineWidth(0.3)
+  doc.line(marginX, metaTop + 11, pageWidth - marginX, metaTop + 11)
 
   // Tabel barang
-  const tableTop = metaTop + 10.5
-  const headerHeight = 5.5
-  const reservedAfterTable = 40
+  const tableTop = metaTop + 15
+  const headerHeight = 7
+  const reservedAfterTable = 126
   const availableRowsHeight = pageHeight - tableTop - headerHeight - reservedAfterTable
-  const rowHeight = Math.max(3.2, Math.min(5.8, availableRowsHeight / printableRows))
+  const rowHeight = Math.max(6, Math.min(10.5, availableRowsHeight / printableRows))
   const columnWidths = [0.07, 0.43, 0.12, 0.13, 0.25].map((ratio) => contentWidth * ratio)
   const headers = ['No', 'Nama Barang', 'Satuan', 'Jumlah', 'Check List']
   let columnX = marginX
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7.5)
+  doc.setFontSize(9)
   headers.forEach((header, index) => {
     doc.rect(columnX, tableTop, columnWidths[index], headerHeight)
-    doc.text(header, columnX + (columnWidths[index] / 2), tableTop + 3.8, { align: 'center' })
+    doc.text(header, columnX + (columnWidths[index] / 2), tableTop + 4.8, { align: 'center' })
     columnX += columnWidths[index]
   })
 
   doc.setFont('helvetica', 'normal')
-  doc.setFontSize(rowHeight < 4 ? 6.2 : 7.2)
+  doc.setFontSize(rowHeight < 7 ? 7.5 : 8.5)
   for (let rowIndex = 0; rowIndex < printableRows; rowIndex += 1) {
     const item = data.items[rowIndex]
     const rowY = tableTop + headerHeight + (rowIndex * rowHeight)
@@ -391,30 +391,30 @@ export async function generateSuratJalanPDF(
     })
     if (!item) continue
 
-    const baseline = rowY + (rowHeight / 2) + 0.9
+    const baseline = rowY + (rowHeight / 2) + 1.2
     doc.text(String(rowIndex + 1), marginX + (columnWidths[0] / 2), baseline, { align: 'center' })
-    doc.text(item.nama || '-', marginX + columnWidths[0] + 1, baseline, { maxWidth: columnWidths[1] - 2 })
+    doc.text(item.nama || '-', marginX + columnWidths[0] + 1.5, baseline, { maxWidth: columnWidths[1] - 3 })
     doc.text(item.satuan || '-', marginX + columnWidths[0] + columnWidths[1] + (columnWidths[2] / 2), baseline, { align: 'center' })
-    doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 1.5, baseline, { align: 'right' })
+    doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 2, baseline, { align: 'right' })
     if (completed) {
       const checkText = `${item.qty_terima ?? '-'} / ${(item.kondisi || 'baik').toUpperCase()}`
-      doc.text(checkText, marginX + columnWidths.slice(0, 4).reduce((sum, width) => sum + width, 0) + 1, baseline)
+      doc.text(checkText, marginX + columnWidths.slice(0, 4).reduce((sum, width) => sum + width, 0) + 1.5, baseline)
     }
   }
 
   // Catatan
   const tableBottom = tableTop + headerHeight + (printableRows * rowHeight)
-  const notesTop = tableBottom + 2
-  const notesHeight = 10
+  const notesTop = tableBottom + 4
+  const notesHeight = 42
   doc.rect(marginX, notesTop, contentWidth, notesHeight)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  doc.text('CATATAN', pageWidth / 2, notesTop + 3.3, { align: 'center' })
-  doc.line(marginX, notesTop + 4.5, pageWidth - marginX, notesTop + 4.5)
+  doc.setFontSize(9)
+  doc.text('CATATAN', pageWidth / 2, notesTop + 5, { align: 'center' })
+  doc.line(marginX, notesTop + 7, pageWidth - marginX, notesTop + 7)
 
   // Tanda tangan
-  const signaturesTop = notesTop + notesHeight + 2
-  const signaturesHeight = 21
+  const signaturesTop = notesTop + notesHeight + 4
+  const signaturesHeight = 55
   const signatureWidth = contentWidth / 3
   const signatureEntries = [
     { title: 'Admin Gudang', signature: adminSignature },
@@ -425,52 +425,52 @@ export async function generateSuratJalanPDF(
     const x = marginX + (index * signatureWidth)
     doc.rect(x, signaturesTop, signatureWidth, signaturesHeight)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.text(title, x + (signatureWidth / 2), signaturesTop + 3.5, { align: 'center' })
-    doc.line(x, signaturesTop + 5, x + signatureWidth, signaturesTop + 5)
-    addImageSafely(doc, signature?.signature_image, x + (signatureWidth / 2) - 10, signaturesTop + 6, 20, 10)
+    doc.setFontSize(9)
+    doc.text(title, x + (signatureWidth / 2), signaturesTop + 5, { align: 'center' })
+    doc.line(x, signaturesTop + 7, x + signatureWidth, signaturesTop + 7)
+    addImageSafely(doc, signature?.signature_image, x + (signatureWidth / 2) - 17, signaturesTop + 11, 34, 20)
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6.5)
-    doc.text(signature?.signed_by || '( ........................................ )', x + (signatureWidth / 2), signaturesTop + 18.5, { align: 'center' })
+    doc.setFontSize(8)
+    doc.text(signature?.signed_by || '( ........................................ )', x + (signatureWidth / 2), signaturesTop + 47, { align: 'center' })
   })
 
-  doc.setFontSize(5.5)
+  doc.setFontSize(6.5)
   doc.text(
     `${data.sender_outlet} - ${data.status.replace(/_/g, ' ').toUpperCase()} - Dicetak ${new Date().toLocaleDateString('id-ID')}`,
     pageWidth / 2,
-    Math.min(pageHeight - 1.5, signaturesTop + signaturesHeight + 2.5),
+    Math.min(pageHeight - 4, signaturesTop + signaturesHeight + 4),
     { align: 'center' }
   )
 
   // Lampiran foto penerimaan pada halaman tersendiri.
   const photoItems = completed ? data.items.filter((item) => item.foto_base64) : []
   if (photoItems.length > 0) {
-    doc.addPage(HALF_CONTINUOUS_FORM, 'landscape')
+    doc.addPage(CONTINUOUS_FORM, 'portrait')
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 8)
-    doc.setLineWidth(0.25)
-    doc.line(marginX, 11, pageWidth - marginX, 11)
+    doc.setFontSize(14)
+    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 12)
+    doc.setLineWidth(0.3)
+    doc.line(marginX, 16, pageWidth - marginX, 16)
 
-    const gap = 4
+    const gap = 5
     const cardWidth = (contentWidth - gap) / 2
-    const cardHeight = 58
+    const cardHeight = 115
     photoItems.forEach((item, index) => {
       if (index > 0 && index % 4 === 0) {
-        doc.addPage(HALF_CONTINUOUS_FORM, 'landscape')
+        doc.addPage(CONTINUOUS_FORM, 'portrait')
       }
       const pageIndex = index % 4
       const column = pageIndex % 2
       const row = Math.floor(pageIndex / 2)
       const x = marginX + (column * (cardWidth + gap))
-      const y = 14 + (row * (cardHeight + gap))
+      const y = 22 + (row * (cardHeight + gap))
       doc.rect(x, y, cardWidth, cardHeight)
-      addImageSafely(doc, item.foto_base64 || undefined, x + 2, y + 2, cardWidth - 4, 43)
+      addImageSafely(doc, item.foto_base64 || undefined, x + 2, y + 2, cardWidth - 4, 88)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(7)
-      doc.text(item.nama, x + 2, y + 49, { maxWidth: cardWidth - 4 })
+      doc.setFontSize(8.5)
+      doc.text(item.nama, x + 2, y + 98, { maxWidth: cardWidth - 4 })
       doc.setFont('helvetica', 'normal')
-      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} - ${(item.kondisi || 'baik').toUpperCase()}`, x + 2, y + 55)
+      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} - ${(item.kondisi || 'baik').toUpperCase()}`, x + 2, y + 106)
     })
   }
 

@@ -57,7 +57,7 @@ export interface SuratJalanData {
 export interface SuratJalanPDFOptions {
   hideQR?: boolean
   copies?: 1 | 3 // 1 = 1x pass untuk Epson LX-310 (kertas continuous form sudah 3 rangkap NCR), 3 = 3 lembar terpisah
-  paperFormat?: '3ply_14x12' | 'letter'
+  paperFormat?: '3ply_14x12' | 'continuous_9.5x5.5' | 'letter'
   isDotMatrix?: boolean
 }
 
@@ -70,7 +70,7 @@ export const PLY_COPIES = [
   {
     copyNumber: 1,
     colorName: 'Putih',
-    destination: 'ARSIP PUSAT',
+    destination: 'ARSIP PUSAT / FINANCE',
     headerBg: '#f8fafc',
     badgeColor: '#1e293b',
     badgeBorder: '#94a3b8',
@@ -78,7 +78,7 @@ export const PLY_COPIES = [
   {
     copyNumber: 2,
     colorName: 'Merah / Kuning',
-    destination: 'OUTLET PENERIMA',
+    destination: 'OUTLET PENERIMA / CABANG',
     headerBg: '#fffbeb',
     badgeColor: '#92400e',
     badgeBorder: '#f59e0b',
@@ -93,11 +93,11 @@ export const PLY_COPIES = [
   },
 ]
 
-// Maksimal 6 item per lembar 14x12 cm agar pas tanpa terpotong
+// Maksimal 6 item per lembar continuous form agar pas tanpa terpotong
 export const ITEMS_PER_PAGE_3PLY = 6
 
 /**
- * Menghasilkan HTML Surat Jalan format 3-Ply 14 x 12 cm (lebar pas 134mm agar tidak terpotong di Epson LX-310).
+ * Menghasilkan HTML Surat Jalan format Continuous Form 3-Ply (Lebar 195mm, Top Margin 6mm agar tidak terpotong di Epson LX-310).
  */
 export async function generatePDFContent(
   data: SuratJalanData,
@@ -120,7 +120,7 @@ export async function generatePDFContent(
   const driverSignature = data.signatures.find((sig) => sig.role === 'Supir')
   const receiverSignature = receiptSigs.find((sig) => ['Crew Penerima', 'Staff Outlet', 'SPV Outlet'].includes(sig.role))
 
-  // Bagi items ke dalam beberapa halaman jika melebihi kapasitas 1 lembar 14x12cm
+  // Bagi items ke dalam beberapa halaman jika melebihi kapasitas 1 lembar
   const totalItemPages = Math.max(1, Math.ceil((data.items?.length || 0) / ITEMS_PER_PAGE_3PLY))
 
   const renderSingleSheet = (ply: typeof PLY_COPIES[0], pageIdx: number, totalPages: number) => {
@@ -136,26 +136,26 @@ export async function generatePDFContent(
       const globalIdx = startIndex + index + 1
       return `
         <tr>
-          <td class="cell-center" style="width: 7%;">${item ? globalIdx : ''}</td>
-          <td class="cell-name" style="width: 43%;">${item?.nama || ''}</td>
+          <td class="cell-center" style="width: 6%;">${item ? globalIdx : ''}</td>
+          <td class="cell-name" style="width: 46%;">${item?.nama || ''}</td>
           <td class="cell-center" style="width: 12%;">${item?.satuan || ''}</td>
           <td class="cell-number" style="width: 12%;">${item ? item.qty_dikirim : ''}</td>
           <td class="cell-number" style="width: 12%;">${item && isReceivedOrSelesai ? (item.qty_terima ?? item.qty_dikirim) : ''}</td>
-          <td class="cell-center" style="width: 14%;">${item ? (isReceivedOrSelesai ? (item.kondisi || 'Baik').toUpperCase() : '☐') : ''}</td>
+          <td class="cell-center" style="width: 12%;">${item ? (isReceivedOrSelesai ? (item.kondisi || 'Baik').toUpperCase() : '☐') : ''}</td>
         </tr>
       `
     }).join('')
 
     return `
       <section class="print-sheet ply-sheet-${ply.copyNumber}">
-        <!-- Header -->
+        <!-- Header (Dengan Safe Margin Top 6mm) -->
         <header class="sheet-header">
           <div class="brand-block">
             <img class="brand-logo" src="${LOGO_BASE64}" alt="Logo Suka Shawarma" />
             <div class="company-text">
               <strong class="company-name">PT SUKA PROFIT BERKAH</strong>
               <div class="company-sub">SUKA SHAWARMA LOGISTICS</div>
-              <div class="company-address">Jl. Bukit Nirwana Raya No. 3, Bogor</div>
+              <div class="company-address">Jl. Bukit Nirwana Raya No. 3, Mulyaharja, Bogor</div>
             </div>
           </div>
           <div class="doc-title-block">
@@ -166,15 +166,15 @@ export async function generatePDFContent(
           </div>
         </header>
 
-        <!-- Meta Information Grid -->
+        <!-- Meta Information Grid (Lebar Penuh 195mm) -->
         <section class="meta-grid">
           <div class="meta-col">
-            <div class="meta-row"><span class="meta-lbl">No. SJ</span><b>:</b><span class="meta-val font-mono"><strong>${data.document_number}</strong></span></div>
-            <div class="meta-row"><span class="meta-lbl">Tujuan</span><b>:</b><span class="meta-val font-bold">${data.outlet_name}</span></div>
+            <div class="meta-row"><span class="meta-lbl">No. Surat Jalan</span><b>:</b><span class="meta-val font-mono"><strong>${data.document_number}</strong></span></div>
+            <div class="meta-row"><span class="meta-lbl">Tujuan Outlet</span><b>:</b><span class="meta-val font-bold">${data.outlet_name}</span></div>
           </div>
           <div class="meta-col">
-            <div class="meta-row"><span class="meta-lbl">Tgl Kirim</span><b>:</b><span class="meta-val">${createdDate}</span></div>
-            <div class="meta-row"><span class="meta-lbl">Kode Verif</span><b>:</b><span class="meta-val font-mono"><strong>${data.verification_code || '-'}</strong></span></div>
+            <div class="meta-row"><span class="meta-lbl">Tanggal Kirim</span><b>:</b><span class="meta-val">${createdDate}</span></div>
+            <div class="meta-row"><span class="meta-lbl">Kode Verifikasi</span><b>:</b><span class="meta-val font-mono"><strong>${data.verification_code || '-'}</strong></span></div>
           </div>
           ${!hideQR && qrDataUrl ? `
             <div class="meta-qr">
@@ -183,16 +183,16 @@ export async function generatePDFContent(
           ` : ''}
         </section>
 
-        <!-- Table Barang (Total 134mm width) -->
+        <!-- Table Barang (Lebar Penuh 195mm) -->
         <table class="items-table">
           <thead>
             <tr>
-              <th style="width: 7%;">No</th>
-              <th style="width: 43%;">Nama Bahan / Barang</th>
+              <th style="width: 6%;">No</th>
+              <th style="width: 46%;">Nama Bahan / Barang</th>
               <th style="width: 12%;">Satuan</th>
-              <th style="width: 12%;">Kirim</th>
-              <th style="width: 12%;">Terima</th>
-              <th style="width: 14%;">Cek/Status</th>
+              <th style="width: 12%;">Qty Kirim</th>
+              <th style="width: 12%;">Qty Terima</th>
+              <th style="width: 12%;">Cek / Status</th>
             </tr>
           </thead>
           <tbody>
@@ -204,26 +204,26 @@ export async function generatePDFContent(
         ${isLastPage ? `
           <div class="footer-block">
             <div class="notes-box">
-              <b>Catatan:</b> Periksa barang saat serah terima. Komplain selisih maksimal 1x24 jam setelah diterima.
+              <b>Catatan:</b> Barang wajib diperiksa saat serah terima. Komplain selisih maksimal 1x24 jam setelah status diterima.
             </div>
 
             <div class="signatures-grid">
               <div class="signature-cell">
-                <div class="sig-title">Diserahkan (Gudang)</div>
+                <div class="sig-title">Diserahkan (Admin Gudang)</div>
                 <div class="sig-space">
                   ${adminSignature?.signature_image ? `<img src="${adminSignature.signature_image}" alt="TTD Admin" />` : ''}
                 </div>
                 <div class="sig-name">${adminSignature?.signed_by || '( ................................. )'}</div>
               </div>
               <div class="signature-cell">
-                <div class="sig-title">Dibawa (Supir)</div>
+                <div class="sig-title">Dibawa (Supir / Kurir)</div>
                 <div class="sig-space">
                   ${driverSignature?.signature_image ? `<img src="${driverSignature.signature_image}" alt="TTD Supir" />` : ''}
                 </div>
                 <div class="sig-name">${driverSignature?.signed_by || '( ................................. )'}</div>
               </div>
               <div class="signature-cell">
-                <div class="sig-title">Diterima (Outlet)</div>
+                <div class="sig-title">Diterima (Staff Outlet)</div>
                 <div class="sig-space">
                   ${receiverSignature?.signature_image ? `<img src="${receiverSignature.signature_image}" alt="TTD Penerima" />` : ''}
                 </div>
@@ -234,13 +234,13 @@ export async function generatePDFContent(
         ` : `
           <div class="continuation-box">
             <span>⏭️ <b>Bersambung ke Lembar Berikutnya (Halaman ${pageIdx + 2} dari ${totalPages})...</b></span>
-            <span class="paraf-line">Paraf: ____________</span>
+            <span class="paraf-line">Paraf Petugas: ____________</span>
           </div>
         `}
 
         <!-- Micro Footer -->
         <footer class="sheet-footer">
-          <span>Distribusi Suka Shawarma • Continuous Form 14 x 12 cm</span>
+          <span>Distribusi Suka Shawarma • Continuous Form 3-Ply</span>
           <span>Lembar ${pageIdx + 1}/${totalPages} • Rangkap ${ply.copyNumber} (${ply.colorName})</span>
         </footer>
       </section>
@@ -264,7 +264,7 @@ export async function generatePDFContent(
   <title>Surat Jalan 3-Ply - ${data.document_number}</title>
   <style>
     @page {
-      size: 140mm 120mm;
+      size: auto;
       margin: 0mm;
     }
     * {
@@ -279,17 +279,17 @@ export async function generatePDFContent(
       background: #f1f5f9;
       color: #000;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 8pt;
+      font-size: 8.5pt;
     }
-    /* Fixed 134mm width fits within 140mm continuous paper perfectly with zero right-side clipping */
+    /* Lebar 195mm memenuhi kertas Continuous Form 9.5 inch / Letter pada Epson LX-310 */
     .print-sheet {
-      width: 134mm;
-      max-width: 134mm;
-      min-height: 114mm;
-      max-height: 118mm;
+      width: 195mm;
+      max-width: 195mm;
+      min-height: 120mm;
+      max-height: 126mm;
       margin: 0 auto;
       background: #fff;
-      padding: 2.5mm 3mm;
+      padding: 6mm 4mm 3mm 4mm; /* Top padding 6mm agar header tidak kepotong jarum printer */
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -308,34 +308,34 @@ export async function generatePDFContent(
       justify-content: space-between;
       align-items: center;
       border-bottom: 0.35mm solid #000;
-      padding-bottom: 1mm;
-      height: 13.5mm;
+      padding-bottom: 1.2mm;
+      height: 14mm;
     }
     .brand-block {
       display: flex;
       align-items: center;
-      gap: 1.5mm;
+      gap: 2mm;
     }
     .brand-logo {
-      width: 10.5mm;
-      height: 10.5mm;
+      width: 11mm;
+      height: 11mm;
       object-fit: contain;
     }
     .company-text {
       line-height: 1.15;
     }
     .company-name {
-      font-size: 7.5pt;
+      font-size: 8.5pt;
       font-weight: 900;
-      letter-spacing: 0.1pt;
+      letter-spacing: 0.2pt;
     }
     .company-sub {
-      font-size: 6.5pt;
+      font-size: 7.5pt;
       font-weight: 700;
       color: #000;
     }
     .company-address {
-      font-size: 5.5pt;
+      font-size: 6pt;
       color: #333;
     }
     .doc-title-block {
@@ -343,18 +343,18 @@ export async function generatePDFContent(
     }
     .doc-title {
       margin: 0;
-      font-size: 11.5pt;
+      font-size: 13pt;
       font-weight: 900;
-      letter-spacing: 0.4pt;
+      letter-spacing: 0.5pt;
       line-height: 1;
     }
     .ply-badge {
       display: inline-block;
       margin-top: 1mm;
-      font-size: 5.5pt;
+      font-size: 6pt;
       font-weight: 900;
       border: 0.25mm solid #000;
-      padding: 0.4mm 1.2mm;
+      padding: 0.5mm 1.5mm;
       border-radius: 1mm;
       text-transform: uppercase;
       white-space: nowrap;
@@ -366,22 +366,22 @@ export async function generatePDFContent(
       justify-content: space-between;
       align-items: center;
       border-bottom: 0.25mm solid #000;
-      padding: 1mm 0;
-      font-size: 7pt;
-      height: 10mm;
+      padding: 1.2mm 0;
+      font-size: 7.5pt;
+      height: 11mm;
     }
     .meta-col {
       display: flex;
       flex-direction: column;
-      gap: 0.5mm;
+      gap: 0.6mm;
     }
     .meta-row {
       display: flex;
       align-items: center;
-      gap: 1mm;
+      gap: 1.5mm;
     }
     .meta-lbl {
-      width: 17mm;
+      width: 22mm;
       font-weight: 700;
       color: #000;
     }
@@ -391,8 +391,8 @@ export async function generatePDFContent(
     .font-mono { font-family: monospace; }
     .font-bold { font-weight: 800; }
     .meta-qr img {
-      width: 8.5mm;
-      height: 8.5mm;
+      width: 9.5mm;
+      height: 9.5mm;
     }
 
     /* Table */
@@ -400,21 +400,21 @@ export async function generatePDFContent(
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 7pt;
+      font-size: 7.5pt;
       margin-top: 0.8mm;
       border: 0.3mm solid #000;
     }
     .items-table th, .items-table td {
       border: 0.25mm solid #000;
-      padding: 0.6mm 1mm;
-      height: 4.8mm;
+      padding: 0.8mm 1.2mm;
+      height: 5.2mm;
       vertical-align: middle;
     }
     .items-table th {
       background: #f1f5f9;
       font-weight: 900;
       text-align: center;
-      font-size: 7pt;
+      font-size: 7.5pt;
     }
     .cell-name {
       overflow: hidden;
@@ -433,12 +433,12 @@ export async function generatePDFContent(
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 6.5pt;
+      font-size: 7pt;
       background: #fafafa;
     }
     .paraf-line {
       font-family: monospace;
-      font-size: 6pt;
+      font-size: 6.5pt;
     }
 
     /* Footer & Signatures */
@@ -446,9 +446,9 @@ export async function generatePDFContent(
       margin-top: 0.8mm;
     }
     .notes-box {
-      font-size: 5.5pt;
+      font-size: 6pt;
       border: 0.25mm solid #000;
-      padding: 0.6mm 1.2mm;
+      padding: 0.8mm 1.5mm;
       background: #fafafa;
       line-height: 1.2;
       margin-bottom: 0.8mm;
@@ -457,7 +457,7 @@ export async function generatePDFContent(
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       border: 0.3mm solid #000;
-      height: 22mm;
+      height: 23mm;
     }
     .signature-cell {
       border-right: 0.3mm solid #000;
@@ -465,16 +465,16 @@ export async function generatePDFContent(
       flex-direction: column;
       justify-content: space-between;
       text-align: center;
-      padding: 0.6mm;
+      padding: 0.8mm;
     }
     .signature-cell:last-child {
       border-right: none;
     }
     .sig-title {
-      font-size: 5.5pt;
+      font-size: 6pt;
       font-weight: 900;
       border-bottom: 0.2mm solid #000;
-      padding-bottom: 0.3mm;
+      padding-bottom: 0.4mm;
       text-transform: uppercase;
       white-space: nowrap;
     }
@@ -483,15 +483,15 @@ export async function generatePDFContent(
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 10.5mm;
+      min-height: 11mm;
     }
     .sig-space img {
-      max-height: 9.5mm;
+      max-height: 10mm;
       max-width: 85%;
       object-fit: contain;
     }
     .sig-name {
-      font-size: 5.5pt;
+      font-size: 6pt;
       font-weight: 800;
       white-space: nowrap;
       overflow: hidden;
@@ -502,7 +502,7 @@ export async function generatePDFContent(
     .sheet-footer {
       display: flex;
       justify-content: space-between;
-      font-size: 5pt;
+      font-size: 5.5pt;
       color: #333;
       padding-top: 0.5mm;
       border-top: 0.2mm dashed #888;
@@ -527,9 +527,10 @@ export async function generatePDFContent(
       .print-sheet {
         box-shadow: none;
         border-radius: 0;
-        width: 134mm !important;
-        max-width: 134mm !important;
+        width: 195mm !important;
+        max-width: 195mm !important;
         margin: 0 !important;
+        padding-top: 6mm !important;
       }
     }
   </style>
@@ -558,34 +559,36 @@ function addImageSafely(
 }
 
 /**
- * Dimensi Kertas 3-Ply Surat Jalan Continuous Form: 14 cm x 12 cm (140 mm x 120 mm)
+ * Dimensi Kertas 3-Ply Continuous Form: 215.9 mm x 139.7 mm (9.5" x 5.5" / Half Letter)
  */
+export const CONTINUOUS_95X55: [number, number] = [215.9, 139.7]
 export const PAPER_3PLY_14X12: [number, number] = [140, 120]
 export const LETTER_PORTRAIT: [number, number] = [215.9, 279.4]
 
 /**
- * Menghasilkan PDF Surat Jalan format kertas 3-Ply 14 x 12 cm dengan multi-page chunking otomatis.
+ * Menghasilkan PDF Surat Jalan format kertas 3-Ply Continuous Form dengan multi-page chunking otomatis.
  */
 export async function generateSuratJalanPDF(
   data: SuratJalanData,
   options?: SuratJalanPDFOptions
 ): Promise<Blob> {
-  const paperFormat = options?.paperFormat ?? '3ply_14x12'
-  const is3Ply = paperFormat === '3ply_14x12'
+  const paperFormat = options?.paperFormat ?? 'continuous_9.5x5.5'
+  const is3Ply = paperFormat === 'continuous_9.5x5.5' || paperFormat === '3ply_14x12'
   const copiesCount = is3Ply ? (options?.copies ?? 3) : 1
-  const pageSize: [number, number] = is3Ply ? PAPER_3PLY_14X12 : LETTER_PORTRAIT
+  const pageSize: [number, number] = paperFormat === '3ply_14x12' ? PAPER_3PLY_14X12 : CONTINUOUS_95X55
 
   const doc = new jsPDF({
-    orientation: is3Ply ? 'landscape' : 'portrait',
+    orientation: 'landscape',
     unit: 'mm',
     format: pageSize,
     compress: true,
   })
 
-  const pageWidth = doc.internal.pageSize.getWidth() // 140 mm
-  const pageHeight = doc.internal.pageSize.getHeight() // 120 mm
-  const marginX = 3.5
-  const contentWidth = pageWidth - (marginX * 2) // 133 mm
+  const pageWidth = doc.internal.pageSize.getWidth() // 215.9 mm
+  const pageHeight = doc.internal.pageSize.getHeight() // 139.7 mm
+  const marginX = 10.0
+  const marginTop = 6.0
+  const contentWidth = pageWidth - (marginX * 2) // ~195 mm
 
   const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
     year: 'numeric',
@@ -600,7 +603,7 @@ export async function generateSuratJalanPDF(
 
   doc.setProperties({
     title: `Surat Jalan - ${data.document_number}`,
-    subject: `Surat Jalan 3-Ply 14x12cm untuk ${data.outlet_name}`,
+    subject: `Surat Jalan 3-Ply Continuous Form untuk ${data.outlet_name}`,
     author: 'PT Suka Profit Berkah',
     creator: 'Sistem Distribusi Suka Shawarma',
   })
@@ -615,7 +618,7 @@ export async function generateSuratJalanPDF(
 
     for (let pageIdx = 0; pageIdx < totalItemPages; pageIdx += 1) {
       if (!isFirstPageInDoc) {
-        doc.addPage(pageSize, is3Ply ? 'landscape' : 'portrait')
+        doc.addPage(pageSize, 'landscape')
       }
       isFirstPageInDoc = false
 
@@ -627,90 +630,90 @@ export async function generateSuratJalanPDF(
       doc.setTextColor(0, 0, 0)
       doc.setDrawColor(0, 0, 0)
 
-      // 1. Header (y: 3 to 15)
-      const headerTop = 3.0
+      // 1. Header (y: 6.0 to 19.5)
+      const headerTop = marginTop
       
       // Logo Brand
-      addImageSafely(doc, LOGO_BASE64, marginX, headerTop, 10.5, 10.5)
+      addImageSafely(doc, LOGO_BASE64, marginX, headerTop, 12, 12)
 
       // Company Info
       doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8.5)
+      doc.text('PT SUKA PROFIT BERKAH', marginX + 15, headerTop + 3.2)
       doc.setFontSize(7.5)
-      doc.text('PT SUKA PROFIT BERKAH', marginX + 12.5, headerTop + 3.0)
-      doc.setFontSize(6.5)
-      doc.text('SUKA SHAWARMA LOGISTICS', marginX + 12.5, headerTop + 6.4)
+      doc.text('SUKA SHAWARMA LOGISTICS', marginX + 15, headerTop + 7.0)
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(5.5)
-      doc.text('Jl. Bukit Nirwana Raya No. 3, Bogor', marginX + 12.5, headerTop + 9.6)
+      doc.setFontSize(6.5)
+      doc.text('Jl. Bukit Nirwana Raya No. 3, Mulyaharja, Bogor', marginX + 15, headerTop + 10.5)
 
       // Doc Title & Ply Badge (Right aligned)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(11.5)
-      doc.text('SURAT JALAN', pageWidth - marginX, headerTop + 3.6, { align: 'right' })
+      doc.setFontSize(13)
+      doc.text('SURAT JALAN', pageWidth - marginX, headerTop + 4.0, { align: 'right' })
 
       // Ply badge text & frame
       const pageBadgeSuffix = totalItemPages > 1 ? ` (${pageIdx + 1}/${totalItemPages})` : ''
       const badgeText = `RANGKAP ${ply.copyNumber}: ${ply.destination}${pageBadgeSuffix}`
-      doc.setFontSize(5.5)
-      const badgeWidth = doc.getTextWidth(badgeText) + 3
+      doc.setFontSize(6.5)
+      const badgeWidth = doc.getTextWidth(badgeText) + 4
       const badgeX = pageWidth - marginX - badgeWidth
-      const badgeY = headerTop + 5.5
+      const badgeY = headerTop + 6.2
       
       doc.setLineWidth(0.2)
-      doc.rect(badgeX, badgeY, badgeWidth, 3.8)
-      doc.text(badgeText, badgeX + (badgeWidth / 2), badgeY + 2.6, { align: 'center' })
+      doc.rect(badgeX, badgeY, badgeWidth, 4.5)
+      doc.text(badgeText, badgeX + (badgeWidth / 2), badgeY + 3.2, { align: 'center' })
 
       // Line under header
       doc.setLineWidth(0.35)
-      doc.line(marginX, headerTop + 12, pageWidth - marginX, headerTop + 12)
+      doc.line(marginX, headerTop + 14, pageWidth - marginX, headerTop + 14)
 
-      // 2. Metadata Grid (y: 16 to 25)
-      const metaTop = headerTop + 13.8
-      const drawMetaRow = (label: string, value: string, x: number, y: number, labelWidth = 16) => {
+      // 2. Metadata Grid (y: 22 to 33)
+      const metaTop = headerTop + 16
+      const drawMetaRow = (label: string, value: string, x: number, y: number, labelWidth = 24) => {
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(7)
+        doc.setFontSize(8)
         doc.text(label, x, y)
         doc.text(':', x + labelWidth, y)
         doc.setFont('helvetica', 'normal')
-        doc.text(value || '-', x + labelWidth + 1.5, y, { maxWidth: 44 })
+        doc.text(value || '-', x + labelWidth + 2, y, { maxWidth: 65 })
       }
 
-      drawMetaRow('No. SJ', data.document_number, marginX, metaTop)
-      drawMetaRow('Tujuan', data.outlet_name, marginX, metaTop + 3.8)
+      drawMetaRow('No. Surat Jalan', data.document_number, marginX, metaTop)
+      drawMetaRow('Tujuan Outlet', data.outlet_name, marginX, metaTop + 4.5)
 
-      const rightColX = marginX + 68
-      drawMetaRow('Tgl Kirim', createdDate, rightColX, metaTop)
-      drawMetaRow('Kode Verif', data.verification_code || '-', rightColX, metaTop + 3.8)
+      const rightColX = marginX + 105
+      drawMetaRow('Tanggal Kirim', createdDate, rightColX, metaTop)
+      drawMetaRow('Kode Verifikasi', data.verification_code || '-', rightColX, metaTop + 4.5)
 
       // Line under meta
       doc.setLineWidth(0.25)
-      doc.line(marginX, metaTop + 6.0, pageWidth - marginX, metaTop + 6.0)
+      doc.line(marginX, metaTop + 7.5, pageWidth - marginX, metaTop + 7.5)
 
-      // 3. Items Table (y: 27.5 to ~66)
-      const tableTop = metaTop + 7.8
-      const headerHeight = 4.3
-      const rowHeight = 4.2
+      // 3. Items Table (y: 35.5 to ~80)
+      const tableTop = metaTop + 9.5
+      const headerHeight = 5.0
+      const rowHeight = 4.8
       
-      // Column widths total = 133 mm
-      const columnWidths = [8, 57, 16, 16, 16, 20]
-      const headers = ['No', 'Nama Bahan / Barang', 'Satuan', 'Kirim', 'Terima', 'Cek/Status']
+      // Column widths total = 195.9 mm
+      const columnWidths = [12, 90, 23, 23, 23, 24.9]
+      const headers = ['No', 'Nama Bahan / Barang', 'Satuan', 'Qty Kirim', 'Qty Terima', 'Cek / Status']
 
       let columnX = marginX
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(6.5)
+      doc.setFontSize(7.5)
       
       // Draw table header
       headers.forEach((header, index) => {
         doc.rect(columnX, tableTop, columnWidths[index], headerHeight)
         const align = index === 1 ? 'left' : (index === 3 || index === 4 ? 'right' : 'center')
-        const textX = align === 'left' ? columnX + 1.2 : (align === 'right' ? columnX + columnWidths[index] - 1.2 : columnX + (columnWidths[index] / 2))
-        doc.text(header, textX, tableTop + 3.0, { align })
+        const textX = align === 'left' ? columnX + 1.5 : (align === 'right' ? columnX + columnWidths[index] - 1.5 : columnX + (columnWidths[index] / 2))
+        doc.text(header, textX, tableTop + 3.4, { align })
         columnX += columnWidths[index]
       })
 
       // Draw table rows for this page chunk
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(6.5)
+      doc.setFontSize(7.5)
       for (let rowIndex = 0; rowIndex < printableRowsCount; rowIndex += 1) {
         const item = pageItems[rowIndex]
         const globalRowIdx = startIndex + rowIndex + 1
@@ -723,21 +726,21 @@ export async function generateSuratJalanPDF(
 
         if (!item) continue
 
-        const baseline = rowY + (rowHeight / 2) + 0.8
+        const baseline = rowY + (rowHeight / 2) + 1.0
         // No
         doc.text(String(globalRowIdx), marginX + (columnWidths[0] / 2), baseline, { align: 'center' })
         // Nama
-        doc.text(item.nama || '-', marginX + columnWidths[0] + 1.2, baseline, { maxWidth: columnWidths[1] - 2.5 })
+        doc.text(item.nama || '-', marginX + columnWidths[0] + 1.5, baseline, { maxWidth: columnWidths[1] - 3.0 })
         // Satuan
         doc.text(item.satuan || '-', marginX + columnWidths[0] + columnWidths[1] + (columnWidths[2] / 2), baseline, { align: 'center' })
         // Qty Kirim
         doc.setFont('helvetica', 'bold')
-        doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 1.2, baseline, { align: 'right' })
+        doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 1.5, baseline, { align: 'right' })
         doc.setFont('helvetica', 'normal')
         
         // Qty Terima & Check status
         if (completed) {
-          doc.text(String(item.qty_terima ?? item.qty_dikirim), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] + columnWidths[4] - 1.2, baseline, { align: 'right' })
+          doc.text(String(item.qty_terima ?? item.qty_dikirim), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] + columnWidths[4] - 1.5, baseline, { align: 'right' })
           const statusText = (item.kondisi || 'Baik').toUpperCase()
           doc.text(statusText, marginX + columnWidths.slice(0, 5).reduce((a, b) => a + b, 0) + (columnWidths[5] / 2), baseline, { align: 'center' })
         } else {
@@ -748,24 +751,24 @@ export async function generateSuratJalanPDF(
       const tableBottom = tableTop + headerHeight + (printableRowsCount * rowHeight)
 
       if (isLastPage) {
-        // 4. Catatan box (y: tableBottom + 1.0)
-        const notesTop = tableBottom + 1.0
-        const notesHeight = 5.0
+        // 4. Catatan box
+        const notesTop = tableBottom + 1.2
+        const notesHeight = 5.5
         doc.rect(marginX, notesTop, contentWidth, notesHeight)
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(5.5)
-        doc.text('Catatan:', marginX + 1.2, notesTop + 3.2)
+        doc.setFontSize(6.5)
+        doc.text('Catatan:', marginX + 1.5, notesTop + 3.6)
         doc.setFont('helvetica', 'normal')
-        doc.text('Periksa barang saat serah terima. Komplain selisih maksimal 1x24 jam setelah diterima.', marginX + 10.5, notesTop + 3.2, { maxWidth: contentWidth - 12 })
+        doc.text('Barang wajib diperiksa saat serah terima. Komplain selisih maksimal 1x24 jam setelah status diterima.', marginX + 13.5, notesTop + 3.6, { maxWidth: contentWidth - 15 })
 
-        // 5. Signatures Grid (3 Kolom) (y: notesTop + notesHeight + 1.0)
-        const sigTop = notesTop + notesHeight + 1.0
-        const sigHeight = 21
+        // 5. Signatures Grid (3 Kolom = 65mm per cell)
+        const sigTop = notesTop + notesHeight + 1.2
+        const sigHeight = 23
         const sigColWidth = contentWidth / 3
         const sigEntries = [
-          { title: 'Diserahkan (Gudang)', signature: adminSignature },
-          { title: 'Dibawa (Supir)', signature: driverSignature },
-          { title: 'Diterima (Outlet)', signature: receiverSignature },
+          { title: 'Diserahkan (Admin Gudang)', signature: adminSignature },
+          { title: 'Dibawa (Supir / Kurir)', signature: driverSignature },
+          { title: 'Diterima (Staff Outlet)', signature: receiverSignature },
         ]
 
         sigEntries.forEach(({ title, signature }, idx) => {
@@ -774,48 +777,48 @@ export async function generateSuratJalanPDF(
           
           // Header cell TTD
           doc.setFont('helvetica', 'bold')
-          doc.setFontSize(5.5)
-          doc.text(title, cellX + (sigColWidth / 2), sigTop + 3.0, { align: 'center' })
-          doc.line(cellX, sigTop + 3.8, cellX + sigColWidth, sigTop + 3.8)
+          doc.setFontSize(6.5)
+          doc.text(title, cellX + (sigColWidth / 2), sigTop + 3.4, { align: 'center' })
+          doc.line(cellX, sigTop + 4.4, cellX + sigColWidth, sigTop + 4.4)
 
           // Signature Image
           if (signature?.signature_image) {
-            addImageSafely(doc, signature.signature_image, cellX + (sigColWidth / 2) - 8.5, sigTop + 4.5, 17, 10)
+            addImageSafely(doc, signature.signature_image, cellX + (sigColWidth / 2) - 10, sigTop + 5.0, 20, 11)
           }
 
           // Name & Line
           doc.setFont('helvetica', 'normal')
-          doc.setFontSize(5.5)
-          doc.text(signature?.signed_by || '( ................................. )', cellX + (sigColWidth / 2), sigTop + 18.8, { align: 'center' })
+          doc.setFontSize(6.5)
+          doc.text(signature?.signed_by || '( ................................. )', cellX + (sigColWidth / 2), sigTop + 20.5, { align: 'center' })
         })
       } else {
         // Continuation banner for intermediate pages
         const contTop = tableBottom + 2.0
         doc.setLineWidth(0.2)
         doc.setLineDashPattern([1.5, 1.5], 0)
-        doc.rect(marginX, contTop, contentWidth, 11)
+        doc.rect(marginX, contTop, contentWidth, 12)
         doc.setLineDashPattern([], 0)
 
         doc.setFont('helvetica', 'bold')
-        doc.setFontSize(6.5)
-        doc.text(`>>> Bersambung ke Lembar Berikutnya (Halaman ${pageIdx + 2} dari ${totalItemPages}) >>>`, marginX + 2.5, contTop + 6.5)
+        doc.setFontSize(7.5)
+        doc.text(`>>> Bersambung ke Lembar Berikutnya (Halaman ${pageIdx + 2} dari ${totalItemPages}) >>>`, marginX + 3.0, contTop + 7.0)
         doc.setFont('helvetica', 'normal')
-        doc.setFontSize(5.5)
-        doc.text('Paraf: ___________________', pageWidth - marginX - 2.5, contTop + 6.5, { align: 'right' })
+        doc.setFontSize(6.5)
+        doc.text('Paraf Petugas: ___________________', pageWidth - marginX - 3.0, contTop + 7.0, { align: 'right' })
       }
 
-      // 6. Micro Footer (y: pageHeight - 2.2)
-      doc.setFontSize(4.8)
+      // 6. Micro Footer (y: pageHeight - 3.0)
+      doc.setFontSize(5.5)
       doc.setTextColor(60, 60, 60)
       doc.text(
-        `Distribusi Suka Shawarma • 3-Ply Continuous Form (14x12 cm)`,
+        `Distribusi Suka Shawarma • Continuous Form 3-Ply`,
         marginX,
-        pageHeight - 2.2
+        pageHeight - 3.0
       )
       doc.text(
         `Lembar ${pageIdx + 1}/${totalItemPages} • Rangkap ${ply.copyNumber} (${ply.colorName})`,
         pageWidth - marginX,
-        pageHeight - 2.2,
+        pageHeight - 3.0,
         { align: 'right' }
       )
     }
@@ -824,30 +827,30 @@ export async function generateSuratJalanPDF(
   // Optional: Lampiran Foto jika ada
   const photoItems = completed ? data.items.filter((item) => item.foto_base64) : []
   if (photoItems.length > 0) {
-    doc.addPage(pageSize, is3Ply ? 'landscape' : 'portrait')
+    doc.addPage(pageSize, 'landscape')
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(8)
+    doc.setFontSize(9)
     doc.setTextColor(0, 0, 0)
-    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 6)
+    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 8)
     doc.setLineWidth(0.25)
-    doc.line(marginX, 7.5, pageWidth - marginX, 7.5)
+    doc.line(marginX, 10.0, pageWidth - marginX, 10.0)
 
-    const cardW = (contentWidth - 4) / 3
-    const cardH = 48
+    const cardW = (contentWidth - 6) / 3
+    const cardH = 50
     photoItems.slice(0, 6).forEach((item, index) => {
       const col = index % 3
       const row = Math.floor(index / 3)
-      const x = marginX + (col * (cardW + 2))
-      const y = 9.5 + (row * (cardH + 2))
+      const x = marginX + (col * (cardW + 3))
+      const y = 12.0 + (row * (cardH + 3))
 
       doc.rect(x, y, cardW, cardH)
-      addImageSafely(doc, item.foto_base64 || undefined, x + 1, y + 1, cardW - 2, 36)
+      addImageSafely(doc, item.foto_base64 || undefined, x + 1, y + 1, cardW - 2, 38)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(5.5)
-      doc.text(item.nama, x + 1.5, y + 40, { maxWidth: cardW - 3 })
+      doc.setFontSize(6.5)
+      doc.text(item.nama, x + 1.5, y + 42, { maxWidth: cardW - 3 })
       doc.setFont('helvetica', 'normal')
-      doc.setFontSize(5)
-      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} (${(item.kondisi || 'baik').toUpperCase()})`, x + 1.5, y + 44)
+      doc.setFontSize(6)
+      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} (${(item.kondisi || 'baik').toUpperCase()})`, x + 1.5, y + 46)
     })
   }
 

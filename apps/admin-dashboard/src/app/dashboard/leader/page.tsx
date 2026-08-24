@@ -86,7 +86,7 @@ export default async function LeaderDashboardPage() {
 
   const { data: activeShift } = await supabase
     .from('shifts')
-    .select('id, starting_petty_cash, start_time')
+    .select('id, starting_petty_cash, start_time, admin_petty_cash_balance, admin_petty_cash_note, admin_petty_cash_updated_at')
     .eq('outlet_id', outletId)
     .is('end_time', null)
     .order('start_time', { ascending: false })
@@ -115,6 +115,10 @@ export default async function LeaderDashboardPage() {
     const totalExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount), 0)
 
     sisaPettyCash = Number(activeShift.starting_petty_cash) + totalTopups - totalExpenses
+    const { data: sharedBalance, error: sharedBalanceError } = await supabase.rpc('get_petty_cash_balance', {
+      p_outlet_id: outletId,
+    })
+    if (!sharedBalanceError) sisaPettyCash = Number(sharedBalance) || 0
     if (sisaPettyCash < 150000) {
       isPettyCashHampirHabis = true
     }
@@ -185,6 +189,11 @@ export default async function LeaderDashboardPage() {
                 <span className="px-2 py-0.5 text-[10px] font-bold bg-red-50 text-red-600 rounded-md uppercase tracking-wider">Kritis</span>
               )}
             </div>
+            {activeShift?.admin_petty_cash_updated_at && (
+              <p className="mt-2 text-xs font-semibold text-blue-600">
+                Disesuaikan Admin{activeShift.admin_petty_cash_note ? `: ${activeShift.admin_petty_cash_note}` : ''}
+              </p>
+            )}
           </div>
         </div>
 

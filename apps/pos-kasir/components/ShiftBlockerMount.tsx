@@ -74,6 +74,23 @@ export default function ShiftBlockerMount() {
 
   async function calculateStartingPettyCash() {
     try {
+      const { data: sharedBalance, error: balanceError } = await supabase.rpc('get_petty_cash_balance', {
+        p_outlet_id: outletId,
+      })
+
+      if (!balanceError) {
+        const { count } = await supabase
+          .from('shifts')
+          .select('id', { count: 'exact', head: true })
+          .eq('outlet_id', outletId)
+
+        if ((count ?? 0) > 0) {
+          setStartingPettyCash(String(Number(sharedBalance) || 0))
+          setPettyCashLocked(true)
+          return
+        }
+      }
+
       const { data: lastShift } = await supabase
         .from('shifts')
         .select('starting_petty_cash, expected_ending_petty_cash, actual_ending_petty_cash, end_time, updated_at')

@@ -5,7 +5,7 @@ import {
   CheckCircle2, Clock, Store, 
   ArrowRight, Loader2, RefreshCw, 
   X, Download, User, Check, AlertCircle, FileText,
-  Calendar, MapPin, ChevronDown
+  Calendar, MapPin, ChevronDown, Wallet
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { formatRupiah } from '@/lib/validations'
@@ -196,7 +196,8 @@ function CustomSelect({
 export default function AreaManagerPettyCashPage() {
   const supabase = createClient()
   const [requests, setRequests] = useState<TopupRequest[]>([])
-  const [availableOutlets, setAvailableOutlets] = useState<{name: string, region: string}[]>([])
+  const [availableOutlets, setAvailableOutlets] = useState<{id: string, name: string, region: string}[]>([])
+  const [outletBalances, setOutletBalances] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isProcessing, setIsProcessing] = useState<string | null>(null)
@@ -230,6 +231,13 @@ export default function AreaManagerPettyCashPage() {
       if (res.outlets) {
         setAvailableOutlets(res.outlets)
       }
+
+      const balanceClient = createClient()
+      const { data: balanceRows } = await balanceClient.rpc('get_all_latest_petty_cash_balances')
+      setOutletBalances(Object.fromEntries(
+        ((balanceRows || []) as { outlet_id: string; balance: number }[])
+          .map((row) => [row.outlet_id, Number(row.balance) || 0])
+      ))
     } catch (err: any) {
       console.error(err)
       if (!isSilent) toast.error('Gagal memuat data: ' + err.message)
@@ -247,6 +255,11 @@ export default function AreaManagerPettyCashPage() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'petty_cash_topups' },
+        () => loadRequests(true)
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shifts' },
         () => loadRequests(true)
       )
       .subscribe()
@@ -391,6 +404,23 @@ export default function AreaManagerPettyCashPage() {
           </button>
         </div>
       </div>
+
+      <section className="rounded-2xl border border-slate-200/70 bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-4 flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-emerald-600" />
+          <h3 className="text-sm font-bold text-slate-900">Saldo Petty Cash Outlet</h3>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {availableOutlets
+            .filter((outlet) => outletFilter === 'all' || outlet.name === outletFilter)
+            .map((outlet) => (
+              <div key={outlet.id} className="rounded-xl border border-slate-100 bg-slate-50/70 p-3.5">
+                <p className="truncate text-xs font-semibold text-slate-500">{outlet.name}</p>
+                <p className="mt-1 text-lg font-black text-slate-900">{formatRupiah(outletBalances[outlet.id] ?? 0)}</p>
+              </div>
+            ))}
+        </div>
+      </section>
 
       {/* Segmented Control for Tabs (Startup Aesthetic) */}
       <div className="bg-slate-100/70 p-1 rounded-lg inline-flex w-full sm:w-auto">

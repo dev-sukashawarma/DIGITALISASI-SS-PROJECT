@@ -24,6 +24,9 @@ interface Shift {
   actual_ending_cash?: number
   expected_ending_cash?: number
   variance?: number
+  admin_petty_cash_balance?: number | null
+  admin_petty_cash_note?: string | null
+  admin_petty_cash_updated_at?: string | null
 }
 
 interface Expense {
@@ -182,7 +185,11 @@ export default function CloseShiftPage() {
         const expensesTotalLocal = snapExpenses
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
-        calculatedBalance = startPetty + topupsTotal - expensesTotalLocal
+        const fallbackBalance = startPetty + topupsTotal - expensesTotalLocal
+        const { data: sharedBalance, error: balanceError } = await supabase.rpc('get_petty_cash_balance', {
+          p_outlet_id: outletId,
+        })
+        calculatedBalance = balanceError ? fallbackBalance : Number(sharedBalance) || 0
         setPettyCashBalance(calculatedBalance)
       } else {
         setPettyCashBalance(0)
@@ -446,7 +453,9 @@ export default function CloseShiftPage() {
                     <span className="text-lg font-black text-blue-700">{formatRupiah(pettyCashBalance)}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1.5">
-                    Awal {formatRupiah(activeShift.starting_petty_cash || 0)} + Top up {formatRupiah(approvedTopupsTotal)} − Pengeluaran {formatRupiah(expensesTotal)}
+                    {activeShift.admin_petty_cash_updated_at
+                      ? `Saldo terakhir disesuaikan Admin${activeShift.admin_petty_cash_note ? `: ${activeShift.admin_petty_cash_note}` : ''}`
+                      : `Awal ${formatRupiah(activeShift.starting_petty_cash || 0)} + Top up ${formatRupiah(approvedTopupsTotal)} − Pengeluaran ${formatRupiah(expensesTotal)}`}
                   </p>
                 </div>
 

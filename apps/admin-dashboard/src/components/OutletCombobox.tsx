@@ -8,12 +8,14 @@ export function cleanOutletName(name: string) {
 }
 
 export function OutletCombobox({
-  value, outlets, onChange, className
+  value, outlets, onChange, className, includeAll = true, placeholder = 'Pilih outlet'
 }: {
   value: string
   outlets: { id: string; name: string }[]
   onChange: (id: string) => void
   className?: string
+  includeAll?: boolean
+  placeholder?: string
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -21,8 +23,11 @@ export function OutletCombobox({
   const searchRef = useRef<HTMLInputElement>(null)
 
   const options = useMemo(
-    () => [{ id: 'all', name: 'Semua Outlet' }, ...outlets.map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))],
-    [outlets]
+    () => [
+      ...(includeAll ? [{ id: 'all', name: 'Semua Outlet' }] : []),
+      ...outlets.map((o) => ({ id: o.id, name: cleanOutletName(o.name) })),
+    ],
+    [includeAll, outlets]
   )
 
   const filtered = useMemo(() => {
@@ -31,7 +36,7 @@ export function OutletCombobox({
     return options.filter((o) => o.name.toLowerCase().includes(q))
   }, [options, query])
 
-  const selectedLabel = options.find((o) => o.id === value)?.name ?? 'Semua Outlet'
+  const selectedLabel = options.find((o) => o.id === value)?.name ?? placeholder
 
   useEffect(() => {
     if (!open) return

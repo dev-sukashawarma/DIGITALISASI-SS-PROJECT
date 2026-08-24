@@ -25,6 +25,9 @@ interface Shift {
   actual_ending_cash?: number
   expected_ending_cash?: number
   variance?: number
+  admin_petty_cash_balance?: number | null
+  admin_petty_cash_note?: string | null
+  admin_petty_cash_updated_at?: string | null
 }
 
 interface Expense {
@@ -179,6 +182,7 @@ export default function CashierShiftPage() {
 
       const channel = supabase
         .channel(channelName)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
@@ -247,7 +251,7 @@ export default function CashierShiftPage() {
         setTopups(snapTopups)
         setCashOrders(snapCashOrders)
 
-        // Saldo Petty Cash Shift Ini: Modal Awal + TopUp yang sudah diserahkan Leader - Pengeluaran Shift Ini
+        // RPC menjadi satu sumber saldo untuk Admin, Leader, Area Manager, dan POS.
         const startPetty = Number(shiftData.starting_petty_cash) || 0
         const topupsTotal = snapTopups
           .filter(t => SUDAH_DI_LACI.includes(t.status))
@@ -256,7 +260,11 @@ export default function CashierShiftPage() {
           .filter(e => !e.deleted_at)
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
-        calculatedBalance = startPetty + topupsTotal - expensesTotal
+        const fallbackBalance = startPetty + topupsTotal - expensesTotal
+        const { data: sharedBalance, error: balanceError } = await supabase.rpc('get_petty_cash_balance', {
+          p_outlet_id: outletId,
+        })
+        calculatedBalance = balanceError ? fallbackBalance : Number(sharedBalance) || 0
         setPettyCashBalance(calculatedBalance)
       } else {
         setPettyCashBalance(0)
@@ -684,6 +692,11 @@ export default function CashierShiftPage() {
                 <p className="text-gray-500 text-sm mt-1">
                   Awal Shift: {formatRupiah(activeShift.starting_petty_cash || 0)} &middot; Dana operasional
                 </p>
+                {activeShift.admin_petty_cash_updated_at && (
+                  <p className="mt-1 text-xs font-semibold text-blue-600">
+                    Saldo disesuaikan Admin{activeShift.admin_petty_cash_note ? `: ${activeShift.admin_petty_cash_note}` : ''}
+                  </p>
+                )}
               </div>
             </div>
           </div>

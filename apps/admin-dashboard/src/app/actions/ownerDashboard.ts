@@ -188,6 +188,92 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   }
 }
 
+// ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC ────────────
+export async function getOwnerDashboardDataFast(
+  filter: PeriodFilterValue,
+  outlets: Outlet[]
+) {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: (cookiesToSet) => {
+      try {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          cookieStore.set(name, value, options as any)
+        })
+      } catch { /* SSR ignored */ }
+    }
+  })
+
+  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
+  const toEnd    = new Date(`${filter.to}T23:59:59.999+07:00`)
+
+  const { data, error } = await supabase.rpc('get_owner_dashboard_summary', {
+    p_from:           fromStart.toISOString(),
+    p_to:             toEnd.toISOString(),
+    p_outlet_id:      filter.outletId !== 'all' ? filter.outletId : null,
+    p_source:         filter.source,
+    p_test_outlet_id: TEST_OUTLET_ID,
+  })
+
+  if (error) throw new Error(`get_owner_dashboard_summary: ${error.message}`)
+
+  const result = data as {
+    kpi_rows:    Array<{
+      outlet_id: string; sales_source: string; sales_date: string
+      omzet: number; order_count: number; total_deductions: number
+    }>
+    hourly_rows: Array<{ sales_hour: number; omzet: number; order_count: number }>
+    menu_rows:   Array<{ menu_name: string; qty: number; revenue: number }>
+    total_cogs:  number
+    total_opex:  number
+  }
+
+  const nameById = new Map(outlets.map((o) => [o.id, o.name]))
+
+  const kpiRows: SalesSummaryRow[] = (result.kpi_rows ?? []).map((r) => ({
+    outlet_id:              r.outlet_id,
+    outlet_name:            nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
+    sales_source:           r.sales_source as SalesSource,
+    sales_date:             r.sales_date,
+    omzet:                  Number(r.omzet),
+    jumlah_order_completed: Number(r.order_count),
+    jumlah_order_all:       Number(r.order_count),
+    total_deductions:       Number(r.total_deductions),
+  }))
+
+  const hourMap = new Map<number, SalesHourlyRow>()
+  for (let i = 0; i < 24; i++) {
+    hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
+  }
+  for (const h of result.hourly_rows ?? []) {
+    hourMap.set(h.sales_hour, {
+      sales_hour:             h.sales_hour,
+      omzet:                  Number(h.omzet),
+      jumlah_order_completed: Number(h.order_count),
+    })
+  }
+  const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
+
+  const menuRows = (result.menu_rows ?? []).map((r) => ({
+    name:    String(r.menu_name || 'Unknown Menu').trim(),
+    qty:     Number(r.qty     || 0),
+    revenue: Number(r.revenue || 0),
+  }))
+
+  const totalCogs = Number(result.total_cogs ?? 0)
+  const totalOpex = Number(result.total_opex ?? 0)
+
+  return {
+    kpiRows,
+    hourlyRows,
+    menuRows,
+    totalCogs,
+    totalOpex,
+    totalCogsOpex: totalCogs + totalOpex,
+  }
+}
+
 /* ── Fetch REAL Petty Cash (Expenses + Shifts Starting Cash) ─────────── */
 
 export async function getPettyCashData(

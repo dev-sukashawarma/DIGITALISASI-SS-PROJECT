@@ -2,8 +2,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { presetRange, previousRange } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
-import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
-import { getAggregatedMenuSales } from '@/app/actions/menuSales'
+import { getOwnerDashboardDataFast } from '@/app/actions/ownerDashboard'
 import OwnerDashboardView from './OwnerDashboardView'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
@@ -50,13 +49,14 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     ? outlets.filter(o => o.id === lockedOutletId) 
     : outlets
 
-  // 4. Run Aggregations in parallel on Node Server
-  const [curData, prevData, menuSales, prevMenuSales] = await Promise.all([
-    getOwnerDashboardData(filter, scopedOutlets),
-    getOwnerDashboardData(prevFilter, scopedOutlets),
-    getAggregatedMenuSales(filter),
-    getAggregatedMenuSales(prevFilter),
+  // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
+  const [curData, prevData] = await Promise.all([
+    getOwnerDashboardDataFast(filter, scopedOutlets),
+    getOwnerDashboardDataFast(prevFilter, scopedOutlets),
   ])
+  // menu_rows sudah include dalam respons RPC masing-masing periode
+  const menuSales     = curData.menuRows
+  const prevMenuSales = prevData.menuRows
 
   const leaderboard = buildLeaderboard(curData.kpiRows, prevData.kpiRows)
 

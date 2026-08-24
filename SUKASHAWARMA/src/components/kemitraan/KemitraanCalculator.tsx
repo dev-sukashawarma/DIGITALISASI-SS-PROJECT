@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, useSpring, useTransform } from "motion/react";
 
+declare const gtag: (...args: unknown[]) => void;
+
 // ─── Animated Number ──────────────────────────────────────────────────────────
 
 function AnimatedNumber({
@@ -395,6 +397,7 @@ export default function KemitraanCalculator() {
               href="https://wa.me/6282299325621"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
               className="flex items-center justify-center gap-3 px-6 py-4 rounded-2xl
                          bg-[#25D366] text-white font-semibold text-sm
                          hover:bg-[#1ebe5d] transition-colors duration-200

@@ -1,0 +1,457 @@
+---
+// Route: /kemitraan/v1
+// Konten dari kemitraan-v1/src/pages/index.astro
+---
+
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Suka Shawarma — Cerita di Balik Antrian</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <style>
+    :root{
+      --cream: #F3E7D3;
+      --paper: #FFFCF5;
+      --paprika: #C1421C;
+      --paprika-dim: #9c3416;
+      --maroon: #4A1509;
+      --charcoal: #241812;
+      --ink: #2B1B12;
+      --ink-soft: rgba(43,27,18,0.62);
+      --mustard: #E3A335;
+      --line: rgba(43,27,18,0.14);
+      --radius: 4px;
+      --wrap: 1080px;
+    }
+    *{box-sizing:border-box;}
+    html{scroll-behavior:smooth;}
+    body{
+      margin:0;
+      background:var(--cream);
+      color:var(--ink);
+      font-family:'Plus Jakarta Sans', sans-serif;
+      -webkit-font-smoothing:antialiased;
+    }
+    @media (prefers-reduced-motion: reduce){
+      *{animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; scroll-behavior:auto !important;}
+    }
+    img,svg{display:block;max-width:100%;}
+    a{color:inherit;}
+    .wrap{max-width:var(--wrap); margin:0 auto; padding:0 28px;}
+    h1,h2,h3{font-family:'Fraunces', serif; font-weight:600; margin:0; letter-spacing:-0.01em;}
+    .mono{font-family:'Space Mono', monospace;}
+    .eyebrow{
+      display:inline-flex; align-items:center; gap:8px;
+      font-family:'Space Mono', monospace; font-size:12px; letter-spacing:0.14em;
+      text-transform:uppercase; color:var(--paprika); margin-bottom:18px;
+    }
+    .eyebrow::before{content:""; width:18px; height:1px; background:var(--paprika);}
+    header{position:relative; z-index:5; padding:26px 0 0;}
+    header .wrap{display:flex; align-items:center; justify-content:space-between;}
+    .wordmark{font-family:'Fraunces', serif; font-weight:600; font-size:19px; color:var(--maroon); letter-spacing:-0.01em;}
+    .wordmark span{color:var(--paprika);}
+    header .tag{font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.1em; color:var(--ink-soft); text-transform:uppercase;}
+    .hero{position:relative; overflow:hidden; padding:64px 0 90px;}
+    .hero-rig{position:absolute; right:-120px; top:-60px; width:520px; height:520px; opacity:0.5; pointer-events:none;}
+    .hero-rig svg{width:100%; height:100%; animation:spin 90s linear infinite;}
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+    .hero-inner{position:relative; max-width:760px;}
+    .hero h1{font-size:clamp(34px, 5.6vw, 62px); line-height:1.06; color:var(--maroon);}
+    .hero h1 em{font-style:italic; color:var(--paprika);}
+    .hero p.lede{font-size:18px; line-height:1.6; color:var(--ink-soft); max-width:540px; margin:26px 0 0;}
+    .hero .scrollcue{margin-top:46px; display:inline-flex; align-items:center; gap:10px; font-family:'Space Mono', monospace; font-size:12px; letter-spacing:0.08em; color:var(--maroon); text-decoration:none; border-bottom:1px solid var(--paprika); padding-bottom:3px;}
+    .hero .scrollcue .arrow{display:inline-block; animation:bob 1.6s ease-in-out infinite;}
+    @keyframes bob{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(4px);} }
+    .stat-strip{border-top:1px solid var(--line); border-bottom:1px solid var(--line); background:var(--paper);}
+    .stat-strip .wrap{display:grid; grid-template-columns:repeat(4,1fr);}
+    .stat-strip .stat{padding:26px 20px; text-align:center; border-right:1px solid var(--line);}
+    .stat-strip .stat:last-child{border-right:none;}
+    .stat .num{font-family:'Fraunces', serif; font-weight:600; font-size:30px; color:var(--maroon);}
+    .stat .lbl{font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.06em; color:var(--ink-soft); margin-top:6px; text-transform:uppercase;}
+    section{padding:96px 0;}
+    .section-head{max-width:640px; margin-bottom:52px;}
+    .section-head h2{font-size:clamp(26px,3.4vw,38px); color:var(--maroon);}
+    .section-head p{color:var(--ink-soft); font-size:16px; line-height:1.65; margin-top:14px;}
+    .story-grid{display:grid; grid-template-columns:1.1fr 0.9fr; gap:64px; align-items:start;}
+    .story-grid blockquote{font-family:'Fraunces', serif; font-style:italic; font-size:22px; line-height:1.5; color:var(--maroon); margin:0; padding-left:22px; border-left:2px solid var(--paprika);}
+    .story-grid p{color:var(--ink-soft); font-size:16px; line-height:1.75; margin:0 0 16px;}
+    .story-side{background:var(--charcoal); color:#F3E7D3; border-radius:var(--radius); padding:30px; font-family:'Space Mono', monospace; font-size:13px; line-height:2;}
+    .story-side .row{display:flex; justify-content:space-between; border-bottom:1px dashed rgba(243,231,211,0.25); padding:6px 0;}
+    .story-side .row:last-child{border-bottom:none;}
+    .story-side .row b{color:var(--mustard); font-weight:700;}
+    .reveal-band{background:var(--maroon); color:var(--cream); padding:80px 0;}
+    .reveal-band .wrap{max-width:720px;}
+    .reveal-band .eyebrow{color:var(--mustard);}
+    .reveal-band .eyebrow::before{background:var(--mustard);}
+    .reveal-band h2{color:var(--cream); font-size:clamp(24px,3.2vw,34px); line-height:1.3;}
+    .reveal-band h2 em{color:var(--mustard); font-style:italic;}
+    .reveal-band p{color:rgba(243,231,211,0.78); font-size:16px; line-height:1.7; margin-top:18px; max-width:560px;}
+    .receipt-wrap{display:flex; justify-content:center;}
+    .receipt{background:var(--paper); width:100%; max-width:400px; box-shadow:0 24px 50px -18px rgba(74,21,9,0.25); padding:30px 28px 6px; font-family:'Space Mono', monospace; position:relative;}
+    .receipt::after{content:""; display:block; height:16px; margin-top:14px; background:linear-gradient(135deg, transparent 50%, var(--cream) 52%) 0 0/16px 16px repeat-x,linear-gradient(-135deg, transparent 50%, var(--cream) 52%) 0 0/16px 16px repeat-x; background-position: 0 0, 8px 0;}
+    .receipt-top{text-align:center; padding-bottom:16px; border-bottom:1px dashed var(--line);}
+    .receipt-top .rs{font-size:14px; letter-spacing:0.14em; font-weight:700; color:var(--maroon);}
+    .receipt-top .rd{font-size:10px; letter-spacing:0.1em; color:var(--ink-soft); margin-top:4px; text-transform:uppercase;}
+    .receipt-line{display:flex; justify-content:space-between; gap:12px; font-size:12.5px; padding:11px 0; border-bottom:1px dotted var(--line); color:var(--ink);}
+    .receipt-line span:first-child{color:var(--ink-soft);}
+    .receipt-total{display:flex; justify-content:space-between; align-items:baseline; padding:16px 0 14px; margin-top:4px; border-top:2px solid var(--ink);}
+    .receipt-total .l{font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink-soft);}
+    .receipt-total .v{font-size:26px; font-weight:700; color:var(--paprika);}
+    .receipt-note{font-size:10px; color:var(--ink-soft); text-align:center; padding:10px 0 4px; letter-spacing:0.02em;}
+    .menu-utama{display:grid; grid-template-columns:0.95fr 1.05fr; gap:60px; align-items:center;}
+    .menu-utama .copy p{color:var(--ink-soft); font-size:16px; line-height:1.75; margin:0 0 16px;}
+    .menu-utama .copy ul{margin:22px 0 0; padding:0; list-style:none;}
+    .menu-utama .copy li{display:flex; gap:12px; align-items:flex-start; font-size:14.5px; color:var(--ink); padding:10px 0; border-bottom:1px solid var(--line);}
+    .menu-utama .copy li:last-child{border-bottom:none;}
+    .menu-utama .copy li .dot{width:6px; height:6px; border-radius:50%; background:var(--paprika); margin-top:7px; flex:none;}
+    .fase-grid{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+    .fase-card{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); padding:34px 30px;}
+    .fase-card .fase-tag{font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:var(--paprika); margin-bottom:14px; display:block;}
+    .fase-card h3{font-size:22px; color:var(--maroon); margin-bottom:10px;}
+    .fase-card p{color:var(--ink-soft); font-size:14.5px; line-height:1.65; margin:0;}
+    .fase-card.two{background:var(--charcoal); border-color:var(--charcoal);}
+    .fase-card.two h3, .fase-card.two .fase-tag{color:var(--mustard);}
+    .fase-card.two p{color:rgba(243,231,211,0.75);}
+    .paket-grid{display:grid; grid-template-columns:1fr 1fr; gap:26px;}
+    .paket-card{background:var(--paper); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden;}
+    .paket-head{padding:26px 28px; border-bottom:1px solid var(--line);}
+    .paket-head .kicker{font-family:'Space Mono', monospace; font-size:11px; letter-spacing:0.1em; color:var(--ink-soft); text-transform:uppercase;}
+    .paket-head h3{font-size:24px; color:var(--maroon); margin-top:8px;}
+    .paket-head .price{font-family:'Fraunces', serif; font-weight:600; font-size:30px; color:var(--paprika); margin-top:10px;}
+    .paket-body{padding:6px 28px 26px;}
+    .paket-body .li{display:flex; justify-content:space-between; font-size:13.5px; padding:11px 0; border-bottom:1px dotted var(--line);}
+    .paket-body .li:last-child{border-bottom:none;}
+    .paket-body .li span:first-child{color:var(--ink-soft);}
+    .paket-body .li span:last-child{font-family:'Space Mono', monospace; color:var(--ink);}
+    .antrian-strip{display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1px solid var(--line); background:var(--paper);}
+    .antrian-item{padding:32px 26px; border-right:1px solid var(--line); position:relative;}
+    .antrian-item:last-child{border-right:none;}
+    .antrian-item .no{font-family:'Space Mono', monospace; font-size:12px; color:var(--paprika); background:rgba(193,66,28,0.08); display:inline-block; padding:3px 9px; border-radius:2px; margin-bottom:16px; letter-spacing:0.05em;}
+    .antrian-item h3{font-size:16.5px; color:var(--maroon); margin-bottom:8px;}
+    .antrian-item p{font-size:13.5px; color:var(--ink-soft); line-height:1.55; margin:0;}
+    .faq-item{border-bottom:1px solid var(--line);}
+    .faq-q{width:100%; text-align:left; background:none; border:none; cursor:pointer; padding:22px 0; display:flex; justify-content:space-between; align-items:center; font-family:'Fraunces', serif; font-size:17px; color:var(--maroon); gap:20px;}
+    .faq-q .plus{font-family:'Space Mono', monospace; font-size:18px; color:var(--paprika); transition:transform 0.25s ease; flex:none;}
+    .faq-item.open .faq-q .plus{transform:rotate(45deg);}
+    .faq-a{max-height:0; overflow:hidden; transition:max-height 0.3s ease;}
+    .faq-a p{color:var(--ink-soft); font-size:14.5px; line-height:1.7; margin:0 0 22px; max-width:640px;}
+    .penutup{background:var(--charcoal); color:var(--cream); text-align:center;}
+    .penutup .wrap{max-width:600px;}
+    .penutup .eyebrow{color:var(--mustard); justify-content:center;}
+    .penutup .eyebrow::before{background:var(--mustard);}
+    .penutup h2{color:var(--paper); font-size:clamp(26px,3.6vw,40px); line-height:1.25;}
+    .penutup h2 em{color:var(--mustard); font-style:italic;}
+    .penutup p{color:rgba(243,231,211,0.72); font-size:16px; line-height:1.7; margin:20px auto 32px; max-width:480px;}
+    .btn{display:inline-flex; align-items:center; gap:10px; background:var(--paprika); color:var(--paper); text-decoration:none; padding:15px 30px; border-radius:2px; font-weight:600; font-size:15px; transition:background 0.2s ease;}
+    .btn:hover{background:var(--paprika-dim);}
+    .penutup .contact{margin-top:34px; font-family:'Space Mono', monospace; font-size:12.5px; color:rgba(243,231,211,0.55);}
+    footer{padding:30px 0; text-align:center; font-family:'Space Mono', monospace; font-size:11px; color:var(--ink-soft);}
+    footer .legal{max-width:640px; margin:0 auto 16px; font-family:'Plus Jakarta Sans',sans-serif; font-size:11.5px; line-height:1.7; color:var(--ink-soft);}
+    @media (max-width:860px){
+      .story-grid, .menu-utama{grid-template-columns:1fr; gap:34px;}
+      .fase-grid, .paket-grid{grid-template-columns:1fr;}
+      .stat-strip .wrap{grid-template-columns:1fr 1fr;}
+      .stat-strip .stat:nth-child(2){border-right:none;}
+      .antrian-strip{grid-template-columns:1fr 1fr;}
+      .antrian-item:nth-child(2){border-right:none;}
+      .antrian-item:nth-child(3), .antrian-item:nth-child(4){border-top:1px solid var(--line);}
+      .hero-rig{display:none;}
+    }
+    @media (max-width:520px){
+      .antrian-strip{grid-template-columns:1fr;}
+      .antrian-item{border-right:none !important; border-top:1px solid var(--line);}
+      .antrian-item:first-child{border-top:none;}
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="wordmark">Suka<span>Shawarma</span></div>
+    <div class="tag">Bogor — Jabodetabek</div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-rig" aria-hidden="true">
+    <svg viewBox="0 0 200 200">
+      <circle cx="100" cy="100" r="94" fill="none" stroke="#4A1509" stroke-opacity="0.12" stroke-width="1"/>
+      <circle cx="100" cy="100" r="74" fill="none" stroke="#C1421C" stroke-opacity="0.18" stroke-width="1"/>
+      <circle cx="100" cy="100" r="54" fill="none" stroke="#E3A335" stroke-opacity="0.25" stroke-width="1"/>
+      <g stroke="#4A1509" stroke-opacity="0.15">
+        <line x1="100" y1="6" x2="100" y2="26"/>
+        <line x1="100" y1="174" x2="100" y2="194"/>
+        <line x1="6" y1="100" x2="26" y2="100"/>
+        <line x1="174" y1="100" x2="194" y2="100"/>
+      </g>
+    </svg>
+  </div>
+  <div class="wrap">
+    <div class="hero-inner">
+      <h1>Setiap antrian yang kamu lihat, <em>ada yang ngelolanya dari rumah.</em></h1>
+      <p class="lede">20+ outlet Suka Shawarma jalan tiap hari di Jabodetabek. Sebagian dipegang orang yang latar belakangnya bukan kuliner sama sekali — cuma cek laporan lewat HP. Ini ceritanya.</p>
+      <p style="font-family:'Space Mono', monospace; font-size:11px; color:var(--ink-soft); margin-top:14px; letter-spacing:0.02em;">*Kerja sama bisnis F&amp;B (bagi hasil operasional), bukan produk investasi finansial. Hasil bervariasi per lokasi.</p>
+      <a href="#pembuka" class="scrollcue">Baca ceritanya <span class="arrow">↓</span></a>
+    </div>
+  </div>
+</section>
+
+<div class="stat-strip">
+  <div class="wrap">
+    <div class="stat"><div class="num">20+</div><div class="lbl">Outlet Aktif</div></div>
+    <div class="stat"><div class="num">Mei '24</div><div class="lbl">Mulai di Bogor</div></div>
+    <div class="stat"><div class="num">28K+</div><div class="lbl">Followers IG</div></div>
+    <div class="stat"><div class="num">Halal</div><div class="lbl">Sertifikasi MUI</div></div>
+  </div>
+</div>
+
+<section id="pembuka">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Pembuka</span>
+      <h2>Dari satu gerobak di Bogor, jadi 20 titik lebih</h2>
+    </div>
+    <div class="story-grid">
+      <div>
+        <blockquote>"Menghadirkan pengalaman kuliner Timur Tengah ke jalanan Indonesia — harga terjangkau, kualitas tetap dijaga."</blockquote>
+        <p style="margin-top:26px;">Suka Shawarma mulai Mei 2024 di Bogor. Nggak sampai dua tahun, sekarang ada di lebih dari 20 titik se-Jabodetabek — Empang, Cimanggu, Cibinong, Tebet, Sawangan, Beji, Jatiasih, dan terus bertambah.</p>
+        <p>Yang bikin tiap outlet ramai bukan kebetulan. Ada sistem operasional, training, sampai marketing yang jalan di belakang layar — dan itu yang bikin sebagian outletnya bisa dipegang orang yang bahkan nggak pernah megang bisnis makanan sebelumnya.</p>
+      </div>
+      <div class="story-side">
+        <div class="row"><span>Didirikan</span><b>Mei 2024, Bogor</b></div>
+        <div class="row"><span>Outlet aktif</span><b>20+ titik</b></div>
+        <div class="row"><span>Cakupan</span><b>Jabodetabek</b></div>
+        <div class="row"><span>Sertifikasi</span><b>Halal MUI</b></div>
+        <div class="row"><span>Harga menu</span><b>Mulai 20rb-an</b></div>
+        <div class="row"><span>Basis follower</span><b>28.000+ IG</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="reveal-band">
+  <div class="wrap">
+    <span class="eyebrow">Ternyata</span>
+    <h2>Outlet-outlet itu <em>dipegang orang lain</em> — bukan tim inti Suka Shawarma.</h2>
+    <p>Di internal, ini yang biasa disebut kemitraan. Tapi praktiknya sederhana: kamu yang nitip modal dan nama di outletnya, tim kami yang jalanin operasional harian — dari rekrut staf, produksi, sampai laporan bulanan. Kamu yang berpotensi menikmati hasilnya, bukan pekerjaannya. Hasil operasional outlet sendiri tetap tergantung lokasi dan kondisi pasar — bukan sesuatu yang bisa dijamin di muka.</p>
+  </div>
+</div>
+
+<section>
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Menu Utama</span>
+      <h2>Angkanya, biar nggak cuma cerita</h2>
+      <p>Ini simulasi berdasarkan performa rata-rata outlet aktif kami — bukan proyeksi optimis di atas kertas.</p>
+    </div>
+    <div class="menu-utama">
+      <div class="copy">
+        <p>Struk di samping ini simulasi satu outlet paket <b>Own Location</b> — kamu sudah punya lokasi, tim kami yang setup dan jalanin sisanya.</p>
+        <ul>
+          <li><span class="dot"></span><span>Fase 1: 100% net profit jadi hak kamu sampai modal balik — nggak ada potongan royalty.</span></li>
+          <li><span class="dot"></span><span>Fase 2: setelah BEP, laba bersih dibagi 50:50 tiap bulan, tanpa keterlibatan operasional dari kamu.</span></li>
+          <li><span class="dot"></span><span>Nol persen royalty fee dan nol potongan omzet di kedua fase.</span></li>
+        </ul>
+      </div>
+      <div class="receipt-wrap">
+        <div class="receipt">
+          <div class="receipt-top">
+            <div class="rs">SUKA SHAWARMA</div>
+            <div class="rd">Struk Simulasi — Paket Own Location</div>
+          </div>
+          <div class="receipt-line"><span>Modal Investasi</span><span>Rp 125.000.000</span></div>
+          <div class="receipt-line"><span>Estimasi Omzet / Bulan</span><span>Rp 75.000.000</span></div>
+          <div class="receipt-line"><span>Margin Profit Bersih</span><span>30%</span></div>
+          <div class="receipt-line"><span>Estimasi BEP</span><span>~6 Bulan</span></div>
+          <div class="receipt-line"><span>Bagi Hasil / Bulan (Fase 2)</span><span>Rp 11,4 Jt</span></div>
+          <div class="receipt-total"><span class="l">Estimasi ROI 5 Tahun*</span><span class="v">~456%</span></div>
+          <div class="receipt-note">*Simulasi, bukan jaminan hasil. Berdasarkan rata-rata performa outlet aktif — hasil aktual bervariasi per lokasi, dan performa masa lalu tidak menjamin hasil di masa depan.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Skema Bagi Hasil</span>
+      <h2>2 fase, satu urutan: kamu untung dulu</h2>
+    </div>
+    <div class="fase-grid">
+      <div class="fase-card">
+        <span class="fase-tag">Fase 1 — Sebelum BEP</span>
+        <h3>100% net profit untukmu</h3>
+        <p>Seluruh keuntungan bersih outlet jadi hakmu sepenuhnya. Nggak ada potongan royalty fee sama sekali sampai modal balik.</p>
+      </div>
+      <div class="fase-card two">
+        <span class="fase-tag">Fase 2 — Setelah BEP</span>
+        <h3>50 : 50, sampai kontrak habis</h3>
+        <p>Setelah modal kembali penuh, laba bersih dibagi rata tiap bulan. Kamu terima passive income tanpa perlu terlibat operasional apapun.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Pilihan Paket</span>
+      <h2>Dua cara mulai, tergantung lokasimu</h2>
+      <p>Semua paket sudah termasuk setup outlet, training staf, branding, dan pendampingan operasional penuh.</p>
+    </div>
+    <div class="paket-grid">
+      <div class="paket-card">
+        <div class="paket-head">
+          <div class="kicker">SS Sediakan Lokasi</div>
+          <h3>Paket Standard</h3>
+          <div class="price">Rp 150 Jt</div>
+        </div>
+        <div class="paket-body">
+          <div class="li"><span>License Fee</span><span>Rp 25 Jt</span></div>
+          <div class="li"><span>RSF — Stok Bahan Baku</span><span>Rp 50 Jt</span></div>
+          <div class="li"><span>Equipment + POS</span><span>Rp 25 Jt</span></div>
+          <div class="li"><span>Renovasi &amp; Dekorasi</span><span>Rp 25 Jt</span></div>
+          <div class="li"><span>Sewa Lokasi Tahun 1</span><span>Included</span></div>
+          <div class="li"><span>Sewa Bulanan (Th 2+)</span><span>~Rp 2,5 Jt</span></div>
+        </div>
+      </div>
+      <div class="paket-card">
+        <div class="paket-head">
+          <div class="kicker">Mitra Punya Lokasi</div>
+          <h3>Paket Own Location</h3>
+          <div class="price">Rp 125 Jt</div>
+        </div>
+        <div class="paket-body">
+          <div class="li"><span>License Fee</span><span>Rp 25 Jt</span></div>
+          <div class="li"><span>RSF — Stok Bahan Baku</span><span>Rp 50 Jt</span></div>
+          <div class="li"><span>Equipment + POS</span><span>Rp 25 Jt</span></div>
+          <div class="li"><span>Renovasi &amp; Dekorasi</span><span>Rp 25 Jt</span></div>
+          <div class="li"><span>Sewa Lokasi</span><span>Tidak berlaku</span></div>
+          <div class="li"><span>Sewa Bulanan</span><span>Gratis selamanya</span></div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:12.5px; color:var(--ink-soft); margin-top:18px;">RSF (Revolving Stock Fund): dana stok bahan baku dikelola penuh oleh tim kami — kamu nggak perlu belanja bahan baku sama sekali.</p>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Prosesnya</span>
+      <h2>Empat nomor antrian sampai outletmu buka</h2>
+    </div>
+    <div class="antrian-strip">
+      <div class="antrian-item">
+        <span class="no">NO. 01</span>
+        <h3>Konsultasi &amp; Survey</h3>
+        <p>Diskusi rencana lokasi dan kelayakan bisnis bareng tim kami.</p>
+      </div>
+      <div class="antrian-item">
+        <span class="no">NO. 02</span>
+        <h3>Tanda Tangan MoU</h3>
+        <p>Setelah sepakat, lanjut ke perjanjian kerja sama resmi.</p>
+      </div>
+      <div class="antrian-item">
+        <span class="no">NO. 03</span>
+        <h3>Setup &amp; Training</h3>
+        <p>Tim kami dampingi setup outlet dan latih tim di lapangan.</p>
+      </div>
+      <div class="antrian-item">
+        <span class="no">NO. 04</span>
+        <h3>Buka &amp; Pantau</h3>
+        <p>Outlet resmi buka, performa dipantau tim kami tiap hari.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section style="padding-top:0;">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Yang Sering Ditanya</span>
+      <h2>Sebelum kamu tanya, ini dulu</h2>
+    </div>
+    <div class="faq-list">
+      <div class="faq-item">
+        <button class="faq-q"><span>Perlu pengalaman bisnis makanan nggak?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Nggak perlu sama sekali. Tim operasional kami yang urus SDM, produksi, sampai pelayanan pelanggan — kamu cukup pantau laporan.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q"><span>Gimana mekanisme bagi hasil 50:50-nya?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Fase 1 dari bulan pertama sampai BEP (~6 bulan): 100% net profit jadi hakmu. Fase 2 setelah BEP: laba bersih dibagi 50:50 tiap bulan. Nggak ada potongan omzet atau royalty fee di kedua fase.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q"><span>Ada royalty fee atau biaya tahunan?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Nggak ada royalty fee maupun management fee, dan nggak ada potongan dari omzet sama sekali di kedua fase.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q"><span>Berapa lama dari daftar sampai outlet buka?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Rata-rata 4–8 minggu dari tanda tangan MoU sampai grand opening, tergantung kesiapan lokasi dan perizinan setempat.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q"><span>Bedanya Paket Standard vs Own Location apa?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Standard (Rp 150 Jt): kami sediakan lokasi, sewa tahun pertama sudah termasuk, tahun berikutnya ada sewa bulanan sekitar Rp 2,5 Jt. Own Location (Rp 125 Jt): cocok kalau kamu sudah punya lokasi sendiri — nggak ada biaya sewa tambahan. Skema bagi hasilnya sama untuk keduanya.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q"><span>Boleh pilih lokasi outlet sendiri?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Boleh, tapi tim kami tetap survey dan analisis kelayakan lokasinya dulu sebelum dieksekusi, biar potensi bisnisnya optimal.</p></div>
+      </div>
+      <div class="faq-item">
+        <button class="faq-q"><span>Setelah kontrak 5 tahun habis, gimana?</span><span class="plus">+</span></button>
+        <div class="faq-a"><p>Kontrak bisa diperpanjang atas kesepakatan bersama. Aset fisik seperti peralatan dan renovasi tetap jadi milikmu sesuai perjanjian awal.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="penutup">
+  <div class="wrap">
+    <span class="eyebrow">Penutup</span>
+    <h2>Kalau kamu penasaran gimana rasanya, <em>ngobrol aja dulu.</em></h2>
+    <p>Nggak ada paksaan, nggak ada DP di awal. Kami cerita dulu, kamu yang tentuin.</p>
+    <a href="https://wa.me/6282299325621" target="_blank" rel="noopener noreferrer" class="btn" onclick="gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'});">Chat WhatsApp Kami &rarr;</a>
+    <div class="contact">+62 822-9932-5621 &nbsp;&middot;&nbsp; kemitraan@sukashawarma.com</div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p class="legal">
+      Halaman ini menawarkan kerja sama kemitraan bisnis F&amp;B (bagi hasil operasional outlet), bukan produk investasi, sekuritas, atau instrumen keuangan. Seluruh angka (omzet, margin, BEP, estimasi ROI) adalah simulasi berdasarkan rata-rata performa outlet aktif dan bukan jaminan hasil di masa depan. Performa aktual dapat berbeda tergantung lokasi, kondisi pasar, dan faktor operasional lainnya. Diselenggarakan oleh PT Suka Profit Berkah.
+    </p>
+    &copy; 2024&ndash;2026 Suka Shawarma &mdash; Bogor, Jabodetabek. Halal MUI Certified.
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.faq-item').forEach(function(item) {
+    var q = item.querySelector('.faq-q');
+    var a = item.querySelector('.faq-a') as HTMLElement;
+    q.addEventListener('click', function() {
+      var isOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item.open').forEach(function(other) {
+        if (other !== item) {
+          other.classList.remove('open');
+          (other.querySelector('.faq-a') as HTMLElement).style.maxHeight = '';
+        }
+      });
+      if (isOpen) {
+        item.classList.remove('open');
+        a.style.maxHeight = '';
+      } else {
+        item.classList.add('open');
+        a.style.maxHeight = a.scrollHeight + 'px';
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

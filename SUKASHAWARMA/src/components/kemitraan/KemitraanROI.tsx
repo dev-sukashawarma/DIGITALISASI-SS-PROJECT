@@ -1,3 +1,5 @@
+declare const gtag: (...args: unknown[]) => void;
+
 export default function KemitraanROI() {
   return (
     <section id="roi" className="py-14 lg:py-28 bg-[#FAF7F2]">
@@ -81,6 +83,7 @@ export default function KemitraanROI() {
               href="https://wa.me/6282299325621"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
               className="shrink-0 w-full md:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full
                          bg-[#25D366] text-white font-semibold text-sm
                          hover:bg-[#1ebe5d] transition-colors duration-200"

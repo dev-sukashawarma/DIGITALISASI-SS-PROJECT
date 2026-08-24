@@ -1,3 +1,5 @@
+declare const gtag: (...args: unknown[]) => void;
+
 export default function KemitraanPackages() {
   return (
     <section id="paket" className="py-14 lg:py-28 bg-[#FAF7F2]">
@@ -105,6 +107,7 @@ export default function KemitraanPackages() {
         <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-4xl mx-auto mb-5">
           <a href="https://wa.me/6282299325621"
              target="_blank" rel="noopener noreferrer"
+             onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
              className="flex-1 inline-flex items-center justify-center px-6 py-3.5 rounded-full
                         min-h-[48px]
                         bg-[#6E1A10] text-white font-semibold text-sm
@@ -113,6 +116,7 @@ export default function KemitraanPackages() {
           </a>
           <a href="https://wa.me/6282299325621"
              target="_blank" rel="noopener noreferrer"
+             onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
              className="flex-1 inline-flex items-center justify-center px-6 py-3.5 rounded-full
                         min-h-[48px]
                         bg-[#FE7108] text-white font-semibold text-sm

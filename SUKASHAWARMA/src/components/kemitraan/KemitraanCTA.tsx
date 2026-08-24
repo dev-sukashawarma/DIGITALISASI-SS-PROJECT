@@ -1,3 +1,5 @@
+declare const gtag: (...args: unknown[]) => void;
+
 export default function KemitraanCTA() {
   return (
     <section className="py-14 lg:py-28 bg-[#6E1A10] relative overflow-hidden">
@@ -28,6 +30,7 @@ export default function KemitraanCTA() {
           href="https://wa.me/6282299325621"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => { if(typeof gtag !== 'undefined') gtag('event', 'conversion', {'send_to': 'AW-11522229721/18NOCPO46eYcENmLnfYq','value': 1.0,'currency': 'IDR'}); }}
           className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-10 py-4
                      rounded-full bg-[#25D366] text-white font-semibold text-base
                      min-h-[52px]

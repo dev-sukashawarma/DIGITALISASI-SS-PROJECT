@@ -1,7 +1,6 @@
-// @ts-nocheck
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
@@ -10,372 +9,1007 @@ import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { useDistribusiRealtime } from '@/hooks/useDistribusiRealtime'
 import { BottomNav } from './BottomNav'
 import { PrinterStatus } from './PrinterStatus'
-import { ArrowLeft, Plus, Calendar, AlertCircle, FileDown, Eye, Check, QrCode, Printer } from 'lucide-react'
+import {
+  ArrowLeft,
+  Plus,
+  Calendar,
+  AlertCircle,
+  FileDown,
+  Eye,
+  Check,
+  QrCode,
+  Printer,
+  Search,
+  X,
+  Grid3X3,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  Truck,
+  Store,
+  Clock,
+  ShieldCheck,
+  ArrowRight,
+  FileText,
+  AlertTriangle,
+  ArrowUpDown,
+  Copy,
+  Package,
+  Layers,
+  Sparkles
+} from 'lucide-react'
 import { Skeleton } from '@suka/design-system'
 import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
+import { toast } from 'sonner'
 
-function FormattedDate({ iso }: { iso: string | null | undefined }) {
-  const text = useFormattedDate(iso, {
+function FormattedDate({ iso, showTime }: { iso: string | null | undefined; showTime?: boolean }) {
+  const dateText = useFormattedDate(iso, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   })
-  return <>{text}</>
+  
+  if (!iso) return <>-</>
+  
+  if (showTime) {
+    const timeText = new Date(iso).toLocaleTimeString('id-ID', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    return <>{dateText} • {timeText}</>
+  }
+
+  return <>{dateText}</>
 }
 
 type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
+type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
+type SortOption = 'newest' | 'oldest' | 'outlet_asc' | 'status'
+type ViewMode = 'grid' | 'table'
+
+const ITEMS_PER_PAGE = 12
 
 export function SuratJalanList() {
   const router = useRouter()
   const { outletStaff } = useAuth()
+  
+  // States
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
-  const { data, loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
-  useDistribusiRealtime()
+  const [statusTab, setStatusTab] = useState<StatusTab>('all')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<SortOption>('newest')
+  const [viewMode, setViewMode] = useState<ViewMode>('grid')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
-  const handleDownloadBarcode = async (sjId: string, docNumber: string) => {
-    const { generateQRDataUrl, downloadBarcode } = await import('@/utils/generatePDF')
-    const url = `${window.location.origin}/distribusi/terima/${sjId}`
-    const dataUrl = await generateQRDataUrl(url, 400)
-    downloadBarcode(`Barcode-SJ-${docNumber}.png`, dataUrl)
+  // Realtime sync & Data query
+  useDistribusiRealtime()
+  const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
+
+  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
+
+  // Discrepancy & Selisih count
+  const problemCount = useMemo(() => {
+    return data.filter((sj) => sj.has_problem).length
+  }, [data])
+
+  // Extract unique outlet list for dropdown filter
+  const outletOptions = useMemo(() => {
+    const set = new Set<string>()
+    data.forEach((sj) => {
+      if (sj.outlet?.name) set.add(sj.outlet.name)
+    })
+    return Array.from(set).sort()
+  }, [data])
+
+  // Filter & Sort Pipeline
+  const filteredData = useMemo(() => {
+    let result = [...data]
+
+    // Status Tab Filter
+    if (statusTab === 'draft') {
+      result = result.filter((sj) => sj.status === 'draft')
+    } else if (statusTab === 'dikirim') {
+      result = result.filter((sj) => sj.status === 'dikirim' || sj.status === 'dikirim_lengkap')
+    } else if (statusTab === 'belum_verif') {
+      result = result.filter((sj) => sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian')
+    } else if (statusTab === 'selisih') {
+      result = result.filter((sj) => sj.has_problem)
+    } else if (statusTab === 'selesai') {
+      result = result.filter((sj) => sj.status === 'selesai')
+    }
+
+    // Outlet Filter
+    if (selectedOutlet !== 'all') {
+      result = result.filter((sj) => sj.outlet?.name === selectedOutlet)
+    }
+
+    // Search Query (Document number or Outlet Name)
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim()
+      result = result.filter((sj) => {
+        const docNum = (sj.document_number || sj.id || '').toLowerCase()
+        const outName = (sj.outlet?.name || '').toLowerCase()
+        return docNum.includes(q) || outName.includes(q)
+      })
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      if (sortBy === 'newest') {
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+      if (sortBy === 'oldest') {
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      }
+      if (sortBy === 'outlet_asc') {
+        const nameA = a.outlet?.name || ''
+        const nameB = b.outlet?.name || ''
+        return nameA.localeCompare(nameB)
+      }
+      if (sortBy === 'status') {
+        return a.status.localeCompare(b.status)
+      }
+      return 0
+    })
+
+    return result
+  }, [data, statusTab, selectedOutlet, searchQuery, sortBy])
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / ITEMS_PER_PAGE))
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredData.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredData, currentPage])
+
+  // Reset page when filter changes
+  const handleTabChange = (tab: StatusTab) => {
+    setStatusTab(tab)
+    setCurrentPage(1)
   }
 
-  const handlePrintBarcode = async (sjId: string, docNumber: string, tanggal: string, tujuanOutlet: string, verificationCode?: string) => {
+  const handleSearchChange = (val: string) => {
+    setSearchQuery(val)
+    setCurrentPage(1)
+  }
+
+  const handleCopyDocNumber = (e: React.MouseEvent, docNum: string) => {
+    e.stopPropagation()
+    navigator.clipboard.writeText(docNum)
+    setCopiedId(docNum)
+    toast.success(`No. SJ ${docNum} disalin ke clipboard!`)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
+  // QR Code & Barcode Handlers
+  const handleDownloadBarcode = async (e: React.MouseEvent, sjId: string, docNumber: string) => {
+    e.stopPropagation()
+    try {
+      toast.info('Mengunduh QR Code...')
+      const { generateQRDataUrl, downloadBarcode } = await import('@/utils/generatePDF')
+      const url = `${window.location.origin}/distribusi/terima/${sjId}`
+      const dataUrl = await generateQRDataUrl(url, 400)
+      downloadBarcode(`Barcode-SJ-${docNumber}.png`, dataUrl)
+      toast.success('QR Code berhasil diunduh!')
+    } catch {
+      toast.error('Gagal mengunduh QR Code')
+    }
+  }
+
+  const handlePrintBarcode = async (
+    e: React.MouseEvent,
+    sjId: string,
+    docNumber: string,
+    tanggal: string,
+    tujuanOutlet: string,
+    verificationCode?: string
+  ) => {
+    e.stopPropagation()
     const { generateQRDataUrl, printBarcode } = await import('@/utils/generatePDF')
     const { fetchPrintLayout, DEFAULT_PRINT_LAYOUT } = await import('@/utils/printLayout')
     const url = `${window.location.origin}/distribusi/terima/${sjId}`
     const dataUrl = await generateQRDataUrl(url, 400)
     const layout = await fetchPrintLayout(createSupabaseBrowserClient()).catch(() => DEFAULT_PRINT_LAYOUT)
-    
+
     // Check if bluetooth printer is connected
     const { usePrinterStore } = await import('@/utils/printer/printerStore')
     const store = usePrinterStore.getState()
-    
+
     if (store.device && store.characteristic) {
       try {
         const { printQRViaBluetooth } = await import('@/utils/printer/bluetooth-printer')
         await printQRViaBluetooth(docNumber, dataUrl, layout.qr_surat_jalan, { tanggal, tujuanOutlet, verificationCode })
+        toast.success('Berhasil mencetak via Bluetooth!')
         return
       } catch (err: any) {
-        alert('Gagal cetak via Bluetooth: ' + err.message)
+        toast.error(`Gagal cetak via Bluetooth: ${err?.message || 'Error'}`)
       }
     }
-    
-    // Fallback to browser print if no bluetooth or bluetooth failed
+
+    // Fallback to browser print
     printBarcode(docNumber, dataUrl, layout.qr_surat_jalan, { tanggal, tujuanOutlet, verificationCode })
   }
 
-  const handleDownloadPDF = async (sjId: string) => {
-    const { generateSuratJalanPDF, downloadPDF } = await import('@/utils/generatePDF')
-    const supabase = createSupabaseBrowserClient()
+  // PDF Handlers (Default 3-Ply 14x12 cm format)
+  const handleDownloadPDF = async (e: React.MouseEvent, sjId: string, docNumber?: string) => {
+    e.stopPropagation()
+    try {
+      toast.info('Menyiapkan file PDF Surat Jalan 3-Ply (14 x 12 cm)...')
+      const { generateSuratJalanPDF, downloadPDF } = await import('@/utils/generatePDF')
+      const supabase = createSupabaseBrowserClient()
 
-    // Fetch full surat jalan detail with items
-    const { data: sj } = await supabase
-      .from('surat_jalan')
-      .select('*')
-      .eq('id', sjId)
-      .single()
+      const { data: sj } = await supabase.from('surat_jalan').select('*').eq('id', sjId).single()
+      if (!sj) {
+        toast.error('Surat Jalan tidak ditemukan')
+        return
+      }
 
-    if (!sj) {
-      alert('Surat Jalan tidak ditemukan')
-      return
+      const { data: items, error: itemsError } = await supabase
+        .from('surat_jalan_item')
+        .select('*, bahan_baku(id, nama, satuan)')
+        .eq('surat_jalan_id', sjId)
+
+      if (itemsError) throw itemsError
+
+      const itemsWithBahan = (items || []).map((item) => ({
+        ...item,
+        nama: item.bahan_baku?.nama || 'Unknown',
+        satuan: item.bahan_baku?.satuan || '',
+      }))
+
+      const outletData = data.find((d) => d.id === sjId)
+      const hideQR = !isPusat
+
+      const pdfBlob = await generateSuratJalanPDF(
+        {
+          id: sj.id,
+          document_number: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
+          outlet_name: outletData?.outlet?.name || 'Unknown',
+          sender_outlet: 'GUDANG PUSAT (HQ)',
+          status: sj.status,
+          created_at: sj.created_at,
+          verification_url: `${window.location.origin}/distribusi/terima/${sj.id}`,
+          verification_code: sj.verification_code,
+          items: itemsWithBahan,
+          signatures: sj.signatures || [],
+          receipt_signatures: sj.receipt_signatures || [],
+        },
+        { hideQR, copies: 3 }
+      )
+
+      downloadPDF(`Surat-Jalan-3Ply-${docNumber || sj.id.substring(0, 8)}.pdf`, pdfBlob)
+      toast.success('PDF 3-Ply (14x12 cm) berhasil diunduh!')
+    } catch {
+      toast.error('Gagal membuat file PDF')
     }
-
-    // Fetch items with embedded relation
-    const { data: items, error: itemsError } = await supabase
-      .from('surat_jalan_item')
-      .select('*, bahan_baku(id, nama, satuan)')
-      .eq('surat_jalan_id', sjId)
-
-    if (itemsError) throw itemsError
-
-    // Map items with bahan details
-    const itemsWithBahan = (items || []).map(item => ({
-      ...item,
-      nama: item.bahan_baku?.nama || 'Unknown',
-      satuan: item.bahan_baku?.satuan || '',
-    }))
-
-    // Find outlet name from list data
-    const outletData = data.find((d) => d.id === sjId)
-
-    // Load the PDF module (incl. ~320KB embedded logo) only when a PDF is actually generated.
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
-    const hideQR = !isPusat
-
-    const pdfBlob = await generateSuratJalanPDF({
-      id: sj.id,
-      document_number: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
-      outlet_name: outletData?.outlet?.name || 'Unknown',
-      sender_outlet: 'GUDANG PUSAT (HQ)',
-      status: sj.status,
-      created_at: sj.created_at,
-      verification_url: `${window.location.origin}/distribusi/terima/${sj.id}`,
-      verification_code: sj.verification_code,
-      items: itemsWithBahan,
-      signatures: sj.signatures || [],
-      receipt_signatures: sj.receipt_signatures || [],
-    }, { hideQR })
-
-    downloadPDF(`Surat-Jalan-${sj.id.substring(0, 8)}.pdf`, pdfBlob)
   }
 
-  const handleDownloadExcel = async (sjId: string) => {
-    const supabase = createSupabaseBrowserClient()
-    const { data: sj, error: suratJalanError } = await supabase
-      .from('surat_jalan')
-      .select('id, document_number, created_at, verification_code')
-      .eq('id', sjId)
-      .single()
+  // Excel Handlers
+  const handleDownloadExcel = async (e: React.MouseEvent, sjId: string) => {
+    e.stopPropagation()
+    try {
+      toast.info('Membuat file Excel Surat Jalan...')
+      const supabase = createSupabaseBrowserClient()
+      const { data: sj, error: suratJalanError } = await supabase
+        .from('surat_jalan')
+        .select('id, document_number, created_at, verification_code')
+        .eq('id', sjId)
+        .single()
 
-    if (suratJalanError) throw suratJalanError
-    if (!sj) {
-      alert('Surat Jalan tidak ditemukan')
-      return
+      if (suratJalanError) throw suratJalanError
+      if (!sj) {
+        toast.error('Surat Jalan tidak ditemukan')
+        return
+      }
+
+      const { data: items, error: itemsError } = await supabase
+        .from('surat_jalan_item')
+        .select('qty_dikirim, bahan_baku(nama, satuan, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan)')
+        .eq('surat_jalan_id', sjId)
+
+      if (itemsError) throw itemsError
+      const outletData = data.find((entry) => entry.id === sjId)
+      await downloadSuratJalanExcel({
+        documentNumber: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
+        outletName: outletData?.outlet?.name || 'Unknown',
+        createdAt: sj.created_at,
+        verificationCode: sj.verification_code,
+        items: items || [],
+      })
+      toast.success('Excel berhasil diunduh!')
+    } catch {
+      toast.error('Gagal membuat file Excel')
     }
-
-    const { data: items, error: itemsError } = await supabase
-      .from('surat_jalan_item')
-      .select('qty_dikirim, bahan_baku(nama, satuan, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan)')
-      .eq('surat_jalan_id', sjId)
-
-    if (itemsError) throw itemsError
-    const outletData = data.find((entry) => entry.id === sjId)
-    await downloadSuratJalanExcel({
-      documentNumber: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
-      outletName: outletData?.outlet?.name || 'Unknown',
-      createdAt: sj.created_at,
-      verificationCode: sj.verification_code,
-      items: items || [],
-    })
   }
 
-
+  // Helper status badges
+  const getStatusBadge = (status: string, hasProblem?: boolean) => {
+    if (status === 'draft') {
+      return {
+        label: 'Draft Siap Kirim',
+        bg: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
+        dot: 'bg-amber-500',
+      }
+    }
+    if (status === 'dikirim' || status === 'dikirim_lengkap') {
+      return {
+        label: 'Dalam Transit',
+        bg: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+        dot: 'bg-blue-500 animate-pulse',
+      }
+    }
+    if (status === 'diterima_lengkap' || status === 'diterima_sebagian') {
+      return {
+        label: hasProblem ? 'Diterima (Selisih)' : 'Tiba di Outlet',
+        bg: hasProblem
+          ? 'bg-orange-500/10 text-orange-600 border-orange-500/20'
+          : 'bg-purple-500/10 text-purple-600 border-purple-500/20',
+        dot: hasProblem ? 'bg-orange-500' : 'bg-purple-500',
+      }
+    }
+    if (status === 'selesai') {
+      return {
+        label: 'Selesai & Valid',
+        bg: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
+        dot: 'bg-emerald-500',
+      }
+    }
+    return {
+      label: status,
+      bg: 'bg-gray-500/10 text-gray-600 border-gray-500/20',
+      dot: 'bg-gray-400',
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-32 relative overflow-hidden bg-grain select-none">
-      {/* Drifting Background Blobs */}
-      <div className="absolute top-[-10%] right-[-10%] w-[50vw] h-[50vw] rounded-full bg-suka-orange/5 blur-[120px] pointer-events-none z-0 animate-blob-1" />
-      <div className="absolute bottom-[-10%] left-[-10%] w-[50vw] h-[50vw] rounded-full bg-suka-brown/5 blur-[120px] pointer-events-none z-0 animate-blob-2" />
+      {/* Ambient background glow */}
+      <div className="absolute top-[-10%] right-[-10%] w-[55vw] h-[55vw] rounded-full bg-suka-orange/5 blur-[140px] pointer-events-none z-0 animate-blob-1" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[55vw] h-[55vw] rounded-full bg-suka-brown/5 blur-[140px] pointer-events-none z-0 animate-blob-2" />
 
-      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-suka-brown/10 px-3 sm:px-4 py-3 flex justify-between items-center shadow-sm relative">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Link href="/dashboard" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white border border-suka-orange/15 text-suka-orange hover:bg-suka-orange/5 active:scale-95 transition-all shadow-sm shrink-0" title="Kembali ke Dashboard">
-            <ArrowLeft size={16} />
+      {/* Top Navbar */}
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-8 py-3.5 flex justify-between items-center shadow-xs">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/dashboard"
+            className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-xl bg-white border border-suka-orange/15 text-suka-orange hover:bg-suka-orange/5 active:scale-95 transition-all shadow-xs shrink-0"
+            title="Kembali ke Dashboard"
+          >
+            <ArrowLeft size={18} />
           </Link>
           <div className="flex flex-col min-w-0">
-            <h1 className="font-black text-xs sm:text-sm text-suka-brown uppercase tracking-wider font-display leading-none truncate">Daftar Surat Jalan</h1>
-            <p className="text-[9px] sm:text-[10px] text-suka-gray-500 font-bold mt-0.5">
-              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? (['leader', 'kitchen', 'admin', 'admin_hr'].includes(outletStaff?.role || '') ? 'Gudang Pusat' : 'Outlet')}
+            <div className="flex items-center gap-2">
+              <h1 className="font-black text-sm sm:text-base text-suka-brown uppercase tracking-wider font-display leading-none truncate">
+                Daftar Dokumen Surat Jalan
+              </h1>
+              <span className="hidden sm:inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                3-Ply Ready
+              </span>
+            </div>
+            <p className="text-[10px] text-suka-gray-500 font-bold mt-0.5 truncate">
+              {outletStaff?.name || 'Staff'} &bull;{' '}
+              {outletStaff?.outlets?.name ?? (isPusat ? 'Gudang Pusat (HQ Logistics)' : 'Outlet Mitra')}
             </p>
           </div>
         </div>
+
+        {/* Top Actions */}
         <div className="flex items-center gap-2">
           {outletStaff?.role === 'kitchen' && <PrinterStatus />}
-          {['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '') && (
+          {isPusat && (
             <Link
               href="/distribusi/surat-jalan/new"
-              className="px-3 py-2 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-widest active:scale-95 flex items-center gap-1 cursor-pointer"
+              className="px-3.5 sm:px-4 py-2 bg-gradient-to-r from-suka-orange to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-black text-xs transition-all shadow-md shadow-suka-orange/20 uppercase tracking-wider active:scale-95 flex items-center gap-1.5 cursor-pointer"
             >
-              <Plus size={14} /> <span className="hidden sm:inline">Buat SJ</span>
+              <Plus size={16} /> <span>Buat Surat Jalan</span>
             </Link>
           )}
         </div>
       </header>
 
-      {/* Content container */}
-      <div className="p-4 max-w-5xl mx-auto space-y-5 relative z-10">
-        
-        {/* Summary / Filter Bar */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4 shadow-sm">
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar pb-1 md:pb-0">
+      {/* Main Container */}
+      <main className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6 relative z-10">
+
+        {/* 1. Interactive Executive KPI HUD Counter Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          {/* Card: Total */}
+          <button
+            onClick={() => handleTabChange('all')}
+            className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer active:scale-98 flex flex-col justify-between backdrop-blur-md ${
+              statusTab === 'all'
+                ? 'bg-suka-brown text-white border-suka-brown shadow-lg shadow-suka-brown/20 ring-2 ring-suka-brown/30'
+                : 'bg-white/80 border-suka-brown/10 text-suka-ink hover:bg-white hover:border-suka-brown/30 shadow-xs'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'all' ? 'text-white/80' : 'text-suka-gray-500'}`}>
+                Semua Dokumen
+              </span>
+              <Layers size={15} className={statusTab === 'all' ? 'text-suka-orange' : 'text-suka-brown/40'} />
+            </div>
+            <div className="mt-2">
+              <p className="text-2xl font-black font-display">{data.length}</p>
+              <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'all' ? 'text-white/70' : 'text-suka-gray-400'}`}>
+                Total Surat Jalan
+              </p>
+            </div>
+          </button>
+
+          {/* Card: Draft */}
+          <button
+            onClick={() => handleTabChange('draft')}
+            className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer active:scale-98 flex flex-col justify-between backdrop-blur-md ${
+              statusTab === 'draft'
+                ? 'bg-amber-500 text-white border-amber-600 shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/30'
+                : 'bg-white/80 border-amber-500/20 text-suka-ink hover:bg-amber-50/50 shadow-xs'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'draft' ? 'text-white/90' : 'text-amber-700'}`}>
+                Draft
+              </span>
+              <Clock size={15} className={statusTab === 'draft' ? 'text-white' : 'text-amber-500'} />
+            </div>
+            <div className="mt-2">
+              <p className={`text-2xl font-black font-display ${statusTab === 'draft' ? 'text-white' : 'text-amber-700'}`}>{draftCount}</p>
+              <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'draft' ? 'text-white/80' : 'text-amber-600/70'}`}>
+                Siap Verifikasi Kirim
+              </p>
+            </div>
+          </button>
+
+          {/* Card: Dalam Transit */}
+          <button
+            onClick={() => handleTabChange('dikirim')}
+            className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer active:scale-98 flex flex-col justify-between backdrop-blur-md ${
+              statusTab === 'dikirim'
+                ? 'bg-blue-600 text-white border-blue-700 shadow-lg shadow-blue-500/20 ring-2 ring-blue-500/30'
+                : 'bg-white/80 border-blue-500/20 text-suka-ink hover:bg-blue-50/50 shadow-xs'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'dikirim' ? 'text-white/90' : 'text-blue-700'}`}>
+                Transit
+              </span>
+              <Truck size={15} className={statusTab === 'dikirim' ? 'text-white' : 'text-blue-500'} />
+            </div>
+            <div className="mt-2">
+              <p className={`text-2xl font-black font-display ${statusTab === 'dikirim' ? 'text-white' : 'text-blue-700'}`}>{sentCount}</p>
+              <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'dikirim' ? 'text-white/80' : 'text-blue-600/70'}`}>
+                Dalam Perjalanan Kurir
+              </p>
+            </div>
+          </button>
+
+          {/* Card: Belum Verif / Tiba di Outlet */}
+          <button
+            onClick={() => handleTabChange('belum_verif')}
+            className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer active:scale-98 flex flex-col justify-between backdrop-blur-md ${
+              statusTab === 'belum_verif'
+                ? 'bg-purple-600 text-white border-purple-700 shadow-lg shadow-purple-500/20 ring-2 ring-purple-500/30'
+                : 'bg-white/80 border-purple-500/20 text-suka-ink hover:bg-purple-50/50 shadow-xs'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'belum_verif' ? 'text-white/90' : 'text-purple-700'}`}>
+                Perlu Verif
+              </span>
+              <Store size={15} className={statusTab === 'belum_verif' ? 'text-white' : 'text-purple-500'} />
+            </div>
+            <div className="mt-2">
+              <p className={`text-2xl font-black font-display ${statusTab === 'belum_verif' ? 'text-white' : 'text-purple-700'}`}>{diterimaCount}</p>
+              <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'belum_verif' ? 'text-white/80' : 'text-purple-600/70'}`}>
+                Tiba / Pengecekan Fisik
+              </p>
+            </div>
+          </button>
+
+          {/* Card: Selesai Valid */}
+          <button
+            onClick={() => handleTabChange('selesai')}
+            className={`p-4 rounded-2xl border text-left transition-all duration-200 cursor-pointer active:scale-98 flex flex-col justify-between backdrop-blur-md col-span-2 sm:col-span-1 ${
+              statusTab === 'selesai'
+                ? 'bg-emerald-600 text-white border-emerald-700 shadow-lg shadow-emerald-500/20 ring-2 ring-emerald-500/30'
+                : 'bg-white/80 border-emerald-500/20 text-suka-ink hover:bg-emerald-50/50 shadow-xs'
+            }`}
+          >
+            <div className="flex justify-between items-center">
+              <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'selesai' ? 'text-white/90' : 'text-emerald-700'}`}>
+                Selesai
+              </span>
+              <ShieldCheck size={15} className={statusTab === 'selesai' ? 'text-white' : 'text-emerald-500'} />
+            </div>
+            <div className="mt-2">
+              <p className={`text-2xl font-black font-display ${statusTab === 'selesai' ? 'text-white' : 'text-emerald-700'}`}>{selesaiCount}</p>
+              <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'selesai' ? 'text-white/80' : 'text-emerald-600/70'}`}>
+                100% Sah & Terarsip
+              </p>
+            </div>
+          </button>
+        </div>
+
+        {/* 2. Control Bar (Date Filter, Search, Outlet Select, View Mode Switcher) */}
+        <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-brown/10 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            
+            {/* Search Box */}
+            <div className="relative flex-1 min-w-[280px]">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-suka-gray-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Cari nomor Surat Jalan (SJ-...) atau nama outlet..."
+                className="w-full pl-10 pr-9 py-2.5 bg-[#fff8f1]/60 border border-suka-brown/15 rounded-2xl text-xs font-semibold text-suka-ink placeholder:text-suka-gray-400 focus:outline-hidden focus:ring-2 focus:ring-suka-orange/30 focus:border-suka-orange transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => handleSearchChange('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-suka-gray-400 hover:text-suka-brown cursor-pointer p-0.5"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+
+            {/* Filter Controls Group */}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Date Filter Pills */}
+              <div className="flex bg-[#fff8f1] p-1 rounded-2xl border border-suka-brown/10 overflow-x-auto no-scrollbar">
+                {[
+                  { key: 'all', label: 'Semua Waktu' },
+                  { key: 'today', label: 'Hari Ini' },
+                  { key: '7days', label: '7 Hari' },
+                  { key: '30days', label: '30 Hari' },
+                ].map((btn) => (
+                  <button
+                    key={btn.key}
+                    onClick={() => setDateFilter(btn.key as DateFilter)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      dateFilter === btn.key
+                        ? 'bg-suka-brown text-white shadow-xs'
+                        : 'text-suka-gray-600 hover:text-suka-brown hover:bg-white/50'
+                    }`}
+                  >
+                    {btn.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Outlet Filter Dropdown */}
+              {outletOptions.length > 0 && (
+                <select
+                  value={selectedOutlet}
+                  onChange={(e) => {
+                    setSelectedOutlet(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                  className="px-3 py-2 bg-[#fff8f1] border border-suka-brown/15 rounded-2xl text-xs font-bold text-suka-brown focus:outline-hidden focus:ring-2 focus:ring-suka-orange/30 cursor-pointer"
+                >
+                  <option value="all">Semua Outlet ({outletOptions.length})</option>
+                  {outletOptions.map((out) => (
+                    <option key={out} value={out}>
+                      {out}
+                    </option>
+                  ))}
+                </select>
+              )}
+
+              {/* Sort Dropdown */}
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortOption)}
+                className="px-3 py-2 bg-[#fff8f1] border border-suka-brown/15 rounded-2xl text-xs font-bold text-suka-brown focus:outline-hidden focus:ring-2 focus:ring-suka-orange/30 cursor-pointer"
+              >
+                <option value="newest">Terbaru</option>
+                <option value="oldest">Terlama</option>
+                <option value="outlet_asc">Outlet (A-Z)</option>
+                <option value="status">Status</option>
+              </select>
+
+              {/* View Switcher */}
+              <div className="flex bg-[#fff8f1] p-1 rounded-2xl border border-suka-brown/10">
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                    viewMode === 'grid' ? 'bg-suka-brown text-white shadow-xs' : 'text-suka-gray-500 hover:text-suka-brown'
+                  }`}
+                  title="Tampilan Grid Kartu"
+                >
+                  <Grid3X3 size={15} />
+                </button>
+                <button
+                  onClick={() => setViewMode('table')}
+                  className={`p-1.5 rounded-xl transition-all cursor-pointer ${
+                    viewMode === 'table' ? 'bg-suka-brown text-white shadow-xs' : 'text-suka-gray-500 hover:text-suka-brown'
+                  }`}
+                  title="Tampilan Tabel Rapat"
+                >
+                  <List size={15} />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Status Filter Tabs Pill Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-1 border-t border-suka-brown/10">
             {[
-              { key: 'all', label: 'Semua' },
-              { key: 'today', label: 'Hari Ini' },
-              { key: '7days', label: '7 Hari' },
-              { key: '30days', label: '1 Bulan' },
-              { key: 'belum_verif', label: 'Belum Verif' },
-              { key: 'telah_verif', label: 'Telah Diverif' }
-            ].map((btn) => (
+              { key: 'all', label: 'Semua', count: data.length },
+              { key: 'draft', label: 'Draft', count: draftCount },
+              { key: 'dikirim', label: 'Dalam Transit', count: sentCount },
+              { key: 'belum_verif', label: 'Perlu Verif', count: diterimaCount },
+              { key: 'selisih', label: 'Ada Selisih', count: problemCount, alert: problemCount > 0 },
+              { key: 'selesai', label: 'Selesai', count: selesaiCount },
+            ].map((tab) => (
               <button
-                key={btn.key}
-                onClick={() => setDateFilter(btn.key as DateFilter)}
-                className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all border cursor-pointer ${
-                  dateFilter === btn.key
-                    ? 'bg-suka-brown border-suka-brown text-white shadow-sm'
-                    : 'bg-white border-suka-orange/10 text-suka-gray-600 hover:bg-suka-orange/5'
+                key={tab.key}
+                onClick={() => handleTabChange(tab.key as StatusTab)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex items-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  statusTab === tab.key
+                    ? 'bg-suka-orange text-white border-suka-orange shadow-xs scale-102'
+                    : 'bg-white/80 border-suka-brown/10 text-suka-gray-600 hover:bg-suka-orange/5 hover:text-suka-brown'
                 }`}
               >
-                {btn.label}
+                <span>{tab.label}</span>
+                <span
+                  className={`text-[9px] px-1.5 py-0.2 rounded-full font-black ${
+                    statusTab === tab.key
+                      ? 'bg-white/20 text-white'
+                      : tab.alert
+                        ? 'bg-red-100 text-red-700'
+                        : 'bg-suka-brown/10 text-suka-brown'
+                  }`}
+                >
+                  {tab.count}
+                </span>
               </button>
             ))}
           </div>
-          <div className="text-[9px] font-extrabold text-suka-brown bg-suka-orange/10 border border-suka-orange/20 px-3 py-2 rounded-lg flex items-center gap-1.5 uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-suka-orange animate-pulse shrink-0" />
-            <span>{draftCount} draft &bull; {sentCount} dikirim &bull; {diterimaCount} belum verif &bull; {selesaiCount} selesai</span>
-          </div>
         </div>
 
+        {/* 3. Document Content Display (Grid or Table) */}
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 space-y-4 shadow-sm">
+              <div key={i} className="bg-white/70 backdrop-blur-md rounded-3xl border border-suka-brown/10 p-5 space-y-4 shadow-sm">
                 <div className="flex justify-between items-start">
-                  <Skeleton className="h-4.5 w-20" />
-                  <Skeleton className="h-4.5 w-16" />
+                  <Skeleton className="h-5 w-28 rounded-lg" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
                 </div>
                 <div className="space-y-2">
-                  <Skeleton className="h-5 w-40" />
-                  <Skeleton className="h-3.5 w-full" />
+                  <Skeleton className="h-6 w-3/4 rounded-lg" />
+                  <Skeleton className="h-4 w-1/2 rounded-md" />
                 </div>
-                <Skeleton className="h-8 w-full rounded-xl" />
+                <Skeleton className="h-10 w-full rounded-2xl" />
               </div>
             ))}
           </div>
-        ) : data.length === 0 ? (
-          <div className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-16 text-center shadow-sm">
-            <span className="text-3xl block mb-2">📭</span>
-            <p className="text-suka-gray-500 font-extrabold text-sm uppercase tracking-wider">Belum ada Surat Jalan</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {data.map((sj) => (
-              <div
-                key={sj.id}
-                onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
-                className="bg-white/70 backdrop-blur-md rounded-2xl border border-suka-orange/10 p-5 flex flex-col justify-between shadow-sm hover:border-suka-orange/45 hover:shadow-lg hover:-translate-y-1 active:scale-[0.99] transition-all duration-300 cursor-pointer group"
+        ) : filteredData.length === 0 ? (
+          <div className="bg-white/80 backdrop-blur-md rounded-3xl border border-suka-brown/10 p-16 text-center shadow-sm space-y-3">
+            <div className="w-16 h-16 bg-suka-orange/10 text-suka-orange rounded-full flex items-center justify-center mx-auto text-2xl">
+              📦
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-sm font-black text-suka-brown uppercase tracking-wider font-display">
+                Tidak Ada Dokumen Surat Jalan
+              </h3>
+              <p className="text-xs text-suka-gray-500 font-medium max-w-md mx-auto">
+                {searchQuery || selectedOutlet !== 'all' || statusTab !== 'all'
+                  ? 'Tidak ditemukan dokumen yang sesuai dengan kriteria filter pencarian Anda.'
+                  : 'Belum ada data Surat Jalan yang tercatat dalam sistem.'}
+              </p>
+            </div>
+            {(searchQuery || selectedOutlet !== 'all' || statusTab !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('')
+                  setSelectedOutlet('all')
+                  setStatusTab('all')
+                  setDateFilter('all')
+                }}
+                className="mt-2 px-4 py-2 bg-suka-brown text-white text-xs font-bold uppercase rounded-xl hover:bg-suka-ink transition-all cursor-pointer"
               >
-                <div className="space-y-4 flex-1 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    {/* Header Info */}
+                Reset Semua Filter
+              </button>
+            )}
+          </div>
+        ) : viewMode === 'grid' ? (
+          /* Grid View */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedData.map((sj) => {
+              const badge = getStatusBadge(sj.status, sj.has_problem)
+              const docNum = sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`
+              const isDraft = sj.status === 'draft'
+              const itemCount = sj.surat_jalan_item?.length || 0
+
+              return (
+                <div
+                  key={sj.id}
+                  onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
+                  className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-brown/10 p-5 flex flex-col justify-between shadow-xs hover:border-suka-orange/40 hover:shadow-xl hover:-translate-y-1 active:scale-[0.99] transition-all duration-300 cursor-pointer group relative overflow-hidden"
+                >
+                  {/* Top Bar inside Card */}
+                  <div className="space-y-3.5">
                     <div className="flex justify-between items-start gap-2">
-                      <span className="text-[9px] font-extrabold uppercase tracking-widest text-suka-brown bg-suka-orange/10 px-2.5 py-0.5 rounded border border-suka-orange/5">
-                        SJ: {sj.document_number || sj.id.substring(0, 8).toUpperCase()}
-                      </span>
-                      <span className={`px-2.5 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-wider border ${
-                        sj.status === 'draft'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : sj.status === 'dikirim'
-                            ? 'bg-blue-50 text-blue-700 border-blue-200'
-                            : sj.status === 'selesai'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-orange-50 text-orange-700 border-orange-200'
-                      }`}>
-                        {sj.status === 'draft' && 'Draft'}
-                        {sj.status === 'dikirim' && 'Dikirim'}
-                        {sj.status === 'selesai' && 'Selesai'}
-                        {(sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian') && (
-                          sj.has_problem ? 'Diterima Sebagian' : 'Diterima Lengkap'
-                        )}
+                      {/* Document Number with 1-click Copy */}
+                      <button
+                        onClick={(e) => handleCopyDocNumber(e, docNum)}
+                        className="flex items-center gap-1.5 text-[10px] font-black font-mono uppercase tracking-wider text-suka-brown bg-[#fff8f1] px-2.5 py-1 rounded-xl border border-suka-brown/10 hover:bg-suka-orange/10 hover:text-suka-orange transition-colors cursor-pointer"
+                        title="Klik untuk salin No. SJ"
+                      >
+                        <span>{docNum}</span>
+                        {copiedId === docNum ? <Check size={11} className="text-emerald-600" /> : <Copy size={11} className="text-suka-gray-400" />}
+                      </button>
+
+                      {/* Status Badge */}
+                      <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border flex items-center gap-1.5 ${badge.bg}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                        {badge.label}
                       </span>
                     </div>
 
-                    {/* Outlet Name */}
+                    {/* Route Info */}
                     <div className="space-y-1">
-                      <p className="text-[8px] font-extrabold text-suka-gray-400 uppercase tracking-widest pl-0.5">Tujuan Outlet</p>
-                      <h4 className="font-extrabold text-suka-ink text-xs uppercase tracking-wide leading-tight group-hover:text-suka-orange transition-colors duration-200">
+                      <p className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest pl-0.5 flex items-center gap-1">
+                        <Store size={12} className="text-suka-orange" /> Tujuan Outlet
+                      </p>
+                      <h3 className="font-extrabold text-suka-ink text-sm uppercase tracking-wide leading-tight group-hover:text-suka-orange transition-colors">
                         {sj.outlet?.name || 'Unknown Outlet'}
-                      </h4>
+                      </h3>
                     </div>
-                  </div>
 
-                  {/* Footer Actions */}
-                  <div className="pt-4 border-t border-suka-orange/10 mt-2 flex flex-col gap-2">
-                    <div className="flex justify-between items-center text-[9px] text-suka-gray-500 font-bold uppercase pl-0.5">
-                      <span className="flex items-center gap-1">
-                        <Calendar size={12} className="text-suka-orange" />
+                    {/* Meta summary chips */}
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <span className="text-[10px] text-suka-gray-600 font-bold bg-[#fff8f1] px-2.5 py-1 rounded-lg border border-suka-brown/5 flex items-center gap-1">
+                        <Calendar size={11} className="text-suka-orange" />
                         <FormattedDate iso={sj.created_at} />
                       </span>
-                      {sj.status !== 'draft' && sj.status !== 'dikirim' && (
-                        sj.has_problem ? (
-                          <span className="px-2 py-0.5 rounded-lg text-[8px] font-black bg-red-50 text-red-700 border border-red-200 flex items-center gap-1 shrink-0">
-                            <AlertCircle size={10} /> Selisih
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded-lg text-[8px] text-suka-green font-black uppercase flex items-center gap-1 bg-emerald-50 border border-emerald-250 shrink-0">
-                            <Check size={10} /> Aman
+                      {itemCount > 0 && (
+                        <span className="text-[10px] text-suka-gray-600 font-bold bg-[#fff8f1] px-2.5 py-1 rounded-lg border border-suka-brown/5 flex items-center gap-1">
+                          <Package size={11} className="text-suka-orange" />
+                          {itemCount} Bahan
+                        </span>
+                      )}
+                      {sj.has_problem ? (
+                        <span className="text-[9px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded-lg border border-red-200 flex items-center gap-1">
+                          <AlertTriangle size={11} /> Ada Selisih
+                        </span>
+                      ) : (
+                        sj.status !== 'draft' && (
+                          <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
+                            <Check size={11} /> Aman
                           </span>
                         )
                       )}
                     </div>
+                  </div>
 
-                    {sj.status === 'draft' ? (
-                      <span className="w-full text-center py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[10px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 block mt-2">
-                        Verifikasi & Kirim
+                  {/* Bottom Action Suite */}
+                  <div className="pt-4 border-t border-suka-brown/10 mt-4 space-y-2">
+                    {isDraft ? (
+                      <span className="w-full text-center py-2.5 bg-gradient-to-r from-suka-brown to-[#4d1003] hover:from-[#4d1003] hover:to-black text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 block">
+                        📝 Verifikasi & Kirim Sekarang
                       </span>
-                    ) : (sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian') ? (
-                      <div className="mt-1 flex gap-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/distribusi/surat-jalan/${sj.id}`);
-                          }}
-                          className="flex-1 py-2.5 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md shadow-suka-orange/20 transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
-                        >
-                          <Eye size={12} /> Detail Verifikasi
-                        </button>
-                      </div>
                     ) : (
-                      <div className="mt-1 flex gap-2">
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {/* Detail */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            void handleDownloadPDF(sj.id).catch((error) => {
-                              console.error('Gagal mengunduh PDF surat jalan:', error)
-                              alert('Gagal membuat file PDF Surat Jalan')
-                            })
+                            router.push(`/distribusi/surat-jalan/${sj.id}`)
                           }}
-                          className="flex-1 py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
+                          className="py-2 bg-suka-orange hover:bg-orange-600 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+                          title="Lihat Detail Surat Jalan"
                         >
-                          <FileDown size={12} /> PDF
+                          <Eye size={12} /> Detail
                         </button>
+
+                        {/* PDF 3-Ply */}
+                        <button
+                          onClick={(e) => handleDownloadPDF(e, sj.id, docNum)}
+                          className="py-2 bg-suka-brown hover:bg-suka-ink text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+                          title="Unduh PDF 3-Ply (14x12 cm)"
+                        >
+                          <FileDown size={12} /> 3-Ply
+                        </button>
+
+                        {/* Excel */}
+                        <button
+                          onClick={(e) => handleDownloadExcel(e, sj.id)}
+                          className="py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+                          title="Unduh Spreadsheet Excel"
+                        >
+                          <FileDown size={12} /> XLS
+                        </button>
+
+                        {/* QR / Thermal Print */}
                         <button
                           onClick={(e) => {
-                            e.stopPropagation();
-                            void handleDownloadExcel(sj.id).catch((error) => {
-                              console.error('Gagal mengunduh Excel surat jalan:', error)
-                              alert('Gagal membuat file Excel Surat Jalan')
-                            });
+                            const tgl = new Date(sj.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+                            handlePrintBarcode(e, sj.id, docNum, tgl, sj.outlet?.name || 'Unknown', (sj as any).verification_code)
                           }}
-                          className="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 text-white font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-md transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
+                          className="py-2 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
+                          title="Cetak Struk QR / Thermal"
                         >
-                          <FileDown size={12} /> Excel
+                          <Printer size={12} /> QR
                         </button>
-                        {outletStaff?.role === 'kitchen' && (
-                          <>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadBarcode(sj.id, sj.document_number || sj.id.substring(0, 8));
-                              }}
-                              className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
-                            >
-                              <QrCode size={12} /> QR
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const tanggalStr = new Date(sj.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-                                handlePrintBarcode(sj.id, sj.document_number || sj.id.substring(0, 8), tanggalStr, sj.outlet?.name || 'Unknown', sj.verification_code);
-                              }}
-                              className="flex-1 py-2.5 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 font-extrabold text-[9px] uppercase tracking-widest rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 group-hover:scale-[1.01]"
-                            >
-                              <Printer size={12} /> Print
-                            </button>
-                          </>
-                        )}
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
+          </div>
+        ) : (
+          /* Table View (Dense High-Density Layout) */
+          <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-[#fff8f1] border-b border-suka-brown/10 text-[10px] font-black uppercase text-suka-brown tracking-wider">
+                    <th className="py-3.5 px-4">No. Surat Jalan</th>
+                    <th className="py-3.5 px-4">Tujuan Outlet</th>
+                    <th className="py-3.5 px-4">Tanggal & Jam</th>
+                    <th className="py-3.5 px-4 text-center">Item</th>
+                    <th className="py-3.5 px-4 text-center">Status</th>
+                    <th className="py-3.5 px-4 text-right">Aksi Cepat</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-suka-brown/5">
+                  {paginatedData.map((sj) => {
+                    const badge = getStatusBadge(sj.status, sj.has_problem)
+                    const docNum = sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`
+                    const itemCount = sj.surat_jalan_item?.length || 0
+
+                    return (
+                      <tr
+                        key={sj.id}
+                        onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
+                        className="hover:bg-suka-orange/5 transition-colors cursor-pointer group"
+                      >
+                        {/* No. SJ */}
+                        <td className="py-3.5 px-4">
+                          <span className="font-mono font-black text-suka-ink group-hover:text-suka-orange transition-colors">
+                            {docNum}
+                          </span>
+                        </td>
+
+                        {/* Outlet */}
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-1.5">
+                            <Store size={14} className="text-suka-orange shrink-0" />
+                            <span className="font-extrabold text-suka-brown uppercase truncate max-w-[200px]">
+                              {sj.outlet?.name || 'Unknown Outlet'}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Tanggal */}
+                        <td className="py-3.5 px-4 text-suka-gray-600 font-medium text-[11px]">
+                          <FormattedDate iso={sj.created_at} showTime />
+                        </td>
+
+                        {/* Items */}
+                        <td className="py-3.5 px-4 text-center">
+                          <span className="text-[10px] font-black bg-[#fff8f1] border border-suka-brown/10 px-2 py-0.5 rounded-lg text-suka-brown">
+                            {itemCount} item
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-3.5 px-4 text-center">
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider border ${badge.bg}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                            {badge.label}
+                          </span>
+                        </td>
+
+                        {/* Action Buttons */}
+                        <td className="py-3.5 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
+                              className="px-2.5 py-1.5 bg-suka-orange hover:bg-orange-600 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                              title="Lihat Detail"
+                            >
+                              <Eye size={12} /> Detail
+                            </button>
+                            {sj.status !== 'draft' && (
+                              <>
+                                <button
+                                  onClick={(e) => handleDownloadPDF(e, sj.id, docNum)}
+                                  className="px-2.5 py-1.5 bg-suka-brown hover:bg-suka-ink text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                                  title="Unduh PDF 3-Ply (14x12 cm)"
+                                >
+                                  <FileDown size={12} /> PDF
+                                </button>
+                                <button
+                                  onClick={(e) => handleDownloadExcel(e, sj.id)}
+                                  className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                                  title="Unduh Excel"
+                                >
+                                  <FileDown size={12} /> XLS
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-      </div>
+
+        {/* 4. Pagination Controls */}
+        {filteredData.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/80 backdrop-blur-md rounded-2xl border border-suka-brown/10 px-5 py-3.5 shadow-xs">
+            <p className="text-xs text-suka-gray-500 font-bold">
+              Menampilkan{' '}
+              <span className="text-suka-brown font-black">
+                {Math.min(filteredData.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)} -{' '}
+                {Math.min(filteredData.length, currentPage * ITEMS_PER_PAGE)}
+              </span>{' '}
+              dari <span className="text-suka-brown font-black">{filteredData.length}</span> dokumen
+            </p>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-xs"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }).map((_, idx) => {
+                  const p = idx + 1
+                  if (
+                    p === 1 ||
+                    p === totalPages ||
+                    (p >= currentPage - 1 && p <= currentPage + 1)
+                  ) {
+                    return (
+                      <button
+                        key={p}
+                        onClick={() => setCurrentPage(p)}
+                        className={`w-8 h-8 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                          currentPage === p
+                            ? 'bg-suka-brown text-white shadow-sm'
+                            : 'bg-white border border-suka-brown/10 text-suka-gray-600 hover:bg-suka-orange/5'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    )
+                  }
+                  if (p === currentPage - 2 || p === currentPage + 2) {
+                    return <span key={p} className="text-xs text-suka-gray-400 font-bold px-1">...</span>
+                  }
+                  return null
+                })}
+              </div>
+
+              <button
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-suka-brown/15 text-suka-brown hover:bg-suka-brown/5 disabled:opacity-30 disabled:pointer-events-none transition-all cursor-pointer shadow-xs"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
 
       {/* Bottom Navigation Bar */}
       <BottomNav activeTab="riwayat" />
     </div>
   )
 }
-

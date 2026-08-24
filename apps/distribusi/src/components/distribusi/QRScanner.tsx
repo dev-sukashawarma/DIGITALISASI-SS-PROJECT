@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import jsQR from 'jsqr'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
+import { ArrowLeft, QrCode, Camera, AlertCircle, Sparkles, KeyRound } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function QRScanner() {
   const router = useRouter()
@@ -25,6 +27,15 @@ export function QRScanner() {
 
     let cleanedCode = code.trim()
 
+    // Trigger subtle haptic feedback if supported on mobile
+    if (typeof window !== 'undefined' && 'vibrate' in navigator) {
+      try {
+        navigator.vibrate(80)
+      } catch (e) {
+        // ignore vibrate error
+      }
+    }
+
     // Jika hasil scan berupa URL (misal scan QR dari device/app lain), ekstrak ID di bagian akhir
     if (cleanedCode.includes('/')) {
       const parts = cleanedCode.split('/')
@@ -36,20 +47,27 @@ export function QRScanner() {
     const column = isUUID ? 'id' : 'verification_code'
 
     const supabase = createSupabaseBrowserClient()
-    const { data, error } = await supabase
+    const { data, error: fetchErr } = await supabase
       .from('surat_jalan')
-      .select('id, status')
+      .select('id, status, document_number')
       .eq(column, finalCode)
       .single()
 
-    if (error || !data) {
-      setError(`Kode verifikasi "${finalCode}" tidak ditemukan`)
+    if (fetchErr || !data) {
+      const errMsg = `Kode verifikasi "${finalCode}" tidak ditemukan di database`
+      setError(errMsg)
+      toast.error(errMsg)
       return
     }
     if (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian' || data.status === 'selesai' || data.status === 'diterima') {
-      setError('Surat Jalan ini sudah diterima/diverifikasi sebelumnya')
+      const msg = 'Surat Jalan ini sudah selesai diverifikasi sebelumnya'
+      setError(msg)
+      toast.warning(msg)
       return
     }
+
+    toast.success(`Surat Jalan ${data.document_number || ''} terverifikasi!`)
+
     if (typeof window !== 'undefined') {
       sessionStorage.setItem(`unlocked_verification_${data.id}`, 'true')
       localStorage.setItem(`unlocked_verification_${data.id}`, 'true')
@@ -66,7 +84,7 @@ export function QRScanner() {
   const startCamera = async () => {
     // getUserMedia butuh secure context (HTTPS / localhost)
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Browser tidak mendukung akses kamera. Gunakan kode manual di bawah.')
+      setError('Browser tidak mendukung akses kamera. Silakan gunakan input kode manual di bawah.')
       setCameraAvailable(false)
       return
     }
@@ -91,11 +109,11 @@ export function QRScanner() {
     } catch (err) {
       const name = err instanceof Error ? err.name : ''
       if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-        setError('Izin kamera ditolak. Aktifkan izin kamera atau gunakan kode manual.')
+        setError('Izin kamera ditolak. Aktifkan izin kamera di pengaturan browser atau gunakan kode manual.')
       } else if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-        setError('Kamera tidak ditemukan pada perangkat ini. Gunakan kode manual.')
+        setError('Kamera tidak ditemukan pada perangkat ini. Silakan ketik kode verifikasi manual.')
       } else {
-        setError('Kamera tidak bisa dibuka. Gunakan kode manual di bawah.')
+        setError('Kamera tidak bisa dibuka. Gunakan kode verifikasi manual di bawah.')
       }
       setCameraAvailable(false)
     }
@@ -150,70 +168,116 @@ export function QRScanner() {
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!manualInput.trim()) return
+    if (!manualInput.trim()) {
+      toast.warning('Ketik kode verifikasi terlebih dahulu')
+      return
+    }
     setError(null)
     navigateToVerifikasi(manualInput.trim())
   }
 
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)] flex-shrink-0">
+    <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-24 relative overflow-hidden bg-grain select-none">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-suka-brown/10 px-3 sm:px-6 py-3 flex justify-between items-center shadow-sm relative">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Link href="/distribusi/terima" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0" title="Kembali ke Inbox">
-            <span className="text-base">←</span>
+          <Link
+            href="/distribusi/terima"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white border border-suka-orange/15 text-suka-orange hover:bg-suka-orange/5 active:scale-95 transition-all shadow-sm shrink-0"
+            title="Kembali"
+          >
+            <ArrowLeft size={16} />
           </Link>
           <div className="flex flex-col min-w-0">
-            <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Scan QR Surat Jalan</h1>
-            <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5">
-              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? (['leader', 'kitchen', 'admin', 'admin_hr'].includes(outletStaff?.role || '') ? 'Gudang Pusat' : 'Outlet')}
+            <h1 className="font-black text-xs sm:text-sm text-suka-brown uppercase tracking-wider font-display leading-none truncate">
+              Pindai QR Surat Jalan
+            </h1>
+            <p className="text-[9px] sm:text-[10px] text-suka-gray-500 font-bold mt-0.5 truncate">
+              {outletStaff?.name || 'Staff'} • {outletStaff?.outlets?.name ?? 'Outlet'}
             </p>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <div className="p-4 max-w-lg mx-auto space-y-4 mt-2">
-        <p className="text-[#544437]/70 text-xs font-semibold px-1">
-          Arahkan kamera ke QR code di Surat Jalan fisik untuk memverifikasi.
-        </p>
+      <main className="p-4 max-w-md mx-auto space-y-4 mt-2 relative z-10">
+        <div className="bg-white/80 backdrop-blur-md border border-suka-orange/15 p-4 rounded-2xl shadow-sm text-center space-y-1">
+          <p className="text-xs font-black text-suka-ink uppercase tracking-wide">
+            Arahkan Kamera ke Lembar Surat Jalan
+          </p>
+          <p className="text-[10px] text-suka-gray-500 font-semibold">
+            Pindai kode QR yang tercetak pada dokumen fisik yang dibawa oleh kurir/supir.
+          </p>
+        </div>
 
+        {/* Viewfinder Camera Box with Target Laser Animation */}
         {cameraAvailable ? (
-          <div className="rounded-2xl overflow-hidden border border-[#d9c2b2]/45 bg-black aspect-square shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+          <div className="relative rounded-3xl overflow-hidden border-2 border-suka-orange/30 bg-black aspect-square shadow-xl flex items-center justify-center group">
             <video ref={videoRef} className="w-full h-full object-cover" muted playsInline />
+
+            {/* Target Crosshair Corners */}
+            <div className="absolute inset-8 pointer-events-none flex flex-col justify-between">
+              <div className="flex justify-between">
+                <div className="w-8 h-8 border-t-4 border-l-4 border-suka-orange rounded-tl-xl shadow-sm" />
+                <div className="w-8 h-8 border-t-4 border-r-4 border-suka-orange rounded-tr-xl shadow-sm" />
+              </div>
+
+              {/* Center animated laser scanner */}
+              <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-suka-orange to-transparent animate-pulse shadow-[0_0_12px_#f29744]" />
+
+              <div className="flex justify-between">
+                <div className="w-8 h-8 border-b-4 border-l-4 border-suka-orange rounded-bl-xl shadow-sm" />
+                <div className="w-8 h-8 border-b-4 border-r-4 border-suka-orange rounded-tr-xl shadow-sm" />
+              </div>
+            </div>
+
+            {/* Viewfinder Badge */}
+            <div className="absolute bottom-3 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider text-white border border-white/20 flex items-center gap-1.5 pointer-events-none">
+              <span className="w-2 h-2 rounded-full bg-suka-green animate-ping" />
+              Pemindai Aktif
+            </div>
           </div>
         ) : (
-          <div className="rounded-2xl border border-[#d9c2b2]/45 p-8 text-center bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-            <span className="text-2xl">📷</span>
-            <p className="text-[#544437]/60 text-xs font-bold mt-2">Kamera tidak tersedia di browser ini</p>
+          <div className="rounded-3xl border-2 border-dashed border-suka-brown/20 p-10 text-center bg-white/70 shadow-sm space-y-2">
+            <Camera size={36} className="mx-auto text-suka-gray-400" />
+            <p className="text-suka-brown font-extrabold text-xs uppercase tracking-wide">Kamera Tidak Aktif</p>
+            <p className="text-suka-gray-500 text-[10px] font-semibold">
+              Gunakan input kode verifikasi 6-karakter di bawah ini.
+            </p>
           </div>
         )}
 
+        {/* Error Alert Box */}
         {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-bold flex items-center gap-2">
-            <span>🚨</span>
+          <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2.5 shadow-xs animate-in fade-in">
+            <AlertCircle size={18} className="shrink-0 text-red-600" />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="bg-white border border-[#d9c2b2]/45 p-5 rounded-2xl shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+        {/* Manual Input Fallback Card */}
+        <div className="bg-white/85 backdrop-blur-md border border-suka-orange/15 p-5 rounded-2xl shadow-sm space-y-3">
           <form onSubmit={handleManualSubmit} className="space-y-3">
-            <label className="text-[10px] font-bold text-[#544437]/60 uppercase tracking-wider pl-1 block">Atau masukkan kode verifikasi manual:</label>
-            <input
-              type="text"
-              value={manualInput}
-              onChange={(e) => setManualInput(e.target.value)}
-              placeholder="Contoh: A3F9D2"
-              className="w-full px-4 py-2.5 rounded-xl border border-[#d9c2b2]/40 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] text-xs text-[#1e1b15] placeholder-[#544437]/45 font-medium transition-all shadow-sm uppercase"
-            />
+            <label className="flex items-center gap-1.5 text-[10px] font-black text-suka-brown uppercase tracking-wider pl-0.5">
+              <KeyRound size={13} className="text-suka-orange" /> Masukkan Kode Verifikasi Manual:
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value.toUpperCase())}
+                placeholder="Contoh: A3F9D2 atau No. SJ"
+                className="w-full px-4 py-3 rounded-xl border border-suka-brown/20 bg-white focus:outline-none focus:ring-2 focus:ring-suka-orange text-xs text-suka-ink placeholder-suka-gray-400 font-mono font-bold tracking-widest text-center uppercase shadow-inner"
+              />
+            </div>
             <button
               type="submit"
-              className="w-full py-2.5 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white transition-all rounded-xl font-bold uppercase tracking-wider text-xs shadow-md active:scale-95 cursor-pointer mt-1"
+              className="w-full py-3 bg-suka-brown hover:bg-suka-ink active:scale-[0.98] text-white transition-all rounded-xl font-extrabold uppercase tracking-wider text-xs shadow-md cursor-pointer"
             >
-              Cari Surat Jalan
+              Buka Form Verifikasi
             </button>
           </form>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

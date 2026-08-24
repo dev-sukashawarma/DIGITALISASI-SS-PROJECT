@@ -6,6 +6,20 @@ import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { ReceiptSignatureStep } from './ReceiptSignatureStep'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CheckCircle2,
+  AlertTriangle,
+  Camera,
+  Lock,
+  QrCode,
+  Sparkles,
+  RefreshCw,
+  FileCheck,
+  Check
+} from 'lucide-react'
+import { toast } from 'sonner'
 
 type Kondisi = 'baik' | 'tidak_sesuai'
 
@@ -37,20 +51,36 @@ type StoredDraft = {
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
   return (
-    <div className="bg-[#fff8f1]/50 border border-[#d9c2b2]/45 rounded-xl p-4 shadow-sm">
-      <p className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider mb-3 leading-none">{title} ({sigs.length})</p>
+    <div className="bg-white/80 border border-suka-orange/15 rounded-2xl p-4 shadow-sm space-y-3">
+      <div className="flex justify-between items-center border-b border-suka-brown/10 pb-2">
+        <p className="text-[10px] font-black text-suka-brown uppercase tracking-wider leading-none">
+          {title}
+        </p>
+        <span className="text-[9px] font-extrabold text-suka-orange bg-suka-orange/10 px-2 py-0.5 rounded-full">
+          {sigs.length} TTD
+        </span>
+      </div>
+
       {sigs.length === 0 ? (
-        <p className="text-[10px] text-[#544437]/40 font-bold italic">Belum ada tanda tangan</p>
+        <p className="text-[10px] text-suka-gray-400 font-bold italic py-2 text-center">
+          Belum ada tanda tangan terverifikasi
+        </p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2.5">
           {sigs.map((s, i) => (
-            <div key={i} className="flex items-center gap-3">
+            <div key={i} className="flex items-center gap-3 p-2 bg-[#fff8f1]/60 rounded-xl border border-suka-brown/5">
               {s.signature_image && (
-                <img src={s.signature_image} alt={s.role} className="h-10 w-auto bg-white border border-[#d9c2b2]/30 rounded p-1 object-contain shadow-xs" />
+                <img
+                  src={s.signature_image}
+                  alt={s.role}
+                  className="h-10 w-16 bg-white border border-suka-brown/15 rounded-lg p-1 object-contain shrink-0 shadow-xs"
+                />
               )}
-              <div>
-                <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide">{s.signed_by}</p>
-                <p className="text-[10px] text-[#544437]/65 mt-0.5 font-semibold">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-extrabold text-suka-ink uppercase tracking-wide truncate">
+                  {s.signed_by}
+                </p>
+                <p className="text-[10px] text-suka-gray-500 font-semibold mt-0.5 truncate">
                   {s.role} &bull; {new Date(s.signed_at).toLocaleDateString('id-ID', {
                     day: 'numeric',
                     month: 'short',
@@ -99,9 +129,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     })
   }, [data])
 
-  // Hydrate verifications: restore dari localStorage draft terlebih dahulu
-  // (mencegah progress hilang saat browser ter-reload akibat aplikasi kamera HP memakan RAM),
-  // kemudian fallback ke data verified_at yang tersimpan di Supabase.
+  // Hydrate verifications: restore draft dari localStorage
   useEffect(() => {
     if (items.length === 0) return
     let cancelled = false
@@ -190,7 +218,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     }
   }, [id])
 
-  // Auto-save draft ke localStorage setiap kali ada perubahan data/posisi item
+  // Auto-save draft ke localStorage
   useEffect(() => {
     if (!isHydrated || items.length === 0 || typeof window === 'undefined') return
     try {
@@ -216,31 +244,52 @@ export function VerifikasiForm({ id }: { id: string }) {
     }
   }, [verifications, currentIndex, step, kondisiConfirmed, isHydrated, id, items.length])
 
-  if (loading) return <div className="text-center py-12 text-xs font-bold text-[#544437]/50 animate-pulse bg-[#fff8f1] min-h-screen flex items-center justify-center">Memuat Form Verifikasi...</div>
-  if (error || !data) return <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4"><p className="p-4 text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 rounded-xl">Gagal memuat: {error}</p></div>
+  if (loading) {
+    return (
+      <div className="flex flex-col min-h-screen justify-center items-center bg-[#fff8f1] text-suka-brown font-medium bg-grain relative">
+        <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-suka-brown mb-4" />
+        <p className="text-xs font-black uppercase tracking-wider animate-pulse">Memuat Formulir Verifikasi...</p>
+      </div>
+    )
+  }
+
+  if (error || !data) {
+    return (
+      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-4 bg-grain">
+        <div className="p-5 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-2xl max-w-md text-center shadow-sm">
+          <AlertTriangle size={24} className="mx-auto mb-2 text-red-500" />
+          <p>Gagal memuat: {error || 'Data tidak ditemukan'}</p>
+        </div>
+      </div>
+    )
+  }
 
   // QR Code scan validation check
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-6 max-w-sm text-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)] space-y-4">
-          <div className="w-16 h-16 bg-red-50 border border-red-200 text-[#ba1a1a] rounded-full flex items-center justify-center mx-auto text-2xl shadow-sm">
-            🔒
+      <div className="min-h-screen bg-[#fff8f1]/50 flex items-center justify-center p-6 bg-grain">
+        <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-orange/20 p-6 max-w-sm text-center shadow-xl space-y-4">
+          <div className="w-16 h-16 bg-amber-50 border border-amber-200 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+            <Lock size={30} />
           </div>
-          <h2 className="text-sm font-extrabold text-[#701604] uppercase tracking-wide">Akses Verifikasi Terkunci</h2>
-          <p className="text-xs text-[#544437]/75 leading-relaxed">
-            Untuk alasan keamanan dan meminimalkan kesalahan pencatatan, Anda wajib memindai QR Code pada lembar fisik Surat Jalan yang dibawa oleh supir untuk membuka halaman verifikasi ini.
-          </p>
+          <div className="space-y-1">
+            <h2 className="text-sm font-black text-suka-brown uppercase tracking-wide font-display">
+              Akses Verifikasi Terkunci
+            </h2>
+            <p className="text-xs text-suka-gray-600 leading-relaxed font-medium">
+              Untuk integritas data, Anda wajib memindai kode QR pada lembar Surat Jalan fisik yang dibawa supir.
+            </p>
+          </div>
           <div className="pt-2 flex flex-col gap-2">
             <button
               onClick={() => router.push('/distribusi/terima/scan')}
-              className="w-full bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+              className="w-full bg-suka-orange hover:bg-orange-600 active:scale-[0.98] text-white rounded-xl py-3 font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              📷 Scan QR Code Sekarang
+              <QrCode size={16} /> Scan QR Code Sekarang
             </button>
             <button
               onClick={() => router.push('/distribusi/terima')}
-              className="w-full border border-[#d9c2b2]/45 text-[#544437] hover:bg-[#faf2e9] bg-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer active:scale-95 shadow-sm"
+              className="w-full border border-suka-brown/20 text-suka-brown hover:bg-suka-gray-50 bg-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-xs"
             >
               Kembali ke Inbox
             </button>
@@ -253,13 +302,22 @@ export function VerifikasiForm({ id }: { id: string }) {
   // Idempotency guard: jika SJ sudah diterima, redirect ke riwayat
   if (data.status && (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian' || data.status === 'selesai')) {
     return (
-      <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-6 max-w-sm text-center shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-          <p className="text-sm font-extrabold text-[#0a7d2c] mb-2 uppercase tracking-wide">✓ Verifikasi Selesai</p>
-          <p className="text-xs text-[#544437]/70 mb-5">Surat jalan ini telah diverifikasi sebelumnya. Anda dapat melihat detailnya di Riwayat.</p>
+      <div className="min-h-screen bg-[#fff8f1]/50 flex items-center justify-center p-6 bg-grain">
+        <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-orange/20 p-6 max-w-sm text-center shadow-xl space-y-4">
+          <div className="w-14 h-14 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+            <CheckCircle2 size={32} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-black text-suka-brown uppercase tracking-wide font-display">
+              Verifikasi Selesai
+            </h3>
+            <p className="text-xs text-suka-gray-600 font-medium">
+              Surat Jalan ini telah diverifikasi sebelumnya. Anda dapat melihat detailnya di Riwayat.
+            </p>
+          </div>
           <button
             onClick={() => router.push('/distribusi/riwayat')}
-            className="w-full bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl py-2.5 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95"
+            className="w-full bg-suka-brown hover:bg-suka-ink active:scale-[0.98] text-white rounded-xl py-3 font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
           >
             Buka Riwayat
           </button>
@@ -270,7 +328,7 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   const currentItem = items[currentIndex]
   const currentVerif: ItemVerification = verifications[currentItem?.id] ?? {
-    qty_terima: '', // Wajib input manual
+    qty_terima: '',
     kondisi: 'baik',
     catatan: '',
     foto_path: null,
@@ -286,17 +344,25 @@ export function VerifikasiForm({ id }: { id: string }) {
     }))
   }
 
+  const handleMatchQty = () => {
+    setVerif({
+      qty_terima: currentItem.qty_dikirim_dist,
+      kondisi: 'baik',
+    })
+    toast.success(`Qty disesuaikan: ${currentItem.qty_dikirim_dist} ${currentItem.satuan_dist}`)
+  }
+
   const handleBaik = () => {
     if (currentVerif.qty_terima === '' || currentVerif.qty_terima === 0) {
-      alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+      toast.warning('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
       return
     }
     if (currentVerif.qty_terima < 0) {
-      alert('Qty terima tidak boleh kurang dari 0')
+      toast.error('Qty terima tidak boleh kurang dari 0')
       return
     }
     if (currentVerif.qty_terima > currentItem.qty_dikirim_dist) {
-      alert('Qty terima tidak boleh melebihi qty dikirim')
+      toast.error('Qty terima tidak boleh melebihi qty dikirim')
       return
     }
     setVerifications((prev) => ({
@@ -308,19 +374,19 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   const handleTidakSesuaiConfirm = () => {
     if (currentVerif.qty_terima === '') {
-      alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+      toast.warning('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
       return
     }
     if (currentVerif.qty_terima < 0) {
-      alert('Qty terima tidak boleh kurang dari 0')
+      toast.error('Qty terima tidak boleh kurang dari 0')
       return
     }
     if (currentVerif.qty_terima > currentItem.qty_dikirim_dist) {
-      alert('Qty terima tidak boleh melebihi qty dikirim')
+      toast.error('Qty terima tidak boleh melebihi qty dikirim')
       return
     }
     if (!currentVerif.catatan.trim()) {
-      alert('Wajib isi catatan alasan untuk item tidak sesuai')
+      toast.warning('Wajib isi catatan alasan untuk item tidak sesuai')
       return
     }
     setKondisiConfirmed(true)
@@ -328,7 +394,7 @@ export function VerifikasiForm({ id }: { id: string }) {
 
   const handleAdvance = () => {
     if (!currentVerif.foto_path) {
-      alert('Foto wajib diambil sebelum lanjut ke item berikutnya')
+      toast.warning('Foto bukti wajib diambil sebelum lanjut ke item berikutnya')
       return
     }
     setKondisiConfirmed(false)
@@ -377,6 +443,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     if (!file) return
     setUploadingFoto(true)
     try {
+      toast.info('Mengompres dan mengunggah foto bukti...')
       const compressed = await compressImage(file, 200 * 1024)
       const supabase = createSupabaseBrowserClient()
       const path = `${id}/${currentItem.id}.jpg`
@@ -386,8 +453,9 @@ export function VerifikasiForm({ id }: { id: string }) {
       if (uploadError) throw uploadError
       const preview = URL.createObjectURL(compressed)
       setVerif({ foto_path: path, foto_preview: preview })
-    } catch (err) {
-      alert(`Gagal upload foto: ${err instanceof Error ? err.message : 'Error'}`)
+      toast.success('Foto bukti berhasil disimpan!')
+    } catch (err: any) {
+      toast.error(`Gagal upload foto: ${err?.message || 'Error'}`)
     } finally {
       setUploadingFoto(false)
       if (e.target) e.target.value = ''
@@ -398,6 +466,7 @@ export function VerifikasiForm({ id }: { id: string }) {
     setSubmitting(true)
     const supabase = createSupabaseBrowserClient()
     try {
+      toast.info('Menyimpan verifikasi penerimaan...')
       const updatePromises = items.map((item: any) => {
         const v = verifications[item.id] ?? { qty_terima: item.qty_dikirim_dist, kondisi: 'baik' as const, catatan: '', foto_path: null, foto_preview: null }
         const qty_terima_base = typeof v.qty_terima === 'number' ? (v.qty_terima / item.factor) : item.qty_dikirim
@@ -415,7 +484,7 @@ export function VerifikasiForm({ id }: { id: string }) {
       })
 
       const results = await Promise.all(updatePromises)
-      const errors = results.filter(({ error }) => error)
+      const errors = results.filter(({ error: errItem }) => errItem)
       if (errors.length > 0) throw new Error(errors[0].error?.message)
 
       const { error: rpcError } = await supabase.rpc('finalize_surat_jalan_and_ledger', {
@@ -430,9 +499,10 @@ export function VerifikasiForm({ id }: { id: string }) {
         sessionStorage.removeItem(`unlocked_verification_${id}`)
       }
 
+      toast.success('Verifikasi Surat Jalan berhasil diselesaikan!')
       router.push('/distribusi/riwayat')
-    } catch (err) {
-      alert(`Error: ${err instanceof Error ? err.message : 'Gagal menyimpan'}`)
+    } catch (err: any) {
+      toast.error(`Error: ${err?.message || 'Gagal menyimpan'}`)
     } finally {
       setSubmitting(false)
     }
@@ -455,45 +525,61 @@ export function VerifikasiForm({ id }: { id: string }) {
   if (step === 'summary') {
     const tidakSesuaiCount = items.filter((it: any) => verifications[it.id]?.kondisi === 'tidak_sesuai').length
     return (
-      <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-24">
-        <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex items-center gap-2 sm:gap-3 shadow-[0_2px_8px_rgba(144,77,0,0.03)] min-w-0">
+      <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-24 relative overflow-hidden bg-grain select-none">
+        <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-suka-brown/10 px-3 sm:px-6 py-3 flex items-center gap-2 sm:gap-3 shadow-sm min-w-0">
           <button
             onClick={() => { setCurrentIndex(items.length - 1); setStep('cards') }}
-            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white border border-suka-orange/15 text-suka-orange hover:bg-suka-orange/5 active:scale-95 transition-all shadow-sm shrink-0 cursor-pointer"
             title="Kembali ke item terakhir"
           >
-            <span className="text-base">←</span>
+            <ArrowLeft size={16} />
           </button>
           <div className="flex flex-col min-w-0">
-            <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Ringkasan Verifikasi</h1>
-            <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5 truncate">{items.length} item selesai dikonfirmasi</p>
+            <h1 className="font-black text-xs sm:text-sm text-suka-brown uppercase tracking-wider font-display leading-none truncate">
+              Ringkasan Verifikasi
+            </h1>
+            <p className="text-[9px] sm:text-[10px] text-suka-gray-500 font-bold mt-0.5 truncate">
+              {items.length} item selesai dikonfirmasi
+            </p>
           </div>
         </header>
 
-        <div className="p-4 max-w-2xl mx-auto space-y-4 mt-2">
-          <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 divide-y divide-[#d9c2b2]/20 shadow-[0px_4px_12px_rgba(144,77,0,0.03)] overflow-hidden">
+        <main className="p-4 max-w-2xl mx-auto space-y-4 mt-2 relative z-10">
+          <div className="bg-white/85 backdrop-blur-md rounded-2xl border border-suka-orange/10 divide-y divide-suka-orange/10 shadow-sm overflow-hidden">
             {items.map((item: any) => {
               const v = verifications[item.id]
               const isTidakSesuai = v?.kondisi === 'tidak_sesuai'
               return (
                 <div key={item.id} className="px-4 py-3 flex items-center gap-3">
                   {v?.foto_preview ? (
-                    <img src={v.foto_preview} alt={item.bahan_baku?.nama} className="w-12 h-12 rounded-lg object-cover shrink-0 border border-[#d9c2b2]/30" />
+                    <img
+                      src={v.foto_preview}
+                      alt={item.bahan_baku?.nama}
+                      className="w-12 h-12 rounded-xl object-cover shrink-0 border border-suka-brown/15 shadow-xs"
+                    />
                   ) : (
-                    <div className="w-12 h-12 rounded-lg bg-[#faf2e9] border border-[#d9c2b2]/30 flex items-center justify-center shrink-0 text-lg">📷</div>
+                    <div className="w-12 h-12 rounded-xl bg-suka-orange/10 border border-suka-orange/20 flex items-center justify-center shrink-0 text-suka-orange">
+                      <Camera size={20} />
+                    </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-[#1e1b15] uppercase tracking-wide truncate">{item.bahan_baku?.nama}</p>
+                    <p className="text-xs font-extrabold text-suka-ink uppercase tracking-wide truncate">
+                      {item.bahan_baku?.nama}
+                    </p>
                     {isTidakSesuai && v?.catatan && (
-                      <p className="text-[10px] text-[#ba1a1a] mt-0.5 font-semibold truncate">{v.catatan}</p>
+                      <p className="text-[10px] text-red-600 mt-0.5 font-semibold truncate">
+                        * {v.catatan}
+                      </p>
                     )}
                   </div>
-                  <span className={`shrink-0 text-[10px] px-2.5 py-1 rounded-full font-bold uppercase tracking-wide border ${
-                    isTidakSesuai ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/20' : 'bg-green-50 text-green-700 border-green-200'
+                  <span className={`shrink-0 text-[10px] px-2.5 py-1 rounded-xl font-black uppercase tracking-wider border ${
+                    isTidakSesuai
+                      ? 'bg-red-50 text-red-700 border-red-200'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                   }`}>
                     {isTidakSesuai
-                      ? `Tidak Sesuai · ${v?.qty_terima}/${item.qty_dikirim_dist} ${item.satuan_dist}`
-                      : `Baik · ${v?.qty_terima} ${item.satuan_dist}`}
+                      ? `Selisih · ${v?.qty_terima}/${item.qty_dikirim_dist} ${item.satuan_dist}`
+                      : `Sesuai · ${v?.qty_terima} ${item.satuan_dist}`}
                   </span>
                 </div>
               )
@@ -501,68 +587,92 @@ export function VerifikasiForm({ id }: { id: string }) {
           </div>
 
           {tidakSesuaiCount > 0 && (
-            <div className="p-3 bg-[#ffdad6]/60 border border-[#ba1a1a]/20 rounded-xl text-[#ba1a1a] text-xs font-bold flex items-center gap-2">
-              <span>⚠️</span>
-              <span>{tidakSesuaiCount} item tidak sesuai — alasan tercatat di catatan</span>
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-bold flex items-center gap-2.5 shadow-xs">
+              <AlertTriangle size={18} className="shrink-0 text-red-600" />
+              <span>{tidakSesuaiCount} item ada catatan selisih/rusak</span>
             </div>
           )}
 
-          <SignatureBlock title="TTD Pengirim (Pusat)" sigs={data.signatures || []} />
+          <SignatureBlock title="Tanda Tangan Pengirim (Pusat)" sigs={data.signatures || []} />
 
           <button
             onClick={() => setStep('signature')}
-            className="w-full py-3 bg-[#f29744] hover:bg-orange-600 active:bg-orange-700 text-white font-bold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95"
+            className="w-full py-3.5 bg-suka-orange hover:bg-orange-600 active:scale-[0.98] text-white font-extrabold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
           >
-            Lanjut ke Tanda Tangan →
+            Lanjut ke Tanda Tangan Penerima <ArrowRight size={16} />
           </button>
-        </div>
+        </main>
       </div>
     )
   }
 
   // ── Step: Cards (satu item per layar) ─────────────────────────────
   return (
-    <div className="min-h-screen bg-[#fff8f1] text-[#1e1b15] pb-12">
-      <header className="sticky top-0 z-40 bg-[#fff8f1] border-b border-[#d9c2b2]/30 px-3 sm:px-4 py-3 flex justify-between items-center shadow-[0_2px_8px_rgba(144,77,0,0.03)]">
+    <div className="min-h-screen bg-[#fff8f1]/50 text-[#1e1b15] pb-24 relative overflow-hidden bg-grain select-none">
+      <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-md border-b border-suka-brown/10 px-3 sm:px-6 py-3 flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <Link href="/distribusi/terima" className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-white border border-[#d9c2b2]/30 text-[#f29744] hover:bg-orange-50 active:scale-95 transition-all shadow-sm shrink-0" title="Kembali ke Inbox">
-            <span className="text-base">←</span>
+          <Link
+            href="/distribusi/terima"
+            className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white border border-suka-orange/15 text-suka-orange hover:bg-suka-orange/5 active:scale-95 transition-all shadow-sm shrink-0"
+            title="Kembali ke Inbox"
+          >
+            <ArrowLeft size={16} />
           </Link>
           <div className="flex flex-col min-w-0">
-            <h1 className="font-bold text-xs sm:text-sm text-[#701604] uppercase tracking-tight leading-tight truncate">Verifikasi Penerimaan</h1>
-            <p className="text-[9px] sm:text-[10px] text-[#544437]/75 font-bold mt-0.5 truncate max-w-[170px] sm:max-w-none">
+            <h1 className="font-black text-xs sm:text-sm text-suka-brown uppercase tracking-wider font-display leading-none truncate">
+              Verifikasi Penerimaan
+            </h1>
+            <p className="text-[9px] sm:text-[10px] text-suka-gray-500 font-bold mt-0.5 truncate max-w-[170px] sm:max-w-none">
               No. {data.document_number || id.substring(0, 8).toUpperCase()} &bull; {data.outlets?.name?.replace('SUKA SHAWARMA ', '') || ''}
             </p>
           </div>
         </div>
-        <span className="text-xs font-black text-[#701604] bg-[#faf2e9] border border-[#d9c2b2]/40 px-3 py-1 rounded-full shrink-0">
+        <span className="text-xs font-black text-suka-brown bg-suka-orange/10 border border-suka-orange/20 px-3 py-1 rounded-full shrink-0">
           {currentIndex + 1} / {items.length}
         </span>
       </header>
 
-      <div className="p-4 max-w-lg mx-auto mt-2">
+      <main className="p-4 max-w-lg mx-auto mt-2 relative z-10 space-y-4">
         {/* Progress bar */}
-        <div className="w-full bg-[#d9c2b2]/25 rounded-full h-1.5 mb-6 overflow-hidden">
-          <div className="bg-[#f29744] h-1.5 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+        <div className="w-full bg-suka-brown/10 rounded-full h-2 overflow-hidden shadow-inner">
+          <div
+            className="bg-suka-orange h-2 rounded-full transition-all duration-300 shadow-sm"
+            style={{ width: `${progress}%` }}
+          />
         </div>
 
         {/* Item card */}
-        <div className="bg-white rounded-2xl border border-[#d9c2b2]/45 p-5 mb-6 shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
-          <span className="text-[8px] text-[#f29744] font-black uppercase tracking-widest mb-1 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md inline-block">
-            Kategori: {currentItem?.bahan_baku?.kategori || 'BAHAN BAKU'}
-          </span>
-          <h2 className="text-xl font-extrabold text-[#1e1b15] uppercase tracking-tight mb-5 mt-1">{currentItem?.bahan_baku?.nama}</h2>
+        <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-orange/15 p-5 shadow-sm space-y-4">
+          <div className="flex justify-between items-start">
+            <span className="text-[8px] font-black uppercase tracking-widest bg-suka-orange/10 text-suka-brown px-2.5 py-1 rounded-lg">
+              Kategori: {currentItem?.bahan_baku?.kategori || 'BAHAN BAKU'}
+            </span>
+          </div>
 
-          <div className="flex items-center gap-4 bg-[#fff8f1]/50 p-4 rounded-xl border border-[#d9c2b2]/25 shadow-inner mb-1">
-            <div className="flex-1">
-              <p className="text-[9px] text-[#544437]/60 font-bold uppercase tracking-wider mb-1">Qty Kirim</p>
-              <p className="text-lg font-extrabold text-[#701604]">
-                {currentItem?.qty_dikirim_dist} <span className="text-[10px] font-semibold text-[#544437]/75">{currentItem?.satuan_dist}</span>
+          <h2 className="text-lg sm:text-xl font-black text-suka-ink uppercase tracking-tight leading-tight">
+            {currentItem?.bahan_baku?.nama}
+          </h2>
+
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#fff8f1] p-4 rounded-2xl border border-suka-orange/20">
+            <div className="w-full sm:w-auto flex justify-between sm:block">
+              <p className="text-[9px] text-suka-gray-500 font-black uppercase tracking-wider mb-0.5">
+                Qty Kirim (Pusat)
+              </p>
+              <p className="text-lg font-black text-suka-brown">
+                {currentItem?.qty_dikirim_dist} <span className="text-xs font-bold text-suka-gray-500">{currentItem?.satuan_dist}</span>
               </p>
             </div>
-            <span className="text-[#544437]/30 text-xl font-bold">→</span>
-            <div>
-              <p className="text-[9px] text-[#544437]/60 font-bold uppercase tracking-wider mb-1">Qty Terima</p>
+
+            <div className="w-full sm:w-auto flex items-center justify-between sm:justify-end gap-2 border-t sm:border-t-0 pt-2 sm:pt-0 border-suka-brown/10">
+              <button
+                type="button"
+                onClick={handleMatchQty}
+                className="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+                title="Sesuai dengan Qty Kirim"
+              >
+                <Check size={12} /> Sesuai
+              </button>
+
               <div className="flex items-center gap-1.5">
                 <input
                   type="number"
@@ -578,26 +688,29 @@ export function VerifikasiForm({ id }: { id: string }) {
                       kondisi: isKurang ? 'tidak_sesuai' : (currentVerif.kondisi === 'tidak_sesuai' && !currentVerif.catatan ? 'baik' : currentVerif.kondisi),
                     })
                   }}
-                  className={`border-2 rounded-xl px-2 py-1.5 text-lg font-extrabold text-center w-20 bg-white focus:outline-none focus:ring-1 focus:ring-[#f29744] transition-all ${
-                    isTidakSesuaiMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim_dist ?? 0)) ? 'border-[#ba1a1a]' : 'border-[#0a7d2c]'
+                  className={`border-2 rounded-xl px-2 py-1.5 text-lg font-black text-center w-20 bg-white focus:outline-none focus:ring-2 focus:ring-suka-orange transition-all ${
+                    isTidakSesuaiMode || (typeof currentVerif.qty_terima === 'number' && currentVerif.qty_terima < (currentItem?.qty_dikirim_dist ?? 0))
+                      ? 'border-red-500 text-red-700'
+                      : 'border-emerald-600 text-emerald-800'
                   }`}
+                  placeholder="0"
                 />
-                <span className="text-xs font-bold text-[#544437]/70">{currentItem?.satuan_dist}</span>
+                <span className="text-xs font-bold text-suka-gray-500">{currentItem?.satuan_dist}</span>
               </div>
             </div>
           </div>
 
           {isTidakSesuaiMode && (
-            <div className="mt-4 space-y-1">
-              <label className="text-[8px] font-bold text-[#ba1a1a] block uppercase tracking-wider pl-1">
-                Catatan Masalah / Alasan Selisih (Wajib)
+            <div className="space-y-1 animate-in fade-in duration-200">
+              <label className="text-[9px] font-black text-red-600 block uppercase tracking-wider pl-1">
+                Catatan Masalah / Alasan Selisih (Wajib):
               </label>
               <textarea
                 value={currentVerif.catatan}
                 onChange={(e) => setVerif({ catatan: e.target.value })}
-                placeholder="Sebutkan alasan (misal: 2 kg busuk, kemasan robek, pecah di jalan, kurang kirim, dll)"
+                placeholder="Sebutkan alasan (misal: 2 pack bocor, kurang kirim 1 botol, rusak saat transit, dll)"
                 rows={2}
-                className="w-full border border-red-200 rounded-xl px-3 py-2 text-xs bg-red-50 focus:outline-none focus:ring-1 focus:ring-red-400 resize-none font-medium text-[#ba1a1a] min-h-[50px]"
+                className="w-full border border-red-300 rounded-xl px-3 py-2 text-xs bg-red-50/70 focus:outline-none focus:ring-2 focus:ring-red-400 resize-none font-semibold text-red-900 min-h-[55px]"
               />
             </div>
           )}
@@ -605,71 +718,77 @@ export function VerifikasiForm({ id }: { id: string }) {
 
         {/* Action buttons — kondisi belum dikunci */}
         {!kondisiConfirmed && (
-          <>
+          <div className="space-y-3">
             {!isTidakSesuaiMode ? (
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={handleBaik}
-                  className="bg-[#0a7d2c] hover:bg-green-700 active:bg-green-800 text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-2xl py-3.5 font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  ✓ Baik
+                  <CheckCircle2 size={16} /> Kondisi Baik
                 </button>
                 <button
                   onClick={() => {
                     if (currentVerif.qty_terima === '') {
-                      alert('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
+                      toast.warning('Harap isi jumlah fisik (Qty Terima) terlebih dahulu')
                       return
                     }
                     setVerif({ kondisi: 'tidak_sesuai' })
                   }}
-                  className="border-2 border-[#ba1a1a]/60 text-[#ba1a1a] rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-red-50 transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+                  className="border-2 border-red-300 text-red-700 bg-white hover:bg-red-50 active:scale-[0.98] rounded-2xl py-3.5 font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2"
                 >
-                  ✗ Tidak Sesuai
+                  <AlertTriangle size={16} /> Ada Masalah
                 </button>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <button
                   onClick={() => setVerif({ kondisi: 'baik', catatan: '' })}
-                  className="border border-[#d9c2b2]/45 text-[#544437] bg-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider hover:bg-[#faf2e9] transition-all cursor-pointer active:scale-95"
+                  className="border border-suka-brown/20 text-suka-brown bg-white rounded-2xl py-3.5 font-black text-xs uppercase tracking-wider hover:bg-suka-gray-50 active:scale-[0.98] transition-all cursor-pointer"
                 >
-                  ← Batalkan
+                  Batal Masalah
                 </button>
                 <button
                   onClick={handleTidakSesuaiConfirm}
-                  className="bg-[#ba1a1a] hover:bg-[#931313] active:bg-[#7a0f0f] text-white rounded-xl py-3 font-bold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer active:scale-95"
+                  className="bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white rounded-2xl py-3.5 font-black text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
-                  Konfirmasi Tidak Sesuai →
+                  Kunci Selisih →
                 </button>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {/* Section foto inline — muncul setelah kondisi dikonfirmasi */}
         {kondisiConfirmed && (
-          <div className="space-y-3">
+          <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-orange/15 p-5 shadow-sm space-y-4 animate-in fade-in">
             <div className={`flex items-center justify-between px-4 py-2.5 rounded-xl border ${
               currentVerif.kondisi === 'tidak_sesuai'
-                ? 'bg-[#ffdad6]/60 border-[#ba1a1a]/20 text-[#ba1a1a]'
-                : 'bg-green-50 border-green-200 text-green-700'
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-700'
             }`}>
-              <span className="text-xs font-bold uppercase tracking-wide">
-                {currentVerif.kondisi === 'tidak_sesuai'
-                  ? `✗ Tidak Sesuai · ${currentVerif.qty_terima}/${currentItem?.qty_dikirim_dist} ${currentItem?.satuan_dist}`
-                  : `✓ Baik · ${currentVerif.qty_terima} ${currentItem?.satuan_dist}`}
+              <span className="text-xs font-black uppercase tracking-wide flex items-center gap-1.5">
+                {currentVerif.kondisi === 'tidak_sesuai' ? (
+                  <>
+                    <AlertTriangle size={14} /> Selisih · {currentVerif.qty_terima}/{currentItem?.qty_dikirim_dist} {currentItem?.satuan_dist}
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={14} /> Baik · {currentVerif.qty_terima} {currentItem?.satuan_dist}
+                  </>
+                )}
               </span>
               <button
                 onClick={() => setKondisiConfirmed(false)}
-                className="text-[10px] font-bold underline opacity-70 cursor-pointer"
+                className="text-[10px] font-extrabold underline opacity-80 cursor-pointer hover:opacity-100"
               >
-                Ubah
+                Ubah Qty
               </button>
             </div>
 
             {currentVerif.foto_preview && (
-              <div className="rounded-xl overflow-hidden border border-[#d9c2b2]/30">
-                <img src={currentVerif.foto_preview} alt="Foto barang" className="w-full object-cover max-h-52" />
+              <div className="rounded-2xl overflow-hidden border border-suka-brown/15 shadow-inner">
+                <img src={currentVerif.foto_preview} alt="Foto barang" className="w-full object-cover max-h-56" />
               </div>
             )}
 
@@ -682,21 +801,25 @@ export function VerifikasiForm({ id }: { id: string }) {
                 disabled={uploadingFoto}
                 onChange={handleFotoCapture}
               />
-              <div className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md ${
+              <div className={`w-full py-3.5 font-black uppercase tracking-wider text-xs rounded-2xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] shadow-sm ${
                 uploadingFoto
-                  ? 'bg-orange-100 text-[#f29744] border border-orange-200 animate-pulse'
+                  ? 'bg-orange-100 text-suka-orange border border-orange-200 animate-pulse'
                   : currentVerif.foto_path
-                    ? 'bg-white border border-[#d9c2b2]/45 text-[#544437]'
-                    : 'bg-[#f29744] text-white'
+                    ? 'bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-gray-50'
+                    : 'bg-suka-orange hover:bg-orange-600 text-white'
               }`}>
                 {uploadingFoto ? (
                   <span className="flex items-center gap-2">
-                    <span className="animate-spin text-sm">⏳</span> Mengunggah & Memproses Foto...
+                    <RefreshCw size={14} className="animate-spin" /> Mengompres & Mengunggah...
                   </span>
                 ) : currentVerif.foto_path ? (
-                  '🔄 Ambil Ulang Foto'
+                  <>
+                    <RefreshCw size={14} /> Ambil Ulang Foto Bukti
+                  </>
                 ) : (
-                  '📷 Foto Barang Sekarang'
+                  <>
+                    <Camera size={16} /> Ambil Foto Bukti Fisik
+                  </>
                 )}
               </div>
             </label>
@@ -704,17 +827,21 @@ export function VerifikasiForm({ id }: { id: string }) {
             <button
               onClick={handleAdvance}
               disabled={!currentVerif.foto_path || uploadingFoto}
-              className={`w-full py-3 font-bold uppercase tracking-wider text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
+              className={`w-full py-3.5 font-black uppercase tracking-wider text-xs rounded-2xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] ${
                 currentVerif.foto_path && !uploadingFoto
-                  ? 'bg-[#701604] hover:bg-[#591002] text-white shadow-md cursor-pointer'
-                  : 'bg-[#d9c2b2]/30 text-[#544437]/40 cursor-not-allowed'
+                  ? 'bg-suka-brown hover:bg-suka-ink text-white shadow-md cursor-pointer'
+                  : 'bg-suka-gray-200 text-suka-gray-400 cursor-not-allowed'
               }`}
             >
-              {currentIndex + 1 >= items.length ? 'Lihat Ringkasan →' : 'Item Berikutnya →'}
+              {currentIndex + 1 >= items.length ? (
+                <>Lihat Ringkasan Akhir <ArrowRight size={16} /></>
+              ) : (
+                <>Item Berikutnya <ArrowRight size={16} /></>
+              )}
             </button>
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

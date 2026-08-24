@@ -9,7 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
-import { convertBesarToGram } from '@/lib/format/compositeUnit';
+import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import type { BahanBaku } from '@/types/stok';
 
 const TIMEOUT_MS = 15000;
@@ -54,39 +54,14 @@ function formatRawInput(b: BahanBaku, input: { besar?: string; tengah?: string; 
 }
 
 function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
-  let remaining = Math.abs(totalSmallestQty);
-  let besar = 0, tengah = 0, kecil = 0;
-
-  const unitBesarInKecil = b.faktor_tampilan || 1;
-
-  if (b.satuan_tengah && b.satuan_kecil) {
-    const unitTengahInKecil = b.faktor_tengah ? unitBesarInKecil / b.faktor_tengah : 1;
-
-    besar = Math.floor(remaining / unitBesarInKecil);
-    remaining = remaining % unitBesarInKecil;
-
-    tengah = Math.floor(remaining / unitTengahInKecil);
-    kecil = remaining % unitTengahInKecil;
-    
-    // Round to handle floating point issues
-    kecil = Math.round(kecil * 100) / 100;
-  } else if (b.satuan_kecil) {
-    besar = Math.floor(remaining / unitBesarInKecil);
-    kecil = remaining % unitBesarInKecil;
-    
-    kecil = Math.round(kecil * 100) / 100;
-  } else {
-    besar = remaining;
-    besar = Math.round(besar * 100) / 100;
-  }
-
-  const parts = [];
-  if (besar > 0) parts.push(`${besar} ${b.satuan}`);
-  if (tengah > 0 && b.satuan_tengah) parts.push(`${tengah} ${b.satuan_tengah}`);
-  if (kecil > 0 && b.satuan_kecil) parts.push(`${kecil} ${b.satuan_kecil}`);
-
-  const formattedStr = parts.length > 0 ? parts.join(' + ') : `0 ${b.satuan}`;
-  return totalSmallestQty < 0 ? `-${formattedStr}` : formattedStr;
+  return formatTriUnitSaldoFromGram(
+    totalSmallestQty,
+    b.satuan,
+    b.satuan_tengah,
+    b.faktor_tengah,
+    b.satuan_kecil,
+    b.faktor_tampilan
+  );
 }
 
 export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {

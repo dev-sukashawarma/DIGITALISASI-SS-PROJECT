@@ -3,11 +3,14 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { SignatureCanvas } from './SignatureCanvas'
+import { CheckCircle2, AlertTriangle, PenTool, Send, Clock, Sparkles, User, Truck, ShieldCheck } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Signature {
   signed_by: string
   role: string
   signed_at: string
+  signature_image?: string
 }
 
 interface SignatureFlowProps {
@@ -17,7 +20,7 @@ interface SignatureFlowProps {
   onSent: () => void
 }
 
-const MAX_SIGNATURE_SIZE = 50000 // 50KB - PNG data URL limit for RPC parameter safety
+const MAX_SIGNATURE_SIZE = 50000 // 50KB
 
 export function SignatureFlow({
   suratJalanId,
@@ -43,29 +46,22 @@ export function SignatureFlow({
         .select('name, role')
         .eq('status', 'active')
         .order('name')
-      
+
       if (data) {
-        setKitchenStaff(data.filter(d => d.role === 'kitchen').map(d => d.name))
-        setAllStaff(data.map(d => d.name))
+        setKitchenStaff(data.filter((d) => d.role === 'kitchen').map((d) => d.name))
+        setAllStaff(data.map((d) => d.name))
       }
     }
     fetchStaff()
   }, [])
-  const [alertConfig, setAlertConfig] = useState<{ show: boolean; title: string; message: string; type: 'error' | 'success' | 'warning' } | null>(null)
-  
-  const showAlert = (title: string, message: string, type: 'error' | 'success' | 'warning' = 'error') => {
-    setAlertConfig({ show: true, title, message, type })
-  }
-  
-  const closeAlert = () => setAlertConfig(null)
 
   const signedRoles = signatures.map((s) => s.role)
-  const hasAdmin = signedRoles.includes('Admin Kitchen') || signedRoles.includes('Kitchen SPV')
+  const hasAdmin = signedRoles.includes('Admin Kitchen') || signedRoles.includes('Kitchen SPV') || signedRoles.includes('Admin Gudang')
   const hasSupir = signedRoles.includes('Supir')
-  
+
   const missingRoles: string[] = []
-  if (!hasAdmin) missingRoles.push('Admin Kitchen')
-  if (!hasSupir) missingRoles.push('Supir')
+  if (!hasAdmin) missingRoles.push('Admin Gudang')
+  if (!hasSupir) missingRoles.push('Supir (Kurir)')
 
   useEffect(() => {
     if (hasAdmin && !hasSupir) {
@@ -77,29 +73,25 @@ export function SignatureFlow({
   }, [signatures, hasAdmin, hasSupir])
 
   const handleSign = async (imgToUse?: string) => {
-    const finalImg = imgToUse || signatureImage;
+    const finalImg = imgToUse || signatureImage
 
     if (!signedBy.trim()) {
-      showAlert('Peringatan', 'Nama penanda tangan harus diisi', 'warning')
+      toast.warning('Pilih atau ketik nama penanda tangan terlebih dahulu')
       return
     }
 
     if (!finalImg) {
-      showAlert('Peringatan', 'Tanda tangan harus digambar terlebih dahulu', 'warning')
+      toast.warning('Goreskan tanda tangan terlebih dahulu pada canvas')
       return
     }
 
     if (signatures.some((s) => s.role === role)) {
-      showAlert('Peringatan', `${role} sudah menandatangani. Tidak bisa menambah tanda tangan ganda.`, 'warning')
+      toast.warning(`${role} sudah menandatangani.`)
       return
     }
 
     if (finalImg.length > MAX_SIGNATURE_SIZE) {
-      showAlert(
-        'Ukuran Terlalu Besar',
-        `Tanda tangan terlalu besar (${(finalImg.length / 1024).toFixed(1)}KB). Coba ulang dengan stroke yang lebih ringan atau canvas yang lebih kecil.`,
-        'warning'
-      )
+      toast.error(`Ukuran tanda tangan terlalu besar (${(finalImg.length / 1024).toFixed(1)}KB). Coba ulangi.`)
       return
     }
 
@@ -107,8 +99,7 @@ export function SignatureFlow({
     const supabase = createSupabaseBrowserClient()
 
     try {
-      console.log('Signing with image size:', finalImg.length, 'bytes')
-
+      toast.info('Menyimpan tanda tangan pengirim...')
       const { data, error } = await supabase.rpc('sign_surat_jalan', {
         p_surat_jalan_id: suratJalanId,
         p_signed_by_name: signedBy,
@@ -125,16 +116,13 @@ export function SignatureFlow({
         throw new Error('Tidak ada data tanda tangan kembali dari server')
       }
 
-      console.log('Signature saved successfully:', data)
       onSignatureAdded(data.signatures)
       setSignedBy('')
       setSignatureImage('')
       setShowCanvas(false)
-      showAlert('Berhasil', `Tanda tangan dari ${signedBy} berhasil ditambahkan`, 'success')
+      toast.success(`Tanda tangan ${signedBy} (${role}) berhasil ditambahkan!`)
     } catch (err: any) {
-      const message = err?.message || err?.details || 'Gagal menambah tanda tangan'
-      console.error('Full error:', err)
-      showAlert('Gagal', message, 'error')
+      toast.error(err?.message || 'Gagal menambah tanda tangan')
     } finally {
       setSigning(false)
     }
@@ -142,7 +130,7 @@ export function SignatureFlow({
 
   const handleSend = async () => {
     if (missingRoles.length > 0) {
-      showAlert('Peringatan', `Tanda tangan yang masih diperlukan: ${missingRoles.join(', ')}`, 'warning')
+      toast.warning(`Tanda tangan yang masih diperlukan: ${missingRoles.join(', ')}`)
       return
     }
 
@@ -150,47 +138,75 @@ export function SignatureFlow({
     const supabase = createSupabaseBrowserClient()
 
     try {
+      toast.info('Memvalidasi dan mengirim Surat Jalan...')
       const { error } = await supabase.rpc('send_surat_jalan_signed', {
         p_surat_jalan_id: suratJalanId,
       })
 
       if (error) throw error
 
-      showAlert('Berhasil', 'Surat Jalan berhasil dikirim!', 'success')
-      setTimeout(() => onSent(), 2000)
+      toast.success('Surat Jalan berhasil dikirim! Status sekarang: Dalam Transit.')
+      setTimeout(() => onSent(), 1000)
     } catch (err: any) {
       let message = err?.message || err?.details || 'Gagal mengirim'
-      // Format angka desimal yang terlalu panjang dari database (e.g., 0.7400000000000000000 -> 0.74)
       message = message.replace(/(\d+\.\d+)/g, (match: string) => parseFloat(match).toString())
-      showAlert('Gagal Mengirim', message, 'error')
+      toast.error(`Gagal Mengirim: ${message}`)
     } finally {
       setSending(false)
     }
   }
 
   return (
-    <div className="bg-white rounded-xl border border-suka-brown/10 p-6 space-y-6">
-      <h3 className="text-md font-bold text-suka-brown uppercase tracking-wider">Proses Penandatanganan</h3>
+    <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-orange/20 p-5 space-y-4 shadow-sm">
+      <div className="flex justify-between items-center border-b border-suka-brown/10 pb-3">
+        <div className="flex items-center gap-2">
+          <PenTool size={16} className="text-suka-orange" />
+          <h3 className="text-xs font-black text-suka-brown uppercase tracking-wider font-display">
+            Penandatanganan Pengiriman
+          </h3>
+        </div>
+        <span
+          className={`text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full border ${
+            missingRoles.length === 0
+              ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+              : 'bg-amber-500/10 text-amber-700 border-amber-500/20'
+          }`}
+        >
+          {signatures.length}/2 TTD Lengkap
+        </span>
+      </div>
 
-      {/* Existing signatures */}
+      {/* Progress & Confirmed Signatures */}
       {signatures.length > 0 && (
-        <div className="bg-[#fff8f1] border border-suka-brown/10 rounded-xl p-4">
-          <p className="text-xs font-bold text-suka-brown uppercase tracking-wider mb-2">
-            Tanda tangan dikonfirmasi ({signatures.length}):
+        <div className="space-y-2">
+          <p className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest pl-0.5">
+            Tanda Tangan Terverifikasi:
           </p>
           <div className="space-y-2">
             {signatures.map((sig, idx) => (
-              <div key={idx} className="text-sm text-suka-ink flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-suka-green" />
-                <span className="font-semibold">{sig.signed_by}</span>
-                <span className="text-suka-brown/60 text-xs font-medium">({sig.role})</span>
-                <span className="text-suka-brown/50 text-xs ml-auto">
-                  {new Date(sig.signed_at).toLocaleString('id-ID', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+              <div
+                key={idx}
+                className="flex items-center justify-between p-2.5 bg-[#fff8f1] rounded-2xl border border-suka-orange/15 shadow-xs"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {sig.signature_image ? (
+                    <img
+                      src={sig.signature_image}
+                      alt={sig.role}
+                      className="h-8 w-12 bg-white rounded-lg border border-suka-brown/10 p-0.5 object-contain shrink-0"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <CheckCircle2 size={16} />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-extrabold text-suka-ink uppercase truncate">{sig.signed_by}</p>
+                    <p className="text-[9px] text-suka-gray-500 font-semibold">{sig.role}</p>
+                  </div>
+                </div>
+                <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg shrink-0">
+                  Sah ✓
                 </span>
               </div>
             ))}
@@ -198,151 +214,188 @@ export function SignatureFlow({
         </div>
       )}
 
-      {/* Add signature form */}
+      {/* Form Input TTD Baru (jika belum lengkap) */}
       {missingRoles.length > 0 && (
-        <div className="space-y-4 border-t border-suka-brown/10 pt-4">
-          <p className="text-sm font-bold text-suka-brown">Tambah Tanda Tangan Baru</p>
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col sm:flex-row gap-3 items-start">
-              <select
-                value={role}
-                onChange={(e) => { setRole(e.target.value); setSignedBy(''); }}
-                className="w-full sm:w-1/3 bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
-              >
-                <option value="Admin Kitchen" disabled={hasAdmin}>
-                  {hasAdmin ? 'Admin Kitchen ✓' : 'Admin Kitchen'}
-                </option>
-                <option value="Supir" disabled={hasSupir}>
-                  {hasSupir ? 'Supir ✓' : 'Supir (Pengemudi)'}
-                </option>
-              </select>
-
-              <div className="flex-1 w-full flex flex-col gap-2">
-                {role === 'Admin Kitchen' ? (
-                  <select
-                    value={signedBy}
-                    onChange={(e) => setSignedBy(e.target.value)}
-                    className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
-                  >
-                    <option value="" disabled>Pilih Nama Admin Kitchen</option>
-                    {kitchenStaff.map((name) => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <div className="flex flex-col gap-2 w-full">
-                    <div className="flex items-center gap-4 px-1 pb-1">
-                      <label className="flex items-center gap-1.5 text-xs text-suka-brown font-semibold cursor-pointer">
-                        <input type="radio" checked={driverType === 'internal'} onChange={() => { setDriverType('internal'); setSignedBy(''); }} className="accent-suka-orange" />
-                        Supir Internal
-                      </label>
-                      <label className="flex items-center gap-1.5 text-xs text-suka-brown font-semibold cursor-pointer">
-                        <input type="radio" checked={driverType === 'external'} onChange={() => { setDriverType('external'); setSignedBy(''); }} className="accent-suka-orange" />
-                        Supir Eksternal
-                      </label>
-                    </div>
-                    {driverType === 'internal' ? (
-                      <select
-                        value={signedBy}
-                        onChange={(e) => setSignedBy(e.target.value)}
-                        className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
-                      >
-                        <option value="" disabled>Pilih Nama Supir Internal</option>
-                        {allStaff.map((name) => (
-                          <option key={name} value={name}>{name}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={signedBy}
-                        onChange={(e) => setSignedBy(e.target.value)}
-                        placeholder="Ketik nama Lalamove / Eksternal"
-                        className="w-full bg-[#fff8f1] border border-suka-brown/15 focus:border-suka-orange focus:ring-1 focus:ring-suka-orange rounded-xl px-4 py-2.5 text-sm transition-all h-[42px]"
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
+        <div className="space-y-3 pt-2">
+          <div className="bg-[#fff8f1]/80 rounded-2xl p-3.5 border border-suka-brown/10 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-[9px] font-black text-suka-brown uppercase tracking-wider">
+                1. Pilih Peran Penanda Tangan
+              </label>
             </div>
 
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRole('Admin Kitchen')
+                  setSignedBy('')
+                }}
+                disabled={hasAdmin}
+                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  role === 'Admin Kitchen' && !hasAdmin
+                    ? 'bg-suka-brown text-white border-suka-brown shadow-xs'
+                    : hasAdmin
+                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                      : 'bg-white text-suka-brown border-suka-brown/15 hover:bg-suka-orange/5'
+                }`}
+              >
+                <User size={13} /> Admin Gudang {hasAdmin && '✓'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setRole('Supir')
+                  setSignedBy('')
+                }}
+                disabled={hasSupir}
+                className={`py-2 px-3 rounded-xl text-xs font-black uppercase tracking-wider border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  role === 'Supir' && !hasSupir
+                    ? 'bg-suka-orange text-white border-suka-orange shadow-xs'
+                    : hasSupir
+                      ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed opacity-60'
+                      : 'bg-white text-suka-brown border-suka-brown/15 hover:bg-suka-orange/5'
+                }`}
+              >
+                <Truck size={13} /> Supir / Kurir {hasSupir && '✓'}
+              </button>
+            </div>
+
+            {/* Selection/Input Nama */}
+            <div className="space-y-1.5">
+              <label className="text-[9px] font-black text-suka-brown uppercase tracking-wider">
+                2. Nama Petugas
+              </label>
+
+              {role === 'Admin Kitchen' ? (
+                <select
+                  value={signedBy}
+                  onChange={(e) => setSignedBy(e.target.value)}
+                  className="w-full bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/30 rounded-xl px-3.5 py-2.5 text-xs text-suka-ink font-bold uppercase transition-all shadow-inner h-[42px] cursor-pointer"
+                >
+                  <option value="" disabled>
+                    -- Pilih Nama Admin Gudang --
+                  </option>
+                  {kitchenStaff.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-4 px-1">
+                    <label className="flex items-center gap-1.5 text-xs text-suka-brown font-bold cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={driverType === 'internal'}
+                        onChange={() => {
+                          setDriverType('internal')
+                          setSignedBy('')
+                        }}
+                        className="accent-suka-orange"
+                      />
+                      Supir Internal
+                    </label>
+                    <label className="flex items-center gap-1.5 text-xs text-suka-brown font-bold cursor-pointer">
+                      <input
+                        type="radio"
+                        checked={driverType === 'external'}
+                        onChange={() => {
+                          setDriverType('external')
+                          setSignedBy('')
+                        }}
+                        className="accent-suka-orange"
+                      />
+                      Vendor / Lalamove
+                    </label>
+                  </div>
+
+                  {driverType === 'internal' ? (
+                    <select
+                      value={signedBy}
+                      onChange={(e) => setSignedBy(e.target.value)}
+                      className="w-full bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/30 rounded-xl px-3.5 py-2.5 text-xs text-suka-ink font-bold uppercase transition-all shadow-inner h-[42px] cursor-pointer"
+                    >
+                      <option value="" disabled>
+                        -- Pilih Nama Supir Internal --
+                      </option>
+                      {allStaff.map((name) => (
+                        <option key={name} value={name}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="text"
+                      value={signedBy}
+                      onChange={(e) => setSignedBy(e.target.value)}
+                      placeholder="Ketik Nama Supir Vendor (e.g. Lalamove - Budi)"
+                      className="w-full bg-white border border-suka-brown/20 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/30 rounded-xl px-3.5 py-2.5 text-xs text-suka-ink font-bold uppercase transition-all shadow-inner h-[42px]"
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Toggle Canvas */}
             <button
+              type="button"
               onClick={() => setShowCanvas(!showCanvas)}
-              className="w-full px-4 py-2.5 border border-suka-brown/15 text-suka-brown font-semibold text-sm rounded-xl bg-white hover:bg-suka-cream transition-all cursor-pointer mt-1"
+              className="w-full py-2.5 border border-suka-orange/30 text-suka-brown font-extrabold text-xs uppercase tracking-wider rounded-xl bg-white hover:bg-suka-orange/5 transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs active:scale-98"
             >
-              {showCanvas ? 'Sembunyikan Canvas' : 'Gambar Tanda Tangan'}
+              <PenTool size={13} className="text-suka-orange" />
+              {showCanvas ? 'Tutup Canvas TTD' : 'Goreskan Tanda Tangan Digital'}
             </button>
           </div>
 
+          {/* Signature Canvas Popup */}
           {showCanvas && !signing && (
-            <SignatureCanvas onSignatureSaved={(img) => {
-              setSignatureImage(img)
-              handleSign(img)
-            }} />
+            <div className="animate-in fade-in duration-200">
+              <SignatureCanvas
+                onSignatureSaved={(img) => {
+                  setSignatureImage(img)
+                  handleSign(img)
+                }}
+              />
+            </div>
           )}
-          
+
           {signing && (
-            <div className="flex items-center justify-center p-6 bg-[#fff8f1]/50 border border-suka-brown/10 rounded-xl">
-              <p className="text-suka-orange font-bold text-sm animate-pulse">Menyimpan Tanda Tangan...</p>
+            <div className="flex items-center justify-center p-4 bg-[#fff8f1] border border-suka-orange/20 rounded-2xl">
+              <p className="text-suka-orange font-black text-xs uppercase tracking-wider animate-pulse">
+                Menyimpan Tanda Tangan Digital...
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Send button */}
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between border-t border-suka-brown/10 pt-4">
-        <div className="text-xs font-bold tracking-wide w-full sm:w-auto text-center">
-          {missingRoles.length > 0 ? (
-            <div className="text-orange-600 bg-orange-50 border border-orange-200 px-3 py-2 rounded-lg w-full sm:w-auto inline-block">
-              ⚠️ Menunggu tanda tangan: {missingRoles.join(', ')}
-            </div>
-          ) : (
-            <div className="text-suka-green bg-green-50 border border-green-200 px-3 py-2 rounded-lg w-full sm:w-auto inline-block">
-              ✓ Semua tanda tangan lengkap - Siap dikirim
-            </div>
-          )}
-        </div>
+      {/* Action Footer: Send Button */}
+      <div className="border-t border-suka-brown/10 pt-3 space-y-2">
+        {missingRoles.length > 0 ? (
+          <div className="text-amber-800 bg-amber-50 border border-amber-200 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+            <Clock size={12} className="shrink-0" />
+            <span>Perlu TTD: {missingRoles.join(', ')}</span>
+          </div>
+        ) : (
+          <div className="text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+            <CheckCircle2 size={13} className="shrink-0 text-emerald-600" />
+            <span>Semua TTD Lengkap & Valid!</span>
+          </div>
+        )}
+
         <button
           onClick={handleSend}
           disabled={sending || missingRoles.length > 0}
-          className="w-full sm:w-auto px-6 py-3 bg-[#701604] hover:opacity-95 text-white font-bold text-sm rounded-xl shadow-md disabled:opacity-50 transition-all cursor-pointer"
+          className="w-full py-3.5 bg-gradient-to-r from-suka-brown to-[#4d1003] hover:from-[#4d1003] hover:to-black text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md disabled:opacity-40 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
         >
-          {sending ? 'Mengirim...' : 'Kirim Surat Jalan'}
+          <Send size={14} />
+          {sending ? 'Memproses Pengiriman...' : 'Kirim Surat Jalan Sekarang'}
         </button>
       </div>
-      
-      {/* Alert Modal */}
-      {alertConfig && alertConfig.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-xs shadow-xl flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in duration-200">
-            <div className={`w-14 h-14 rounded-full flex items-center justify-center ${
-              alertConfig.type === 'error' ? 'bg-red-50 text-red-600' : 
-              alertConfig.type === 'success' ? 'bg-green-50 text-suka-green' : 
-              'bg-orange-50 text-orange-600'
-            }`}>
-              {alertConfig.type === 'error' && (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              )}
-              {alertConfig.type === 'success' && (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-              )}
-              {alertConfig.type === 'warning' && (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-              )}
-            </div>
-            <div>
-              <h4 className="text-base font-bold text-suka-brown mb-1.5">{alertConfig.title}</h4>
-              <p className="text-xs text-suka-brown/80 leading-relaxed">{alertConfig.message}</p>
-            </div>
-            <button
-              onClick={closeAlert}
-              className="w-full mt-2 py-2.5 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-bold text-xs transition-colors shadow-sm cursor-pointer"
-            >
-              OK, Mengerti
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

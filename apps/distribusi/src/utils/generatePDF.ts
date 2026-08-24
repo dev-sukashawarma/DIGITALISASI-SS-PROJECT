@@ -22,8 +22,7 @@ export async function fetchFotoAsBase64(foto_path: string): Promise<string | nul
   }
 }
 
-
-interface SuratJalanData {
+export interface SuratJalanData {
   id: string
   document_number: string
   outlet_name: string
@@ -55,65 +54,212 @@ interface SuratJalanData {
   }> | null
 }
 
+export interface SuratJalanPDFOptions {
+  hideQR?: boolean
+  copies?: 1 | 3 // 3 = Rangkap 1 (Putih), Rangkap 2 (Kuning/Merah), Rangkap 3 (Hijau/Biru)
+  paperFormat?: '3ply_14x12' | 'letter'
+}
+
 export async function generateQRDataUrl(text: string, size = 80): Promise<string> {
   return QRCode.toDataURL(text, { width: size, margin: 1 })
 }
 
+// 3-Ply designation metadata
+export const PLY_COPIES = [
+  {
+    copyNumber: 1,
+    colorName: 'Putih',
+    destination: 'ARSIP GUDANG / FINANCE',
+    headerBg: '#f8fafc',
+    badgeColor: '#1e293b',
+    badgeBorder: '#94a3b8',
+  },
+  {
+    copyNumber: 2,
+    colorName: 'Merah / Kuning',
+    destination: 'OUTLET PENERIMA / CABANG',
+    headerBg: '#fffbeb',
+    badgeColor: '#92400e',
+    badgeBorder: '#f59e0b',
+  },
+  {
+    copyNumber: 3,
+    colorName: 'Hijau / Biru',
+    destination: 'SUPIR / EKSPEDISI / LOGISTIK',
+    headerBg: '#f0fdf4',
+    badgeColor: '#166534',
+    badgeBorder: '#22c55e',
+  },
+]
+
+// Maksimal item per lembar 14x12 cm agar pas tanpa terpotong
+export const ITEMS_PER_PAGE_3PLY = 7
+
+/**
+ * Menghasilkan HTML Surat Jalan format 3-Ply 14 x 12 cm dengan multi-page chunking otomatis.
+ */
 export async function generatePDFContent(
   data: SuratJalanData,
-  options?: { hideQR?: boolean }
+  options?: SuratJalanPDFOptions
 ): Promise<string> {
   const hideQR = options?.hideQR ?? false
+  const copiesCount = options?.copies ?? 3
   const qrUrl = data.verification_code || data.document_number
-  const qrDataUrl = !hideQR ? await generateQRDataUrl(qrUrl, 200) : ''
+  const qrDataUrl = !hideQR ? await generateQRDataUrl(qrUrl, 150) : ''
   const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   })
 
   const isReceivedOrSelesai = ['diterima_lengkap', 'diterima_sebagian', 'selesai'].includes(data.status)
 
   let statusText = data.status
-  if (data.status === 'draft') {
-    statusText = 'Draft'
-  } else if (data.status === 'dikirim' || data.status === 'dikirim_lengkap') {
-    statusText = 'Dikirim'
-  } else if (data.status === 'diterima_lengkap') {
-    statusText = 'Diterima Lengkap'
-  } else if (data.status === 'diterima_sebagian') {
-    statusText = 'Diterima Sebagian'
-  } else if (data.status === 'selesai') {
-    statusText = 'Selesai'
-  }
+  if (data.status === 'draft') statusText = 'Draft'
+  else if (data.status === 'dikirim' || data.status === 'dikirim_lengkap') statusText = 'Dalam Transit'
+  else if (data.status === 'diterima_lengkap') statusText = 'Diterima Lengkap'
+  else if (data.status === 'diterima_sebagian') statusText = 'Diterima Sebagian'
+  else if (data.status === 'selesai') statusText = 'Selesai'
 
   const receiptSigs = data.receipt_signatures || []
-  const adminSignature = data.signatures.find((sig) => ['Admin Kitchen', 'Kitchen SPV'].includes(sig.role))
+  const adminSignature = data.signatures.find((sig) => ['Admin Kitchen', 'Kitchen SPV', 'Admin Gudang'].includes(sig.role))
   const driverSignature = data.signatures.find((sig) => sig.role === 'Supir')
-  const receiverSignature = receiptSigs.find((sig) => sig.role === 'Crew Penerima')
-  type SuratJalanItem = SuratJalanData['items'][number]
-  const printableItems: Array<SuratJalanItem | null> = [...data.items]
-  while (printableItems.length < 8) printableItems.push(null)
+  const receiverSignature = receiptSigs.find((sig) => ['Crew Penerima', 'Staff Outlet', 'SPV Outlet'].includes(sig.role))
 
-  const itemRows = printableItems.map((item, index) => `
-    <tr>
-      <td class="cell-center">${item ? index + 1 : ''}</td>
-      <td>${item?.nama || ''}</td>
-      <td class="cell-center">${item?.satuan || ''}</td>
-      <td class="cell-number">${item?.qty_dikirim ?? ''}</td>
-      <td>${item && isReceivedOrSelesai ? `${item.qty_terima ?? '-'} / ${(item.kondisi || 'baik').toUpperCase()}` : ''}</td>
-    </tr>
-  `).join('')
+  // Bagi items ke dalam beberapa halaman jika melebihi kapasitas 1 lembar 14x12cm
+  const totalItemPages = Math.max(1, Math.ceil((data.items?.length || 0) / ITEMS_PER_PAGE_3PLY))
 
-  const signatureBox = (title: string, signature?: SuratJalanData['signatures'][number]) => `
-    <div class="signature-box">
-      <div class="signature-title">${title}</div>
-      <div class="signature-space">
-        ${signature?.signature_image ? `<img src="${signature.signature_image}" alt="Tanda tangan ${title}" />` : ''}
-      </div>
-      <div class="signature-name">${signature?.signed_by || '( ........................................ )'}</div>
-    </div>
-  `
+  const renderSingleSheet = (ply: typeof PLY_COPIES[0], pageIdx: number, totalPages: number) => {
+    const isLastPage = pageIdx === totalPages - 1
+    const startIndex = pageIdx * ITEMS_PER_PAGE_3PLY
+    const pageItems = data.items.slice(startIndex, startIndex + ITEMS_PER_PAGE_3PLY)
+    
+    // Pad items to at least 6-7 rows for visual neatness
+    const printableRows: Array<typeof data.items[0] | null> = [...pageItems]
+    while (printableRows.length < (isLastPage ? 6 : ITEMS_PER_PAGE_3PLY)) printableRows.push(null)
+
+    const itemRows = printableRows.map((item, index) => {
+      const globalIdx = startIndex + index + 1
+      return `
+        <tr>
+          <td class="cell-center">${item ? globalIdx : ''}</td>
+          <td class="cell-name">${item?.nama || ''}</td>
+          <td class="cell-center">${item?.satuan || ''}</td>
+          <td class="cell-number">${item ? item.qty_dikirim : ''}</td>
+          <td class="cell-number">${item && isReceivedOrSelesai ? (item.qty_terima ?? item.qty_dikirim) : ''}</td>
+          <td class="cell-center">${item ? (isReceivedOrSelesai ? (item.kondisi || 'Baik').toUpperCase() : '☐') : ''}</td>
+        </tr>
+      `
+    }).join('')
+
+    return `
+      <section class="print-sheet ply-sheet-${ply.copyNumber}">
+        <!-- Header -->
+        <header class="sheet-header">
+          <div class="brand-block">
+            <img class="brand-logo" src="${LOGO_BASE64}" alt="Logo Suka Shawarma" />
+            <div class="company-text">
+              <strong class="company-name">PT SUKA PROFIT BERKAH</strong>
+              <div class="company-sub">SUKA SHAWARMA LOGISTICS</div>
+              <div class="company-address">Jl. Bukit Nirwana Raya No. 3, Mulyaharja, Bogor</div>
+            </div>
+          </div>
+          <div class="doc-title-block">
+            <h1 class="doc-title">SURAT JALAN</h1>
+            <div class="ply-badge" style="border-color: ${ply.badgeBorder}; color: ${ply.badgeColor}; background-color: ${ply.headerBg};">
+              RANGKAP ${ply.copyNumber}: ${ply.destination} ${totalPages > 1 ? `(${pageIdx + 1}/${totalPages})` : ''}
+            </div>
+          </div>
+        </header>
+
+        <!-- Meta Information Grid -->
+        <section class="meta-grid">
+          <div class="meta-col">
+            <div class="meta-row"><span class="meta-lbl">No. Surat Jalan</span><b>:</b><span class="meta-val font-mono"><strong>${data.document_number}</strong></span></div>
+            <div class="meta-row"><span class="meta-lbl">Tujuan Outlet</span><b>:</b><span class="meta-val font-bold">${data.outlet_name}</span></div>
+          </div>
+          <div class="meta-col">
+            <div class="meta-row"><span class="meta-lbl">Tanggal Kirim</span><b>:</b><span class="meta-val">${createdDate}</span></div>
+            <div class="meta-row"><span class="meta-lbl">Kode Verifikasi</span><b>:</b><span class="meta-val font-mono">${data.verification_code || '-'}</span></div>
+          </div>
+          ${!hideQR && qrDataUrl ? `
+            <div class="meta-qr">
+              <img src="${qrDataUrl}" alt="QR" />
+            </div>
+          ` : ''}
+        </section>
+
+        <!-- Table Barang -->
+        <table class="items-table">
+          <thead>
+            <tr>
+              <th style="width: 6%;">No</th>
+              <th style="width: 44%;">Nama Bahan / Barang</th>
+              <th style="width: 12%;">Satuan</th>
+              <th style="width: 12%;">Kirim</th>
+              <th style="width: 12%;">Terima</th>
+              <th style="width: 14%;">Cek / Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itemRows}
+          </tbody>
+        </table>
+
+        <!-- Catatan & Signatures / Continuation Footer -->
+        ${isLastPage ? `
+          <div class="footer-block">
+            <div class="notes-box">
+              <b>Catatan:</b> Barang wajib diperiksa saat serah terima. Komplain selisih maksimal 1x24 jam setelah status diterima.
+            </div>
+
+            <div class="signatures-grid">
+              <div class="signature-cell">
+                <div class="sig-title">Diserahkan (Admin Gudang)</div>
+                <div class="sig-space">
+                  ${adminSignature?.signature_image ? `<img src="${adminSignature.signature_image}" alt="TTD Admin" />` : ''}
+                </div>
+                <div class="sig-name">${adminSignature?.signed_by || '( ................................. )'}</div>
+              </div>
+              <div class="signature-cell">
+                <div class="sig-title">Dibawa (Supir / Kurir)</div>
+                <div class="sig-space">
+                  ${driverSignature?.signature_image ? `<img src="${driverSignature.signature_image}" alt="TTD Supir" />` : ''}
+                </div>
+                <div class="sig-name">${driverSignature?.signed_by || '( ................................. )'}</div>
+              </div>
+              <div class="signature-cell">
+                <div class="sig-title">Diterima (Staff Outlet)</div>
+                <div class="sig-space">
+                  ${receiverSignature?.signature_image ? `<img src="${receiverSignature.signature_image}" alt="TTD Penerima" />` : ''}
+                </div>
+                <div class="sig-name">${receiverSignature?.signed_by || '( ................................. )'}</div>
+              </div>
+            </div>
+          </div>
+        ` : `
+          <div class="continuation-box">
+            <span>⏭️ <b>Bersambung ke Lembar Berikutnya (Halaman ${pageIdx + 2} dari ${totalPages})...</b></span>
+            <span class="paraf-line">Paraf Petugas: ____________</span>
+          </div>
+        `}
+
+        <!-- Micro Footer -->
+        <footer class="sheet-footer">
+          <span>Distribusi Suka Shawarma • Continuous Form 14 x 12 cm</span>
+          <span>Lembar ${pageIdx + 1} dari ${totalPages} • Rangkap ${ply.copyNumber} (${ply.colorName})</span>
+        </footer>
+      </section>
+    `
+  }
+
+  let sheetsHtml = ''
+  for (let copyIdx = 0; copyIdx < copiesCount; copyIdx += 1) {
+    const ply = PLY_COPIES[copyIdx % PLY_COPIES.length]
+    for (let pageIdx = 0; pageIdx < totalItemPages; pageIdx += 1) {
+      sheetsHtml += renderSingleSheet(ply, pageIdx, totalItemPages)
+    }
+  }
 
   return `
 <!DOCTYPE html>
@@ -121,141 +267,272 @@ export async function generatePDFContent(
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Surat Jalan - ${data.outlet_name}</title>
+  <title>Surat Jalan 3-Ply - ${data.document_number}</title>
   <style>
-    @page { size: A3 landscape; margin: 8mm 10mm; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
-    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; line-height: 1.25; }
-    .print-sheet { width: 100%; max-width: 400mm; margin: 0 auto; background: #fff; }
-    .document-header {
-      display: grid;
-      grid-template-columns: 34mm 1fr 72mm;
-      gap: 5mm;
-      min-height: 30mm;
+    @page {
+      size: 140mm 120mm;
+      margin: 0mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      color: #000;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .print-sheet {
+      width: 140mm;
+      height: 120mm;
+      max-width: 140mm;
+      max-height: 120mm;
+      margin: 0 auto;
+      background: #fff;
+      padding: 3.5mm 4.5mm;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      overflow: hidden;
+      page-break-after: always;
+      position: relative;
+    }
+    .print-sheet:last-child {
+      page-break-after: auto;
+    }
+
+    /* Header */
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
-      border-bottom: 0.45mm solid #000;
-      padding: 0 2mm 3mm;
-    }
-    .brand-logo { width: auto; height: 24mm; max-width: 30mm; display: block; margin: 0 auto; object-fit: contain; }
-    .company { text-align: center; }
-    .company strong { display: block; font-size: 13pt; line-height: 1.25; }
-    .company .company-unit { font-size: 12pt; }
-    .company address { margin-top: 1.5mm; font-style: normal; font-size: 9.5pt; }
-    .document-title { text-align: center; }
-    .document-title h1 { margin: 0; font-size: 19pt; letter-spacing: 0.5pt; }
-    .compact-qr { margin-top: 1.5mm; display: flex; justify-content: center; align-items: center; gap: 2mm; }
-    .compact-qr img { width: 17mm; height: 17mm; image-rendering: crisp-edges; }
-    .compact-qr span { font-size: 7.5pt; font-weight: 700; line-height: 1.2; max-width: 30mm; }
-    .meta {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12mm;
-      padding: 4mm 2mm 3mm;
       border-bottom: 0.35mm solid #000;
+      padding-bottom: 1.5mm;
+      height: 14mm;
     }
-    .meta-row { display: grid; grid-template-columns: 42mm 4mm 1fr; min-height: 6mm; align-items: center; }
-    .meta-row strong { font-size: 10pt; }
-    .meta-row span { overflow-wrap: anywhere; }
-    .items-table { width: 100%; border-collapse: collapse; table-layout: fixed; margin-top: 3mm; }
-    .items-table col:nth-child(1) { width: 7%; }
-    .items-table col:nth-child(2) { width: 43%; }
-    .items-table col:nth-child(3) { width: 12%; }
-    .items-table col:nth-child(4) { width: 13%; }
-    .items-table col:nth-child(5) { width: 25%; }
-    .items-table th, .items-table td { border: 0.3mm solid #000; padding: 1.2mm 2mm; height: 7mm; vertical-align: middle; }
-    .items-table th { text-align: center; font-weight: 700; font-size: 10pt; }
-    .items-table td { font-size: 9.5pt; }
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 2mm;
+    }
+    .brand-logo {
+      width: 11mm;
+      height: 11mm;
+      object-fit: contain;
+    }
+    .company-text {
+      line-height: 1.15;
+    }
+    .company-name {
+      font-size: 7.5pt;
+      font-weight: 800;
+      letter-spacing: 0.2pt;
+    }
+    .company-sub {
+      font-size: 6.5pt;
+      font-weight: 700;
+      color: #333;
+    }
+    .company-address {
+      font-size: 5.5pt;
+      color: #555;
+    }
+    .doc-title-block {
+      text-align: right;
+    }
+    .doc-title {
+      margin: 0;
+      font-size: 11pt;
+      font-weight: 900;
+      letter-spacing: 0.5pt;
+      line-height: 1;
+    }
+    .ply-badge {
+      display: inline-block;
+      margin-top: 1mm;
+      font-size: 5.5pt;
+      font-weight: 800;
+      border: 0.25mm solid #000;
+      padding: 0.5mm 1.5mm;
+      border-radius: 1mm;
+      text-transform: uppercase;
+    }
+
+    /* Meta Grid */
+    .meta-grid {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 0.25mm solid #000;
+      padding: 1.5mm 0;
+      font-size: 6.5pt;
+      height: 11mm;
+    }
+    .meta-col {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8mm;
+    }
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 1.2mm;
+    }
+    .meta-lbl {
+      width: 20mm;
+      font-weight: 700;
+      color: #333;
+    }
+    .meta-val {
+      color: #000;
+    }
+    .font-mono { font-family: monospace; }
+    .font-bold { font-weight: 700; }
+    .meta-qr img {
+      width: 8.5mm;
+      height: 8.5mm;
+    }
+
+    /* Table */
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 6.5pt;
+      margin-top: 1mm;
+      border: 0.25mm solid #000;
+    }
+    .items-table th, .items-table td {
+      border: 0.2mm solid #000;
+      padding: 0.8mm 1.2mm;
+      height: 4.3mm;
+      vertical-align: middle;
+    }
+    .items-table th {
+      background: #f1f5f9;
+      font-weight: 800;
+      text-align: center;
+      font-size: 6.5pt;
+    }
+    .cell-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+    }
     .cell-center { text-align: center; }
-    .cell-number { text-align: right; padding-right: 3mm !important; }
-    .notes { margin-top: 4mm; border: 0.3mm solid #000; height: 30mm; }
-    .notes-title { height: 7mm; display: flex; align-items: center; justify-content: center; border-bottom: 0.3mm solid #000; font-weight: 700; }
-    .signature-grid { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 4mm; border: 0.3mm solid #000; }
-    .signature-box { min-height: 42mm; text-align: center; border-right: 0.3mm solid #000; display: grid; grid-template-rows: 7mm 1fr 8mm; }
-    .signature-box:last-child { border-right: 0; }
-    .signature-title { display: flex; align-items: center; justify-content: center; border-bottom: 0.3mm solid #000; font-weight: 700; }
-    .signature-space { min-height: 24mm; display: flex; align-items: center; justify-content: center; }
-    .signature-space img { max-height: 21mm; max-width: 85%; object-fit: contain; }
-    .signature-name { display: flex; align-items: center; justify-content: center; font-size: 9pt; padding: 1mm; }
-    .document-footer { text-align: center; margin-top: 2mm; font-size: 7.5pt; }
-    .attachment { page-break-before: always; }
-    .attachment h2 { margin: 0 0 5mm; font-size: 15pt; border-bottom: 0.4mm solid #000; padding-bottom: 2mm; }
-    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5mm; }
-    .photo-card { border: 0.3mm solid #000; break-inside: avoid; }
-    .photo-card img { display: block; width: 100%; height: 55mm; object-fit: cover; }
-    .photo-caption { padding: 2.5mm; font-size: 9pt; }
+    .cell-number { text-align: right; font-weight: 700; }
+
+    /* Continuation Box for Multi-page */
+    .continuation-box {
+      border: 0.25mm dashed #000;
+      padding: 2mm 3mm;
+      margin-top: 2mm;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 6.5pt;
+      background: #fafafa;
+    }
+    .paraf-line {
+      font-family: monospace;
+      font-size: 6pt;
+    }
+
+    /* Footer & Signatures */
+    .footer-block {
+      margin-top: 1mm;
+    }
+    .notes-box {
+      font-size: 5.5pt;
+      border: 0.2mm solid #000;
+      padding: 0.8mm 1.5mm;
+      background: #fafafa;
+      line-height: 1.2;
+      margin-bottom: 1mm;
+    }
+    .signatures-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 0.25mm solid #000;
+      height: 22mm;
+    }
+    .signature-cell {
+      border-right: 0.25mm solid #000;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      text-align: center;
+      padding: 0.8mm;
+    }
+    .signature-cell:last-child {
+      border-right: none;
+    }
+    .sig-title {
+      font-size: 5.5pt;
+      font-weight: 800;
+      border-bottom: 0.2mm solid #000;
+      padding-bottom: 0.5mm;
+      text-transform: uppercase;
+    }
+    .sig-space {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 11mm;
+    }
+    .sig-space img {
+      max-height: 9.5mm;
+      max-width: 80%;
+      object-fit: contain;
+    }
+    .sig-name {
+      font-size: 5.5pt;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Micro Footer */
+    .sheet-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 5pt;
+      color: #555;
+      padding-top: 0.8mm;
+      border-top: 0.2mm dashed #aaa;
+    }
+
+    /* Screen Preview Styling */
     @media screen {
-      body { padding: 16px; background: #e5e7eb; }
-      .print-sheet, .attachment { padding: 8mm 10mm; box-shadow: 0 2px 12px rgba(0,0,0,.18); }
-      .print-sheet { min-height: 281mm; }
+      body {
+        padding: 20px 10px;
+        background: #0f172a;
+      }
+      .print-sheet {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+        border-radius: 4px;
+        margin-bottom: 24px;
+      }
     }
     @media print {
-      body { background: #fff; }
-      .print-sheet, .attachment { padding: 0; box-shadow: none; }
-      .print-sheet { page-break-after: auto; }
-      * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body {
+        background: #fff;
+      }
+      .print-sheet {
+        box-shadow: none;
+        border-radius: 0;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="print-sheet">
-    <header class="document-header">
-      <img class="brand-logo" src="${LOGO_BASE64}" alt="Logo Suka Shawarma">
-      <div class="company">
-        <strong>PT SUKA PROFIT BERKAH</strong>
-        <strong class="company-unit">SUKA SHAWARMA KITCHEN</strong>
-        <address>Jl. Bukit Rivwenda Raya No. 3, Mulyaharja, Kota Bogor, Jawa Barat</address>
-      </div>
-      <div class="document-title">
-        <h1>SURAT JALAN</h1>
-        ${data.status !== 'selesai' && !hideQR ? `
-          <div class="compact-qr">
-            <img src="${qrDataUrl}" alt="QR Verifikasi">
-            <span>KODE VERIFIKASI<br>${data.verification_code || '-'}</span>
-          </div>
-        ` : ''}
-      </div>
-    </header>
-
-    <section class="meta">
-      <div>
-        <div class="meta-row"><strong>Nama Outlet</strong><b>:</b><span>${data.outlet_name}</span></div>
-        <div class="meta-row"><strong>Nomor PO</strong><b>:</b><span>-</span></div>
-      </div>
-      <div>
-        <div class="meta-row"><strong>Nomor Surat Jalan</strong><b>:</b><span>${data.document_number}</span></div>
-        <div class="meta-row"><strong>Tanggal Surat Jalan</strong><b>:</b><span>${createdDate}</span></div>
-      </div>
-    </section>
-
-    <table class="items-table">
-      <colgroup><col><col><col><col><col></colgroup>
-      <thead><tr><th>No</th><th>Nama Barang</th><th>Satuan</th><th>Jumlah</th><th>Check List</th></tr></thead>
-      <tbody>${itemRows}</tbody>
-    </table>
-
-    <section class="notes"><div class="notes-title">CATATAN</div></section>
-    <section class="signature-grid">
-      ${signatureBox('Admin Gudang', adminSignature)}
-      ${signatureBox('Pengirim', driverSignature)}
-      ${signatureBox('Penerima', receiverSignature)}
-    </section>
-    <footer class="document-footer">${data.sender_outlet} • ${statusText.toUpperCase()} • Dicetak ${new Date().toLocaleDateString('id-ID')}</footer>
-  </main>
-
-  ${isReceivedOrSelesai && data.items.some(item => item.foto_base64) ? `
-    <section class="attachment">
-      <h2>Lampiran Foto Bukti Penerimaan</h2>
-      <div class="photo-grid">
-        ${data.items.filter(item => item.foto_base64).map(item => `
-          <article class="photo-card">
-            <img src="${item.foto_base64}" alt="Bukti ${item.nama}">
-            <div class="photo-caption"><strong>${item.nama}</strong><br>Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} • ${(item.kondisi || 'baik').toUpperCase()}</div>
-          </article>
-        `).join('')}
-      </div>
-    </section>
-  ` : ''}
+  ${sheetsHtml}
 </body>
 </html>
   `.trim()
@@ -277,189 +554,297 @@ function addImageSafely(
   }
 }
 
-const LETTER_PORTRAIT: [number, number] = [215.9, 279.4]
+/**
+ * Dimensi Kertas 3-Ply Surat Jalan Continuous Form: 14 cm x 12 cm (140 mm x 120 mm)
+ */
+export const PAPER_3PLY_14X12: [number, number] = [140, 120]
+export const LETTER_PORTRAIT: [number, number] = [215.9, 279.4]
 
-/** Menghasilkan PDF Letter portrait dengan formulir di bagian atas dan ruang putih di bawah. */
+/**
+ * Menghasilkan PDF Surat Jalan format kertas 3-Ply 14 x 12 cm dengan multi-page chunking otomatis.
+ */
 export async function generateSuratJalanPDF(
   data: SuratJalanData,
-  _options?: { hideQR?: boolean }
+  options?: SuratJalanPDFOptions
 ): Promise<Blob> {
+  const paperFormat = options?.paperFormat ?? '3ply_14x12'
+  const is3Ply = paperFormat === '3ply_14x12'
+  const copiesCount = is3Ply ? (options?.copies ?? 3) : 1
+  const pageSize: [number, number] = is3Ply ? PAPER_3PLY_14X12 : LETTER_PORTRAIT
+
   const doc = new jsPDF({
-    orientation: 'portrait',
+    orientation: is3Ply ? 'landscape' : 'portrait',
     unit: 'mm',
-    format: LETTER_PORTRAIT,
+    format: pageSize,
     compress: true,
   })
-  const pageWidth = doc.internal.pageSize.getWidth()
-  const marginX = 10
-  const contentWidth = pageWidth - (marginX * 2)
+
+  const pageWidth = doc.internal.pageSize.getWidth() // 140 mm
+  const pageHeight = doc.internal.pageSize.getHeight() // 120 mm
+  const marginX = 4.5
+  const contentWidth = pageWidth - (marginX * 2) // 131 mm
+
   const createdDate = new Date(data.created_at).toLocaleDateString('id-ID', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   })
   const completed = ['diterima_lengkap', 'diterima_sebagian', 'selesai'].includes(data.status)
   const receiptSignatures = data.receipt_signatures || []
-  const adminSignature = data.signatures.find((signature) => ['Admin Kitchen', 'Kitchen SPV'].includes(signature.role))
-  const driverSignature = data.signatures.find((signature) => signature.role === 'Supir')
-  const receiverSignature = receiptSignatures.find((signature) => signature.role === 'Crew Penerima')
-  const printableRows = Math.max(8, data.items.length)
+  const adminSignature = data.signatures.find((sig) => ['Admin Kitchen', 'Kitchen SPV', 'Admin Gudang'].includes(sig.role))
+  const driverSignature = data.signatures.find((sig) => sig.role === 'Supir')
+  const receiverSignature = receiptSignatures.find((sig) => ['Crew Penerima', 'Staff Outlet', 'SPV Outlet'].includes(sig.role))
 
   doc.setProperties({
     title: `Surat Jalan - ${data.document_number}`,
-    subject: `Surat Jalan untuk ${data.outlet_name}`,
+    subject: `Surat Jalan 3-Ply 14x12cm untuk ${data.outlet_name}`,
     author: 'PT Suka Profit Berkah',
     creator: 'Sistem Distribusi Suka Shawarma',
   })
-  doc.setTextColor(0, 0, 0)
-  doc.setDrawColor(0, 0, 0)
 
-  // Header
-  const headerTop = 7
-  const headerBottom = 32
-  const companyCenterX = marginX + (contentWidth * 0.38)
-  const titleCenterX = marginX + (contentWidth * 0.84)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('PT SUKA PROFIT BERKAH', companyCenterX, headerTop + 5, { align: 'center' })
-  doc.setFontSize(9.5)
-  doc.text('SUKA SHAWARMA KITCHEN', companyCenterX, headerTop + 10, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  doc.text('Jl. Bukit Nirwana Raya No. 3, Mulyaharja', companyCenterX, headerTop + 15, { align: 'center' })
-  doc.text('Kec. Bogor Selatan, Kota Bogor, Jawa Barat', companyCenterX, headerTop + 19, { align: 'center' })
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(13)
-  doc.text('SURAT JALAN', titleCenterX, headerTop + 8, { align: 'center' })
-  doc.setLineWidth(0.35)
-  doc.line(marginX, headerBottom, pageWidth - marginX, headerBottom)
+  const totalItemPages = Math.max(1, Math.ceil((data.items?.length || 0) / ITEMS_PER_PAGE_3PLY))
 
-  // Metadata
-  const metaTop = 37
-  const metaLabelWidth = 29
-  const rightMetaX = pageWidth / 2 + 1
-  const drawMeta = (label: string, value: string, x: number, y: number) => {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.text(label, x, y)
-    doc.text(':', x + metaLabelWidth, y)
-    doc.setFont('helvetica', 'normal')
-    doc.text(value || '-', x + metaLabelWidth + 3, y, { maxWidth: (pageWidth / 2) - metaLabelWidth - 17 })
-  }
-  drawMeta('Nama Outlet', data.outlet_name, marginX + 1, metaTop)
-  drawMeta('Kode Verifikasi', data.verification_code || '-', marginX + 1, metaTop + 5)
-  drawMeta('Nomor Surat Jalan', data.document_number, rightMetaX, metaTop)
-  drawMeta('Tanggal Surat Jalan', createdDate, rightMetaX, metaTop + 5)
-  doc.setLineWidth(0.25)
-  doc.line(marginX, metaTop + 8, pageWidth - marginX, metaTop + 8)
+  let isFirstPageInDoc = true
 
-  // Tabel barang
-  const tableTop = metaTop + 11
-  const headerHeight = 5.5
-  const rowHeight = 5.5
-  const columnWidths = [0.07, 0.43, 0.12, 0.13, 0.25].map((ratio) => contentWidth * ratio)
-  const headers = ['No', 'Nama Barang', 'Satuan', 'Jumlah', 'Check List']
-  let columnX = marginX
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  headers.forEach((header, index) => {
-    doc.rect(columnX, tableTop, columnWidths[index], headerHeight)
-    doc.text(header, columnX + (columnWidths[index] / 2), tableTop + 3.8, { align: 'center' })
-    columnX += columnWidths[index]
-  })
+  // Render Copies (Rangkap 1: Putih, Rangkap 2: Merah/Kuning, Rangkap 3: Hijau/Biru)
+  for (let copyIdx = 0; copyIdx < copiesCount; copyIdx += 1) {
+    const ply = PLY_COPIES[copyIdx % PLY_COPIES.length]
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7)
-  for (let rowIndex = 0; rowIndex < printableRows; rowIndex += 1) {
-    const item = data.items[rowIndex]
-    const rowY = tableTop + headerHeight + (rowIndex * rowHeight)
-    columnX = marginX
-    columnWidths.forEach((width) => {
-      doc.rect(columnX, rowY, width, rowHeight)
-      columnX += width
-    })
-    if (!item) continue
+    for (let pageIdx = 0; pageIdx < totalItemPages; pageIdx += 1) {
+      if (!isFirstPageInDoc) {
+        doc.addPage(pageSize, is3Ply ? 'landscape' : 'portrait')
+      }
+      isFirstPageInDoc = false
 
-    const baseline = rowY + (rowHeight / 2) + 0.9
-    doc.text(String(rowIndex + 1), marginX + (columnWidths[0] / 2), baseline, { align: 'center' })
-    doc.text(item.nama || '-', marginX + columnWidths[0] + 1.5, baseline, { maxWidth: columnWidths[1] - 3 })
-    doc.text(item.satuan || '-', marginX + columnWidths[0] + columnWidths[1] + (columnWidths[2] / 2), baseline, { align: 'center' })
-    doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 2, baseline, { align: 'right' })
-    if (completed) {
-      const checkText = `${item.qty_terima ?? '-'} / ${(item.kondisi || 'baik').toUpperCase()}`
-      doc.text(checkText, marginX + columnWidths.slice(0, 4).reduce((sum, width) => sum + width, 0) + 1.5, baseline)
+      const isLastPage = pageIdx === totalItemPages - 1
+      const startIndex = pageIdx * ITEMS_PER_PAGE_3PLY
+      const pageItems = data.items.slice(startIndex, startIndex + ITEMS_PER_PAGE_3PLY)
+      const printableRowsCount = isLastPage ? Math.max(5, Math.min(ITEMS_PER_PAGE_3PLY, pageItems.length)) : ITEMS_PER_PAGE_3PLY
+
+      doc.setTextColor(0, 0, 0)
+      doc.setDrawColor(0, 0, 0)
+
+      // 1. Header (y: 3.5 to 16.5)
+      const headerTop = 3.5
+      
+      // Logo Brand
+      addImageSafely(doc, LOGO_BASE64, marginX, headerTop, 11, 11)
+
+      // Company Info
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(7.5)
+      doc.text('PT SUKA PROFIT BERKAH', marginX + 13, headerTop + 3.2)
+      doc.setFontSize(6.5)
+      doc.text('SUKA SHAWARMA LOGISTICS', marginX + 13, headerTop + 6.8)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(5.5)
+      doc.text('Jl. Bukit Nirwana Raya No. 3, Mulyaharja, Bogor', marginX + 13, headerTop + 10.2)
+
+      // Doc Title & Ply Badge (Right aligned)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(11)
+      doc.text('SURAT JALAN', pageWidth - marginX, headerTop + 3.8, { align: 'right' })
+
+      // Ply badge text & frame
+      const pageBadgeSuffix = totalItemPages > 1 ? ` (${pageIdx + 1}/${totalItemPages})` : ''
+      const badgeText = `RANGKAP ${ply.copyNumber}: ${ply.destination}${pageBadgeSuffix}`
+      doc.setFontSize(5.5)
+      const badgeWidth = doc.getTextWidth(badgeText) + 3
+      const badgeX = pageWidth - marginX - badgeWidth
+      const badgeY = headerTop + 5.8
+      
+      doc.setLineWidth(0.2)
+      doc.rect(badgeX, badgeY, badgeWidth, 4)
+      doc.text(badgeText, badgeX + (badgeWidth / 2), badgeY + 2.8, { align: 'center' })
+
+      // Line under header
+      doc.setLineWidth(0.35)
+      doc.line(marginX, headerTop + 13, pageWidth - marginX, headerTop + 13)
+
+      // 2. Metadata Grid (y: 17 to 27)
+      const metaTop = headerTop + 15
+      const drawMetaRow = (label: string, value: string, x: number, y: number, labelWidth = 20) => {
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(6.5)
+        doc.text(label, x, y)
+        doc.text(':', x + labelWidth, y)
+        doc.setFont('helvetica', 'normal')
+        doc.text(value || '-', x + labelWidth + 2, y, { maxWidth: 42 })
+      }
+
+      drawMetaRow('No. Surat Jalan', data.document_number, marginX, metaTop)
+      drawMetaRow('Tujuan Outlet', data.outlet_name, marginX, metaTop + 4)
+
+      const rightColX = marginX + 68
+      drawMetaRow('Tanggal Kirim', createdDate, rightColX, metaTop)
+      drawMetaRow('Kode Verifikasi', data.verification_code || '-', rightColX, metaTop + 4)
+
+      // Line under meta
+      doc.setLineWidth(0.25)
+      doc.line(marginX, metaTop + 6.5, pageWidth - marginX, metaTop + 6.5)
+
+      // 3. Items Table (y: 29.5 to ~68)
+      const tableTop = metaTop + 8.5
+      const headerHeight = 4.5
+      const rowHeight = 4.3
+      
+      // Column widths total = 131 mm
+      const columnWidths = [7, 54, 16, 17, 17, 20]
+      const headers = ['No', 'Nama Bahan / Barang', 'Satuan', 'Kirim', 'Terima', 'Cek/Status']
+
+      let columnX = marginX
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      
+      // Draw table header
+      headers.forEach((header, index) => {
+        doc.rect(columnX, tableTop, columnWidths[index], headerHeight)
+        const align = index === 1 ? 'left' : (index === 3 || index === 4 ? 'right' : 'center')
+        const textX = align === 'left' ? columnX + 1.5 : (align === 'right' ? columnX + columnWidths[index] - 1.5 : columnX + (columnWidths[index] / 2))
+        doc.text(header, textX, tableTop + 3.1, { align })
+        columnX += columnWidths[index]
+      })
+
+      // Draw table rows for this page chunk
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      for (let rowIndex = 0; rowIndex < printableRowsCount; rowIndex += 1) {
+        const item = pageItems[rowIndex]
+        const globalRowIdx = startIndex + rowIndex + 1
+        const rowY = tableTop + headerHeight + (rowIndex * rowHeight)
+        columnX = marginX
+        columnWidths.forEach((width) => {
+          doc.rect(columnX, rowY, width, rowHeight)
+          columnX += width
+        })
+
+        if (!item) continue
+
+        const baseline = rowY + (rowHeight / 2) + 0.8
+        // No
+        doc.text(String(globalRowIdx), marginX + (columnWidths[0] / 2), baseline, { align: 'center' })
+        // Nama
+        doc.text(item.nama || '-', marginX + columnWidths[0] + 1.2, baseline, { maxWidth: columnWidths[1] - 2.5 })
+        // Satuan
+        doc.text(item.satuan || '-', marginX + columnWidths[0] + columnWidths[1] + (columnWidths[2] / 2), baseline, { align: 'center' })
+        // Qty Kirim
+        doc.setFont('helvetica', 'bold')
+        doc.text(String(item.qty_dikirim ?? ''), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] - 1.5, baseline, { align: 'right' })
+        doc.setFont('helvetica', 'normal')
+        
+        // Qty Terima & Check status
+        if (completed) {
+          doc.text(String(item.qty_terima ?? item.qty_dikirim), marginX + columnWidths[0] + columnWidths[1] + columnWidths[2] + columnWidths[3] + columnWidths[4] - 1.5, baseline, { align: 'right' })
+          const statusText = (item.kondisi || 'Baik').toUpperCase()
+          doc.text(statusText, marginX + columnWidths.slice(0, 5).reduce((a, b) => a + b, 0) + (columnWidths[5] / 2), baseline, { align: 'center' })
+        } else {
+          doc.text('☐', marginX + columnWidths.slice(0, 5).reduce((a, b) => a + b, 0) + (columnWidths[5] / 2), baseline, { align: 'center' })
+        }
+      }
+
+      const tableBottom = tableTop + headerHeight + (printableRowsCount * rowHeight)
+
+      if (isLastPage) {
+        // 4. Catatan box (y: tableBottom + 1.2)
+        const notesTop = tableBottom + 1.2
+        const notesHeight = 5.5
+        doc.rect(marginX, notesTop, contentWidth, notesHeight)
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(5.5)
+        doc.text('Catatan:', marginX + 1.5, notesTop + 3.6)
+        doc.setFont('helvetica', 'normal')
+        doc.text('Barang wajib diperiksa saat serah terima. Komplain selisih maksimal 1x24 jam setelah status diterima.', marginX + 11.5, notesTop + 3.6, { maxWidth: contentWidth - 13 })
+
+        // 5. Signatures Grid (3 Kolom) (y: notesTop + notesHeight + 1.2)
+        const sigTop = notesTop + notesHeight + 1.2
+        const sigHeight = 22
+        const sigColWidth = contentWidth / 3
+        const sigEntries = [
+          { title: 'Diserahkan (Admin Gudang)', signature: adminSignature },
+          { title: 'Dibawa (Supir / Kurir)', signature: driverSignature },
+          { title: 'Diterima (Staff Outlet)', signature: receiverSignature },
+        ]
+
+        sigEntries.forEach(({ title, signature }, idx) => {
+          const cellX = marginX + (idx * sigColWidth)
+          doc.rect(cellX, sigTop, sigColWidth, sigHeight)
+          
+          // Header cell TTD
+          doc.setFont('helvetica', 'bold')
+          doc.setFontSize(5.5)
+          doc.text(title, cellX + (sigColWidth / 2), sigTop + 3.2, { align: 'center' })
+          doc.line(cellX, sigTop + 4.2, cellX + sigColWidth, sigTop + 4.2)
+
+          // Signature Image
+          if (signature?.signature_image) {
+            addImageSafely(doc, signature.signature_image, cellX + (sigColWidth / 2) - 9, sigTop + 5, 18, 10.5)
+          }
+
+          // Name & Line
+          doc.setFont('helvetica', 'normal')
+          doc.setFontSize(5.5)
+          doc.text(signature?.signed_by || '( ................................. )', cellX + (sigColWidth / 2), sigTop + 19.5, { align: 'center' })
+        })
+      } else {
+        // Continuation banner for intermediate pages
+        const contTop = tableBottom + 2.5
+        doc.setLineWidth(0.2)
+        doc.setLineDashPattern([1.5, 1.5], 0)
+        doc.rect(marginX, contTop, contentWidth, 12)
+        doc.setLineDashPattern([], 0)
+
+        doc.setFont('helvetica', 'bold')
+        doc.setFontSize(6.5)
+        doc.text(`>>> Bersambung ke Lembar Berikutnya (Halaman ${pageIdx + 2} dari ${totalItemPages}) >>>`, marginX + 3, contTop + 7)
+        doc.setFont('helvetica', 'normal')
+        doc.setFontSize(5.5)
+        doc.text('Paraf Petugas: ___________________', pageWidth - marginX - 3, contTop + 7, { align: 'right' })
+      }
+
+      // 6. Micro Footer (y: pageHeight - 2.5)
+      doc.setFontSize(4.8)
+      doc.setTextColor(90, 90, 90)
+      doc.text(
+        `Distribusi Suka Shawarma • 3-Ply Continuous Form (14x12 cm)`,
+        marginX,
+        pageHeight - 2.5
+      )
+      doc.text(
+        `Lembar ${pageIdx + 1} dari ${totalItemPages} • Rangkap ${ply.copyNumber} (${ply.colorName})`,
+        pageWidth - marginX,
+        pageHeight - 2.5,
+        { align: 'right' }
+      )
     }
   }
 
-  // Catatan
-  const tableBottom = tableTop + headerHeight + (printableRows * rowHeight)
-  const notesTop = tableBottom + 2
-  const notesHeight = 15
-  doc.rect(marginX, notesTop, contentWidth, notesHeight)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  doc.text('CATATAN', pageWidth / 2, notesTop + 3.5, { align: 'center' })
-  doc.line(marginX, notesTop + 4.5, pageWidth - marginX, notesTop + 4.5)
-
-  // Tanda tangan
-  const signaturesTop = notesTop + notesHeight + 2
-  const signaturesHeight = 24
-  const signatureWidth = contentWidth / 3
-  const signatureEntries = [
-    { title: 'Admin Gudang', signature: adminSignature },
-    { title: 'Pengirim', signature: driverSignature },
-    { title: 'Penerima', signature: receiverSignature },
-  ]
-  signatureEntries.forEach(({ title, signature }, index) => {
-    const x = marginX + (index * signatureWidth)
-    doc.rect(x, signaturesTop, signatureWidth, signaturesHeight)
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(7)
-    doc.text(title, x + (signatureWidth / 2), signaturesTop + 3.5, { align: 'center' })
-    doc.line(x, signaturesTop + 4.5, x + signatureWidth, signaturesTop + 4.5)
-    addImageSafely(doc, signature?.signature_image, x + (signatureWidth / 2) - 10, signaturesTop + 6, 20, 10)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6)
-    doc.text(signature?.signed_by || '( ........................................ )', x + (signatureWidth / 2), signaturesTop + 21, { align: 'center' })
-  })
-
-  doc.setFontSize(5.5)
-  doc.text(
-    `${data.sender_outlet} - ${data.status.replace(/_/g, ' ').toUpperCase()} - Dicetak ${new Date().toLocaleDateString('id-ID')}`,
-    pageWidth / 2,
-    signaturesTop + signaturesHeight + 3,
-    { align: 'center' }
-  )
-
-  // Lampiran foto penerimaan pada halaman tersendiri.
+  // Optional: Lampiran Foto jika ada
   const photoItems = completed ? data.items.filter((item) => item.foto_base64) : []
   if (photoItems.length > 0) {
-    doc.addPage(LETTER_PORTRAIT, 'portrait')
+    doc.addPage(pageSize, is3Ply ? 'landscape' : 'portrait')
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 12)
-    doc.setLineWidth(0.3)
-    doc.line(marginX, 16, pageWidth - marginX, 16)
+    doc.setFontSize(8)
+    doc.setTextColor(0, 0, 0)
+    doc.text('LAMPIRAN FOTO BUKTI PENERIMAAN', marginX, 6)
+    doc.setLineWidth(0.25)
+    doc.line(marginX, 7.5, pageWidth - marginX, 7.5)
 
-    const gap = 5
-    const cardWidth = (contentWidth - gap) / 2
-    const cardHeight = 115
-    photoItems.forEach((item, index) => {
-      if (index > 0 && index % 4 === 0) {
-        doc.addPage(LETTER_PORTRAIT, 'portrait')
-      }
-      const pageIndex = index % 4
-      const column = pageIndex % 2
-      const row = Math.floor(pageIndex / 2)
-      const x = marginX + (column * (cardWidth + gap))
-      const y = 22 + (row * (cardHeight + gap))
-      doc.rect(x, y, cardWidth, cardHeight)
-      addImageSafely(doc, item.foto_base64 || undefined, x + 2, y + 2, cardWidth - 4, 88)
+    const cardW = (contentWidth - 4) / 3
+    const cardH = 48
+    photoItems.slice(0, 6).forEach((item, index) => {
+      const col = index % 3
+      const row = Math.floor(index / 3)
+      const x = marginX + (col * (cardW + 2))
+      const y = 9.5 + (row * (cardH + 2))
+
+      doc.rect(x, y, cardW, cardH)
+      addImageSafely(doc, item.foto_base64 || undefined, x + 1, y + 1, cardW - 2, 36)
       doc.setFont('helvetica', 'bold')
-      doc.setFontSize(8.5)
-      doc.text(item.nama, x + 2, y + 98, { maxWidth: cardWidth - 4 })
+      doc.setFontSize(5.5)
+      doc.text(item.nama, x + 1.5, y + 40, { maxWidth: cardW - 3 })
       doc.setFont('helvetica', 'normal')
-      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} - ${(item.kondisi || 'baik').toUpperCase()}`, x + 2, y + 106)
+      doc.setFontSize(5)
+      doc.text(`Diterima: ${item.qty_terima ?? item.qty_dikirim} ${item.satuan} (${(item.kondisi || 'baik').toUpperCase()})`, x + 1.5, y + 44)
     })
   }
 
@@ -489,10 +874,7 @@ export function downloadBarcode(filename: string, dataUrl: string) {
 }
 
 /**
- * Bangun HTML cetak QR/Surat Jalan. Fungsi murni (dapat diuji tanpa DOM).
- * Dengan `DEFAULT_PRINT_LAYOUT.qr_surat_jalan`, output identik dengan template lama:
- * judul "VERIFIKASI SJ", subtitle = nomor dokumen, QR 45mm, footer "Distribusi<br/>Suka Shawarma",
- * kertas 58mm, tanpa logo.
+ * Bangun HTML cetak QR/Surat Jalan.
  */
 export function buildBarcodeHtml(
   docNumber: string,
@@ -504,7 +886,6 @@ export function buildBarcodeHtml(
   const logo = layout.showLogo
     ? `<img src="${LOGO_BASE64}" alt="Logo" style="width:40px;height:40px;object-fit:contain;display:block;margin:0 auto 6px auto;" />`
     : ''
-  // Tipografi terpusat. Default (fontSizePx 13 → scale 1) = tampilan lama.
   const FONT_STACK: Record<QrLayout['fontFamily'], string> = {
     monospace: `'Courier New', Courier, monospace`,
     sans: `Arial, Helvetica, sans-serif`,
@@ -628,7 +1009,6 @@ export function printBarcode(
     try {
       const heightPx = doc.body?.scrollHeight || 0
       if (heightPx > 0) {
-        // Calculate needed height in mm based on 96 DPI
         const heightMm = Math.ceil((heightPx / 96) * 25.4) + 4
         const style = doc.createElement('style')
         style.textContent = `@media print { @page { size: ${PAPER_WIDTH_MM}mm ${heightMm}mm; margin: 0mm; } }`
@@ -652,7 +1032,6 @@ export function printBarcode(
     }
   }
 
-  // Tunggu gambar ter-load sebelum diprint
   const checkImage = setInterval(() => {
     const img = doc.querySelector('img')
     if (!img || img.complete) {
@@ -666,4 +1045,3 @@ export function printBarcode(
     doPrint()
   }, 1500)
 }
-

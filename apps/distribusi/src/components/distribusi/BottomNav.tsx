@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { getCrossAppUrl } from '@/lib/navigation'
 
+import { LayoutDashboard, FilePlus2, PackageCheck, History, QrCode } from 'lucide-react'
+
 interface BottomNavProps {
   activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'terima-supplier' | 'scan' | 'none'
 }
@@ -27,61 +29,61 @@ export function BottomNav({ activeTab }: BottomNavProps) {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-3 pb-safe bg-[#f5ede3] border-t border-[#d9c2b2]/40 shadow-2xl rounded-t-2xl lg:hidden">
+    <nav className="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-3 py-2.5 pb-safe bg-white/90 backdrop-blur-xl border-t border-suka-brown/10 shadow-[0_-8px_25px_rgba(112,22,4,0.06)] rounded-t-2xl lg:hidden">
       {isPusat ? (
         <>
           {/* Dashboard */}
           <button
             onClick={() => handleNavigate('/dashboard')}
-            className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
               activeTab === 'dashboard'
-                ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
             }`}
           >
-            <span className="text-xl">📊</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
+            <LayoutDashboard size={18} />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
           </button>
 
           {/* Surat Jalan */}
           <button
             onClick={() => handleNavigate('/distribusi/surat-jalan/new')}
-            className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
               activeTab === 'surat-jalan'
-                ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
             }`}
           >
-            <span className="text-xl">➕</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Surat Jalan</span>
+            <FilePlus2 size={18} />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Buat SJ</span>
           </button>
 
           {/* Terima Bahan (khusus kitchen) */}
           {isKitchen && (
             <button
               onClick={() => handleNavigate('/distribusi/terima-bahan')}
-              className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+              className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
                 activeTab === 'terima-supplier'
-                  ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                  : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                  ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                  : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
               }`}
             >
-              <span className="text-xl">📥</span>
-              <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Terima Bahan</span>
+              <PackageCheck size={18} />
+              <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">PO Bahan</span>
             </button>
           )}
 
           {/* Riwayat */}
           <button
             onClick={() => handleNavigate('/distribusi/surat-jalan')}
-            className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
               activeTab === 'riwayat'
-                ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
             }`}
           >
-            <span className="text-xl">📚</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Riwayat</span>
+            <History size={18} />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Riwayat</span>
           </button>
         </>
       ) : (
@@ -89,42 +91,40 @@ export function BottomNav({ activeTab }: BottomNavProps) {
           {/* Dashboard */}
           <button
             onClick={() => handleNavigate('/dashboard')}
-            className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
               activeTab === 'dashboard'
-                ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
             }`}
           >
-            <span className="text-xl">📊</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
+            <LayoutDashboard size={18} />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Dashboard</span>
           </button>
 
           {/* Scan */}
           <button
             onClick={() => handleNavigate('/distribusi/terima/scan')}
-            className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
               activeTab === 'scan'
-                ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
             }`}
           >
-            <span className="text-xl">📷</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Scan</span>
+            <QrCode size={18} />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Scan QR</span>
           </button>
-
-
 
           {/* Riwayat */}
           <button
             onClick={() => handleNavigate('/distribusi/riwayat')}
-            className={`flex flex-col items-center justify-center active:scale-95 transition-all cursor-pointer ${
+            className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
               activeTab === 'riwayat'
-                ? 'bg-[#f29744] text-white rounded-xl px-5 py-2 active:scale-95 transition-all duration-200'
-                : 'text-[#544437]/75 hover:text-[#701604] px-4 py-1'
+                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
+                : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
             }`}
           >
-            <span className="text-xl">📚</span>
-            <span className="text-[9px] font-bold uppercase tracking-wider mt-1 leading-none">Riwayat</span>
+            <History size={18} />
+            <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Riwayat</span>
           </button>
         </>
       )}

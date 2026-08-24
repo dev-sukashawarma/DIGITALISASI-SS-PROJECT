@@ -33,7 +33,8 @@ import {
   Info,
   Building2,
   Phone,
-  FileCheck
+  FileCheck,
+  HelpCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -124,6 +125,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const [pdfHtml, setPdfHtml] = useState<string | null>(null)
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showLx310Guide, setShowLx310Guide] = useState(false)
   const [copiedDoc, setCopiedDoc] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
 
@@ -254,6 +256,63 @@ export function SuratJalanDetail({ id }: { id: string }) {
       toast.success('PDF 3-Ply (14x12 cm) berhasil diunduh!')
     } catch {
       toast.error('Gagal mengunduh file PDF')
+    }
+  }
+
+  const handlePrintDotMatrix = async (copies = 1) => {
+    if (!data) return
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
+      outletStaff?.role || ''
+    )
+    const hideQR = !isPusat
+    try {
+      toast.info(
+        copies === 1
+          ? 'Menyiapkan cetak langsung ke Epson LX-310 (1x Print Tembus NCR)...'
+          : 'Menyiapkan cetak 3 rangkap...'
+      )
+      const items = await buildItemsWithFoto(data.surat_jalan_item)
+      const htmlContent = await generatePDFContent(
+        {
+          id: data.id,
+          document_number: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
+          outlet_name: data.outlets?.name || 'Unknown',
+          sender_outlet: 'GUDANG PUSAT (HQ)',
+          status: data.status,
+          created_at: data.created_at,
+          verification_url: `${window.location.origin}/distribusi/terima/${data.id}`,
+          verification_code: data.verification_code,
+          items,
+          signatures: data.signatures || [],
+          receipt_signatures: data.receipt_signatures || [],
+        },
+        { hideQR, copies: copies as any }
+      )
+
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = '0'
+      document.body.appendChild(iframe)
+
+      const doc = iframe.contentWindow?.document
+      if (doc) {
+        doc.open()
+        doc.write(htmlContent)
+        doc.close()
+        setTimeout(() => {
+          iframe.contentWindow?.focus()
+          iframe.contentWindow?.print()
+          setTimeout(() => {
+            if (iframe.parentNode) iframe.parentNode.removeChild(iframe)
+          }, 1500)
+        }, 300)
+      }
+    } catch {
+      toast.error('Gagal mencetak ke printer')
     }
   }
 
@@ -396,11 +455,19 @@ export function SuratJalanDetail({ id }: { id: string }) {
         {/* Header Action Suite */}
         <div className="flex items-center gap-2">
           <button
+            onClick={() => handlePrintDotMatrix(1)}
+            className="px-3.5 py-2 bg-suka-orange hover:bg-orange-600 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="Cetak langsung ke Epson LX-310 (1x Lembar Tembus NCR)"
+          >
+            <Printer size={14} />
+            <span className="hidden sm:inline">Cetak</span> LX-310
+          </button>
+          <button
             onClick={() => setShowPdfModal(true)}
             className="px-3.5 py-2 bg-white border border-suka-brown/20 text-suka-brown hover:bg-suka-brown/5 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
             title="Pratinjau Format Cetak 3-Ply 14x12 cm"
           >
-            <Printer size={14} className="text-suka-orange" />
+            <Eye size={14} className="text-suka-orange" />
             <span className="hidden sm:inline">Pratinjau</span> 3-Ply
           </button>
           <button
@@ -409,13 +476,6 @@ export function SuratJalanDetail({ id }: { id: string }) {
             title="Unduh File PDF 3 Rangkap"
           >
             <Download size={14} /> PDF
-          </button>
-          <button
-            onClick={handleDownloadExcel}
-            className="hidden sm:flex px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-xs items-center gap-1.5 cursor-pointer active:scale-95"
-            title="Unduh Spreadsheet Excel"
-          >
-            <Download size={14} /> XLS
           </button>
 
           {!isPusatSender && (data.status === 'dikirim' || data.status === 'dikirim_lengkap') && (
@@ -704,7 +764,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
         {/* RIGHT COLUMN: Action Suite, TTD, QR, & Verification Hub (Span 4) */}
         <div className="lg:col-span-4 space-y-5">
 
-          {/* 1. 3-Ply Continuous Paper Print Hub Card */}
+          {/* 1. Epson LX-310 & 3-Ply Continuous Paper Print Hub Card */}
           <div className="bg-gradient-to-br from-white to-[#fff8f1] rounded-3xl border border-suka-orange/20 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -713,7 +773,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
                 </div>
                 <div>
                   <h4 className="font-black text-xs text-suka-brown uppercase tracking-wider font-display leading-none">
-                    Form Cetak 3-Ply
+                    Epson LX-310 (3-Ply)
                   </h4>
                   <p className="text-[9px] text-suka-gray-500 font-bold mt-0.5">
                     Continuous Form 14 x 12 cm
@@ -721,27 +781,43 @@ export function SuratJalanDetail({ id }: { id: string }) {
                 </div>
               </div>
               <span className="text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-suka-brown text-white">
-                3 Rangkap
+                NCR 3-Ply
               </span>
             </div>
 
             <p className="text-xs text-suka-gray-600 font-medium leading-relaxed">
-              Formulir cetak standar logistik Suka Shawarma untuk supir & outlet (*Putih, Merah/Kuning, Hijau/Biru*).
+              Format cetak dot matrix continuous form (*Putih, Merah/Kuning, Hijau/Biru*).
             </p>
 
             <div className="space-y-2">
               <button
-                onClick={() => setShowPdfModal(true)}
+                onClick={() => handlePrintDotMatrix(1)}
                 className="w-full py-3 bg-suka-orange hover:bg-orange-600 text-white rounded-2xl font-black text-xs uppercase tracking-wider shadow-md shadow-suka-orange/20 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
               >
-                <Printer size={15} /> Cetak / Pratinjau 3-Ply
+                <Printer size={15} /> Cetak Langsung Epson LX-310
               </button>
 
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setShowPdfModal(true)}
+                  className="py-2.5 bg-white border border-suka-brown/20 hover:bg-suka-brown/5 text-suka-brown rounded-2xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 shadow-2xs"
+                >
+                  <Eye size={13} className="text-suka-orange" /> Pratinjau
+                </button>
+
+                <button
+                  onClick={handleDownloadPDF}
+                  className="py-2.5 bg-white border border-suka-brown/20 hover:bg-suka-brown/5 text-suka-brown rounded-2xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 shadow-2xs"
+                >
+                  <Download size={13} /> PDF
+                </button>
+              </div>
+
               <button
-                onClick={handleDownloadPDF}
-                className="w-full py-2.5 bg-white border border-suka-brown/20 hover:bg-suka-brown/5 text-suka-brown rounded-2xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-98 shadow-2xs"
+                onClick={() => setShowLx310Guide(true)}
+                className="w-full py-1 text-center text-[10px] text-suka-gray-500 font-bold hover:text-suka-orange flex items-center justify-center gap-1 cursor-pointer"
               >
-                <Download size={14} /> Unduh File PDF
+                <HelpCircle size={12} /> Panduan Setting Driver LX-310 (14x12cm)
               </button>
             </div>
           </div>
@@ -830,6 +906,69 @@ export function SuratJalanDetail({ id }: { id: string }) {
         </div>
       </main>
 
+      {/* Modal Panduan Setting Epson LX-310 di Windows */}
+      {showLx310Guide && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-suka-brown/10 space-y-4">
+            <div className="flex items-center justify-between border-b border-suka-brown/10 pb-3">
+              <div className="flex items-center gap-2">
+                <Printer size={18} className="text-suka-orange" />
+                <h4 className="font-black text-sm text-suka-brown uppercase tracking-wide font-display">
+                  Setting Driver Epson LX-310 (Windows)
+                </h4>
+              </div>
+              <button
+                onClick={() => setShowLx310Guide(false)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-suka-gray-500 hover:bg-suka-brown/10 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="text-xs text-suka-gray-700 space-y-3">
+              <p className="font-bold text-suka-brown">
+                Agar printer Epson LX-310 berhenti tepat di garis lipatan (perforasi 12 cm) tanpa membuang kertas:
+              </p>
+
+              <ol className="list-decimal pl-5 space-y-2 text-xs leading-relaxed font-medium">
+                <li>
+                  Buka <b>Control Panel</b> ➔ <b>Devices and Printers</b> di Windows.
+                </li>
+                <li>
+                  Klik printer <b>Epson LX-310</b>, lalu klik menu <b>Print Server Properties</b> di bilah atas.
+                </li>
+                <li>
+                  Centang <i>"Create a new form"</i>, beri nama Form: <code className="bg-[#fff8f1] px-1 py-0.5 rounded font-bold text-suka-orange">3PLY_14X12</code>.
+                </li>
+                <li>
+                  Atur ukuran:
+                  <ul className="list-disc pl-4 mt-1">
+                    <li><b>Width (Lebar):</b> 14.00 cm</li>
+                    <li><b>Height (Tinggi):</b> 12.00 cm</li>
+                    <li><b>Margin (Left/Right/Top/Bottom):</b> 0.00 cm</li>
+                  </ul>
+                </li>
+                <li>Klik <b>Save Form</b> ➔ <b>OK</b>.</li>
+                <li>
+                  Klik kanan pada printer <b>Epson LX-310</b> ➔ <b>Printing Preferences</b> ➔ pilih Paper Size: <b>3PLY_14X12</b> dan Paper Source: <b>Tractor Feed</b>.
+                </li>
+              </ol>
+
+              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-800 text-[11px] font-medium">
+                💡 <b>Kertas 3-Ply NCR:</b> Saat mencetak dengan kertas rangkap 3, jarum printer akan otomatis menembus 3 lembar sekaligus, sehingga cukup cetak 1 kali (1 pass).
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowLx310Guide(false)}
+              className="w-full py-2.5 bg-suka-brown hover:bg-suka-ink text-white font-black text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+            >
+              Mengerti & Tutup Panduan
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Confirmation Modal for Finalize */}
       {showConfirmModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
@@ -883,16 +1022,18 @@ export function SuratJalanDetail({ id }: { id: string }) {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => {
-                    const iframe = document.getElementById('preview-pdf-frame') as HTMLIFrameElement
-                    if (iframe && iframe.contentWindow) {
-                      iframe.contentWindow.focus()
-                      iframe.contentWindow.print()
-                    }
-                  }}
-                  className="px-3 py-1.5 bg-white border border-suka-brown/20 text-suka-brown text-[10px] font-bold uppercase rounded-xl flex items-center gap-1 shadow-xs hover:bg-suka-brown/5 cursor-pointer active:scale-95 transition-all"
+                  onClick={() => handlePrintDotMatrix(1)}
+                  className="px-3 py-1.5 bg-suka-orange text-white text-[10px] font-bold uppercase rounded-xl flex items-center gap-1 shadow-xs hover:bg-orange-600 cursor-pointer active:scale-95 transition-all"
+                  title="Cetak 1 pass ke LX-310"
                 >
-                  <Printer size={12} /> Cetak
+                  <Printer size={12} /> Cetak LX-310 (1x)
+                </button>
+                <button
+                  onClick={() => handlePrintDotMatrix(3)}
+                  className="px-3 py-1.5 bg-white border border-suka-brown/20 text-suka-brown text-[10px] font-bold uppercase rounded-xl flex items-center gap-1 shadow-xs hover:bg-suka-brown/5 cursor-pointer active:scale-95 transition-all"
+                  title="Cetak 3 lembar terpisah"
+                >
+                  <Printer size={12} /> Cetak 3 Rangkap
                 </button>
                 <button
                   onClick={handleDownloadPDF}

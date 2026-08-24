@@ -36,14 +36,20 @@ export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise
   if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
   if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
   
-  const { data, error } = await q
-  
-  if (error) {
-    throw new Error(error.message)
+  const PAGE_SIZE = 1000
+  const allRows: any[] = []
+  let offset = 0
+  while (true) {
+    const { data: page, error } = await q.range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw new Error(error.message)
+    if (!page || page.length === 0) break
+    allRows.push(...page)
+    if (page.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
   }
   
   const agg = new Map<string, AggregatedMenuSales>()
-  for (const r of data || []) {
+  for (const r of allRows) {
     if (isTestOutlet(r.outlet_id)) continue
     const cleanName = (r.menu_name || 'Unknown Menu').split('|')[0].trim()
     const cur = agg.get(cleanName) ?? { name: cleanName, qty: 0, revenue: 0 }

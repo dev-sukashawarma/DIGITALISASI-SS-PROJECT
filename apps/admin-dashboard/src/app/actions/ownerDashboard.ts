@@ -26,25 +26,14 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     }
   })
 
-  // 1. Fetch sales_hourly_scoped
-  let q = supabase
-    .from('sales_hourly_scoped')
-    .select('outlet_id, sales_source, sales_date, sales_hour, omzet, jumlah_order_completed')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .gte('sales_date', filter.from)
-    .lte('sales_date', filter.to)
-
-  if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
-  if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
-
-  // 2. Fetch orders to calculate exact total_deductions (discount_amount + promo_subsidy)
+  // Fetch all completed orders with pagination
   // Fix: filter.from/to is YYYY-MM-DD. Use +07:00 timezone to get exactly 00:00 to 23:59 local time.
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
 
   let ordersQ = supabase
     .from('orders')
-    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
+    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal)')
     .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
@@ -52,60 +41,70 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 
   if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
 
-  const [{ data, error }, { data: ordersData }] = await Promise.all([q, ordersQ])
-  if (error) throw new Error(error.message)
+  const PAGE_SIZE = 1000
+  const allOrders: any[] = []
+  let offset = 0
+  while (true) {
+    const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw new Error(error.message)
+    if (!page || page.length === 0) break
+    allOrders.push(...page)
+    if (page.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
 
-  // Map deductions per `${outlet_id}|${sales_source}|${sales_date}`
-  const deductionsMap = new Map<string, number>()
-  for (const o of ordersData || []) {
+  const acc = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
+  const hourMap = new Map<number, SalesHourlyRow>()
+  for (let i = 0; i < 24; i++) hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
+
+  for (const o of allOrders) {
     if (isTestOutlet(o.outlet_id)) continue
+
     const d = new Date(o.created_at)
-    // Convert UTC created_at to local date YYYY-MM-DD (Asia/Jakarta +7)
     const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
     const dateStr = localDate.toISOString().split('T')[0]
-    
-    const srcKey = String(o.sales_source || 'pos').toLowerCase()
-    const key = `${o.outlet_id}|${srcKey}|${dateStr}`
-    
-    let deduction = 0
+    const hour = localDate.getUTCHours()
+
+    const srcKey = (o.is_endorse ? 'endors' : (o.sales_source || 'pos')).toLowerCase() as SalesSource
+    if (filter.source !== 'all' && srcKey !== filter.source.toLowerCase()) continue
+
+    const totalAmt = Number(o.total_amount || 0)
     const disc = Number(o.discount_amount) || 0
     const promo = Number(o.promo_subsidy) || 0
+    let deduction = 0
     if (disc > 0 || promo > 0) {
       deduction = disc + promo
     } else {
       const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      const totalAmt = Number(o.total_amount) || 0
-      const itemDiff = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
-      deduction = itemDiff
+      deduction = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
     }
-    deductionsMap.set(key, (deductionsMap.get(key) || 0) + deduction)
-  }
 
-  // Aggregate for Summary (KPI)
-  const acc = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
-  for (const r of data || []) {
-    if (isTestOutlet(r.outlet_id)) continue
-    const rSrcKey = String(r.sales_source || 'pos').toLowerCase()
-    const key = `${r.outlet_id}|${rSrcKey}|${r.sales_date}`
+    // Accumulate KPI
+    const key = `${o.outlet_id}|${srcKey}|${dateStr}`
     const existing = acc.get(key)
-    const deductionCell = deductionsMap.get(key) || 0
-
     if (existing) {
-      existing.omzet += Number(r.omzet)
-      existing.jumlah_order_completed += Number(r.jumlah_order_completed)
-      existing.jumlah_order_all += Number(r.jumlah_order_completed)
-      // Fix: DO NOT add deductionCell again here, because it's already the total deduction for the entire day.
+      existing.omzet += totalAmt
+      existing.jumlah_order_completed += 1
+      existing.jumlah_order_all += 1
+      existing.total_deductions = (existing.total_deductions || 0) + deduction
     } else {
       acc.set(key, {
-        outlet_id: r.outlet_id,
+        outlet_id: o.outlet_id,
         outlet_name: '',
-        sales_source: r.sales_source as SalesSource,
-        sales_date: r.sales_date,
-        omzet: Number(r.omzet),
-        total_deductions: deductionCell,
-        jumlah_order_completed: Number(r.jumlah_order_completed),
-        jumlah_order_all: Number(r.jumlah_order_completed),
+        sales_source: srcKey,
+        sales_date: dateStr,
+        omzet: totalAmt,
+        total_deductions: deduction,
+        jumlah_order_completed: 1,
+        jumlah_order_all: 1,
       })
+    }
+
+    // Accumulate Hourly
+    const b = hourMap.get(hour)
+    if (b) {
+      b.omzet += totalAmt
+      b.jumlah_order_completed += 1
     }
   }
 
@@ -116,15 +115,6 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     outlet_name: nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
   }))
 
-  // Aggregate for Hourly (Trend)
-  const hourMap = new Map<number, SalesHourlyRow>()
-  for (let i = 0; i < 24; i++) hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
-  for (const r of data || []) {
-    const b = hourMap.get(r.sales_hour)
-    if (!b) continue
-    b.omzet += Number(r.omzet)
-    b.jumlah_order_completed += Number(r.jumlah_order_completed)
-  }
   const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
 
   return {

@@ -29,11 +29,20 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         
       if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
       
-      const { data: ordersData, error: ordersErr } = await ordersQ
-      if (ordersErr) throw ordersErr
+      const PAGE_SIZE = 1000
+      const ordersData: any[] = []
+      let offset = 0
+      while (true) {
+        const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        if (!page || page.length === 0) break
+        ordersData.push(...page)
+        if (page.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
       
       const aggMap = new Map<string, any>()
-      for (const o of ordersData || []) {
+      for (const o of ordersData) {
         if (isTestOutlet(o.outlet_id)) continue;
         const d = new Date(o.created_at)
         const localDate = new Date(d.getTime() + 7 * 3600 * 1000)

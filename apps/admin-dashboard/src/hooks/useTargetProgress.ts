@@ -3,6 +3,8 @@ import { useEffect } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+
 export interface TargetProgressRow {
   outlet_id: string
   outlet_name: string
@@ -32,6 +34,7 @@ export function useTargetProgress(from?: string, to?: string) {
       const { data } = await query.order('outlet_name')
         
       return (data ?? [])
+        .filter((r: any) => r.outlet_id !== TEST_OUTLET_ID && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name))
         .map((r: any) => ({
           outlet_id: r.outlet_id,
           outlet_name: r.outlet_name,

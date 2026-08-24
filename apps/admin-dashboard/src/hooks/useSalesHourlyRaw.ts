@@ -2,6 +2,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue, SalesSource } from '@/lib/types'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export interface SalesHourlyRawRow {
   outlet_id: string
@@ -27,18 +28,29 @@ export function useSalesHourlyRaw(filter: PeriodFilterValue) {
       let q = supabase
         .from('orders')
         .select('outlet_id, sales_source, is_endorse, created_at, total_amount')
+        .neq('outlet_id', TEST_OUTLET_ID)
         .eq('status', 'completed')
         .gte('created_at', fromStart.toISOString())
         .lte('created_at', toEnd.toISOString())
       
       if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
       
-      const { data, error } = await q
-      if (error) throw error
+      const PAGE_SIZE = 1000
+      const allOrders: any[] = []
+      let offset = 0
+      while (true) {
+        const { data, error } = await q.range(offset, offset + PAGE_SIZE - 1)
+        if (error) throw error
+        if (!data || data.length === 0) break
+        allOrders.push(...data)
+        if (data.length < PAGE_SIZE) break
+        offset += PAGE_SIZE
+      }
 
       const aggMap = new Map<string, SalesHourlyRawRow>()
       
-      for (const o of data ?? []) {
+      for (const o of allOrders) {
+        if (isTestOutlet(o.outlet_id)) continue;
         const d = new Date(o.created_at)
         const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
         const dateStr = localDate.toISOString().split('T')[0]

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { deleteMitraTransfer } from './actions'
-import { FileText, Download, Trash2, Search, Building2, Calendar, AlertTriangle, ArrowDownRight, ExternalLink, X } from 'lucide-react'
+import { FileText, Trash2, Search, Building2, Calendar, AlertTriangle, ExternalLink, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function TransferListView({ transfers = [], outlets = [] }: { transfers: any[], outlets: any[] }) {

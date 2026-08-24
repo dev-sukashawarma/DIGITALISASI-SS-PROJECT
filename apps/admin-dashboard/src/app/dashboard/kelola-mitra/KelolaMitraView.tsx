@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { CircleDollarSign, Calendar, FileText, Store, UploadCloud, TrendingUp, Sparkles } from 'lucide-react'
+import { CircleDollarSign, Calendar, FileText, Store, UploadCloud, TrendingUp } from 'lucide-react'
 import { InvestmentDialog } from '@/components/InvestmentDialog'
 import { BulkInvestasiModal } from '@/components/BulkInvestasiModal'
 import type { Outlet } from '@/lib/types'

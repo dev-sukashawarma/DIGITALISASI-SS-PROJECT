@@ -4,6 +4,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export interface WasteRow {
   outlet_id: string
@@ -23,10 +24,12 @@ export function useWaste(filter: PeriodFilterValue) {
         p_to: filter.to,
       })
       if (error) throw error
-      let rows: WasteRow[] = (data ?? []).map((r: any) => ({
-        outlet_id: r.outlet_id as string,
-        nilai_waste: Number(r.nilai_waste),
-      }))
+      let rows: WasteRow[] = (data ?? [])
+        .filter((r: any) => r.outlet_id !== TEST_OUTLET_ID && !isTestOutlet(r.outlet_id))
+        .map((r: any) => ({
+          outlet_id: r.outlet_id as string,
+          nilai_waste: Number(r.nilai_waste),
+        }))
       if (filter.outletId !== 'all') rows = rows.filter((r: WasteRow) => r.outlet_id === filter.outletId)
       return rows
     },

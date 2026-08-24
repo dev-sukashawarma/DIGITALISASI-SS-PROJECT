@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export type AggregatedMenuSales = {
   name: string
@@ -27,8 +28,8 @@ export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise
   
   let q = supabase
     .from('menu_sales_scoped')
-    .select('menu_name, qty, revenue')
-    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    .select('outlet_id, menu_name, qty, revenue')
+    .neq('outlet_id', TEST_OUTLET_ID)
     .gte('sales_date', filter.from)
     .lte('sales_date', filter.to)
     
@@ -43,6 +44,7 @@ export async function getAggregatedMenuSales(filter: PeriodFilterValue): Promise
   
   const agg = new Map<string, AggregatedMenuSales>()
   for (const r of data || []) {
+    if (isTestOutlet(r.outlet_id)) continue
     const cleanName = (r.menu_name || 'Unknown Menu').split('|')[0].trim()
     const cur = agg.get(cleanName) ?? { name: cleanName, qty: 0, revenue: 0 }
     cur.qty += Number(r.qty || 0)

@@ -19,8 +19,6 @@ import {
   Building2, 
   Edit3, 
   ShieldCheck, 
-  ArrowUpRight,
-  Sparkles,
   AlertCircle
 } from 'lucide-react'
 

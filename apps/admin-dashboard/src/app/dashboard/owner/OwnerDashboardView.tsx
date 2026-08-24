@@ -33,6 +33,7 @@ interface OwnerDashboardViewProps {
   prevKpiRows: SalesSummaryRow[]
   hourlyRows: SalesHourlyRow[]
   menuRows: AggregatedMenuSales[]
+  prevMenuRows?: AggregatedMenuSales[]
   leaderboard: any[]
 }
 
@@ -73,6 +74,7 @@ export default function OwnerDashboardView({
   prevKpiRows,
   hourlyRows,
   menuRows,
+  prevMenuRows,
   leaderboard,
 }: OwnerDashboardViewProps) {
   const router = useRouter()
@@ -124,6 +126,8 @@ export default function OwnerDashboardView({
             rows={curKpiRows}
             prevRows={prevKpiRows}
             hourlyRows={hourlyRows}
+            menuRows={menuRows}
+            prevMenuRows={prevMenuRows}
           />
 
           {/* Indikator target harian realtime */}
@@ -172,6 +176,7 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
   const totalDeductions = cur.rows.reduce((s: number, r: any) => s + (Number(r.total_deductions) || 0), 0)
   const omzet = netRevenue + totalDeductions
   const completed = cur.rows.reduce((s: number, r: any) => s + r.jumlah_order_completed, 0)
+  const totalPcs = (menu?.rows || []).reduce((s: number, r: any) => s + (Number(r.qty) || 0), 0)
   const currentAov = completed > 0 ? Math.round(netRevenue / completed) : 0
 
   const formatRp = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID')
@@ -214,10 +219,20 @@ function PrintReport({ filter, outlets, lockedOutletId, cur, hourly, menu }: any
             <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{formatRp(omzet)}</td>
           </tr>
           <tr className="bg-gray-50">
-            <td className="p-3 border-b border-gray-300 font-medium">Total Transaksi Selesai</td>
+            <td className="p-3 border-b border-gray-300 font-medium">Total Pendapatan Bersih (Net)</td>
+            <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{formatRp(netRevenue)}</td>
+          </tr>
+          {totalPcs > 0 && (
+            <tr>
+              <td className="p-3 border-b border-gray-300 font-medium">Total Pcs / Porsi Terjual</td>
+              <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{totalPcs.toLocaleString('id-ID')} pcs</td>
+            </tr>
+          )}
+          <tr className={totalPcs > 0 ? 'bg-gray-50' : ''}>
+            <td className="p-3 border-b border-gray-300 font-medium">Total Transaksi Selesai (Order)</td>
             <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{completed.toLocaleString('id-ID')}</td>
           </tr>
-          <tr>
+          <tr className={totalPcs > 0 ? '' : 'bg-gray-50'}>
             <td className="p-3 border-b border-gray-300 font-medium">Rata-rata Nilai Belanja (AOV)</td>
             <td className="p-3 border-b border-gray-300 text-right font-extrabold text-xl">{formatRp(currentAov)}</td>
           </tr>

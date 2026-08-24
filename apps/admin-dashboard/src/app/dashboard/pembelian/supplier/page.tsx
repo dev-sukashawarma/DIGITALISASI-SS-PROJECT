@@ -7,7 +7,6 @@ import {
   Trash2,
   Phone,
   MapPin,
-  Tag,
   Truck,
   Package,
   Layers,

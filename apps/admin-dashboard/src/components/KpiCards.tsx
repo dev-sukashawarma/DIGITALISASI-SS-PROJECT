@@ -1,17 +1,20 @@
 // @ts-nocheck
 import type { SalesSummaryRow } from '@/lib/types'
+import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { aov, deltaPct } from '@/lib/format'
 import CountUp from 'react-countup'
-import { TrendingUp, ShoppingBag, DollarSign, Clock } from 'lucide-react'
+import { TrendingUp, ShoppingBag, DollarSign, Clock, UtensilsCrossed } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface KpiCardsProps {
   rows: SalesSummaryRow[]
   prevRows?: SalesSummaryRow[]
   hourlyRows?: { sales_hour: number; omzet: number; jumlah_order_completed: number }[]
+  menuRows?: AggregatedMenuSales[]
+  prevMenuRows?: AggregatedMenuSales[]
 }
 
-export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps) {
+export function KpiCards({ rows, prevRows = [], hourlyRows = [], menuRows = [], prevMenuRows = [] }: KpiCardsProps) {
   // Current values
   // Note: r.omzet in DB (sales_hourly_scoped) is SUM(total_amount), which is actually Net Revenue
   const netRevenue = rows.reduce((s, r) => s + r.omzet, 0)
@@ -20,6 +23,7 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
   const grossRevenue = netRevenue + totalDeductions
   const completed = rows.reduce((s, r) => s + r.jumlah_order_completed, 0)
   const currentAov = aov(netRevenue, completed)
+  const totalPcs = (menuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
 
   // Peak Hour calculation
   let peakHourStr = '-'
@@ -37,10 +41,12 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
   const prevNetRevenue = prevRows.reduce((s, r) => s + r.omzet, 0)
   const prevCompleted = prevRows.reduce((s, r) => s + r.jumlah_order_completed, 0)
   const prevAov = aov(prevNetRevenue, prevCompleted)
+  const prevTotalPcs = (prevMenuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
 
   // Deltas
-  const dGross = deltaPct(grossRevenue, prevNetRevenue + prevRows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0)) // We can just approximate delta for Gross or use Net delta
+  const dGross = deltaPct(grossRevenue, prevNetRevenue + prevRows.reduce((s, r) => s + (Number((r as any).total_deductions) || 0), 0))
   const dNet = deltaPct(netRevenue, prevNetRevenue)
+  const dPcs = prevTotalPcs > 0 ? deltaPct(totalPcs, prevTotalPcs) : (totalPcs > 0 && prevTotalPcs === 0 ? 100 : null)
   const dCompleted = deltaPct(completed, prevCompleted)
   const dAov = deltaPct(currentAov, prevAov)
 
@@ -55,16 +61,6 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
       color: '#f29744', // Suka Orange
       subtext: 'Pemasukan kotor sebelum potongan',
     },
-    // {
-    //   label: 'Total Potongan (Diskon/Promo)',
-    //   value: totalDeductions,
-    //   isString: false,
-    //   isRupiah: true,
-    //   delta: null,
-    //   icon: DollarSign,
-    //   color: '#e11d48', // Rose Red
-    //   subtext: 'Potongan promo Food Apps & Diskon',
-    // },
     {
       label: 'Pendapatan Bersih (Net)',
       value: netRevenue,
@@ -74,6 +70,16 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
       icon: TrendingUp,
       color: '#0a7d2c', // Suka Green
       subtext: 'Bebas biaya potongan promo/diskon',
+    },
+    {
+      label: 'Total Pcs Terjual',
+      value: totalPcs,
+      isString: false,
+      isRupiah: false,
+      delta: dPcs,
+      icon: UtensilsCrossed,
+      color: '#8b5cf6', // Violet
+      subtext: 'Total porsi makanan terjual',
     },
     {
       label: 'Jumlah Order',
@@ -95,18 +101,6 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
       color: '#701604', // Suka Brown
       subtext: 'Rata-rata nilai per belanja',
     },
-    // {
-    //   label: 'Jam Tersibuk',
-    //   value: peakHourStr,
-    //   isString: true,
-    //   isRupiah: false,
-    //   isPercent: false,
-    //   isDecimal: false,
-    //   delta: null,
-    //   icon: Clock,
-    //   color: '#4b5563', // Slate Gray
-    //   subtext: peakHourOrders > 0 ? `${peakHourOrders} order diselesaikan` : 'Belum ada transaksi',
-    // },
   ]
 
   return (
@@ -114,10 +108,10 @@ export function KpiCards({ rows, prevRows = [], hourlyRows = [] }: KpiCardsProps
       initial="hidden"
       animate="visible"
       variants={{
-        visible: { transition: { staggerChildren: 0.1 } },
+        visible: { transition: { staggerChildren: 0.08 } },
         hidden: {},
       }}
-      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
     >
       {cards.map((c) => {
         if (!c) return null; // In case we want to filter out undefined ones easily

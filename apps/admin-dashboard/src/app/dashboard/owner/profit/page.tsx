@@ -34,6 +34,7 @@ import {
   ArrowUpDown
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export default function ProfitPage() {
   const { data: outlets = [] } = useOutlets()
@@ -51,27 +52,45 @@ export default function ProfitPage() {
 
   const isAllOutlets = filter.outletId === 'all'
 
-  // Calculations
-  const actualGrossRevenue = useMemo(() => sales.rows.reduce((sum, r) => sum + r.omzet, 0), [sales.rows])
+  // Calculations (Filter out any test outlet)
+  const actualGrossRevenue = useMemo(
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.omzet, 0), 
+    [sales.rows]
+  )
   const actualNetRevenue = actualGrossRevenue
 
-  const totalPotongan = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.total_deductions || 0), 0), [sales.rows])
-  const totalPlatformFee = useMemo(() => sales.rows.reduce((sum, r) => sum + (r.platform_fee || 0), 0), [sales.rows])
+  const totalPotongan = useMemo(
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (r.total_deductions || 0), 0), 
+    [sales.rows]
+  )
+  const totalPlatformFee = useMemo(
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (r.platform_fee || 0), 0), 
+    [sales.rows]
+  )
   const totalDeductions = totalPotongan + totalPlatformFee
 
   const pengeluaranOutletBulanan = useMemo(
-    () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'monthly').reduce((sum, r) => sum + r.amount, 0),
-    [expenses.rows])
+    () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'monthly' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name)).reduce((sum, r) => sum + r.amount, 0),
+    [expenses.rows]
+  )
   const pengeluaranOutletPettyCash = useMemo(
-    () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'petty_cash').reduce((sum, r) => sum + r.amount, 0),
-    [expenses.rows])
+    () => expenses.rows.filter(r => r.scope === 'outlet' && r.source === 'petty_cash' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name)).reduce((sum, r) => sum + r.amount, 0),
+    [expenses.rows]
+  )
   const pengeluaranOutlet = pengeluaranOutletBulanan + pengeluaranOutletPettyCash
   const pengeluaranPusat = useMemo(
     () => expenses.rows.filter(r => r.scope === 'pusat').reduce((sum, r) => sum + r.amount, 0),
-    [expenses.rows])
+    [expenses.rows]
+  )
     
-  const totalHpp = useMemo(() => hpp.rows.reduce((sum, r) => sum + r.hpp, 0), [hpp.rows])
-  const totalWaste = useMemo(() => waste.rows.reduce((sum, r) => sum + r.nilai_waste, 0), [waste.rows])
+  const totalHpp = useMemo(
+    () => hpp.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.hpp, 0), 
+    [hpp.rows]
+  )
+  const totalWaste = useMemo(
+    () => waste.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.nilai_waste, 0), 
+    [waste.rows]
+  )
   
   const { netRevenue, labaKotor, labaBersih, marginKotor } = computeProfit(actualGrossRevenue, totalDeductions, totalHpp, pengeluaranOutlet, totalWaste)
   
@@ -91,31 +110,31 @@ export default function ProfitPage() {
   const outletBreakdown = useMemo(() => {
     const map = new Map<string, { name: string; omzet: number; deductions: number; expense: number; hpp: number; waste: number }>()
 
-    outlets.forEach(o => {
+    outlets.filter(o => !isTestOutlet(o)).forEach(o => {
       map.set(o.id, { name: o.name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 })
     })
 
-    sales.rows.forEach(s => {
+    sales.rows.filter(s => !isTestOutlet(s.outlet_id)).forEach(s => {
       const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.omzet += s.omzet
       cur.deductions += (s.total_deductions || 0) + (s.platform_fee || 0)
       map.set(s.outlet_id, cur)
     })
 
-    expenses.rows.forEach(e => {
+    expenses.rows.filter(e => !isTestOutlet(e.outlet_id) && !isTestOutlet(e.outlet_name)).forEach(e => {
       if (e.scope !== 'outlet' || !e.outlet_id) return
       const cur = map.get(e.outlet_id) ?? { name: e.outlet_name ?? 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.expense += e.amount
       map.set(e.outlet_id, cur)
     })
 
-    hpp.rows.forEach(h => {
+    hpp.rows.filter(h => !isTestOutlet(h.outlet_id)).forEach(h => {
       const cur = map.get(h.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.hpp += h.hpp
       map.set(h.outlet_id, cur)
     })
 
-    waste.rows.forEach(w => {
+    waste.rows.filter(w => !isTestOutlet(w.outlet_id)).forEach(w => {
       const cur = map.get(w.outlet_id) ?? { name: 'Outlet Tidak Dikenal', omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
       cur.waste += w.nilai_waste
       map.set(w.outlet_id, cur)

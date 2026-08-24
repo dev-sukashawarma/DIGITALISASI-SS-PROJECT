@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
 import { deriveScope, type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export interface ExpenseRow {
   id: string
@@ -30,12 +31,14 @@ export function useExpenses(filter: PeriodFilterValue) {
       let q1 = supabase
         .from('expenses')
         .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, outlets(name)')
+        .neq('outlet_id', TEST_OUTLET_ID)
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
 
       let q2 = supabase
         .from('petty_cash_expenses')
         .select('id, outlet_id, category, amount, description, expense_date, receipt_url, outlets(name)')
+        .neq('outlet_id', TEST_OUTLET_ID)
         .in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities'])
         .gte('expense_date', filter.from)
         .lte('expense_date', filter.to)
@@ -51,13 +54,15 @@ export function useExpenses(filter: PeriodFilterValue) {
       if (res1.error) throw res1.error
       if (res2.error) throw res2.error
 
-      const monthlyRows = (res1.data ?? []).map((row: any) => ({
-        id: row.id,
-        outlet_id: row.outlet_id,
-        outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
-        category: row.category,
-        scope: deriveScope(row.category),
-        amount: Number(row.amount),
+      const monthlyRows = (res1.data ?? [])
+        .filter((row: any) => !isTestOutlet(row.outlet_id) && !isTestOutlet(row.outlets?.name))
+        .map((row: any) => ({
+          id: row.id,
+          outlet_id: row.outlet_id,
+          outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
+          category: row.category,
+          scope: deriveScope(row.category),
+          amount: Number(row.amount),
         description: row.description ?? '',
         expense_date: row.expense_date,
         period_month: row.period_month,
@@ -65,7 +70,9 @@ export function useExpenses(filter: PeriodFilterValue) {
         source: 'monthly' as const
       }))
 
-      const pettyCashRows = (res2.data ?? []).map((row: any) => {
+      const pettyCashRows = (res2.data ?? [])
+        .filter((row: any) => !isTestOutlet(row.outlet_id) && !isTestOutlet(row.outlets?.name))
+        .map((row: any) => {
         let cat = row.category
         if (cat === 'bb') cat = 'bahan_baku'
         else if (cat === 'outlet' || cat === 'operasional') cat = 'pengeluaran_outlet'

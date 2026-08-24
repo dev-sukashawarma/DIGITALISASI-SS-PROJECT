@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { balasSaran, deleteSaran } from './actions'
-import { MessageSquare, CheckCircle2, Clock, Trash2, AlertTriangle, Send, Store, UserCheck, MessageCircle } from 'lucide-react'
+import { CheckCircle2, Clock, Trash2, AlertTriangle, Send, Store, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function SaranInbox({ suggestions = [] }: { suggestions: any[] }) {

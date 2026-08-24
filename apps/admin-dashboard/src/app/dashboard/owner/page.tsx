@@ -6,6 +6,7 @@ import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import OwnerDashboardView from './OwnerDashboardView'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,22 +38,24 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     ...previousRange({ from: filter.from, to: filter.to }) 
   }
 
-  // 3. Fetch Outlets
-  const { data: outlets = [] } = await supabase
+  // 3. Fetch Outlets (Exclude Test Outlets)
+  const { data: rawOutlets = [] } = await supabase
     .from('outlets')
     .select('id, slug, name, address, lat, lng, type, is_active, marquee_warning_threshold')
-    .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    .neq('id', TEST_OUTLET_ID)
     .order('name')
     
+  const outlets = (rawOutlets ?? []).filter(o => !isTestOutlet(o))
   const scopedOutlets = lockedOutletId 
-    ? (outlets ?? []).filter(o => o.id === lockedOutletId) 
-    : (outlets ?? [])
+    ? outlets.filter(o => o.id === lockedOutletId) 
+    : outlets
 
   // 4. Run Aggregations in parallel on Node Server
-  const [curData, prevData, menuSales] = await Promise.all([
+  const [curData, prevData, menuSales, prevMenuSales] = await Promise.all([
     getOwnerDashboardData(filter, scopedOutlets),
     getOwnerDashboardData(prevFilter, scopedOutlets),
     getAggregatedMenuSales(filter),
+    getAggregatedMenuSales(prevFilter),
   ])
 
   const leaderboard = buildLeaderboard(curData.kpiRows, prevData.kpiRows)
@@ -69,6 +72,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       prevKpiRows={prevData.kpiRows}
       hourlyRows={curData.hourlyRows}
       menuRows={menuSales}
+      prevMenuRows={prevMenuSales}
       leaderboard={leaderboard}
     />
   )

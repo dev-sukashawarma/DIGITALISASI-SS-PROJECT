@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { saveMitraTransfer } from './actions'
 import { createClient } from '@/lib/supabase'
-import { UploadCloud, Store, Calendar, DollarSign, FileText, X, Check, Paperclip } from 'lucide-react'
+import { UploadCloud, X, Check, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function TransferUploadDialog({ isOpen, onClose, outlets = [] }: any) {

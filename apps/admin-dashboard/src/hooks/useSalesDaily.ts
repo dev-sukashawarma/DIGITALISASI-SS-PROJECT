@@ -3,6 +3,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { SalesSummaryRow, PeriodFilterValue, SalesSource } from '@/lib/types'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 // Ringkasan harian per outlet × sumber langsung dari view DB `sales_daily_scoped`.
 // Untuk halaman yang HANYA butuh agregat harian (mis. Profit) — rentang lebar
@@ -21,6 +22,7 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       let ordersQ = supabase
         .from('orders')
         .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal)')
+        .neq('outlet_id', TEST_OUTLET_ID)
         .eq('status', 'completed')
         .gte('created_at', fromStart.toISOString())
         .lte('created_at', toEnd.toISOString())
@@ -32,6 +34,7 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       
       const aggMap = new Map<string, any>()
       for (const o of ordersData || []) {
+        if (isTestOutlet(o.outlet_id)) continue;
         const d = new Date(o.created_at)
         const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
         const dateStr = localDate.toISOString().split('T')[0]

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase";
 import type { PeriodFilterValue } from "@/lib/types";
 import { cleanItemName } from "@/lib/order-item-name";
+import { isTestOutlet, TEST_OUTLET_ID } from "@/lib/outletFilters";
 
 export interface HppRow {
   outlet_id: string;
@@ -71,9 +72,12 @@ export function useHpp(filter: PeriodFilterValue) {
 
       const { data: outlets } = await supabase
         .from("outlets")
-        .select("id, type");
+        .select("id, type, name, slug")
+        .neq("id", TEST_OUTLET_ID);
       const outletTypeMap = new Map<string, string>();
-      outlets?.forEach((o: any) => outletTypeMap.set(o.id, o.type || "outlet"));
+      outlets?.forEach((o: any) => {
+        if (!isTestOutlet(o)) outletTypeMap.set(o.id, o.type || "outlet");
+      });
 
       const { data: menuItemsData } = await supabase
         .from("menu_items")
@@ -93,6 +97,7 @@ export function useHpp(filter: PeriodFilterValue) {
         .select(
           "outlet_id, status, order_items(menu_item_name, quantity, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))",
         )
+        .neq("outlet_id", TEST_OUTLET_ID)
         .gte("created_at", ordersGte)
         .lte("created_at", ordersLte);
 
@@ -142,7 +147,7 @@ export function useHpp(filter: PeriodFilterValue) {
       const hppMap = new Map<string, number>();
 
       allOrders.forEach((o: any) => {
-        if (o.status === "cancelled" || o.status === "void") return;
+        if (o.status === "cancelled" || o.status === "void" || isTestOutlet(o.outlet_id)) return;
         const outletType = outletTypeMap.get(o.outlet_id);
 
         o.order_items?.forEach((item: any) => {

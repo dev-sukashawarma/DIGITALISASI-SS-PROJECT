@@ -9,6 +9,7 @@ import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
 import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: Outlet[]) {
   const cookieStore = await cookies()
@@ -29,7 +30,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   let q = supabase
     .from('sales_hourly_scoped')
     .select('outlet_id, sales_source, sales_date, sales_hour, omzet, jumlah_order_completed')
-    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    .neq('outlet_id', TEST_OUTLET_ID)
     .gte('sales_date', filter.from)
     .lte('sales_date', filter.to)
 
@@ -44,7 +45,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   let ordersQ = supabase
     .from('orders')
     .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, total_amount, order_items(subtotal)')
-    .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
@@ -57,6 +58,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   // Map deductions per `${outlet_id}|${sales_source}|${sales_date}`
   const deductionsMap = new Map<string, number>()
   for (const o of ordersData || []) {
+    if (isTestOutlet(o.outlet_id)) continue
     const d = new Date(o.created_at)
     // Convert UTC created_at to local date YYYY-MM-DD (Asia/Jakarta +7)
     const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
@@ -82,6 +84,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   // Aggregate for Summary (KPI)
   const acc = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
   for (const r of data || []) {
+    if (isTestOutlet(r.outlet_id)) continue
     const rSrcKey = String(r.sales_source || 'pos').toLowerCase()
     const key = `${r.outlet_id}|${rSrcKey}|${r.sales_date}`
     const existing = acc.get(key)

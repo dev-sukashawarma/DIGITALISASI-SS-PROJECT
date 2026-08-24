@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { upsertMitraProfile } from './actions'
-import { Users, Store, X, Check, AlertCircle } from 'lucide-react'
+import { Users, Store, X, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function MitraFormDialog({ isOpen, onClose, users = [], outlets = [], initialData = null }: any) {

@@ -62,6 +62,16 @@ export async function getEffectiveTodayWIB(outletId: string, supabase: any): Pro
       .maybeSingle()
     if (!data) return '2026-08-20'
   }
+  
+  if (outletId === '550e8400-e29b-41d4-a716-446655440002' && today === '2026-08-24') {
+    // Empang exception: check if there are 2 finalized opnames for Aug 23
+    const { count } = await supabase.from('opname')
+      .select('id', { count: 'exact', head: true })
+      .eq('outlet_id', outletId)
+      .eq('tanggal', '2026-08-23')
+      .eq('status', 'finalized')
+    if ((count ?? 0) < 2) return '2026-08-23'
+  }
   return today
 }
 
@@ -161,8 +171,9 @@ export function useOpnameActions() {
     const isCompensation = todayWIB === COMPENSATION_DATE
     const isJatiasihException = outletId === JATIASIH_OUTLET_ID && JATIASIH_DATES.includes(todayWIB)
     const isTodayException = todayWIB === TODAY_EXCEPTION_DATE && ALLOWED_OUTLETS.includes(outletId)
+    const isEmpangException = todayWIB === '2026-08-23' && outletId === '550e8400-e29b-41d4-a716-446655440002'
 
-    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException || isTodayException)) {
+    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException || isTodayException || isEmpangException)) {
       const { count } = await supabase.from('opname')
         .select('id', { count: 'exact', head: true })
         .eq('outlet_id', outletId)

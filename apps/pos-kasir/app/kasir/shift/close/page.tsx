@@ -62,6 +62,11 @@ interface CashOrder {
   channel: string | null
 }
 
+interface PettyCashSnapshot {
+  current_balance: number
+  last_adjustment_note: string | null
+}
+
 export default function CloseShiftPage() {
   const { showConfirm } = useDialogStore()
   const { outletId } = useMyOutlet()
@@ -76,6 +81,7 @@ export default function CloseShiftPage() {
   const [topups, setTopups] = useState<PettyCashTopup[]>([])
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
+  const [adminAdjustmentNote, setAdminAdjustmentNote] = useState<string | null>(null)
   
   // Forms
   const [actualEndingCash, setActualEndingCash] = useState<string>('')
@@ -186,10 +192,12 @@ export default function CloseShiftPage() {
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
         const fallbackBalance = startPetty + topupsTotal - expensesTotalLocal
-        const { data: sharedBalance, error: balanceError } = await supabase.rpc('get_petty_cash_balance', {
+        const { data: sharedSnapshot, error: balanceError } = await supabase.rpc('get_petty_cash_snapshot', {
           p_outlet_id: outletId,
         })
-        calculatedBalance = balanceError ? fallbackBalance : Number(sharedBalance) || 0
+        const snapshot = balanceError ? null : sharedSnapshot as PettyCashSnapshot
+        calculatedBalance = snapshot ? Number(snapshot.current_balance) || 0 : fallbackBalance
+        setAdminAdjustmentNote(snapshot?.last_adjustment_note || null)
         setPettyCashBalance(calculatedBalance)
       } else {
         setPettyCashBalance(0)
@@ -251,6 +259,15 @@ export default function CloseShiftPage() {
       const userRes = await supabase.auth.getUser()
       const userId = userRes.data.user?.id
 
+      // Ambil ulang tepat sebelum tutup shift agar penyesuaian Admin yang baru
+      // masuk tidak membuat expected ending memakai snapshot lama.
+      const { data: latestSnapshot, error: snapshotError } = await supabase.rpc('get_petty_cash_snapshot', {
+        p_outlet_id: outletId,
+      })
+      if (snapshotError) throw snapshotError
+      const latestPettyCashBalance = Number((latestSnapshot as PettyCashSnapshot).current_balance) || 0
+      setPettyCashBalance(latestPettyCashBalance)
+
       const res = await fetch('/api/kasir/close-shift', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -259,7 +276,7 @@ export default function CloseShiftPage() {
           actualCash: cash,
           expectedCash: currentDrawerBalance,
           actualPettyCash: pc,
-          expectedPettyCash: pettyCashBalance,
+          expectedPettyCash: latestPettyCashBalance,
           closedBy: userId
         })
       })
@@ -453,8 +470,8 @@ export default function CloseShiftPage() {
                     <span className="text-lg font-black text-blue-700">{formatRupiah(pettyCashBalance)}</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1.5">
-                    {activeShift.admin_petty_cash_updated_at
-                      ? `Saldo terakhir disesuaikan Admin${activeShift.admin_petty_cash_note ? `: ${activeShift.admin_petty_cash_note}` : ''}`
+                    {adminAdjustmentNote
+                      ? `Penyesuaian Admin: ${adminAdjustmentNote}`
                       : `Awal ${formatRupiah(activeShift.starting_petty_cash || 0)} + Top up ${formatRupiah(approvedTopupsTotal)} − Pengeluaran ${formatRupiah(expensesTotal)}`}
                   </p>
                 </div>

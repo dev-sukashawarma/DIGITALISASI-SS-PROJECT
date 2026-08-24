@@ -68,6 +68,16 @@ interface CashOrder {
   cancellation_status?: string | null
 }
 
+interface PettyCashSnapshot {
+  shift_id: string | null
+  has_active_shift: boolean
+  current_balance: number
+  opening_balance: number | null
+  pending_adjustment_id: string | null
+  pending_note: string | null
+  last_adjustment_note: string | null
+}
+
 type LedgerItem = 
   | { type: 'expense'; data: Expense; date: Date }
   | { type: 'topup'; data: PettyCashTopup; date: Date }
@@ -113,6 +123,7 @@ export default function CashierShiftPage() {
   const [topups, setTopups] = useState<PettyCashTopup[]>([])
   const [cashOrders, setCashOrders] = useState<CashOrder[]>([])
   const [pettyCashBalance, setPettyCashBalance] = useState<number>(0)
+  const [adminAdjustmentNote, setAdminAdjustmentNote] = useState<string | null>(null)
   
   // Forms
   const [startingPettyCash, setStartingPettyCash] = useState<string>('')
@@ -185,6 +196,7 @@ export default function CashierShiftPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_topups', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_adjustments', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .subscribe()
 
@@ -215,6 +227,12 @@ export default function CashierShiftPage() {
 
       if (shiftError) throw shiftError
       setActiveShift(shiftData || null)
+
+      const { data: snapshotData, error: snapshotError } = await supabase.rpc('get_petty_cash_snapshot', {
+        p_outlet_id: outletId,
+      })
+      const snapshot = snapshotError ? null : snapshotData as PettyCashSnapshot
+      setAdminAdjustmentNote(snapshot?.last_adjustment_note || snapshot?.pending_note || null)
 
       let snapExpenses: Expense[] = []
       let snapTopups: PettyCashTopup[] = []
@@ -261,17 +279,19 @@ export default function CashierShiftPage() {
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
         const fallbackBalance = startPetty + topupsTotal - expensesTotal
-        const { data: sharedBalance, error: balanceError } = await supabase.rpc('get_petty_cash_balance', {
-          p_outlet_id: outletId,
-        })
-        calculatedBalance = balanceError ? fallbackBalance : Number(sharedBalance) || 0
+        calculatedBalance = snapshot ? Number(snapshot.current_balance) || 0 : fallbackBalance
         setPettyCashBalance(calculatedBalance)
       } else {
-        setPettyCashBalance(0)
+        calculatedBalance = snapshot ? Number(snapshot.current_balance) || 0 : 0
+        setPettyCashBalance(calculatedBalance)
         setExpenses([])
         setTopups([])
         setCashOrders([])
 
+        if (snapshot) {
+          setStartingPettyCash(String(Number(snapshot.opening_balance) || 0))
+          setPettyCashLocked(Boolean(snapshot.pending_adjustment_id || snapshot.shift_id))
+        } else {
         // Kunci nominal setoran awal Dana Operasional ke SISA PETTY CASH (ending_petty_cash)
         // shift terakhir yang sudah ditutup (closed) — BUKAN nominal tetap standar.
         const { data: lastShift } = await supabase
@@ -328,6 +348,7 @@ export default function CashierShiftPage() {
             setStartingPettyCash('0')
             setPettyCashLocked(false)
           }
+        }
         }
       }
 
@@ -612,7 +633,9 @@ export default function CashierShiftPage() {
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">Shift Saat Ini Ditutup</h3>
             <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-              {pettyCashLocked
+              {adminAdjustmentNote
+                ? 'Admin sudah menetapkan petty cash untuk shift berikutnya. Nilai otomatis dikunci dan akan dipakai saat shift dibuka.'
+                : pettyCashLocked
                 ? 'Saldo awal Petty Cash otomatis meneruskan sisa saldo dari closing shift sebelumnya. Klik Buka Shift untuk memulai.'
                 : 'Silakan masukkan saldo awal Petty Cash dan buka shift untuk memulai pencatatan transaksi.'}
             </p>
@@ -640,7 +663,9 @@ export default function CashierShiftPage() {
                 </div>
                 {pettyCashLocked && (
                   <p className="text-xs text-gray-500 mt-1.5">
-                    Mengikuti sisa saldo petty cash dari closing shift sebelumnya. Hubungi SPV/Admin bila nominal ini perlu diubah.
+                    {adminAdjustmentNote
+                      ? `Penyesuaian Admin: ${adminAdjustmentNote}`
+                      : 'Mengikuti sisa saldo petty cash dari closing shift sebelumnya. Hubungi SPV/Admin bila nominal ini perlu diubah.'}
                   </p>
                 )}
               </div>
@@ -692,9 +717,9 @@ export default function CashierShiftPage() {
                 <p className="text-gray-500 text-sm mt-1">
                   Awal Shift: {formatRupiah(activeShift.starting_petty_cash || 0)} &middot; Dana operasional
                 </p>
-                {activeShift.admin_petty_cash_updated_at && (
+                {adminAdjustmentNote && (
                   <p className="mt-1 text-xs font-semibold text-blue-600">
-                    Saldo disesuaikan Admin{activeShift.admin_petty_cash_note ? `: ${activeShift.admin_petty_cash_note}` : ''}
+                    Penyesuaian Admin: {adminAdjustmentNote}
                   </p>
                 )}
               </div>

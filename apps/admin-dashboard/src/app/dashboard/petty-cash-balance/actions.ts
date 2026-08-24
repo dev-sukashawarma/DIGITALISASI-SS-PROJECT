@@ -4,20 +4,16 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 
-type OverrideInput = {
+type AdjustmentInput = {
   outletId: string
-  startingBalance: number
-  currentBalance: number
+  targetBalance: number
   note: string
 }
-export async function overridePettyCashBalance(input: OverrideInput) {
+export async function adjustPettyCashBalance(input: AdjustmentInput) {
   try {
     if (!input.outletId) throw new Error('Pilih outlet terlebih dahulu')
-    if (!Number.isFinite(input.startingBalance) || input.startingBalance < 0) {
-      throw new Error('Modal awal tidak valid')
-    }
-    if (!Number.isFinite(input.currentBalance) || input.currentBalance < 0) {
-      throw new Error('Saldo saat ini tidak valid')
+    if (!Number.isFinite(input.targetBalance) || input.targetBalance < 0) {
+      throw new Error('Nominal penyesuaian tidak valid')
     }
     if (input.note.trim().length < 5) {
       throw new Error('Catatan perubahan minimal 5 karakter')
@@ -29,10 +25,9 @@ export async function overridePettyCashBalance(input: OverrideInput) {
       setAll: () => {},
     })
 
-    const { data, error } = await supabase.rpc('admin_override_outlet_petty_cash', {
+    const { data, error } = await supabase.rpc('admin_adjust_petty_cash', {
       p_outlet_id: input.outletId,
-      p_starting_balance: input.startingBalance,
-      p_current_balance: input.currentBalance,
+      p_target_balance: input.targetBalance,
       p_note: input.note.trim(),
     })
 
@@ -42,7 +37,15 @@ export async function overridePettyCashBalance(input: OverrideInput) {
     revalidatePath('/dashboard/leader')
     revalidatePath('/dashboard/area-manager/petty-cash')
 
-    return { success: true as const, historyId: data as string }
+    const result = data as {
+      adjustment_id: string
+      application_mode: 'active_shift' | 'next_shift_opening'
+      balance_before: number
+      target_balance: number
+      adjustment_amount: number
+    }
+
+    return { success: true as const, result }
   } catch (error: any) {
     return {
       success: false as const,

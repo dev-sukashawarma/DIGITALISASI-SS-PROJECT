@@ -16,24 +16,20 @@ export type PettyCashShift = {
   status: string
   start_time: string
   starting_petty_cash: number | null
-  admin_petty_cash_balance: number | null
-  admin_petty_cash_note: string | null
-  admin_petty_cash_updated_at: string | null
-  admin_petty_cash_updated_by: string | null
-  admin_name: string | null
 }
 
 export type PettyCashHistory = {
   id: string
   outlet_id: string
-  shift_id: string
-  old_starting_balance: number
-  new_starting_balance: number
-  old_current_balance: number
-  new_current_balance: number
+  shift_id: string | null
+  application_mode: 'active_shift' | 'next_shift_opening'
+  status: 'pending' | 'applied' | 'superseded'
+  balance_before: number
+  target_balance: number
+  adjustment_amount: number
   note: string
-  changed_by: string
-  changed_at: string
+  created_by: string
+  created_at: string
   admin_name: string | null
 }
 
@@ -55,7 +51,7 @@ export default async function PettyCashBalancePage() {
 
   if (staff?.role !== 'admin') redirect('/dashboard')
 
-  const [outletsResult, shiftsResult, balancesResult, historyResult] = await Promise.all([
+  const [outletsResult, shiftsResult, balancesResult, adjustmentsResult, legacyHistoryResult] = await Promise.all([
     supabase
       .from('outlets')
       .select('id, name, is_active')
@@ -63,10 +59,15 @@ export default async function PettyCashBalancePage() {
       .order('name'),
     supabase
       .from('shifts')
-      .select('id, outlet_id, status, start_time, starting_petty_cash, admin_petty_cash_balance, admin_petty_cash_note, admin_petty_cash_updated_at, admin_petty_cash_updated_by')
+      .select('id, outlet_id, status, start_time, starting_petty_cash')
       .order('start_time', { ascending: false })
       .limit(2000),
     supabase.rpc('get_all_latest_petty_cash_balances'),
+    supabase
+      .from('petty_cash_adjustments')
+      .select('id, outlet_id, shift_id, application_mode, status, balance_before, target_balance, adjustment_amount, note, created_by, created_at')
+      .order('created_at', { ascending: false })
+      .limit(300),
     supabase
       .from('petty_cash_balance_history')
       .select('id, outlet_id, shift_id, old_starting_balance, new_starting_balance, old_current_balance, new_current_balance, note, changed_by, changed_at')
@@ -75,12 +76,16 @@ export default async function PettyCashBalancePage() {
   ])
 
   const outlets = (outletsResult.data ?? []) as PettyCashOutlet[]
-  const rawShifts = (shiftsResult.data ?? []) as Omit<PettyCashShift, 'admin_name'>[]
-  const rawHistory = (historyResult.data ?? []) as Omit<PettyCashHistory, 'admin_name'>[]
+  const rawShifts = (shiftsResult.data ?? []) as PettyCashShift[]
+  const rawAdjustments = (adjustmentsResult.data ?? []) as Omit<PettyCashHistory, 'admin_name'>[]
+  const rawLegacy = (legacyHistoryResult.data ?? []) as {
+    id: string; outlet_id: string; shift_id: string; old_current_balance: number;
+    new_current_balance: number; note: string; changed_by: string; changed_at: string
+  }[]
 
   const staffIds = Array.from(new Set([
-    ...rawShifts.map((row) => row.admin_petty_cash_updated_by),
-    ...rawHistory.map((row) => row.changed_by),
+    ...rawAdjustments.map((row) => row.created_by),
+    ...rawLegacy.map((row) => row.changed_by),
   ].filter(Boolean))) as string[]
 
   const { data: adminRows } = staffIds.length
@@ -94,18 +99,26 @@ export default async function PettyCashBalancePage() {
   for (const row of rawShifts) {
     if (seenOutlets.has(row.outlet_id)) continue
     seenOutlets.add(row.outlet_id)
-    latestShifts.push({
-      ...row,
-      admin_name: row.admin_petty_cash_updated_by
-        ? adminNames.get(row.admin_petty_cash_updated_by) ?? null
-        : null,
-    })
+    latestShifts.push(row)
   }
 
-  const history: PettyCashHistory[] = rawHistory.map((row) => ({
+  const history: PettyCashHistory[] = rawAdjustments.map((row) => ({
     ...row,
+    admin_name: adminNames.get(row.created_by) ?? null,
+  })).concat(rawLegacy.map((row) => ({
+    id: `legacy-${row.id}`,
+    outlet_id: row.outlet_id,
+    shift_id: row.shift_id,
+    application_mode: 'active_shift' as const,
+    status: 'applied' as const,
+    balance_before: Number(row.old_current_balance) || 0,
+    target_balance: Number(row.new_current_balance) || 0,
+    adjustment_amount: (Number(row.new_current_balance) || 0) - (Number(row.old_current_balance) || 0),
+    note: row.note,
+    created_by: row.changed_by,
+    created_at: row.changed_at,
     admin_name: adminNames.get(row.changed_by) ?? null,
-  }))
+  }))).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   const balances = Object.fromEntries(
     ((balancesResult.data ?? []) as { outlet_id: string; balance: number }[])

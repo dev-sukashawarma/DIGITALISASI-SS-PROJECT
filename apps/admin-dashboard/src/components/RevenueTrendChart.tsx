@@ -5,11 +5,11 @@ import {
 import { rupiah, rupiahCompact } from '@/lib/format'
 
 export function RevenueTrendChart({ 
-  rows, 
+  rows = [], 
   isHourly = false,
   className
 }: { 
-  rows: any[], 
+  rows?: any[], 
   isHourly?: boolean,
   className?: string
 }) {

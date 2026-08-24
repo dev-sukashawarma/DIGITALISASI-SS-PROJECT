@@ -1,7 +1,8 @@
-// @ts-nocheck
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
@@ -37,10 +38,40 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export default function ProfitPage() {
+  const queryClient = useQueryClient()
+  const supabase = createClient()
+  const debounceRef = useRef<any>(null)
+
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
   const [outletSearch, setOutletSearch] = useState('')
   const [sortBy, setSortBy] = useState<'net' | 'margin' | 'omzet'>('net')
+
+  useEffect(() => {
+    const invalidate = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+        queryClient.invalidateQueries({ queryKey: ['expenses'] })
+        queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
+        queryClient.invalidateQueries({ queryKey: ['waste'] })
+      }, 600)
+    }
+
+    const channel = supabase
+      .channel('profit-realtime-sub')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'waste_records' }, invalidate)
+      .subscribe()
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
 
   const sales = useSalesDaily(filter, outlets)
   const expenses = useExpenses(filter)
@@ -54,10 +85,13 @@ export default function ProfitPage() {
 
   // Calculations (Filter out any test outlet)
   const actualGrossRevenue = useMemo(
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.omzet + (r.total_deductions || 0), 0), 
+    [sales.rows]
+  )
+  const actualNetRevenue = useMemo(
     () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.omzet, 0), 
     [sales.rows]
   )
-  const actualNetRevenue = actualGrossRevenue
 
   const totalPotongan = useMemo(
     () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (r.total_deductions || 0), 0), 
@@ -116,8 +150,9 @@ export default function ProfitPage() {
 
     sales.rows.filter(s => !isTestOutlet(s.outlet_id)).forEach(s => {
       const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
-      cur.omzet += s.omzet
-      cur.deductions += (s.total_deductions || 0) + (s.platform_fee || 0)
+      const deductions = (s.total_deductions || 0) + (s.platform_fee || 0)
+      cur.omzet += s.omzet + (s.total_deductions || 0)
+      cur.deductions += deductions
       map.set(s.outlet_id, cur)
     })
 
@@ -143,10 +178,10 @@ export default function ProfitPage() {
     return [...map.entries()]
       .map(([id, val]) => {
         const grossRev = val.omzet
-        const netRev = val.omzet
+        const netRev = val.omzet - val.deductions
         const labaKotor = grossRev - val.hpp - val.deductions
         const net = labaKotor - val.expense - val.waste
-        const margin = netRev > 0 ? (net / netRev) * 100 : 0
+        const margin = grossRev > 0 ? (net / grossRev) * 100 : 0
         const totalCost = val.deductions + val.hpp + val.waste + val.expense
         return { 
           id, 
@@ -212,26 +247,26 @@ export default function ProfitPage() {
             variants={{ visible: { transition: { staggerChildren: 0.05 } }, hidden: {} }}
             className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
           >
-            {/* Card 1: Pendapatan Bersih */}
+            {/* Card 1: Omzet Penjualan (Kotor) */}
             <div className="bg-white/85 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between">
-              <div className="absolute top-0 left-0 w-2 h-full bg-emerald-500 rounded-l-3xl" />
+              <div className="absolute top-0 left-0 w-2 h-full bg-orange-500 rounded-l-3xl" />
               <div className="flex justify-between items-start pl-2">
                 <div>
-                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Pendapatan Bersih</p>
-                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Uang riil masuk sistem POS</p>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Omzet Penjualan (Kotor)</p>
+                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Pemasukan kotor sebelum potongan</p>
                 </div>
-                <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600">
-                  <Wallet className="w-5 h-5" />
+                <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600">
+                  <TrendingUp className="w-5 h-5" />
                 </div>
               </div>
               <div className="mt-4 pl-2">
                 <h3 className="text-2xl font-black text-suka-brown tracking-tight">
                   <span className="text-base font-semibold">Rp </span>
-                  <CountUp end={netRevenue} duration={1} separator="." />
+                  <CountUp end={actualGrossRevenue} duration={1} separator="." />
                 </h3>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
-                    100% Omzet
+                    Net Masuk: {rupiah(actualGrossRevenue - totalDeductions)}
                   </span>
                 </div>
               </div>

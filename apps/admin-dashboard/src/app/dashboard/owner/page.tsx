@@ -74,6 +74,9 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       menuRows={menuSales}
       prevMenuRows={prevMenuSales}
       leaderboard={leaderboard}
+      curCogsOpex={curData.totalCogsOpex}
+      prevCogsOpex={prevData.totalCogsOpex}
+      cogsBreakdown={{ cogs: curData.totalCogs, opex: curData.totalOpex }}
     />
   )
 }

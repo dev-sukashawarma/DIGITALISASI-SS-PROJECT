@@ -33,13 +33,33 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 
   let ordersQ = supabase
     .from('orders')
-    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal)')
+    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))')
     .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
 
   if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
+
+  // Query expenses & petty cash expenses for OPEX calculation
+  let expQ = supabase
+    .from('expenses')
+    .select('amount, outlet_id')
+    .neq('outlet_id', TEST_OUTLET_ID)
+    .gte('expense_date', filter.from)
+    .lte('expense_date', filter.to)
+
+  let pettyQ = supabase
+    .from('petty_cash_expenses')
+    .select('amount, outlet_id')
+    .neq('outlet_id', TEST_OUTLET_ID)
+    .gte('expense_date', filter.from)
+    .lte('expense_date', filter.to)
+
+  if (filter.outletId !== 'all') {
+    expQ = expQ.eq('outlet_id', filter.outletId)
+    pettyQ = pettyQ.eq('outlet_id', filter.outletId)
+  }
 
   const PAGE_SIZE = 1000
   const allOrders: any[] = []
@@ -53,6 +73,23 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     offset += PAGE_SIZE
   }
 
+  const [{ data: expData }, { data: pettyData }] = await Promise.all([
+    expQ,
+    pettyQ
+  ])
+
+  const totalExpensesMonthly = (expData || [])
+    .filter((e: any) => !isTestOutlet(e.outlet_id))
+    .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0)
+
+  const totalExpensesPetty = (pettyData || [])
+    .filter((e: any) => !isTestOutlet(e.outlet_id))
+    .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0)
+
+  const totalOpex = totalExpensesMonthly + totalExpensesPetty
+
+  const outletTypeMap = new Map(outlets.map((o) => [o.id, o.type || 'outlet']))
+  let totalCogs = 0
   const acc = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
   const hourMap = new Map<number, SalesHourlyRow>()
   for (let i = 0; i < 24; i++) hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
@@ -77,6 +114,31 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     } else {
       const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
       deduction = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
+    }
+
+    // Accumulate COGS (HPP)
+    const oType = outletTypeMap.get(o.outlet_id)
+    if (o.order_items && Array.isArray(o.order_items)) {
+      for (const oi of o.order_items) {
+        const qty = Number(oi.quantity || 1)
+        let itemHpp = 0
+        const mi = oi.menu_items
+        if (mi) {
+          if (mi.hpp_override !== null && mi.hpp_override !== undefined && Number(mi.hpp_override) > 0) {
+            itemHpp = Number(mi.hpp_override)
+          } else if (mi.is_package && Array.isArray(mi.package_items)) {
+            itemHpp = mi.package_items.reduce((sum: number, pkg: any) => {
+              const compHpp = Number(pkg.component?.hpp_override || 0)
+              const pQty = Number(pkg.quantity || 1)
+              return sum + compHpp * pQty
+            }, 0)
+          }
+        }
+        if (oType === 'mitra' && itemHpp > 0) {
+          itemHpp = Math.round(itemHpp * 1.1)
+        }
+        totalCogs += qty * itemHpp
+      }
     }
 
     // Accumulate KPI
@@ -120,6 +182,9 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   return {
     kpiRows,
     hourlyRows,
+    totalCogs,
+    totalOpex,
+    totalCogsOpex: totalCogs + totalOpex,
   }
 }
 

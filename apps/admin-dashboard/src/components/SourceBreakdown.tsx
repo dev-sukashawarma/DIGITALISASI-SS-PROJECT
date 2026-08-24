@@ -68,7 +68,7 @@ const ICONS: Record<SalesSource, any> = {
   endors: Gift,
 }
 
-export function SourceBreakdown({ rows }: { rows: SalesSummaryRow[] }) {
+export function SourceBreakdown({ rows = [] }: { rows?: SalesSummaryRow[] }) {
   // Aggregate sales by source
   const bySource = new Map<SalesSource, { omzet: number; orders: number }>()
   let totalOmzet = 0

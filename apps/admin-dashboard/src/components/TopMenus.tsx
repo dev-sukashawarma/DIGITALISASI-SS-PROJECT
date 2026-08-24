@@ -5,7 +5,7 @@ import { rupiah } from '@/lib/format'
 import { Crown } from 'lucide-react'
 import { motion } from 'framer-motion'
 
-export function TopMenus({ rows }: { rows: AggregatedMenuSales[] }) {
+export function TopMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
   const [mode, setMode] = useState<'qty' | 'revenue'>('qty')
 
   const list = useMemo(() => {

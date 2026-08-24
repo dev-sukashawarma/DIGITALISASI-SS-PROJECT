@@ -2,9 +2,9 @@ import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { rupiah } from '@/lib/format'
 import { AlertCircle } from 'lucide-react'
 
-export function BottomMenus({ rows }: { rows: AggregatedMenuSales[] }) {
+export function BottomMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
   // Sort ascending by qty, then by revenue
-  const data = [...rows]
+  const data = [...(rows || [])]
     .sort((a, b) => a.qty - b.qty || a.revenue - b.revenue)
     .slice(0, 5)
 

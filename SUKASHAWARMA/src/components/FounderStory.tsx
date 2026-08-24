@@ -1,5 +1,6 @@
-// Static component (Framer motion removed for performance)
-// Uses CSS observer from Layout.astro
+"use client";
+
+import { motion } from "motion/react";
 
 const ROW_H = 164;
 const GAP = 6;
@@ -17,9 +18,13 @@ function Photo({
 }) {
   const height = ROW_H * rowSpan + GAP * (rowSpan - 1);
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-40px" }}
+      transition={{ duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] }}
       style={{ height }}
-      className="group relative overflow-hidden bg-[#d6cfc6] shrink-0 reveal-on-scroll"
+      className="group relative overflow-hidden bg-[#d6cfc6] shrink-0"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -29,7 +34,7 @@ function Photo({
                    transition-transform duration-500 ease-out group-hover:scale-[1.04]"
       />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-500" />
-    </div>
+    </motion.div>
   );
 }
 
@@ -57,8 +62,12 @@ export default function FounderStory() {
         {/* ── MOBILE LAYOUT ── */}
         <div className="lg:hidden">
           {/* Teks dulu di mobile */}
-          <div
-            className="mb-8 reveal-on-scroll"
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="mb-8"
           >
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-[#FE7108] mb-3">
               FOUNDER &amp; OUR BEGINNING
@@ -82,12 +91,16 @@ export default function FounderStory() {
                 Suka Shawarma terus berkembang hingga puluhan outlet di Jabodetabek.
               </p>
             </div>
-          </div>
+          </motion.div>
 
           {/* Foto founder — di mobile: satu foto besar + dua foto kecil di kanan */}
-          <div
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.7, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             className="grid grid-cols-[1.1fr_1fr] gap-2 rounded-2xl overflow-hidden
-                       shadow-[0_12px_32px_rgba(0,0,0,0.10)] reveal-on-scroll delay-100"
+                       shadow-[0_12px_32px_rgba(0,0,0,0.10)]"
           >
             {/* Foto founder besar di kiri */}
             <div className="relative aspect-[3/4] overflow-hidden bg-[#d6cfc6]">
@@ -114,15 +127,19 @@ export default function FounderStory() {
                 />
               </div>
             </div>
-          </div>
+          </motion.div>
         </div>
 
         {/* ── DESKTOP LAYOUT (lg+) ── */}
         <div className="hidden lg:grid grid-cols-2 gap-20 items-center">
 
           {/* Kiri — photo grid */}
-          <div
-            className="relative reveal-on-scroll reveal-left"
+          <motion.div
+            initial={{ opacity: 0, x: -32 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+            className="relative"
           >
             <div
               style={{ height: totalH, gap: GAP }}
@@ -143,11 +160,15 @@ export default function FounderStory() {
                 <Photo src="/founderstory/Artboard 7.jpg" alt="Bahan segar" rowSpan={2} delay={0.16} />
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {/* Kanan — teks */}
-          <div
-            className="flex flex-col justify-center pt-12 reveal-on-scroll reveal-right delay-150"
+          <motion.div
+            initial={{ opacity: 0, x: 32 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col justify-center pt-12"
           >
             <p className="text-xs font-semibold tracking-[0.2em] uppercase text-[#FE7108] mb-4">
               FOUNDER &amp; OUR BEGINNING
@@ -179,7 +200,7 @@ export default function FounderStory() {
                 yang menjadi fondasi sejak hari pertama.
               </p>
             </div>
-          </div>
+          </motion.div>
         </div>
 
       </div>

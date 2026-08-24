@@ -57,27 +57,42 @@ const siteUrl = "https://sukashawarma.vercel.app";
 		<meta name="twitter:description" content={description} />
 		<meta name="twitter:image" content="/sslogonew.png" />
 
+		<!-- Google Tag Manager -->
+		<script is:inline>
+			(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+			new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+			j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+			'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+			})(window,document,'script','dataLayer','GTM-P48M8X5S');
+		</script>
+		<!-- End Google Tag Manager -->
+
+		<!-- Google tag (gtag.js) -->
+		<script is:inline async src="https://www.googletagmanager.com/gtag/js?id=AW-11522229721"></script>
+		<script is:inline>
+			window.dataLayer = window.dataLayer || [];
+			function gtag(){dataLayer.push(arguments);}
+			gtag('js', new Date());
+
+			gtag('config', 'AW-11522229721');
+		</script>
+		<!-- End Google tag (gtag.js) -->
+
 		<!-- Preload LCP image -->
 		<link rel="preload" as="image" href="/hero1.png" fetchpriority="high" />
 		<slot name="head" />
 	</head>
 	<body class="min-h-screen flex flex-col bg-white text-[#111111] antialiased" style="font-family: 'Arimo', sans-serif;">
+		<!-- Google Tag Manager (noscript) -->
+		<noscript>
+			<iframe 
+				src="https://www.googletagmanager.com/ns.html?id=GTM-P48M8X5S"
+				height="0" 
+				width="0" 
+				style="display:none;visibility:hidden">
+			</iframe>
+		</noscript>
+		<!-- End Google Tag Manager (noscript) -->
 		<slot />
-		
-		<!-- Lightweight Scroll Animation Observer -->
-		<script is:inline>
-			document.addEventListener('DOMContentLoaded', () => {
-				const observer = new IntersectionObserver((entries) => {
-					entries.forEach(entry => {
-						if (entry.isIntersecting) {
-							entry.target.classList.add('animate-in');
-							observer.unobserve(entry.target);
-						}
-					});
-				}, { threshold: 0.1, rootMargin: '0px 0px -50px 0px' });
-
-				document.querySelectorAll('.reveal-on-scroll').forEach(el => observer.observe(el));
-			});
-		</script>
 	</body>
 </html>

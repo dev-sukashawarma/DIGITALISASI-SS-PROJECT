@@ -256,7 +256,7 @@ function SearchBar({
 // ─── Main Map Component ───────────────────────────────────────────────────────
 
 export default function OutletMap({ outlets }: { outlets: Outlet[] }) {
-  const mapRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<HTMLDivElement & { _leaflet_id?: number }>(null);
   const leafletMap = useRef<import("leaflet").Map | null>(null);
   const markersRef = useRef<Map<number, import("leaflet").Marker>>(new Map());
   const clusterRef = useRef<unknown>(null);
@@ -284,7 +284,13 @@ export default function OutletMap({ outlets }: { outlets: Outlet[] }) {
   }, []);
 
   useEffect(() => {
-    if (!mapRef.current || leafletMap.current) return;
+    // Prevent initialization if map container doesn't exist or map is already initialized
+    if (!mapRef.current || leafletMap.current || mapReady) return;
+    
+    // Additional check for Leaflet's internal state
+    if (mapRef.current._leaflet_id) {
+      return;
+    }
 
     let map: import("leaflet").Map;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -297,7 +303,12 @@ export default function OutletMap({ outlets }: { outlets: Outlet[] }) {
       await import("leaflet.markercluster/dist/MarkerCluster.css");
       await import("leaflet.markercluster/dist/MarkerCluster.Default.css");
 
-      if (!mapRef.current) return;
+      if (!mapRef.current || leafletMap.current) return;
+
+      // Clear any existing map instance on the container
+      if (mapRef.current._leaflet_id) {
+        mapRef.current._leaflet_id = undefined;
+      }
 
       // Init map
       map = L.map(mapRef.current, {
@@ -401,8 +412,16 @@ export default function OutletMap({ outlets }: { outlets: Outlet[] }) {
     })();
 
     return () => {
-      if (map) map.remove();
+      if (map) {
+        map.remove();
+      }
+      if (leafletMap.current) {
+        leafletMap.current.remove();
+      }
       leafletMap.current = null;
+      markersRef.current.clear();
+      clusterRef.current = null;
+      setMapReady(false);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

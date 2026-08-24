@@ -2,14 +2,14 @@
   "name": "sukashawarma",
   "version": "0.1.0",
   "private": true,
-  "engines": {
-    "node": ">=23.0.0"
-  },
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "start": "astro dev"
+    "start": "astro preview --host 0.0.0.0 --port 3000"
+  },
+  "engines": {
+    "node": ">=20.0.0 <23.0.0"
   },
   "dependencies": {
     "@astrojs/react": "^6.0.2",
@@ -31,6 +31,7 @@
     "@types/node": "^20",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "cross-env": "^10.1.0",
     "eslint": "^9",
     "tailwindcss": "^4",
     "typescript": "^5"

@@ -11,17 +11,11 @@ type Slide = {
   objectPosition: string;
 };
 
-// Desktop: semua slide
+// Desktop: hero1, hero2, hero3
 const desktopSlides: Slide[] = [
   {
     image: "/hero1.png",
     bg: "#FAF7F2",
-    objectFit: "cover" as const,
-    objectPosition: "center 30%",
-  },
-  {
-    image: "/hero3.png",
-    bg: "#FAFAFA",
     objectFit: "contain" as const,
     objectPosition: "center center",
   },
@@ -29,12 +23,17 @@ const desktopSlides: Slide[] = [
     image: "/hero2.png",
     bg: "#F0EDEA",
     objectFit: "contain" as const,
-    objectPosition: "center top",
+    objectPosition: "center center",
+  },
+  {
+    image: "/hero3.png",
+    bg: "#FAFAFA",
+    objectFit: "contain" as const,
+    objectPosition: "center center",
   },
 ];
 
-// Mobile: hanya hero4 dan hero1
-// hero4 ditaruh duluan supaya jadi first slide di mobile
+// Mobile: semua gambar hero termasuk hero4
 const mobileSlides: Slide[] = [
   {
     image: "/hero4.jpeg",
@@ -45,6 +44,18 @@ const mobileSlides: Slide[] = [
   {
     image: "/hero1.png",
     bg: "#FAF7F2",
+    objectFit: "contain" as const,
+    objectPosition: "center center",
+  },
+  {
+    image: "/hero2.png",
+    bg: "#F0EDEA",
+    objectFit: "contain" as const,
+    objectPosition: "center center",
+  },
+  {
+    image: "/hero3.png",
+    bg: "#FAFAFA",
     objectFit: "contain" as const,
     objectPosition: "center center",
   },
@@ -85,23 +96,25 @@ export default function HeroCarousel() {
 
   useEffect(() => {
     if (isPaused) return;
-    const timer = setInterval(next, 3000);
+    const timer = setInterval(next, 2500); // Dipercepat dari 3000ms ke 2500ms
     return () => clearInterval(timer);
   }, [isPaused, next]);
 
   return (
     <section
-      className="relative w-full overflow-hidden"
+      className={`relative w-full overflow-hidden ${
+        isMobile 
+          ? 'aspect-[4/3] min-h-[280px]' 
+          : 'min-h-[320px] max-h-[720px]'
+      }`}
       style={{
         /*
-         * Desktop: height proporsional mengikuti lebar viewport, max 600px
-         * Mobile: pakai aspect-ratio 1:1 supaya gambar portrait tidak terpotong
-         * isMobile belum tersedia di SSR jadi pakai CSS media query via className
+         * Desktop: tinggi yang lebih proporsional
+         * Mobile: rasio 4:3 untuk tampilan yang lebih baik
          */
         height: isMobile
-          ? "auto"
-          : "max(220px, min(56vw, 600px))",
-        aspectRatio: isMobile ? "1 / 1" : undefined,
+          ? undefined
+          : `clamp(320px, 65vw, 720px)`,
         backgroundColor: activeSlide.bg,
         transition: "background-color 0.7s ease",
       }}
@@ -118,13 +131,13 @@ export default function HeroCarousel() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.99 }}
           transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-          className="absolute inset-0"
+          className="absolute inset-0 p-2 md:p-4"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={activeSlide.image}
             alt={`Slide ${safeCurrent + 1}`}
-            className="w-full h-full select-none pointer-events-none"
+            className="w-full h-full select-none pointer-events-none rounded-lg"
             style={{
               objectFit: activeSlide.objectFit,
               objectPosition: activeSlide.objectPosition,
@@ -156,42 +169,45 @@ export default function HeroCarousel() {
       {/* Arrow kiri */}
       <button
         onClick={prev}
-        className="absolute left-3 md:left-8 top-1/2 -translate-y-1/2 z-20
-                   w-9 h-9 md:w-11 md:h-11 rounded-full
-                   bg-white/20 backdrop-blur-md border border-white/30
-                   flex items-center justify-center text-white
-                   hover:bg-white/30 active:scale-95
-                   transition-all duration-150 touch-manipulation"
+        className="absolute left-2 md:left-6 top-1/2 -translate-y-1/2 z-30
+                   w-10 h-10 md:w-12 md:h-12 rounded-full
+                   bg-white/90 backdrop-blur-md border border-white/50
+                   shadow-lg hover:shadow-xl
+                   flex items-center justify-center text-gray-800
+                   hover:bg-white active:scale-95
+                   transition-all duration-200 touch-manipulation"
         aria-label="Slide sebelumnya"
       >
-        <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
+        <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
       </button>
 
       {/* Arrow kanan */}
       <button
         onClick={next}
-        className="absolute right-3 md:right-8 top-1/2 -translate-y-1/2 z-20
-                   w-9 h-9 md:w-11 md:h-11 rounded-full
-                   bg-white/20 backdrop-blur-md border border-white/30
-                   flex items-center justify-center text-white
-                   hover:bg-white/30 active:scale-95
-                   transition-all duration-150 touch-manipulation"
+        className="absolute right-2 md:right-6 top-1/2 -translate-y-1/2 z-30
+                   w-10 h-10 md:w-12 md:h-12 rounded-full
+                   bg-white/90 backdrop-blur-md border border-white/50
+                   shadow-lg hover:shadow-xl
+                   flex items-center justify-center text-gray-800
+                   hover:bg-white active:scale-95
+                   transition-all duration-200 touch-manipulation"
         aria-label="Slide berikutnya"
       >
-        <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+        <ChevronRight className="w-5 h-5 md:w-6 md:h-6" />
       </button>
 
       {/* Dot indicators */}
-      <div className="absolute bottom-5 md:bottom-8 left-1/2 -translate-x-1/2 z-20
-                      flex items-center gap-2">
+      <div className="absolute bottom-3 md:bottom-6 left-1/2 -translate-x-1/2 z-30
+                      flex items-center gap-2.5 px-3 py-2 rounded-full
+                      bg-white/20 backdrop-blur-md border border-white/30">
         {slides.map((_, i) => (
           <button
             key={i}
             onClick={() => setCurrent(i)}
             className={`rounded-full transition-all duration-300 touch-manipulation ${
               i === safeCurrent
-                ? "w-6 h-2 bg-[#FE7108] shadow-[0_0_8px_rgba(254,113,8,0.6)]"
-                : "w-2 h-2 bg-white/60 hover:bg-white"
+                ? "w-7 h-2.5 bg-[#FE7108] shadow-[0_0_12px_rgba(254,113,8,0.8)]"
+                : "w-2.5 h-2.5 bg-white/70 hover:bg-white/90"
             }`}
             aria-label={`Pergi ke slide ${i + 1}`}
           />

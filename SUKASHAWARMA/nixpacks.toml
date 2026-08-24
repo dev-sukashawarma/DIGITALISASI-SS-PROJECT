@@ -1,5 +1,8 @@
 [phases.setup]
-nixPkgs = ["nodejs_23"]
+nixPkgs = ["nodejs_22"]
 
-[variables]
-NIXPACKS_NODE_VERSION = "23"
+[phases.build]
+cmds = ["npm run build"]
+
+[start]
+cmd = "npm run start"

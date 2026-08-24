@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
 
 const faqs = [
@@ -37,8 +38,12 @@ const faqs = [
 function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
   const [open, setOpen] = useState(false);
   return (
-    <div
-      className={`border-b border-black/[0.07] last:border-0 reveal-on-scroll delay-${(index % 4) * 100}`}
+    <motion.div
+      initial={{ opacity: 0, y: 14 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.45, delay: index * 0.06, ease: [0.16, 1, 0.3, 1] }}
+      className="border-b border-black/[0.07] last:border-0"
     >
       <button
         onClick={() => setOpen((v) => !v)}
@@ -54,14 +59,20 @@ function FAQItem({ q, a, index }: { q: string; a: string; index: number }) {
                       ${open ? "rotate-180" : ""}`}
         />
       </button>
-      <div
-        className={`grid transition-all duration-300 ease-in-out ${open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}
-      >
-        <div className="overflow-hidden">
-          <p className="pb-5 text-sm text-[#111111]/60 leading-relaxed pr-8">{a}</p>
-        </div>
-      </div>
-    </div>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <p className="pb-5 text-sm text-[#111111]/60 leading-relaxed pr-8">{a}</p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
 

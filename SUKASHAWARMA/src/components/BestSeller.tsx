@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "motion/react";
 import { ArrowRight } from "lucide-react";
 
 // Best Seller items — source of truth in src/data/menu.ts
@@ -41,13 +44,21 @@ export default function BestSeller() {
         </div>
 
         {/* Product grid — 3 kolom (Layer 5) */}
-        <div
-          className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 relative z-[50] reveal-on-scroll"
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-10 relative z-[50]"
         >
           {bestSellers.map((item, index) => (
-            <div
+            <motion.div
               key={item.id}
-              className={`group flex flex-col transform-gpu reveal-on-scroll ${index === 1 ? 'delay-100' : index === 2 ? 'delay-200' : ''}`}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: index * 0.1, ease: [0.16, 1, 0.3, 1] }}
+              className="group flex flex-col transform-gpu"
             >
               {/* Foto (Layer 2) & Badge (Layer 3) */}
               <div className="relative rounded-2xl overflow-hidden aspect-[4/3] mb-5 shadow-layered-md group-hover:shadow-layered-lg transition-all duration-300 transform-gpu z-[20]">
@@ -85,9 +96,9 @@ export default function BestSeller() {
                 Lihat Menu Lengkap
                 <ArrowRight className="w-3.5 h-3.5 group-hover/link:translate-x-0.5 transition-transform duration-200 transform-gpu" />
               </a>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </div>
     </section>
   );

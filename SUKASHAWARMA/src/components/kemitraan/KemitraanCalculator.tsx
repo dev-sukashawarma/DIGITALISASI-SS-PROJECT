@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
+import { motion, useSpring, useTransform } from "motion/react";
 
-// ─── Number Display ──────────────────────────────────────────────────────────
+// ─── Animated Number ──────────────────────────────────────────────────────────
 
 function AnimatedNumber({
   value,
@@ -11,7 +12,14 @@ function AnimatedNumber({
   value: number;
   format: (n: number) => string;
 }) {
-  return <span>{format(value)}</span>;
+  const spring = useSpring(value, { stiffness: 180, damping: 28, mass: 0.8 });
+  const display = useTransform(spring, (v) => format(Math.round(v)));
+
+  useEffect(() => {
+    spring.set(value);
+  }, [value, spring]);
+
+  return <motion.span>{display}</motion.span>;
 }
 
 // ─── Custom Slider ────────────────────────────────────────────────────────────
@@ -117,12 +125,13 @@ function ModalSlider({
                      transition-all duration-300"
           style={{ width: `${pct}%` }}
         />
-        <div
+        <motion.div
+          animate={{ left: `${pct}%` }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
           className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2
                      w-5 h-5 rounded-full bg-white
                      border-2 border-[#6E1A10]
-                     shadow-[0_2px_8px_rgba(110,26,16,0.30)] transition-all duration-300"
-          style={{ left: `${pct}%` }}
+                     shadow-[0_2px_8px_rgba(110,26,16,0.30)]"
         />
         <input
           type="range"
@@ -218,8 +227,12 @@ export default function KemitraanCalculator() {
       <div className="max-w-7xl mx-auto px-6 lg:px-8">
 
         {/* Header */}
-        <div
-          className="mb-12 reveal-on-scroll"
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-12"
         >
           <p className="text-xs font-semibold tracking-[0.22em] uppercase text-[#FE7108] mb-3">
             Simulasi Investasi
@@ -234,16 +247,20 @@ export default function KemitraanCalculator() {
             Sesuaikan parameter investasi dan lihat proyeksi return secara instan
             berdasarkan data performa outlet aktif kami.
           </p>
-        </div>
+        </motion.div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
 
           {/* Left — sliders */}
-          <div
+          <motion.div
+            initial={{ opacity: 0, x: -24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
             className="bg-white rounded-3xl p-8
                        shadow-[0_4px_32px_rgba(0,0,0,0.08)]
                        border border-black/[0.05]
-                       space-y-8 reveal-on-scroll reveal-left"
+                       space-y-8"
           >
             {/* Slider 1 — Modal */}
             <div>
@@ -326,15 +343,23 @@ export default function KemitraanCalculator() {
               *Proyeksi berdasarkan rata-rata performa outlet aktif. Hasil aktual
               dapat bervariasi tergantung lokasi dan kondisi pasar.
             </p>
-          </div>
+          </motion.div>
 
           {/* Right — result cards */}
-          <div
-            className="flex flex-col gap-5 reveal-on-scroll reveal-right delay-100"
+          <motion.div
+            initial={{ opacity: 0, x: 24 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.65, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col gap-5"
           >
             {resultCards.map((card, i) => (
-              <div
+              <motion.div
                 key={card.label}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.15 + i * 0.1, ease: [0.16, 1, 0.3, 1] }}
                 className={`rounded-3xl p-5 sm:p-7 border
                             shadow-[0_4px_24px_rgba(0,0,0,0.08)]
                             transition-colors duration-300
@@ -362,7 +387,7 @@ export default function KemitraanCalculator() {
                 >
                   <AnimatedNumber value={card.value} format={card.format} />
                 </p>
-              </div>
+              </motion.div>
             ))}
 
             {/* WhatsApp CTA */}
@@ -381,7 +406,7 @@ export default function KemitraanCalculator() {
               </svg>
               Diskusi Lebih Lanjut via WhatsApp
             </a>
-          </div>
+          </motion.div>
         </div>
       </div>
     </section>

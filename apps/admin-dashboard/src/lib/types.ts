@@ -42,6 +42,7 @@ export interface StaffRow {
   outlet_id: string | null
   outlets: { name: string } | null
   outlet_ids: string[] // dari staff_outlets (leader)
+  is_bonus_eligible?: boolean
   nik?: string | null
   email?: string | null
   phone?: string | null
@@ -79,6 +80,7 @@ export interface StaffFormValues {
   role: Role
   outlet_id: string
   outlet_ids: string[]
+  is_bonus_eligible?: boolean
   nik?: string | null
   email?: string | null
   phone?: string | null

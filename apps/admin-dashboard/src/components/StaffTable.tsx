@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { Avatar, Button } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
-import { Edit, KeyRound, Trash2, Eye, X, Wallet, User, PhoneCall, FileText } from 'lucide-react'
+import { Edit, KeyRound, Trash2, Eye, X, Wallet, User, PhoneCall, FileText, Sparkles } from 'lucide-react'
 import { StatusToggle } from './StatusToggle'
 import type { StaffRow, StaffStatus } from '@/lib/types'
 
@@ -17,12 +17,13 @@ function statusBadge(status: StaffStatus) {
 }
 
 export function StaffTable({
-  rows, onEdit, onResetPassword, onToggleStatus, onDelete,
+  rows, onEdit, onResetPassword, onToggleStatus, onToggleBonus, onDelete,
 }: {
   rows: StaffRow[]
   onEdit: (s: StaffRow) => void
   onResetPassword: (s: StaffRow) => void
   onToggleStatus: (s: StaffRow, next: StaffStatus) => void
+  onToggleBonus?: (s: StaffRow) => void
   onDelete: (s: StaffRow) => void
 }) {
   const [selectedStaff, setSelectedStaff] = useState<StaffRow | null>(null)
@@ -65,7 +66,7 @@ export function StaffTable({
           <thead className="border-b border-suka-gray-200 bg-suka-gray-50/60 text-gray-500">
             <tr>
               <th className="px-4 py-3 font-semibold">Nama</th>
-              <th className="px-4 py-3 font-semibold">Role</th>
+              <th className="px-4 py-3 font-semibold">Role & Bonus</th>
               <th className="px-4 py-3 font-semibold">Outlet Home</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Aksi</th>
@@ -89,13 +90,58 @@ export function StaffTable({
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 capitalize text-gray-600">{s.role.replace('_', ' ')}</td>
+                <td className="px-4 py-3 capitalize text-gray-600">
+                  <div className="flex flex-col gap-1 items-start">
+                    <span className="font-medium text-stone-800">{s.role.replace('_', ' ')}</span>
+                    {onToggleBonus ? (
+                      <button
+                        type="button"
+                        onClick={() => onToggleBonus(s)}
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold transition-all cursor-pointer ${
+                          s.is_bonus_eligible === false
+                            ? 'bg-stone-100 text-stone-500 border border-stone-300 hover:bg-stone-200'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100'
+                        }`}
+                        title={
+                          s.is_bonus_eligible === false
+                            ? 'Akun Non-Bonus / Tester (Klik untuk aktifkan bonus)'
+                            : 'Bonus Aktif (Klik untuk jadikan Non-Bonus / Tester)'
+                        }
+                      >
+                        <Sparkles size={10} className={s.is_bonus_eligible === false ? 'text-stone-400' : 'text-emerald-600'} />
+                        <span>{s.is_bonus_eligible === false ? 'Non-Bonus' : 'Bonus Aktif'}</span>
+                      </button>
+                    ) : s.is_bonus_eligible === false ? (
+                      <span className="inline-block px-1.5 py-0.2 rounded text-[10px] font-semibold bg-stone-100 text-stone-500 border border-stone-200" title="Dikecualikan dari bonus">
+                        Non-Bonus
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-gray-600">{s.outlets?.name ?? '-'}</td>
                 <td className="px-4 py-3">{statusBadge(s.status)}</td>
                 <td className="px-4 py-3 text-right">
-                  <div className="flex justify-end gap-1">
+                  <div className="flex justify-end items-center gap-1">
                     <button onClick={() => setSelectedStaff(s)} className="rounded-lg p-2 text-gray-600 hover:bg-gray-100" title="Detail Profile"><Eye size={16} /></button>
                     <button onClick={() => onEdit(s)} className="rounded-lg p-2 text-blue-600 hover:bg-blue-50" title="Edit"><Edit size={16} /></button>
+                    {onToggleBonus && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleBonus(s)}
+                        className={`rounded-lg p-2 transition-colors ${
+                          s.is_bonus_eligible === false
+                            ? 'text-stone-400 hover:bg-stone-100 hover:text-stone-700'
+                            : 'text-emerald-600 hover:bg-emerald-50'
+                        }`}
+                        title={
+                          s.is_bonus_eligible === false
+                            ? 'Status: Non-Bonus / Tester (Klik untuk aktifkan bonus)'
+                            : 'Status: Bonus Aktif (Klik untuk nonaktifkan / akun tester)'
+                        }
+                      >
+                        <Sparkles size={16} />
+                      </button>
+                    )}
                     <button onClick={() => onResetPassword(s)} className="rounded-lg p-2 text-suka-brown hover:bg-suka-cream" title="Reset Password"><KeyRound size={16} /></button>
                     <StatusToggle status={s.status} onToggle={(next) => onToggleStatus(s, next)} />
                     <button onClick={() => onDelete(s)} className="rounded-lg p-2 text-red-600 hover:bg-red-50" title="Hapus Permanen"><Trash2 size={16} /></button>
@@ -167,6 +213,33 @@ export function StaffTable({
                   <div>
                     <span className="text-xs text-gray-400 block">Jenis Kontrak</span>
                     <span className="font-medium text-gray-700 mt-0.5 block">{formatContract(selectedStaff.contract_type)}</span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-400 block">Eligibilitas Bonus</span>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          selectedStaff.is_bonus_eligible === false
+                            ? 'bg-stone-100 text-stone-600 border border-stone-300'
+                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        }`}
+                      >
+                        <Sparkles size={11} className={selectedStaff.is_bonus_eligible === false ? 'text-stone-400' : 'text-emerald-600'} />
+                        {selectedStaff.is_bonus_eligible === false ? 'Non-Bonus (Tester)' : 'Aktif'}
+                      </span>
+                      {onToggleBonus && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onToggleBonus(selectedStaff)
+                            setSelectedStaff((prev) => prev ? { ...prev, is_bonus_eligible: prev.is_bonus_eligible === false ? true : false } : null)
+                          }}
+                          className="text-[10px] font-semibold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Ubah
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <span className="text-xs text-gray-400 block">Cuti Tahunan</span>

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason } = body
+    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason, is_bonus_eligible } = body
 
     if (!username || !password || !role) {
       return NextResponse.json({ error: 'Username, password, dan role harus diisi' }, { status: 400 })
@@ -111,7 +111,8 @@ export async function POST(request: Request) {
       username,
       status: (is_active ?? true) ? 'active' : 'inactive',
       is_active: is_active ?? true,
-      inactive_reason: inactive_reason || null
+      inactive_reason: inactive_reason || null,
+      is_bonus_eligible: is_bonus_eligible !== undefined ? is_bonus_eligible : true
     })
 
     if (profileError) {

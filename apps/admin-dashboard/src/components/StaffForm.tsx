@@ -20,6 +20,7 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
   role: z.enum(['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager']),
   outlet_id: z.string().min(1, 'Outlet Home wajib diisi'),
   outlet_ids: z.array(z.string()).default([]),
+  is_bonus_eligible: z.boolean().default(true).optional(),
   nip: z.string().nullable().optional(),
   contract_type: z.enum(['permanent', 'contract', 'intern', 'daily']).nullable().optional(),
   join_date: z.string().nullable().optional(),
@@ -54,7 +55,7 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
 type FormData = z.infer<ReturnType<typeof getStaffFormSchema>>
 
 const stepFields: Record<string, (keyof FormData)[]> = {
-  utama: ['name', 'username', 'password', 'role', 'outlet_id', 'outlet_ids', 'nip', 'contract_type', 'join_date', 'resign_date', 'leave_quota'],
+  utama: ['name', 'username', 'password', 'role', 'outlet_id', 'outlet_ids', 'is_bonus_eligible', 'nip', 'contract_type', 'join_date', 'resign_date', 'leave_quota'],
   pribadi: ['nik', 'email', 'phone', 'address_ktp', 'address_domicile', 'birth_place', 'birth_date', 'gender', 'religion'],
   darurat: ['emergency_name', 'emergency_relationship', 'emergency_phone'],
   keuangan: ['basic_salary', 'allowance_position', 'allowance_presence', 'bank_name', 'bank_account_number', 'bank_account_name', 'npwp', 'bpjs_ketenagakerjaan', 'bpjs_kesehatan'],
@@ -87,6 +88,7 @@ export function StaffForm({
       role: initial?.role ?? 'crew',
       outlet_id: initial?.outlet_id ?? (outlets[0]?.id ?? ''),
       outlet_ids: initial?.outlet_ids ?? [],
+      is_bonus_eligible: initial?.is_bonus_eligible ?? true,
       nip: initial?.nip ?? '',
       contract_type: initial?.contract_type ?? 'contract',
       join_date: initial?.join_date ?? '',
@@ -189,7 +191,8 @@ export function StaffForm({
       username: data.username || '',
       role: data.role,
       outlet_id: data.outlet_id,
-      outlet_ids: data.role === 'leader' ? data.outlet_ids : [],
+      outlet_ids: data.role === 'leader' || data.role === 'area_manager' ? data.outlet_ids : [],
+      is_bonus_eligible: data.is_bonus_eligible !== undefined ? data.is_bonus_eligible : true,
       // Personal
       nik: data.nik || null,
       email: data.email || null,
@@ -382,9 +385,9 @@ export function StaffForm({
               {errors.resign_date && <span className="text-xs text-red-500 mt-1 block">{errors.resign_date?.message ?.toString()}</span>}
             </div>
 
-            {watchRole === 'leader' && (
+            {(watchRole === 'leader' || watchRole === 'area_manager') && (
               <div className="col-span-1 md:col-span-2 mt-2">
-                <label className={labelCls}>Outlet Binaan</label>
+                <label className={labelCls}>Outlet Binaan / Supervisi</label>
                 <Controller
                   name="outlet_ids"
                   control={control}
@@ -392,9 +395,26 @@ export function StaffForm({
                     <OutletMultiSelect outlets={outlets} selected={field.value} onChange={field.onChange} />
                   )}
                 />
-                {errors.outlet_ids && <span className="text-xs text-red-500 mt-1 block">{errors.outlet_ids?.message ?.toString()}</span>}
+                {errors.outlet_ids && <span className="text-xs text-red-500 mt-1 block">{errors.outlet_ids?.message?.toString()}</span>}
               </div>
             )}
+
+            <div className="col-span-1 md:col-span-2 p-4 rounded-2xl bg-orange-50/60 border border-orange-200/80 flex items-center justify-between gap-4 mt-2">
+              <div>
+                <label htmlFor="sf-bonus-eligible" className="text-xs font-black text-suka-brown block cursor-pointer">
+                  Eligibilitas Bonus Insentif Penjualan
+                </label>
+                <p className="text-[11px] text-suka-gray-500 font-medium mt-0.5">
+                  Centang untuk mengikutsertakan staf ini dalam pembagian insentif porsi terjual (RM / AM / Crew). Nonaktifkan untuk akun testing atau developer.
+                </p>
+              </div>
+              <input
+                id="sf-bonus-eligible"
+                type="checkbox"
+                className="w-5 h-5 rounded-lg text-suka-orange border-suka-gray-300 focus:ring-suka-orange cursor-pointer"
+                {...register('is_bonus_eligible')}
+              />
+            </div>
           </div>
         )}
 

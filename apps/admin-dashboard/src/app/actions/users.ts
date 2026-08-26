@@ -52,6 +52,7 @@ export async function createStaffSync(values: StaffFormValues) {
     role,
     username,
     status: "active",
+    is_bonus_eligible: values.is_bonus_eligible !== undefined ? values.is_bonus_eligible : true,
     nik: nik || null,
     email: personal_email || null,
     phone: phone || null,
@@ -138,3 +139,19 @@ export async function createStaffSync(values: StaffFormValues) {
 
   return { ok: true, staff_id: staffId };
 }
+
+export async function toggleStaffBonusEligibility(staffId: string, isBonusEligible: boolean) {
+  await requireRole(['admin', 'owner', 'admin_hr'])
+  const admin = getAdminSupabase()
+  const { error } = await admin
+    .from('outlet_staff')
+    .update({ is_bonus_eligible: isBonusEligible })
+    .eq('id', staffId)
+
+  if (error) {
+    throw new Error(`Gagal mengubah status bonus: ${error.message}`)
+  }
+
+  return { ok: true }
+}
+

@@ -19,7 +19,7 @@ const EMPTY_FILTER: StaffFilterValues = { search: '', outletId: '', role: '', st
 export default function StaffPage() {
   const { data: staff = [], isLoading } = useStaff()
   const { data: outlets = [] } = useOutlets()
-  const { create, update, resetPassword, setStatus, remove } = useStaffMutations()
+  const { create, update, resetPassword, setStatus, toggleBonusEligibility, remove } = useStaffMutations()
 
   const [filter, setFilter] = useState<StaffFilterValues>(EMPTY_FILTER)
   const [showForm, setShowForm] = useState(false)
@@ -47,6 +47,14 @@ export default function StaffPage() {
   function handleToggleStatus(s: StaffRow, next: StaffStatus) {
     setStatus.mutate({ staff_id: s.id, status: next }, {
       onSuccess: () => toast.success(`Status ${s.name} → ${next}`),
+      onError: (e: any) => toast.error(e.message),
+    })
+  }
+
+  function handleToggleBonus(s: StaffRow) {
+    const nextBonus = s.is_bonus_eligible === false ? true : false
+    toggleBonusEligibility.mutate({ staff_id: s.id, is_bonus_eligible: nextBonus }, {
+      onSuccess: () => toast.success(`Bonus ${s.name} ${nextBonus ? 'diaktifkan (Eligible)' : 'dinonaktifkan (Non-Bonus/Tester)'}`),
       onError: (e: any) => toast.error(e.message),
     })
   }
@@ -103,7 +111,10 @@ export default function StaffPage() {
 
       {editing && (
         <div className="rounded-2xl border-2 border-blue-300 bg-white p-4 sm:p-6">
-          <h3 className="mb-4 font-bold text-suka-ink">Edit — {editing.name}</h3>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="font-bold text-suka-ink">Edit Staff — {editing.name}</h3>
+            <button onClick={() => setEditing(null)} className="text-xs text-gray-500 hover:text-gray-700 font-semibold">Tutup Form</button>
+          </div>
           <StaffForm
             outlets={outlets}
             submitting={update.isPending}
@@ -115,6 +126,7 @@ export default function StaffPage() {
               role: editing.role,
               outlet_id: editing.outlet_id ?? (outlets[0]?.id ?? ''),
               outlet_ids: editing.outlet_ids,
+              is_bonus_eligible: editing.is_bonus_eligible !== undefined ? editing.is_bonus_eligible : true,
               nik: editing.nik,
               email: editing.email,
               phone: editing.phone,
@@ -158,6 +170,7 @@ export default function StaffPage() {
         }}
         onResetPassword={(s) => setResetting(s)}
         onToggleStatus={handleToggleStatus}
+        onToggleBonus={handleToggleBonus}
         onDelete={handleDelete}
       />
 

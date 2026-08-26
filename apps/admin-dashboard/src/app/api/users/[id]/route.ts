@@ -50,7 +50,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason } = body
+    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason, is_bonus_eligible } = body
 
     if (!username || !role) {
       return NextResponse.json({ error: 'Username dan role harus diisi' }, { status: 400 })
@@ -126,7 +126,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       outlet_id: primaryOutletId,
       username,
       is_active: is_active ?? true,
-      inactive_reason: inactive_reason || null
+      inactive_reason: inactive_reason || null,
+      is_bonus_eligible: is_bonus_eligible !== undefined ? is_bonus_eligible : true
     }).eq('id', userId)
 
     if (profileError) {

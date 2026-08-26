@@ -51,11 +51,11 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
     : options;
 
   return (
-    <div className={`relative ${className}`} ref={wrapperRef}>
+    <div className={`relative ${isOpen ? 'z-50' : 'z-10'} ${className}`} ref={wrapperRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full text-left flex items-center justify-between bg-white border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20 transition-shadow"
+        className="w-full text-left flex items-center justify-between bg-white border border-suka-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-suka-ink focus:outline-none focus:ring-2 focus:ring-suka-orange/20 hover:border-suka-orange/50 transition-all shadow-2xs"
       >
         <span className={`block truncate flex-1 pr-2 ${!selectedOption ? 'text-suka-gray-400' : 'text-suka-ink'}`}>
           {selectedOption ? (
@@ -67,11 +67,11 @@ export function Select({ options, value, onChange, placeholder = 'Pilih...', cla
             placeholder
           )}
         </span>
-        <ChevronDown className={`w-4 h-4 shrink-0 text-suka-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 shrink-0 text-suka-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180 text-suka-orange' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 mt-1 w-full bg-white border border-suka-gray-200 rounded-lg shadow-lg py-1 max-h-60 overflow-auto focus:outline-none">
+        <div className="absolute z-[100] mt-1 w-full min-w-[220px] bg-white border border-suka-gray-200 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.15)] py-1.5 max-h-64 overflow-auto focus:outline-none backdrop-blur-md">
           {searchable && (
             <div className="px-2 pb-2 pt-1 sticky top-0 bg-white z-10 border-b border-suka-gray-100 mb-1">
               <input

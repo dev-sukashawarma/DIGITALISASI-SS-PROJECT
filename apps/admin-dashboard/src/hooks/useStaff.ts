@@ -11,7 +11,7 @@ export function useStaff() {
       const { data, error } = await supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, status, username, outlet_id,
+          id, name, role, status, username, outlet_id, is_bonus_eligible,
           nik, email, phone, address_ktp, address_domicile,
           birth_place, birth_date, gender, religion,
           emergency_name, emergency_relationship, emergency_phone,

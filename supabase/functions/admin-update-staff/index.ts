@@ -29,7 +29,7 @@ serve(async (req) => {
 
     const body = await req.json();
     const {
-      staff_id, name, role, outlet_id, outlet_ids, status,
+      staff_id, name, role, outlet_id, outlet_ids, status, is_bonus_eligible,
       nik, email: personal_email, phone, address_ktp, address_domicile,
       birth_place, birth_date, gender, religion,
       emergency_name, emergency_relationship, emergency_phone,
@@ -45,6 +45,7 @@ serve(async (req) => {
     if (role !== undefined) patch.role = role;
     if (outlet_id !== undefined) patch.outlet_id = outlet_id;
     if (status !== undefined) patch.status = status;
+    if (is_bonus_eligible !== undefined) patch.is_bonus_eligible = Boolean(is_bonus_eligible);
     if (nik !== undefined) patch.nik = nik || null;
     if (personal_email !== undefined) patch.email = personal_email || null;
     if (phone !== undefined) patch.phone = phone || null;

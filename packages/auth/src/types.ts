@@ -37,6 +37,7 @@ export type OutletStaffProfile = {
   ref_photo_url: string | null
   outlets: { name: string } | null
   allow_manual_button?: boolean
+  is_bonus_eligible?: boolean
   // Personal & Contract details
   nik?: string | null
   email?: string | null

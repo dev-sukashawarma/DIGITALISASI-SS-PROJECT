@@ -41,9 +41,40 @@ export default function ImportSalesView() {
       
       const buffer = await selectedFile.arrayBuffer()
       const wb = XLSX.read(buffer, { type: 'array', cellDates: true })
-      const ws = wb.Sheets[wb.SheetNames[0]]
+
+      const parseNum = (val: any): number => {
+        if (val === null || val === undefined) return 0
+        if (typeof val === 'number') return isNaN(val) ? 0 : val
+        const str = String(val).trim().replace(/[^0-9.,-]/g, '')
+        if (!str) return 0
+        if (str.includes(',') && !str.includes('.')) {
+          return parseFloat(str.replace(',', '.')) || 0
+        }
+        if (str.includes('.') && str.includes(',')) {
+          if (str.indexOf('.') < str.indexOf(',')) {
+            return parseFloat(str.replace(/\./g, '').replace(',', '.')) || 0
+          } else {
+            return parseFloat(str.replace(/,/g, '')) || 0
+          }
+        }
+        if (/^\d{1,3}\.\d{3}$/.test(str) || /^\d{1,3}\.\d{3}\.\d{3}$/.test(str)) {
+          return parseFloat(str.replace(/\./g, '')) || 0
+        }
+        return parseFloat(str) || 0
+      }
+
+      // Auto-detect target sheet
+      let targetSheetName = wb.SheetNames[0]
+      if (wb.SheetNames.includes('Rincian per Item (Exploded)')) {
+        targetSheetName = 'Rincian per Item (Exploded)'
+      } else if (wb.SheetNames.includes('orders')) {
+        targetSheetName = 'orders'
+      } else if (wb.SheetNames.includes('Penghasilan')) {
+        targetSheetName = 'Penghasilan'
+      }
+
+      const ws = wb.Sheets[targetSheetName]
       const data = XLSX.utils.sheet_to_json(ws, { raw: false })
-      
       setParsedData(data)
 
       // Normalize any date value (string, Date object, or number) to ISO string
@@ -54,10 +85,15 @@ export default function ImportSalesView() {
           const utcMs = (val - 25569) * 86400 * 1000
           return new Date(utcMs).toISOString()
         }
-        const str = String(val)
+        const str = String(val).trim()
         const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{1,2}):(\d{1,2}))?/)
         if (m) {
           const [_, day, month, year, h, mm2, s] = m
+          return new Date(`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}T${(h||'00').padStart(2,'0')}:${(mm2||'00').padStart(2,'0')}:${(s||'00').padStart(2,'0')}+07:00`).toISOString()
+        }
+        const mIso = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?/)
+        if (mIso) {
+          const [_, year, month, day, h, mm2, s] = mIso
           return new Date(`${year}-${month.padStart(2,'0')}-${day.padStart(2,'0')}T${(h||'00').padStart(2,'0')}:${(mm2||'00').padStart(2,'0')}:${(s||'00').padStart(2,'0')}+07:00`).toISOString()
         }
         const parsed = new Date(str)
@@ -66,37 +102,63 @@ export default function ImportSalesView() {
 
       const ordersMap = new Map()
       for (const row of data as any[]) {
-         const orderId = row['Order ID']
-         if (!orderId) continue
-         
-         if (!ordersMap.has(orderId)) {
-            ordersMap.set(orderId, {
-               id: orderId,
-               status: row['Order Status'],
-               date: toISODate(row['Created Time']),
-               subtotal: 0,
-               discount: 0,
-               total: parseFloat(row['Order Amount'] || '0'),
-               items: []
-            })
-         }
-         
-         const order = ordersMap.get(orderId)
-         
-         const qty = parseInt(row['Quantity'] || '1', 10)
-         const itemDiscount = parseFloat(row['SKU Platform Discount'] || '0') + parseFloat(row['SKU Seller Discount'] || '0')
-         
-         order.items.push({
-            product_name: row['Product Name'],
-            sku_name: row['Seller SKU'] || row['Variation'],
-            qty: qty,
-            unit_price: parseFloat(row['SKU Unit Original Price'] || '0'),
-            discount: itemDiscount,
-            subtotal: parseFloat(row['SKU Subtotal After Discount'] || '0')
-         })
-         
-         order.subtotal += parseFloat(row['SKU Subtotal Before Discount'] || '0')
-         order.discount += itemDiscount
+        const orderId = row['Order ID'] || row['No. Pesanan'] || row['ID_Pesanan'] || row['Order SN'] || row['Nomor Pesanan']
+        if (!orderId) continue
+
+        const status = row['Order Status'] || row['Status Pesanan'] || row['Status'] || 'Completed'
+        const rawDate = row['Created Time'] || row['Waktu Pesanan Dibuat'] || row['Waktu Pembayaran Dilakukan'] || row['Tanggal_Order'] || row['Order Creation Date'] || row['Waktu Pesanan Selesai']
+        const date = toISODate(rawDate)
+
+        const productName = row['Product Name'] || row['Nama Produk'] || row['Nama_Produk'] || 'Unknown Item'
+        const skuName = row['Seller SKU'] || row['Variation'] || row['Nomor Referensi SKU'] || row['SKU_Penjual'] || row['Nama Variasi'] || row['SKU Induk'] || ''
+        const qty = parseInt(row['Quantity'] || row['Jumlah'] || row['Qty_Pcs'] || row['Qty'] || '1', 10) || 1
+        
+        const unitPrice = parseNum(row['Harga Setelah Diskon'] || row['Harga_Satuan_Promo'] || row['SKU Unit Original Price'] || row['Harga Awal'] || row['Harga_Satuan_Katalog'] || row['Harga Satuan'] || 0)
+        const subtotal = parseNum(row['SKU Subtotal After Discount'] || row['Total_Nilai_Katalog'] || row['Subtotal Pesanan'] || (unitPrice * qty))
+        const itemDiscount = parseNum(row['SKU Platform Discount'] || row['Total Diskon'] || row['Diskon Dari Penjual'] || 0) + parseNum(row['SKU Seller Discount'] || row['Diskon Dari Shopee'] || 0)
+        const orderAmount = parseNum(row['Order Amount'] || row['Total Pembayaran'] || row['Omset_Produk'] || row['Total Penghasilan'] || 0)
+
+        if (!ordersMap.has(orderId)) {
+          ordersMap.set(orderId, {
+            id: orderId,
+            status,
+            date,
+            subtotal: 0,
+            discount: 0,
+            total: orderAmount,
+            items: []
+          })
+        }
+
+        const order = ordersMap.get(orderId)
+        order.items.push({
+          product_name: productName,
+          sku_name: skuName,
+          qty,
+          unit_price: unitPrice,
+          discount: itemDiscount,
+          subtotal: subtotal || (unitPrice * qty)
+        })
+
+        order.subtotal += (subtotal || (unitPrice * qty))
+        order.discount += itemDiscount
+        if (!order.total || order.total === 0) {
+          order.total = order.subtotal - order.discount
+        }
+      }
+
+      // Auto select channel if detected
+      const firstRowStr = JSON.stringify(data[0] || '').toLowerCase()
+      if (firstRowStr.includes('shopee') || firstRowStr.includes('pesanan')) {
+        const shopeeCh = channels.find((c: any) => c.name.toLowerCase().includes('shopee'))
+        if (shopeeCh && !selectedChannelId) setSelectedChannelId(shopeeCh.id)
+      } else if (firstRowStr.includes('tiktok') || firstRowStr.includes('sku unit')) {
+        const tiktokCh = channels.find((c: any) => c.name.toLowerCase().includes('tiktok'))
+        if (tiktokCh && !selectedChannelId) setSelectedChannelId(tiktokCh.id)
+      }
+
+      if (entities.length > 0 && !selectedEntityId) {
+        setSelectedEntityId(entities[0].id)
       }
 
       setOrdersPayload(Array.from(ordersMap.values()))

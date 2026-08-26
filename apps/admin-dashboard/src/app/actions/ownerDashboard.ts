@@ -11,6 +11,138 @@ import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/o
 import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
+function cleanItemName(name: string) {
+  if (!name) return ''
+  return name.trim()
+}
+
+async function fetchEcommerceOwnerData(
+  supabase: any,
+  fromStart: Date,
+  toEnd: Date,
+  sourceFilter: SalesSource = 'all'
+) {
+  const PAGE_SIZE = 1000
+  let offset = 0
+  const allEc: any[] = []
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('ecommerce_sales')
+      .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp)))))')
+      .gte('order_date', fromStart.toISOString())
+      .lte('order_date', toEnd.toISOString())
+      .order('order_date', { ascending: true })
+      .range(offset, offset + PAGE_SIZE - 1)
+
+    if (error) {
+      console.error('fetchEcommerceOwnerData error:', error)
+      break
+    }
+    const page = data ?? []
+    allEc.push(...page)
+    if (page.length < PAGE_SIZE) break
+    offset += PAGE_SIZE
+  }
+
+  const kpiMap = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
+  const hourMap = new Map<number, SalesHourlyRow>()
+  for (let i = 0; i < 24; i++) {
+    hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
+  }
+  const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
+  let totalCogs = 0
+
+  for (const ec of allEc) {
+    const raw = ec.raw_data || {}
+    const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+    const omzetKotor = Number(ec.total_amount) || 0
+    const omzetNet = Math.max(0, omzetKotor - totalPotongan)
+
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(ec.order_date))
+    const hourStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }).format(new Date(ec.order_date))
+    const hour = parseInt(hourStr, 10) || 0
+
+    const chNorm = (ec.channel_id || '').toLowerCase()
+    let salesSource: SalesSource = 'online'
+    if (chNorm.includes('tiktok') || chNorm === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5') {
+      salesSource = 'tiktok_shop' as SalesSource
+    } else if (chNorm.includes('shopee') || chNorm === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584') {
+      salesSource = 'shopee_shop' as SalesSource
+    }
+
+    if (sourceFilter !== 'all') {
+      const sf = sourceFilter.toLowerCase()
+      if (sf === 'pos') continue
+      if (sf.includes('tiktok') && salesSource !== 'tiktok_shop') continue
+      if (sf.includes('shopee') && salesSource !== 'shopee_shop') continue
+    }
+
+    const kpiKey = `ss-online|${salesSource}|${dateStr}`
+    const existingKpi = kpiMap.get(kpiKey) || {
+      outlet_id: 'ss-online',
+      outlet_name: '🛒 SS Online',
+      sales_source: salesSource,
+      sales_date: dateStr,
+      omzet: 0,
+      jumlah_order_completed: 0,
+      jumlah_order_all: 0,
+      total_deductions: 0
+    }
+    existingKpi.omzet += omzetNet
+    existingKpi.jumlah_order_completed += 1
+    existingKpi.jumlah_order_all += 1
+    existingKpi.total_deductions = (existingKpi.total_deductions || 0) + totalPotongan
+    kpiMap.set(kpiKey, existingKpi)
+
+    const curHour = hourMap.get(hour) || { sales_hour: hour, omzet: 0, jumlah_order_completed: 0 }
+    curHour.omzet += omzetNet
+    curHour.jumlah_order_completed += 1
+    hourMap.set(hour, curHour)
+
+    for (const item of (ec.ecommerce_sale_items || [])) {
+      const menuName = item.menu_items?.name || 'Unknown Menu'
+      const cleanName = cleanItemName(menuName) || menuName
+      const qty = Number(item.quantity) || 0
+      const revenue = Number(item.subtotal) || (Number(item.price) * qty) || 0
+
+      const curMenu = menuMap.get(cleanName) || { name: cleanName, qty: 0, revenue: 0 }
+      curMenu.qty += qty
+      curMenu.revenue += revenue
+      menuMap.set(cleanName, curMenu)
+
+      const mi = item.menu_items
+      let itemHpp = 0
+      if (mi) {
+        let channelHppVal: number | null = null
+        if (mi.channel_hpp && typeof mi.channel_hpp === 'object') {
+          channelHppVal = mi.channel_hpp.ss_online ?? mi.channel_hpp.tiktok_shop ?? mi.channel_hpp.shopee_shop ?? mi.channel_hpp[chNorm] ?? null
+        }
+        if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+          itemHpp = Number(channelHppVal)
+        } else if (mi.hpp_override !== null && mi.hpp_override !== undefined && Number(mi.hpp_override) > 0) {
+          itemHpp = Number(mi.hpp_override)
+        } else if (mi.is_package && Array.isArray(mi.package_items)) {
+          itemHpp = mi.package_items.reduce((sum: number, pkg: any) => {
+            const compHpp = Number(pkg.component?.hpp_override || 0)
+            const pQty = Number(pkg.quantity || 1)
+            return sum + compHpp * pQty
+          }, 0)
+        }
+      }
+      totalCogs += qty * itemHpp
+    }
+  }
+
+  return {
+    kpiRows: Array.from(kpiMap.values()),
+    hourlyRows: Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour),
+    menuRows: Array.from(menuMap.values()),
+    totalCogs,
+    totalOpex: 0,
+  }
+}
+
 export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: Outlet[]) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
@@ -30,6 +162,14 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   // Fix: filter.from/to is YYYY-MM-DD. Use +07:00 timezone to get exactly 00:00 to 23:59 local time.
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
+
+  if (filter.outletId === 'ss-online') {
+    const ecData = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source)
+    return {
+      ...ecData,
+      totalCogsOpex: ecData.totalCogs + ecData.totalOpex,
+    }
+  }
 
   let ordersQ = supabase
     .from('orders')
@@ -73,9 +213,13 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     offset += PAGE_SIZE
   }
 
-  const [{ data: expData }, { data: pettyData }] = await Promise.all([
+  const isAll = filter.outletId === 'all'
+  const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source) : Promise.resolve(null)
+
+  const [{ data: expData }, { data: pettyData }, ecData] = await Promise.all([
     expQ,
-    pettyQ
+    pettyQ,
+    ecPromise
   ])
 
   const totalExpensesMonthly = (expData || [])
@@ -86,7 +230,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     .filter((e: any) => !isTestOutlet(e.outlet_id))
     .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0)
 
-  const totalOpex = totalExpensesMonthly + totalExpensesPetty
+  let totalOpex = totalExpensesMonthly + totalExpensesPetty
 
   const outletTypeMap = new Map(outlets.map((o) => [o.id, o.type || 'outlet']))
   let totalCogs = 0
@@ -191,10 +335,22 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 
   const summaryResult = Array.from(acc.values())
   const nameById = new Map(outlets.map((o) => [o.id, o.name]))
-  const kpiRows = summaryResult.map((r) => ({
+  let kpiRows = summaryResult.map((r) => ({
     ...r,
     outlet_name: nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
   }))
+
+  if (ecData) {
+    kpiRows = [...kpiRows, ...ecData.kpiRows]
+    for (const h of ecData.hourlyRows) {
+      const cur = hourMap.get(h.sales_hour) || { sales_hour: h.sales_hour, omzet: 0, jumlah_order_completed: 0 }
+      cur.omzet += h.omzet
+      cur.jumlah_order_completed += h.jumlah_order_completed
+      hourMap.set(h.sales_hour, cur)
+    }
+    totalCogs += ecData.totalCogs
+    totalOpex += ecData.totalOpex
+  }
 
   const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
 
@@ -227,13 +383,28 @@ export async function getOwnerDashboardDataFast(
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd    = new Date(`${filter.to}T23:59:59.999+07:00`)
 
-  const { data, error } = await supabase.rpc('get_owner_dashboard_summary', {
+  const isSSOnlineOnly = filter.outletId === 'ss-online'
+  const isAll = filter.outletId === 'all'
+
+  if (isSSOnlineOnly) {
+    const ecData = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source)
+    return {
+      ...ecData,
+      totalCogsOpex: ecData.totalCogs + ecData.totalOpex,
+    }
+  }
+
+  const rpcPromise = supabase.rpc('get_owner_dashboard_summary', {
     p_from:           fromStart.toISOString(),
     p_to:             toEnd.toISOString(),
     p_outlet_id:      filter.outletId !== 'all' ? filter.outletId : null,
     p_source:         filter.source,
     p_test_outlet_id: TEST_OUTLET_ID,
   })
+
+  const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source) : Promise.resolve(null)
+
+  const [{ data, error }, ecData] = await Promise.all([rpcPromise, ecPromise])
 
   if (error) throw new Error(`get_owner_dashboard_summary: ${error.message}`)
 
@@ -250,7 +421,7 @@ export async function getOwnerDashboardDataFast(
 
   const nameById = new Map(outlets.map((o) => [o.id, o.name]))
 
-  const kpiRows: SalesSummaryRow[] = (result.kpi_rows ?? []).map((r) => ({
+  const posKpiRows: SalesSummaryRow[] = (result.kpi_rows ?? []).map((r) => ({
     outlet_id:              r.outlet_id,
     outlet_name:            nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
     sales_source:           r.sales_source as SalesSource,
@@ -272,16 +443,41 @@ export async function getOwnerDashboardDataFast(
       jumlah_order_completed: Number(h.order_count),
     })
   }
+
+  const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
+  for (const r of result.menu_rows ?? []) {
+    const clean = cleanItemName(r.menu_name) || 'Unknown Menu'
+    const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
+    cur.qty += Number(r.qty || 0)
+    cur.revenue += Number(r.revenue || 0)
+    menuMap.set(clean, cur)
+  }
+
+  let totalCogs = Number(result.total_cogs ?? 0)
+  let totalOpex = Number(result.total_opex ?? 0)
+
+  let kpiRows = posKpiRows
+  if (ecData) {
+    kpiRows = [...posKpiRows, ...ecData.kpiRows]
+    for (const h of ecData.hourlyRows) {
+      const cur = hourMap.get(h.sales_hour) || { sales_hour: h.sales_hour, omzet: 0, jumlah_order_completed: 0 }
+      cur.omzet += h.omzet
+      cur.jumlah_order_completed += h.jumlah_order_completed
+      hourMap.set(h.sales_hour, cur)
+    }
+    for (const m of ecData.menuRows) {
+      const clean = cleanItemName(m.name) || 'Unknown Menu'
+      const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
+      cur.qty += m.qty
+      cur.revenue += m.revenue
+      menuMap.set(clean, cur)
+    }
+    totalCogs += ecData.totalCogs
+    totalOpex += ecData.totalOpex
+  }
+
   const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
-
-  const menuRows = (result.menu_rows ?? []).map((r) => ({
-    name:    String(r.menu_name || 'Unknown Menu').trim(),
-    qty:     Number(r.qty     || 0),
-    revenue: Number(r.revenue || 0),
-  }))
-
-  const totalCogs = Number(result.total_cogs ?? 0)
-  const totalOpex = Number(result.total_opex ?? 0)
+  const menuRows = Array.from(menuMap.values())
 
   return {
     kpiRows,

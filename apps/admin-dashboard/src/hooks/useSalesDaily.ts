@@ -6,89 +6,43 @@ import type { SalesSummaryRow, PeriodFilterValue, SalesSource } from '@/lib/type
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 // Ringkasan harian per outlet × sumber langsung dari view DB `sales_daily_scoped`.
-// Untuk halaman yang HANYA butuh agregat harian (mis. Profit) — rentang lebar
-// tak perlu mengirim baris per-jam ke browser. Return shape sama dengan
-// useSalesSummary agar konsumen tak berubah.
+// Sangat cepat karena dihitung langsung di database menggunakan covering & functional indexes.
 export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string; name: string }[]) {
   const supabase = createClient()
   const query = useQuery<SalesSummaryRow[]>({
     queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
     staleTime: 2 * 60_000,
     queryFn: async () => {
-      // Fetch orders for aggregations and deductions
-      const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
-      const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
-      
-      let ordersQ = supabase
-        .from('orders')
-        .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal)')
+      let q = supabase
+        .from('sales_daily_scoped')
+        .select('outlet_id, sales_source, sales_date, omzet, total_deductions, jumlah_order_completed')
         .neq('outlet_id', TEST_OUTLET_ID)
-        .eq('status', 'completed')
-        .gte('created_at', fromStart.toISOString())
-        .lte('created_at', toEnd.toISOString())
-        
-      if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
-      
-      const PAGE_SIZE = 1000
-      const ordersData: any[] = []
-      let offset = 0
-      while (true) {
-        const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
-        if (error) throw error
-        if (!page || page.length === 0) break
-        ordersData.push(...page)
-        if (page.length < PAGE_SIZE) break
-        offset += PAGE_SIZE
+        .gte('sales_date', filter.from)
+        .lte('sales_date', filter.to)
+
+      if (filter.outletId !== 'all') {
+        q = q.eq('outlet_id', filter.outletId)
       }
-      
-      const aggMap = new Map<string, any>()
-      for (const o of ordersData) {
-        if (isTestOutlet(o.outlet_id)) continue;
-        const d = new Date(o.created_at)
-        const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
-        const dateStr = localDate.toISOString().split('T')[0]
-        
-        const srcKey = (o.is_endorse ? 'endors' : (o.sales_source || 'pos')).toLowerCase()
-        
-        if (filter.source !== 'all' && srcKey !== filter.source.toLowerCase()) continue;
-        
-        const key = `${o.outlet_id}|${srcKey}|${dateStr}`
-        
-        let discount = 0
-        const disc = Number(o.discount_amount) || 0
-        const promo = Number(o.promo_subsidy) || 0
-        if (disc > 0 || promo > 0) {
-          discount = disc + promo
-        } else {
-          const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-          const totalAmt = Number(o.total_amount) || 0
-          discount = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
-        }
-        
-        let platformFee = 0 
-        
-        const existing = aggMap.get(key) || { 
-          outlet_id: o.outlet_id,
-          outlet_name: '',
-          sales_source: srcKey as SalesSource,
-          sales_date: dateStr,
-          omzet: 0,
-          jumlah_order_completed: 0,
-          jumlah_order_all: 0,
-          total_deductions: 0,
-          platform_fee: 0
-        }
-        
-        existing.omzet += Number(o.total_amount || 0)
-        existing.jumlah_order_completed += 1
-        existing.jumlah_order_all += 1
-        existing.total_deductions += discount
-        existing.platform_fee += platformFee
-        
-        aggMap.set(key, existing)
+      if (filter.source !== 'all') {
+        q = q.eq('sales_source', filter.source)
       }
 
-      return Array.from(aggMap.values())
+      const { data, error } = await q
+      if (error) throw error
+
+      return (data || [])
+        .filter((r: any) => !isTestOutlet(r.outlet_id))
+        .map((r: any) => ({
+          outlet_id: r.outlet_id,
+          outlet_name: '',
+          sales_source: r.sales_source as SalesSource,
+          sales_date: r.sales_date,
+          omzet: Number(r.omzet || 0),
+          jumlah_order_completed: Number(r.jumlah_order_completed || 0),
+          jumlah_order_all: Number(r.jumlah_order_completed || 0),
+          total_deductions: Number(r.total_deductions || 0),
+          platform_fee: 0,
+        }))
     },
   })
 
@@ -105,3 +59,4 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
 
   return { rows, loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
 }
+

@@ -45,9 +45,13 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     .order('name')
     
   const outlets = (rawOutlets ?? []).filter(o => !isTestOutlet(o))
+  const allOutletsWithSS = [
+    { id: 'ss-online', name: '🛒 SS Online', type: 'online' } as any,
+    ...outlets
+  ]
   const scopedOutlets = lockedOutletId 
     ? outlets.filter(o => o.id === lockedOutletId) 
-    : outlets
+    : allOutletsWithSS
 
   // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
   const [curData, prevData] = await Promise.all([

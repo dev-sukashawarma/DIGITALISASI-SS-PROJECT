@@ -368,7 +368,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('*, order_items(*, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .order('created_at', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
@@ -380,7 +380,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // Fetch Shifts
     let qShifts = supabase
       .from('shifts')
-      .select('*')
+      .select('id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance')
       .eq('status', 'closed')
       .order('end_time', { ascending: false })
       
@@ -432,7 +432,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildEcommerceQuery = () => {
       let query = supabase
         .from('ecommerce_sales')
-        .select('*, ecommerce_sale_items(*, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .order('order_date', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)

@@ -63,8 +63,22 @@ const ICONS: Record<SalesSource, any> = {
       </svg>
     ) : <Globe className={className} style={style} />
   },
-  tiktok_shop: Globe,
-  shopee_shop: Globe,
+  tiktok_shop: ({ className, style }: any) => {
+    const ch = getChannel('tiktok_shop')
+    return ch?.logoPath ? (
+      <svg viewBox="0 0 24 24" className={className} style={{ fill: style?.color || ch.bg }}>
+        <path d={ch.logoPath} />
+      </svg>
+    ) : <Globe className={className} style={style} />
+  },
+  shopee_shop: ({ className, style }: any) => {
+    const ch = getChannel('shopee_shop')
+    return ch?.logoPath ? (
+      <svg viewBox="0 0 24 24" className={className} style={{ fill: style?.color || ch.bg }}>
+        <path d={ch.logoPath} />
+      </svg>
+    ) : <Globe className={className} style={style} />
+  },
   endors: Gift,
 }
 

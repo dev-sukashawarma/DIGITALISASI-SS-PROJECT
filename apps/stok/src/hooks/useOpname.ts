@@ -72,6 +72,16 @@ export async function getEffectiveTodayWIB(outletId: string, supabase: any): Pro
       .eq('status', 'finalized')
     if ((count ?? 0) < 2) return '2026-08-23'
   }
+  
+  if (outletId === '550e8400-e29b-41d4-a716-446655440003' && today === '2026-08-26') {
+    // Paledang exception: check if there is a finalized opname for Aug 25
+    const { count } = await supabase.from('opname')
+      .select('id', { count: 'exact', head: true })
+      .eq('outlet_id', outletId)
+      .eq('tanggal', '2026-08-25')
+      .eq('status', 'finalized')
+    if ((count ?? 0) < 1) return '2026-08-25'
+  }
   return today
 }
 

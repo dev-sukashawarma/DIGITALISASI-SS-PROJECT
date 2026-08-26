@@ -67,13 +67,37 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. For SPV, Owner, Admin, Admin HR, and Korlap roles: if list has <= 1 outlet, load all active outlets so SPV can choose any outlet!
+    // 2. Fetch primary outlet from outlet_staff and staff role
     const { data: staffRoleData } = await admin
       .from("outlet_staff")
-      .select("role")
+      .select("role, outlet_id, outlets!outlet_staff_outlet_id_fkey(id, name, lat, lng)")
       .eq("id", staffId)
       .maybeSingle();
 
+    if (staffRoleData?.outlet_id) {
+      let primaryOutlet = staffRoleData.outlets ? (Array.isArray(staffRoleData.outlets) ? staffRoleData.outlets[0] : staffRoleData.outlets) : null;
+      
+      // Fallback manual query if embed failed
+      if (!primaryOutlet) {
+        const { data: fallbackOutlet } = await admin
+          .from("outlets")
+          .select("id, name, lat, lng")
+          .eq("id", staffRoleData.outlet_id)
+          .maybeSingle();
+        primaryOutlet = fallbackOutlet;
+      }
+
+      if (primaryOutlet && !list.some((x) => x.id === primaryOutlet.id)) {
+        list.push({
+          id: primaryOutlet.id,
+          name: primaryOutlet.name,
+          lat: primaryOutlet.lat !== null ? Number(primaryOutlet.lat) : null,
+          lng: primaryOutlet.lng !== null ? Number(primaryOutlet.lng) : null,
+        });
+      }
+    }
+
+    // 3. For SPV, Owner, Admin, Admin HR, and Korlap roles: if list has <= 1 outlet, load all active outlets so SPV can choose any outlet!
     if (["spv", "owner", "admin", "admin_hr", "korlap", "regional_manager", "area_manager"].includes(staffRoleData?.role || "")) {
       if (list.length <= 1) {
         const { data: allOutlets } = await admin

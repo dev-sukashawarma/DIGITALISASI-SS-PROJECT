@@ -3,8 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { Button, Spinner } from "@suka/design-system";
-import { Settings2, Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, AlertCircle, Pencil, ShieldCheck, ShieldAlert, Sparkles, Clock, Check, X } from "lucide-react";
-import { PageHeader } from "@/components/PageHeader";
+import { Save, Zap, ToggleLeft, Building2, Search, Trash2, Plus, Timer, Pencil, ShieldCheck, ShieldAlert, Sparkles, Clock, X } from "lucide-react";
 import { Select } from "@/components/Select";
 import { saveGlobalConfig, saveOutletException, deleteOutletException, deleteAllExceptions } from "./actions";
 import { useToast } from "@/lib/feedback/toast";

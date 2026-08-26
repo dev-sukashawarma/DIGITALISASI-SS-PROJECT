@@ -1,7 +1,7 @@
 {
   "name": "@suka/absensi",
   "version": "0.0.1",
-  "description": "M1 — Absensi outlet + face recognition",
+  "description": "M1 â€” Absensi outlet + face recognition",
   "type": "module",
   "scripts": {
     "dev": "next dev -H 0.0.0.0 -p 3001",
@@ -14,10 +14,10 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@suka/auth": "*",
-    "@suka/design-system": "*",
-    "@suka/offline-queue": "*",
-    "@suka/realtime": "*",
+    "@suka/auth": "workspace:*",
+    "@suka/design-system": "workspace:*",
+    "@suka/offline-queue": "workspace:*",
+    "@suka/realtime": "workspace:*",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.38.0",
     "@tanstack/react-query": "^5.101.0",

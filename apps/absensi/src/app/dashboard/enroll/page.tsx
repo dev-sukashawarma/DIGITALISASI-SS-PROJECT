@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
-import { Button, Card, Spinner } from "@suka/design-system";
+import { Button, Spinner } from "@suka/design-system";
 import { Camera, ShieldCheck, CheckCircle2, UserRound, ArrowRight, AlertTriangle, Search, X, RefreshCw, Sparkles, UserCheck, ShieldAlert } from "lucide-react";
 import { useToast } from "@/lib/feedback/toast";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { CameraCapture, captureFrame } from "@/components/CameraCapture";
-import { PageHeader } from "@/components/PageHeader";
 import { loadFaceModels, getHuman } from "@/lib/face/recognizer";
 import { averageDescriptors } from "@/lib/face/match";
 import { OutletSwitcher } from "@/components/OutletSwitcher";

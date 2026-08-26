@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { Store, Globe, Search, X, Check, Package, Sandwich, Edit2, Calculator, PanelRightClose, RefreshCw, Save, ArrowUpDown, ChevronUp, ChevronDown, Layers, Sparkles } from 'lucide-react'
 import type { Outlet, MenuOutletPrice } from '@/pos-types'
-import { CATEGORY_GROUPS, type CategoryGroupMeta } from './categoryHelper'
+import { CATEGORY_GROUPS, type CategoryGroupMeta, getSizeRank } from './categoryHelper'
 
 interface HppMenuItem {
   id: string
@@ -22,6 +22,7 @@ interface HppMenuItem {
   sortOrder: number
   price: number
   channelPrices: Record<string, number>
+  channelHpp?: Record<string, number>
   availableOnlineChannels: string[] | null
   isAvailable: boolean
   isAvailableOnline: boolean
@@ -156,19 +157,26 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
       res = res.filter(r => r.name.toLowerCase().includes(q) || (r.categoryFullName && r.categoryFullName.toLowerCase().includes(q)))
     }
 
-    // Sort by categoryOrder, then sortOrder, then name
+    // Sort by categoryOrder, then sizeRank (Sedang, Besar, Jumbo, Reguler), then sortOrder, then name
     const sortedByCategory = [...res].sort((a, b) => {
       // 1. Sort by Category Order
       if (a.categoryOrder !== b.categoryOrder) {
         return a.categoryOrder - b.categoryOrder
       }
+
+      // 2. Sort by Size Rank: Sedang (1), Besar (2), Jumbo (3), Reguler (4)
+      const sizeRankA = getSizeRank(a.name)
+      const sizeRankB = getSizeRank(b.name)
+      if (sizeRankA !== sizeRankB) {
+        return sizeRankA - sizeRankB
+      }
       
-      // 2. Sort by Item Sort Order
+      // 3. Sort by Item Sort Order
       if (a.sortOrder !== b.sortOrder) {
         return a.sortOrder - b.sortOrder
       }
       
-      // 3. Fallback to Alphabetical
+      // 4. Fallback to Alphabetical
       return a.name.localeCompare(b.name)
     })
 
@@ -252,36 +260,55 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
   }
 
   // Save Pusat Override
-  const handleSavePusatHpp = async (itemId: string, name: string) => {
+  const handleSavePusatHpp = async (row: HppMenuItem, channelKey?: string) => {
     try {
       setIsSaving(true)
       const val = pusatHppValue.trim() === '' ? null : Math.round(Number(pusatHppValue))
-      const { error } = await supabase.from('menu_items').update({ hpp_override: val }).eq('id', itemId)
-      if (error) throw error
 
-      // Auto update Mitra HPP (+10%)
-      const mitraVal = val === null ? null : Math.round(val * 1.1)
-      const payload = outlets.map(o => {
-        const existing = allOutletPrices.find(p => p.menu_item_id === itemId && p.outlet_id === o.id)
-        return {
-          menu_item_id: itemId,
-          outlet_id: o.id,
-          is_available: existing ? existing.is_available : true,
-          price: existing ? existing.price : null,
-          hpp_override: mitraVal
+      if (channelKey === 'ss_online') {
+        const currentChannelHpp = row.channelHpp || {}
+        const nextChannelHpp = { ...currentChannelHpp }
+        if (val === null) {
+          delete nextChannelHpp.ss_online
+          delete nextChannelHpp.tiktok_shop
+          delete nextChannelHpp.shopee_shop
+          delete nextChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5']
+          delete nextChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584']
+        } else {
+          nextChannelHpp.ss_online = val
+          nextChannelHpp.tiktok_shop = val
+          nextChannelHpp.shopee_shop = val
+          nextChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5'] = val
+          nextChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584'] = val
         }
-      })
-      
-      const { error: mitraError } = await supabase.from('menu_outlet_prices').upsert(payload, { onConflict: 'menu_item_id,outlet_id' })
-      if (mitraError) console.error("Gagal auto-update HPP Mitra", mitraError)
+        const { error } = await supabase.from('menu_items').update({ channel_hpp: nextChannelHpp }).eq('id', row.id)
+        if (error) throw error
+        toast.success(val === null ? `HPP SS Online "${row.name}" direset` : `HPP SS Online "${row.name}" diset ke ${rupiah(val)}`)
+      } else {
+        const { error } = await supabase.from('menu_items').update({ hpp_override: val }).eq('id', row.id)
+        if (error) throw error
 
-      toast.success(val === null ? `HPP Pusat untuk "${name}" direset ke BOM` : `HPP Pusat "${name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan (+10%)`)
+        // Auto update Mitra HPP (+10%)
+        const mitraVal = val === null ? null : Math.round(val * 1.1)
+        const payload = outlets.map(o => {
+          const existing = allOutletPrices.find(p => p.menu_item_id === row.id && p.outlet_id === o.id)
+          return {
+            menu_item_id: row.id,
+            outlet_id: o.id,
+            is_available: existing ? existing.is_available : true,
+            price: existing ? existing.price : null,
+            hpp_override: mitraVal
+          }
+        })
+        
+        const { error: mitraError } = await supabase.from('menu_outlet_prices').upsert(payload, { onConflict: 'menu_item_id,outlet_id' })
+        if (mitraError) console.error("Gagal auto-update HPP Mitra", mitraError)
+
+        toast.success(val === null ? `HPP Pusat untuk "${row.name}" direset ke BOM` : `HPP Pusat "${row.name}" diset ke ${rupiah(val)}, HPP Mitra otomatis disesuaikan (+10%)`)
+      }
+
       setEditingPusatId(null)
-      
-      // We need to refresh data from server to reflect new mitra prices
       router.refresh()
-      
-      // Delay slightly for toast and router refresh to catch up
       setTimeout(() => {
         window.location.reload()
       }, 500)
@@ -509,11 +536,11 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                 <th onClick={() => handleSort('hpp')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right">
                   <div className="flex items-center justify-end">HPP Pusat<SortIndicator field="hpp" /></div>
                 </th>
-                <th onClick={() => handleSort('margin')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right">
-                  <div className="flex items-center justify-end">Profit Pusat<SortIndicator field="margin" /></div>
-                </th>
                 <th className="px-5 py-4 text-right">
                   HPP Mitra
+                </th>
+                <th onClick={() => handleSort('margin')} className="px-5 py-4 cursor-pointer select-none group hover:bg-gray-100/50 transition-colors text-right">
+                  <div className="flex items-center justify-end">Profit Pusat<SortIndicator field="margin" /></div>
                 </th>
                 <th className="px-5 py-4 text-right">
                   Profit Mitra
@@ -529,85 +556,130 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
             </thead>
             <tbody className="divide-y divide-gray-100">
               {filteredItems.map((row, idx) => {
-                const effHpp = row.hppOverride !== null ? row.hppOverride : row.hpp
-                const profit = effHpp !== null ? row.price - effHpp : null
+                const isRegulerItem = row.name.toLowerCase().includes('reguler')
                 
-                const activeMitras = allOutletPrices.filter(p => p.menu_item_id === row.id && p.is_available).length
-                const totalMitras = outlets.length
-                
-                const mitraPrices = allOutletPrices.filter(p => p.menu_item_id === row.id && p.is_available);
-                let avgMitraHpp: number | null = null;
-                if (mitraPrices.length > 0) {
-                   const hpps = mitraPrices.map(p => p.hpp_override).filter(h => h !== null) as number[];
-                   if (hpps.length > 0) {
-                     avgMitraHpp = Math.round(hpps.reduce((a,b) => a+b, 0) / hpps.length);
-                   }
-                }
-                
-                // Fallback to +10% of Pusat HPP
-                if (avgMitraHpp === null && effHpp !== null) {
-                  avgMitraHpp = Math.round(effHpp * 1.1);
-                }
-                const profitMitra = avgMitraHpp !== null ? row.price - avgMitraHpp : null;
+                const hasSsOnlineHpp = row.channelHpp && typeof row.channelHpp === 'object' && (
+                  (row.channelHpp.ss_online !== undefined && row.channelHpp.ss_online !== null && Number(row.channelHpp.ss_online) > 0) ||
+                  (row.channelHpp.tiktok_shop !== undefined && row.channelHpp.tiktok_shop !== null && Number(row.channelHpp.tiktok_shop) > 0) ||
+                  (row.channelHpp.shopee_shop !== undefined && row.channelHpp.shopee_shop !== null && Number(row.channelHpp.shopee_shop) > 0)
+                )
 
-                // Compute visible online channels
-                const visibleChannels: { label: string, price: number }[] = [];
-                
-                const isOfflineAvailable = row.isAvailable !== false && (
+                const isSsOnlineChannel = row.availableOnlineChannels && Array.isArray(row.availableOnlineChannels) &&
+                  row.availableOnlineChannels.some(c => ['ss_online', 'ss-online', 'tiktok_shop', 'shopee_shop'].includes(c.toLowerCase()))
+
+                const isSsOnlineAvailable = hasSsOnlineHpp || isSsOnlineChannel || isRegulerItem
+
+                const isOfflineAvailable = !isRegulerItem && row.isAvailable !== false && (
                   row.isAvailableOnline === false ||
                   row.availableOnlineChannels === null ||
                   row.availableOnlineChannels === undefined ||
                   !Array.isArray(row.availableOnlineChannels) ||
                   row.availableOnlineChannels.includes('pos_kasir')
-                );
+                )
 
-                if (row.isAvailableOnline !== false) {
-                  const activeRowChannels = (channels || []).filter(ch => {
-                    const slug = ch.name.toLowerCase().replace(/\s+/g, '');
-                    if (row.availableOnlineChannels === null || row.availableOnlineChannels === undefined) return true;
-                    return row.availableOnlineChannels.some(
-                      c => {
-                        const cleanC = c.toLowerCase().replace(/\s+/g, '');
-                        return cleanC === slug || (slug === 'tiktokgo' && (cleanC === 'tiktokgo' || cleanC === 'tiktok_go' || cleanC === 'tiktok'));
-                      }
-                    );
-                  });
+                const foodAppSlugs = ['gofood', 'grabfood', 'shopeefood']
+                const isFoodAppsAvailable = !isRegulerItem && row.isAvailableOnline !== false && (
+                  row.availableOnlineChannels === null ||
+                  row.availableOnlineChannels === undefined ||
+                  !Array.isArray(row.availableOnlineChannels) ||
+                  row.availableOnlineChannels.some(c => foodAppSlugs.includes(c.toLowerCase().replace(/\s+/g, '')))
+                )
 
-                  const foodAppSlugs = ['gofood', 'grabfood', 'shopeefood'];
-                  const activeFoodApps = activeRowChannels.filter(ch => foodAppSlugs.includes(ch.name.toLowerCase().replace(/\s+/g, '')));
-                  const otherChannels = activeRowChannels.filter(ch => !foodAppSlugs.includes(ch.name.toLowerCase().replace(/\s+/g, '')));
+                const isTikTokGoAvailable = !isRegulerItem && row.isAvailableOnline !== false && (
+                  row.availableOnlineChannels && Array.isArray(row.availableOnlineChannels) &&
+                  row.availableOnlineChannels.some(c => ['tiktokgo', 'tiktok_go', 'tiktok'].includes(c.toLowerCase().replace(/\s+/g, '')))
+                )
 
-                  if (activeFoodApps.length > 0) {
-                    let explicitPrice: number | undefined = undefined;
-                    for (const app of activeFoodApps) {
-                      const s = app.name.toLowerCase().replace(/\s+/g, '');
-                      if (row.channelPrices[s] && Number(row.channelPrices[s]) > 0) {
-                        explicitPrice = Number(row.channelPrices[s]);
-                        break;
-                      }
-                    }
-                    visibleChannels.push({
-                      label: 'FOODAPPS',
-                      price: explicitPrice ?? row.price
-                    });
-                  }
+                const offlineHpp = row.hppOverride !== null ? row.hppOverride : row.hpp
 
-                  for (const ch of otherChannels) {
-                    const slug = ch.name.toLowerCase().replace(/\s+/g, '');
-                    const explicitPrice = row.channelPrices[slug] || (slug === 'tiktokgo' ? row.channelPrices['tiktok_go'] : undefined);
-                    visibleChannels.push({
-                      label: ch.name === 'TikTok Go' ? 'TIKTOK GO' : ch.name.toUpperCase(),
-                      price: (explicitPrice !== undefined && explicitPrice !== null && Number(explicitPrice) > 0) ? explicitPrice : row.price
-                    });
-                  }
+                interface FormattedChannelRow {
+                  channelKey: string
+                  label: string
+                  price: number
+                  hppPusat: number | null
+                  bomHpp: number | null
+                  hppOverride: number | null
+                  isSsOnline: boolean
+                  labelColor: string
                 }
 
-                // Prepare unified channel array for row alignment
-                const channelRows: { label: string, price: number }[] = [];
+                const channelRows: FormattedChannelRow[] = []
+
                 if (isOfflineAvailable) {
-                  channelRows.push({ label: 'OFFLINE', price: row.price });
+                  channelRows.push({
+                    channelKey: 'offline',
+                    label: 'OFFLINE',
+                    price: row.price,
+                    hppPusat: offlineHpp,
+                    bomHpp: row.hpp,
+                    hppOverride: row.hppOverride,
+                    isSsOnline: false,
+                    labelColor: 'text-gray-500'
+                  })
                 }
-                visibleChannels.forEach(vc => channelRows.push(vc));
+
+                if (isFoodAppsAvailable) {
+                  let foodAppPrice: number | undefined = undefined
+                  for (const slug of foodAppSlugs) {
+                    if (row.channelPrices[slug] && Number(row.channelPrices[slug]) > 0) {
+                      foodAppPrice = Number(row.channelPrices[slug])
+                      break
+                    }
+                  }
+                  channelRows.push({
+                    channelKey: 'foodapps',
+                    label: 'FOODAPPS',
+                    price: foodAppPrice ?? (row.channelPrices.all_food_apps || row.channelPrices.foodapps || row.price),
+                    hppPusat: offlineHpp,
+                    bomHpp: row.hpp,
+                    hppOverride: row.hppOverride,
+                    isSsOnline: false,
+                    labelColor: 'text-green-600'
+                  })
+                }
+
+                if (isTikTokGoAvailable) {
+                  const ttPrice = row.channelPrices.tiktokgo || row.channelPrices.tiktok_go
+                  const ttHpp = row.channelHpp?.tiktok_go || offlineHpp
+                  channelRows.push({
+                    channelKey: 'tiktok_go',
+                    label: 'TIKTOK GO',
+                    price: (ttPrice !== undefined && ttPrice !== null && Number(ttPrice) > 0) ? Number(ttPrice) : row.price,
+                    hppPusat: ttHpp,
+                    bomHpp: row.hpp,
+                    hppOverride: row.channelHpp?.tiktok_go || row.hppOverride,
+                    isSsOnline: false,
+                    labelColor: 'text-purple-600'
+                  })
+                }
+
+                if (isSsOnlineAvailable) {
+                  const ssPrice = row.channelPrices.ss_online || row.channelPrices.tiktok_shop || row.channelPrices.shopee_shop || row.price
+                  const ssHpp = row.channelHpp?.ss_online ?? row.channelHpp?.tiktok_shop ?? row.channelHpp?.shopee_shop ?? (isRegulerItem ? null : offlineHpp)
+                  channelRows.push({
+                    channelKey: 'ss_online',
+                    label: 'SS ONLINE',
+                    price: (ssPrice !== undefined && ssPrice !== null && Number(ssPrice) > 0) ? Number(ssPrice) : row.price,
+                    hppPusat: ssHpp,
+                    bomHpp: row.hpp,
+                    hppOverride: row.channelHpp?.ss_online ?? null,
+                    isSsOnline: true,
+                    labelColor: 'text-rose-600'
+                  })
+                }
+
+                if (channelRows.length === 0) {
+                  channelRows.push({
+                    channelKey: 'offline',
+                    label: 'OFFLINE',
+                    price: row.price,
+                    hppPusat: offlineHpp,
+                    bomHpp: row.hpp,
+                    hppOverride: row.hppOverride,
+                    isSsOnline: false,
+                    labelColor: 'text-gray-500'
+                  })
+                }
 
                 const rowClasses = "flex items-center h-8 border-b border-gray-100 last:border-0";
 
@@ -660,7 +732,7 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => (
                             <div key={`ch-${cIdx}`} className={rowClasses}>
-                              <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 ${ch.label === 'OFFLINE' ? 'text-gray-500' : 'text-gray-400'}`}>
+                              <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 ${ch.labelColor}`}>
                                 {ch.label}
                               </span>
                             </div>
@@ -680,51 +752,78 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                       </td>
 
                       {/* HPP Pusat Column */}
-                      <td className="px-5 py-4 text-right align-middle">
-                        {editingPusatId === row.id ? (
-                          <div className="flex items-center justify-end gap-1.5">
-                            <input
-                              type="number"
-                              placeholder={row.hpp ? String(row.hpp) : 'HPP BOM...'}
-                              value={pusatHppValue}
-                              onChange={(e) => setPusatHppValue(e.target.value)}
-                              className="w-24 px-2 py-1 text-xs text-right border rounded focus:ring-1 focus:ring-suka-primary"
-                            />
-                            <button onClick={() => handleSavePusatHpp(row.id, row.name)} disabled={isSaving} className="p-1.5 text-white bg-green-500 hover:bg-green-600 rounded">
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => setEditingPusatId(null)} disabled={isSaving} className="p-1.5 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="group/edit flex items-center justify-end gap-2">
-                            <div className="text-right">
-                              <div className={`font-bold ${row.hppOverride !== null ? 'text-amber-600' : 'text-gray-600'}`}>
-                                {effHpp !== null ? rupiah(effHpp) : <span className="text-red-400 text-xs italic">Belum Set</span>}
+                      <td className="py-4 text-right align-middle">
+                        <div className="flex flex-col">
+                          {channelRows.map((ch, cIdx) => {
+                            const editKey = `${row.id}_${ch.channelKey}`
+                            const isEditingThis = editingPusatId === editKey
+                            return (
+                              <div key={`hpp-pst-${cIdx}`} className={`${rowClasses} justify-end gap-1.5 px-5 group/cell`}>
+                                {isEditingThis ? (
+                                  <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <input
+                                      type="number"
+                                      placeholder={ch.hppPusat ? String(ch.hppPusat) : 'HPP...'}
+                                      value={pusatHppValue}
+                                      onChange={(e) => setPusatHppValue(e.target.value)}
+                                      className="w-20 px-1.5 py-0.5 text-xs text-right border rounded focus:ring-1 focus:ring-suka-primary"
+                                    />
+                                    <button onClick={() => handleSavePusatHpp(row, ch.channelKey)} disabled={isSaving} className="p-1 text-white bg-green-500 hover:bg-green-600 rounded">
+                                      <Check className="w-3 h-3" />
+                                    </button>
+                                    <button onClick={() => setEditingPusatId(null)} disabled={isSaving} className="p-1 text-gray-500 bg-gray-100 hover:bg-gray-200 rounded">
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <div className="text-right">
+                                      <div className={`font-bold ${ch.hppPusat !== null ? (ch.isSsOnline ? 'text-rose-600' : 'text-amber-600') : 'text-gray-400'}`}>
+                                        {ch.hppPusat !== null ? rupiah(ch.hppPusat) : <span className="text-red-400 text-xs italic">Belum Set</span>}
+                                      </div>
+                                    </div>
+                                    <button 
+                                      onClick={() => { setEditingPusatId(editKey); setPusatHppValue(ch.hppPusat !== null ? String(ch.hppPusat) : ''); }} 
+                                      className="opacity-0 group-hover/cell:opacity-100 p-0.5 text-gray-400 hover:text-suka-primary transition-opacity rounded hover:bg-gray-100"
+                                      title={`Edit HPP Pusat (${ch.label})`}
+                                    >
+                                      <Edit2 className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                )}
                               </div>
-                              {row.hppOverride !== null && row.hpp !== null && (
-                                <div className="text-[9px] text-gray-400 mt-0.5 whitespace-nowrap">BOM: {rupiah(row.hpp)}</div>
-                              )}
-                            </div>
-                            <button onClick={() => { setEditingPusatId(row.id); setPusatHppValue(row.hppOverride !== null ? String(row.hppOverride) : ''); }} className="opacity-0 group-hover/edit:opacity-100 p-1 w-6 h-6 flex items-center justify-center shrink-0 text-gray-400 hover:text-suka-primary transition-opacity rounded hover:bg-gray-100">
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        )}
+                            )
+                          })}
+                        </div>
+                      </td>
+
+                      {/* HPP Mitra Column */}
+                      <td className="py-4 text-right align-middle">
+                        <div className="flex flex-col">
+                          {channelRows.map((ch, cIdx) => {
+                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat * 1.1) : null;
+                            return (
+                              <div key={`hpp-mtr-${cIdx}`} className={`${rowClasses} justify-end px-5`}>
+                                <span className="font-bold text-blue-600">
+                                  {mitraHpp !== null ? rupiah(mitraHpp) : <span className="text-gray-400 text-xs italic">Belum Set</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </td>
 
                       {/* Profit Pusat Column */}
                       <td className="py-4 text-right">
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => {
-                            const pft = effHpp !== null ? ch.price - effHpp : null;
+                            const pft = ch.hppPusat !== null ? ch.price - ch.hppPusat : null;
                             return (
                               <div key={`pft-pst-${cIdx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
                                 {pft !== null ? (
                                   <>
                                     <span className="font-bold text-gray-900 text-sm text-right w-[70px]">{rupiah(pft)}</span>
-                                    <div className="w-12 text-right">{renderMarginTextOnly(effHpp, ch.price)}</div>
+                                    <div className="w-12 text-right">{renderMarginTextOnly(ch.hppPusat, ch.price)}</div>
                                   </>
                                 ) : (
                                   <span className="text-gray-400 text-sm w-[90px] text-right">—</span>
@@ -735,24 +834,18 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                         </div>
                       </td>
 
-                      {/* HPP Mitra Column */}
-                      <td className="px-5 py-4 text-right align-middle">
-                        <div className="font-bold text-blue-600">
-                          {avgMitraHpp !== null ? rupiah(avgMitraHpp) : <span className="text-gray-400 text-xs italic">Belum Set</span>}
-                        </div>
-                      </td>
-
                       {/* Profit Mitra Column */}
                       <td className="py-4 text-right">
                         <div className="flex flex-col">
                           {channelRows.map((ch, cIdx) => {
-                            const profitMitra = avgMitraHpp !== null ? ch.price - avgMitraHpp : null;
+                            const mitraHpp = ch.hppPusat !== null ? Math.round(ch.hppPusat * 1.1) : null;
+                            const profitMitra = mitraHpp !== null ? ch.price - mitraHpp : null;
                             return (
                               <div key={`pft-mtr-${cIdx}`} className={`${rowClasses} justify-end gap-2 px-5`}>
                                 {profitMitra !== null ? (
                                   <>
                                     <span className="font-bold text-blue-700 text-sm text-right w-[70px]">{rupiah(profitMitra)}</span>
-                                    <div className="w-12 text-right">{renderMarginTextOnly(avgMitraHpp, ch.price)}</div>
+                                    <div className="w-12 text-right">{renderMarginTextOnly(mitraHpp, ch.price)}</div>
                                   </>
                                 ) : (
                                   <span className="text-gray-400 text-sm w-[90px] text-right">—</span>

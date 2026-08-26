@@ -57,6 +57,8 @@ export interface MenuItem {
   price: number
   strike_price?: number | null
   channel_prices?: Record<string, number>
+  channel_hpp?: Record<string, number>
+  hpp_override?: number | null
   image_url: string | null
   is_available: boolean
   is_available_online: boolean

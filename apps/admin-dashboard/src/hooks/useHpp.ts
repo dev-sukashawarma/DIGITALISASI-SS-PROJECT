@@ -16,10 +16,11 @@ function getItemHpp(
   outletType?: string,
   fallbackName?: string,
   menuItemByNameMap?: Map<string, any>,
+  channel?: string | null,
 ): number {
   let itemObj = menuItem;
   if (
-    (!itemObj || (!itemObj.hpp_override && !itemObj.is_package)) &&
+    (!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) &&
     fallbackName &&
     menuItemByNameMap
   ) {
@@ -31,7 +32,27 @@ function getItemHpp(
   if (!itemObj) return 0;
 
   let baseHpp = 0;
-  if (
+  const normCh = channel ? channel.toLowerCase() : null;
+  let channelHppVal: number | null = null;
+  
+  if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
+    if (
+      normCh === 'ss-online' ||
+      normCh === 'ss_online' ||
+      normCh.includes('tiktok') ||
+      normCh.includes('shopee') ||
+      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
+    ) {
+      channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null;
+    } else {
+      channelHppVal = itemObj.channel_hpp[normCh] ?? null;
+    }
+  }
+
+  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+    baseHpp = Number(channelHppVal);
+  } else if (
     itemObj.hpp_override !== null &&
     itemObj.hpp_override !== undefined &&
     Number(itemObj.hpp_override) > 0
@@ -82,7 +103,7 @@ export function useHpp(filter: PeriodFilterValue) {
       const { data: menuItemsData } = await supabase
         .from("menu_items")
         .select(
-          "id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))",
+          "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))",
         );
 
       const menuItemByNameMap = new Map<string, any>();
@@ -95,7 +116,7 @@ export function useHpp(filter: PeriodFilterValue) {
       let queryOrders = supabase
         .from("orders")
         .select(
-          "outlet_id, status, order_items(menu_item_name, quantity, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))",
+          "outlet_id, channel, sales_source, status, order_items(menu_item_name, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))",
         )
         .neq("outlet_id", TEST_OUTLET_ID)
         .gte("created_at", ordersGte)
@@ -125,7 +146,7 @@ export function useHpp(filter: PeriodFilterValue) {
         let queryEcommerce = supabase
           .from("ecommerce_sales")
           .select(
-            "channel_id, ecommerce_sale_items(menu_items:menu_id(name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))), quantity)",
+            "channel_id, ecommerce_sale_items(menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))), quantity)",
           )
           .gte("order_date", ordersGte)
           .lte("order_date", ordersLte);
@@ -149,6 +170,7 @@ export function useHpp(filter: PeriodFilterValue) {
       allOrders.forEach((o: any) => {
         if (o.status === "cancelled" || o.status === "void" || isTestOutlet(o.outlet_id)) return;
         const outletType = outletTypeMap.get(o.outlet_id);
+        const orderChannel = o.channel || o.sales_source;
 
         o.order_items?.forEach((item: any) => {
           const hpp = getItemHpp(
@@ -156,6 +178,7 @@ export function useHpp(filter: PeriodFilterValue) {
             outletType,
             item.menu_item_name,
             menuItemByNameMap,
+            orderChannel,
           );
           const qty = item.quantity || 1;
           const current = hppMap.get(o.outlet_id) || 0;
@@ -166,6 +189,7 @@ export function useHpp(filter: PeriodFilterValue) {
       allEc.forEach((ec: any) => {
         const outletId = "ss-online";
         const outletType = "outlet";
+        const ecChannel = ec.channel_id || "ss_online";
 
         ec.ecommerce_sale_items?.forEach((item: any) => {
           const fallbackName = item.menu_items?.name || "Unknown";
@@ -174,6 +198,7 @@ export function useHpp(filter: PeriodFilterValue) {
             outletType,
             fallbackName,
             menuItemByNameMap,
+            ecChannel,
           );
           const qty = item.quantity || 1;
           const current = hppMap.get(outletId) || 0;

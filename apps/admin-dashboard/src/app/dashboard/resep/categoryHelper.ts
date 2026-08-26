@@ -9,6 +9,15 @@ export interface CategoryGroupMeta {
   borderAccent: string
 }
 
+export function getSizeRank(name: string): number {
+  const n = (name || '').toLowerCase()
+  if (n.includes('sedang')) return 1
+  if (n.includes('besar')) return 2
+  if (n.includes('jumbo')) return 3
+  if (n.includes('reguler')) return 4
+  return 10
+}
+
 export const CATEGORY_GROUPS: CategoryGroupMeta[] = [
   {
     id: 'sapi',

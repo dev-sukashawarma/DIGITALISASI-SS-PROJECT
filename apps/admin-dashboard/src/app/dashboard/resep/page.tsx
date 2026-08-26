@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import ResepTabView from './ResepTabView'
-import { getMenuCategoryGroup } from './categoryHelper'
+import { getMenuCategoryGroup, getSizeRank } from './categoryHelper'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,11 +12,11 @@ export default async function ResepPage() {
     setAll: () => {},
   })
 
-  // Fetch all menu items with categories, channel prices, and package info
+  // Fetch all menu items with categories, channel prices, channel hpp, and package info
   const [menuRes, recipesRes, channelsRes] = await Promise.all([
     supabase
       .from('menu_items')
-      .select('id, name, price, hpp_override, channel_prices, is_available, is_available_online, available_online_channels, is_package, sort_order, categories(name, sort_order), package_items:menu_packages!package_id(id, menu_item_id, quantity)')
+      .select('id, name, price, hpp_override, channel_prices, channel_hpp, is_available, is_available_online, available_online_channels, is_package, sort_order, categories(name, sort_order), package_items:menu_packages!package_id(id, menu_item_id, quantity)')
       .order('sort_order'),
     supabase
       .from('resep')
@@ -128,6 +128,7 @@ export default async function ResepPage() {
       price: Number(menu.price) || 0,
       hppOverride: menu.hpp_override !== null && menu.hpp_override !== undefined ? Number(menu.hpp_override) : null,
       channelPrices: (menu.channel_prices as Record<string, number>) || {},
+      channelHpp: (menu.channel_hpp as Record<string, number>) || {},
       isAvailable: menu.is_available !== false,
       isAvailableOnline: !!menu.is_available_online,
       availableOnlineChannels: (menu.available_online_channels as string[] | null) ?? null,
@@ -188,6 +189,9 @@ export default async function ResepPage() {
     }
   }).sort((a: any, b: any) => {
     if (a.categoryOrder !== b.categoryOrder) return a.categoryOrder - b.categoryOrder
+    const sizeRankA = getSizeRank(a.name)
+    const sizeRankB = getSizeRank(b.name)
+    if (sizeRankA !== sizeRankB) return sizeRankA - sizeRankB
     if ((a.sort_order || 0) !== (b.sort_order || 0)) return (a.sort_order || 0) - (b.sort_order || 0)
     return a.name.localeCompare(b.name)
   })

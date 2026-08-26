@@ -33,7 +33,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 
   let ordersQ = supabase
     .from('orders')
-    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))))')
+    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
     .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
@@ -118,13 +118,32 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 
     // Accumulate COGS (HPP)
     const oType = outletTypeMap.get(o.outlet_id)
+    const orderChannel = (o.channel || o.sales_source || '').toLowerCase()
     if (o.order_items && Array.isArray(o.order_items)) {
       for (const oi of o.order_items) {
         const qty = Number(oi.quantity || 1)
         let itemHpp = 0
         const mi = oi.menu_items
         if (mi) {
-          if (mi.hpp_override !== null && mi.hpp_override !== undefined && Number(mi.hpp_override) > 0) {
+          let channelHppVal: number | null = null
+          if (mi.channel_hpp && typeof mi.channel_hpp === 'object' && orderChannel) {
+            if (
+              orderChannel === 'ss-online' ||
+              orderChannel === 'ss_online' ||
+              orderChannel.includes('tiktok') ||
+              orderChannel.includes('shopee') ||
+              orderChannel === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+              orderChannel === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
+            ) {
+              channelHppVal = mi.channel_hpp.ss_online ?? mi.channel_hpp.tiktok_shop ?? mi.channel_hpp.shopee_shop ?? mi.channel_hpp[orderChannel] ?? null
+            } else {
+              channelHppVal = mi.channel_hpp[orderChannel] ?? null
+            }
+          }
+
+          if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+            itemHpp = Number(channelHppVal)
+          } else if (mi.hpp_override !== null && mi.hpp_override !== undefined && Number(mi.hpp_override) > 0) {
             itemHpp = Number(mi.hpp_override)
           } else if (mi.is_package && Array.isArray(mi.package_items)) {
             itemHpp = mi.package_items.reduce((sum: number, pkg: any) => {

@@ -57,6 +57,38 @@ export default function AdminOverviewView({
     setLoading(true)
     const supabase = createClient()
 
+    // SS Online: fetch dari ecommerce_sales
+    if (selectedOutlet === 'ss-online') {
+      let q = supabase
+        .from('ecommerce_sales')
+        .select('id, total_amount, order_date, channel_id, raw_data')
+        .order('order_date', { ascending: true })
+
+      const lowerBound = dateRange.prevStart ?? dateRange.start
+      if (lowerBound) q = q.gte('order_date', lowerBound.toISOString())
+      if (dateRange.end) q = q.lte('order_date', dateRange.end.toISOString())
+
+      const { data } = await q
+      const mapped: OrderRow[] = (data ?? []).map((e: any) => {
+        const raw = e.raw_data || {}
+        const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+        return {
+          id: e.id,
+          status: 'completed',
+          total_amount: e.total_amount,
+          discount_amount: totalPotongan,
+          created_at: e.order_date,
+          outlet_id: 'ss-online',
+          channel: e.channel_id,
+          sales_source: 'Online',
+        }
+      })
+      setOrders(mapped)
+      setLoading(false)
+      return
+    }
+
+    // POS orders
     let q = supabase
       .from('orders')
       .select('id, status, total_amount, created_at, outlet_id, channel, sales_source, scheduled_promo_names')
@@ -84,6 +116,13 @@ export default function AdminOverviewView({
       const m = String(d.getMonth() + 1).padStart(2, '0')
       const day = String(d.getDate()).padStart(2, '0')
       return `${d.getFullYear()}-${m}-${day}`
+    }
+
+    // SS Online tidak punya sales_hourly_spv
+    if (selectedOutlet === 'ss-online') {
+      setChartDaily([])
+      setIsChartLoading(false)
+      return
     }
 
     let q = supabase
@@ -193,7 +232,9 @@ export default function AdminOverviewView({
   }, [chartDaily])
 
   const selectedOutletName = selectedOutlet === 'all' 
-    ? 'Semua Cabang' 
+    ? 'Semua Cabang'
+    : selectedOutlet === 'ss-online'
+    ? 'SS Online'
     : outlets.find(o => o.id === selectedOutlet)?.name || 'Cabang Tidak Ditemukan'
 
   const GrowthBadge = ({ value }: { value: number }) => {
@@ -224,11 +265,15 @@ export default function AdminOverviewView({
 
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           <BranchFilter 
-            outlets={outlets} 
+            outlets={[
+              { id: 'ss-online', name: '🛒 SS Online' } as any,
+              ...outlets
+            ]} 
             selectedOutlet={selectedOutlet} 
             onChange={setSelectedOutlet} 
             className="w-full sm:w-64"
           />
+
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
             {chartRange === 'custom' && (

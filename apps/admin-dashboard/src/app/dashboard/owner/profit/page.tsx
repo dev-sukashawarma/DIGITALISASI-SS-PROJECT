@@ -12,30 +12,24 @@ import { useWaste } from '@/hooks/useWaste'
 import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah } from '@/lib/format'
-import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
+import { PageHeader, StatTilesSkeleton } from '@/components/ui'
 import CountUp from 'react-countup'
 import { 
   TrendingUp, 
-  TrendingDown, 
   Boxes, 
   Layers, 
-  Building2, 
   Receipt, 
-  Wallet, 
   Banknote, 
   Calculator,
-  ArrowDownRight,
-  ArrowUpRight,
   ShieldCheck,
   AlertTriangle,
   PieChart,
   Store,
   Sparkles,
-  Search,
-  ArrowUpDown
+  Search
 } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { motion } from 'framer-motion'
+import { isTestOutlet } from '@/lib/outletFilters'
 
 export default function ProfitPage() {
   const queryClient = useQueryClient()
@@ -86,10 +80,6 @@ export default function ProfitPage() {
   // Calculations (Filter out any test outlet)
   const actualGrossRevenue = useMemo(
     () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.omzet + (r.total_deductions || 0), 0), 
-    [sales.rows]
-  )
-  const actualNetRevenue = useMemo(
-    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.omzet, 0), 
     [sales.rows]
   )
 

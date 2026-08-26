@@ -73,10 +73,11 @@ function getItemHpp(
   menuItem: any, 
   outletType?: string, 
   fallbackName?: string, 
-  menuItemByNameMap?: Map<string, any>
+  menuItemByNameMap?: Map<string, any>,
+  channel?: string | null
 ): number {
   let itemObj = menuItem
-  if ((!itemObj || (!itemObj.hpp_override && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
+  if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
     const cleanKey = cleanItemName(fallbackName)
     if (menuItemByNameMap.has(cleanKey)) {
       itemObj = menuItemByNameMap.get(cleanKey)
@@ -85,11 +86,31 @@ function getItemHpp(
   if (!itemObj) return 0
 
   let baseHpp = 0
-  if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
+  const normCh = channel ? channel.toLowerCase() : null
+  let channelHppVal: number | null = null
+
+  if (itemObj.channel_hpp && typeof itemObj.channel_hpp === 'object' && normCh) {
+    if (
+      normCh === 'ss-online' ||
+      normCh === 'ss_online' ||
+      normCh.includes('tiktok') ||
+      normCh.includes('shopee') ||
+      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
+    ) {
+      channelHppVal = itemObj.channel_hpp.ss_online ?? itemObj.channel_hpp.tiktok_shop ?? itemObj.channel_hpp.shopee_shop ?? itemObj.channel_hpp[normCh] ?? null
+    } else {
+      channelHppVal = itemObj.channel_hpp[normCh] ?? null
+    }
+  }
+
+  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+    baseHpp = Number(channelHppVal)
+  } else if (itemObj.hpp_override !== null && itemObj.hpp_override !== undefined && Number(itemObj.hpp_override) > 0) {
     baseHpp = Number(itemObj.hpp_override)
   } else if (itemObj.is_package && Array.isArray(itemObj.package_items)) {
     baseHpp = itemObj.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component?.hpp_override || 0
+      const compHpp = pkg.component ? getItemHpp(pkg.component, outletType, undefined, undefined, channel) : (pkg.component?.hpp_override || 0)
       const qty = pkg.quantity || 1
       return sum + (compHpp * qty)
     }, 0)
@@ -174,6 +195,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   )
   // selectedOutlet menunjuk salah satu dari outlet fisik.
   const branchFilterValue = selectedOutlets
+  const isSSOnlineSelected = selectedOutlets.length === 1 && selectedOutlets[0] === 'ss-online'
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
@@ -346,7 +368,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, package_choices)')
+        .select('*, order_items(*, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .order('created_at', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
@@ -410,7 +432,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildEcommerceQuery = () => {
       let query = supabase
         .from('ecommerce_sales')
-        .select('id, order_id, order_date, channel_id, total_amount, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name))')
+        .select('*, ecommerce_sale_items(*, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .order('order_date', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
@@ -438,34 +460,40 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       }
 
       // Map to OrderRow format
-      return allEc.map((ec: any) => ({
-        id: ec.id,
-        order_number: 0,
-        status: 'completed',
-        payment_method: ec.channel_id,
-        total_amount: ec.total_amount,
-        created_at: ec.order_date,
-        outlet_id: 'ss-online',
-        channel: ec.channel_id,
-        sales_source: 'Online',
-        customer_name: 'SS Online Customer',
-        cashier_name: null,
-        external_order_id: ec.order_id,
-        order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
-          id: item.id,
-          menu_item_name: item.menu_items?.name || 'Unknown Item',
-          quantity: item.quantity,
-          unit_price: item.price,
-          subtotal: item.subtotal,
-          package_choices: null,
-          menu_items: null
-        }))
-      })) as OrderRow[]
+      return allEc.map((ec: any) => {
+        const raw = ec.raw_data || {}
+        const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+        return {
+          id: ec.id,
+          order_number: 0,
+          status: 'completed',
+          payment_method: ec.channel_id,
+          total_amount: ec.total_amount,
+          discount_amount: totalPotongan,
+          promo_subsidy: 0,
+          created_at: ec.order_date,
+          outlet_id: 'ss-online',
+          channel: ec.channel_id,
+          sales_source: 'Online',
+          customer_name: 'SS Online Customer',
+          cashier_name: null,
+          external_order_id: ec.order_id,
+          order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
+            id: item.id,
+            menu_item_name: item.menu_items?.name || 'Unknown Item',
+            quantity: item.quantity,
+            unit_price: item.price,
+            subtotal: item.subtotal,
+            package_choices: null,
+            menu_items: item.menu_items
+          }))
+        }
+      }) as OrderRow[]
     }
 
     const menuItemsQuery = supabase
       .from('menu_items')
-      .select('id, name, hpp_override, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override))')
+      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
 
     let qSettlements = supabase.from('platform_settlements').select('*')
     if (!selectedOutlets.includes('all')) {
@@ -509,6 +537,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       setSelectedChannels(['all'])
     }
   }, [isPawoonVisible])
+
+  useEffect(() => {
+    if (isSSOnlineSelected) {
+      setSelectedPaymentMethod('all')
+      if (selectedChannels.some(ch => ch !== 'all' && ch !== 'tiktok_shop' && ch !== 'shopee_shop')) {
+        setSelectedChannels(['all'])
+      }
+    }
+  }, [isSSOnlineSelected])
 
   // ─── Available Channels ───
   const PAWOON_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
@@ -560,6 +597,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       return order.order_items.some((item: any) => item.menu_item_name.includes('FA'))
     }
     if (target === 'tiktokgo' || target === 'tiktok') return ['tiktokgo', 'tiktok', 'tiktok_go'].includes(src)
+    if (target === 'tiktok_shop' || target === 'tiktokshop') {
+      return ['tiktok_shop', 'tiktokshop', 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5'].includes(src) || ['tiktok_shop', 'tiktokshop', 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5'].includes((order.channel || '').toLowerCase())
+    }
+    if (target === 'shopee_shop' || target === 'shopeeseller' || target === 'shopee_seller') {
+      return ['shopee_shop', 'shopeeseller', 'shopee_seller', 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'].includes(src) || ['shopee_shop', 'shopeeseller', 'shopee_seller', 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'].includes((order.channel || '').toLowerCase())
+    }
     return src === target
   }
 
@@ -594,8 +637,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .filter(o => o.status !== 'cancelled' && o.status !== 'void')
       .reduce((sum, o) => {
         const outletType = outletTypeMap.get(o.outlet_id)
+        const orderChannel = o.channel || o.sales_source
         return sum + o.order_items.reduce((itemSum, item) => {
-          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap);
+          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, orderChannel);
           return itemSum + (hpp * item.quantity);
         }, 0)
       }, 0)
@@ -795,7 +839,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         const src = resolveOrderSource(order.channel, order.sales_source, order.customer_name, order.is_endorse)
         
         let groupLabel = 'OFFLINE'
-        if (['shopeefood', 'grabfood', 'gofood'].includes(src.key)) {
+        if (order.outlet_id === 'ss-online' || src.key.includes('tiktok_shop') || src.key.includes('shopee_shop')) {
+          groupLabel = 'SS ONLINE'
+        } else if (['shopeefood', 'grabfood', 'gofood'].includes(src.key)) {
           groupLabel = 'FOOD APPS'
         } else if (['tiktokgo', 'tiktok', 'tiktok_go'].includes(src.key)) {
           groupLabel = 'TIKTOK'
@@ -804,7 +850,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         }
         
         const key = `${cleanName}-${groupLabel}`
-        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap)
+        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -968,7 +1014,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           }
         }
         
-        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap)
+        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
         
         catData.itemMap[key].qty += oi.quantity
         catData.itemMap[key].revenue += oi.subtotal
@@ -1096,7 +1142,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           }
         }
         
-        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap)
+        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
         
         catData.itemMap[key].qty += oi.quantity
         catData.itemMap[key].revenue += oi.subtotal
@@ -1175,13 +1221,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             )}
 
             <MultiSelectDropdown
-              options={[
-                { id: 'food_apps', name: 'Semua Food Apps' },
-                ...availableChannels.map(ch => ({ id: ch.key, name: ch.label }))
-              ]}
+              options={
+                isSSOnlineSelected
+                  ? [
+                      { id: 'tiktok_shop', name: 'TikTok Seller' },
+                      { id: 'shopee_shop', name: 'Shopee Seller' }
+                    ]
+                  : [
+                      { id: 'food_apps', name: 'Semua Food Apps' },
+                      ...availableChannels.map(ch => ({ id: ch.key, name: ch.label }))
+                    ]
+              }
               selectedIds={selectedChannels}
               onChange={setSelectedChannels}
-              allLabel="Semua Channel"
+              allLabel={isSSOnlineSelected ? 'Semua Platform' : 'Semua Channel'}
             />
 
             <div className="relative flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full xl:w-auto">
@@ -1530,11 +1583,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                       className="inline-flex items-center gap-1.5 text-xs bg-amber-100 hover:bg-amber-200 text-amber-800 font-semibold px-2.5 py-1 rounded-full transition-all shadow-xs cursor-pointer"
                       title="Klik untuk hapus filter sumber"
                     >
-                      <span>Sumber: <strong className="font-bold">{selectedChannels.map(ch => ch === 'food_apps' ? 'Semua Food Apps' : (availableChannels.find(c => c.key === ch)?.label || ch)).join(', ')}</strong></span>
+                      <span>Sumber: <strong className="font-bold">{selectedChannels.map(ch => ch === 'food_apps' ? 'Semua Food Apps' : (isSSOnlineSelected ? (ch === 'tiktok_shop' ? 'TikTok Seller' : ch === 'shopee_shop' ? 'Shopee Seller' : ch) : (availableChannels.find(c => c.key === ch)?.label || ch))).join(', ')}</strong></span>
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
-                  {selectedPaymentMethod !== 'all' && (
+                  {!isSSOnlineSelected && selectedPaymentMethod !== 'all' && (
                     <button
                       type="button"
                       onClick={() => { setSelectedPaymentMethod('all'); setCurrentPage(1); }}
@@ -1557,10 +1610,17 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 {/* Dropdown Select Sumber */}
                 <div className="relative flex-1 sm:flex-none min-w-[180px]">
                   <MultiSelectDropdown
-                    options={[
-                      { id: 'food_apps', name: 'Semua Food Apps' },
-                      ...availableChannels.map(ch => ({ id: ch.key, name: ch.label }))
-                    ]}
+                    options={
+                      isSSOnlineSelected
+                        ? [
+                            { id: 'tiktok_shop', name: 'TikTok Seller' },
+                            { id: 'shopee_shop', name: 'Shopee Seller' }
+                          ]
+                        : [
+                            { id: 'food_apps', name: 'Semua Food Apps' },
+                            ...availableChannels.map(ch => ({ id: ch.key, name: ch.label }))
+                          ]
+                    }
                     selectedIds={selectedChannels}
                     onChange={(ids) => {
                       setSelectedChannels(ids)
@@ -1571,25 +1631,27 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   />
                 </div>
 
-                {/* Dropdown Select Metode Bayar */}
-                <div className="relative flex-1 sm:flex-none min-w-[160px]">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
-                    <Wallet className="h-4 w-4 text-blue-500" />
+                {/* Dropdown Select Metode Bayar (Disembunyikan jika filter SS Online aktif) */}
+                {!isSSOnlineSelected && (
+                  <div className="relative flex-1 sm:flex-none min-w-[160px]">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-400">
+                      <Wallet className="h-4 w-4 text-blue-500" />
+                    </div>
+                    <select
+                      value={selectedPaymentMethod}
+                      onChange={(e) => {
+                        setSelectedPaymentMethod(e.target.value)
+                        setCurrentPage(1)
+                      }}
+                      className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
+                    >
+                      <option value="all">Semua Metode Bayar</option>
+                      {availablePaymentMethods.map(pm => (
+                        <option key={pm.key} value={pm.key}>{pm.label}</option>
+                      ))}
+                    </select>
                   </div>
-                  <select
-                    value={selectedPaymentMethod}
-                    onChange={(e) => {
-                      setSelectedPaymentMethod(e.target.value)
-                      setCurrentPage(1)
-                    }}
-                    className="block w-full pl-9 pr-8 py-2 border border-gray-200 rounded-xl leading-5 bg-gray-50 text-gray-700 font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-colors text-sm cursor-pointer shadow-2xs"
-                  >
-                    <option value="all">Semua Metode Bayar</option>
-                    {availablePaymentMethods.map(pm => (
-                      <option key={pm.key} value={pm.key}>{pm.label}</option>
-                    ))}
-                  </select>
-                </div>
+                )}
 
                 {/* Input Cari */}
                 <div className="relative flex-1 sm:flex-none min-w-[180px]">
@@ -1615,26 +1677,28 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                     <th className="px-5 py-4">Waktu</th>
                     <th className="px-5 py-4">Nama</th>
                     <th className="px-5 py-4">Nama Item</th>
-                    <th className="px-5 py-4">Paket / Combo</th>
+                    {!isSSOnlineSelected && <th className="px-5 py-4">Paket / Combo</th>}
                     <th className="px-5 py-4">
                       <div className="flex items-center gap-1.5">
                         <span>Sumber</span>
                         <Filter className={`w-3.5 h-3.5 ${!selectedChannels.includes('all') ? 'text-amber-600' : 'text-gray-400 opacity-50'}`} />
                       </div>
                     </th>
-                    <th className="px-5 py-4">
-                      <div className="flex items-center gap-1.5">
-                        <span>Metode Bayar</span>
-                        <Filter className={`w-3.5 h-3.5 ${selectedPaymentMethod !== 'all' ? 'text-blue-600' : 'text-gray-400 opacity-50'}`} />
-                      </div>
-                    </th>
+                    {!isSSOnlineSelected && (
+                      <th className="px-5 py-4">
+                        <div className="flex items-center gap-1.5">
+                          <span>Metode Bayar</span>
+                          <Filter className={`w-3.5 h-3.5 ${selectedPaymentMethod !== 'all' ? 'text-blue-600' : 'text-gray-400 opacity-50'}`} />
+                        </div>
+                      </th>
+                    )}
                     <th className="px-5 py-4 text-right">Total Transaksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {paginatedData.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
+                      <td colSpan={isSSOnlineSelected ? 6 : 8} className="px-5 py-10 text-center text-gray-400 font-medium">Data tidak ditemukan</td>
                     </tr>
                   ) : (
                     paginatedData.map((order) => {
@@ -1692,35 +1756,37 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                               )}
                             </div>
                           </td>
-                          <td className="px-5 py-4 font-medium text-gray-700">
-                            {pkgs.length === 0 ? (
-                              <span className="text-gray-400 font-normal italic">-</span>
-                            ) : (
-                              <div className="flex flex-col gap-1.5">
-                                {pkgs.map((pkg, idx) => (
-                                  <div key={idx} className="flex flex-col gap-0.5">
-                                    <div className="inline-flex items-center gap-1.5 whitespace-normal leading-tight text-[12px]">
-                                      <span className="font-bold text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">
-                                        {pkg.qty}x
-                                      </span>
-                                      <span className="font-semibold text-amber-950 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
-                                        {pkg.name}
-                                      </span>
-                                    </div>
-                                    {pkg.choices && Object.keys(pkg.choices).length > 0 && (
-                                      <div className="pl-6 flex flex-wrap gap-1 text-[10px] text-gray-500 mt-0.5">
-                                        {Object.entries(pkg.choices).map(([k, v]) => (
-                                          <span key={k} className="bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded border border-gray-200/50">
-                                            {k}: <strong className="text-gray-800">{v}</strong>
-                                          </span>
-                                        ))}
+                          {!isSSOnlineSelected && (
+                            <td className="px-5 py-4 font-medium text-gray-700">
+                              {pkgs.length === 0 ? (
+                                <span className="text-gray-400 font-normal italic">-</span>
+                              ) : (
+                                <div className="flex flex-col gap-1.5">
+                                  {pkgs.map((pkg, idx) => (
+                                    <div key={idx} className="flex flex-col gap-0.5">
+                                      <div className="inline-flex items-center gap-1.5 whitespace-normal leading-tight text-[12px]">
+                                        <span className="font-bold text-amber-900 bg-amber-100/90 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">
+                                          {pkg.qty}x
+                                        </span>
+                                        <span className="font-semibold text-amber-950 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
+                                          {pkg.name}
+                                        </span>
                                       </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </td>
+                                      {pkg.choices && Object.keys(pkg.choices).length > 0 && (
+                                        <div className="pl-6 flex flex-wrap gap-1 text-[10px] text-gray-500 mt-0.5">
+                                          {Object.entries(pkg.choices).map(([k, v]) => (
+                                            <span key={k} className="bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded border border-gray-200/50">
+                                              {k}: <strong className="text-gray-800">{v}</strong>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          )}
                           <td className="px-5 py-4">
                             <button
                               type="button"
@@ -1735,22 +1801,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                               <OrderSourceBadge channel={order.channel} salesSource={order.sales_source} customerName={order.customer_name} isEndorse={order.is_endorse} size="sm" />
                             </button>
                           </td>
-                          <td className="px-5 py-4">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const pm = (order.payment_method || 'unknown').toLowerCase()
-                                setSelectedPaymentMethod(prev => prev === pm ? 'all' : pm)
-                                setCurrentPage(1)
-                              }}
-                              className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
-                              title="Klik untuk memfilter transaksi berdasarkan metode bayar ini"
-                            >
-                              <span className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase transition-colors">
-                                {order.payment_method || '-'}
-                              </span>
-                            </button>
-                          </td>
+                          {!isSSOnlineSelected && (
+                            <td className="px-5 py-4">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const pm = (order.payment_method || 'unknown').toLowerCase()
+                                  setSelectedPaymentMethod(prev => prev === pm ? 'all' : pm)
+                                  setCurrentPage(1)
+                                }}
+                                className="hover:scale-105 active:scale-95 transition-all text-left inline-flex focus:outline-none cursor-pointer"
+                                title="Klik untuk memfilter transaksi berdasarkan metode bayar ini"
+                              >
+                                <span className="px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-100 text-[10px] font-bold rounded-lg uppercase transition-colors">
+                                  {order.payment_method || '-'}
+                                </span>
+                              </button>
+                            </td>
+                          )}
                           <td className="px-5 py-4 text-right">
                             {offlineDiscount > 0 && (
                               <div className="text-gray-400 text-[11px] font-medium line-through mb-0.5" title="Harga awal sebelum diskon">
@@ -1786,7 +1854,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                     return (
                       <>
                         <tr className="border-t border-amber-200">
-                          <td colSpan={6} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-amber-900">
+                          <td colSpan={isSSOnlineSelected ? 4 : 6} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-amber-900">
                             Total Harga Kotor
                           </td>
                           <td className="px-5 py-3 text-left">
@@ -1800,7 +1868,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                         </tr>
                         {totalOfflineDiscount > 0 && (
                           <tr>
-                            <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
+                            <td colSpan={isSSOnlineSelected ? 5 : 7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
                               Potongan Diskon Promo Offline
                             </td>
                             <td className="px-5 py-3 text-right text-sm font-bold text-red-600 whitespace-nowrap">
@@ -1810,7 +1878,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                         )}
                         {totalAppSubsidy > 0 && (
                           <tr>
-                            <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
+                            <td colSpan={isSSOnlineSelected ? 5 : 7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
                               Total Subsidi Promo Food Apps
                             </td>
                             <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">

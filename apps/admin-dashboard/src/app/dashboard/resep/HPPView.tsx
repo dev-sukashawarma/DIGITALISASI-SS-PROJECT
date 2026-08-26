@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
-import { TrendingUp, TrendingDown, Minus, Filter, Package, Sandwich, Store, Globe, ArrowUpDown, ChevronUp, ChevronDown, Pencil, Trash2, Loader2, Search, X, Check } from 'lucide-react'
+import { TrendingUp, TrendingDown, Minus, Filter, Package, Sandwich, Store, Globe, ShoppingBag, ArrowUpDown, ChevronUp, ChevronDown, Pencil, Trash2, Loader2, Search, X, Check } from 'lucide-react'
 import { CHANNELS } from '@/lib/channels'
 
 interface HppMenuItem {
@@ -17,6 +17,7 @@ interface HppMenuItem {
   sortOrder: number
   price: number
   channelPrices: Record<string, number>
+  channelHpp?: Record<string, number>
   availableOnlineChannels: string[] | null // null = semua channel
   isAvailableOnline: boolean
   isPackage: boolean
@@ -44,7 +45,7 @@ interface HppRow {
   hpp: number | null
   hppOverride: number | null
   isPartial: boolean
-  categoryKey: 'offline' | 'online_web' | 'food_apps' | 'tiktok_go'
+  categoryKey: 'offline' | 'online_web' | 'food_apps' | 'tiktok_go' | 'ss_online'
   categoryLabel: string
   price: number
   logos: React.ReactNode
@@ -52,6 +53,7 @@ interface HppRow {
   categoryOrder: number
   updateKey: 'base' | string | string[]
   currentChannelPrices: Record<string, number>
+  currentChannelHpp: Record<string, number>
 }
 
 type SortField = 'category' | 'name' | 'type' | 'hpp' | 'price' | 'profit' | 'margin' | 'order'
@@ -120,7 +122,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  const [selectedFilter, setSelectedFilter] = useState<'all' | 'offline' | 'online_web' | 'food_apps' | 'tiktok_go'>('all')
+  const [selectedFilter, setSelectedFilter] = useState<'all' | 'offline' | 'online_web' | 'food_apps' | 'tiktok_go' | 'ss_online'>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('order')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -166,6 +168,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
         categoryOrder: item.categoryOrder,
         updateKey: 'base',
         currentChannelPrices: item.channelPrices,
+        currentChannelHpp: item.channelHpp || {},
       })
 
       // Helper to check if a specific online channel key is active for the menu item
@@ -210,6 +213,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
           categoryOrder: item.categoryOrder,
           updateKey: 'online',
           currentChannelPrices: item.channelPrices,
+          currentChannelHpp: item.channelHpp || {},
         })
       }
 
@@ -256,6 +260,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
             categoryOrder: item.categoryOrder,
             updateKey: apps.map((a) => a.id),
             currentChannelPrices: item.channelPrices,
+            currentChannelHpp: item.channelHpp || {},
           })
         })
       }
@@ -288,6 +293,46 @@ export default function HPPView({ items, channels }: HPPViewProps) {
           categoryOrder: item.categoryOrder,
           updateKey: 'tiktokgo',
           currentChannelPrices: item.channelPrices,
+          currentChannelHpp: item.channelHpp || {},
+        })
+      }
+
+      // 5. SS Online (TikTok Shop & Shopee)
+      const hasSsOnlineHpp = item.channelHpp?.ss_online !== undefined || item.channelHpp?.tiktok_shop !== undefined
+      const isSsOnlineActive =
+        isChannelActive('ss_online') ||
+        isChannelActive('tiktok_shop') ||
+        isChannelActive('shopee_shop') ||
+        hasSsOnlineHpp
+
+      if (isSsOnlineActive) {
+        const ssHpp = item.channelHpp?.ss_online ?? item.channelHpp?.tiktok_shop ?? null
+        const ssPrice = item.channelPrices?.ss_online ?? item.channelPrices?.tiktok_shop ?? item.price
+        rows.push({
+          key: `${item.id}-ss_online`,
+          itemId: item.id,
+          name: item.name,
+          isPackage: item.isPackage,
+          hpp: item.hpp,
+          hppOverride: ssHpp !== null ? Number(ssHpp) : null,
+          isPartial: item.isPartial,
+          categoryKey: 'ss_online',
+          categoryLabel: 'SS Online',
+          price: ssPrice,
+          logos: (
+            <span
+              title="SS Online (TikTok Shop & Shopee)"
+              className="inline-flex items-center justify-center rounded-full bg-rose-600"
+              style={{ width: 20, height: 20 }}
+            >
+              <ShoppingBag className="w-2.5 h-2.5 text-white" />
+            </span>
+          ),
+          sortOrder: item.sortOrder,
+          categoryOrder: item.categoryOrder,
+          updateKey: 'ss_online',
+          currentChannelPrices: item.channelPrices,
+          currentChannelHpp: item.channelHpp || {},
         })
       }
     }
@@ -318,11 +363,10 @@ export default function HPPView({ items, channels }: HPPViewProps) {
         .from('resep')
         .select('id')
         .eq('menu_item_ref', itemId)
-        .eq('scope', 'global')
         .maybeSingle()
 
-      if (recipe?.id) {
-        // Delete items first
+      if (recipe) {
+        // Delete all child recipe items first
         const { error: errItems } = await supabase
           .from('resep_item')
           .delete()
@@ -397,22 +441,55 @@ export default function HPPView({ items, channels }: HPPViewProps) {
     setOverrideValue(currentValue !== null ? currentValue.toString() : '')
   }
 
-  const handleSaveOverride = async (itemId: string, name: string) => {
+  const handleSaveOverride = async (row: HppRow) => {
     try {
       setIsSavingOverride(true)
       const val = overrideValue.trim() === '' ? null : Math.round(Number(overrideValue))
 
-      const { error } = await supabase
-        .from('menu_items')
-        .update({ hpp_override: val })
-        .eq('id', itemId)
-
-      if (error) throw error
+      if (row.categoryKey === 'ss_online') {
+        const newChannelHpp = { ...(row.currentChannelHpp || {}) }
+        if (val === null) {
+          delete newChannelHpp.ss_online
+          delete newChannelHpp.tiktok_shop
+          delete newChannelHpp.shopee_shop
+          delete newChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5']
+          delete newChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584']
+        } else {
+          newChannelHpp.ss_online = val
+          newChannelHpp.tiktok_shop = val
+          newChannelHpp.shopee_shop = val
+          newChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5'] = val
+          newChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584'] = val
+        }
+        const { error } = await supabase
+          .from('menu_items')
+          .update({ channel_hpp: newChannelHpp })
+          .eq('id', row.itemId)
+        if (error) throw error
+      } else if (row.categoryKey === 'offline') {
+        const { error } = await supabase
+          .from('menu_items')
+          .update({ hpp_override: val })
+          .eq('id', row.itemId)
+        if (error) throw error
+      } else {
+        const newChannelHpp = { ...(row.currentChannelHpp || {}) }
+        if (val === null) {
+          delete newChannelHpp[row.categoryKey]
+        } else {
+          newChannelHpp[row.categoryKey] = val
+        }
+        const { error } = await supabase
+          .from('menu_items')
+          .update({ channel_hpp: newChannelHpp })
+          .eq('id', row.itemId)
+        if (error) throw error
+      }
 
       toast.success(
         val === null
-          ? `HPP Override untuk "${name}" berhasil direset ke BOM`
-          : `HPP Override untuk "${name}" berhasil diset ke Rp ${val.toLocaleString('id-ID')}`
+          ? `HPP Override untuk "${row.name}" (${row.categoryLabel}) berhasil direset`
+          : `HPP Override untuk "${row.name}" (${row.categoryLabel}) berhasil diset ke Rp ${val.toLocaleString('id-ID')}`
       )
       setEditingOverrideId(null)
       router.refresh()
@@ -424,17 +501,39 @@ export default function HPPView({ items, channels }: HPPViewProps) {
     }
   }
 
-  const handleResetOverride = async (itemId: string, name: string) => {
-    if (!confirm(`Reset HPP override untuk "${name}" kembali ke perhitungan BOM?`)) {
+  const handleResetOverride = async (row: HppRow) => {
+    if (!confirm(`Reset HPP override untuk "${row.name}" (${row.categoryLabel})?`)) {
       return
     }
     try {
-      const { error } = await supabase
-        .from('menu_items')
-        .update({ hpp_override: null })
-        .eq('id', itemId)
-      if (error) throw error
-      toast.success('HPP Override berhasil direset ke BOM')
+      if (row.categoryKey === 'ss_online') {
+        const newChannelHpp = { ...(row.currentChannelHpp || {}) }
+        delete newChannelHpp.ss_online
+        delete newChannelHpp.tiktok_shop
+        delete newChannelHpp.shopee_shop
+        delete newChannelHpp['f3305089-b9e4-4b92-95da-14bf6e7fb6d5']
+        delete newChannelHpp['d68eb5ec-d6bb-4d0a-8758-a2600c8f1584']
+        const { error } = await supabase
+          .from('menu_items')
+          .update({ channel_hpp: newChannelHpp })
+          .eq('id', row.itemId)
+        if (error) throw error
+      } else if (row.categoryKey === 'offline') {
+        const { error } = await supabase
+          .from('menu_items')
+          .update({ hpp_override: null })
+          .eq('id', row.itemId)
+        if (error) throw error
+      } else {
+        const newChannelHpp = { ...(row.currentChannelHpp || {}) }
+        delete newChannelHpp[row.categoryKey]
+        const { error } = await supabase
+          .from('menu_items')
+          .update({ channel_hpp: newChannelHpp })
+          .eq('id', row.itemId)
+        if (error) throw error
+      }
+      toast.success(`HPP Override untuk "${row.name}" berhasil direset`)
       router.refresh()
     } catch (e: any) {
       toast.error(e.message || 'Gagal mereset override')
@@ -609,6 +708,19 @@ export default function HPPView({ items, channels }: HPPViewProps) {
           >
             <ChannelLogo channelId="tiktokgo" size={14} />
             TikTok Go
+          </button>
+          <button
+            onClick={() => setSelectedFilter('ss_online')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+              selectedFilter === 'ss_online'
+                ? 'bg-rose-600 text-white border-rose-600 shadow-sm'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+            }`}
+          >
+            <span className="inline-flex items-center justify-center rounded-full w-4 h-4 bg-rose-600 text-white p-0.5">
+              <ShoppingBag className="w-2.5 h-2.5" />
+            </span>
+            SS Online
           </button>
         </div>
 
@@ -787,7 +899,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
                             className="w-20 px-2 py-0.5 text-xs text-right border border-gray-300 rounded focus:ring-1 focus:ring-suka-primary focus:border-suka-primary"
                           />
                           <button
-                            onClick={() => handleSaveOverride(row.itemId, row.name)}
+                            onClick={() => handleSaveOverride(row)}
                             disabled={isSavingOverride}
                             className="p-1 text-green-600 hover:bg-green-50 rounded"
                             title="Simpan"
@@ -825,7 +937,7 @@ export default function HPPView({ items, channels }: HPPViewProps) {
                           
                           {row.hppOverride !== null && (
                             <button
-                              onClick={() => handleResetOverride(row.itemId, row.name)}
+                              onClick={() => handleResetOverride(row)}
                               className="opacity-0 group-hover/cell:opacity-100 p-1 text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-all"
                               title="Reset ke BOM"
                             >

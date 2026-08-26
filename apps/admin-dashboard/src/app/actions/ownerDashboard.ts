@@ -81,7 +81,7 @@ async function fetchEcommerceOwnerData(
     const kpiKey = `ss-online|${salesSource}|${dateStr}`
     const existingKpi = kpiMap.get(kpiKey) || {
       outlet_id: 'ss-online',
-      outlet_name: '🛒 SS Online',
+      outlet_name: 'SS ONLINE',
       sales_source: salesSource,
       sales_date: dateStr,
       omzet: 0,

@@ -132,7 +132,7 @@ export default function OwnerDashboardView({
           />
 
           {/* Indikator target harian realtime */}
-          {role !== 'MITRA' && (
+          {role !== 'MITRA' && filter.outletId !== 'ss-online' && (
             <DailyTargetBoard filter={filter} kpiRows={curKpiRows || []} />
           )}
 
@@ -142,15 +142,15 @@ export default function OwnerDashboardView({
                 rows={isOneDay ? (hourlyRows || []) : (curKpiRows || [])} 
                 isHourly={isOneDay} 
               />
-              <SourceBreakdown rows={curKpiRows || []} />
+              <SourceBreakdown rows={curKpiRows || []} outletId={filter.outletId} />
             </div>
             <div className="space-y-6">
               <TopMenus rows={menuRows || []} />
-              <BottomMenus rows={menuRows || []} />
+              {filter.outletId !== 'ss-online' && <BottomMenus rows={menuRows || []} />}
             </div>
           </div>
 
-          {!isReadOnly && (
+          {!isReadOnly && filter.outletId !== 'ss-online' && (
             <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
           )}
         </div>

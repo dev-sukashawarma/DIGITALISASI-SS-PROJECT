@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { ChevronDown, Search, Check, Store } from 'lucide-react'
 import type { Outlet } from '@/pos-types'
+import { isExcludedOutlet, isMitraOutlet, cleanOutletName } from './OutletCombobox'
 
 interface BranchFilterProps {
-  outlets: Outlet[]
+  outlets: (Outlet | { id: string; name: string; type?: string })[]
   selectedOutlet: string
   onChange: (id: string) => void
   className?: string
@@ -24,13 +25,53 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const selectedName = selectedOutlet === 'all' 
-    ? 'Semua Cabang' 
-    : outlets.find(o => o.id === selectedOutlet)?.name || 'Pilih Cabang...'
+  // 1. Top Options: Semua Cabang & SS ONLINE
+  const topOptions = useMemo(() => {
+    const list = [{ id: 'all', name: 'Semua Cabang' }]
+    if (outlets.some(o => o.id === 'ss-online')) {
+      list.push({ id: 'ss-online', name: 'SS ONLINE' })
+    }
+    return list
+  }, [outlets])
 
-  const filteredOutlets = outlets.filter(o => 
-    o.name.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  // 2. Mitra
+  const mitraOptions = useMemo(() => {
+    return outlets
+      .filter((o) => !isExcludedOutlet(o as any) && o.id !== 'all' && o.id !== 'ss-online' && isMitraOutlet(o as any))
+      .map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [outlets])
+
+  // 3. Internal
+  const internalOptions = useMemo(() => {
+    return outlets
+      .filter((o) => !isExcludedOutlet(o as any) && o.id !== 'all' && o.id !== 'ss-online' && !isMitraOutlet(o as any))
+      .map((o) => ({ id: o.id, name: cleanOutletName(o.name) }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [outlets])
+
+  const q = searchQuery.trim().toLowerCase()
+  const filteredTop = useMemo(() => {
+    if (!q) return topOptions
+    return topOptions.filter(o => o.name.toLowerCase().includes(q))
+  }, [topOptions, q])
+
+  const filteredMitra = useMemo(() => {
+    if (!q) return mitraOptions
+    return mitraOptions.filter(o => o.name.toLowerCase().includes(q))
+  }, [mitraOptions, q])
+
+  const filteredInternal = useMemo(() => {
+    if (!q) return internalOptions
+    return internalOptions.filter(o => o.name.toLowerCase().includes(q))
+  }, [internalOptions, q])
+
+  const selectedName = useMemo(() => {
+    if (selectedOutlet === 'all') return 'Semua Cabang'
+    if (selectedOutlet === 'ss-online') return 'SS ONLINE'
+    const found = [...mitraOptions, ...internalOptions].find(o => o.id === selectedOutlet)
+    return found?.name || 'Pilih Cabang...'
+  }, [selectedOutlet, mitraOptions, internalOptions])
 
   return (
     <div className={`relative z-50 ${className}`} ref={dropdownRef}>
@@ -61,46 +102,87 @@ export default function BranchFilter({ outlets, selectedOutlet, onChange, classN
               />
             </div>
           </div>
-          <div className="max-h-60 overflow-y-auto p-2">
-            <button
-              onClick={() => {
-                onChange('all')
-                setIsOpen(false)
-                setSearchQuery('')
-              }}
-              className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
-                selectedOutlet === 'all' 
-                  ? 'bg-amber-50 text-amber-700 font-bold' 
-                  : 'text-gray-700 font-medium hover:bg-gray-50'
-              }`}
-            >
-              Semua Cabang
-              {selectedOutlet === 'all' && <Check className="w-4 h-4 text-amber-500" />}
-            </button>
-            
-            {filteredOutlets.length === 0 ? (
-              <div className="px-3 py-4 text-center text-sm text-gray-400 font-medium">
+          <div className="max-h-72 overflow-y-auto p-1.5 space-y-1">
+            {/* Top Options (Semua Cabang, SS ONLINE) */}
+            {filteredTop.map(o => (
+              <button
+                key={o.id}
+                onClick={() => {
+                  onChange(o.id)
+                  setIsOpen(false)
+                  setSearchQuery('')
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${
+                  selectedOutlet === o.id 
+                    ? 'bg-amber-50 text-amber-700 font-bold' 
+                    : 'text-gray-700 font-medium hover:bg-gray-50'
+                }`}
+              >
+                <span className="truncate pr-2">{o.name}</span>
+                {selectedOutlet === o.id && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+              </button>
+            ))}
+
+            {/* Separator / Header: Outlet Mitra */}
+            {filteredMitra.length > 0 && (
+              <div className="pt-2">
+                <div className="px-3 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider border-t border-gray-100 flex items-center justify-between">
+                  <span>Outlet Mitra</span>
+                  <span className="text-[9px] font-semibold text-gray-400">({filteredMitra.length})</span>
+                </div>
+                {filteredMitra.map(o => (
+                  <button
+                    key={o.id}
+                    onClick={() => {
+                      onChange(o.id)
+                      setIsOpen(false)
+                      setSearchQuery('')
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${
+                      selectedOutlet === o.id 
+                        ? 'bg-amber-50 text-amber-700 font-bold' 
+                        : 'text-gray-700 font-medium hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="truncate pr-2">{o.name}</span>
+                    {selectedOutlet === o.id && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Separator / Header: Outlet Internal */}
+            {filteredInternal.length > 0 && (
+              <div className="pt-2">
+                <div className="px-3 py-1 text-[10px] font-extrabold text-gray-400 uppercase tracking-wider border-t border-gray-100 flex items-center justify-between">
+                  <span>Outlet Internal</span>
+                  <span className="text-[9px] font-semibold text-gray-400">({filteredInternal.length})</span>
+                </div>
+                {filteredInternal.map(o => (
+                  <button
+                    key={o.id}
+                    onClick={() => {
+                      onChange(o.id)
+                      setIsOpen(false)
+                      setSearchQuery('')
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-colors ${
+                      selectedOutlet === o.id 
+                        ? 'bg-amber-50 text-amber-700 font-bold' 
+                        : 'text-gray-700 font-medium hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="truncate pr-2">{o.name}</span>
+                    {selectedOutlet === o.id && <Check className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {filteredTop.length === 0 && filteredMitra.length === 0 && filteredInternal.length === 0 && (
+              <div className="px-3 py-4 text-center text-xs text-gray-400 font-medium italic">
                 Cabang tidak ditemukan
               </div>
-            ) : (
-              filteredOutlets.map(o => (
-                <button
-                  key={o.id}
-                  onClick={() => {
-                    onChange(o.id)
-                    setIsOpen(false)
-                    setSearchQuery('')
-                  }}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors mt-1 ${
-                    selectedOutlet === o.id 
-                      ? 'bg-amber-50 text-amber-700 font-bold' 
-                      : 'text-gray-700 font-medium hover:bg-gray-50'
-                  }`}
-                >
-                  <span className="truncate pr-2">{o.name}</span>
-                  {selectedOutlet === o.id && <Check className="w-4 h-4 text-amber-500 shrink-0" />}
-                </button>
-              ))
             )}
           </div>
         </div>

@@ -5,13 +5,13 @@ describe('getChannel — marketplace platforms', () => {
   it('resolves tiktok_shop to its own channel config', () => {
     const ch = getChannel('tiktok_shop')
     expect(ch?.id).toBe('tiktok_shop')
-    expect(ch?.label).toBe('TikTok Shop')
+    expect(ch?.label).toBe('TikTok Seller')
   })
 
   it('resolves shopee_shop to its own channel config', () => {
     const ch = getChannel('shopee_shop')
     expect(ch?.id).toBe('shopee_shop')
-    expect(ch?.label).toBe('Shopee')
+    expect(ch?.label).toBe('Shopee Seller')
   })
 
   it('does NOT let shopee_shop collide with the existing shopeefood alias', () => {

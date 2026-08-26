@@ -266,7 +266,7 @@ export default function AdminOverviewView({
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full xl:w-auto">
           <BranchFilter 
             outlets={[
-              { id: 'ss-online', name: '🛒 SS Online' } as any,
+              { id: 'ss-online', name: 'SS ONLINE' } as any,
               ...outlets
             ]} 
             selectedOutlet={selectedOutlet} 

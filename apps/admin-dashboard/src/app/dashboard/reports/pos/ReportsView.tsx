@@ -699,19 +699,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
     const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
-    // Deductions calculation (Potongan promo subsidi food apps & diskon)
+    // Deductions calculation (Potongan promo subsidi food apps, diskon katalog & komisi/admin platform)
     const totalDeductions = completed.reduce((s, o) => {
       const disc = Number((o as any).discount_amount) || 0
       const promo = Number((o as any).promo_subsidy) || 0
-      return s + disc + promo
+      const itemSubtotal = o.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
+      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
+      // Jika diskon/promo explicit sudah mencakup itemDiff, jangan double count
+      const extraDiff = Math.max(0, itemDiff - (disc + promo))
+      return s + disc + promo + extraDiff
     }, 0)
 
     const netRevenue = actualNetRevenue
 
-    // Aturan bisnis: orders.total_amount di DB sudah merupakan angka omzet kotor
-    // (food apps sudah harga menu asli, offline sudah setelah diskon promo).
-    // Jangan menambahkan totalDeductions lagi ke actualNetRevenue agar tidak double counting.
-    const grossRevenue = actualNetRevenue
+    // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
+    const grossRevenue = completed.reduce((sum, o) => {
+      const itemSubtotal = o.order_items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
+      return sum + (itemSubtotal > 0 ? itemSubtotal : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
+    }, 0)
     const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
     let totalSettlement = 0
@@ -1338,6 +1343,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  {isSSOnlineSelected
+                    ? 'Total nilai kotor produk katalog sebelum diskon platform'
+                    : 'Total nilai omzet kotor sebelum diskon & subsidi'}
+                </p>
               </div>
             </div>
 
@@ -1347,6 +1357,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalHPP)}</p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  {isSSOnlineSelected
+                    ? 'Modal bahan dasar (Tarif HPP khusus SS Online)'
+                    : 'Total beban modal bahan dasar (HPP Resep)'}
+                </p>
               </div>
             </div>
 
@@ -1354,8 +1369,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Platform</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Platform & Promo</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  {isSSOnlineSelected
+                    ? 'Diskon promo produk + Biaya komisi marketplace'
+                    : 'Potongan diskon promo & subsidi food apps'}
+                </p>
               </div>
             </div>
 
@@ -1365,6 +1385,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
+                <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                  Gross Revenue - (COGS + Admin Platform)
+                </p>
               </div>
             </div>
           </div>
@@ -1702,9 +1725,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                     </tr>
                   ) : (
                     paginatedData.map((order) => {
-                      const orderSubtotal = order.order_items.reduce((sum, i) => sum + (i.subtotal || 0), 0);
+                      const orderSubtotal = order.order_items.reduce((sum, i) => sum + (Number(i.subtotal) || (Number(i.quantity) * Number(i.unit_price)) || 0), 0);
                       const offlineDiscount = Number((order as any).discount_amount) || 0;
                       const appSubsidy = Number((order as any).promo_subsidy) || 0;
+                      const isEcommerce = order.outlet_id === 'ss-online' || isSSOnlineSelected;
+                      const itemPromoDiscount = orderSubtotal > Number(order.total_amount) ? (orderSubtotal - Number(order.total_amount)) : 0;
                       const pkgs = extractOrderPackages(order);
                       
                       return (
@@ -1742,18 +1767,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                                   <span>{cleanItemName(i.menu_item_name)}</span>
                                 </div>
                               ))}
-                              {offlineDiscount > 0 && (
-                                <div className="whitespace-normal leading-tight text-[12px] flex items-start gap-1.5 mt-0.5 pt-1.5 border-t border-gray-100/60">
-                                  <span className="font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">Promo</span>
-                                  <span className="text-red-500">- {formatRupiah(offlineDiscount)}</span>
-                                </div>
-                              )}
-                              {appSubsidy > 0 && (
-                                <div className="whitespace-normal leading-tight text-[12px] flex items-start gap-1.5 mt-0.5 pt-1.5 border-t border-gray-100/60">
-                                  <span className="font-bold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">Potongan App</span>
-                                  <span className="text-orange-500">- {formatRupiah(appSubsidy)}</span>
-                                </div>
-                              )}
                             </div>
                           </td>
                           {!isSSOnlineSelected && (
@@ -1820,21 +1833,44 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                             </td>
                           )}
                           <td className="px-5 py-4 text-right">
-                            {offlineDiscount > 0 && (
-                              <div className="text-gray-400 text-[11px] font-medium line-through mb-0.5" title="Harga awal sebelum diskon">
-                                {formatRupiah(Number(order.total_amount) + offlineDiscount)}
-                              </div>
-                            )}
-                            <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
-                            {offlineDiscount > 0 && (
-                              <div className="text-[11px] font-medium text-red-500 mt-1">
-                                (Diskon: -{formatRupiah(offlineDiscount)})
-                              </div>
-                            )}
-                            {appSubsidy > 0 && (
-                              <div className="text-[11px] font-medium text-orange-600 mt-1">
-                                (Subsidi App: -{formatRupiah(appSubsidy)})
-                              </div>
+                            {isEcommerce ? (
+                              <>
+                                {orderSubtotal > Number(order.total_amount) && (
+                                  <div className="text-gray-400 text-[11px] font-medium line-through mb-0.5" title="Harga awal sebelum diskon">
+                                    {formatRupiah(orderSubtotal)}
+                                  </div>
+                                )}
+                                <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
+                                {itemPromoDiscount > 0 && (
+                                  <div className="text-[11px] font-medium text-red-500 mt-1">
+                                    (Diskon: -{formatRupiah(itemPromoDiscount)})
+                                  </div>
+                                )}
+                                {offlineDiscount > 0 && (
+                                  <div className="text-[11px] font-medium text-orange-600 mt-1">
+                                    (Biaya Platform: -{formatRupiah(offlineDiscount)})
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                {offlineDiscount > 0 && (
+                                  <div className="text-gray-400 text-[11px] font-medium line-through mb-0.5" title="Harga awal sebelum diskon">
+                                    {formatRupiah(Number(order.total_amount) + offlineDiscount)}
+                                  </div>
+                                )}
+                                <div className="font-bold text-gray-900 text-base">{formatRupiah(order.total_amount)}</div>
+                                {offlineDiscount > 0 && (
+                                  <div className="text-[11px] font-medium text-red-500 mt-1">
+                                    (Diskon: -{formatRupiah(offlineDiscount)})
+                                  </div>
+                                )}
+                                {appSubsidy > 0 && (
+                                  <div className="text-[11px] font-medium text-orange-600 mt-1">
+                                    (Subsidi App: -{formatRupiah(appSubsidy)})
+                                  </div>
+                                )}
+                              </>
                             )}
                           </td>
                         </tr>
@@ -1844,9 +1880,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </tbody>
                 <tfoot className="bg-amber-50/50">
                   {(() => {
-                    const totalGross = filteredTableData.reduce((acc, curr) => acc + Number(curr.total_amount), 0);
+                    const totalGross = filteredTableData.reduce((acc, curr) => {
+                      const itemSub = curr.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0);
+                      return acc + (itemSub > 0 ? itemSub : (Number(curr.total_amount) + (Number((curr as any).discount_amount) || 0)));
+                    }, 0);
+                    const totalNet = filteredTableData.reduce((acc, curr) => acc + Number(curr.total_amount), 0);
                     const totalOfflineDiscount = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).discount_amount) || 0), 0);
                     const totalAppSubsidy = filteredTableData.reduce((acc, curr) => acc + (Number((curr as any).promo_subsidy) || 0), 0);
+                    const totalEcommerceDiscount = Math.max(0, totalGross - totalNet);
                     const totalItems = filteredTableData.reduce((acc, curr) => {
                       return acc + curr.order_items.reduce((sum, item) => sum + item.quantity, 0);
                     }, 0);
@@ -1866,25 +1907,52 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                             {formatRupiah(totalGross)}
                           </td>
                         </tr>
-                        {totalOfflineDiscount > 0 && (
-                          <tr>
-                            <td colSpan={isSSOnlineSelected ? 5 : 7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
-                              Potongan Diskon Promo Offline
-                            </td>
-                            <td className="px-5 py-3 text-right text-sm font-bold text-red-600 whitespace-nowrap">
-                              - {formatRupiah(totalOfflineDiscount)}
-                            </td>
-                          </tr>
-                        )}
-                        {totalAppSubsidy > 0 && (
-                          <tr>
-                            <td colSpan={isSSOnlineSelected ? 5 : 7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
-                              Total Subsidi Promo Food Apps
-                            </td>
-                            <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
-                              - {formatRupiah(totalAppSubsidy)}
-                            </td>
-                          </tr>
+                        {isSSOnlineSelected ? (
+                          <>
+                            {totalEcommerceDiscount > 0 && (
+                              <tr>
+                                <td colSpan={5} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
+                                  Potongan Promo / Diskon Produk
+                                </td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-red-600 whitespace-nowrap">
+                                  - {formatRupiah(totalEcommerceDiscount)}
+                                </td>
+                              </tr>
+                            )}
+                            {totalOfflineDiscount > 0 && (
+                              <tr>
+                                <td colSpan={5} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
+                                  Biaya Admin & Komisi Platform
+                                </td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
+                                  - {formatRupiah(totalOfflineDiscount)}
+                                </td>
+                              </tr>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            {totalOfflineDiscount > 0 && (
+                              <tr>
+                                <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-red-600">
+                                  Potongan Diskon Promo Offline
+                                </td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-red-600 whitespace-nowrap">
+                                  - {formatRupiah(totalOfflineDiscount)}
+                                </td>
+                              </tr>
+                            )}
+                            {totalAppSubsidy > 0 && (
+                              <tr>
+                                <td colSpan={7} className="px-5 py-3 text-right uppercase tracking-wider text-xs font-bold text-orange-600">
+                                  Total Subsidi Promo Food Apps
+                                </td>
+                                <td className="px-5 py-3 text-right text-sm font-bold text-orange-600 whitespace-nowrap">
+                                  - {formatRupiah(totalAppSubsidy)}
+                                </td>
+                              </tr>
+                            )}
+                          </>
                         )}
                       </>
                     );

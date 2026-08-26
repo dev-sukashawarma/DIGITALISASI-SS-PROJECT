@@ -46,7 +46,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     
   const outlets = (rawOutlets ?? []).filter(o => !isTestOutlet(o))
   const allOutletsWithSS = [
-    { id: 'ss-online', name: '🛒 SS Online', type: 'online' } as any,
+    { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
     ...outlets
   ]
   const scopedOutlets = lockedOutletId 

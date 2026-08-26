@@ -82,20 +82,36 @@ const ICONS: Record<SalesSource, any> = {
   endors: Gift,
 }
 
-export function SourceBreakdown({ rows = [] }: { rows?: SalesSummaryRow[] }) {
+export function SourceBreakdown({ 
+  rows = [],
+  outletId
+}: { 
+  rows?: SalesSummaryRow[]
+  outletId?: string
+}) {
+  const isSSOnline = outletId === 'ss-online' || (rows.length > 0 && rows.every(r => r.outlet_id === 'ss-online'))
+
+  let sources: SalesSource[] = []
+  if (isSSOnline) {
+    sources = ['tiktok_shop', 'shopee_shop']
+  } else if (outletId && outletId !== 'all') {
+    sources = ['pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors']
+  } else {
+    sources = Object.keys(LABELS) as SalesSource[]
+  }
+
   // Aggregate sales by source
   const bySource = new Map<SalesSource, { omzet: number; orders: number }>()
   let totalOmzet = 0
 
   for (const r of rows) {
+    if (!sources.includes(r.sales_source)) continue
     const cur = bySource.get(r.sales_source) ?? { omzet: 0, orders: 0 }
     cur.omzet += r.omzet
     cur.orders += r.jumlah_order_completed
     bySource.set(r.sales_source, cur)
     totalOmzet += r.omzet
   }
-
-  const sources = Object.keys(LABELS) as SalesSource[]
   
   // Map and sort sources by revenue volume
   const data = sources.map(s => {
@@ -116,7 +132,9 @@ export function SourceBreakdown({ rows = [] }: { rows?: SalesSummaryRow[] }) {
     <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-6">
       <div>
         <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Kontribusi Saluran Penjualan</h3>
-        <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Sumber transaksi pemesanan menu makanan</p>
+        <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">
+          {isSSOnline ? 'Sumber transaksi penjualan marketplace SS Online' : 'Sumber transaksi pemesanan menu makanan'}
+        </p>
       </div>
 
       <div className="space-y-4">

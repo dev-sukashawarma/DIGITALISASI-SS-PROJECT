@@ -1057,26 +1057,44 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       const catData = categoryMap[categoryName]
 
       let orderItemSubtotal = 0
-      o.order_items.forEach(oi => {
-        const key = cleanItemName(oi.menu_item_name)
+      if (o.order_items && o.order_items.length > 0) {
+        o.order_items.forEach(oi => {
+          const key = cleanItemName(oi.menu_item_name)
+          if (!catData.itemMap[key]) {
+            catData.itemMap[key] = { 
+              name: key, 
+              qty: 0, 
+              revenue: 0, 
+              hppTotal: 0,
+              unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
+            }
+          }
+          
+          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          
+          catData.itemMap[key].qty += oi.quantity
+          catData.itemMap[key].revenue += oi.subtotal
+          catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
+          catData.grossRevenue += oi.subtotal
+          orderItemSubtotal += oi.subtotal
+        })
+      } else if (Number(o.total_amount) > 0 || Number((o as any).discount_amount) > 0 || Number((o as any).promo_subsidy) > 0) {
+        const grossAmount = Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+        const key = `Order #${o.order_number} (${o.customer_name || 'Pelanggan'})`
         if (!catData.itemMap[key]) {
-          catData.itemMap[key] = { 
-            name: key, 
-            qty: 0, 
-            revenue: 0, 
+          catData.itemMap[key] = {
+            name: key,
+            qty: 0,
+            revenue: 0,
             hppTotal: 0,
-            unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
+            unitPrice: grossAmount
           }
         }
-        
-        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
-        
-        catData.itemMap[key].qty += oi.quantity
-        catData.itemMap[key].revenue += oi.subtotal
-        catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
-        catData.grossRevenue += oi.subtotal
-        orderItemSubtotal += oi.subtotal
-      })
+        catData.itemMap[key].qty += 1
+        catData.itemMap[key].revenue += grossAmount
+        catData.grossRevenue += grossAmount
+        orderItemSubtotal += grossAmount
+      }
 
       if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
         totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)
@@ -1195,26 +1213,44 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       const catData = categoryMap[categoryName]
 
       let orderItemSubtotal = 0
-      o.order_items.forEach(oi => {
-        const key = cleanItemName(oi.menu_item_name)
+      if (o.order_items && o.order_items.length > 0) {
+        o.order_items.forEach(oi => {
+          const key = cleanItemName(oi.menu_item_name)
+          if (!catData.itemMap[key]) {
+            catData.itemMap[key] = { 
+              name: key, 
+              qty: 0, 
+              revenue: 0, 
+              hppTotal: 0,
+              unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
+            }
+          }
+          
+          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          
+          catData.itemMap[key].qty += oi.quantity
+          catData.itemMap[key].revenue += oi.subtotal
+          catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
+          catData.grossRevenue += oi.subtotal
+          orderItemSubtotal += oi.subtotal
+        })
+      } else if (Number(o.total_amount) > 0 || Number((o as any).discount_amount) > 0 || Number((o as any).promo_subsidy) > 0) {
+        const grossAmount = Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+        const key = `Order #${o.order_number} (${o.customer_name || 'Pelanggan'})`
         if (!catData.itemMap[key]) {
-          catData.itemMap[key] = { 
-            name: key, 
-            qty: 0, 
-            revenue: 0, 
+          catData.itemMap[key] = {
+            name: key,
+            qty: 0,
+            revenue: 0,
             hppTotal: 0,
-            unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
+            unitPrice: grossAmount
           }
         }
-        
-        const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
-        
-        catData.itemMap[key].qty += oi.quantity
-        catData.itemMap[key].revenue += oi.subtotal
-        catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
-        catData.grossRevenue += oi.subtotal
-        orderItemSubtotal += oi.subtotal
-      })
+        catData.itemMap[key].qty += 1
+        catData.itemMap[key].revenue += grossAmount
+        catData.grossRevenue += grossAmount
+        orderItemSubtotal += grossAmount
+      }
 
       if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
         totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)

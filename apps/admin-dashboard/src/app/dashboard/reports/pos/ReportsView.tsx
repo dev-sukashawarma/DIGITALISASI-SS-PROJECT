@@ -986,8 +986,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   }
 
   const downloadPDFAllChannels = async () => {
-    // 1. Dapatkan semua valid orders dari state 'orders' (tanpa filter channel)
-    const validOrders = orders.filter(o => o.status === 'completed' || o.status === 'settled')
+    // 1. Dapatkan valid orders yang sinkron dengan filter channel aktif
+    const filteredForPDF = selectedChannels.includes('all') 
+      ? orders
+      : orders.filter(o => {
+          const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
+          return selectedChannels.some(target => isChannelSelected(target.toLowerCase(), o, src))
+        })
+    const validOrders = filteredForPDF.filter(o => o.status === 'completed' || o.status === 'settled')
     if (validOrders.length === 0) return
 
     let dateRangeText = RANGE_LABELS[range]
@@ -1028,11 +1034,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       } else if (srcKey === 'pos_kasir') {
         categoryName = 'POS KASIR (Internal)'
       } else if (isTikTok) {
-        categoryName = 'TikTok'
+        categoryName = 'TikTok Go'
       } else if (isFoodApp) {
         categoryName = 'Food Apps (GoFood/Grab/Shopee/dll)'
       } else if (srcKey === 'online') {
         categoryName = 'Website Online'
+      } else if (srcKey === 'tiktok_shop' || srcKey.includes('tiktokshop')) {
+        categoryName = 'TikTok Shop (Online)'
+      } else if (srcKey === 'shopee_shop' || srcKey.includes('shopeeseller')) {
+        categoryName = 'Shopee Shop (Online)'
       }
 
       const outletType = outletTypeMap.get(o.outlet_id)
@@ -1081,24 +1091,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       if (!aIsKasir && bIsKasir) return 1
       return b.grossRevenue - a.grossRevenue
     })
-
-    // 4. Hitung Official Gross Revenue dan selisihnya
-    const totalDeductionsAll = validOrders.reduce((s, o) => {
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      if (disc > 0 || promo > 0) return s + disc + promo
-      const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
-      return s + itemDiff
-    }, 0)
-    
-    const actualNetRevenueAll = computeNetRevenueVoidAware(validOrders as any)
-    const officialGrossRevenueAll = actualNetRevenueAll + totalDeductionsAll
-    const totalPdfMenuRevenue = categories.reduce((sum, cat) => sum + cat.grossRevenue, 0)
-    const difference = officialGrossRevenueAll - totalPdfMenuRevenue
-
-    // Blok Penyesuaian Sistem telah dihapus sesuai permintaan
-
 
     await generateCategorizedReportPDF({
       outletName: selectedOutletName,
@@ -1156,11 +1148,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       } else if (srcKey === 'pos_kasir') {
         categoryName = 'POS KASIR (Internal)'
       } else if (isTikTok) {
-        categoryName = 'TikTok'
+        categoryName = 'TikTok Go'
       } else if (isFoodApp) {
         categoryName = 'Food Apps (GoFood/Grab/Shopee/dll)'
       } else if (srcKey === 'online') {
         categoryName = 'Website Online'
+      } else if (srcKey === 'tiktok_shop' || srcKey.includes('tiktokshop')) {
+        categoryName = 'TikTok Shop (Online)'
+      } else if (srcKey === 'shopee_shop' || srcKey.includes('shopeeseller')) {
+        categoryName = 'Shopee Shop (Online)'
       }
 
       const outletType = outletTypeMap.get(o.outlet_id)

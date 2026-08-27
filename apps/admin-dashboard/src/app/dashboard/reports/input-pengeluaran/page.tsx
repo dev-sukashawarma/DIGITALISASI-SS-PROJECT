@@ -43,11 +43,10 @@ export default function InputPengeluaranPage() {
   const { data: outlets = [] } = useOutlets()
   const queryClient = useQueryClient()
 
-  // Date range filter (from & to)
-  const [startDate, setStartDate] = useState(getFirstOfMonth)
-  const [endDate, setEndDate] = useState(getLastOfMonth)
-  // Wajib pilih outlet terlebih dahulu (default ke userOutletId jika ada, atau kosong jika admin/owner)
-  const [target, setTarget] = useState<string>(() => userOutletId || '')
+  // Default: Filter Hari Ini (Today) & Semua Outlet
+  const [startDate, setStartDate] = useState(getToday)
+  const [endDate, setEndDate] = useState(getToday)
+  const [target, setTarget] = useState<string>(() => userOutletId || 'all')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
 
@@ -65,7 +64,6 @@ export default function InputPengeluaranPage() {
 
   // Merge expense rows and topup rows (treated as income)
   const allTransactions = useMemo(() => {
-    if (!target) return []
     let list: any[] = []
 
     // 1. Process normal expenses
@@ -124,9 +122,9 @@ export default function InputPengeluaranPage() {
   }, [allTransactions])
 
   const selectOptions = [
+    { label: '🏢 Semua Outlet', value: 'all' },
     ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (company-wide)', value: 'PUSAT' }] : []),
-    ...outlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id })),
-    { label: '📊 Semua Outlet (Konsolidasi)', value: 'all' }
+    ...outlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
   ]
 
   const loading = expensesLoading || topupsLoading
@@ -216,8 +214,22 @@ export default function InputPengeluaranPage() {
           {/* Preset Buttons */}
           <div className="flex items-center gap-1 bg-suka-gray-100 p-1 rounded-xl text-xs font-semibold text-suka-gray-600">
             <button
+              onClick={() => setPreset('today')}
+              className={`px-2.5 py-1.5 rounded-lg transition-all ${
+                startDate === getToday() && endDate === getToday()
+                  ? 'bg-white text-suka-brown font-bold shadow-xs'
+                  : 'hover:bg-white/60 hover:text-suka-brown'
+              }`}
+            >
+              Hari Ini
+            </button>
+            <button
               onClick={() => setPreset('this_month')}
-              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
+              className={`px-2.5 py-1.5 rounded-lg transition-all ${
+                startDate === getFirstOfMonth() && endDate === getLastOfMonth()
+                  ? 'bg-white text-suka-brown font-bold shadow-xs'
+                  : 'hover:bg-white/60 hover:text-suka-brown'
+              }`}
             >
               Bulan Ini
             </button>

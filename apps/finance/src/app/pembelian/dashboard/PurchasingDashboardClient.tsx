@@ -16,8 +16,7 @@ import {
   Calendar, 
   Truck, 
   CheckCircle2, 
-  Clock, 
-  ExternalLink 
+  Clock,
 } from 'lucide-react'
 import Link from 'next/link'
 import CountUp from 'react-countup'

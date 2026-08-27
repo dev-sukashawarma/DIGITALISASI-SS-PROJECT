@@ -3,12 +3,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw, FileText } from 'lucide-react'
+import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw, FileText, Printer } from 'lucide-react'
 import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
 import { useBahanBakuOptions } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
 import { VerifikasiTerimaModal } from './components/VerifikasiTerimaModal'
+import { generatePurchaseOrderPDF } from '@/utils/poPdfExporter'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 
@@ -240,24 +241,57 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <button 
-          onClick={() => router.back()} 
-          className="p-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown/70 hover:text-suka-brown transition-all shadow-2xs cursor-pointer"
-        >
-          <ArrowLeft className="w-4 h-4" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold text-suka-brown font-mono tracking-tight">{po.nomor_po}</h1>
-            <span className={`text-[10px] font-bold px-3 py-0.5 rounded-lg uppercase tracking-wider border ${STATUS_COLOR[po.status]}`}>
-              {STATUS_LABEL[po.status]}
-            </span>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => router.back()} 
+            className="p-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown/70 hover:text-suka-brown transition-all shadow-2xs cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-xl sm:text-2xl font-bold text-suka-brown font-mono tracking-tight">{po.nomor_po}</h1>
+              <span className={`text-[10px] font-bold px-3 py-0.5 rounded-lg uppercase tracking-wider border ${STATUS_COLOR[po.status]}`}>
+                {STATUS_LABEL[po.status]}
+              </span>
+            </div>
+            <p className="text-xs font-semibold text-suka-brown/60 mt-1">
+              Supplier: <span className="text-suka-brown font-bold">{po.supplier_nama}</span> · Dibuat pada {new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            </p>
           </div>
-          <p className="text-xs font-semibold text-suka-brown/60 mt-1">
-            Supplier: <span className="text-suka-brown font-bold">{po.supplier_nama}</span> · Dibuat pada {new Date(po.tanggal_po).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-          </p>
         </div>
+
+        <button
+          onClick={() => {
+            generatePurchaseOrderPDF({
+              id: po.id,
+              nomor_po: po.nomor_po,
+              supplier_nama: po.supplier_nama,
+              tanggal_po: po.tanggal_po,
+              status: po.status,
+              jatuh_tempo: po.jatuh_tempo,
+              catatan: po.catatan,
+              nama_dibuat_oleh: po.nama_dibuat_oleh,
+              nama_disetujui_oleh: po.nama_disetujui_oleh,
+              diverifikasi_at: po.diverifikasi_at,
+              supplier: po.supplier,
+              items: (po.items || []).map(it => ({
+                nama_item: it.nama_item || it.bahan_baku?.nama || it.item_description || 'Item',
+                satuan: it.satuan || it.bahan_baku?.satuan || 'pcs',
+                qty_pesan: Number(it.qty_pesan || 0),
+                harga_pesan: Number(it.harga_pesan || 0),
+                subtotal: Number(it.subtotal) || (Number(it.qty_pesan || 0) * Number(it.harga_pesan || 0)),
+                catatan: it.catatan
+              }))
+            })
+            toast.success(po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Draft PDF PO berhasil diunduh!' : 'PDF Purchase Order berhasil diunduh!')
+          }}
+          className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown font-bold text-xs shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+        >
+          <Printer className="w-4 h-4 text-suka-orange" />
+          <span>{po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Unduh Draft PDF PO' : 'Cetak / Unduh PDF PO'}</span>
+        </button>
       </div>
 
       {/* Price Sync Banner */}

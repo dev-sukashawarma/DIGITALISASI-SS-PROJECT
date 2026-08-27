@@ -3,7 +3,7 @@
 import { usePendingPos, useApprovePo, useRejectPo } from '@/hooks/usePoApproval'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { PageHeader, StatCard } from '@/components/ui'
-import { ClipboardCheck, CheckCircle2, XCircle, FileText, ArrowRight, Loader2 } from 'lucide-react'
+import { ClipboardCheck, CheckCircle2, FileText, ArrowRight, Loader2 } from 'lucide-react'
 import CountUp from 'react-countup'
 import Link from 'next/link'
 

@@ -1428,15 +1428,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
           </div>
 
-          {analytics.buyOneGetOneTransactions > 0 && (
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-900">
-              <p className="text-sm font-extrabold">Promo Buy X Get Y</p>
-              <p className="mt-1 text-sm">
-                {analytics.buyOneGetOneGiftUnits} porsi gratis dari {analytics.buyOneGetOneTransactions} transaksi pada periode laporan ini.
-              </p>
-            </div>
-          )}
-
           {(selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />

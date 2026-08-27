@@ -133,15 +133,6 @@ export default function OwnerDashboardView({
             cogsBreakdown={cogsBreakdown}
           />
 
-          {(buyOneGetOne?.transactions || 0) > 0 && (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-900">
-              <p className="text-sm font-extrabold">Promo Buy X Get Y</p>
-              <p className="mt-1 text-sm">
-                {buyOneGetOne?.giftUnits || 0} porsi gratis dari {buyOneGetOne?.transactions || 0} transaksi pada periode ini.
-              </p>
-            </div>
-          )}
-
           {/* Indikator target harian realtime */}
           {role !== 'MITRA' && filter.outletId !== 'ss-online' && (
             <DailyTargetBoard filter={filter} kpiRows={curKpiRows || []} />

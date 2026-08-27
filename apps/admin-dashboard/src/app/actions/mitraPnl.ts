@@ -188,13 +188,10 @@ export async function getMitraComprehensivePnl(
       .eq('type', 'out')
       .gte('expense_date', filter.from)
       .lte('expense_date', filter.to),
-    supabase
-      .from('waste_records')
-      .select('id, nilai_waste, date, outlet_id')
-      .in('outlet_id', targetOutletIds)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .gte('date', filter.from)
-      .lte('date', filter.to)
+    supabase.rpc('get_waste_periode', {
+      p_from: filter.from,
+      p_to: filter.to,
+    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) }))
   ])
 
   // 5. Process Channel Breakdown & COGS

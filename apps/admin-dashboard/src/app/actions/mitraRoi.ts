@@ -124,11 +124,10 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       .in('outlet_id', mitraOutletIds)
       .eq('type', 'out')
       .gte('expense_date', '2026-08-01'),
-    supabase
-      .from('waste_records')
-      .select('nilai_waste, date, outlet_id')
-      .in('outlet_id', mitraOutletIds)
-      .gte('date', '2026-08-01')
+    supabase.rpc('get_waste_periode', {
+      p_from: '2026-08-01',
+      p_to: new Date().toISOString().slice(0, 10)
+    }).then(res => ({ data: res.data || [] }))
   ])
 
   // 4. Calculate per outlet

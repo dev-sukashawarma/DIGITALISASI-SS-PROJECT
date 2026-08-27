@@ -2,9 +2,11 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, Wallet, FileText, UploadCloud, ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { Plus, Wallet, FileText, UploadCloud, ArrowDownRight, ArrowUpRight, Download, Calendar, Filter } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import * as XLSX from 'xlsx'
 import { PageHeader } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -17,10 +19,22 @@ import { CATEGORY_META } from '@/lib/expenseCategories'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
-function firstOfMonth(ym: string) { return `${ym}-01` }
-function lastOfMonth(ym: string) {
-  const [y, m] = ym.split('-').map(Number)
+function getFirstOfMonth() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}-01`
+}
+
+function getLastOfMonth() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = d.getMonth() + 1
   return new Date(y, m, 0).toISOString().slice(0, 10)
+}
+
+function getToday() {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export default function InputPengeluaranPage() {
@@ -29,20 +43,21 @@ export default function InputPengeluaranPage() {
   const { data: outlets = [] } = useOutlets()
   const queryClient = useQueryClient()
 
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)) // YYYY-MM
-  const [target, setTarget] = useState<string>('all')       // 'all' | 'PUSAT' | outletId
+  // Date range filter (from & to)
+  const [startDate, setStartDate] = useState(getFirstOfMonth)
+  const [endDate, setEndDate] = useState(getLastOfMonth)
+  const [target, setTarget] = useState<string>('all') // 'all' | 'PUSAT' | outletId
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
 
   const isPusat = target === 'PUSAT'
-  const periodMonth = firstOfMonth(month)
 
   const filter = useMemo(() => ({
-    from: periodMonth,
-    to: lastOfMonth(month),
+    from: startDate,
+    to: endDate,
     outletId: isPusat ? 'all' : target,
     source: 'all' as const
-  }), [periodMonth, month, target, isPusat])
+  }), [startDate, endDate, target, isPusat])
 
   const { rows: expenseRows, loading: expensesLoading, error: expensesError } = useExpenses(filter)
   const { data: topupRows = [], isLoading: topupsLoading } = usePettyCashTopups(filter)
@@ -53,7 +68,6 @@ export default function InputPengeluaranPage() {
 
     // 1. Process normal expenses
     expenseRows.forEach(r => {
-      // Apply filters manually to ensure exact match if needed, though hook does it
       if (target === 'all' && r.scope === 'pusat') return // all means all outlets
       if (target === 'PUSAT' && r.scope === 'outlet') return
       if (target !== 'all' && target !== 'PUSAT' && (r.scope === 'pusat' || r.outlet_id !== target)) return
@@ -91,6 +105,22 @@ export default function InputPengeluaranPage() {
     return list
   }, [expenseRows, topupRows, target])
 
+  // Summary calculation
+  const summary = useMemo(() => {
+    let totalIncome = 0
+    let totalExpense = 0
+    allTransactions.forEach(t => {
+      if (t.type === 'income') totalIncome += Number(t.amount || 0)
+      else totalExpense += Number(t.amount || 0)
+    })
+    return {
+      income: totalIncome,
+      expense: totalExpense,
+      net: totalIncome - totalExpense,
+      count: allTransactions.length
+    }
+  }, [allTransactions])
+
   const selectOptions = [
     { label: '🏢 Semua Outlet', value: 'all' },
     ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (company-wide)', value: 'PUSAT' }] : []),
@@ -99,23 +129,154 @@ export default function InputPengeluaranPage() {
 
   const loading = expensesLoading || topupsLoading
 
+  // Export to Excel handler
+  const handleExportExcel = () => {
+    if (allTransactions.length === 0) {
+      toast.error('Tidak ada data transaksi untuk diekspor pada rentang tanggal ini.')
+      return
+    }
+
+    const exportRows = allTransactions.map((r, idx) => ({
+      'No': idx + 1,
+      'Tanggal': r.date,
+      'Tipe Arus Kas': r.type === 'income' ? 'Masuk' : 'Keluar',
+      'Kategori': r.isTopup ? r.category : labelOf(r.category),
+      'Outlet / Unit': r.outlet_name,
+      'Keterangan': r.description || '-',
+      'Pemasukan (Rp)': r.type === 'income' ? r.amount : 0,
+      'Pengeluaran (Rp)': r.type !== 'income' ? r.amount : 0,
+      'Nominal Bersih (Rp)': r.type === 'income' ? r.amount : -r.amount,
+    }))
+
+    const ws = XLSX.utils.json_to_sheet(exportRows)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Buku Kas OPEX')
+
+    // Column sizing
+    ws['!cols'] = [
+      { wch: 6 },  // No
+      { wch: 14 }, // Tanggal
+      { wch: 15 }, // Tipe Arus Kas
+      { wch: 25 }, // Kategori
+      { wch: 28 }, // Outlet
+      { wch: 38 }, // Keterangan
+      { wch: 18 }, // Pemasukan
+      { wch: 18 }, // Pengeluaran
+      { wch: 20 }, // Nominal Bersih
+    ]
+
+    const filename = `Buku_Kas_OPEX_${startDate}_sd_${endDate}.xlsx`
+    XLSX.writeFile(wb, filename)
+    toast.success(`Berhasil mengunduh ${allTransactions.length} baris transaksi ke file Excel!`)
+  }
+
+  // Quick preset handlers
+  const setPreset = (preset: 'today' | 'this_month' | 'last_month' | 'last_7_days' | 'last_30_days') => {
+    const today = new Date()
+    if (preset === 'today') {
+      const t = today.toISOString().slice(0, 10)
+      setStartDate(t)
+      setEndDate(t)
+    } else if (preset === 'this_month') {
+      setStartDate(getFirstOfMonth())
+      setEndDate(getLastOfMonth())
+    } else if (preset === 'last_month') {
+      const y = today.getMonth() === 0 ? today.getFullYear() - 1 : today.getFullYear()
+      const m = today.getMonth() === 0 ? 12 : today.getMonth()
+      const padM = String(m).padStart(2, '0')
+      const start = `${y}-${padM}-01`
+      const end = new Date(y, m, 0).toISOString().slice(0, 10)
+      setStartDate(start)
+      setEndDate(end)
+    } else if (preset === 'last_7_days') {
+      const past = new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)
+      setStartDate(past.toISOString().slice(0, 10))
+      setEndDate(today.toISOString().slice(0, 10))
+    } else if (preset === 'last_30_days') {
+      const past = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000)
+      setStartDate(past.toISOString().slice(0, 10))
+      setEndDate(today.toISOString().slice(0, 10))
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader title="Buku Kas (OPEX)" description="Catat dan pantau arus kas operasional (Pemasukan & Pengeluaran)" icon={Wallet}>
-        <div className="flex flex-wrap items-center gap-3 mt-3">
-          <input type="month" value={month} onChange={e => setMonth(e.target.value)}
-            className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
+        <div className="flex flex-wrap items-center gap-2 mt-3">
+          {/* Preset Buttons */}
+          <div className="flex items-center gap-1 bg-suka-gray-100 p-1 rounded-xl text-xs font-semibold text-suka-gray-600">
+            <button
+              onClick={() => setPreset('this_month')}
+              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
+            >
+              Bulan Ini
+            </button>
+            <button
+              onClick={() => setPreset('last_month')}
+              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
+            >
+              Bulan Lalu
+            </button>
+            <button
+              onClick={() => setPreset('last_7_days')}
+              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
+            >
+              7 Hari
+            </button>
+            <button
+              onClick={() => setPreset('last_30_days')}
+              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
+            >
+              30 Hari
+            </button>
+          </div>
+
+          {/* Date Range Inputs */}
+          <div className="flex items-center gap-1.5 bg-white border border-suka-gray-200 rounded-xl px-2.5 py-1.5 shadow-xs">
+            <Calendar className="w-4 h-4 text-suka-gray-400 shrink-0" />
+            <input
+              type="date"
+              value={startDate}
+              onChange={e => setStartDate(e.target.value)}
+              className="text-xs font-semibold text-suka-ink focus:outline-none bg-transparent"
+              title="Dari Tanggal"
+            />
+            <span className="text-suka-gray-300 font-bold text-xs">s/d</span>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate}
+              onChange={e => setEndDate(e.target.value)}
+              className="text-xs font-semibold text-suka-ink focus:outline-none bg-transparent"
+              title="Sampai Tanggal"
+            />
+          </div>
+
+          {/* Target Outlet Combobox */}
           <TargetCombobox 
             options={selectOptions}
             value={target}
             onChange={setTarget}
             placeholder="— Pilih target —"
           />
+
+          {/* Export Excel Button */}
+          <Button
+            variant="secondary"
+            onClick={handleExportExcel}
+            disabled={loading || allTransactions.length === 0}
+            className="rounded-xl flex items-center gap-2 border-suka-gray-200 hover:bg-suka-gray-50 text-suka-brown font-semibold shadow-xs"
+            title="Download laporan transaksi ke file Excel"
+          >
+            <Download className="w-4 h-4 text-emerald-600" /> Export Excel
+          </Button>
+
           {isAdmin && (
             <Button variant="secondary" onClick={() => setIsImportOpen(true)} className="rounded-xl flex items-center gap-2">
               <UploadCloud className="w-4 h-4" /> Import Excel
             </Button>
           )}
+
           <Button onClick={() => setIsFormOpen(true)} className="rounded-xl flex items-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Transaksi
           </Button>
@@ -128,9 +289,57 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
+      {/* KPI Cards Summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-suka-gray-500">Total Pemasukan</span>
+            <span className="p-1.5 bg-green-50 text-green-600 rounded-lg">
+              <ArrowUpRight className="w-4 h-4" />
+            </span>
+          </div>
+          <p className="text-xl font-extrabold text-green-700 mt-2">
+            +Rp {summary.income.toLocaleString('id-ID')}
+          </p>
+          <p className="text-xs text-suka-gray-400 mt-1">Topup kas kecil & dana masuk</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-suka-gray-500">Total Pengeluaran</span>
+            <span className="p-1.5 bg-red-50 text-red-600 rounded-lg">
+              <ArrowDownRight className="w-4 h-4" />
+            </span>
+          </div>
+          <p className="text-xl font-extrabold text-red-700 mt-2">
+            -Rp {summary.expense.toLocaleString('id-ID')}
+          </p>
+          <p className="text-xs text-suka-gray-400 mt-1">Biaya operasional & belanja kasir</p>
+        </div>
+
+        <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-suka-gray-500">Arus Kas Bersih (Net)</span>
+            <span className="p-1.5 bg-suka-brown/10 text-suka-brown rounded-lg">
+              <Wallet className="w-4 h-4" />
+            </span>
+          </div>
+          <p className={`text-xl font-extrabold mt-2 ${summary.net >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+            {summary.net >= 0 ? '+' : ''}Rp {summary.net.toLocaleString('id-ID')}
+          </p>
+          <p className="text-xs text-suka-gray-400 mt-1">{summary.count} total catatan pada periode ini</p>
+        </div>
+      </div>
+
+      {/* Transaction Table */}
       <div className="bg-white rounded-2xl border border-suka-gray-200 overflow-hidden shadow-sm">
         <div className="p-4 border-b border-suka-gray-200 bg-suka-gray-50 flex items-center justify-between">
-          <h3 className="font-semibold text-suka-ink">Daftar Transaksi</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-semibold text-suka-ink">Daftar Transaksi</h3>
+            <span className="text-xs text-suka-gray-500 bg-white border border-suka-gray-200 px-2 py-0.5 rounded-full font-medium">
+              {startDate} s/d {endDate}
+            </span>
+          </div>
           <span className="text-xs text-suka-gray-500 font-medium">Total: {allTransactions.length} catatan</span>
         </div>
         
@@ -140,7 +349,7 @@ export default function InputPengeluaranPage() {
           <div className="p-12 flex flex-col items-center justify-center text-center">
             <FileText className="w-12 h-12 text-suka-gray-300 mb-3" />
             <p className="text-suka-gray-600 font-medium">Belum ada transaksi</p>
-            <p className="text-suka-gray-400 text-sm mt-1">Ganti filter bulan/target atau tambahkan baru.</p>
+            <p className="text-suka-gray-400 text-sm mt-1">Ganti rentang tanggal atau tambahkan transaksi baru.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -216,3 +425,4 @@ export default function InputPengeluaranPage() {
     </div>
   )
 }
+

@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     // 1. Ambil order yang statusnya scheduled dan pending/preparing
     const { data: orders, error: orderError } = await supabase
       .from('orders')
-      .select('id, outlet_id, status, notes, order_type, pickup_time, created_at, receipt_number')
+      .select('id, outlet_id, status, notes, order_type, pickup_time, created_at, order_number')
       .eq('order_type', 'scheduled')
       .in('status', ['pending', 'preparing'])
 
@@ -75,7 +75,7 @@ export async function GET(request: Request) {
             for (const sub of outletSubs) {
               const payload = JSON.stringify({
                 title: 'PERINGATAN PESANAN!',
-                body: `Pesanan ${order.receipt_number || 'Terjadwal'} sisa 10 menit! Segera siapkan!`,
+                body: `Pesanan ${order.order_number || 'Terjadwal'} sisa 10 menit! Segera siapkan!`,
                 icon: '/icon-512x512.png',
                 data: {
                   url: '/kasir'

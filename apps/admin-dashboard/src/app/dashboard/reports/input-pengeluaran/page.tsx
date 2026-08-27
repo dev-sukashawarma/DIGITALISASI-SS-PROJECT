@@ -150,7 +150,7 @@ export default function InputPengeluaranPage() {
 
     const ws = XLSX.utils.json_to_sheet(exportRows)
     const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Buku Kas OPEX')
+    XLSX.utils.book_append_sheet(wb, ws, 'Laporan OPEX')
 
     // Column sizing
     ws['!cols'] = [
@@ -165,7 +165,15 @@ export default function InputPengeluaranPage() {
       { wch: 20 }, // Nominal Bersih
     ]
 
-    const filename = `Buku_Kas_OPEX_${startDate}_sd_${endDate}.xlsx`
+    let targetLabel = 'Semua_Outlet'
+    if (target === 'PUSAT') {
+      targetLabel = 'Pusat'
+    } else if (target !== 'all') {
+      const selectedOutlet = outlets.find(o => o.id === target)
+      targetLabel = selectedOutlet ? selectedOutlet.name.replace(/[^a-zA-Z0-9]/g, '_') : 'Outlet'
+    }
+
+    const filename = `Laporan_OPEX_${targetLabel}_${startDate}_${endDate}.xlsx`
     XLSX.writeFile(wb, filename)
     toast.success(`Berhasil mengunduh ${allTransactions.length} baris transaksi ke file Excel!`)
   }

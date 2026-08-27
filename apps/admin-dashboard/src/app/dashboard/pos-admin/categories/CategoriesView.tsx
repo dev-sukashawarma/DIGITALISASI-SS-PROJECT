@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import type { Category } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
+import { syncCategoryOnline } from '../menu/actions'
 
 interface FormState {
   id: string | null
@@ -66,6 +67,7 @@ export default function CategoriesView({ initialCategories }: CategoriesViewProp
 
     if (err) setError(err.message)
     else { 
+      if (form.id) await syncCategoryOnline(form.id)
       closeForm(); 
       router.refresh() 
     }

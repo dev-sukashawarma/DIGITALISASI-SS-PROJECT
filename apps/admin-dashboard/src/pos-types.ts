@@ -62,6 +62,10 @@ export interface MenuItem {
   image_url: string | null
   is_available: boolean
   is_available_online: boolean
+  is_published_order_online?: boolean
+  order_online_sync_status?: 'not_published' | 'pending' | 'synced' | 'failed'
+  order_online_sync_error?: string | null
+  order_online_sync_updated_at?: string | null
   available_online_channels?: string[] | null
   campaign_price?: number | null
   is_campaign_active?: boolean

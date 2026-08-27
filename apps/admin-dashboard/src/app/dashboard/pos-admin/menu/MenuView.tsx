@@ -16,7 +16,7 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync } from './actions'
 import { getChannel } from '@/lib/channels'
 
 function ChannelLogoIcon({ channelKey }: { channelKey: string }) {
@@ -161,6 +161,7 @@ interface FormState {
   category_id: string
   is_available: boolean
   is_available_online: boolean
+  is_published_order_online: boolean
   available_online_channels: string[] | null
   image_url: string | null
   is_package: boolean
@@ -171,7 +172,7 @@ interface FormState {
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', strike_price: '', campaign_price: '', is_campaign_active: false, base_price: '',
   channel_prices: {},
-  category_id: '', is_available: true, is_available_online: true, available_online_channels: null, image_url: null,
+  category_id: '', is_available: true, is_available_online: true, is_published_order_online: false, available_online_channels: null, image_url: null,
   is_package: false, package_items: [], outlet_ids: null
 }
 
@@ -473,6 +474,7 @@ export default function MenuView({
       category_id: item.category_id ?? '',
       is_available: item.is_available, 
       is_available_online: item.is_available_online ?? true,
+      is_published_order_online: item.is_published_order_online ?? false,
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
@@ -504,6 +506,7 @@ export default function MenuView({
       category_id: item.category_id ?? '',
       is_available: item.is_available, 
       is_available_online: item.is_available_online ?? true,
+      is_published_order_online: false,
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
@@ -584,7 +587,7 @@ export default function MenuView({
       campaign_price: form.campaign_price ? parseFloat(form.campaign_price) : null,
       is_campaign_active: form.is_campaign_active,
       category_id: form.category_id || null,
-      is_available: form.is_available, is_available_online: form.is_available_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
+      is_available: form.is_available, is_available_online: form.is_available_online, is_published_order_online: form.is_published_order_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : [],
@@ -611,6 +614,11 @@ export default function MenuView({
 
   async function toggleAvail(item: MenuItem) {
     await toggleMenuAvailability(item.id, item.is_available)
+  }
+
+  async function togglePublished(item: MenuItem) {
+    try { await toggleMenuPublished(item.id, item.is_published_order_online === true) }
+    catch (err: any) { setError(err?.message || 'Sinkronisasi gagal') }
   }
 
   async function deleteItem(item: MenuItem) {
@@ -1380,6 +1388,23 @@ export default function MenuView({
                         )}
                       </div>
 
+                      {/* Order-Online publish toggle */}
+                      <div className="space-y-3">
+                        <button type="button" onClick={() => setForm({ ...form, is_published_order_online: !form.is_published_order_online })}
+                          className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300 ${form.is_published_order_online ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-gray-50'}`}>
+                          <div className="flex items-center gap-4">
+                            <Globe className={`w-6 h-6 ${form.is_published_order_online ? 'text-emerald-600' : 'text-gray-400'}`} />
+                            <div className="text-left">
+                              <p className={`text-sm font-bold ${form.is_published_order_online ? 'text-emerald-800' : 'text-gray-600'}`}>Tampilkan di Order-Online Website</p>
+                              <p className="text-xs text-gray-500">{form.is_published_order_online ? 'Menu akan disinkronkan ke website Order-Online' : 'Menu hanya tersimpan di Admin dan POS'}</p>
+                            </div>
+                          </div>
+                          <div className={`w-14 h-7 rounded-full relative ${form.is_published_order_online ? 'bg-emerald-500' : 'bg-gray-300'}`}>
+                            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${form.is_published_order_online ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
+                          </div>
+                        </button>
+                      </div>
+
                       {/* Online Availability toggle */}
                       <div className="space-y-3">
                         <button type="button"
@@ -1583,6 +1608,7 @@ export default function MenuView({
                       {getSortIcon('price')}
                     </div>
                   </th>
+                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Order Online</th>
                   <th className="text-center py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('status')}>
                     <div className="flex items-center justify-center">Status {getSortIcon('status')}</div>
                   </th>
@@ -1795,6 +1821,22 @@ export default function MenuView({
                           </div>
                         );
                       })()}
+                    </td>
+
+                    {/* Order-Online publish status */}
+                    <td className="py-3.5 px-4 text-center">
+                      <div className="flex flex-col items-center gap-1.5">
+                        <button onClick={() => togglePublished(item)} className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${item.is_published_order_online ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}>
+                          {item.is_published_order_online ? 'Tayang Website' : 'Tidak tayang'}
+                        </button>
+                        {item.is_published_order_online && item.order_online_sync_status !== 'synced' && (
+                          <button onClick={() => retryMenuOnlineSync(item.id)} className="text-[10px] text-amber-600 hover:underline">
+                            {item.order_online_sync_status === 'failed' ? 'Retry' : 'Sinkronkan'}
+                          </button>
+                        )}
+                        {item.order_online_sync_status === 'pending' && <span className="text-[10px] text-amber-500">Pending</span>}
+                        {item.order_online_sync_status === 'failed' && <span className="text-[10px] text-red-500" title={item.order_online_sync_error || undefined}>Gagal</span>}
+                      </div>
                     </td>
 
                     {/* Status toggle */}

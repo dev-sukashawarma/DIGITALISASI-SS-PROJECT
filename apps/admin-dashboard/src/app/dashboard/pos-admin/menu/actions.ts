@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 import type { MenuItem } from '@/pos-types'
-import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
+import { syncMenuToOrderOnline } from './order-online-sync'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -14,28 +14,43 @@ async function getSupabase() {
   })
 }
 
+async function markSync(supabase: any, id: string, status: string, error?: string | null) {
+  await supabase.from('menu_items').update({
+    order_online_sync_status: status,
+    order_online_sync_error: error || null,
+    order_online_sync_updated_at: new Date().toISOString(),
+  }).eq('id', id)
+}
+
+async function enqueueSync(supabase: any, id: string | null, operation: 'upsert' | 'delete', payload: any) {
+  if (!id) return
+  await supabase.from('order_online_menu_sync_queue').delete().eq('menu_item_id', id).in('status', ['pending', 'failed'])
+  await supabase.from('order_online_menu_sync_queue').insert({ menu_item_id: id, operation, payload, status: 'pending', next_attempt_at: new Date().toISOString() })
+}
+
+async function syncOrQueue(supabase: any, row: any, operation: 'upsert' | 'delete') {
+  try {
+    await syncMenuToOrderOnline(supabase, row, operation)
+    if (operation === 'upsert') await markSync(supabase, row.id, 'synced')
+  } catch (err: any) {
+    const message = err?.message || 'Sinkronisasi Order-Online gagal'
+    await enqueueSync(supabase, row.id, operation, row)
+    if (operation === 'upsert') await markSync(supabase, row.id, 'pending', message)
+    throw new Error(`Perubahan Admin tersimpan, tetapi sinkronisasi Order-Online tertunda: ${message}`)
+  }
+}
+
 export async function toggleMenuAvailability(id: string, currentStatus: boolean) {
   const supabase = await getSupabase()
-  let orderOnline: any = null
-  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
-  
-  await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
-  
-  if (orderOnline) {
-    try {
-      await orderOnline.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
-    } catch (err) {
-      console.error('Failed to sync toggle menu to order online', err)
-    }
-  }
+  const { error } = await supabase.from('menu_items').update({ is_available: !currentStatus }).eq('id', id)
+  if (error) throw new Error(error.message)
   
   revalidatePath('/dashboard/pos-admin/menu')
 }
 
 export async function deleteMenuItem(id: string, imageUrl: string | null) {
   const supabase = await getSupabase()
-  let orderOnline: any = null
-  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
+  const { data: row } = await supabase.from('menu_items').select('*').eq('id', id).maybeSingle()
   
   if (imageUrl) {
     const fileName = imageUrl.split('/').pop()
@@ -44,14 +59,10 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
     }
   }
   
-  await supabase.from('menu_items').delete().eq('id', id)
-  
-  if (orderOnline) {
-    try {
-      await orderOnline.from('menu_items').delete().eq('id', id)
-    } catch (err) {
-      console.error('Failed to sync delete menu to order online', err)
-    }
+  const { error: deleteError } = await supabase.from('menu_items').delete().eq('id', id)
+  if (deleteError) throw new Error(deleteError.message)
+  if (row) {
+    try { await syncOrQueue(supabase, row, 'delete') } catch { /* queue retains retry */ }
   }
   
   revalidatePath('/dashboard/pos-admin/menu')
@@ -59,8 +70,6 @@ export async function deleteMenuItem(id: string, imageUrl: string | null) {
 
 export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_save?: { menu_item_id: string, or_menu_item_id?: string | null, quantity: number }[], available_outlets?: string[] | null }) {
   const supabase = await getSupabase()
-  let orderOnline: any = null
-  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const payload = {
     name: form.name,
@@ -77,6 +86,10 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
     is_package: form.is_package || false,
     outlet_id: form.outlet_id || null,
     available_outlets: form.available_outlets || null,
+    is_published_order_online: form.is_published_order_online ?? false,
+    order_online_sync_status: form.is_published_order_online ? 'pending' : 'not_published',
+    order_online_sync_error: null,
+    order_online_sync_updated_at: new Date().toISOString(),
   }
 
   let finalId = form.id;
@@ -118,13 +131,19 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
     }
   }
   
-  if (orderOnline) {
-    try {
-      if (finalId) {
-         await orderOnline.from('menu_items').upsert([{ id: finalId, ...payload }])
+  if (finalId) {
+    const { data: saved } = await supabase.from('menu_items').select('*').eq('id', finalId).single()
+    if (saved) {
+      try {
+        if (saved.is_published_order_online) await syncOrQueue(supabase, saved, 'upsert')
+        else {
+          await syncOrQueue(supabase, saved, 'delete').catch(() => undefined)
+          await markSync(supabase, finalId, 'not_published')
+        }
+      } catch (err) {
+        revalidatePath('/dashboard/pos-admin/menu')
+        throw err
       }
-    } catch (err) {
-      console.error('Failed to sync save menu to order online', err)
     }
   }
   
@@ -133,8 +152,6 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
 
 export async function deleteAllMenuItems(items: MenuItem[]) {
   const supabase = await getSupabase()
-  let orderOnline: any = null
-  try { orderOnline = createOrderOnlineAdminClient() } catch (e) { console.warn('Order Online not configured, skipping sync') }
   
   const fileNames = items.map(item => item.image_url?.split('/').pop()).filter(Boolean) as string[]
   
@@ -145,16 +162,43 @@ export async function deleteAllMenuItems(items: MenuItem[]) {
   const ids = items.map(i => i.id)
   await supabase.from('menu_items').delete().in('id', ids)
   
-  if (orderOnline) {
-    try {
-      if (ids.length > 0) {
-        await orderOnline.from('menu_items').delete().in('id', ids)
-      }
-    } catch (err) {
-      console.error('Failed to sync delete all menu to order online', err)
-    }
+  for (const item of items) {
+    try { await syncOrQueue(supabase, item, 'delete') } catch { /* queue retains retry */ }
   }
   
+  revalidatePath('/dashboard/pos-admin/menu')
+}
+
+export async function toggleMenuPublished(id: string, published: boolean) {
+  const supabase = await getSupabase()
+  const { data: row, error } = await supabase.from('menu_items').update({
+    is_published_order_online: published,
+    order_online_sync_status: published ? 'pending' : 'not_published',
+    order_online_sync_error: null,
+    order_online_sync_updated_at: new Date().toISOString(),
+  }).eq('id', id).select('*').single()
+  if (error || !row) throw new Error(error?.message || 'Menu tidak ditemukan')
+  if (published) await syncOrQueue(supabase, row, 'upsert')
+  else {
+    try { await syncOrQueue(supabase, row, 'delete') } catch { await markSync(supabase, id, 'not_published') }
+  }
+  revalidatePath('/dashboard/pos-admin/menu')
+}
+
+export async function retryMenuOnlineSync(id: string) {
+  const supabase = await getSupabase()
+  const { data: row, error } = await supabase.from('menu_items').select('*').eq('id', id).single()
+  if (error || !row) throw new Error(error?.message || 'Menu tidak ditemukan')
+  await syncOrQueue(supabase, row, row.is_published_order_online ? 'upsert' : 'delete')
+  revalidatePath('/dashboard/pos-admin/menu')
+}
+
+export async function syncCategoryOnline(categoryId: string) {
+  const supabase = await getSupabase()
+  const { data: menus } = await supabase.from('menu_items').select('*').eq('category_id', categoryId).eq('is_published_order_online', true)
+  for (const menu of menus || []) {
+    try { await syncOrQueue(supabase, menu, 'upsert') } catch { /* each menu keeps its own retry state */ }
+  }
   revalidatePath('/dashboard/pos-admin/menu')
 }
 

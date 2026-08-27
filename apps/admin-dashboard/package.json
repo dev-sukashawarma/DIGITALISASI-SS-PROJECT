@@ -16,9 +16,9 @@
   "dependencies": {
     "@headlessui/react": "^2.2.10",
     "@hookform/resolvers": "^5.4.0",
-    "@suka/auth": "*",
-    "@suka/design-system": "*",
-    "@suka/realtime": "*",
+    "@suka/auth": "workspace:*",
+    "@suka/design-system": "workspace:*",
+    "@suka/realtime": "workspace:*",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.38.0",
     "@tailwindcss/typography": "^0.5.20",

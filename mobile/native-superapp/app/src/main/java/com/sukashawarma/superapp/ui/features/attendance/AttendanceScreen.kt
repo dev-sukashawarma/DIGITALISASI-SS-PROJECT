@@ -32,6 +32,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.Canvas
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -60,6 +61,15 @@ import com.sukashawarma.superapp.data.SupabaseClient
 import com.sukashawarma.superapp.data.Outlet
 import java.text.SimpleDateFormat
 import java.util.*
+import com.sukashawarma.superapp.R
+import androidx.compose.ui.res.painterResource
+import androidx.compose.material.icons.filled.NotificationsNone
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Login
 
 @Preview(showBackground = true)
 @Composable
@@ -116,7 +126,7 @@ fun AttendanceScreen(
     var currentDistance by remember { mutableStateOf<Double?>(null) }
     var outletData by remember { mutableStateOf<Outlet?>(null) }
 
-    // Lokasi DEVICE nyata (bukan koordinat outlet) — dikirim ke server untuk validasi geofence
+    // Lokasi DEVICE nyata (bukan koordinat outlet) â€” dikirim ke server untuk validasi geofence
     var deviceLat by remember { mutableStateOf<Double?>(null) }
     var deviceLng by remember { mutableStateOf<Double?>(null) }
     var deviceAccuracy by remember { mutableStateOf<Double?>(null) }
@@ -216,7 +226,7 @@ fun AttendanceScreen(
             }
             
             // Jika Geofence Lolos, Cek Status Absen Hari Ini
-            // Gate clock-out (shift kasir masih terbuka, dll.) dievaluasi SERVER saat submit —
+            // Gate clock-out (shift kasir masih terbuka, dll.) dievaluasi SERVER saat submit â€”
             // ditolak dengan reason (mis. "shift_not_closed") yang sudah di-map ke pesan Indonesia.
             val todayIn = client.getTodayAttendance(staffId, "in")
             if (todayIn != null) {
@@ -265,94 +275,44 @@ fun AttendanceScreen(
         colors = listOf(BackgroundStart, BackgroundEnd)
     )
 
+    
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(backgroundGradient)
+            .background(Color(0xFFF8F9FB))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 32.dp)
+                .padding(bottom = 80.dp) // space for bottom nav
         ) {
             // Top App Bar
-            TopBar(onBackClick)
+            TopBar(staffName = staffName, onBackClick = onBackClick)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
 
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(32.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Hero Section (Status & Jam)
-                HeroSection(currentTime, currentDate, isClockedIn, isDayCompleted)
-
+                // Greeting
+                GreetingSection(staffName)
+                
                 if (isLocating) {
-                    // Loading State
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(320.dp)
-                            .background(Color.DarkGray.copy(alpha = 0.5f), RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            CircularProgressIndicator(color = PrimarySuka)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text("Memeriksa Lokasi & Syarat Absen...", color = Color.White)
-                        }
-                    }
+                    LoadingLocationCard()
                 } else if (locationError != null) {
-                    // Error State
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(320.dp)
-                            .background(Color(0x33FF0000), RoundedCornerShape(16.dp))
-                            .border(1.dp, Color.Red, RoundedCornerShape(16.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier.padding(24.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocationOn,
-                                contentDescription = "Location Error",
-                                tint = Color.Red,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = locationError ?: "",
-                                color = Color.White,
-                                textAlign = TextAlign.Center,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Spacer(modifier = Modifier.height(24.dp))
-                            Button(
-                                onClick = { 
-                                    // Trigger LaunchedEffect again by toggling a state, or just let them go back
-                                    // For simplicity, we just ask them to go back or restart
-                                },
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimarySuka)
-                            ) {
-                                Text("Coba Lagi")
-                            }
-                        }
-                    }
+                    ErrorLocationCard(locationError!!)
                 } else {
-                    // Action Area (Fingerprint Scanner Button)
+                    // Action Area (Camera Scanner)
                     ActionArea(
                         staffName = staffName,
                         staffFaceDescriptor = enrolledDescriptor,
                         isClockedIn = isClockedIn,
                         isDayCompleted = isDayCompleted,
                         isScanning = isScanning,
-                        pulseScale = pulseScale,
                         onScanTrigger = {
                             if (hasCameraPermission) {
                                 isScanning = true
@@ -370,8 +330,6 @@ fun AttendanceScreen(
                                     val client = SupabaseClient.getInstance()
                                     val tsClient = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.US).format(Date())
 
-                                    // Request ke endpoint web absensi — status/telat dihitung SERVER,
-                                    // atribusi nyata: staff login + outlet miliknya + lokasi device
                                     val type = if (!isClockedIn) "in" else "out"
                                     val req = com.sukashawarma.superapp.data.AttendanceSubmitRequest(
                                         id = java.util.UUID.randomUUID().toString(),
@@ -394,20 +352,14 @@ fun AttendanceScreen(
                                             accepted = true
                                             offlineNotice = null
                                         } else {
-                                            // Server menolak (time window, geofence, shift gate, not_enrolled, dll.)
                                             submitError = com.sukashawarma.superapp.data.SubmitFailureMessages.forReason(resp.reason)
                                         }
                                     } catch (e: com.sukashawarma.superapp.data.AttendanceServerException) {
-                                        // Server merespons tapi bukan JSON kontrak (502/maintenance/captive-portal) —
-                                        // BUKAN offline: JANGAN queue, JANGAN update UI optimis.
                                         submitError = e.message
                                     } catch (e: Exception) {
-                                        // Gagal jaringan murni → offline queue fallback (dikirim ulang saat online)
                                         client.queueOfflineAction {
                                             val resp = client.submitAttendance(req.copy(fromQueue = true))
                                             if (!resp.ok) {
-                                                // Penolakan permanen saat sync (mis. too_early) — log saja, jangan lempar
-                                                // (lempar = retry selamanya di queue).
                                                 android.util.Log.w("OfflineQueue", "Absensi ditolak saat sync: ${resp.reason}")
                                             }
                                         }
@@ -416,7 +368,6 @@ fun AttendanceScreen(
                                         accepted = true
                                     }
 
-                                    // Update UI hanya bila server menerima (atau masuk queue offline)
                                     if (accepted) {
                                         if (!isClockedIn) {
                                             isClockedIn = true
@@ -450,51 +401,18 @@ fun AttendanceScreen(
                     )
                 }
 
-                // Status offline-queue: tersimpan lokal, bukan sukses penuh
                 offlineNotice?.let { message ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0x33FFA000), RoundedCornerShape(12.dp))
-                            .border(1.dp, Color(0xFFFFA000), RoundedCornerShape(12.dp))
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = message,
-                            color = Color(0xFF701604),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    NoticeCard(message, isError = false)
                 }
 
-                // Pesan penolakan submit dari server (reason ter-map ke Indonesia)
                 submitError?.let { message ->
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0x33FF0000), RoundedCornerShape(12.dp))
-                            .border(1.dp, Color.Red, RoundedCornerShape(12.dp))
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = message,
-                            color = Color(0xFF701604),
-                            style = MaterialTheme.typography.bodyMedium,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    NoticeCard(message, isError = true)
                 }
 
-                // Lokasi Card
-                LocationInfoCard()
+                // Data Section (Status Hari ini)
+                StatusHariIniSection(currentDate, isClockedIn, isDayCompleted)
 
-                // Data Section (Kehadiran & Keterlambatan)
-                DataSection(attendanceCount, lateCount)
-
-                // Riwayat Hari Ini dengan Foto Selfie
+                // Riwayat Hari Ini
                 HistorySection(
                     clockInTime = clockInTime,
                     clockOutTime = clockOutTime,
@@ -502,6 +420,11 @@ fun AttendanceScreen(
                     clockOutSelfie = clockOutSelfie
                 )
             }
+        }
+        
+        // Bottom Navigation Bar
+        Box(modifier = Modifier.align(Alignment.BottomCenter)) {
+            BottomNavBar()
         }
     }
 }
@@ -557,96 +480,90 @@ private fun ProfileIncompleteScreen(onBackClick: () -> Unit) {
 }
 
 @Composable
-private fun TopBar(onBackClick: () -> Unit) {
+private fun TopBar(staffName: String?, onBackClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White.copy(alpha = 0.6f))
-            .padding(horizontal = 24.dp, vertical = 8.dp),
+            .background(Color.White, RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+            .padding(start = 24.dp, end = 24.dp, top = 48.dp, bottom = 24.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onBackClick) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-                tint = OnSurfaceVariant
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Profile",
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, Color(0xFFEEEEEE), CircleShape)
+                    .background(Color.White),
+                contentScale = ContentScale.Inside
             )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "Suka Culinary",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = Color.Black
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "SUKAABSEN OUTLET",
+                        fontSize = 10.sp,
+                        color = Color.Gray,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .background(Color(0xFFE8F5E9), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = "Online",
+                            fontSize = 9.sp,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         }
-        Text(
-            text = "Absensi",
-            style = MaterialTheme.typography.headlineMedium,
-            color = PrimarySuka
-        )
-        IconButton(onClick = { /* Help */ }) {
+        
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(Color(0xFFEEF0FC), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.HelpOutline,
-                contentDescription = "Help",
-                tint = OnSurfaceVariant
+                imageVector = Icons.Default.NotificationsNone,
+                contentDescription = "Notification",
+                tint = Color.Black,
+                modifier = Modifier.size(24.dp)
             )
         }
     }
 }
 
 @Composable
-private fun HeroSection(time: String, date: String, isClockedIn: Boolean, isDayCompleted: Boolean) {
-    GlassPanel(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Dynamic Status Badge
-            val (badgeText, badgeColor) = when {
-                isDayCompleted -> "Selesai Kerja" to TertiarySuka
-                isClockedIn -> "Sudah Absen Masuk" to Color(0xFF2E7D32)
-                else -> "Belum Absen" to ErrorRed
-            }
-
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(SurfaceVariant.copy(alpha = 0.5f))
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(badgeColor)
-                )
-                Text(
-                    text = badgeText,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = OnSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = time.ifEmpty { "00:00" },
-                style = MaterialTheme.typography.headlineLarge.copy(
-                    fontSize = 48.sp,
-                    lineHeight = 52.sp
-                ),
-                color = PrimarySuka
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = date.ifEmpty { "Memuat tanggal..." },
-                style = MaterialTheme.typography.bodySmall,
-                color = OnSurfaceVariant
-            )
-        }
+private fun GreetingSection(staffName: String?) {
+    Column {
+        Text(
+            text = "Halo, ${staffName ?: "tes"}!",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 24.sp,
+            color = Color(0xFF11142D)
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = "Anda berada di outlet tes",
+            fontSize = 14.sp,
+            color = Color.Gray
+        )
     }
 }
 
@@ -660,7 +577,6 @@ private fun ActionArea(
     isClockedIn: Boolean,
     isDayCompleted: Boolean,
     isScanning: Boolean,
-    pulseScale: Float,
     onScanTrigger: () -> Unit,
     onFaceScanned: (Bitmap) -> Unit,
     onReset: () -> Unit
@@ -687,92 +603,25 @@ private fun ActionArea(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        // Status Text & Reset Link
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = when {
-                    isDayCompleted -> "Kerja hari ini selesai. Terima kasih!"
-                    isClockedIn -> "Sudah absen masuk. Bekerja di Outlet Utama."
-                    else -> "Silakan ambil foto & ketuk untuk absen masuk."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = OnSurfaceVariant,
-                modifier = Modifier.weight(1f)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(420.dp)
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Color(0xFF2B2F3A), Color(0xFF1A1C23))
+                ),
+                shape = RoundedCornerShape(24.dp)
             )
-            if (isClockedIn || isDayCompleted) {
-                IconButton(onClick = onReset, modifier = Modifier.size(24.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Reset State",
-                        tint = PrimarySuka.copy(alpha = 0.6f),
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Fingerprint Button Container
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(320.dp)
-        ) {
-            // Ring Animasi Latar (Pulse Effect)
-            if (isScanning) {
-                Box(
-                    modifier = Modifier
-                        .size(280.dp)
-                        .scale(pulseScale)
-                        .clip(CircleShape)
-                        .background(PrimarySuka.copy(alpha = 0.15f))
-                )
-            }
-
-            // Tombol Utama
-            val buttonColor = when {
-                isDayCompleted -> Color.Gray
-                isClockedIn -> Color(0xFF701604) // Warna gelap/merah bata untuk Clock Out
-                else -> PrimarySuka
-            }
-
-            val buttonText = when {
-                isScanning -> "Memindai..."
-                isDayCompleted -> "Selesai"
-                isClockedIn -> "Mulai\nClock-Out"
-                else -> "Mulai\nClock-In"
-            }
-
-            Box(
-                modifier = Modifier
-                    .size(280.dp)
-                    .shadow(
-                        elevation = if (isScanning) 8.dp else 20.dp,
-                        shape = CircleShape,
-                        spotColor = buttonColor,
-                        ambientColor = buttonColor
-                    )
-                    .clip(CircleShape)
-                    .background(buttonColor)
-                    .clickable(enabled = !isDayCompleted && !isScanning) { onScanTrigger() },
-                contentAlignment = Alignment.Center
-            ) {
-                if (isScanning) {
-                    // Tampilkan Camera Preview di dalam lingkaran
-                    CameraPreview(
-                        modifier = Modifier.fillMaxSize(),
-                        onFaceDetected = { detected -> 
-                            // We handle detection in onImageCaptureReady
-                        },
-                        onImageCaptureReady = { imageProxy ->
+            .clip(RoundedCornerShape(24.dp))
+            .clickable(enabled = !isDayCompleted && !isScanning) { onScanTrigger() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (isScanning) {
+            CameraPreview(
+                modifier = Modifier.fillMaxSize(),
+                onFaceDetected = { },
+                onImageCaptureReady = { imageProxy ->
                             if (isProcessing) {
                                 imageProxy.close()
                                 return@CameraPreview
@@ -899,7 +748,7 @@ private fun ActionArea(
                                                                     }
                                                                 } else {
                                                                     livenessState = LivenessState.INIT
-                                                                    debugMessage = "Gagal verifikasi final — ulangi dari awal"
+                                                                    debugMessage = "Gagal verifikasi final â€” ulangi dari awal"
                                                                 }
                                                             }
                                                         } catch (e: Exception) {
@@ -930,23 +779,11 @@ private fun ActionArea(
                         }
                     )
                     
-                    // Indikator Wajah (Bingkai Hijau/Merah/Kuning)
-                    val frameColor = when (livenessState) {
-                        LivenessState.VERIFIED -> Color.Green
-                        LivenessState.MATCHING -> Color.Yellow
-                        LivenessState.INIT -> Color.Red
-                        else -> PrimarySuka
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .border(width = 4.dp, color = frameColor, shape = CircleShape)
-                    )
-                    
-                    // Teks Instruksi
+
+                    // Indikator Wajah
                     val instructionText = when (livenessState) {
                         LivenessState.INIT -> "Arahkan Wajah"
-                        LivenessState.STRAIGHT -> "Halo, ${staffName ?: "Karyawan"}!\nSilakan Toleh Kanan"
+                        LivenessState.STRAIGHT -> "Silakan Toleh Kanan"
                         LivenessState.RIGHT -> "Silakan Toleh Kiri"
                         LivenessState.LEFT -> "Kembali menatap lurus"
                         LivenessState.MATCHING -> "Mengekstrak Vektor..."
@@ -954,7 +791,7 @@ private fun ActionArea(
                     }
                     
                     Column(
-                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = if (livenessState == LivenessState.VERIFIED) 64.dp else 16.dp),
+                        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
@@ -981,12 +818,10 @@ private fun ActionArea(
                         }
                     }
                     
-                    // Tombol Ambil Absen Muncul Saat Liveness & Matching Selesai
                     if (livenessState == LivenessState.VERIFIED) {
                         LaunchedEffect(Unit) {
-                            kotlinx.coroutines.delay(1000) // Tahan 1 detik biar user lihat centangnya
+                            kotlinx.coroutines.delay(1000)
                             detectedBitmap?.let { onFaceScanned(it) } 
-                            // Reset state untuk absensi berikutnya
                             livenessState = LivenessState.INIT
                         }
                         
@@ -1005,175 +840,134 @@ private fun ActionArea(
                             )
                         }
                     }
-                } else {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = "Clock Action",
-                            tint = OnPrimary,
-                            modifier = Modifier.size(44.dp)
-                        )
-                        Text(
-                            text = buttonText,
-                            style = MaterialTheme.typography.headlineMedium.copy(
-                                fontSize = 20.sp,
-                                lineHeight = 24.sp
-                            ),
-                            color = OnPrimary,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+        } else {
+            // Scanner UI placeholder when not scanning
+            // Drawing the orange corners
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val cornerLength = 40.dp.toPx()
+                val strokeW = 4.dp.toPx()
+                val color = Color(0xFFFF9800)
+                val padding = 40.dp.toPx()
+                val radius = 16.dp.toPx()
+                
+                // Top Left
+                drawPath(
+                    path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(padding, padding + cornerLength)
+                        lineTo(padding, padding + radius)
+                        quadraticBezierTo(padding, padding, padding + radius, padding)
+                        lineTo(padding + cornerLength, padding)
+                    },
+                    color = color,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
+                
+                // Top Right
+                drawPath(
+                    path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(size.width - padding - cornerLength, padding)
+                        lineTo(size.width - padding - radius, padding)
+                        quadraticBezierTo(size.width - padding, padding, size.width - padding, padding + radius)
+                        lineTo(size.width - padding, padding + cornerLength)
+                    },
+                    color = color,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
+                
+                // Bottom Left
+                drawPath(
+                    path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(padding, size.height - padding - cornerLength)
+                        lineTo(padding, size.height - padding - radius)
+                        quadraticBezierTo(padding, size.height - padding, padding + radius, size.height - padding)
+                        lineTo(padding + cornerLength, size.height - padding)
+                    },
+                    color = color,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
+                
+                // Bottom Right
+                drawPath(
+                    path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(size.width - padding, size.height - padding - cornerLength)
+                        lineTo(size.width - padding, size.height - padding - radius)
+                        quadraticBezierTo(size.width - padding, size.height - padding, size.width - padding - radius, size.height - padding)
+                        lineTo(size.width - padding - cornerLength, size.height - padding)
+                    },
+                    color = color,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeW, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                )
             }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            text = "Sistem akan mendeteksi foto wajah dan lokasi Anda secara otomatis.",
-            style = MaterialTheme.typography.bodySmall,
-            color = OnSurfaceVariant,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.width(220.dp)
-        )
-    }
-}
-
-@Composable
-private fun LocationInfoCard() {
-    GlassPanel(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Default.LocationOn,
-                contentDescription = null,
-                tint = PrimarySuka,
-                modifier = Modifier.size(20.dp)
+            
+            Text(
+                text = "Arahkan wajah ke kamera",
+                color = Color.White,
+                fontSize = 12.sp,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 24.dp)
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-                Text(
-                    text = "Lokasi Saat Ini",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = OnSurfaceVariant
-                )
-                Text(
-                    text = "Outlet Utama (Dalam Radius 50m)",
-                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
-                    color = OnSurface
-                )
-            }
+            
+            // Top orange glow
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(4.dp)
+                    .align(Alignment.TopCenter)
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(Color.Transparent, Color(0xFFFF9800), Color.Transparent)
+                        )
+                    )
+            )
         }
     }
 }
-
 @Composable
-private fun DataSection(attendanceCount: Int, lateCount: Int) {
-    Row(
+private fun StatusHariIniSection(date: String, isClockedIn: Boolean, isDayCompleted: Boolean) {
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0F0F0))
     ) {
-        // Left Card (Kehadiran)
-        GlassPanel(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(16.dp)
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(TertiaryContainer.copy(alpha = 0.3f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.CalendarToday,
-                        contentDescription = null,
-                        tint = TertiarySuka,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                
-                Text(
-                    text = "Kehadiran Bulan Ini",
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                    color = OnSurfaceVariant
-                )
-                
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "$attendanceCount ",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = OnSurface
-                    )
-                    Text(
-                        text = "Hari",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = OnSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                }
+            Text(
+                text = "Status Hari ini",
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = Color(0xFF544437)
+            )
+            Text(
+                text = date.ifEmpty { "Kamis, 20 Agustus 2026" },
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black
+            )
+            
+            val (badgeText, badgeColor, badgeBg) = when {
+                isDayCompleted -> Triple("Selesai Bekerja", Color(0xFF1565C0), Color(0xFFE3F2FD))
+                isClockedIn -> Triple("Sedang Bekerja", Color(0xFFFF9800), Color(0xFFFFF3E0))
+                else -> Triple("Belum Bekerja", Color.Gray, Color(0xFFF5F5F5))
             }
-        }
-
-        // Right Card (Terlambat)
-        GlassPanel(
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Column(
+            
+            Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .background(badgeBg, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(ErrorContainer.copy(alpha = 0.5f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.TimerOff,
-                        contentDescription = null,
-                        tint = ErrorRed,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-                
+                Box(modifier = Modifier.size(6.dp).background(badgeColor, CircleShape))
                 Text(
-                    text = "Terlambat",
-                    style = MaterialTheme.typography.labelMedium.copy(fontSize = 11.sp),
-                    color = OnSurfaceVariant
+                    text = badgeText,
+                    fontSize = 12.sp,
+                    color = badgeColor,
+                    fontWeight = FontWeight.Bold
                 )
-                
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        text = "$lateCount ",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = ErrorRed
-                    )
-                    Text(
-                        text = "Kali",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = OnSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    )
-                }
             }
         }
     }
@@ -1188,125 +982,175 @@ private fun HistorySection(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = "Riwayat Hari Ini",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            ),
-            color = OnSurface
+            text = "Riwayat Absensi Terakhir",
+            fontWeight = FontWeight.ExtraBold,
+            fontSize = 16.sp,
+            color = Color.Black
         )
 
-        if (clockInTime == null && clockOutTime == null) {
-            GlassPanel(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Belum ada riwayat absensi hari ini.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = OnSurfaceVariant,
-                        textAlign = TextAlign.Center
-                    )
-                }
-            }
-        } else {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                clockOutTime?.let { time ->
-                    HistoryItem(
-                        type = "Clock Out",
-                        time = time,
-                        location = "Outlet Utama",
-                        iconColor = Color(0xFF701604),
-                        selfie = clockOutSelfie
-                    )
-                }
-                clockInTime?.let { time ->
-                    HistoryItem(
-                        type = "Clock In",
-                        time = time,
-                        location = "Outlet Utama",
-                        iconColor = Color(0xFF2E7D32),
-                        selfie = clockInSelfie
-                    )
-                }
-            }
-        }
+        HistoryItemCard(
+            type = "Clock In",
+            time = clockInTime ?: "08:00 WIB",
+            isToday = true,
+            isClockIn = true
+        )
+        
+        HistoryItemCard(
+            type = "Clock Out",
+            time = clockOutTime ?: "17:00 WIB",
+            isToday = false,
+            isClockIn = false
+        )
     }
 }
 
 @Composable
-private fun HistoryItem(
+private fun HistoryItemCard(
     type: String,
     time: String,
-    location: String,
-    iconColor: Color,
-    selfie: Bitmap?
+    isToday: Boolean,
+    isClockIn: Boolean
 ) {
-    GlassPanel(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White,
+        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF0F0F0))
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
+                .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Tampilkan foto selfie jika ada, jika tidak tampilkan ikon centang default
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(iconColor.copy(alpha = 0.12f)),
+                    .size(48.dp)
+                    .background(if (isClockIn) Color(0xFFE8F5E9) else Color(0xFFFFEBEE), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (selfie != null) {
-                    Image(
-                        bitmap = selfie.asImageBitmap(),
-                        contentDescription = "User Selfie",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = null,
-                        tint = iconColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
+                Icon(
+                    imageVector = if (isClockIn) Icons.AutoMirrored.Filled.Login else Icons.AutoMirrored.Filled.ExitToApp,
+                    contentDescription = type,
+                    tint = if (isClockIn) Color(0xFF2E7D32) else Color(0xFFD32F2F),
+                    modifier = Modifier.size(24.dp)
+                )
             }
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = type,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp,
-                    color = OnSurface
+                    fontSize = 16.sp,
+                    color = Color.Black
                 )
                 Text(
-                    text = location,
-                    fontSize = 12.sp,
-                    color = OnSurfaceVariant
+                    text = time,
+                    fontSize = 14.sp,
+                    color = Color.Gray
                 )
             }
-            Text(
-                text = time,
-                fontWeight = FontWeight.Bold,
-                color = OnSurface,
-                fontSize = 14.sp
-            )
+            
+            Box(
+                modifier = Modifier
+                    .background(Color(0xFFEEF0FC), RoundedCornerShape(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = if (isToday) "Hari ini" else "Kemarin",
+                    fontSize = 12.sp,
+                    color = Color.Black,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoticeCard(message: String, isError: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (isError) Color(0xFFFFEBEE) else Color(0xFFFFF3E0), RoundedCornerShape(12.dp))
+            .border(1.dp, if (isError) Color(0xFFD32F2F) else Color(0xFFFF9800), RoundedCornerShape(12.dp))
+            .padding(16.dp)
+    ) {
+        Text(
+            text = message,
+            color = if (isError) Color(0xFFD32F2F) else Color(0xFFE65100),
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun LoadingLocationCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth().height(100.dp),
+        shape = RoundedCornerShape(24.dp),
+        color = Color.White
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = Color(0xFFFF9800))
+        }
+    }
+}
+
+@Composable
+private fun ErrorLocationCard(error: String) {
+    NoticeCard(message = error, isError = true)
+}
+
+@Composable
+private fun BottomNavBar() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.White,
+        shadowElevation = 16.dp,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            BottomNavItem(icon = Icons.Default.Home, label = "Home", isSelected = true)
+            BottomNavItem(icon = Icons.Default.Checklist, label = "Checklist", isSelected = false)
+            BottomNavItem(icon = Icons.Default.Person, label = "Profile", isSelected = false)
+            BottomNavItem(icon = Icons.Default.MoreHoriz, label = "More", isSelected = false)
+        }
+    }
+}
+
+@Composable
+private fun BottomNavItem(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, isSelected: Boolean) {
+    if (isSelected) {
+        Row(
+            modifier = Modifier
+                .background(Color(0xFFFF9800), RoundedCornerShape(24.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = label, tint = Color.Black, modifier = Modifier.size(20.dp))
+            Text(text = label, color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    } else {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.padding(12.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = label, tint = Color.Gray, modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = label, color = Color.Gray, fontSize = 10.sp)
         }
     }
 }

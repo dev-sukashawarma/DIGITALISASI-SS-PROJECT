@@ -128,7 +128,7 @@ export async function POST(request: Request) {
     }
 
     // Gunakan harga dari DATABASE dan hitung promo per item jika ada
-    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
+    const unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
     
     // Track applied promos
     if (unitPrice < menuItem.price) {

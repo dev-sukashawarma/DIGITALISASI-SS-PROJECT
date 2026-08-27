@@ -1,20 +1,13 @@
-const url = 'https://khpkoreaaucvyqfhynfq.supabase.co';
-const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk2MzI5MiwiZXhwIjoyMDk2NTM5MjkyfQ.Dy0QMAHfB8EU9BK-JuyRrBidpG6iM94t9RtiJ_viZz8';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config({ path: 'apps/admin-dashboard/.env.local' });
 
-async function checkStaffOutlets() {
-  const query = `${url}/rest/v1/staff_outlets?staff_id=eq.fcdb3ada-0850-49da-b057-68f65cdbd743`;
-  const res = await fetch(query, {
-    headers: {
-      'apikey': serviceKey,
-      'Authorization': `Bearer ${serviceKey}`
-    }
-  });
-  
-  if (res.ok) {
-    console.log(await res.json());
-  } else {
-    console.log(await res.text());
-  }
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function check() {
+  const { data, error } = await supabase.from('staff_outlets').select('*').limit(5);
+  console.log("staff_outlets data:", data);
 }
-
-checkStaffOutlets();
+check();

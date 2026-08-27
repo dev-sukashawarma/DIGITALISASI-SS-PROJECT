@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2 } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -32,6 +32,19 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: 'PUSAT LAPORAN',
+    items: [
+      { href: '/laporan/penjualan', label: 'Rangkuman Penjualan', icon: PieChart },
+      { href: '/laporan/buku-kas', label: 'Buku Kas (OPEX)', icon: Wallet },
+      { href: '/laporan/selisih-stok', label: 'Selisih Stok', icon: Package },
+      { href: '/laporan/target-harian', label: 'Target Harian', icon: Target },
+      { href: '/laporan/bonus-crew', label: 'Bonus Crew', icon: UserCheck },
+      { href: '/laporan/waste', label: 'Kerugian Waste', icon: TrendingDown },
+      { href: '/laporan/rekap-bulanan', label: 'Rekap Bulanan', icon: Table2 },
+      { href: '/laporan/pembelian', label: 'Laporan Pembelian', icon: ShoppingCart },
+    ],
+  },
+  {
     title: 'PURCHASING',
     items: [
       { href: '/pembelian/dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
@@ -51,6 +64,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: '/payroll', label: 'Gaji', icon: Wallet },
       { href: '/petty-cash', label: 'Petty Cash', icon: Coins },
       { href: '/pengeluaran', label: 'Pengeluaran', icon: Receipt },
+      { href: '/pengeluaran/kantor', label: 'Pengajuan Dana Kantor', icon: Building2 },
     ],
   },
 ]

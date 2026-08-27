@@ -12,26 +12,35 @@ import {
 } from '@/lib/expenseCategories'
 import type { Outlet } from '@/lib/types'
 import { ArrowDownToLine, ArrowUpToLine } from 'lucide-react'
+import { useOutlets } from '@/hooks/useOutlets'
+import { createSingleExpenseAction } from '@/app/actions/expenses'
 
 const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange bg-white'
 
 export function ExpenseFormModal({
-  outlets,
-  isAdmin,
+  isOpen = true,
+  outlets: propOutlets,
+  isAdmin = true,
   onClose,
   onSuccess
 }: {
-  outlets: Outlet[]
-  isAdmin: boolean
+  isOpen?: boolean
+  outlets?: Outlet[]
+  isAdmin?: boolean
   onClose: () => void
   onSuccess: () => void
 }) {
+  const { data: fetchedOutlets = [] } = useOutlets()
+  const outletsList = propOutlets && propOutlets.length > 0 ? propOutlets : fetchedOutlets
+
   const [submitting, setSubmitting] = useState(false)
   const today = new Date().toISOString().slice(0, 10)
   
   const [type, setType] = useState<TransactionType>('expense')
   const [outletId, setOutletId] = useState<string>('PUSAT')
+
+  if (isOpen === false) return null
   
   // Set default category based on type
   const defaultCategory = type === 'income' ? INCOME_CATEGORIES[0] : PENGELUARAN_CATEGORIES[0]
@@ -61,35 +70,32 @@ export function ExpenseFormModal({
     }
 
     setSubmitting(true)
-    const supabase = createClient()
-    
-    // Auth user
-    const { data: { session } } = await supabase.auth.getSession()
-    const userId = session?.user?.id
+    try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      const userId = session?.user?.id
 
-    const yyyyMm = expenseDate.slice(0, 7)
-    const periodMonth = `${yyyyMm}-01`
+      const yyyyMm = expenseDate.slice(0, 7)
+      const periodMonth = `${yyyyMm}-01`
+      const isPusat = outletId === 'PUSAT'
 
-    const isPusat = outletId === 'PUSAT'
+      await createSingleExpenseAction({
+        outletId: isPusat ? null : outletId,
+        category,
+        amount: Number(amount),
+        description,
+        expenseDate: expenseDate,
+        periodMonth: periodMonth,
+        type: type,
+        created_by: userId
+      })
 
-    const { error } = await supabase.from('expenses').insert({
-      outlet_id: isPusat ? null : outletId,
-      category,
-      amount: Number(amount),
-      description,
-      expense_date: expenseDate,
-      period_month: periodMonth,
-      type: type,
-      created_by: userId
-    })
-
-    setSubmitting(false)
-
-    if (error) {
-      toast.error('Gagal menyimpan transaksi: ' + error.message)
-    } else {
       toast.success('Transaksi berhasil ditambahkan')
       onSuccess()
+    } catch (err: any) {
+      toast.error('Gagal menyimpan transaksi: ' + (err.message || 'Error'))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -132,7 +138,7 @@ export function ExpenseFormModal({
               onChange={(e) => setOutletId(e.target.value)}
             >
               {isAdmin && <option value="PUSAT">🏢 Pusat (Company-wide)</option>}
-              {outlets.map((o) => (
+              {outletsList.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
                 </option>

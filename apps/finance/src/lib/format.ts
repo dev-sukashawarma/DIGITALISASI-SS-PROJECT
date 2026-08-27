@@ -3,6 +3,8 @@ export function rupiah(n: number): string {
   return sign + 'Rp ' + Math.abs(Math.round(n)).toLocaleString('id-ID')
 }
 
+export const formatRupiah = rupiah
+
 export function rupiahCompact(n: number): string {
   const absN = Math.abs(n)
   const sign = n < 0 ? '-' : ''

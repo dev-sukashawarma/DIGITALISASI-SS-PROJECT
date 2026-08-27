@@ -1,9 +1,7 @@
-'use client'
-
 import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
 import { deriveScope, type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
+import { getExpensesAction } from '@/app/actions/expenses'
 
 export interface ExpenseRow {
   id: string
@@ -18,57 +16,65 @@ export interface ExpenseRow {
   receipt_url?: string | null
   source: 'monthly' | 'petty_cash'
   type?: string
+  recipient_name?: string | null
+  division?: string | null
 }
 
 const EMPTY_ROWS: ExpenseRow[] = []
 
 export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[]) {
-  const supabase = createClient()
   const query = useQuery<ExpenseRow[]>({
     queryKey: ['expenses', filter.from, filter.to, filter.outletId],
     initialData,
-    staleTime: 2 * 60_000,
+    staleTime: 30_000,
     queryFn: async () => {
-      let q1 = supabase
-        .from('expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
-        .gte('expense_date', filter.from)
-        .lte('expense_date', filter.to)
+      const { expenses, pettyCashExpenses } = await getExpensesAction({
+        from: filter.from,
+        to: filter.to,
+        outletId: filter.outletId,
+        source: filter.source
+      })
 
-      let q2 = supabase
-        .from('petty_cash_expenses')
-        .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name)')
-        .in('category', ['operasional', 'utilitas', 'lainnya'])
-        .gte('expense_date', filter.from)
-        .lte('expense_date', filter.to)
+      const monthlyRows = (expenses ?? []).map((row: any) => {
+        let displayDesc = row.description ?? ''
+        let cat = row.category
+        let recipientName: string | null = null
+        let division: string | null = null
 
-      // Filter outlet: satu outlet → hanya baris outlet itu (pusat/NULL tak muncul).
-      if (filter.outletId !== 'all') {
-        q1 = q1.eq('outlet_id', filter.outletId)
-        q2 = q2.eq('outlet_id', filter.outletId)
-      }
+        if (displayDesc.includes('[OFFICE_VCR]')) {
+          try {
+            const jsonPart = displayDesc.split('[OFFICE_VCR] ')[1]?.split(' | ')[0]
+            if (jsonPart) {
+              const parsed = JSON.parse(jsonPart)
+              if (parsed.cat) cat = parsed.cat
+              if (parsed.rcp) recipientName = parsed.rcp
+              if (parsed.div) division = parsed.div
+              if (parsed.rsn) displayDesc = parsed.rsn
+            }
+          } catch (e) {
+            // ignore
+          }
+        }
 
-      const [res1, res2] = await Promise.all([q1, q2])
+        return {
+          id: row.id,
+          outlet_id: row.outlet_id,
+          outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : 'Kantor Pusat'),
+          category: cat,
+          scope: row.outlet_id ? deriveScope(cat) : ('pusat' as const),
+          amount: Number(row.amount),
+          description: displayDesc,
+          expense_date: row.expense_date,
+          period_month: row.period_month,
+          receipt_url: row.receipt_url,
+          type: row.type || 'expense',
+          source: 'monthly' as const,
+          recipient_name: recipientName,
+          division: division
+        }
+      })
 
-      if (res1.error) throw res1.error
-      if (res2.error) throw res2.error
-
-      const monthlyRows = (res1.data ?? []).map((row: any) => ({
-        id: row.id,
-        outlet_id: row.outlet_id,
-        outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
-        category: row.category,
-        scope: deriveScope(row.category),
-        amount: Number(row.amount),
-        description: row.description ?? '',
-        expense_date: row.expense_date,
-        period_month: row.period_month,
-        receipt_url: row.receipt_url,
-        type: row.type || 'expense',
-        source: 'monthly' as const
-      }))
-
-      const pettyCashRows = (res2.data ?? []).map((row: any) => ({
+      const pettyCashRows = (pettyCashExpenses ?? []).map((row: any) => ({
         id: row.id,
         outlet_id: row.outlet_id,
         outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),

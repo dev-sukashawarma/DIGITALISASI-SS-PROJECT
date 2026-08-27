@@ -40,3 +40,82 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
     }
   }
 }
+
+export async function createSingleExpenseAction(input: {
+  outletId: string | null
+  category: string
+  amount: number
+  description: string
+  expenseDate: string
+  periodMonth: string
+  type: string
+  created_by?: string | null
+}) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  const isPusat = !input.outletId
+  const dbCategory = isPusat ? 'pengeluaran_global' : input.category
+  const dbDescription = isPusat && input.category !== 'pengeluaran_global'
+    ? `[Kategori: ${input.category}] ${input.description}`
+    : input.description
+
+  const { data, error } = await supabase
+    .from('expenses')
+    .insert({
+      outlet_id: input.outletId,
+      category: dbCategory,
+      amount: input.amount,
+      description: dbDescription,
+      expense_date: input.expenseDate,
+      period_month: input.periodMonth,
+      type: input.type,
+      payment_source: input.outletId ? 'petty_cash' : 'transfer_pusat',
+      created_by: input.created_by || null
+    })
+    .select()
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return data
+}
+
+export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = createClient(supabaseUrl, supabaseKey)
+
+  let q1 = supabase
+    .from('expenses')
+    .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
+    .gte('expense_date', filter.from)
+    .lte('expense_date', filter.to)
+
+  let q2 = supabase
+    .from('petty_cash_expenses')
+    .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name)')
+    .in('category', ['operasional', 'utilitas', 'lainnya'])
+    .gte('expense_date', filter.from)
+    .lte('expense_date', filter.to)
+
+  if (filter.outletId !== 'all') {
+    q1 = q1.eq('outlet_id', filter.outletId)
+    q2 = q2.eq('outlet_id', filter.outletId)
+  }
+
+  const [res1, res2] = await Promise.all([q1, q2])
+
+  if (res1.error) throw res1.error
+  if (res2.error) throw res2.error
+
+  return {
+    expenses: res1.data || [],
+    pettyCashExpenses: res2.data || []
+  }
+}
+
+

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, Wallet, FileText, ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Wallet, FileText, ArrowDownRight, ArrowUpRight, Building2, ArrowRight } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
 import { PageHeader } from '@/components/ui'
@@ -95,6 +96,26 @@ export default function InputPengeluaranPage() {
           </Button>
         </div>
       </PageHeader>
+
+      {/* Shortcut ke SOP Kas & Pengajuan Dana Kantor */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shadow-xs">
+            <Building2 className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-gray-900">Alur Pengajuan Dana & Kas Kantor Pusat (Advance & Voucher)</h4>
+            <p className="text-xs text-gray-500">Buat permohonan uang muka staf kantor, cetak voucher PDF, upload bukti nota, & verifikasi OPEX</p>
+          </div>
+        </div>
+        <Link
+          href="/pengeluaran/kantor"
+          className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs shrink-0 cursor-pointer"
+        >
+          <span>Buka Kas Kantor</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
       {expensesError && (
         <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">

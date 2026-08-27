@@ -1,0 +1,435 @@
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
+
+const loadImage = (url: string): Promise<HTMLImageElement> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'Anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Load image error: ' + url))
+    img.src = url
+  })
+}
+
+export interface ExecutiveReportData {
+  outletName: string
+  dateRangeLabel: string
+  channelLabel: string
+  grossRevenue: number
+  totalOrders: number
+  bestSellers: Array<{
+    name: string
+    channel?: string
+    qty: number
+    revenue: number
+  }>
+}
+
+export interface CategorizedReportData {
+  outletName: string
+  dateRangeLabel: string
+  categories: Array<{
+    categoryName: string
+    grossRevenue: number
+    bestSellers: Array<{
+      name: string
+      qty: number
+      revenue: number
+      hppTotal: number
+      unitPrice?: number
+    }>
+  }>
+}
+
+const formatRupiah = (amount: number): string => {
+  return new Intl.NumberFormat('id-ID', {
+    style: 'currency',
+    currency: 'IDR',
+    maximumFractionDigits: 0
+  }).format(amount)
+}
+
+export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData): Promise<void> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const margin = 14
+  let currentY = 14
+
+  // ── Header / Kop Dokumen ──
+  doc.setFillColor(242, 102, 34) // Suka Orange
+  doc.rect(margin, currentY, 4, 18, 'F')
+
+  try {
+    const logoImg = await loadImage('/logo.png')
+    doc.addImage(logoImg, 'PNG', margin + 7, currentY - 2, 20, 20)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59) // Slate-800
+    doc.text('SS SHAWARMA', margin + 31, currentY + 6)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(242, 102, 34)
+    doc.text('LAPORAN EKSEKUTIF - RINCIAN ITEM TERJUAL', margin + 31, currentY + 12)
+  } catch (err) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59)
+    doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(242, 102, 34)
+    doc.text('LAPORAN EKSEKUTIF - RINCIAN ITEM TERJUAL', margin + 8, currentY + 12)
+  }
+
+  // Right-aligned Metadata Box
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100, 116, 139)
+  
+  const rightX = pageWidth - margin
+  doc.text(`Cabang: ${data.outletName}`, rightX, currentY + 4, { align: 'right' })
+  doc.text(`Periode: ${data.dateRangeLabel}`, rightX, currentY + 9, { align: 'right' })
+  doc.text(`Channel: ${data.channelLabel}`, rightX, currentY + 14, { align: 'right' })
+  doc.text(`Tanggal Unduh: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
+
+  currentY += 24
+
+  // Divider line
+  doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.5)
+  doc.line(margin, currentY, pageWidth - margin, currentY)
+  currentY += 6
+
+  // ── Executive KPI Cards Summary ──
+  const totalItemQty = data.bestSellers.reduce((acc, item) => acc + item.qty, 0)
+  const cardWidth = (pageWidth - (margin * 2) - 8) / 3
+  const cardHeight = 16
+
+  const kpis = [
+    { label: 'GROSS REVENUE', value: formatRupiah(data.grossRevenue), color: [245, 158, 11] },
+    { label: 'TOTAL ITEM TERJUAL', value: `${totalItemQty.toLocaleString('id-ID')} Pcs`, color: [16, 185, 129] },
+    { label: 'TOTAL TRANSAKSI', value: `${data.totalOrders.toLocaleString('id-ID')} Pesanan`, color: [99, 102, 241] }
+  ]
+
+  kpis.forEach((kpi, idx) => {
+    const cardX = margin + (idx * (cardWidth + 4))
+
+    doc.setFillColor(248, 250, 252)
+    doc.roundedRect(cardX, currentY, cardWidth, cardHeight, 2, 2, 'F')
+
+    doc.setFillColor(kpi.color[0], kpi.color[1], kpi.color[2])
+    doc.rect(cardX, currentY, cardWidth, 1.2, 'F')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(7)
+    doc.setTextColor(148, 163, 184)
+    doc.text(kpi.label, cardX + 4, currentY + 5.5)
+
+    doc.setFontSize(10)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(30, 41, 59)
+    doc.text(kpi.value, cardX + 4, currentY + 12)
+  })
+
+  currentY += cardHeight + 8
+
+  // ── Section Title ──
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(10)
+  doc.setTextColor(30, 41, 59)
+  doc.text('Rincian Performa Penjualan Produk', margin, currentY)
+  currentY += 4
+
+  // ── Data Table (jspdf-autotable) ──
+  const tableHead = [['#', 'Nama Menu / Item', 'Channel', 'Qty Terjual', 'Total Revenue (Rp)', '% Kontribusi Omzet']]
+  const totalRevenue = data.grossRevenue > 0 ? data.grossRevenue : 1
+
+  const tableBody = data.bestSellers.map((item, index) => {
+    const contributionPct = ((item.revenue / totalRevenue) * 100).toFixed(1)
+    return [
+      (index + 1).toString(),
+      item.name,
+      data.channelLabel,
+      `${item.qty} Pcs`,
+      formatRupiah(item.revenue),
+      `${contributionPct}%`
+    ]
+  })
+
+  autoTable(doc, {
+    startY: currentY,
+    head: tableHead,
+    body: tableBody,
+    theme: 'striped',
+    margin: { left: margin, right: margin },
+    headStyles: {
+      fillColor: [30, 41, 59],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      halign: 'left'
+    },
+    bodyStyles: {
+      fontSize: 8,
+      textColor: [51, 65, 85]
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 30, halign: 'left' },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 35, halign: 'right' },
+      5: { cellWidth: 30, halign: 'right' }
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252]
+    }
+  })
+
+  // ── Footer ──
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(7)
+    doc.setTextColor(156, 163, 175)
+    doc.text(
+      `Dicetak pada: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
+      105,
+      287,
+      { align: 'center' }
+    )
+  }
+
+  const filename = `Laporan_Eksekutif_${data.outletName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+  doc.save(filename)
+}
+
+export const generateCategorizedReportPDF = async (data: CategorizedReportData): Promise<void> => {
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  })
+
+  const margin = 15
+  let currentY = 20
+
+  doc.setFillColor(242, 102, 34)
+  doc.rect(margin, currentY, 4, 18, 'F')
+
+  try {
+    const logoImg = await loadImage('/logo.png')
+    doc.addImage(logoImg, 'PNG', margin + 7, currentY - 2, 20, 20)
+    
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59)
+    doc.text('SS SHAWARMA', margin + 31, currentY + 6)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(242, 102, 34)
+    doc.text('LAPORAN RINCIAN ITEM TERJUAL PER KATEGORI', margin + 31, currentY + 12)
+  } catch (err) {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(16)
+    doc.setTextColor(30, 41, 59)
+    doc.text('SS SHAWARMA', margin + 8, currentY + 6)
+
+    doc.setFontSize(11)
+    doc.setFont('helvetica', 'bold')
+    doc.setTextColor(242, 102, 34)
+    doc.text('LAPORAN RINCIAN ITEM TERJUAL PER KATEGORI', margin + 8, currentY + 12)
+  }
+
+  doc.setFontSize(8)
+  doc.setFont('helvetica', 'normal')
+  doc.setTextColor(100, 116, 139)
+  
+  const rightX = doc.internal.pageSize.getWidth() - margin
+  doc.text(`Cabang: ${data.outletName}`, rightX, currentY + 4, { align: 'right' })
+  doc.text(`Periode: ${data.dateRangeLabel}`, rightX, currentY + 9, { align: 'right' })
+  doc.text(`Channel: Semua Channel`, rightX, currentY + 14, { align: 'right' })
+  doc.text(`Tgl Unduh: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, rightX, currentY + 19, { align: 'right' })
+
+  currentY += 24
+
+  doc.setDrawColor(226, 232, 240)
+  doc.setLineWidth(0.5)
+  doc.line(margin, currentY, doc.internal.pageSize.getWidth() - margin, currentY)
+  currentY += 8
+
+  data.categories.forEach((cat, idx) => {
+    if (idx > 0) {
+      currentY = (doc as any).lastAutoTable.finalY + 15
+      if (currentY > 250) {
+        doc.addPage()
+        currentY = 20
+      }
+    }
+
+    doc.setFillColor(248, 250, 252)
+    doc.roundedRect(margin, currentY - 5, doc.internal.pageSize.getWidth() - (margin * 2), 10, 2, 2, 'F')
+    
+    doc.setFillColor(242, 102, 34)
+    doc.rect(margin, currentY - 5, 2, 10, 'F')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(30, 41, 59)
+    doc.text(`KATEGORI: ${cat.categoryName.toUpperCase()}`, margin + 5, currentY + 1.5)
+    currentY += 8
+
+    const tableHead = [['#', 'Nama Menu / Item', 'Harga Jual', 'HPP', 'Qty', 'Total HPP', 'Total Revenue']]
+    let totalKategoriQty = 0
+    let totalKategoriHpp = 0
+    let totalKategoriRev = 0
+
+    const tableBody = cat.bestSellers.map((item, index) => {
+      const hargaJual = item.unitPrice || (item.qty > 0 ? item.revenue / item.qty : 0)
+      const hppSatuan = item.qty > 0 ? item.hppTotal / item.qty : 0
+      
+      totalKategoriQty += item.qty
+      totalKategoriHpp += item.hppTotal
+      totalKategoriRev += item.revenue
+
+      return [
+        (index + 1).toString(),
+        item.name,
+        formatRupiah(hargaJual),
+        formatRupiah(hppSatuan),
+        `${item.qty}`,
+        formatRupiah(item.hppTotal),
+        formatRupiah(item.revenue)
+      ]
+    })
+
+    tableBody.push([
+      '',
+      'TOTAL',
+      '-',
+      '-',
+      `${totalKategoriQty}`,
+      formatRupiah(totalKategoriHpp),
+      formatRupiah(totalKategoriRev)
+    ])
+
+    autoTable(doc, {
+      startY: currentY,
+      head: tableHead,
+      body: tableBody,
+      theme: 'striped',
+      margin: { left: margin, right: margin },
+      headStyles: {
+        fillColor: [248, 250, 252],
+        textColor: [71, 85, 105],
+        fontStyle: 'bold',
+        fontSize: 8,
+        halign: 'center',
+        lineWidth: 0.1,
+        lineColor: [226, 232, 240]
+      },
+      bodyStyles: {
+        fontSize: 8,
+        textColor: [51, 65, 85],
+        lineWidth: 0.1,
+        lineColor: [241, 245, 249]
+      },
+      columnStyles: {
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 'auto', halign: 'left' },
+        2: { cellWidth: 25, halign: 'right' },
+        3: { cellWidth: 25, halign: 'right' },
+        4: { cellWidth: 15, halign: 'center' },
+        5: { cellWidth: 30, halign: 'right' },
+        6: { cellWidth: 30, halign: 'right' }
+      },
+      didParseCell: function(dataArg) {
+        if (dataArg.section === 'head' && dataArg.column.index === 1) {
+          dataArg.cell.styles.halign = 'left'
+        }
+        if (dataArg.row.index === tableBody.length - 1) {
+          dataArg.cell.styles.fontStyle = 'bold'
+          dataArg.cell.styles.textColor = [15, 23, 42]
+          dataArg.cell.styles.fillColor = [241, 245, 249]
+        }
+      },
+      alternateRowStyles: {
+        fillColor: [250, 250, 250]
+      }
+    })
+  })
+
+  let grandTotalQty = 0
+  let grandTotalHpp = 0
+  let grandTotalRev = 0
+
+  data.categories.forEach(cat => {
+    cat.bestSellers.forEach(item => {
+      grandTotalQty += item.qty
+      grandTotalHpp += item.hppTotal
+      grandTotalRev += item.revenue
+    })
+  })
+
+  let finalY = (doc as any).lastAutoTable.finalY + 10
+  if (finalY > 260) {
+    doc.addPage()
+    finalY = 20
+  }
+
+  autoTable(doc, {
+    startY: finalY,
+    head: [['', '', '', 'GRAND TOTAL', `${grandTotalQty}`, formatRupiah(grandTotalHpp), formatRupiah(grandTotalRev)]],
+    body: [
+      [
+        { content: '* Keterangan: Total Revenue - Total HPP = Gross Net (Laba kotor sebelum dikurangi biaya Admin Platform)', colSpan: 3, styles: { halign: 'left', fontStyle: 'italic', textColor: [100, 100, 100], fontSize: 7 } },
+        { content: 'GROSS NET', styles: { fontStyle: 'bold', halign: 'right' } },
+        '',
+        '',
+        { content: formatRupiah(grandTotalRev - grandTotalHpp), styles: { fontStyle: 'bold', halign: 'right', textColor: [22, 163, 74] } }
+      ]
+    ],
+    theme: 'grid',
+    margin: { left: margin, right: margin },
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+      fontSize: 9
+    },
+    columnStyles: {
+      0: { cellWidth: 10, halign: 'center' },
+      1: { cellWidth: 'auto' },
+      2: { cellWidth: 25, halign: 'right' },
+      3: { cellWidth: 25, halign: 'right' },
+      4: { cellWidth: 15, halign: 'right' },
+      5: { cellWidth: 30, halign: 'right' },
+      6: { cellWidth: 30, halign: 'right' }
+    }
+  })
+
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(7)
+    doc.setTextColor(156, 163, 175)
+    doc.text(
+      `Dicetak pada: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
+      105,
+      287,
+      { align: 'center' }
+    )
+  }
+
+  const filename = `Laporan_Eksekutif_Kategori_${data.outletName.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`
+  doc.save(filename)
+}

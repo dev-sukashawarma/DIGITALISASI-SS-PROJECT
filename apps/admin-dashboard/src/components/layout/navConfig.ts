@@ -111,8 +111,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: HeartHandshake,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/kelola-mitra', label: 'Daftar Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['ADMIN'] },
-      { href: '/dashboard/owner/kelola-mitra', label: 'Kelola Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

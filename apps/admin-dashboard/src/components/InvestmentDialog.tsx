@@ -2,14 +2,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button, Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
-import { X } from 'lucide-react'
+import { X, DollarSign } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
 
 const inputCls =
-  'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange transition-colors'
+  'w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all font-normal'
 
 export function InvestmentDialog({
   outlet,
@@ -18,6 +19,7 @@ export function InvestmentDialog({
   outlet: Outlet
   onClose: () => void
 }) {
+  const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   
@@ -97,8 +99,19 @@ export function InvestmentDialog({
       }
 
       if (error) throw error
+
+      // Synchronize profit_sharing_pct to associated mitra_profiles
+      const { data: allProfs } = await supabase.from('mitra_profiles').select('id, outlet_ids')
+      const targetProf = allProfs?.find((p: any) => (p.outlet_ids || []).includes(outlet.id))
+      if (targetProf) {
+        await supabase
+          .from('mitra_profiles')
+          .update({ profit_sharing_pct: persentaseBagiHasil })
+          .eq('id', targetProf.id)
+      }
       
       toast.success(`Modal Mitra untuk ${outlet.name} berhasil disimpan`)
+      router.refresh()
       onClose()
     } catch (error: any) {
       console.error(error)
@@ -109,21 +122,26 @@ export function InvestmentDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-fade-in">
-        <div className="flex items-center justify-between border-b border-suka-gray-100 p-4 sm:p-6 bg-cyan-50/50">
-          <div>
-            <h3 className="text-xl font-bold text-suka-ink">
-              Kelola Modal Mitra
-            </h3>
-            <p className="text-sm text-suka-gray-500 font-medium">{outlet.name}</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 sm:p-6 backdrop-blur-xs">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-fade-in border border-amber-100">
+        <div className="flex items-center justify-between border-b border-gray-100 p-5 bg-amber-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center border border-amber-200/60">
+              <DollarSign className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-gray-900 leading-tight">
+                Kelola Modal Investasi
+              </h3>
+              <p className="text-xs text-gray-500 font-normal">{outlet.name}</p>
+            </div>
           </div>
-          <button onClick={onClose} className="rounded-full p-2 hover:bg-suka-gray-100 transition-colors">
-            <X size={20} className="text-suka-gray-500" />
+          <button onClick={onClose} className="rounded-full p-2 hover:bg-gray-100 transition-colors">
+            <X size={18} className="text-gray-400" />
           </button>
         </div>
 
-        <div className="p-4 sm:p-6">
+        <div className="p-5">
           {loading ? (
             <div className="flex justify-center p-8">
               <Spinner />
@@ -131,15 +149,15 @@ export function InvestmentDialog({
           ) : (
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <label className="text-sm">
-                <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-xs">Total Modal / Investasi Awal</span>
+                <span className="mb-1.5 block font-semibold text-gray-700 uppercase tracking-wider text-xs">Total Modal / Investasi Awal</span>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-suka-gray-500 sm:text-sm font-semibold">Rp</span>
+                    <span className="text-gray-400 sm:text-sm font-semibold">Rp</span>
                   </div>
                   <input 
                     type="number" 
                     required
-                    className={`${inputCls} pl-10 font-medium`} 
+                    className={`${inputCls} pl-10 font-bold text-gray-900`} 
                     value={nilaiInvestasi || ''} 
                     onChange={(e) => setNilaiInvestasi(Number(e.target.value))} 
                   />
@@ -147,7 +165,7 @@ export function InvestmentDialog({
               </label>
 
               <label className="text-sm">
-                <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-xs">Tanggal Mulai</span>
+                <span className="mb-1.5 block font-semibold text-gray-700 uppercase tracking-wider text-xs">Tanggal Mulai Usaha</span>
                 <input 
                   type="date" 
                   required
@@ -157,9 +175,10 @@ export function InvestmentDialog({
                 />
               </label>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm">
-                  <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-xs">Omzet Historis (Rp)</span>
+                  <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[11px]">Omzet Historis (Rp)</span>
+                  <span className="text-[10px] text-gray-400 block mb-1 font-normal">Omzet sebelum sistem digital</span>
                   <input 
                     type="number" 
                     className={inputCls} 
@@ -169,7 +188,8 @@ export function InvestmentDialog({
                   />
                 </label>
                 <label className="text-sm">
-                  <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-xs">Transfer Historis (Rp)</span>
+                  <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[11px]">Transfer Historis (Rp)</span>
+                  <span className="text-[10px] text-gray-400 block mb-1 font-normal">Bagi hasil manual masa lalu</span>
                   <input 
                     type="number" 
                     className={inputCls} 
@@ -180,47 +200,50 @@ export function InvestmentDialog({
                 </label>
               </div>
 
-              <div className="p-4 border border-suka-gray-200 rounded-xl bg-suka-gray-50/50 space-y-4">
+              <div className="p-4 border border-gray-200 rounded-2xl bg-gray-50/50 space-y-3">
                 <label className="flex items-center gap-3 cursor-pointer">
                   <input
                     type="checkbox"
-                    className="w-5 h-5 text-suka-orange focus:ring-suka-orange border-gray-300 rounded cursor-pointer"
+                    className="w-4 h-4 text-amber-600 focus:ring-amber-500 border-gray-300 rounded cursor-pointer"
                     checked={isProfitSharingActive}
                     onChange={(e) => setIsProfitSharingActive(e.target.checked)}
                   />
-                  <span className="font-bold text-sm text-suka-ink">Aktifkan Bagi Hasil Otomatis</span>
+                  <span className="font-semibold text-xs text-gray-900">Aktifkan Bagi Hasil & Management Fee</span>
                 </label>
                 
                 {isProfitSharingActive && (
-                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-suka-gray-200 border-dashed">
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-200 border-dashed">
                     <label className="text-sm">
-                      <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-[10px]">Porsi Mitra (%)</span>
+                      <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[10px]">Porsi Mitra (%)</span>
                       <div className="relative">
                         <input 
                           type="number" 
-                          className={`${inputCls} pr-8`} 
+                          className={`${inputCls} pr-8 font-bold`} 
                           value={persentaseBagiHasil || ''} 
                           onChange={(e) => setPersentaseBagiHasil(Number(e.target.value))} 
                           max={100}
                           min={0}
                         />
                         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                          <span className="text-suka-gray-500 font-semibold">%</span>
+                          <span className="text-gray-400 font-semibold">%</span>
                         </div>
                       </div>
                     </label>
                     <label className="text-sm">
-                      <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-[10px]">Management Fee / Bln</span>
+                      <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[10px]">Management Fee (% Omzet)</span>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-suka-gray-500 font-semibold text-xs">Rp</span>
-                        </div>
                         <input 
                           type="number" 
-                          className={`${inputCls} pl-8`} 
+                          className={`${inputCls} pr-8 font-bold`} 
                           value={managementFee || ''} 
                           onChange={(e) => setManagementFee(Number(e.target.value))} 
+                          placeholder="3"
+                          max={100}
+                          min={0}
                         />
+                        <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                          <span className="text-gray-400 font-semibold">%</span>
+                        </div>
                       </div>
                     </label>
                   </div>
@@ -228,23 +251,31 @@ export function InvestmentDialog({
               </div>
 
               <label className="text-sm">
-                <span className="mb-1 block font-extrabold text-suka-ink uppercase tracking-wider text-xs">Catatan Khusus (Opsional)</span>
+                <span className="mb-1.5 block font-semibold text-gray-700 uppercase tracking-wider text-xs">Catatan Khusus (Opsional)</span>
                 <textarea 
-                  className={`${inputCls} min-h-[100px] resize-y`} 
+                  className={`${inputCls} min-h-[80px] resize-none`} 
                   value={catatan} 
                   onChange={(e) => setCatatan(e.target.value)}
-                  placeholder="Misal: Perjanjian profit share 50:50 setelah dipotong management fee 3%"
+                  placeholder="Misal: Perjanjian profit share 50:50..."
                 />
               </label>
 
-              <div className="mt-4 flex justify-end gap-3 pt-4 border-t border-suka-gray-100">
-                <Button type="button" variant="outline" onClick={onClose} className="rounded-xl">
+              <div className="mt-2 flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button 
+                  type="button" 
+                  onClick={onClose} 
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-gray-700 text-xs font-semibold hover:bg-gray-50 transition-colors"
+                >
                   Batal
-                </Button>
-                <Button type="submit" disabled={saving} className="rounded-xl flex items-center gap-2">
-                  {saving && <Spinner className="w-4 h-4 border-2" />}
-                  {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
-                </Button>
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={saving} 
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-amber-600/25 transition-all disabled:opacity-50 flex items-center gap-2"
+                >
+                  {saving && <Spinner className="w-3.5 h-3.5 border-2" />}
+                  <span>{saving ? 'Menyimpan...' : 'Simpan Perubahan'}</span>
+                </button>
               </div>
             </form>
           )}

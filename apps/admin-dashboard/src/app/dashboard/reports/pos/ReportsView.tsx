@@ -749,7 +749,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
     const grossRevenue = completed.reduce((sum, o) => {
       const itemSubtotal = o.order_items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-      return sum + (itemSubtotal > 0 ? itemSubtotal : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
+      const diff = itemSubtotal > 0 && Number(o.total_amount) > itemSubtotal ? (Number(o.total_amount) - itemSubtotal) : 0
+      return sum + (itemSubtotal > 0 ? (itemSubtotal + diff) : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
     }, 0)
     const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
@@ -1011,6 +1012,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
     }> = {}
 
+    let totalKodeUnik = 0
+
     validOrders.forEach(o => {
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
@@ -1053,6 +1056,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const catData = categoryMap[categoryName]
 
+      let orderItemSubtotal = 0
       o.order_items.forEach(oi => {
         const key = cleanItemName(oi.menu_item_name)
         if (!catData.itemMap[key]) {
@@ -1071,8 +1075,29 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         catData.itemMap[key].revenue += oi.subtotal
         catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
         catData.grossRevenue += oi.subtotal
+        orderItemSubtotal += oi.subtotal
       })
+
+      if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
+        totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)
+      }
     })
+
+    if (totalKodeUnik > 0) {
+      categoryMap['Penyesuaian Sistem (Kode Unik QRIS)'] = {
+        categoryName: 'Penyesuaian Sistem (Kode Unik QRIS)',
+        grossRevenue: totalKodeUnik,
+        itemMap: {
+          'Kode Unik QRIS': {
+            name: 'Kode Unik QRIS & Penyesuaian Nominal',
+            qty: 1,
+            revenue: totalKodeUnik,
+            hppTotal: 0,
+            unitPrice: totalKodeUnik
+          }
+        }
+      }
+    }
 
     // 3. Ubah ke array dan sort
     const categories = Object.values(categoryMap).map(cat => ({
@@ -1125,6 +1150,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
     }> = {}
 
+    let totalKodeUnik = 0
+
     validOrders.forEach(o => {
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
@@ -1167,6 +1194,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const catData = categoryMap[categoryName]
 
+      let orderItemSubtotal = 0
       o.order_items.forEach(oi => {
         const key = cleanItemName(oi.menu_item_name)
         if (!catData.itemMap[key]) {
@@ -1185,8 +1213,29 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         catData.itemMap[key].revenue += oi.subtotal
         catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
         catData.grossRevenue += oi.subtotal
+        orderItemSubtotal += oi.subtotal
       })
+
+      if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
+        totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)
+      }
     })
+
+    if (totalKodeUnik > 0) {
+      categoryMap['Penyesuaian Sistem (Kode Unik QRIS)'] = {
+        categoryName: 'Penyesuaian Sistem (Kode Unik QRIS)',
+        grossRevenue: totalKodeUnik,
+        itemMap: {
+          'Kode Unik QRIS': {
+            name: 'Kode Unik QRIS & Penyesuaian Nominal',
+            qty: 1,
+            revenue: totalKodeUnik,
+            hppTotal: 0,
+            unitPrice: totalKodeUnik
+          }
+        }
+      }
+    }
 
     const categories = Object.values(categoryMap).map(cat => ({
       categoryName: cat.categoryName,

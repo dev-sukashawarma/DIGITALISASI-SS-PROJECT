@@ -1165,7 +1165,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const categoryMap: Record<string, {
       categoryName: string,
       grossRevenue: number,
-      itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
+      itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; adminPlatform: number; grossProfit: number; unitPrice: number }>
     }> = {}
 
     let totalKodeUnik = 0
@@ -1212,6 +1212,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const catData = categoryMap[categoryName]
 
+      // Hitung total potongan / admin platform untuk pesanan ini
+      const disc = Number((o as any).discount_amount) || 0
+      const promo = Number((o as any).promo_subsidy) || 0
+      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const itemDiff = orderItemsGross > Number(o.total_amount) ? orderItemsGross - Number(o.total_amount) : 0
+      const extraDiff = Math.max(0, itemDiff - (disc + promo))
+      const orderTotalDeductions = disc + promo + extraDiff
+
       let orderItemSubtotal = 0
       if (o.order_items && o.order_items.length > 0) {
         o.order_items.forEach(oi => {
@@ -1222,15 +1230,23 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               qty: 0, 
               revenue: 0, 
               hppTotal: 0,
+              adminPlatform: 0,
+              grossProfit: 0,
               unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
             }
           }
           
           const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
-          
+          const itemHpp = hppPerUnit * oi.quantity
+          const itemDeduction = orderItemsGross > 0 ? (oi.subtotal / orderItemsGross) * orderTotalDeductions : 0
+          const itemGrossProfit = oi.subtotal - itemHpp - itemDeduction
+
           catData.itemMap[key].qty += oi.quantity
           catData.itemMap[key].revenue += oi.subtotal
-          catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
+          catData.itemMap[key].hppTotal += itemHpp
+          catData.itemMap[key].adminPlatform += itemDeduction
+          catData.itemMap[key].grossProfit += itemGrossProfit
+
           catData.grossRevenue += oi.subtotal
           orderItemSubtotal += oi.subtotal
         })
@@ -1243,11 +1259,19 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             qty: 0,
             revenue: 0,
             hppTotal: 0,
+            adminPlatform: 0,
+            grossProfit: 0,
             unitPrice: grossAmount
           }
         }
+        const itemDeduction = orderTotalDeductions
+        const itemGrossProfit = grossAmount - itemDeduction
+
         catData.itemMap[key].qty += 1
         catData.itemMap[key].revenue += grossAmount
+        catData.itemMap[key].adminPlatform += itemDeduction
+        catData.itemMap[key].grossProfit += itemGrossProfit
+
         catData.grossRevenue += grossAmount
         orderItemSubtotal += grossAmount
       }
@@ -1267,6 +1291,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             qty: 1,
             revenue: totalKodeUnik,
             hppTotal: 0,
+            adminPlatform: 0,
+            grossProfit: totalKodeUnik,
             unitPrice: totalKodeUnik
           }
         }
@@ -1289,15 +1315,17 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       return b.grossRevenue - a.grossRevenue
     })
 
-    // Build CSV content
-    let csvContent = "Kategori/Channel,Nama Menu / Item,Harga Jual,HPP,Qty,Total HPP,Total Revenue\n";
+    // Build CSV content with Admin Platform and Gross Profit
+    let csvContent = "Kategori/Channel,Nama Menu / Item,Harga Jual,HPP,Qty,Total HPP,Total Revenue,Admin Platform,Gross Profit\n";
     categories.forEach(cat => {
       cat.bestSellers.forEach(item => {
         const catName = `"${cat.categoryName.replace(/"/g, '""')}"`
         const itemName = `"${item.name.replace(/"/g, '""')}"`
         const hargaJual = item.unitPrice || (item.qty > 0 ? item.revenue / item.qty : 0)
         const hppSatuan = item.qty > 0 ? item.hppTotal / item.qty : 0
-        csvContent += `${catName},${itemName},${hargaJual},${hppSatuan},${item.qty},${item.hppTotal},${item.revenue}\n`
+        const adminPlatform = Math.round(item.adminPlatform || 0)
+        const grossProfit = Math.round(item.grossProfit || (item.revenue - item.hppTotal - adminPlatform))
+        csvContent += `${catName},${itemName},${hargaJual},${hppSatuan},${item.qty},${item.hppTotal},${item.revenue},${adminPlatform},${grossProfit}\n`
       })
     })
 

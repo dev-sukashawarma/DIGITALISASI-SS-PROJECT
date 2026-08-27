@@ -11,10 +11,10 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.1",
-    "@suka/auth": "workspace:*",
-    "@suka/design-system": "workspace:*",
+    "@suka/auth": "*",
+    "@suka/design-system": "*",
     "lucide-react": "^0.300.0",
-    "next": "^16.2.11",
+    "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

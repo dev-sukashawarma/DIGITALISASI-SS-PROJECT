@@ -6,7 +6,7 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
 # Copy manifests for yarn workspaces resolution
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.json ./
+COPY package.json yarn.lock .npmrc tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
@@ -14,7 +14,7 @@ COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/admin-dashboard/package.json apps/admin-dashboard/package.json
 
 # Install dependencies (cached by BuildKit)
-RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store corepack enable pnpm && pnpm config set store-dir /root/.local/share/pnpm/store && pnpm install --frozen-lockfile
+RUN --mount=type=cache,id=yarn-cache-v3,sharing=locked,target=/usr/local/share/.cache/yarn/v6 corepack enable && (yarn install --frozen-lockfile --network-timeout 600000 || (yarn cache clean --all && yarn install --frozen-lockfile --network-timeout 600000))
 
 # Copy source code
 COPY packages packages
@@ -39,7 +39,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 # Build the application
-RUN NEXT_TURBOPACK=0 corepack enable pnpm && NEXT_TURBOPACK=0 pnpm --filter @suka/admin-dashboard build
+RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/admin-dashboard build
 
 # --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

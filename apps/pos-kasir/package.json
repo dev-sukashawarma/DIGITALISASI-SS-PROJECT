@@ -14,9 +14,9 @@
   },
   "dependencies": {
     "@serwist/next": "^9.5.11",
-    "@suka/auth": "workspace:*",
-    "@suka/design-system": "workspace:*",
-    "@suka/realtime": "workspace:*",
+    "@suka/auth": "*",
+    "@suka/design-system": "*",
+    "@suka/realtime": "*",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.0",
     "@tanstack/react-query": "^5.101.0",

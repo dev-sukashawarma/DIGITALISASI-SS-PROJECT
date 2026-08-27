@@ -1,7 +1,6 @@
 import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { Providers } from './Providers'
-import NextTopLoader from 'nextjs-toploader'
 import { Inter } from 'next/font/google'
 import './globals.css'
 
@@ -32,7 +31,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </head>
       <body className="antialiased font-sans bg-slate-50" suppressHydrationWarning>
-        <NextTopLoader color="#ea580c" showSpinner={false} />
         <Providers initialStaff={initialStaff}>{children}</Providers>
       </body>
     </html>

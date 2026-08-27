@@ -8,6 +8,7 @@ import { Toaster } from 'sonner'
 
 import { RoleProvider } from '@/components/layout/RoleContext'
 import { GlobalDialogs } from '@/components/GlobalDialogs'
+import NextTopLoader from 'nextjs-toploader'
 
 export function Providers({
   children,
@@ -35,6 +36,7 @@ export function Providers({
     <QueryClientProvider client={queryClient}>
       <AuthProvider supabase={supabase} initialStaff={initialStaff}>
         <RoleProvider>
+          <NextTopLoader color="#ea580c" showSpinner={false} />
           {children}
           <Toaster richColors position="top-center" />
           <GlobalDialogs />

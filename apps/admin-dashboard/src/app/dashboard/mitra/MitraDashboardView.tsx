@@ -61,6 +61,7 @@ export function MitraDashboardView({
   initialTransfers = [],
   initialStaff = [],
   initialSuggestions = [],
+  initialRoiStats = { roi: 0, bepPercentage: 0 },
   isAdminMode = false,
   allMitraProfiles = []
 }: any) {
@@ -68,6 +69,8 @@ export function MitraDashboardView({
   const supabase = createClient()
   const { selectedOutlet, selectedOutletId, setSelectedOutletId } = useMitraOutlet()
   
+  const allowedOutletIds = (outlets || []).map((o: any) => o.id)
+
   const [isBiodataOpen, setIsBiodataOpen] = useState(false)
   const [pnlData, setPnlData] = useState<ComprehensiveMitraPnl | null>(null)
   const [isPnlLoading, setIsPnlLoading] = useState(true)
@@ -79,14 +82,15 @@ export function MitraDashboardView({
 
   // ROI Stats
   const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; loading: boolean }>({
-    roi: 0,
-    bepPercentage: 0,
-    loading: true
+    roi: initialRoiStats?.roi || 0,
+    bepPercentage: initialRoiStats?.bepPercentage || 0,
+    loading: false
   })
 
-  const allowedOutletIds = (outlets || []).map((o: any) => o.id)
-
   const handleFilterChange = (newFilter: PeriodFilterValue) => {
+    if (newFilter.outletId && newFilter.outletId !== selectedOutletId) {
+      setSelectedOutletId(newFilter.outletId)
+    }
     const params = new URLSearchParams()
     if (newFilter.from) params.set('from', newFilter.from)
     if (newFilter.to) params.set('to', newFilter.to)
@@ -97,9 +101,8 @@ export function MitraDashboardView({
   useEffect(() => {
     let active = true
     async function loadStats() {
-      setRoiStats(prev => ({ ...prev, loading: true }))
+      if (allowedOutletIds.length === 0) return
       try {
-        if (allowedOutletIds.length === 0) return
         const stats = await getMitraRoiStats(selectedOutletId || 'all', allowedOutletIds)
         if (active) {
           setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, loading: false })
@@ -333,12 +336,14 @@ export function MitraDashboardView({
                 </div>
                 <select 
                   className="w-full min-h-[44px] bg-transparent text-sm font-extrabold text-suka-brown outline-none cursor-pointer pr-8 appearance-none"
-                  value={selectedOutletId || 'all'}
+                  value={selectedOutletId || (outlets.length === 1 ? outlets[0].id : 'all')}
                   onChange={(e) => setSelectedOutletId(e.target.value)}
                 >
-                  <option value="all" className="font-bold text-slate-800">
-                    Semua Outlet ({outlets.length})
-                  </option>
+                  {outlets.length > 1 && (
+                    <option value="all" className="font-bold text-slate-800">
+                      Semua Outlet ({outlets.length})
+                    </option>
+                  )}
                   {outlets.map((o: any) => (
                     <option key={o.id} value={o.id} className="font-medium text-slate-700">
                       Outlet: {o.name}
@@ -452,7 +457,7 @@ export function MitraDashboardView({
                     {roiStats.loading ? (
                       <span className="text-suka-gray-300">...</span>
                     ) : (
-                      <><CountUp end={roiStats.roi} duration={1.5} separator="." decimals={2} decimal="," />%</>
+                      <><CountUp end={roiStats.roi} duration={1.5} separator="." decimals={1} decimal="," />%</>
                     )}
                   </h3>
                   <div className="mt-1">
@@ -482,7 +487,10 @@ export function MitraDashboardView({
             {pnlData && (
               <MitraProfitLossSection
                 pnlData={pnlData}
-                currentFilter={currentFilter}
+                currentFilter={{
+                  ...currentFilter,
+                  outletId: selectedOutletId || currentFilter.outletId || (outlets.length === 1 ? outlets[0].id : 'all')
+                }}
                 onFilterChange={handleFilterChange}
                 isLoading={isPnlLoading}
                 outlets={outlets}

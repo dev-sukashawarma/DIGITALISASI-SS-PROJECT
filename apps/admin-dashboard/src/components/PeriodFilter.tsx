@@ -189,7 +189,8 @@ export function PeriodFilter({
         {!lockedOutletId && (
           <OutletCombobox
             value={value.outletId}
-            outlets={outlets}
+            outlets={outlets || []}
+            includeAll={!outlets || outlets.length > 1}
             onChange={(outletId) => onChange({ ...value, outletId: outletId as PeriodFilterValue['outletId'] })}
           />
         )}

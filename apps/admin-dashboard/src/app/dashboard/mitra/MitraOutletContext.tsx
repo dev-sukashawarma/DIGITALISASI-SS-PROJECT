@@ -22,12 +22,12 @@ export function MitraOutletProvider({
   profile: any
 }) {
   const [selectedOutletId, setSelectedOutletId] = useState<string | null>(
-    outlets.length > 0 ? outlets[0].id : null
+    outlets.length === 1 ? outlets[0].id : (outlets.length > 1 ? 'all' : null)
   )
 
   useEffect(() => {
     if (outlets.length > 0 && !selectedOutletId) {
-      setSelectedOutletId(outlets[0].id)
+      setSelectedOutletId(outlets.length === 1 ? outlets[0].id : 'all')
     }
   }, [outlets, selectedOutletId])
 

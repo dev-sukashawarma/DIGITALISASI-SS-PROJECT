@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { presetRange, previousRange, monthRange } from '@/lib/period'
 import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
+import { getMitraRoiStats } from '@/app/actions/mitraRoi'
 import { MitraDashboardView } from './MitraDashboardView'
 import type { PeriodFilterValue } from '@/lib/types'
 
@@ -140,12 +141,15 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     trendFilter = { ...curFilter, from: mRange.from, to: mRange.to }
   }
 
-  // Fetch current data, previous data, trend data, and top menus in parallel
-  const [curData, prevData, trendData, topMenus] = await Promise.all([
+  // Fetch current data, previous data, trend data, top menus, and ROI stats in parallel
+  const [curData, prevData, trendData, topMenus, initialRoiData] = await Promise.all([
     getOwnerDashboardData(curFilter, outlets),
     getOwnerDashboardData(prevFilter, outlets),
     getOwnerDashboardData(trendFilter, outlets),
-    getAggregatedMenuSales({ ...curFilter, outletId: outletIds.length > 0 ? outletIds[0] : 'all' })
+    getAggregatedMenuSales({ ...curFilter, outletId: outletIds.length > 0 ? outletIds[0] : 'all' }),
+    outletIds.length > 0 
+      ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => ({ roi: 0, bepPercentage: 0 }))
+      : Promise.resolve({ roi: 0, bepPercentage: 0 })
   ])
   
   // 5. Fetch Recent Orders for Mitra
@@ -210,6 +214,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       initialTransfers={transfers}
       initialStaff={staffList}
       initialSuggestions={suggestionsList}
+      initialRoiStats={initialRoiData}
       isAdminMode={isAdminOrOwner && !ownProfile}
       allMitraProfiles={allMitraProfiles}
     />

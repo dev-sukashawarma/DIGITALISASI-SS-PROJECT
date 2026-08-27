@@ -87,11 +87,17 @@ export function OutletCombobox({
 
   // Determine Selected Label
   const selectedLabel = useMemo(() => {
-    if (value === 'all') return 'Semua Outlet'
+    if (value === 'all') {
+      if (includeAll) return 'Semua Outlet'
+      if (outlets && outlets.length === 1) return cleanOutletName(outlets[0].name)
+      return 'Semua Outlet'
+    }
     if (value === 'ss-online') return 'SS ONLINE'
     const found = [...mitraOptions, ...internalOptions].find((o) => o.id === value)
-    return found?.name ?? placeholder
-  }, [value, mitraOptions, internalOptions, placeholder])
+    if (found) return found.name
+    if (outlets && outlets.length === 1) return cleanOutletName(outlets[0].name)
+    return placeholder
+  }, [value, includeAll, outlets, mitraOptions, internalOptions, placeholder])
 
   useEffect(() => {
     if (!open) return

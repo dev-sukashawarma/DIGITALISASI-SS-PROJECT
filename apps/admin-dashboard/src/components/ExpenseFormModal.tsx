@@ -19,11 +19,13 @@ const inputCls =
 export function ExpenseFormModal({
   outlets,
   isAdmin,
+  defaultOutletId,
   onClose,
   onSuccess
 }: {
   outlets: Outlet[]
   isAdmin: boolean
+  defaultOutletId?: string
   onClose: () => void
   onSuccess: () => void
 }) {
@@ -31,7 +33,7 @@ export function ExpenseFormModal({
   const today = new Date().toISOString().slice(0, 10)
   
   const [type, setType] = useState<TransactionType>('expense')
-  const [outletId, setOutletId] = useState<string>('PUSAT')
+  const [outletId, setOutletId] = useState<string>(defaultOutletId || (isAdmin ? 'PUSAT' : outlets[0]?.id || 'PUSAT'))
   
   // Set default category based on type
   const defaultCategory = type === 'income' ? INCOME_CATEGORIES[0] : PENGELUARAN_CATEGORIES[0]

@@ -2,7 +2,23 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Plus, Wallet, FileText, UploadCloud, ArrowDownRight, ArrowUpRight, Download, Calendar, Filter, Store, Eye, X } from 'lucide-react'
+import {
+  Plus,
+  Wallet,
+  FileText,
+  UploadCloud,
+  ArrowDownRight,
+  ArrowUpRight,
+  Download,
+  Calendar,
+  Filter,
+  Store,
+  Eye,
+  X,
+  Trash2,
+  AlertTriangle,
+  Loader2
+} from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -14,6 +30,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
+import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 
@@ -49,6 +66,10 @@ export default function BukuKasPage() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null)
+
+  // Delete transaction state
+  const [deletingTx, setDeletingTx] = useState<any | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const isPusat = target === 'PUSAT'
 
@@ -291,6 +312,23 @@ export default function BukuKasPage() {
     }
   }
 
+  // Delete transaction handler
+  const handleConfirmDelete = async () => {
+    if (!deletingTx) return
+    setIsDeleting(true)
+    try {
+      await deleteTransactionAction({ id: deletingTx.id, isTopup: deletingTx.isTopup })
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
+      toast.success('Transaksi berhasil dihapus!')
+      setDeletingTx(null)
+    } catch (err: any) {
+      toast.error('Gagal menghapus transaksi: ' + (err?.message || 'Terjadi kesalahan'))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -493,6 +531,7 @@ export default function BukuKasPage() {
                   <th className="px-4 py-3">Keterangan</th>
                   <th className="px-3 py-3 text-center">Bukti Nota</th>
                   <th className="px-5 py-3 text-right">Nominal (Rp)</th>
+                  <th className="px-3 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
@@ -557,6 +596,16 @@ export default function BukuKasPage() {
                       }`}>
                         {isInc ? '+' : '-'}{rupiah(tx.amount)}
                       </td>
+                      <td className="px-3 py-3.5 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setDeletingTx(tx)}
+                          title="Hapus Transaksi"
+                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </td>
                     </tr>
                   )
                 })}
@@ -597,6 +646,71 @@ export default function BukuKasPage() {
                 className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl cursor-pointer"
               >
                 Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL KONFIRMASI HAPUS TRANSAKSI */}
+      {deletingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center font-bold">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">Hapus Transaksi Ini?</h3>
+                <p className="text-xs text-gray-500">Data yang dihapus tidak dapat dipulihkan.</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3 text-xs space-y-1.5 text-gray-700 border border-gray-200/60">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Tanggal:</span>
+                <span className="font-semibold">{deletingTx.date}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Unit / Cabang:</span>
+                <span className="font-semibold">{deletingTx.outlet_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Keterangan:</span>
+                <span className="font-semibold truncate max-w-[200px]">{deletingTx.description || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Nominal:</span>
+                <span className="font-bold text-rose-600">{rupiah(deletingTx.amount)}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeletingTx(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={13} />
+                    <span>Ya, Hapus</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

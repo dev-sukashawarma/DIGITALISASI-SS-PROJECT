@@ -118,4 +118,36 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
   }
 }
 
+export async function deleteTransactionAction(params: { id: string; isTopup?: boolean }) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const supabase = createClient(supabaseUrl, supabaseKey)
 
+  if (params.isTopup || params.id.startsWith('topup-')) {
+    const rawId = params.id.replace(/^topup-/, '')
+    const { error } = await supabase
+      .from('petty_cash_topups')
+      .delete()
+      .eq('id', rawId)
+    if (error) throw new Error(error.message)
+    return { success: true }
+  }
+
+  // Delete from expenses first
+  const { error: err1 } = await supabase
+    .from('expenses')
+    .delete()
+    .eq('id', params.id)
+
+  // Also attempt delete from petty_cash_expenses if needed
+  const { error: err2 } = await supabase
+    .from('petty_cash_expenses')
+    .delete()
+    .eq('id', params.id)
+
+  if (err1 && err2) {
+    throw new Error(err1.message || err2.message)
+  }
+
+  return { success: true }
+}

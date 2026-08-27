@@ -78,8 +78,12 @@ export function MutasiForm({ outletId }: { outletId: string }) {
         qty_diajukan: qty
       }));
       
-      await ajukan(outletId, outletTujuanId, catatan, itemsPayload);
-      router.push('/stok/mutasi');
+      const newId = await ajukan(outletId, outletTujuanId, catatan, itemsPayload);
+      if (newId) {
+        router.push(`/stok/mutasi/${newId}`);
+      } else {
+        router.push('/stok/mutasi');
+      }
       router.refresh();
     } catch (err: any) {
       setErrorMsg(err.message || 'Gagal mengajukan mutasi');

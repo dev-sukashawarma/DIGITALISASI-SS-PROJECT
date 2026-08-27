@@ -75,6 +75,46 @@ export async function fetchMutasiList(outletId?: string): Promise<MutasiAntarOut
 }
 
 // ---------------------------------------------------------------------------
+// fetchMutasiById — lihat detail 1 mutasi berdasarkan ID
+// ---------------------------------------------------------------------------
+export async function fetchMutasiById(id: string): Promise<MutasiAntarOutlet | null> {
+  const supabase = await getAuthClient()
+  
+  const { data, error } = await supabase
+    .from('mutasi_antar_outlet')
+    .select('*, mutasi_antar_outlet_item(*, bahan_baku(nama, satuan)), outlet_asal:outlets!outlet_asal_id(name), outlet_tujuan:outlets!outlet_tujuan_id(name)')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+  
+  const staffIds = [data.created_by, data.approved_by, data.received_by].filter(Boolean) as string[]
+  let staffMap: Record<string, string> = {}
+  if (staffIds.length > 0) {
+    const { data: staffData } = await supabase.from('outlet_staff').select('id, name').in('id', staffIds)
+    if (staffData) {
+      staffData.forEach(s => {
+        staffMap[s.id] = s.name
+      })
+    }
+  }
+
+  return {
+    ...data,
+    creator: { name: staffMap[data.created_by] || 'Sistem' },
+    approver: data.approved_by ? { name: staffMap[data.approved_by] } : undefined,
+    receiver: data.received_by ? { name: staffMap[data.received_by] } : undefined,
+    outlet_asal: data.outlet_asal ? { nama: (data.outlet_asal as any).name } : undefined,
+    outlet_tujuan: data.outlet_tujuan ? { nama: (data.outlet_tujuan as any).name } : undefined,
+    items: (data.mutasi_antar_outlet_item || []).map((item: any) => ({
+      ...item,
+      bahan_baku: item.bahan_baku ? { nama: item.bahan_baku.nama, satuan: item.bahan_baku.satuan } : undefined
+    }))
+  } as unknown as MutasiAntarOutlet
+}
+
+// ---------------------------------------------------------------------------
 // Action: Ajukan Mutasi
 // ---------------------------------------------------------------------------
 export async function ajukanMutasi(
@@ -82,10 +122,10 @@ export async function ajukanMutasi(
   outletTujuanId: string,
   catatan: string,
   items: { bahan_baku_id: string, qty_diajukan: number }[]
-): Promise<void> {
+): Promise<string> {
   const supabase = await getAuthClient()
   
-  const { error } = await supabase.rpc('ajukan_mutasi', {
+  const { data, error } = await supabase.rpc('ajukan_mutasi', {
     p_outlet_asal_id: outletAsalId,
     p_outlet_tujuan_id: outletTujuanId,
     p_catatan: catatan,
@@ -93,6 +133,7 @@ export async function ajukanMutasi(
   })
   
   if (error) throw new Error(error.message)
+  return data as string
 }
 
 // ---------------------------------------------------------------------------

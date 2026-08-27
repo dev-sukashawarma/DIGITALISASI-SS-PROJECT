@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-
 import { useAuth } from '@suka/auth';
 import { useOutletScope } from '@/hooks/useOutletScope';
-import { useMutasiList, useMutasiActions } from '@/hooks/useMutasi';
+import { useMutasiDetail, useMutasiActions } from '@/hooks/useMutasi';
 import { BottomNav } from '@/components/common/BottomNav';
-import type { MutasiAntarOutlet } from '@/lib/types/mutasi';
 
 const statusColorMap = {
   menunggu_persetujuan: 'bg-yellow-100 text-yellow-800 border-yellow-200',
@@ -32,12 +30,8 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
   const { outletStaff } = useAuth();
   const { selectedOutletId } = useOutletScope();
   
-  // Actually we should fetch just this one mutasi, but for simplicity we reuse the list hook and filter.
-  // In a real app, we'd have a specific fetch hook or server component.
-  const { mutasi, loading, refresh } = useMutasiList(selectedOutletId || undefined);
+  const { data, loading, refresh } = useMutasiDetail(mutasiId);
   const { approve, kirim, terima } = useMutasiActions();
-  
-  const [data, setData] = useState<MutasiAntarOutlet | null>(null);
   
   // Action states
   const [busy, setBusy] = useState(false);
@@ -51,13 +45,6 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
   
   // Terima form
   const [kondisi, setKondisi] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (mutasi && mutasi.length > 0) {
-      const found = mutasi.find((m: MutasiAntarOutlet) => m.id === mutasiId);
-      setData(found || null);
-    }
-  }, [mutasi, mutasiId]);
 
   if (loading || !outletStaff) {
     return (
@@ -81,9 +68,9 @@ export default function MutasiDetailPage({ params }: { params: Promise<{ id: str
     );
   }
 
-  const isGudangRole = outletStaff.role === 'admin' || outletStaff.role === 'spv' || outletStaff.role === 'regional_manager' || outletStaff.role === 'owner' || outletStaff.role === 'kitchen';
-  const isAsal = data.outlet_asal_id === selectedOutletId;
-  const isTujuan = data.outlet_tujuan_id === selectedOutletId;
+  const isGudangRole = ['admin', 'spv', 'regional_manager', 'owner', 'kitchen', 'admin_finance', 'finance'].includes(outletStaff.role || '');
+  const isAsal = data.outlet_asal_id === selectedOutletId || data.outlet_asal_id === outletStaff.outlet_id || isGudangRole;
+  const isTujuan = data.outlet_tujuan_id === selectedOutletId || data.outlet_tujuan_id === outletStaff.outlet_id || isGudangRole;
 
   const handleApprove = async (isApproved: boolean) => {
     setBusy(true); setErrorMsg(null);

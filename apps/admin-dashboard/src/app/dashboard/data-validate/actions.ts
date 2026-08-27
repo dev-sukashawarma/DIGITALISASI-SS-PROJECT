@@ -77,8 +77,37 @@ export async function getDBDataForValidation(
     tiktok_seller: 'tiktokseller',
   }
   const dbChannel = CHANNEL_MAP[channel] ?? channel
+  const whitelist = CHANNEL_MENU_WHITELIST[dbChannel] ?? null
 
-  // Fetch orders matching the criteria
+  // 1. Try high-performance database-side aggregation via RPC (PostgreSQL optimization)
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_channel_validation_db_qty', {
+    p_outlet_id: outletId,
+    p_channel: dbChannel,
+    p_from: from,
+    p_to: to,
+  })
+
+  if (!rpcError && Array.isArray(rpcData)) {
+    const results: DBMenuData[] = []
+    for (const row of rpcData) {
+      const cleanName = (row.name || '').trim().toLowerCase()
+      if (!cleanName) continue
+      if (whitelist && !whitelist.has(cleanName)) continue
+      results.push({
+        name: cleanName,
+        qty: Number(row.qty || 0),
+      })
+    }
+    return results
+  }
+
+  // 2. Fallback query with channel & sales_source filter if RPC is not yet available
+  const channelAliases = dbChannel === 'tiktokseller'
+    ? ['tiktokseller', 'tiktok_seller', 'tiktokshop', 'tiktok_shop', 'tiktok']
+    : dbChannel === 'tiktokgo'
+    ? ['tiktokgo', 'tiktok_go', 'tiktok']
+    : [dbChannel]
+
   const { data: orders, error: ordersError } = await supabase
     .from('orders')
     .select(`
@@ -89,8 +118,8 @@ export async function getDBDataForValidation(
       )
     `)
     .eq('outlet_id', outletId)
-    .eq('channel', dbChannel)
-    .in('status', ['completed', 'fulfilled'])
+    .in('status', ['completed', 'fulfilled', 'selesai', 'paid'])
+    .or(`channel.in.(${channelAliases.join(',')}),sales_source.in.(${channelAliases.join(',')})`)
     .gte('created_at', from)
     .lte('created_at', to)
 
@@ -98,7 +127,6 @@ export async function getDBDataForValidation(
     throw new Error(ordersError.message)
   }
 
-  const whitelist = CHANNEL_MENU_WHITELIST[dbChannel] ?? null
   const agg = new Map<string, DBMenuData>()
 
   for (const order of orders || []) {

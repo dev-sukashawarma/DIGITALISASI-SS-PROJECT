@@ -9,14 +9,14 @@ WORKDIR /repo
 # RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
 # Copy manifests for yarn workspaces resolution
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
 COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/portal/package.json apps/portal/package.json
 
-RUN --mount=type=cache,id=yarn-cache-v3,sharing=locked,target=/usr/local/share/.cache/yarn/v6 corepack enable && (yarn install --frozen-lockfile --network-timeout 600000 || (yarn cache clean --all && yarn install --frozen-lockfile --network-timeout 600000))
+RUN --mount=type=cache,id=pnpm-store,target=/root/.local/share/pnpm/store corepack enable pnpm && pnpm config set store-dir /root/.local/share/pnpm/store && pnpm install --frozen-lockfile
 
 # Copy source code
 COPY packages packages
@@ -51,7 +51,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo
-RUN corepack enable && yarn workspace @suka/portal build
+RUN corepack enable && pnpm --filter @suka/portal build
 
 # --- Stage 3: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner

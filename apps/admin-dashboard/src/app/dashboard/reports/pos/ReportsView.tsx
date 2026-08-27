@@ -55,6 +55,12 @@ interface OrderRow {
     quantity: number
     unit_price: number
     subtotal: number
+    is_promo_reward?: boolean
+    promo_id?: string | null
+    promo_name?: string | null
+    promo_buy_quantity?: number | null
+    promo_get_quantity?: number | null
+    original_unit_price?: number | null
     package_choices?: Record<string, string> | string | null
     menu_items?: {
       hpp_override?: number | null
@@ -368,7 +374,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .order('created_at', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
@@ -529,6 +535,27 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
+  // Order dan detail item masuk sebagai satu transaksi pada POS baru, tetapi
+  // berlangganan keduanya tetap diperlukan untuk order lama/penyuntingan item.
+  // Debounce mencegah dua event pada order yang sama memicu dua fetch besar.
+  useEffect(() => {
+    const supabase = createClient()
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const refresh = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => fetchOrders(), 600)
+    }
+    const realtime = supabase
+      .channel('pos-reports-orders-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, refresh)
+      .subscribe()
+    return () => {
+      if (timer) clearTimeout(timer)
+      supabase.removeChannel(realtime)
+    }
+  }, [fetchOrders])
+
   // Auto-reset selectedChannel jika filter Pawoon aktif tapi Pawoon sudah
   // tidak relevan untuk range yang dipilih (Agustus 2026 ke atas).
   const PAWOON_CHANNEL_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
@@ -618,6 +645,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     const completed = filteredOrders.filter(o => o.status === 'completed' || o.status === 'settled')
     const totalOrders = completed.length
+    const buyOneGetOneOrders = completed.filter(order => order.order_items.some(item => item.is_promo_reward))
+    const buyOneGetOneGiftUnits = buyOneGetOneOrders.reduce(
+      (sum, order) => sum + order.order_items
+        .filter(item => item.is_promo_reward)
+        .reduce((itemSum, item) => itemSum + Number(item.quantity || 0), 0),
+      0
+    )
     // NET methodology (konsisten dengan halaman Laba Kotor, keputusan owner
     // 2026-07-29): order completed ditambah, order cancelled (void) DIKURANGKAN.
     // Cakupan lain di halaman ini (jumlah item terjual, best seller, breakdown
@@ -757,6 +791,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       bestSellersPdf,
       categoryData,
       totalOrders,
+      buyOneGetOneTransactions: buyOneGetOneOrders.length,
+      buyOneGetOneGiftUnits,
       successRate,
       cancelledCount: cancelled,
       grossRevenue,
@@ -1392,6 +1428,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
           </div>
 
+          {analytics.buyOneGetOneTransactions > 0 && (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-emerald-900">
+              <p className="text-sm font-extrabold">Promo Buy X Get Y</p>
+              <p className="mt-1 text-sm">
+                {analytics.buyOneGetOneGiftUnits} porsi gratis dari {analytics.buyOneGetOneTransactions} transaksi pada periode laporan ini.
+              </p>
+            </div>
+          )}
+
           {(selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
@@ -1731,6 +1776,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                       const isEcommerce = order.outlet_id === 'ss-online' || isSSOnlineSelected;
                       const itemPromoDiscount = orderSubtotal > Number(order.total_amount) ? (orderSubtotal - Number(order.total_amount)) : 0;
                       const pkgs = extractOrderPackages(order);
+                      const rewardItem = order.order_items.find(i => i.is_promo_reward)
+                      const buyOneGetOneName = rewardItem?.promo_name
                       
                       return (
                         <tr key={order.id} className="hover:bg-amber-50/50 transition-colors">
@@ -1738,6 +1785,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                             <div className="flex flex-wrap items-center gap-1.5">
                               <span className="bg-gray-100 text-gray-600 px-2 py-1 rounded-md">#{order.order_number || 'ECOM'}</span>
                               <ScheduledPromoBadge names={order.scheduled_promo_names} />
+                              {buyOneGetOneName && <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-1 rounded-md text-[10px] font-bold">BUY {rewardItem?.promo_buy_quantity ?? 1} GET {rewardItem?.promo_get_quantity ?? 1}</span>}
                             </div>
                           </td>
                           <td className="px-5 py-4 text-gray-500 font-medium text-xs">
@@ -1764,7 +1812,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                               {order.order_items.map((i, idx) => (
                                 <div key={idx} className="whitespace-normal leading-tight text-[13px] flex items-start gap-1.5">
                                   <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">{i.quantity}x</span> 
-                                  <span>{cleanItemName(i.menu_item_name)}</span>
+                                  <span className={i.is_promo_reward ? 'text-emerald-700 font-semibold' : ''}>
+                                    {i.is_promo_reward ? `Gratis · ${cleanItemName(i.menu_item_name)}` : cleanItemName(i.menu_item_name)}
+                                  </span>
                                 </div>
                               ))}
                             </div>

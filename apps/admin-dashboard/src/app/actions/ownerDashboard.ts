@@ -16,6 +16,58 @@ function cleanItemName(name: string) {
   return name.trim()
 }
 
+/** Ringkasan hadiah B1G1 untuk kartu Ringkasan Bisnis.
+ * Reward disimpan sebagai order_item tersendiri agar jumlah porsi yang keluar
+ * tetap akurat, sedangkan omzet tetap hanya berasal dari baris berbayar.
+ */
+export async function getBuyOneGetOneSummary(filter: PeriodFilterValue) {
+  if (filter.outletId === 'ss-online' || (filter.source !== 'all' && filter.source.toLowerCase() !== 'pos')) {
+    return { transactions: 0, giftUnits: 0 }
+  }
+
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {}
+  })
+  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`).toISOString()
+  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`).toISOString()
+  const orders: any[] = []
+  let offset = 0
+  const pageSize = 1000
+
+  while (true) {
+    let query = supabase
+      .from('orders')
+      .select('id, order_items!inner(quantity, is_promo_reward)')
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .eq('status', 'completed')
+      .eq('order_items.is_promo_reward', true)
+      .gte('created_at', fromStart)
+      .lte('created_at', toEnd)
+      .range(offset, offset + pageSize - 1)
+
+    if (filter.outletId !== 'all') query = query.eq('outlet_id', filter.outletId)
+    const { data, error } = await query
+    if (error) throw new Error(`getBuyOneGetOneSummary: ${error.message}`)
+    const page = data ?? []
+    orders.push(...page)
+    if (page.length < pageSize) break
+    offset += pageSize
+  }
+
+  return {
+    transactions: new Set(orders.map((order: any) => order.id)).size,
+    giftUnits: orders.reduce(
+      (sum: number, order: any) => sum + (order.order_items || []).reduce(
+        (itemSum: number, item: any) => itemSum + Number(item.quantity || 0),
+        0
+      ),
+      0
+    )
+  }
+}
+
 async function fetchEcommerceOwnerData(
   supabase: any,
   fromStart: Date,

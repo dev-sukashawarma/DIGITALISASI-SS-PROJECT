@@ -11,7 +11,7 @@ export type OutletPromo = {
   outlet_id: string
   scope: 'global' | 'item'
   menu_item_id: string | null
-  discount_type: 'percentage' | 'nominal'
+  discount_type: 'percentage' | 'nominal' | 'buy_one_get_one'
   discount_value: number
   is_active: boolean
   min_purchase?: number | null
@@ -21,6 +21,8 @@ export type OutletPromo = {
   start_date?: string | null
   end_date?: string | null
   apply_to_food_apps?: boolean
+  buy_quantity?: number
+  get_quantity?: number
 }
 
 export function usePromos(outletId: string | undefined) {

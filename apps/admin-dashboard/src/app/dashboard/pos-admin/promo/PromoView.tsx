@@ -19,7 +19,7 @@ type OutletPromo = {
   outlet_id?: string
   scope: 'global' | 'item'
   menu_item_id: string | null
-  discount_type: 'percentage' | 'nominal'
+  discount_type: 'percentage' | 'nominal' | 'buy_one_get_one'
   discount_value: number
   is_active: boolean
   min_purchase?: number | null
@@ -32,6 +32,8 @@ type OutletPromo = {
   apply_to_food_apps?: boolean
   sync_to_order_online?: boolean
   promo_name?: string | null
+  buy_quantity?: number
+  get_quantity?: number
 }
 
 type Outlet = {
@@ -104,7 +106,9 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     end_date: null,
     apply_to_food_apps: false,
     sync_to_order_online: false
-    ,promo_name: ''
+    ,promo_name: '',
+    buy_quantity: 1,
+    get_quantity: 1
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -138,7 +142,9 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           end_date: null,
           apply_to_food_apps: false,
           sync_to_order_online: false,
-          promo_name: ''
+          promo_name: '',
+          buy_quantity: 1,
+          get_quantity: 1
         }
         updated.push({ ...defaultGlobal, [field]: value })
       }
@@ -167,6 +173,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           end_date: null,
           apply_to_food_apps: false,
           sync_to_order_online: false,
+          buy_quantity: 1,
+          get_quantity: 1,
           [field]: value
         })
       }
@@ -503,7 +511,9 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   min_purchase: null,
                   start_date: null,
                   end_date: null,
-                  sync_to_order_online: false
+                  sync_to_order_online: false,
+                  buy_quantity: 1,
+                  get_quantity: 1
                 } as OutletPromo
 
                 const status = getPromoStatus(promo, now)
@@ -511,7 +521,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 let discountedPrice = menu.price || 0;
                 // Tampilkan preview harga diskon hanya saat promo sedang berjalan,
                 // bukan saat masih "Terjadwal" atau "Berakhir".
-                const showDiscountPreview = promo.is_active && promo.discount_value > 0 && status === 'berjalan'
+                const isBuyOneGetOne = promo.discount_type === 'buy_one_get_one'
+                const showDiscountPreview = !isBuyOneGetOne && promo.is_active && promo.discount_value > 0 && status === 'berjalan'
                 if (showDiscountPreview) {
                   if (promo.discount_type === 'nominal') {
                     discountedPrice = Math.max(0, (menu.price || 0) - promo.discount_value)
@@ -549,9 +560,22 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                             >
                               <option value="nominal">Rp</option>
                               <option value="percentage">%</option>
+                              <option value="buy_one_get_one">Buy X Get Y</option>
                             </select>
 
-                            <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => handleItemPromoChange(menu.id, 'discount_type', 'buy_one_get_one')}
+                              className={`rounded-xl border-2 px-3 py-2 text-sm font-extrabold transition-colors ${
+                                isBuyOneGetOne
+                                  ? 'border-emerald-500 bg-emerald-500 text-white'
+                                  : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400'
+                              }`}
+                            >
+                              BxGy
+                            </button>
+
+                            {!isBuyOneGetOne && <div className="relative">
                               {promo.discount_type === 'nominal' ? (
                                 <CurrencyInput
                                   value={promo.discount_value || 0}
@@ -571,7 +595,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                                 />
                               )}
                               {promo.discount_type === 'percentage' && <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-blue-400 font-bold">%</span>}
-                            </div>
+                            </div>}
                           </div>
                         )}
 
@@ -584,6 +608,39 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
                     {promo.is_active && (
                       <div className="mt-5 pt-5 border-t border-blue-200/50 space-y-4 animate-fade-in">
+                        {isBuyOneGetOne && (
+                          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                            <p className="font-bold">Buy X Get Y</p>
+                            <p className="mt-1">Atur jumlah produk yang harus dibeli dan jumlah produk gratis. Hadiah adalah produk yang sama, hanya POS kasir offline, tidak digabung promo lain, dan berlaku sekali per transaksi.</p>
+                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <label className="space-y-1.5">
+                                <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  value={promo.buy_quantity ?? 1}
+                                  onChange={e => handleItemPromoChange(menu.id, 'buy_quantity', Math.max(1, Number(e.target.value) || 1))}
+                                  className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
+                                />
+                              </label>
+                              <label className="space-y-1.5">
+                                <span className="block text-xs font-bold text-emerald-900">Gratis (Y)</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  step="1"
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  value={promo.get_quantity ?? 1}
+                                  onChange={e => handleItemPromoChange(menu.id, 'get_quantity', Math.max(1, Number(e.target.value) || 1))}
+                                  className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
+                                />
+                              </label>
+                            </div>
+                            <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} {menu.name} gratis.</p>
+                          </div>
+                        )}
                         <div className="space-y-1.5">
                           <label className="block text-sm font-bold text-blue-900">Nama Promo</label>
                           <input value={promo.promo_name || ''} onChange={e => handleItemPromoChange(menu.id, 'promo_name', e.target.value)} placeholder={`Contoh: Promo ${menu.name}`} className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors" />
@@ -670,7 +727,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                           {mounted && <ScheduleSummary promo={promo} />}
                         </div>
 
-                        <div className="space-y-1.5">
+                        {!isBuyOneGetOne && <div className="space-y-1.5">
                           <label className="block text-sm font-bold text-blue-900">Min. Pembelian <span className="text-blue-500/70 font-medium ml-1">(Opsional)</span></label>
                           <div className="relative">
                             <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm text-blue-400 font-bold">Rp</span>
@@ -684,9 +741,9 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                               onChange={e => handleItemPromoChange(menu.id, 'min_purchase', e.target.value ? Number(e.target.value) : null)}
                             />
                           </div>
-                        </div>
+                        </div>}
 
-                        <div className="space-y-3">
+                        {!isBuyOneGetOne && <div className="space-y-3">
                           <div className="flex items-center justify-between gap-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
                             <div className="min-w-0">
                               <label className="block text-sm font-bold text-blue-900">Berlaku untuk Food Apps</label>
@@ -718,7 +775,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                               <div className="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-orange-500"></div>
                             </label>
                           </div>
-                        </div>
+                        </div>}
                       </div>
                     )}
                   </div>

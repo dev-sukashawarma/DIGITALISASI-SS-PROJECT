@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { presetRange, previousRange } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
-import { getOwnerDashboardDataFast } from '@/app/actions/ownerDashboard'
+import { getBuyOneGetOneSummary, getOwnerDashboardDataFast } from '@/app/actions/ownerDashboard'
 import OwnerDashboardView from './OwnerDashboardView'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
@@ -54,9 +54,10 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     : allOutletsWithSS
 
   // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
-  const [curData, prevData] = await Promise.all([
+  const [curData, prevData, buyOneGetOne] = await Promise.all([
     getOwnerDashboardDataFast(filter, scopedOutlets),
     getOwnerDashboardDataFast(prevFilter, scopedOutlets),
+    getBuyOneGetOneSummary(filter),
   ])
   // menu_rows sudah include dalam respons RPC masing-masing periode
   const menuSales     = curData.menuRows
@@ -81,6 +82,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       curCogsOpex={curData.totalCogsOpex}
       prevCogsOpex={prevData.totalCogsOpex}
       cogsBreakdown={{ cogs: curData.totalCogs, opex: curData.totalOpex }}
+      buyOneGetOne={buyOneGetOne}
     />
   )
 }

@@ -1,5 +1,5 @@
 export type PromoScope = 'global' | 'item';
-export type PromoType = 'percentage' | 'nominal';
+export type PromoType = 'percentage' | 'nominal' | 'buy_one_get_one';
 
 export interface BasePromo {
   id?: string;
@@ -19,6 +19,8 @@ export interface BasePromo {
   daily_start_time?: string | null;
   daily_end_time?: string | null;
   apply_to_food_apps?: boolean;
+  buy_quantity?: number;
+  get_quantity?: number;
 }
 
 export function isScheduledPromo(promo: BasePromo): boolean {
@@ -156,6 +158,9 @@ export function calculateItemPrice(
 
   const promo = itemPromos.find(p => p.menu_item_id === menuId);
   if (!promo) return basePrice;
+  // Buy X Get Y menambahkan line hadiah di jalur checkout/POS; harga unit
+  // berbayar tidak pernah didiskon oleh kalkulator harga.
+  if (promo.discount_type === 'buy_one_get_one') return basePrice;
   if (isFoodApp && !promo.apply_to_food_apps) return basePrice;
 
   // isPromoEligible sudah dipanggil saat membangun itemPromos di atas,

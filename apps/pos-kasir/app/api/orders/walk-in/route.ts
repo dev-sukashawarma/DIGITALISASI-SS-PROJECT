@@ -93,6 +93,20 @@ export async function POST(request: Request) {
   const globalPromo = activePromos?.find((p) => p.scope === 'global')
   const itemPromos = activePromos?.filter((p) => p.scope === 'item') || []
 
+  // Buy X Get Y hanya untuk kasir POS. Tetap dihitung di server agar kasir
+  // tidak bisa memalsukan hadiah atau nilai X/Y dari browser.
+  const requestedQtyByMenu = new Map<string, number>()
+  for (const item of body.items) {
+    requestedQtyByMenu.set(item.menu_item_id, (requestedQtyByMenu.get(item.menu_item_id) || 0) + Number(item.quantity || 0))
+  }
+  const buyGetPromos = body.is_endorse ? [] : itemPromos.filter((promo) =>
+    promo.discount_type === 'buy_one_get_one' &&
+    promo.menu_item_id &&
+    isPromoEligible(promo as BasePromo) &&
+    (requestedQtyByMenu.get(promo.menu_item_id) || 0) >= Math.max(1, Number(promo.buy_quantity) || 1)
+  )
+  const hasBuyGetPromo = buyGetPromos.length > 0
+
   const validatedItems: {
     menu_item_id: string
     menu_item_name: string
@@ -100,6 +114,11 @@ export async function POST(request: Request) {
     unit_price: number
     subtotal: number
     package_choices?: Record<string, string>
+    is_promo_reward?: boolean
+    promo_id?: string
+    promo_name?: string
+    promo_buy_quantity?: number
+    promo_get_quantity?: number
   }[] = []
 
   // Hitung base subtotal (harga asli) untuk pengecekan min_purchase promo item
@@ -130,7 +149,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Jumlah untuk "${menuItem.name}" minimal 1` }, { status: 400 })
     }
 
-    let unitPrice = calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
+    let unitPrice = hasBuyGetPromo
+      ? menuItem.price
+      : calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
     if (body.is_endorse) {
       unitPrice = 0
     }
@@ -165,8 +186,32 @@ export async function POST(request: Request) {
     })
   }
 
+  // Satu hadiah saja per transaksi, sesuai aturan bisnis. Reward menjadi
+  // order item terpisah Rp0 supaya stok/BOM, histori, dan laporan menghitung
+  // kuantitas gratis dengan cara yang sama seperti item berbayar.
+  const buyGetPromo = buyGetPromos[0]
+  if (buyGetPromo) {
+    const menuItem = menuItems?.find((item) => item.id === buyGetPromo.menu_item_id)
+    if (menuItem) {
+      const buyQuantity = Math.max(1, Number(buyGetPromo.buy_quantity) || 1)
+      const getQuantity = Math.max(1, Number(buyGetPromo.get_quantity) || 1)
+      validatedItems.push({
+        menu_item_id: menuItem.id,
+        menu_item_name: menuItem.name,
+        quantity: getQuantity,
+        unit_price: 0,
+        subtotal: 0,
+        is_promo_reward: true,
+        promo_id: buyGetPromo.id,
+        promo_name: buyGetPromo.promo_name || `Buy ${buyQuantity} Get ${getQuantity}`,
+        promo_buy_quantity: buyQuantity,
+        promo_get_quantity: getQuantity,
+      })
+    }
+  }
+
   // ── Hitung Global Promo ─────────────────────────────────────────────────
-  let globalDiscount = calculateGlobalDiscount(total, activePromos as BasePromo[])
+  const globalDiscount = hasBuyGetPromo ? 0 : calculateGlobalDiscount(total, activePromos as BasePromo[])
 
   const finalTotal = total - globalDiscount
   
@@ -175,6 +220,7 @@ export async function POST(request: Request) {
   const scheduledPromoNames = new Set<string>()
   
   for (const item of validatedItems) {
+    if (item.is_promo_reward) continue
     const menuItem = menuItems?.find(m => m.id === item.menu_item_id)
     if (menuItem && item.unit_price < menuItem.price) {
       // Find if it was global or item promo. In calculateItemPrice, global promo has priority.
@@ -195,6 +241,11 @@ export async function POST(request: Request) {
         }
       }
     }
+  }
+
+  if (buyGetPromo) {
+    appliedPromoIds.add(buyGetPromo.id)
+    if (buyGetPromo.promo_name) scheduledPromoNames.add(buyGetPromo.promo_name)
   }
 
   // ── Validasi pembayaran tunai & hitung kembalian ────────────────────────

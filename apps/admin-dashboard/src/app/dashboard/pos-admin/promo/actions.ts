@@ -30,6 +30,21 @@ export async function savePromosAction(
   // penyimpanan promo lain yang sedang benar-benar diedit.
   for (const p of promos) {
     if (!p.is_active) continue
+    if (p.discount_type === 'buy_one_get_one') {
+      if (p.scope !== 'item' || !p.menu_item_id) {
+        return { success: false, error: 'Promo Buy X Get Y hanya dapat dipasang pada satu menu.' }
+      }
+      p.buy_quantity = Number(p.buy_quantity)
+      p.get_quantity = Number(p.get_quantity)
+      if (!Number.isInteger(p.buy_quantity) || p.buy_quantity < 1 || !Number.isInteger(p.get_quantity) || p.get_quantity < 1) {
+        return { success: false, error: 'Jumlah beli dan gratis Buy X Get Y wajib bilangan bulat minimal 1.' }
+      }
+      // Fitur ini hanya untuk transaksi POS kasir; jangan percaya state form saja.
+      p.apply_to_food_apps = false
+      p.sync_to_order_online = false
+      p.min_purchase = null
+      p.discount_value = 0.01
+    }
     const scheduleError = validateSchedule(p)
     if (scheduleError) return { success: false, error: scheduleError }
     if ((p.start_date || p.end_date) && !String(p.promo_name || '').trim()) {
@@ -69,7 +84,7 @@ export async function savePromosAction(
         menu_item_id: p.menu_item_id,
         discount_type: p.discount_type,
         // Bypass db constraint CHECK (discount_value > 0)
-        discount_value: Math.max(0.01, Number(p.discount_value) || 0),
+        discount_value: p.discount_type === 'buy_one_get_one' ? 0.01 : Math.max(0.01, Number(p.discount_value) || 0),
         is_active: p.is_active,
         min_purchase: p.min_purchase,
         usage_limit: p.usage_limit,
@@ -77,8 +92,10 @@ export async function savePromosAction(
         end_date: p.end_date ?? null,
         daily_start_time: p.daily_start_time ?? null,
         daily_end_time: p.daily_end_time ?? null,
-        apply_to_food_apps: p.apply_to_food_apps || false
-        ,promo_name: String(p.promo_name || '').trim() || null
+        apply_to_food_apps: p.discount_type === 'buy_one_get_one' ? false : (p.apply_to_food_apps || false)
+        ,promo_name: String(p.promo_name || '').trim() || null,
+        buy_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.buy_quantity) : 1,
+        get_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.get_quantity) : 1
       })
     }
   }
@@ -104,6 +121,8 @@ export async function savePromosAction(
       const ooUpserts = []
       
       for (const p of promos) {
+        // Buy 1 Get 1 sengaja tidak pernah masuk ke Order Online/food apps.
+        if (p.discount_type === 'buy_one_get_one') continue
         const appliesTo = p.scope === 'global' ? 'all' : 'item'
         
         // Check if it exists in OO

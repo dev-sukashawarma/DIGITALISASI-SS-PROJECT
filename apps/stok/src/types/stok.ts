@@ -130,6 +130,7 @@ export interface InboundOutbound {
     faktor_tengah?: number | null;
     satuan_kecil?: string | null;
     faktor_tampilan?: number | null;
+    satuan_distribusi?: string | null;
   } | null;
   outlet_staff?: {
     name: string;

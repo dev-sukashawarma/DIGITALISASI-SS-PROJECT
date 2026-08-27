@@ -7,6 +7,7 @@ import { Spinner } from '@suka/design-system'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
+import { KitchenVerifikasiModal } from '@/components/monitoring/KitchenVerifikasiModal'
 
 const supabase = createSupabaseBrowserClient()
 
@@ -23,6 +24,7 @@ type InboundPO = {
 
 export default function PenerimaanPOStokPage() {
   const [search, setSearch] = useState('')
+  const [selectedPoId, setSelectedPoId] = useState<string | null>(null)
 
   const { data: inboundPos = [], isLoading, error } = useQuery<InboundPO[]>({
     queryKey: ['stok-inbound-pos'],
@@ -119,15 +121,13 @@ export default function PenerimaanPOStokPage() {
                     <div className="text-[10px] font-bold text-suka-brown/70">
                       Progress: <span className="text-suka-brown font-black">{po.jumlah_item_terima ?? 0}/{po.jumlah_item} Item</span>
                     </div>
-                    <a
-                      href={`/pembelian/${po.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-4 py-2 bg-suka-orange text-white text-xs font-black rounded-xl hover:bg-orange-600 active:scale-95 transition-all flex items-center gap-1.5 shadow-xs"
+                    <button
+                      onClick={() => setSelectedPoId(po.id)}
+                      className="px-4 py-2 bg-suka-orange hover:bg-orange-600 active:scale-95 text-white text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
                     >
                       <PackageCheck className="w-4 h-4" />
                       Terima Barang
-                    </a>
+                    </button>
                   </div>
                 </div>
               ))}
@@ -135,6 +135,14 @@ export default function PenerimaanPOStokPage() {
           )}
         </div>
       </div>
+
+      {/* Modal Verifikasi Penerimaan Langsung */}
+      {selectedPoId && (
+        <KitchenVerifikasiModal
+          poId={selectedPoId}
+          onClose={() => setSelectedPoId(null)}
+        />
+      )}
     </AppLayout>
   )
 }

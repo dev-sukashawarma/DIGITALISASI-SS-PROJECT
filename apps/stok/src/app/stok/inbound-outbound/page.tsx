@@ -40,7 +40,7 @@ export default function InboundOutboundPage() {
   const [activePreset, setActivePreset] = useState<DatePreset>('ALL');
 
   const { data, loading, error, refresh } = useInboundOutbound(
-    selectedOutletId, 
+    selectedOutletId || undefined, 
     page, 
     searchTerm,
     startDate || undefined,

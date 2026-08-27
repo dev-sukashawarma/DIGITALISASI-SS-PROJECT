@@ -97,9 +97,7 @@ export default function Footer() {
           <p className="text-xs text-[#111111]/40 text-center md:text-left">
             © {new Date().getFullYear()} Suka Shawarma. Seluruh hak dilindungi.
           </p>
-          <p className="text-xs text-[#111111]/40">
-            Jl. Raya Empang, Bogor Selatan, Kota Bogor
-          </p>
+
         </div>
       </div>
     </footer>

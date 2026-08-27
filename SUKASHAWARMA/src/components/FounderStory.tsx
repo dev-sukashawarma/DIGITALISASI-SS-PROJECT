@@ -76,8 +76,7 @@ export default function FounderStory() {
               style={{ fontFamily: "var(--font-heading)" }}
             >
               <span style={{ textDecoration: "underline", textDecorationColor: "#FE7108", textUnderlineOffset: "4px" }}>Akbar Alatas</span>{" "}
-              memulai perjalanan Suka Shawarma dari{" "}
-              <span className="text-[#6E1A10]">Empang, Bogor</span>
+              memulai perjalanan Suka Shawarma dari satu outlet sederhana
             </h2>
             <div className="space-y-3 text-[#111111]/70 leading-relaxed text-sm">
               <p>
@@ -179,16 +178,14 @@ export default function FounderStory() {
               style={{ fontFamily: "var(--font-heading)" }}
             >
               <span style={{ textDecoration: "underline", textDecorationColor: "#FE7108", textUnderlineOffset: "4px" }}>Akbar Alatas</span>{" "}
-              memulai perjalanan Suka Shawarma dari satu outlet sederhana di{" "}
-              <span className="text-[#6E1A10]">Empang, Bogor</span>
+              memulai perjalanan Suka Shawarma dari satu outlet sederhana
             </h2>
             <div className="space-y-4 text-[#111111]/70 leading-relaxed text-base">
               <p>
                 Pada <strong className="text-[#111111]">12 Mei 2024</strong>,{" "}
                 <strong className="text-[#111111]">Akbar Alatas</strong>{" "}
                 mendirikan Suka Shawarma dengan visi menghadirkan shawarma berkualitas
-                yang autentik, modern, dan terjangkau untuk semua kalangan. Dimulai dari
-                satu gerai sederhana di Empang, Bogor.
+                yang autentik, modern, dan terjangkau untuk semua kalangan.
               </p>
               <p>
                 Saat ini kami telah mengembangkan lebih dari <strong className="text-[#111111]">20 outlet</strong> dan membuka program kemitraan dengan keuntungan yang menarik bagi para mitra.

@@ -6,14 +6,15 @@ import KemitraanTicker from '@/components/kemitraan/KemitraanTicker';
 import KemitraanAbout from '@/components/kemitraan/KemitraanAbout';
 import KemitraanWhyUs from '@/components/kemitraan/KemitraanWhyUs';
 import KemitraanGallery from '@/components/kemitraan/KemitraanGallery';
+import KemitraanTestimonials from '@/components/kemitraan/KemitraanTestimonials';
 import KemitraanPackages from '@/components/kemitraan/KemitraanPackages';
 import KemitraanProfit from '@/components/kemitraan/KemitraanProfit';
-import KemitraanROI from '@/components/kemitraan/KemitraanROI';
 import KemitraanCalculator from '@/components/kemitraan/KemitraanCalculator';
 import KemitraanSteps from '@/components/kemitraan/KemitraanSteps';
 import KemitraanFAQ from '@/components/kemitraan/KemitraanFAQ';
 import KemitraanCTA from '@/components/kemitraan/KemitraanCTA';
 import KemitraanFooter from '@/components/kemitraan/KemitraanFooter';
+import KemitraanStickyWA from '@/components/kemitraan/KemitraanStickyWA';
 
 const title = "Kemitraan";
 const description = "Bergabung menjadi mitra resmi Suka Shawarma dan kembangkan bisnis kuliner Anda bersama brand yang terus berkembang.";
@@ -32,18 +33,13 @@ const description = "Bergabung menjadi mitra resmi Suka Shawarma dan kembangkan 
       s.parentNode.insertBefore(t,s)}(window, document,'script',
       'https://connect.facebook.net/en_US/fbevents.js');
 
-      // Generate unique event_id untuk deduplication antara browser pixel & CAPI
       var eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
-
       fbq('init', '1615991350099796');
       fbq('track', 'PageView', {}, { eventID: eventId });
 
-      // Kirim juga ke server-side (Conversions API) via PHP endpoint
-      // untuk meningkatkan akurasi pelacakan (bypass ad blocker / iOS ITP)
       (function sendCAPI() {
         var fbp = (document.cookie.match(/_fbp=([^;]+)/) || [])[1] || null;
         var fbc = (document.cookie.match(/_fbc=([^;]+)/) || [])[1] || null;
-
         fetch('/api/meta-event.php', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -55,7 +51,7 @@ const description = "Bergabung menjadi mitra resmi Suka Shawarma dan kembangkan 
             fbc: fbc,
           }),
           keepalive: true,
-        }).catch(function() { /* silent fail */ });
+        }).catch(function() {});
       })();
     </script>
     <noscript><img height="1" width="1" style="display:none"
@@ -63,20 +59,26 @@ const description = "Bergabung menjadi mitra resmi Suka Shawarma dan kembangkan 
     /></noscript>
     <!-- End Meta Pixel Code -->
   </Fragment>
+
   <Navbar client:load pathname={Astro.url.pathname} />
+
   <main class="pt-[68px]">
     <KemitraanHero client:visible />
     <KemitraanTicker client:visible />
     <KemitraanAbout client:visible />
     <KemitraanWhyUs client:visible />
     <KemitraanGallery client:visible />
+    <KemitraanTestimonials client:visible />
     <KemitraanPackages client:visible />
     <KemitraanProfit client:visible />
-    <KemitraanROI client:visible />
     <KemitraanCalculator client:visible />
     <KemitraanSteps client:visible />
     <KemitraanFAQ client:visible />
     <KemitraanCTA client:visible />
   </main>
+
   <KemitraanFooter client:idle />
+
+  <!-- Sticky WhatsApp button — loads after page is idle -->
+  <KemitraanStickyWA client:idle />
 </Layout>

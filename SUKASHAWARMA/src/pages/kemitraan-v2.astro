@@ -7,6 +7,33 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Suka Shawarma — Gerakan yang Terus Meluas</title>
+
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-11522229721"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-11522229721');
+</script>
+
+<!-- Meta Pixel Code -->
+<script>
+  !function(f,b,e,v,n,t,s)
+  {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+  n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+  if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+  n.queue=[];t=b.createElement(e);t.async=!0;
+  t.src=v;s=b.getElementsByTagName(e)[0];
+  s.parentNode.insertBefore(t,s)}(window, document,'script',
+  'https://connect.facebook.net/en_US/fbevents.js');
+  fbq('init', '1615991350099796');
+  fbq('track', 'PageView');
+</script>
+<noscript><img height="1" width="1" style="display:none"
+  src="https://www.facebook.com/tr?id=1615991350099796&ev=PageView&noscript=1"
+/></noscript>
+<!-- End Meta Pixel Code -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
@@ -147,6 +174,34 @@
     .antrian-item{border-right:none !important; border-top:1px solid var(--line);}
     .antrian-item:first-child{border-top:none;}
   }
+
+  /* ── Gallery ── */
+  .gallery-section{padding:80px 0; background:var(--navy2);}
+  .gallery-section .section-head{margin-bottom:36px;}
+  .gallery-section .section-head h2{color:var(--cream);}
+  .gallery-section .section-head p{color:var(--cream-soft);}
+  .gallery-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px;}
+  .gallery-grid .gitem{border-radius:var(--radius); overflow:hidden; aspect-ratio:4/3;}
+  .gallery-grid .gitem img{width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.4s ease;}
+  .gallery-grid .gitem:hover img{transform:scale(1.06);}
+  /* menu section */
+  .menu-section{padding:72px 0; background:var(--navy);}
+  .menu-section .section-head{margin-bottom:40px;}
+  .menu-section .section-head h2{color:var(--cream);}
+  .menu-section .section-head p{color:var(--cream-soft); font-size:15px;}
+  .menu-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  .mcard{background:#fff; border-radius:12px; padding:22px 16px 16px; text-align:center; transition:transform 0.3s ease, box-shadow 0.3s ease; box-shadow:0 4px 16px rgba(0,0,0,0.15);}
+  .mcard:hover{transform:translateY(-5px); box-shadow:0 10px 28px rgba(0,0,0,0.22);}
+  .mcard img{width:100%; aspect-ratio:1; object-fit:contain; margin-bottom:10px;}
+  .mcard span{font-size:12px; font-weight:700; color:#222; font-family:'Space Mono', monospace; display:block; margin-top:4px;}
+  @media(max-width:860px){
+    .gallery-grid{grid-template-columns:repeat(2,1fr);}
+    .menu-strip{grid-template-columns:repeat(3,1fr);}
+    .menu-grid{grid-template-columns:repeat(2,1fr);}
+  }
+  @media(max-width:520px){
+    .menu-grid{grid-template-columns:repeat(2,1fr);}
+  }
 </style>
 </head>
 <body>
@@ -214,6 +269,27 @@
     <p>Rekrutmen staf, produksi harian, sampai laporan bulanan dipegang tim kami. Kamu jadi bagian dari jaringannya, bukan operatornya. Performa tiap titik tetap dipengaruhi lokasi dan kondisi pasar setempat — bukan sesuatu yang bisa dijamin sama di semua titik.</p>
   </div>
 </div>
+
+<!-- Menu Section (dipindah ke sini, setelah reveal-band) -->
+<section class="menu-section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Menu Andalan</span>
+      <h2>Produk yang bikin orang balik lagi</h2>
+      <p>Shawarma autentik dengan harga mulai 20rb-an — ini yang dijual tiap hari di semua outlet.</p>
+    </div>
+    <div class="menu-grid">
+      <div class="mcard"><img src="/menus/SS_SUKA_CHICKEN.png" alt="Suka Chicken" loading="lazy"><span>Suka Chicken</span></div>
+      <div class="mcard"><img src="/menus/SS_SUKA_BEEF.png" alt="Suka Beef" loading="lazy"><span>Suka Beef</span></div>
+      <div class="mcard"><img src="/menus/SS_SHAWARMIE_AYAM.png" alt="Shawarmie Ayam" loading="lazy"><span>Shawarmie Ayam</span></div>
+      <div class="mcard"><img src="/menus/SS_SHAWARMIE_SAPI.png" alt="Shawarmie Sapi" loading="lazy"><span>Shawarmie Sapi</span></div>
+      <div class="mcard"><img src="/menus/ORI SHAWARMA MIX.png" alt="Shawarma Mix" loading="lazy"><span>Shawarma Mix</span></div>
+      <div class="mcard"><img src="/menus/SS_SUKA_SAMYANG.png" alt="Suka Samyang" loading="lazy"><span>Suka Samyang</span></div>
+      <div class="mcard"><img src="/menus/SS_SUKA_FRIED_CHICKEN.png" alt="Fried Chicken" loading="lazy"><span>Suka Fried Chicken</span></div>
+      <div class="mcard"><img src="/menus/ORI AYAM.png" alt="Ori Ayam" loading="lazy"><span>Ori Ayam</span></div>
+    </div>
+  </div>
+</section>
 
 <section>
   <div class="wrap">
@@ -306,6 +382,28 @@
       <div class="faq-item"><button class="faq-q"><span>Bedanya Paket Standard vs Own Location apa?</span><span class="plus">+</span></button><div class="faq-a"><p>Standard (Rp150Jt): kami sediakan lokasi, sewa tahun pertama termasuk. Own Location (Rp125Jt): cocok kalau kamu sudah punya lokasi sendiri. Skema bagi hasil sama untuk keduanya.</p></div></div>
       <div class="faq-item"><button class="faq-q"><span>Boleh pilih lokasi outlet sendiri?</span><span class="plus">+</span></button><div class="faq-a"><p>Boleh, tapi tim kami tetap survey dan analisis kelayakan lokasi dulu sebelum dieksekusi.</p></div></div>
       <div class="faq-item"><button class="faq-q"><span>Setelah kontrak 5 tahun habis, gimana?</span><span class="plus">+</span></button><div class="faq-a"><p>Kontrak bisa diperpanjang atas kesepakatan bersama. Aset fisik tetap jadi milikmu sesuai perjanjian awal.</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- Gallery Section: Outlet -->
+<section class="gallery-section">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Outlet Kami</span>
+      <h2>Ini yang sudah jalan — bukan mock-up</h2>
+      <p>20+ titik aktif di Jabodetabek. Tiap foto adalah outlet nyata yang beroperasi hari ini.</p>
+    </div>
+    <div class="gallery-grid">
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/TEBET/TEBET (1).JPG" alt="Outlet Tebet" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/CIBINONG/CIBINONG (2).JPG" alt="Outlet Cibinong" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/JAGAKARSA/JAGAKARSA (1).JPG" alt="Outlet Jagakarsa" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/SAWANGAN/SAWANGAN (2).JPG" alt="Outlet Sawangan" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/PEKAYON/PEKAYON (1).JPG" alt="Outlet Pekayon" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/JATIASIH/JATIASIH (3).JPG" alt="Outlet Jatiasih" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/SUKMAJAYA/SUKMAJAYA (2).JPG" alt="Outlet Sukmajaya" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/BEJI/BEJI (1).JPG" alt="Outlet Beji" loading="lazy"></div>
+      <div class="gitem"><img src="/kemitraan/FOTO OUTLET SS/EMPANG/EMPANG (1).jpg" alt="Outlet Empang" loading="lazy"></div>
     </div>
   </div>
 </section>

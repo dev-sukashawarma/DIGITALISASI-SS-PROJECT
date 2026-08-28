@@ -16,7 +16,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin_finance: ['finance', 'stok'],
   area_manager: ['manager', 'absensi', 'stok', 'distribusi'],
   purchasing: ['finance', 'stok'],
-  developer: ['admin-dashboard'],
+  developer: ['admin-dashboard', 'monitoring'],
 }
 
 export function hasAppAccess(role: Role, app: AppName, username?: string | null): boolean {

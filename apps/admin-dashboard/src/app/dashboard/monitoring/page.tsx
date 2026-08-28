@@ -6,9 +6,13 @@ import { Spinner } from '@suka/design-system'
 import { Select } from '@/components/ui/Select'
 import type { PeriodFilterValue } from '@/lib/types'
 import { presetRange } from '@/lib/period'
-import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardList, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock, Smartphone, Globe } from 'lucide-react'
+import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, ClipboardList, Bluetooth, BluetoothConnected, Navigation, Calendar, Clock, Smartphone, Globe, Camera } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import OpnameDetailModal from './OpnameDetailModal'
+import LiveCameraPanel from './LiveCameraPanel'
+
+// Feature flag: keep Live Camera code available while rollout is paused.
+const LIVE_CAMERA_ENABLED = false
 
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), { 
   ssr: false, 
@@ -183,7 +187,7 @@ function CustomDateRangePopover({
 }
 
 export default function MonitoringPage() {
-  const [activeTab, setActiveTab] = useState<'POS' | 'LOCATION'>('POS')
+  const [activeTab, setActiveTab] = useState<'POS' | 'LOCATION' | 'CAMERA'>('POS')
   const [selectedOutletId, setSelectedOutletId] = useState<string>('ALL')
   const [posStatusFilter, setPosStatusFilter] = useState<string>('ALL')
   const [crewStatusFilter, setCrewStatusFilter] = useState<string>('ALL')
@@ -727,10 +731,22 @@ export default function MonitoringPage() {
             <Navigation className="w-4 h-4" />
             Live Location
           </button>
+          {LIVE_CAMERA_ENABLED && (
+            <button
+              onClick={() => setActiveTab('CAMERA')}
+              className={`px-4 py-2 text-xs sm:text-sm font-bold rounded-xl transition-colors flex items-center gap-2
+                ${activeTab === 'CAMERA' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'}`}
+            >
+              <Camera className="w-4 h-4" />
+              Live Camera
+            </button>
+          )}
         </div>
       </div>
 
-      {activeTab === 'LOCATION' ? (
+      {activeTab === 'CAMERA' && LIVE_CAMERA_ENABLED ? (
+        <LiveCameraPanel outlets={outlets.map(({ id, name }) => ({ id, name }))} />
+      ) : activeTab === 'LOCATION' ? (
         <div className="animate-fade-in">
           <LiveLocationMap outlets={outlets as any[]} crews={allCrewsForMap as any[]} />
         </div>

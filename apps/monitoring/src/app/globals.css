@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html { min-height: 100%; background: #f6f7f9; }
+body {
+  min-height: 100%; margin: 0; color: #172033;
+  background: #f6f7f9;
+}
+button, input { font: inherit; }
+button { cursor: pointer; }
+.monitor-grid {
+  background: linear-gradient(180deg, #fbfcfd 0%, #f4f5f7 100%);
+}
+@keyframes monitor-pulse { 50% { opacity: .45; transform: scale(.88); } }
+.status-pulse { animation: monitor-pulse 1.5s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

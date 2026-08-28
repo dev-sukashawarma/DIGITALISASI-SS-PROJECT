@@ -1,0 +1,31 @@
+{
+  "name": "@suka/monitoring",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -H 0.0.0.0 -p 3030",
+    "build": "next build",
+    "start": "next start -p 3030",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@suka/auth": "*",
+    "@supabase/ssr": "^0.5.1",
+    "@supabase/supabase-js": "^2.110.7",
+    "livekit-client": "^2.22.1",
+    "lucide-react": "^0.300.0",
+    "next": "^16.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^20.10.6",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.3.3"
+  }
+}

@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import webpush from 'web-push'
 
+type PushSubscriptionRow = {
+  endpoint: string
+  p256dh: string
+  auth: string
+  user_id: string
+  outlet_staff: { outlet_id: string | null }[] | null
+}
+
 // Configure web-push
 if (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
@@ -33,13 +41,16 @@ export async function GET(request: Request) {
 
     if (orderError) throw orderError
 
-    // 2. Ambil semua push subscriptions untuk kasir
+    // 2. Ambil semua push subscriptions untuk kasir.
+    // push_subscriptions tidak menyimpan outlet_id langsung; outlet diturunkan
+    // melalui FK user_id -> outlet_staff.id.
     const { data: subs, error: subError } = await supabase
       .from('push_subscriptions')
-      .select('endpoint, p256dh, auth, user_id, outlet_id')
+      .select('endpoint, p256dh, auth, user_id, outlet_staff!inner(outlet_id)')
       .eq('app', 'pos-kasir')
 
     if (subError) throw subError
+    const subscriptions = (subs ?? []) as PushSubscriptionRow[]
 
     const now = Date.now()
     const oneMinute = 60 * 1000
@@ -70,7 +81,9 @@ export async function GET(request: Request) {
           // (atau 2 menit untuk toleransi delay cron)
           if (now >= urgentTime && now < urgentTime + (2 * oneMinute)) {
             // Temukan subscription untuk outlet order ini
-            const outletSubs = subs.filter(s => s.outlet_id === order.outlet_id)
+            const outletSubs = subscriptions.filter(
+              (s) => s.outlet_staff?.[0]?.outlet_id === order.outlet_id
+            )
             
             for (const sub of outletSubs) {
               const payload = JSON.stringify({

@@ -1514,11 +1514,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
-                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Platform & Promo</p>
+                <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                  {isSSOnlineSelected ? 'Beban Biaya Platform (P&L)' : 'Admin Platform & Promo'}
+                </p>
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
-                    ? 'Diskon promo produk + Biaya komisi marketplace'
+                    ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
                     : 'Potongan diskon promo & subsidi food apps'}
                 </p>
               </div>
@@ -1552,9 +1554,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total Settlement</p>
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                      {isSSOnlineSelected ? 'Total Settlement (Uang Cair)' : 'Total Settlement'}
+                    </p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)</p>
+                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
+                      {isSSOnlineSelected
+                        ? 'Uang Bersih yang Masuk ke Saldo Toko / Rekening Bank (Omset - Potongan Kas)'
+                        : 'Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)'}
+                    </p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
                         <Calendar className="w-3.5 h-3.5" />
@@ -1568,9 +1576,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Admin Settlement</p>
+                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                      {isSSOnlineSelected ? 'Potongan Kas Settlement (Bank)' : 'Admin Settlement'}
+                    </p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">Platform commission + Creator commission + WHT</p>
+                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
+                      {isSSOnlineSelected
+                        ? 'Total potongan biaya saat pencairan dana masuk ke rekening bank'
+                        : 'Platform commission + Creator commission + WHT'}
+                    </p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
                         <Calendar className="w-3.5 h-3.5" />

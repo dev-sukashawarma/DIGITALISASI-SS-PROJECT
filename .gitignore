@@ -85,3 +85,10 @@ SS COGS SET/**/*.jpg
 SS COGS SET/**/*.png
 SS COGS SET/**/*.pdf
 SS COGS SET/*.pdf
+
+# WAHA session data
+waha_sessions/
+**/waha_sessions/
+waha_data/
+**/waha_data/
+

@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { Button } from '@suka/design-system'
+import { useState, useEffect } from 'react'
+import { Button, Spinner } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
 import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
-import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation } from 'lucide-react'
+import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation, RefreshCw, Zap } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
 
 interface PayrollSlipFormProps {
   record: PayrollRecord
@@ -45,6 +46,63 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   const [otherDeduction, setOtherDeduction] = useState(initial.otherDeduction)
   const [otherDeductionReason, setOtherDeductionReason] = useState('')
 
+  // Live attendance lookup
+  const [fetchingAtt, setFetchingAtt] = useState(false)
+  const [liveAttMinutes, setLiveAttMinutes] = useState<number | null>(null)
+
+  useEffect(() => {
+    const fetchLiveAtt = async () => {
+      setFetchingAtt(true)
+      try {
+        const supabase = createClient()
+        const startDay = `${record.period_year}-${String(record.period_month).padStart(2, '0')}-01`
+        const lastDate = new Date(record.period_year, record.period_month, 0).getDate()
+        const endDay = `${record.period_year}-${String(record.period_month).padStart(2, '0')}-${String(lastDate).padStart(2, '0')}`
+
+        let totalMins = 0
+
+        // 1. Check attendance table
+        const { data: rawAtt } = await supabase
+          .from('attendance')
+          .select('telat_menit, type, status')
+          .eq('outlet_staff_id', record.staff_id)
+          .gte('ts_server', `${startDay}T00:00:00.000+07:00`)
+          .lte('ts_server', `${endDay}T23:59:59.999+07:00`)
+
+        rawAtt?.forEach((a: any) => {
+          if (a.type === 'in' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
+            totalMins += Number(a.telat_menit) || 0
+          }
+        })
+
+        // 2. Check attendance_logs table
+        const { data: logs } = await supabase
+          .from('attendance_logs')
+          .select('late_minutes')
+          .eq('staff_id', record.staff_id)
+          .gte('date', startDay)
+          .lte('date', endDay)
+
+        let logMins = 0
+        logs?.forEach((l: any) => {
+          logMins += Number(l.late_minutes) || 0
+        })
+
+        const finalMins = Math.max(totalMins, logMins)
+        setLiveAttMinutes(finalMins)
+        if (lateMinutes === 0 && finalMins > 0) {
+          setLateMinutes(finalMins)
+        }
+      } catch (e) {
+        // Ignore
+      } finally {
+        setFetchingAtt(false)
+      }
+    }
+
+    fetchLiveAtt()
+  }, [record.staff_id, record.period_month, record.period_year])
+
   // Calculations
   const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
 
@@ -59,6 +117,12 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
   const totalDeductions = Number(cashAdvanceDeduction) + Number(lateDeduction) + Number(otherDeduction)
   const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
+
+  const handleApplyLiveAttendance = () => {
+    if (liveAttMinutes !== null) {
+      setLateMinutes(liveAttMinutes)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -208,11 +272,46 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           </div>
         </div>
 
-        {/* Section 2: Komponen Potongan */}
+        {/* Section 2: Komponen Potongan & Otomatisasi Absensi */}
         <div className="space-y-3">
-          <div className="flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
-            <ShieldAlert size={14} className="text-red-600" />
-            <span>2. Komponen Potongan (Deductions)</span>
+          <div className="flex items-center justify-between bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider">
+              <ShieldAlert size={14} className="text-red-600" />
+              <span>2. Komponen Potongan (Deductions)</span>
+            </div>
+            <span className="text-[10px] font-bold text-red-700 bg-white/80 px-2 py-0.5 rounded-full border border-red-200">
+              Denda Telat: Rp 1.000 / menit
+            </span>
+          </div>
+
+          {/* Automatic Attendance Indicator Banner */}
+          <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Zap size={15} className="text-amber-600 shrink-0" />
+              <div>
+                <span className="font-bold text-amber-900">Koneksi Otomatis Absensi:</span>{' '}
+                {fetchingAtt ? (
+                  <span className="text-stone-500">Mengecek data kehadiran...</span>
+                ) : liveAttMinutes !== null && liveAttMinutes > 0 ? (
+                  <span className="text-red-700 font-bold">
+                    Terdeteksi {liveAttMinutes} menit terlambat di bulan ini (Denda {formatRupiah(liveAttMinutes * LATE_FEE_PER_MINUTE)})
+                  </span>
+                ) : (
+                  <span className="text-emerald-700 font-semibold">Tepat waktu / Tidak ada telat tercatat</span>
+                )}
+              </div>
+            </div>
+
+            {liveAttMinutes !== null && liveAttMinutes !== lateMinutes && (
+              <button
+                type="button"
+                onClick={handleApplyLiveAttendance}
+                className="px-2 py-1 text-[11px] font-bold bg-white text-amber-900 hover:bg-amber-100 rounded-lg border border-amber-300 flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <RefreshCw size={10} />
+                <span>Terapkan Otomatis ({liveAttMinutes}m)</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -236,7 +335,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
               <label className={labelClass}>
                 <span className="flex items-center justify-between">
                   <span>Keterlambatan (Absensi)</span>
-                  <span className="text-[10px] text-red-600 font-semibold">Rp 1.000 / menit</span>
+                  <span className="text-[10px] text-red-600 font-semibold">Otomatis Terkoneksi</span>
                 </span>
               </label>
               <div className="flex items-center gap-2">

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, Plus, DollarSign, Users, CreditCard, MessageSquare } from 'lucide-react'
+import { Download, Plus, DollarSign, Users, CreditCard, MessageSquare, Zap } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { usePayroll } from '@/hooks/usePayroll'
 import { usePayrollMutations } from '@/hooks/usePayrollMutations'
@@ -51,8 +51,24 @@ export default function PayrollPage() {
     payrollMutations.generate.mutate(
       { month, year },
       {
-        onSuccess: (count) => toast.success(`Berhasil membuat ${count} slip gaji`),
+        onSuccess: (count) =>
+          toast.success(
+            `Berhasil membuat ${count} slip gaji (Denda keterlambatan Rp 1.000/menit otomatis terkalkulasi)`
+          ),
         onError: (e: any) => toast.error(e.message || 'Gagal generate slip'),
+      }
+    )
+  }
+
+  const handleSyncAttendance = () => {
+    payrollMutations.syncAttendanceDeductions.mutate(
+      { month, year },
+      {
+        onSuccess: (count) =>
+          toast.success(
+            `Berhasil menyinkronkan denda keterlambatan absensi otomatis (Rp 1.000/mnt) untuk ${count} slip gaji!`
+          ),
+        onError: (e: any) => toast.error(e.message || 'Gagal menyinkronkan absensi'),
       }
     )
   }
@@ -230,9 +246,25 @@ export default function PayrollPage() {
                 type="button"
                 onClick={handleGenerate}
                 disabled={payrollMutations.generate.isPending}
-                className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs"
+                className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
               >
                 {payrollMutations.generate.isPending ? <Spinner size={16} /> : 'Generate Slip'}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSyncAttendance}
+                disabled={payrollMutations.syncAttendanceDeductions.isPending || payrollData.length === 0}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                title="Hitung ulang denda keterlambatan absensi otomatis (Rp 1.000/menit) untuk seluruh slip draft"
+              >
+                {payrollMutations.syncAttendanceDeductions.isPending ? (
+                  <Spinner size={16} />
+                ) : (
+                  <>
+                    <Zap size={14} />
+                    <span>Sinkron Absensi (Auto)</span>
+                  </>
+                )}
               </Button>
               <Button
                 type="button"

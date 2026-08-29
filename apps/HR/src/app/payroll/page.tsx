@@ -177,7 +177,15 @@ export default function PayrollPage() {
       <PageHeader
         title="Penggajian (Payroll) &amp; Kasbon"
         description="Kalkulasi gaji otomatis, cetak slip resmi A5, pengiriman slip via WhatsApp (WAHA), dan cicilan kasbon."
-      />
+      >
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>Live Realtime Sync Aktif</span>
+        </div>
+      </PageHeader>
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-suka-gray-200 pb-3">

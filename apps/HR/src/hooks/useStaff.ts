@@ -1,12 +1,43 @@
-import { useQuery } from '@tanstack/react-query'
+'use client'
+
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { StaffRow } from '@/lib/types'
 
 export function useStaff() {
   const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  // Realtime subscription for staff database and financials changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('staff-realtime-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_staff' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['staff'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'staff_financials' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['staff'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
+
   return useQuery<StaffRow[]>({
     queryKey: ['staff'],
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')
@@ -25,6 +56,7 @@ export function useStaff() {
           )
         `)
         .order('created_at', { ascending: false })
+
       if (error) throw error
       return (data ?? []).map((r: any) => ({
         ...r,

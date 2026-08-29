@@ -1,13 +1,43 @@
-import { useQuery } from '@tanstack/react-query'
+'use client'
+
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { AttendanceLog, AttendanceFilterValues } from '@/lib/types'
 
 export function useAttendance(filter: AttendanceFilterValues) {
   const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  // Realtime subscription for instant clock in/out updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('attendance-realtime-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['attendance'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'attendance_logs' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['attendance'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
 
   return useQuery<AttendanceLog[]>({
     queryKey: ['attendance', filter],
-    staleTime: 60_000,
+    staleTime: 10_000,
+    refetchInterval: 10_000, // 10s fallback polling
     queryFn: async () => {
       // 1. Query attendance table for records
       let query = supabase

@@ -1,4 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+'use client'
+
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { CashAdvance, CashAdvancePayment } from '@/lib/types'
 
@@ -12,9 +15,36 @@ interface CashAdvanceRow extends CashAdvance {
 
 export function useCashAdvances() {
   const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  // Realtime subscription for cash advances and payments
+  useEffect(() => {
+    const channel = supabase
+      .channel('cash-advances-realtime-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cash_advances' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'cash_advance_payments' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['cash-advances'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
 
   return useQuery<CashAdvanceRow[]>({
     queryKey: ['cash-advances'],
+    refetchInterval: 10_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('cash_advances')

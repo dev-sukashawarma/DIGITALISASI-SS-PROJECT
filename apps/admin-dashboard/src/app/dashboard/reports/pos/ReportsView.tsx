@@ -809,7 +809,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
   const selectedOutletName = selectedOutlets.includes('all') 
       ? 'Semua Cabang' 
-      : selectedOutlets.map(id => outlets.find(o => o.id === id)?.name).filter(Boolean).join(', ') || 'Cabang Tidak Ditemukan'
+      : selectedOutlets.map(id => (id === 'ss-online' ? 'SS Online' : outlets.find(o => o.id === id)?.name)).filter(Boolean).join(', ') || 'Cabang Tidak Ditemukan'
 
   const PAYMENT_META: Record<string, { label: string; color: string; bg: string; icon: any }> = {
     cash: { label: 'Tunai', color: '#10b981', bg: 'bg-emerald-50', icon: Banknote },

@@ -538,6 +538,10 @@ export async function getOwnerDashboardDataFast(
     totalCogs,
     totalOpex,
     totalCogsOpex: totalCogs + totalOpex,
+    buyOneGetOne: {
+      transactions: Number(result.bogo_transactions ?? 0),
+      giftUnits: Number(result.bogo_gift_units ?? 0)
+    }
   }
 }
 

@@ -54,11 +54,11 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     : allOutletsWithSS
 
   // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
-  const [curData, prevData, buyOneGetOne] = await Promise.all([
+  const [curData, prevData] = await Promise.all([
     getOwnerDashboardDataFast(filter, scopedOutlets),
     getOwnerDashboardDataFast(prevFilter, scopedOutlets),
-    getBuyOneGetOneSummary(filter),
   ])
+  const buyOneGetOne = curData.buyOneGetOne || { transactions: 0, giftUnits: 0 }
   // menu_rows sudah include dalam respons RPC masing-masing periode
   const menuSales     = curData.menuRows
   const prevMenuSales = prevData.menuRows

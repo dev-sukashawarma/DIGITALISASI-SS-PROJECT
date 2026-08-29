@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import { FileDown, MessageSquare, Check, X } from 'lucide-react'
+import { FileDown, MessageSquare, Check, X, Clock, Wallet, ShieldAlert, Sparkles, Navigation, Phone, DollarSign } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah, formatBulanIndonesia } from '@/lib/format'
 import { generateSalarySlipPDF, buildSalarySlipWhatsAppMessage } from '@/lib/pdfSalarySlip'
+import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 
 interface SalarySlipModalProps {
   slip: PayrollRecord
@@ -15,13 +16,11 @@ interface SalarySlipModalProps {
 export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
   const [copied, setCopied] = useState(false)
 
+  const b = getPayrollBreakdown(slip)
   const staffName = slip.outlet_staff?.name || 'Karyawan'
+  const roleName = slip.outlet_staff?.role?.replace('_', ' ').toUpperCase() || 'STAFF'
   const outletName = slip.outlet_staff?.outlets?.name || 'Pusat'
   const periodText = `${formatBulanIndonesia(slip.period_month)} ${slip.period_year}`
-
-  const totalEarnings = slip.basic_salary + slip.allowance_position + slip.allowance_presence + slip.bonus
-  const totalDeductions = slip.deductions
-  const takeHomePay = totalEarnings - totalDeductions
 
   const handleDownloadPdf = () => {
     generateSalarySlipPDF(slip)
@@ -31,7 +30,6 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
     const rawMessage = buildSalarySlipWhatsAppMessage(slip)
     const phone = slip.outlet_staff?.phone?.replace(/[^0-9]/g, '') || ''
     
-    // Format Indonesian number to international format
     let targetPhone = phone
     if (targetPhone.startsWith('0')) {
       targetPhone = '62' + targetPhone.slice(1)
@@ -53,7 +51,7 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-lg rounded-3xl border border-suka-gray-200 bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 my-8">
+      <div className="w-full max-w-lg rounded-3xl border border-suka-gray-200 bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 my-6 max-h-[94vh] overflow-y-auto">
         {/* Header */}
         <div className="flex justify-between items-start border-b border-suka-gray-100 pb-3">
           <div>
@@ -62,7 +60,7 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             </span>
             <h3 className="text-lg font-black text-suka-brown mt-0.5">{staffName}</h3>
             <p className="text-xs text-suka-gray-500 font-medium">
-              {outletName} &bull; Periode: <strong>{periodText}</strong>
+              {roleName} &bull; {outletName} &bull; Periode: <strong>{periodText}</strong>
             </p>
           </div>
           <button
@@ -88,62 +86,127 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             </span>
           </div>
 
-          {/* Earnings */}
+          {/* 1. Earnings Breakdown */}
           <div className="space-y-1.5">
-            <div className="font-bold text-suka-brown text-[11px] uppercase tracking-wider">
-              Penerimaan (Earnings)
+            <div className="font-bold text-suka-brown text-[11px] uppercase tracking-wider flex items-center gap-1">
+              <DollarSign size={13} className="text-suka-orange" />
+              <span>Komponen Penerimaan (Earnings)</span>
             </div>
+            
             <div className="flex justify-between text-gray-700">
-              <span>Gaji Pokok</span>
-              <span className="font-mono font-semibold">{formatRupiah(slip.basic_salary)}</span>
+              <span>Gaji Pokok (Gapok)</span>
+              <span className="font-mono font-semibold">{formatRupiah(b.basicSalary)}</span>
             </div>
-            <div className="flex justify-between text-gray-700">
-              <span>Tunjangan Jabatan</span>
-              <span className="font-mono font-semibold">{formatRupiah(slip.allowance_position)}</span>
-            </div>
-            <div className="flex justify-between text-gray-700">
-              <span>Tunjangan Kehadiran</span>
-              <span className="font-mono font-semibold">{formatRupiah(slip.allowance_presence)}</span>
-            </div>
-            <div className="flex justify-between text-emerald-700 font-medium">
-              <span>Bonus &amp; Insentif</span>
-              <span className="font-mono font-bold">+{formatRupiah(slip.bonus)}</span>
-            </div>
-            {slip.bonus_note && (
-              <div className="text-[10px] text-gray-500 italic pl-2">&bull; {slip.bonus_note}</div>
+
+            {b.overtime > 0 && (
+              <div className="flex justify-between text-emerald-700 font-medium">
+                <span className="flex items-center gap-1">
+                  <Clock size={11} /> Lembur (Overtime)
+                </span>
+                <span className="font-mono font-bold">+{formatRupiah(b.overtime)}</span>
+              </div>
             )}
-            <div className="flex justify-between font-bold text-suka-ink pt-1 border-t border-stone-200">
+
+            {b.mealAllowance > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span>Uang Makan (Meal)</span>
+                <span className="font-mono font-semibold">{formatRupiah(b.mealAllowance)}</span>
+              </div>
+            )}
+
+            {b.transportAllowance > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span className="flex items-center gap-1">
+                  <Navigation size={11} /> Uang Transport
+                </span>
+                <span className="font-mono font-semibold">{formatRupiah(b.transportAllowance)}</span>
+              </div>
+            )}
+
+            {b.communicationAllowance > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span className="flex items-center gap-1">
+                  <Phone size={11} /> Tunjangan Komunikasi
+                </span>
+                <span className="font-mono font-semibold">{formatRupiah(b.communicationAllowance)}</span>
+              </div>
+            )}
+
+            {b.salesBonus > 0 && (
+              <div className="flex justify-between text-amber-700 font-bold">
+                <span className="flex items-center gap-1">
+                  <Sparkles size={11} /> Sales Bonus (Target Omset)
+                </span>
+                <span className="font-mono font-bold">+{formatRupiah(b.salesBonus)}</span>
+              </div>
+            )}
+
+            {b.positionAllowance > 0 && (
+              <div className="flex justify-between text-gray-700">
+                <span>Tunjangan Jabatan</span>
+                <span className="font-mono font-semibold">{formatRupiah(b.positionAllowance)}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold text-suka-ink pt-1.5 border-t border-stone-200">
               <span>Total Penerimaan</span>
-              <span className="font-mono">{formatRupiah(totalEarnings)}</span>
+              <span className="font-mono text-emerald-800">{formatRupiah(b.totalEarnings)}</span>
             </div>
           </div>
 
-          {/* Deductions */}
+          {/* 2. Deductions Breakdown */}
           <div className="space-y-1.5 pt-2 border-t border-dashed border-stone-300">
-            <div className="font-bold text-suka-brown text-[11px] uppercase tracking-wider">
-              Potongan (Deductions)
+            <div className="font-bold text-suka-brown text-[11px] uppercase tracking-wider flex items-center gap-1">
+              <ShieldAlert size={13} className="text-red-600" />
+              <span>Komponen Potongan (Deductions)</span>
             </div>
-            <div className="flex justify-between text-red-600 font-medium">
-              <span>Potongan Denda &amp; Kasbon</span>
-              <span className="font-mono font-bold">-{formatRupiah(slip.deductions)}</span>
-            </div>
-            {slip.deduction_note && (
-              <div className="text-[10px] text-gray-500 italic pl-2">&bull; {slip.deduction_note}</div>
+
+            {b.cashAdvanceDeduction > 0 && (
+              <div className="flex justify-between text-red-600 font-medium">
+                <span className="flex items-center gap-1">
+                  <Wallet size={11} /> Potongan Kasbon
+                </span>
+                <span className="font-mono font-bold">-{formatRupiah(b.cashAdvanceDeduction)}</span>
+              </div>
             )}
-            <div className="flex justify-between font-bold text-suka-ink pt-1 border-t border-stone-200">
+
+            {b.lateDeduction > 0 && (
+              <div className="flex justify-between text-red-600 font-medium">
+                <span className="flex items-center gap-1">
+                  <Clock size={11} /> Denda Telat ({b.lateMinutes} menit @ Rp1.000)
+                </span>
+                <span className="font-mono font-bold">-{formatRupiah(b.lateDeduction)}</span>
+              </div>
+            )}
+
+            {b.otherDeduction > 0 && (
+              <div className="flex justify-between text-red-600 font-medium">
+                <span>Potongan Lain / Ganti Rugi</span>
+                <span className="font-mono font-bold">-{formatRupiah(b.otherDeduction)}</span>
+              </div>
+            )}
+
+            {b.totalDeductions === 0 && (
+              <div className="flex justify-between text-stone-500 italic">
+                <span>Tidak ada potongan</span>
+                <span className="font-mono">Rp 0</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold text-red-700 pt-1.5 border-t border-stone-200">
               <span>Total Potongan</span>
-              <span className="font-mono">-{formatRupiah(totalDeductions)}</span>
+              <span className="font-mono">-{formatRupiah(b.totalDeductions)}</span>
             </div>
           </div>
 
-          {/* Take Home Pay */}
-          <div className="p-3 bg-white rounded-xl border border-suka-orange/30 flex justify-between items-center shadow-2xs">
+          {/* 3. Take Home Pay Banner */}
+          <div className="p-3.5 bg-white rounded-2xl border-2 border-suka-orange/40 flex justify-between items-center shadow-xs">
             <div>
-              <span className="text-[10px] text-gray-500 font-bold uppercase block">Gaji Bersih Diterima</span>
-              <span className="font-extrabold text-suka-brown text-sm">TAKE HOME PAY</span>
+              <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider block">Gaji Bersih Diterima</span>
+              <span className="font-black text-suka-brown text-sm">TOTAL TAKE HOME PAY</span>
             </div>
-            <span className="text-base font-black text-suka-orange font-mono">
-              {formatRupiah(takeHomePay)}
+            <span className="text-lg font-black text-suka-orange font-mono">
+              {formatRupiah(b.takeHomePay)}
             </span>
           </div>
         </div>
@@ -175,7 +238,7 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
             {copied ? <Check size={12} className="text-emerald-600" /> : null}
             <span>{copied ? 'Teks Tersalin!' : 'Salin Teks Pesan'}</span>
           </button>
-          <span>Siap kirim ke staf</span>
+          <span>Format resmi Suka Shawarma</span>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { rupiah, MONTH_NAMES } from './format'
 import type { PayrollRecord } from './types'
+import { getPayrollBreakdown } from './payrollBreakdown'
 
 export function generateSalarySlipPdf(slip: PayrollRecord) {
   const doc = new jsPDF({
@@ -10,6 +11,7 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
     format: 'a5',
   })
 
+  const b = getPayrollBreakdown(slip)
   const staffName = slip.outlet_staff?.name || 'Karyawan'
   const roleName = slip.outlet_staff?.role?.replace('_', ' ').toUpperCase() || 'STAFF'
   const outletName = slip.outlet_staff?.outlets?.name || 'Pusat / Seluruh Outlet'
@@ -28,7 +30,7 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
 
   doc.setFontSize(9)
   doc.setFont('helvetica', 'normal')
-  doc.text('SLIP GAJI KARYAWAN', 10, 15)
+  doc.text('SLIP GAJI RESMI KARYAWAN', 10, 15)
   doc.text(`Periode: ${periodText}`, 10, 20)
 
   // Status Badge
@@ -61,21 +63,40 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
   doc.text(`: ${bankName} - ${bankAcc}`, 105, 32)
   doc.text(`: ${new Date().toLocaleDateString('id-ID')}`, 105, 37)
 
-  const totalEarnings = slip.basic_salary + slip.allowance_position + slip.allowance_presence + slip.bonus
-  const totalDeductions = slip.deductions
-  const takeHomePay = totalEarnings - totalDeductions
+  // Table with explicit Breakdown
+  const earningsList: [string, string][] = [
+    ['Gaji Pokok (Gapok)', rupiah(b.basicSalary)],
+  ]
+  if (b.overtime > 0) earningsList.push(['Lembur (Overtime)', rupiah(b.overtime)])
+  if (b.mealAllowance > 0) earningsList.push(['Uang Makan (Meal)', rupiah(b.mealAllowance)])
+  if (b.transportAllowance > 0) earningsList.push(['Uang Transport', rupiah(b.transportAllowance)])
+  if (b.communicationAllowance > 0) earningsList.push(['Tunjangan Komunikasi', rupiah(b.communicationAllowance)])
+  if (b.salesBonus > 0) earningsList.push(['Bonus Penjualan (Sales Bonus)', rupiah(b.salesBonus)])
+  if (b.positionAllowance > 0) earningsList.push(['Tunjangan Jabatan', rupiah(b.positionAllowance)])
+
+  const deductionsList: [string, string][] = []
+  if (b.cashAdvanceDeduction > 0) deductionsList.push(['Potongan Kasbon', rupiah(b.cashAdvanceDeduction)])
+  if (b.lateDeduction > 0) {
+    deductionsList.push([`Denda Telat (${b.lateMinutes}m x Rp1.000)`, rupiah(b.lateDeduction)])
+  }
+  if (b.otherDeduction > 0) deductionsList.push(['Potongan Lain / Ganti Rugi', rupiah(b.otherDeduction)])
+  if (deductionsList.length === 0) deductionsList.push(['Tidak ada potongan', 'Rp 0'])
+
+  const maxRows = Math.max(earningsList.length, deductionsList.length)
+  const bodyRows: string[][] = []
+
+  for (let i = 0; i < maxRows; i++) {
+    const earn = earningsList[i] || ['', '']
+    const ded = deductionsList[i] || ['', '']
+    bodyRows.push([earn[0], earn[1], ded[0], ded[1]])
+  }
 
   autoTable(doc, {
     startY: 47,
     head: [['PENERIMAAN (EARNINGS)', 'JUMLAH (RP)', 'POTONGAN (DEDUCTIONS)', 'JUMLAH (RP)']],
-    body: [
-      ['Gaji Pokok', rupiah(slip.basic_salary), 'Denda / Potongan Kasbon', rupiah(slip.deductions)],
-      ['Tunjangan Jabatan', rupiah(slip.allowance_position), slip.deduction_note ? `(${slip.deduction_note})` : '-', '-'],
-      ['Tunjangan Kehadiran', rupiah(slip.allowance_presence), '', ''],
-      ['Bonus & Insentif', rupiah(slip.bonus), '', ''],
-    ],
+    body: bodyRows,
     foot: [
-      ['Total Penerimaan', rupiah(totalEarnings), 'Total Potongan', rupiah(totalDeductions)],
+      ['Total Penerimaan', rupiah(b.totalEarnings), 'Total Potongan', rupiah(b.totalDeductions)],
     ],
     theme: 'grid',
     headStyles: {
@@ -96,9 +117,9 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
       fontSize: 8,
     },
     columnStyles: {
-      0: { cellWidth: 40 },
-      1: { cellWidth: 32, halign: 'right' },
-      2: { cellWidth: 40 },
+      0: { cellWidth: 42 },
+      1: { cellWidth: 30, halign: 'right' },
+      2: { cellWidth: 42 },
       3: { cellWidth: 26, halign: 'right' },
     },
     margin: { left: 10, right: 10 },
@@ -117,7 +138,7 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
 
   doc.setFontSize(11)
   doc.setTextColor(180, 50, 20)
-  doc.text(rupiah(takeHomePay), 133, finalY + 9, { align: 'right' })
+  doc.text(rupiah(b.takeHomePay), 133, finalY + 9, { align: 'right' })
 
   const signY = finalY + 24
   doc.setTextColor(60, 60, 60)
@@ -141,15 +162,29 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
 export const generateSalarySlipPDF = generateSalarySlipPdf
 
 export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
+  const b = getPayrollBreakdown(slip)
   const staffName = slip.outlet_staff?.name || 'Karyawan'
   const roleName = slip.outlet_staff?.role?.replace('_', ' ').toUpperCase() || 'STAFF'
   const outletName = slip.outlet_staff?.outlets?.name || 'Pusat'
   const periodText = `${MONTH_NAMES[slip.period_month - 1]} ${slip.period_year}`
-  const totalEarnings = slip.basic_salary + slip.allowance_position + slip.allowance_presence + slip.bonus
-  const totalDeductions = slip.deductions
-  const takeHomePay = totalEarnings - totalDeductions
   const slipIdShort = slip.id.slice(0, 8).toUpperCase()
   const generatedTime = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Asia/Jakarta' })
+
+  const earningsLines: string[] = [`• Gaji Pokok: ${rupiah(b.basicSalary)}`]
+  if (b.overtime > 0) earningsLines.push(`• Lembur (Overtime): ${rupiah(b.overtime)}`)
+  if (b.mealAllowance > 0) earningsLines.push(`• Uang Makan (Meal): ${rupiah(b.mealAllowance)}`)
+  if (b.transportAllowance > 0) earningsLines.push(`• Uang Transport: ${rupiah(b.transportAllowance)}`)
+  if (b.communicationAllowance > 0) earningsLines.push(`• Tunjangan Komunikasi: ${rupiah(b.communicationAllowance)}`)
+  if (b.salesBonus > 0) earningsLines.push(`• Sales Bonus: ${rupiah(b.salesBonus)}`)
+  if (b.positionAllowance > 0) earningsLines.push(`• Tunjangan Jabatan: ${rupiah(b.positionAllowance)}`)
+
+  const deductionLines: string[] = []
+  if (b.cashAdvanceDeduction > 0) deductionLines.push(`• Potongan Kasbon: -${rupiah(b.cashAdvanceDeduction)}`)
+  if (b.lateDeduction > 0) {
+    deductionLines.push(`• Denda Keterlambatan (${b.lateMinutes} menit @ Rp1.000): -${rupiah(b.lateDeduction)}`)
+  }
+  if (b.otherDeduction > 0) deductionLines.push(`• Potongan Lain: -${rupiah(b.otherDeduction)}`)
+  if (deductionLines.length === 0) deductionLines.push(`• Tidak ada potongan: Rp 0`)
 
   return (
     `*SLIP GAJI RESMI — SUKA SHAWARMA*\n` +
@@ -160,18 +195,13 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
     `📅 Periode: *${periodText}*\n` +
     `🔖 Ref ID: \`SS-PAY-${slipIdShort}\`\n\n` +
     `*📋 RINCIAN PENERIMAAN (EARNINGS):*\n` +
-    `• Gaji Pokok: ${rupiah(slip.basic_salary)}\n` +
-    `• Tunjangan Jabatan: ${rupiah(slip.allowance_position)}\n` +
-    `• Tunjangan Kehadiran: ${rupiah(slip.allowance_presence)}\n` +
-    `• Bonus & Insentif: ${rupiah(slip.bonus)}\n` +
-    (slip.bonus_note ? `  _(Ket: ${slip.bonus_note})_\n` : '') +
-    `*Total Penerimaan: ${rupiah(totalEarnings)}*\n\n` +
+    earningsLines.join('\n') +
+    `\n*Total Penerimaan: ${rupiah(b.totalEarnings)}*\n\n` +
     `*✂️ POTONGAN (DEDUCTIONS):*\n` +
-    `• Potongan Denda/Kasbon: ${rupiah(slip.deductions)}\n` +
-    (slip.deduction_note ? `  _(Ket: ${slip.deduction_note})_\n` : '') +
-    `*Total Potongan: ${rupiah(totalDeductions)}*\n\n` +
+    deductionLines.join('\n') +
+    `\n*Total Potongan: -${rupiah(b.totalDeductions)}*\n\n` +
     `----------------------------\n` +
-    `💰 *TAKE HOME PAY: ${rupiah(takeHomePay)}*\n` +
+    `💰 *TAKE HOME PAY: ${rupiah(b.takeHomePay)}*\n` +
     `============================\n` +
     `_Dokumen ini digenerate otomatis oleh Sistem HR Suka Shawarma pada ${generatedTime} WIB._\n` +
     `_Terima kasih atas kerja keras dan dedikasi Anda!_`

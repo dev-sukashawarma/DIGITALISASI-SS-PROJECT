@@ -5,6 +5,7 @@ import { Eye, Edit2 } from 'lucide-react'
 import type { PayrollRecord } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 import { SalarySlipModal } from './SalarySlipModal'
+import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 
 export function PayrollTable({
   rows,
@@ -26,21 +27,24 @@ export function PayrollTable({
                 <th className="px-4 py-3.5">Outlet</th>
                 <th className="px-4 py-3.5 text-right">Gaji Pokok</th>
                 <th className="px-4 py-3.5 text-right">Tunjangan</th>
-                <th className="px-4 py-3.5 text-right">Bonus</th>
+                <th className="px-4 py-3.5 text-right">Bonus / OT</th>
                 <th className="px-4 py-3.5 text-right">Potongan</th>
-                <th className="px-4 py-3.5 text-right">Total Bersih</th>
+                <th className="px-4 py-3.5 text-right">Total Bersih (THP)</th>
                 <th className="px-4 py-3.5">Status</th>
                 <th className="px-4 py-3.5 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-suka-gray-100">
               {rows.map((r) => {
-                const totalTunjangan = r.allowance_position + r.allowance_presence
+                const b = getPayrollBreakdown(r)
+                const totalTunjangan = b.mealAllowance + b.transportAllowance + b.communicationAllowance + b.positionAllowance
+                const totalBonus = b.overtime + b.salesBonus
+
                 return (
                   <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
                     <td className="px-4 py-3">
                       <div className="font-bold text-suka-ink text-sm">{r.outlet_staff?.name || 'Staff'}</div>
-                      <div className="text-xs text-suka-brown font-semibold">
+                      <div className="text-xs text-suka-brown font-semibold uppercase">
                         {r.outlet_staff?.role?.replace('_', ' ')}
                       </div>
                     </td>
@@ -48,19 +52,41 @@ export function PayrollTable({
                       {r.outlet_staff?.outlets?.name || 'Pusat'}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-mono font-medium text-gray-700">
-                      {formatRupiah(r.basic_salary)}
+                      {formatRupiah(b.basicSalary)}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-mono font-medium text-gray-700">
                       {formatRupiah(totalTunjangan)}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-mono font-medium text-emerald-700">
-                      {r.bonus > 0 ? formatRupiah(r.bonus) : '—'}
+                      {totalBonus > 0 ? (
+                        <div>
+                          <div>+{formatRupiah(totalBonus)}</div>
+                          {r.bonus_note && (
+                            <div className="text-[10px] text-gray-400 font-sans truncate max-w-[120px] text-right" title={r.bonus_note}>
+                              {r.bonus_note}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-mono font-medium text-red-600">
-                      {r.deductions > 0 ? formatRupiah(r.deductions) : '—'}
+                      {b.totalDeductions > 0 ? (
+                        <div>
+                          <div>-{formatRupiah(b.totalDeductions)}</div>
+                          {r.deduction_note && (
+                            <div className="text-[10px] text-gray-400 font-sans truncate max-w-[140px] text-right" title={r.deduction_note}>
+                              {r.deduction_note}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right text-xs font-mono font-black text-suka-brown">
-                      {formatRupiah(r.total_salary)}
+                      {formatRupiah(b.takeHomePay)}
                     </td>
                     <td className="px-4 py-3">
                       {r.status === 'finalized' ? (

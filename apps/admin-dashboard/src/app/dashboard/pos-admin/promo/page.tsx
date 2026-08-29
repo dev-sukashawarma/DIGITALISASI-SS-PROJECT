@@ -41,8 +41,23 @@ export default async function AdminPromoPage() {
   
   let initialPromos: any[] = []
   if (initialOutlets.length > 0) {
-    const promoRes = await supabase.from('outlet_promos').select('*').eq('outlet_id', initialOutlets[0].id)
-    initialPromos = promoRes.data?.map(p => {
+    const promoRes = await supabase
+      .from('outlet_promos')
+      .select('*')
+      .in('outlet_id', initialOutlets.map(outlet => outlet.id))
+
+    const usageByPool = new Map<string, number>()
+    for (const promo of promoRes.data || []) {
+      if (!promo.quota_pool_id) continue
+      usageByPool.set(
+        promo.quota_pool_id,
+        Math.max(usageByPool.get(promo.quota_pool_id) || 0, Number(promo.current_usage) || 0),
+      )
+    }
+
+    initialPromos = promoRes.data
+      ?.filter(p => p.outlet_id === initialOutlets[0].id)
+      .map(p => {
       // Determine if it exists in Order Online
       let isSynced = false
       if (ooPromos && ooPromos.length > 0) {
@@ -55,6 +70,7 @@ export default async function AdminPromoPage() {
 
       return {
         ...p,
+        current_usage: p.quota_pool_id ? usageByPool.get(p.quota_pool_id) || 0 : p.current_usage,
         discount_value: p.discount_value === 0.01 ? 0 : p.discount_value,
         sync_to_order_online: isSynced
       }

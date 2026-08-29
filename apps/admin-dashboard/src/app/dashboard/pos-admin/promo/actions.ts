@@ -57,10 +57,21 @@ export async function savePromosAction(
       if (p.scope !== 'item' && p.scope !== 'global') {
         return { success: false, error: 'Scope promo Buy X Get Y tidak valid.' }
       }
+      if (p.quota_scope !== undefined && p.quota_scope !== 'global' && p.quota_scope !== 'per_outlet') {
+        return { success: false, error: 'Pola batas kuota Buy X Get Y tidak valid.' }
+      }
       p.buy_quantity = Number(p.buy_quantity)
       p.get_quantity = Number(p.get_quantity)
       if (!Number.isInteger(p.buy_quantity) || p.buy_quantity < 1 || !Number.isInteger(p.get_quantity) || p.get_quantity < 1) {
         return { success: false, error: 'Jumlah beli dan gratis Buy X Get Y wajib bilangan bulat minimal 1.' }
+      }
+      if (p.usage_limit !== null && p.usage_limit !== undefined && p.usage_limit !== '') {
+        p.usage_limit = Number(p.usage_limit)
+        if (!Number.isInteger(p.usage_limit) || p.usage_limit < 1) {
+          return { success: false, error: 'Batas kuota Buy X Get Y wajib bilangan bulat minimal 1.' }
+        }
+      } else {
+        p.usage_limit = null
       }
       // Fitur ini hanya untuk transaksi POS kasir; jangan percaya state form saja.
       p.apply_to_food_apps = false
@@ -83,7 +94,7 @@ export async function savePromosAction(
 
   const { data: existingPromos, error: fetchError } = await supabase
     .from('outlet_promos')
-    .select('id, outlet_id, scope, menu_item_id')
+    .select('id, outlet_id, scope, menu_item_id, discount_type, quota_scope, quota_pool_id, current_usage')
     .in('outlet_id', outletIds)
 
   if (fetchError) return { success: false, error: fetchError.message || JSON.stringify(fetchError) }
@@ -96,13 +107,67 @@ export async function savePromosAction(
     }
   }
 
+  const promoKey = (p: any) => `${p.scope}_${p.menu_item_id || 'null'}`
+  const existingForPromo = (p: any) => (existingPromos || []).filter((ep: any) => promoKey(ep) === promoKey(p))
+  const quotaPoolByPromoKey = new Map<string, { id: string; current_usage: number }>()
+
+  // A global BxGy quota is shared by all cloned outlet_promos rows. Reuse an
+  // existing pool when possible so saving the form does not reset usage.
+  for (const p of promos) {
+    if (p.discount_type !== 'buy_one_get_one' || p.quota_scope !== 'global') continue
+
+    const matchingRows = existingForPromo(p)
+    const poolIds = Array.from(new Set(matchingRows.map((row: any) => row.quota_pool_id).filter(Boolean)))
+    if (poolIds.length > 1) {
+      return { success: false, error: 'Promo Buy X Get Y memiliki beberapa pool kuota global yang tidak konsisten. Periksa data promo terlebih dahulu.' }
+    }
+
+    if (poolIds.length === 1) {
+      const { data: pool, error: poolError } = await supabase
+        .from('promo_quota_pools')
+        .select('id, current_usage')
+        .eq('id', poolIds[0])
+        .single()
+      if (poolError || !pool) {
+        return { success: false, error: poolError?.message || 'Pool kuota promo tidak ditemukan.' }
+      }
+      const { error: updatePoolError } = await supabase
+        .from('promo_quota_pools')
+        .update({ usage_limit: p.usage_limit })
+        .eq('id', pool.id)
+      if (updatePoolError) {
+        return { success: false, error: updatePoolError.message || JSON.stringify(updatePoolError) }
+      }
+      quotaPoolByPromoKey.set(promoKey(p), { id: pool.id, current_usage: Number(pool.current_usage) || 0 })
+      continue
+    }
+
+    const seededUsage = matchingRows.reduce((sum: number, row: any) => sum + (Number(row.current_usage) || 0), 0)
+    const poolId = crypto.randomUUID()
+    const { error: createPoolError } = await supabase
+      .from('promo_quota_pools')
+      .insert({
+        id: poolId,
+        usage_limit: p.usage_limit == null || p.usage_limit === '' ? null : Number(p.usage_limit),
+        current_usage: seededUsage,
+      })
+    if (createPoolError) {
+      return { success: false, error: createPoolError.message || JSON.stringify(createPoolError) }
+    }
+    quotaPoolByPromoKey.set(promoKey(p), { id: poolId, current_usage: seededUsage })
+  }
+
   const toUpsertMap = new Map<string, any>()
 
   for (const outlet of outlets) {
     for (const p of promos) {
       const key = `${outlet.id}_${p.scope}_${p.menu_item_id || 'null'}`
       const existingId = existingMap.get(key)
-      
+      const isBuyOneGetOne = p.discount_type === 'buy_one_get_one'
+      const quotaScope = isBuyOneGetOne && p.quota_scope === 'global' ? 'global' : 'per_outlet'
+      const quotaPool = quotaScope === 'global' ? quotaPoolByPromoKey.get(promoKey(p)) : null
+      const usageLimit = p.usage_limit == null || p.usage_limit === '' ? null : Number(p.usage_limit)
+
       toUpsertMap.set(key, {
         id: existingId || crypto.randomUUID(),
         outlet_id: outlet.id,
@@ -113,7 +178,12 @@ export async function savePromosAction(
         discount_value: p.discount_type === 'buy_one_get_one' ? 0.01 : Math.max(0.01, Number(p.discount_value) || 0),
         is_active: p.is_active,
         min_purchase: p.min_purchase,
-        usage_limit: p.usage_limit,
+        usage_limit: usageLimit,
+        quota_scope: quotaScope,
+        quota_pool_id: quotaPool?.id || null,
+        // Keep the per-row value useful to existing POS clients. The quota
+        // function treats the pool as authoritative for global BxGy quotas.
+        ...(quotaPool ? { current_usage: quotaPool.current_usage } : {}),
         start_date: p.start_date ?? null,
         end_date: p.end_date ?? null,
         daily_start_time: p.daily_start_time ?? null,

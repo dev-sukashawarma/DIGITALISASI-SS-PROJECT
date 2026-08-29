@@ -107,6 +107,27 @@ export async function POST(request: Request) {
   )
   const hasBuyGetPromo = buyGetPromos.length > 0
 
+  let buyGetRewardMenu: { id: string; name: string; price: number } | null = null
+  if (buyGetPromos.length > 0) {
+    const { data: rewardMenus, error: rewardMenuError } = await supabaseService
+      .from('menu_items')
+      .select('id, name, price, outlet_id')
+      .eq('is_available', true)
+      .ilike('name', 'Original Ayam Reguler')
+
+    if (rewardMenuError) {
+      return NextResponse.json({ error: 'Gagal memuat menu hadiah promo' }, { status: 500 })
+    }
+
+    buyGetRewardMenu = (rewardMenus || [])
+      .filter((menu) => menu.outlet_id == null || menu.outlet_id === outlet_id)
+      .sort((a, b) => (a.outlet_id === outlet_id ? 0 : 1) - (b.outlet_id === outlet_id ? 0 : 1) || String(a.id).localeCompare(String(b.id)))[0] || null
+
+    if (!buyGetRewardMenu) {
+      return NextResponse.json({ error: 'Menu hadiah Original Ayam Reguler tidak tersedia di outlet ini' }, { status: 400 })
+    }
+  }
+
   const validatedItems: {
     menu_item_id: string
     menu_item_name: string
@@ -191,13 +212,12 @@ export async function POST(request: Request) {
   // kuantitas gratis dengan cara yang sama seperti item berbayar.
   const buyGetPromo = buyGetPromos[0]
   if (buyGetPromo) {
-    const menuItem = menuItems?.find((item) => item.id === buyGetPromo.menu_item_id)
-    if (menuItem) {
+    if (buyGetRewardMenu) {
       const buyQuantity = Math.max(1, Number(buyGetPromo.buy_quantity) || 1)
       const getQuantity = Math.max(1, Number(buyGetPromo.get_quantity) || 1)
       validatedItems.push({
-        menu_item_id: menuItem.id,
-        menu_item_name: menuItem.name,
+        menu_item_id: buyGetRewardMenu.id,
+        menu_item_name: buyGetRewardMenu.name,
         quantity: getQuantity,
         unit_price: 0,
         subtotal: 0,

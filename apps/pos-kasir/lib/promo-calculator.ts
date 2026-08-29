@@ -12,6 +12,7 @@ export interface BasePromo {
   min_purchase?: number | null;
   usage_limit?: number | null;
   current_usage?: number;
+  quota_scope?: 'global' | 'per_outlet';
   /** Promo terjadwal: belum berlaku sebelum waktu ini. NULL = berlaku sejak diaktifkan. */
   start_date?: string | null;
   end_date?: string | null;

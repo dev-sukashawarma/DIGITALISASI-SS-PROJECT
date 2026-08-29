@@ -25,6 +25,8 @@ type OutletPromo = {
   min_purchase?: number | null
   usage_limit?: number | null
   current_usage?: number
+  quota_scope?: 'global' | 'per_outlet'
+  quota_pool_id?: string | null
   start_date?: string | null
   end_date?: string | null
   daily_start_time?: string | null
@@ -103,6 +105,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     min_purchase: null,
     usage_limit: null,
     current_usage: 0,
+    quota_scope: 'per_outlet',
     start_date: null,
     end_date: null,
     apply_to_food_apps: false,
@@ -140,6 +143,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 sync_to_order_online: false,
                 buy_quantity: updated[idx].buy_quantity ?? 1,
                 get_quantity: updated[idx].get_quantity ?? 1,
+                quota_scope: updated[idx].quota_scope ?? 'per_outlet',
               }
             : {}),
         }
@@ -153,6 +157,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           min_purchase: null,
           usage_limit: null,
           current_usage: 0,
+          quota_scope: 'per_outlet',
           start_date: null,
           end_date: null,
           apply_to_food_apps: false,
@@ -184,6 +189,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           min_purchase: null,
           usage_limit: null,
           current_usage: 0,
+          quota_scope: 'per_outlet',
           start_date: null,
           end_date: null,
           apply_to_food_apps: false,
@@ -472,6 +478,16 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   <label className="block text-sm font-bold text-gray-700">
                     Batas Kuota Pemakaian <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
                   </label>
+                  {isGlobalBuyOneGetOne && (
+                    <select
+                      value={globalPromo.quota_scope || 'per_outlet'}
+                      onChange={(e) => handleGlobalPromoChange('quota_scope', e.target.value)}
+                      className="w-full bg-white border-2 border-emerald-200 focus:border-emerald-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
+                    >
+                      <option value="per_outlet">Batas per outlet</option>
+                      <option value="global">Satu batas global untuk semua outlet</option>
+                    </select>
+                  )}
                   <input
                     type="number"
                     min="1"
@@ -480,9 +496,17 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                     onChange={(e) => handleGlobalPromoChange('usage_limit', e.target.value ? Number(e.target.value) : null)}
                     className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl px-4 py-2.5 outline-none transition-colors font-semibold text-gray-900"
                   />
-                  <p className="text-xs text-gray-500">Kosongkan jika kuota tak terbatas</p>
+                  <p className="text-xs text-gray-500">
+                    {isGlobalBuyOneGetOne && globalPromo.quota_scope === 'global'
+                      ? 'Satu kuota dipakai bersama oleh semua outlet aktif.'
+                      : isGlobalBuyOneGetOne
+                        ? 'Setiap outlet memiliki kuota masing-masing.'
+                        : 'Kosongkan jika kuota tak terbatas'}
+                  </p>
                   {globalPromo.usage_limit ? (
-                    <p className="text-xs text-amber-600 font-medium">Terpakai: {globalPromo.current_usage || 0} / {globalPromo.usage_limit}</p>
+                    <p className="text-xs text-amber-600 font-medium">
+                      Terpakai{isGlobalBuyOneGetOne && globalPromo.quota_scope === 'global' ? ' semua outlet' : ''}: {globalPromo.current_usage || 0} / {globalPromo.usage_limit}
+                    </p>
                   ) : null}
                 </div>
               </div>
@@ -695,6 +719,35 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                               </label>
                             </div>
                             <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} Original Ayam Reguler gratis.</p>
+                            <div className="mt-4 pt-4 border-t border-emerald-200/70 space-y-1.5">
+                              <label className="block text-xs font-bold text-emerald-900">Pola batas kuota</label>
+                              <select
+                                value={promo.quota_scope || 'per_outlet'}
+                                onChange={e => handleItemPromoChange(menu.id, 'quota_scope', e.target.value)}
+                                className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none focus:border-emerald-500"
+                              >
+                                <option value="per_outlet">Batas per outlet</option>
+                                <option value="global">Satu batas global untuk semua outlet</option>
+                              </select>
+                              <input
+                                type="number"
+                                min="1"
+                                step="1"
+                                placeholder="Kuota pemakaian (opsional)"
+                                onWheel={e => e.currentTarget.blur()}
+                                value={promo.usage_limit || ''}
+                                onChange={e => handleItemPromoChange(menu.id, 'usage_limit', e.target.value ? Number(e.target.value) : null)}
+                                className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 outline-none focus:border-emerald-500"
+                              />
+                              <p className="text-xs text-emerald-700">
+                                {promo.quota_scope === 'global'
+                                  ? 'Satu kuota dipakai bersama oleh semua outlet aktif.'
+                                  : 'Setiap outlet memiliki kuota masing-masing.'}
+                              </p>
+                              {promo.usage_limit ? (
+                                <p className="text-xs text-emerald-700 font-medium">Terpakai{promo.quota_scope === 'global' ? ' semua outlet' : ''}: {promo.current_usage || 0} / {promo.usage_limit}</p>
+                              ) : null}
+                            </div>
                           </div>
                         )}
                         <div className="space-y-1.5">

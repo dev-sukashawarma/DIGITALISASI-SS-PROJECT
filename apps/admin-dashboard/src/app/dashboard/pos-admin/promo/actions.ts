@@ -21,6 +21,26 @@ export async function savePromosAction(
     return { success: false, error: 'Tidak ada outlet aktif untuk diterapkan promo.' }
   }
 
+  // Reward BxGy adalah menu tetap, bukan menu pemicu. Resolusi dilakukan di
+  // server agar semua outlet menerima menu_id yang sama dengan katalog POS dan
+  // tidak bergantung pada state browser.
+  const { data: availableMenuItems, error: menuError } = await supabase
+    .from('menu_items')
+    .select('id, outlet_id, name')
+    .eq('is_available', true)
+
+  if (menuError) return { success: false, error: menuError.message || JSON.stringify(menuError) }
+
+  const normalizeMenuName = (value: unknown) => String(value || '').trim().toLocaleLowerCase('id-ID')
+  const rewardMenuForOutlet = (outletId: string) => {
+    const candidates = (availableMenuItems || []).filter((item: any) => {
+      const belongsToOutlet = item.outlet_id == null || item.outlet_id === outletId
+      const name = normalizeMenuName(item.name)
+      return belongsToOutlet && name === 'original ayam reguler'
+    })
+    return candidates.sort((a: any, b: any) => String(a.id).localeCompare(String(b.id)))[0] || null
+  }
+
   // Jadwal divalidasi di server juga — Server Action adalah endpoint POST
   // publik, guard di form saja tidak cukup. DB punya CHECK constraint yang
   // sama, tapi pesannya tak terbaca kasir kalau sampai lolos ke sana.
@@ -44,6 +64,9 @@ export async function savePromosAction(
       p.sync_to_order_online = false
       p.min_purchase = null
       p.discount_value = 0.01
+      if (outlets.some(outlet => !rewardMenuForOutlet(outlet.id))) {
+        return { success: false, error: 'Promo Buy X Get Y membutuhkan menu hadiah Original Ayam Reguler yang aktif.' }
+      }
     }
     const scheduleError = validateSchedule(p)
     if (scheduleError) return { success: false, error: scheduleError }
@@ -95,7 +118,10 @@ export async function savePromosAction(
         apply_to_food_apps: p.discount_type === 'buy_one_get_one' ? false : (p.apply_to_food_apps || false)
         ,promo_name: String(p.promo_name || '').trim() || null,
         buy_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.buy_quantity) : 1,
-        get_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.get_quantity) : 1
+        get_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.get_quantity) : 1,
+        reward_menu_item_id: p.discount_type === 'buy_one_get_one'
+          ? rewardMenuForOutlet(outlet.id)?.id || null
+          : null
       })
     }
   }

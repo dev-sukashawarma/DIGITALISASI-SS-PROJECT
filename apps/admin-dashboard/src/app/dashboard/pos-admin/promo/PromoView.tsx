@@ -34,6 +34,7 @@ type OutletPromo = {
   promo_name?: string | null
   buy_quantity?: number
   get_quantity?: number
+  reward_menu_item_id?: string | null
 }
 
 type Outlet = {
@@ -255,7 +256,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 <Tag className={`w-5 h-5 sm:w-6 sm:h-6 shrink-0 ${globalPromo.is_active ? 'text-amber-500' : 'text-gray-400'}`} />
                 Promo Semua Menu
               </h2>
-              <p className="text-sm text-gray-500 mt-1 font-medium">Berlaku untuk total harga semua pesanan tanpa terkecuali.</p>
+              <p className="text-sm text-gray-500 mt-1 font-medium">Berlaku untuk total harga semua pesanan tanpa terkecuali saat promo diaktifkan.</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {mounted && <StatusBadge status={getPromoStatus(globalPromo, now)} />}
               </div>
@@ -266,8 +267,12 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
             </label>
           </div>
 
-          {globalPromo.is_active && (
-            <div className="mt-6 pt-6 border-t border-amber-200/50 space-y-6 animate-fade-in">
+          <div className="mt-6 pt-6 border-t border-amber-200/50 space-y-6 animate-fade-in">
+              {!globalPromo.is_active && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Atur detail promo terlebih dahulu, lalu aktifkan toggle di atas agar promo mulai berlaku.
+                </div>
+              )}
               {/* Nilai diskon */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
@@ -471,8 +476,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   </label>
                 </div>
               </div>
-            </div>
-          )}
+          </div>
         </section>
 
         {/* PROMO ITEM */}
@@ -611,7 +615,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                         {isBuyOneGetOne && (
                           <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
                             <p className="font-bold">Buy X Get Y</p>
-                            <p className="mt-1">Atur jumlah produk yang harus dibeli dan jumlah produk gratis. Hadiah adalah produk yang sama, hanya POS kasir offline, tidak digabung promo lain, dan berlaku sekali per transaksi.</p>
+                            <p className="mt-1">Atur jumlah produk yang harus dibeli dan jumlah produk gratis. Hadiah selalu <strong>Original Ayam Reguler</strong>, hanya POS kasir offline, tidak digabung promo lain, dan berlaku sekali per transaksi.</p>
                             <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                               <label className="space-y-1.5">
                                 <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
@@ -638,7 +642,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                                 />
                               </label>
                             </div>
-                            <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} {menu.name} gratis.</p>
+                            <p className="mt-3 text-xs font-semibold text-emerald-800">Pelanggan membeli {promo.buy_quantity ?? 1} {menu.name}, lalu mendapat {promo.get_quantity ?? 1} Original Ayam Reguler gratis.</p>
                           </div>
                         )}
                         <div className="space-y-1.5">

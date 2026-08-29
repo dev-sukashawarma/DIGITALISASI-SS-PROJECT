@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { UserPlus, Download } from 'lucide-react'
+import { UserPlus, Download, Upload } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { useStaff } from '@/hooks/useStaff'
@@ -12,11 +13,13 @@ import { StaffFilters } from '@/components/modules/StaffFilters'
 import { StaffTable } from '@/components/modules/StaffTable'
 import { StaffForm } from '@/components/modules/StaffForm'
 import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
+import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
 import { filterStaff } from '@/lib/filterStaff'
 import { exportCsv } from '@/lib/exportCsv'
 import type { StaffRow, StaffFilterValues, StaffFormValues, StaffStatus } from '@/lib/types'
 
 export default function StaffPage() {
+  const queryClient = useQueryClient()
   const [filter, setFilter] = useState<StaffFilterValues>({
     search: '',
     outletId: '',
@@ -25,6 +28,7 @@ export default function StaffPage() {
   })
 
   const [formOpen, setFormOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const [editingStaff, setEditingStaff] = useState<StaffRow | null>(null)
   const [resetPwStaff, setResetPwStaff] = useState<StaffRow | null>(null)
 
@@ -170,6 +174,14 @@ export default function StaffPage() {
           <Button
             type="button"
             variant="ghost"
+            onClick={() => setImportOpen(true)}
+            className="rounded-xl border border-suka-orange/30 text-suka-brown hover:bg-suka-orange/10 gap-1.5 font-bold"
+          >
+            <Upload size={15} className="text-suka-orange" /> Import CSV / Excel
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
             onClick={handleExportCsv}
             className="rounded-xl border border-suka-gray-200 gap-1.5 font-bold"
           >
@@ -181,7 +193,7 @@ export default function StaffPage() {
               setEditingStaff(null)
               setFormOpen(true)
             }}
-            className="rounded-xl font-bold bg-suka-orange hover:bg-suka-orange/90 text-white gap-1.5"
+            className="rounded-xl font-bold bg-suka-orange hover:bg-suka-orange/90 text-white gap-1.5 shadow-sm"
           >
             <UserPlus size={16} /> Tambah Karyawan
           </Button>
@@ -290,6 +302,18 @@ export default function StaffPage() {
           onSubmit={handleResetPassword}
           onClose={() => setResetPwStaff(null)}
           submitting={resetPassword.isPending}
+        />
+      )}
+
+      {/* Bulk Import Staff Modal */}
+      {importOpen && (
+        <BulkImportStaffModal
+          outlets={outlets}
+          onClose={() => setImportOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['staff'] })
+            setImportOpen(false)
+          }}
         />
       )}
     </div>

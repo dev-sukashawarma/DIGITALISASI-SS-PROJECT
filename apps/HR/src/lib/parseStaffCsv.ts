@@ -155,7 +155,7 @@ export function parseRawStaffRows(rawRows: any[], outlets: Outlet[]): ParsedStaf
     const statusRaw = cleanString(normalized['STATUS'] || normalized['STATUS KARYAWAN'] || '')
     const locationRaw = cleanString(normalized['LOCATION'] || normalized['OUTLET'] || normalized['LOKASI'] || '')
     
-    const baseSalary = parseCurrency(
+    const basicSalary = parseCurrency(
       normalized['BASE SALARY'] || normalized['GAJI POKOK'] || normalized['BASIC SALARY'] || normalized['GAJI']
     )
     const mealAllowance = parseCurrency(

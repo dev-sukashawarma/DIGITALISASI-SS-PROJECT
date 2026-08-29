@@ -15,7 +15,13 @@ export interface ParsedStaffRow {
   outletName: string
   isOutletMatched: boolean
   basicSalary: number
+  mealAllowance: number
   allowancePresence: number
+  overtime: number
+  cashAdvance: number
+  compensation: number
+  totalSalary: number
+  paymentStatus: 'PAID' | 'UNPAID'
   phone?: string
   bankName?: string
   bankAccountNumber?: string
@@ -228,8 +234,25 @@ export function parseRawStaffRows(rawRows: any[], outlets: Outlet[]): ParsedStaf
       normalized['BASE SALARY'] || normalized['GAJI POKOK'] || normalized['BASIC SALARY'] || normalized['GAJI']
     )
     const mealAllowance = parseCurrency(
-      normalized['MEAL ALLOWANCE'] || normalized['TUNJANGAN'] || normalized['TUNJANGAN KEHADIRAN'] || normalized['TUNJANGAN MAKAN']
+      normalized['MEAL ALLOWANCE'] || normalized['TUNJANGAN MAKAN'] || normalized['TUNJANGAN KEHADIRAN'] || normalized['TUNJANGAN']
     )
+    const overtime = parseCurrency(
+      normalized['OVERTIME'] || normalized['LEMBUR'] || normalized['BONUS']
+    )
+    const cashAdvance = parseCurrency(
+      normalized['CASH ADV (KASBON)'] || normalized['CASH ADV'] || normalized['KASBON'] || normalized['CASH ADVANCE']
+    )
+    const compensation = parseCurrency(
+      normalized['COMPENSATION (GANTI RUGI)'] || normalized['COMPENSATION'] || normalized['GANTI RUGI'] || normalized['DENDA']
+    )
+    const totalSalaryRaw = parseCurrency(
+      normalized['TOTAL SALARY'] || normalized['TOTAL GAJI'] || normalized['THP'] || normalized['TOTAL']
+    )
+    const calculatedTotal = basicSalary + mealAllowance + overtime - cashAdvance - compensation
+    const totalSalary = totalSalaryRaw > 0 ? totalSalaryRaw : calculatedTotal
+
+    const payStatRaw = cleanString(normalized['PAYMENT STATUS'] || normalized['STATUS PEMBAYARAN'] || '').toUpperCase()
+    const paymentStatus: 'PAID' | 'UNPAID' = payStatRaw.includes('UNPAID') || payStatRaw.includes('BELUM') ? 'UNPAID' : 'PAID'
 
     const phone = cleanString(normalized['PHONE'] || normalized['NO HP'] || normalized['WHATSAPP'] || normalized['NO WA'] || '')
     const bankName = cleanString(normalized['BANK'] || normalized['NAMA BANK'] || '')
@@ -254,7 +277,13 @@ export function parseRawStaffRows(rawRows: any[], outlets: Outlet[]): ParsedStaf
       outletName,
       isOutletMatched: isMatched,
       basicSalary,
+      mealAllowance,
       allowancePresence: mealAllowance,
+      overtime,
+      cashAdvance,
+      compensation,
+      totalSalary,
+      paymentStatus,
       phone: phone || undefined,
       bankName: bankName || undefined,
       bankAccountNumber: bankAcc || undefined,

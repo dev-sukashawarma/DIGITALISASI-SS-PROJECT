@@ -20,13 +20,15 @@ export interface BulkImportSummary {
 
 export async function bulkImportStaffAction(
   rows: ParsedStaffRow[],
-  options?: { updateExisting?: boolean; defaultPassword?: string }
+  options?: { updateExisting?: boolean; defaultPassword?: string; syncPayrollMonth?: number; syncPayrollYear?: number }
 ): Promise<BulkImportSummary> {
   await requireRole(['admin', 'owner', 'admin_hr'])
 
   const admin = getAdminSupabase()
   const updateExisting = options?.updateExisting ?? true
   const defaultPassword = options?.defaultPassword || '123456'
+  const syncMonth = options?.syncPayrollMonth || 1
+  const syncYear = options?.syncPayrollYear || 2026
 
   // Fetch existing staff for quick duplicate checking
   const { data: existingStaff } = await admin
@@ -52,9 +54,12 @@ export async function bulkImportStaffAction(
       const cleanUsernameKey = row.username.toLowerCase().trim()
 
       const existing =
-        existingMapByName.get(cleanNameKey) || existingMapByUsername.get(cleanUsernameKey)
+        existingMapByUsername.get(cleanUsernameKey) || existingMapByName.get(cleanNameKey)
+
+      let staffId: string
 
       if (existing) {
+        staffId = existing.id
         if (updateExisting) {
           // Update existing staff
           const { error: updateStaffErr } = await admin
@@ -71,22 +76,20 @@ export async function bulkImportStaffAction(
           if (updateStaffErr) throw updateStaffErr
 
           // Upsert financials
-          if (row.basicSalary > 0 || row.allowancePresence > 0 || row.bankAccountNumber) {
-            await admin
-              .from('staff_financials')
-              .upsert(
-                {
-                  staff_id: existing.id,
-                  basic_salary: row.basicSalary,
-                  allowance_presence: row.allowancePresence,
-                  allowance_position: 0,
-                  bank_name: row.bankName || '',
-                  bank_account_number: row.bankAccountNumber || '',
-                  bank_account_name: row.bankAccountName || '',
-                },
-                { onConflict: 'staff_id' }
-              )
-          }
+          await admin
+            .from('staff_financials')
+            .upsert(
+              {
+                staff_id: existing.id,
+                basic_salary: row.basicSalary,
+                allowance_presence: row.mealAllowance || row.allowancePresence,
+                allowance_position: 0,
+                bank_name: row.bankName || '',
+                bank_account_number: row.bankAccountNumber || '',
+                bank_account_name: row.bankAccountName || '',
+              },
+              { onConflict: 'staff_id' }
+            )
 
           updatedCount++
         }
@@ -110,7 +113,7 @@ export async function bulkImportStaffAction(
           throw new Error(`Gagal create user auth (${authErr.message})`)
         }
 
-        const staffId = authUser.user.id
+        staffId = authUser.user.id
 
         // 2. Insert into outlet_staff
         const { error: insertStaffErr } = await admin.from('outlet_staff').insert({
@@ -132,20 +135,59 @@ export async function bulkImportStaffAction(
         }
 
         // 3. Insert into staff_financials
-        if (row.basicSalary > 0 || row.allowancePresence > 0 || row.bankAccountNumber) {
-          await admin.from('staff_financials').insert({
-            staff_id: staffId,
-            basic_salary: row.basicSalary,
-            allowance_presence: row.allowancePresence,
-            allowance_position: 0,
-            bank_name: row.bankName || '',
-            bank_account_number: row.bankAccountNumber || '',
-            bank_account_name: row.bankAccountName || '',
-          })
-        }
+        await admin.from('staff_financials').insert({
+          staff_id: staffId,
+          basic_salary: row.basicSalary,
+          allowance_presence: row.mealAllowance || row.allowancePresence,
+          allowance_position: 0,
+          bank_name: row.bankName || '',
+          bank_account_number: row.bankAccountNumber || '',
+          bank_account_name: row.bankAccountName || '',
+        })
 
         insertedCount++
       }
+
+      // 4. Sync Kasbon (Cash Advance) if present
+      if (row.cashAdvance > 0) {
+        await admin.from('cash_advances').insert({
+          staff_id: staffId,
+          amount: row.cashAdvance,
+          remaining: 0, // already deducted in payroll
+          reason: `Kasbon Periode ${syncMonth}/${syncYear}`,
+          status: 'paid_off',
+          status_spv: 'approved',
+          status_hr: 'approved',
+        })
+      }
+
+      // 5. Sync Payroll Record for the period (e.g. Jan 2026)
+      const deductionTotal = row.cashAdvance + row.compensation
+      const deductionNotes = [
+        row.cashAdvance > 0 ? `Kasbon: Rp ${row.cashAdvance.toLocaleString()}` : '',
+        row.compensation > 0 ? `Ganti Rugi: Rp ${row.compensation.toLocaleString()}` : '',
+      ]
+        .filter(Boolean)
+        .join(', ')
+
+      await admin.from('payroll_records').upsert(
+        {
+          staff_id: staffId,
+          period_month: syncMonth,
+          period_year: syncYear,
+          basic_salary: row.basicSalary,
+          allowance_position: 0,
+          allowance_presence: row.mealAllowance || row.allowancePresence,
+          bonus: row.overtime,
+          bonus_note: row.overtime > 0 ? 'Overtime / Lembur' : null,
+          deductions: deductionTotal,
+          deduction_note: deductionNotes || null,
+          total_salary: row.totalSalary,
+          status: 'finalized',
+          payment_status: row.paymentStatus || 'PAID',
+        },
+        { onConflict: 'staff_id,period_month,period_year' }
+      )
     } catch (err: any) {
       failedCount++
       errors.push({

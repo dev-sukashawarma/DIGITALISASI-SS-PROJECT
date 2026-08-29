@@ -113,6 +113,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
+  const isGlobalBuyOneGetOne = globalPromo.discount_type === 'buy_one_get_one'
 
   const handleGlobalPromoChange = (field: keyof OutletPromo, value: any) => {
     setPromos(prev => {
@@ -128,7 +129,20 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       }
 
       if (idx >= 0) {
-        updated[idx] = { ...updated[idx], [field]: value }
+        updated[idx] = {
+          ...updated[idx],
+          [field]: value,
+          ...(field === 'discount_type' && value === 'buy_one_get_one'
+            ? {
+                discount_value: 0.01,
+                min_purchase: null,
+                apply_to_food_apps: false,
+                sync_to_order_online: false,
+                buy_quantity: updated[idx].buy_quantity ?? 1,
+                get_quantity: updated[idx].get_quantity ?? 1,
+              }
+            : {}),
+        }
       } else {
         const defaultGlobal: OutletPromo = {
           scope: 'global',
@@ -288,31 +302,65 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   >
                     <option value="percentage">Persentase (%)</option>
                     <option value="nominal">Nominal (Rp)</option>
+                    <option value="buy_one_get_one">Buy X Get Y (Semua Menu)</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-bold text-gray-700">Nilai Diskon</label>
-                  <div className="relative">
-                    {globalPromo.discount_type === 'nominal' ? (
-                      <CurrencyInput
-                        value={globalPromo.discount_value || 0}
-                        onChange={v => handleGlobalPromoChange('discount_value', v)}
-                        className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 pr-4 outline-none transition-colors font-bold text-gray-900"
-                      />
-                    ) : (
-                      <input
-                        type="number"
-                        onWheel={(e) => e.currentTarget.blur()}
-                        min="0"
-                        max="100"
-                        className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 outline-none transition-colors font-bold text-gray-900 pl-4 pr-11"
-                        value={globalPromo.discount_value || ''}
-                        onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
-                      />
-                    )}
-                    {globalPromo.discount_type === 'percentage' && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold"><Percent className="w-4 h-4" /></span>}
+                {isGlobalBuyOneGetOne ? (
+                  <div className="md:col-span-2 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    <p className="font-bold">Buy X Get Y untuk Semua Menu</p>
+                    <p className="mt-1">Semua menu dapat menjadi menu pemicu. Hadiah tetap <strong>Original Ayam Reguler</strong>, hanya berlaku di POS kasir/endorse dan tidak berlaku di Food Apps atau Order Website.</p>
+                    <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="space-y-1.5">
+                        <span className="block text-xs font-bold text-emerald-900">Beli minimal (X)</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          onWheel={(e) => e.currentTarget.blur()}
+                          value={globalPromo.buy_quantity ?? 1}
+                          onChange={e => handleGlobalPromoChange('buy_quantity', Math.max(1, Number(e.target.value) || 1))}
+                          className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
+                        />
+                      </label>
+                      <label className="space-y-1.5">
+                        <span className="block text-xs font-bold text-emerald-900">Gratis (Y)</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          onWheel={(e) => e.currentTarget.blur()}
+                          value={globalPromo.get_quantity ?? 1}
+                          onChange={e => handleGlobalPromoChange('get_quantity', Math.max(1, Number(e.target.value) || 1))}
+                          className="w-full rounded-xl border-2 border-emerald-200 bg-white px-3 py-2 font-bold text-emerald-900 outline-none focus:border-emerald-500"
+                        />
+                      </label>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-bold text-gray-700">Nilai Diskon</label>
+                    <div className="relative">
+                      {globalPromo.discount_type === 'nominal' ? (
+                        <CurrencyInput
+                          value={globalPromo.discount_value || 0}
+                          onChange={v => handleGlobalPromoChange('discount_value', v)}
+                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 pr-4 outline-none transition-colors font-bold text-gray-900"
+                        />
+                      ) : (
+                        <input
+                          type="number"
+                          onWheel={(e) => e.currentTarget.blur()}
+                          min="0"
+                          max="100"
+                          className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 outline-none transition-colors font-bold text-gray-900 pl-4 pr-11"
+                          value={globalPromo.discount_value || ''}
+                          onChange={e => handleGlobalPromoChange('discount_value', Number(e.target.value))}
+                        />
+                      )}
+                      {globalPromo.discount_type === 'percentage' && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold"><Percent className="w-4 h-4" /></span>}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Jadwal promo */}
@@ -409,7 +457,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
               {/* Syarat & kuota */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="space-y-1.5">
+                {!isGlobalBuyOneGetOne && <div className="space-y-1.5">
                   <label className="block text-sm font-bold text-gray-700">
                     Minimum Belanja (Rp) <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
                   </label>
@@ -419,7 +467,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                     className="w-full bg-white border-2 border-amber-200 focus:border-amber-400 rounded-xl py-2.5 pr-4 outline-none transition-colors font-semibold text-gray-900"
                   />
                   <p className="text-xs text-gray-500">Kosongkan jika tanpa minimum belanja</p>
-                </div>
+                </div>}
                 <div className="space-y-1.5">
                   <label className="block text-sm font-bold text-gray-700">
                     Batas Kuota Pemakaian <span className="text-gray-400 text-xs font-normal">(Opsional)</span>
@@ -440,7 +488,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
               </div>
 
               {/* Kanal */}
-              <div className="space-y-3">
+              {isGlobalBuyOneGetOne ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Kanal Food Apps dan Order Website otomatis dinonaktifkan untuk Buy X Get Y.
+                </div>
+              ) : <div className="space-y-3">
                 <div className="flex items-center justify-between gap-4 p-4 bg-amber-50 rounded-xl border border-amber-100">
                   <div className="min-w-0">
                     <label className="block text-sm font-bold text-gray-700">Berlaku untuk Food Apps</label>
@@ -475,7 +527,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                   </label>
                 </div>
-              </div>
+              </div>}
           </div>
         </section>
 

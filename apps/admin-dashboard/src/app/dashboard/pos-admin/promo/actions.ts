@@ -51,8 +51,11 @@ export async function savePromosAction(
   for (const p of promos) {
     if (!p.is_active) continue
     if (p.discount_type === 'buy_one_get_one') {
-      if (p.scope !== 'item' || !p.menu_item_id) {
-        return { success: false, error: 'Promo Buy X Get Y hanya dapat dipasang pada satu menu.' }
+      if (p.scope === 'item' && !p.menu_item_id) {
+        return { success: false, error: 'Promo Buy X Get Y per-menu membutuhkan menu pemicu.' }
+      }
+      if (p.scope !== 'item' && p.scope !== 'global') {
+        return { success: false, error: 'Scope promo Buy X Get Y tidak valid.' }
       }
       p.buy_quantity = Number(p.buy_quantity)
       p.get_quantity = Number(p.get_quantity)
@@ -147,8 +150,6 @@ export async function savePromosAction(
       const ooUpserts = []
       
       for (const p of promos) {
-        // Buy 1 Get 1 sengaja tidak pernah masuk ke Order Online/food apps.
-        if (p.discount_type === 'buy_one_get_one') continue
         const appliesTo = p.scope === 'global' ? 'all' : 'item'
         
         // Check if it exists in OO
@@ -160,6 +161,15 @@ export async function savePromosAction(
              return false
            })
            if (match) existingOOId = match.id
+        }
+
+        // Buy X Get Y sengaja tidak pernah masuk ke Order Online/food apps.
+        // Hapus promo lama jika tipe promo sebelumnya pernah tersinkron.
+        if (p.discount_type === 'buy_one_get_one') {
+          if (existingOOId) {
+            await orderOnline.from('promos').delete().eq('id', existingOOId)
+          }
+          continue
         }
 
         if (p.sync_to_order_online === false) {

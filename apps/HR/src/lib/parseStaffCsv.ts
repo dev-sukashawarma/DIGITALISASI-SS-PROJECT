@@ -140,13 +140,36 @@ export function mapStatus(stat: string): { status: StaffStatus; contractType: 'p
   return { status: 'active', contractType: 'contract', label: 'Full Time (Kontrak)' }
 }
 
-export function matchOutlet(loc: string, outlets: Outlet[]): { outletId: string; outletName: string; isMatched: boolean } {
+export function matchOutlet(
+  loc: string,
+  outlets: Outlet[],
+  role?: Role
+): { outletId: string; outletName: string; isMatched: boolean } {
+  const kantorPusat =
+    outlets.find((o) => o.name.toUpperCase() === 'KANTOR PUSAT') ||
+    outlets.find((o) => o.name.toUpperCase().includes('KANTOR PUSAT')) ||
+    outlets.find((o) => o.name.toUpperCase().includes('PUSAT')) ||
+    outlets[0]
+
+  if (
+    role === 'staff_pusat' ||
+    role === 'admin_hr' ||
+    role === 'admin' ||
+    role === 'admin_finance' ||
+    role === 'purchasing'
+  ) {
+    return {
+      outletId: kantorPusat ? kantorPusat.id : (outlets[0]?.id || ''),
+      outletName: kantorPusat ? kantorPusat.name : (outlets[0]?.name || 'KANTOR PUSAT'),
+      isMatched: true,
+    }
+  }
+
   const l = loc.toUpperCase().trim()
   if (!l || l === 'OFFICE' || l === 'REGION' || l.includes('KORLAP') || l.includes('PUSAT')) {
-    const pusat = outlets.find((o) => o.name.toUpperCase().includes('PUSAT') || o.name.toUpperCase().includes('GLOBAL'))
     return {
-      outletId: pusat ? pusat.id : (outlets[0]?.id || ''),
-      outletName: pusat ? pusat.name : (outlets[0]?.name || 'Kantor Pusat'),
+      outletId: kantorPusat ? kantorPusat.id : (outlets[0]?.id || ''),
+      outletName: kantorPusat ? kantorPusat.name : (outlets[0]?.name || 'KANTOR PUSAT'),
       isMatched: true,
     }
   }
@@ -168,10 +191,9 @@ export function matchOutlet(loc: string, outlets: Outlet[]): { outletId: string;
   }
 
   // Fallback
-  const defaultOutlet = outlets[0]
   return {
-    outletId: defaultOutlet?.id || '',
-    outletName: defaultOutlet?.name || 'Kantor Pusat',
+    outletId: kantorPusat?.id || outlets[0]?.id || '',
+    outletName: kantorPusat?.name || outlets[0]?.name || 'KANTOR PUSAT',
     isMatched: false,
   }
 }
@@ -216,7 +238,7 @@ export function parseRawStaffRows(rawRows: any[], outlets: Outlet[]): ParsedStaf
 
     const { role, label: positionLabel } = mapPositionToRole(positionRaw)
     const { status, contractType, label: statusLabel } = mapStatus(statusRaw)
-    const { outletId, outletName, isMatched } = matchOutlet(locationRaw, outlets)
+    const { outletId, outletName, isMatched } = matchOutlet(locationRaw, outlets, role)
     const username = generateUsernameFromName(name, i + 1, existingUsernames)
 
     results.push({

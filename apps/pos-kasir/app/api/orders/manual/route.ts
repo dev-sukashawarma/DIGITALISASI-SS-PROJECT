@@ -48,6 +48,9 @@ export async function POST(request: Request) {
   if (body.payment_method !== 'cash' && body.payment_method !== 'qris' && body.payment_method !== 'card' && body.payment_method !== 'va') {
     return NextResponse.json({ error: 'Metode pembayaran tidak valid' }, { status: 400 })
   }
+  if (body.payment_method === 'va' && body.channel !== 'website') {
+    return NextResponse.json({ error: 'Virtual Account hanya tersedia untuk Order Website' }, { status: 400 })
+  }
   if (!Array.isArray(body.items) || body.items.length === 0) {
     return NextResponse.json({ error: 'Pesanan kosong, pilih minimal 1 menu' }, { status: 400 })
   }

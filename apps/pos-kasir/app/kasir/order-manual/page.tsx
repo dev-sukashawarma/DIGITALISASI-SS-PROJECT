@@ -563,7 +563,7 @@ export default function OrderManualPage() {
         discount: globalDiscount,
         posPromoDiscount,
         total: totalPrice,
-      paymentMethod: payment as 'cash' | 'qris',
+      paymentMethod: payment as 'cash' | 'qris' | 'card' | 'va',
       amountReceived: payment === 'cash' ? amountReceived : null,
       changeAmount,
       receiptType: 'kitchen',

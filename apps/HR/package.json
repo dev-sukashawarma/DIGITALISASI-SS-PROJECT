@@ -1,0 +1,49 @@
+{
+  "name": "@suka/hr",
+  "version": "0.0.1",
+  "description": "HR Dashboard — Manajemen staf, absensi, cuti, payroll & kontrak",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3025",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@suka/auth": "*",
+    "@suka/design-system": "*",
+    "@suka/realtime": "*",
+    "@supabase/ssr": "^0.5.1",
+    "@supabase/supabase-js": "^2.38.0",
+    "@tanstack/react-query": "^5.51.0",
+    "date-fns": "^3.0.0",
+    "framer-motion": "^11.0.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
+    "lucide-react": "^0.300.0",
+    "next": "^16.1.6",
+    "nextjs-toploader": "^3.9.17",
+    "papaparse": "^5.5.4",
+    "react": "^19.0.0-rc.0",
+    "react-countup": "^6.5.0",
+    "react-dom": "^19.0.0-rc.0",
+    "recharts": "^3.8.1",
+    "sonner": "^1.4.0",
+    "xlsx": "^0.18.5",
+    "zod": "^4.4.3",
+    "zustand": "^4.5.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "^20.10.6",
+    "@types/papaparse": "^5.5.2",
+    "@types/react": "^18.2.45",
+    "@types/react-dom": "^18.2.18",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.0"
+  }
+}

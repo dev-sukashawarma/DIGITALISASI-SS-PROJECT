@@ -1,0 +1,32 @@
+export const TEST_OUTLET_ID = 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a'
+
+export function isTestOutlet(
+  outlet?: { id?: string | null; name?: string | null; slug?: string | null } | string | null
+): boolean {
+  if (!outlet) return false
+
+  if (typeof outlet === 'string') {
+    const s = outlet.trim().toLowerCase()
+    return s === TEST_OUTLET_ID || s.includes('tes') || s.includes('test') || s.includes('trial') || s.includes('demo')
+  }
+
+  if (outlet.id && (outlet.id === TEST_OUTLET_ID || outlet.id.toLowerCase().includes('tes') || outlet.id.toLowerCase().includes('test'))) {
+    return true
+  }
+
+  if (outlet.name) {
+    const nameLower = outlet.name.toLowerCase()
+    if (nameLower.includes('tes') || nameLower.includes('test') || nameLower.includes('trial') || nameLower.includes('demo')) {
+      return true
+    }
+  }
+
+  if (outlet.slug) {
+    const slugLower = outlet.slug.toLowerCase()
+    if (slugLower.includes('tes') || slugLower.includes('test') || slugLower.includes('trial') || slugLower.includes('demo')) {
+      return true
+    }
+  }
+
+  return false
+}

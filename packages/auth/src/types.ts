@@ -25,6 +25,7 @@ export type AppName =
   | 'finance'
   | 'manager'
   | 'monitoring'
+  | 'HR'
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 
@@ -105,4 +106,3 @@ export type StaffWarning = {
   created_by: string
   created_at?: string
 }
-

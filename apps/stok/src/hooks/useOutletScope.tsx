@@ -95,18 +95,22 @@ export function OutletScopeProvider({ children }: { children: ReactNode }) {
     if (!staffId || boundOutlets.length === 0) return
 
     let defaultId = boundOutlets[0].id
-    const isWorkingInKitchen = isKitchen || outletStaff?.outlets?.name?.toUpperCase().includes('KITCHEN');
-    if (isPrivileged || isWorkingInKitchen) {
-      const gudang = boundOutlets.find(o => o.name.toUpperCase().includes('GUDANG'));
-      if (gudang) {
-        defaultId = gudang.id;
+    if (outletStaff?.outlet_id && boundOutlets.some(o => o.id === outletStaff.outlet_id)) {
+      defaultId = outletStaff.outlet_id
+    } else {
+      const isWorkingInKitchen = isKitchen || outletStaff?.outlets?.name?.toUpperCase().includes('KITCHEN');
+      if (isPrivileged || isWorkingInKitchen) {
+        const gudang = boundOutlets.find(o => o.name.toUpperCase().includes('GUDANG'));
+        if (gudang) {
+          defaultId = gudang.id;
+        }
       }
     }
 
     const stored = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey(staffId)) : null
     const validStored = stored && boundOutlets.some((o) => o.id === stored) ? stored : null
     setSelectedOutletIdState(validStored ?? defaultId)
-  }, [staffId, isPrivileged, isKitchen, boundOutlets, outletStaff?.outlets?.name])
+  }, [staffId, isPrivileged, isKitchen, boundOutlets, outletStaff?.outlet_id, outletStaff?.outlets?.name])
 
   const setSelectedOutletId = (id: string) => {
     if (!boundOutlets.some((o) => o.id === id)) return

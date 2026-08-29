@@ -27,6 +27,7 @@ const getAppUrls = async () => {
     finance:           isLocal ? 'http://localhost:3020' : (process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'),
     manager:           isLocal ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL_MANAGER || 'https://manager.sukashawarma.com'),
     monitoring:        isLocal ? 'http://localhost:3030' : (process.env.NEXT_PUBLIC_APP_URL_MONITORING || 'https://monitor.sukashawarma.com'),
+    HR:                isLocal ? 'http://localhost:3025' : (process.env.NEXT_PUBLIC_APP_URL_HR || 'https://hr.sukashawarma.com'),
   } as Record<AppName, string>
 }
 
@@ -81,6 +82,7 @@ export default async function LauncherPage() {
     },
     manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area' },
     monitoring:        { label: 'Live Monitor', url: APP_URL.monitoring, desc: 'Kamera outlet on-demand tanpa rekaman' },
+    HR:                { label: 'HR Dashboard',     url: APP_URL.HR,                desc: 'Database staf, absensi, cuti, payroll & kontrak' },
   }
 
   // Configure greeting and styling banners based on user roles
@@ -129,8 +131,6 @@ export default async function LauncherPage() {
   }
 
   const banner = getBannerConfig(staff.role)
-
-
 
   // 1. Fetch attendance status for today (Asia/Jakarta timezone)
   const todayLocalStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
@@ -241,7 +241,6 @@ export default async function LauncherPage() {
           </div>
         </div>
 
-
         {/* Applications Grid */}
         <section className="space-y-4">
           <div className="flex items-center justify-between border-b border-suka-orange/10 pb-2">
@@ -276,4 +275,3 @@ export default async function LauncherPage() {
     </main>
   )
 }
-

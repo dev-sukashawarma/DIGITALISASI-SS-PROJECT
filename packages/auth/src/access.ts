@@ -2,11 +2,11 @@ import type { AppName, Role } from './types'
 
 /** Sumber tunggal matriks akses role -> daftar app. Ref: docs/ROLE-JOBDESK.md */
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
-  admin: ['admin-dashboard', 'stok', 'distribusi', 'finance'],
-  admin_hr: ['absensi', 'admin-dashboard'],
-  owner: ['owner-dashboard', 'stok'],
-  spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
-  regional_manager: ['manager', 'absensi', 'stok', 'distribusi', 'pos-kasir'],
+  admin: ['admin-dashboard', 'stok', 'distribusi', 'finance', 'HR', 'monitoring'],
+  admin_hr: ['absensi', 'admin-dashboard', 'HR'],
+  owner: ['owner-dashboard', 'stok', 'HR', 'monitoring'],
+  spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager', 'monitoring'],
+  regional_manager: ['manager', 'absensi', 'stok', 'distribusi', 'pos-kasir', 'monitoring'],
   kitchen: ['stok', 'distribusi'],
   leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'admin-dashboard'],
   crew: ['absensi', 'pos-kasir', 'stok', 'distribusi'],
@@ -14,9 +14,9 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
   admin_finance: ['finance', 'stok'],
-  area_manager: ['manager', 'absensi', 'stok', 'distribusi'],
+  area_manager: ['manager', 'absensi', 'stok', 'distribusi', 'monitoring'],
   purchasing: ['finance', 'stok'],
-  developer: ['admin-dashboard', 'monitoring'],
+  developer: ['admin-dashboard', 'HR', 'monitoring'],
 }
 
 export function hasAppAccess(role: Role, app: AppName, username?: string | null): boolean {

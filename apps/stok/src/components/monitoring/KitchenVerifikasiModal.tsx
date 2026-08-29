@@ -19,7 +19,8 @@ type ItemState = {
   nama_item: string
   satuan: string
   qty_pesan: number
-  qty_terima: number
+  qty_terima_sebelumnya: number
+  qty_datang: number
   harga_pesan: number
   harga_terima: number
   kondisi: 'baik' | 'rusak'
@@ -60,18 +61,24 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
   useEffect(() => {
     if (poDetail?.items) {
       setItems(
-        poDetail.items.map((it: any) => ({
-          id: it.id,
-          bahan_baku_id: it.bahan_baku_id,
-          nama_item: it.bahan_baku?.nama || it.item_description || 'Item Ad-Hoc',
-          satuan: it.bahan_baku?.satuan || it.satuan_ad_hoc || 'pcs',
-          qty_pesan: Number(it.qty_pesan || 0),
-          qty_terima: Number(it.qty_terima ?? it.qty_pesan ?? 0),
-          harga_pesan: Number(it.harga_pesan || 0),
-          harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
-          kondisi: (it.kondisi as 'baik' | 'rusak') ?? 'baik',
-          catatan: it.catatan || ''
-        }))
+        poDetail.items.map((it: any) => {
+          const prevTerima = Number(it.qty_terima || 0)
+          const qtyPesan = Number(it.qty_pesan || 0)
+          const sisaBelumTiba = Math.max(0, qtyPesan - prevTerima)
+          return {
+            id: it.id,
+            bahan_baku_id: it.bahan_baku_id,
+            nama_item: it.bahan_baku?.nama || it.item_description || 'Item Ad-Hoc',
+            satuan: it.bahan_baku?.satuan || it.satuan_ad_hoc || 'pcs',
+            qty_pesan: qtyPesan,
+            qty_terima_sebelumnya: prevTerima,
+            qty_datang: sisaBelumTiba > 0 ? sisaBelumTiba : qtyPesan,
+            harga_pesan: Number(it.harga_pesan || 0),
+            harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
+            kondisi: 'baik',
+            catatan: it.catatan || ''
+          }
+        })
       )
     }
   }, [poDetail])
@@ -118,11 +125,12 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
         }
       }
 
-      // 2. Execute verifikasi_terima_po RPC with harga_terima
+      // 2. Execute verifikasi_terima_po RPC with delta qty_datang and new cumulative qty_terima
       const payloadItems = items.map(it => ({
         id: it.id,
         bahan_baku_id: it.bahan_baku_id,
-        qty_terima: Number(it.qty_terima),
+        qty_datang: Number(it.qty_datang || 0),
+        qty_terima: Number(it.qty_terima_sebelumnya) + Number(it.qty_datang || 0),
         harga_terima: Number(it.harga_terima || 0),
         kondisi: it.kondisi,
         catatan: it.catatan
@@ -220,87 +228,109 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                       Daftar Barang & Qty Tiba Fisik:
                     </label>
 
-                    {items.map((it, idx) => (
-                      <div key={it.id} className="p-4 bg-suka-cream/20 border border-suka-brown/10 rounded-2xl space-y-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <span className="text-xs font-black text-suka-brown">{idx + 1}. {it.nama_item}</span>
-                            <div className="text-[10px] text-suka-brown/60 font-semibold">
-                              Dipesan: <span className="font-bold text-suka-brown">{it.qty_pesan} {it.satuan}</span>
+                    {items.map((it, idx) => {
+                      const totalAkumulasi = (Number(it.qty_terima_sebelumnya || 0) + Number(it.qty_datang || 0))
+                      
+                      return (
+                        <div key={it.id} className="p-4 bg-suka-cream/20 border border-suka-brown/10 rounded-2xl space-y-3">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-black text-suka-brown">{idx + 1}. {it.nama_item}</span>
+                                {it.qty_terima_sebelumnya > 0 && (
+                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-black rounded-lg border border-amber-200">
+                                    Sudah Tiba: {it.qty_terima_sebelumnya} {it.satuan}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[10px] text-suka-brown/60 font-semibold mt-0.5">
+                                Total Dipesan: <span className="font-bold text-suka-brown">{it.qty_pesan} {it.satuan}</span>
+                                {it.qty_terima_sebelumnya > 0 && (
+                                  <span> · Sisa Belum Tiba: <span className="font-bold text-amber-700">{Math.max(0, it.qty_pesan - it.qty_terima_sebelumnya)} {it.satuan}</span></span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Kondisi Selector */}
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => updateItem(it.id, 'kondisi', 'baik')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                  it.kondisi === 'baik'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-500/20'
+                                    : 'bg-white text-suka-brown/60 border-suka-brown/10'
+                                }`}
+                              >
+                                🟢 Kondisi Baik
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => updateItem(it.id, 'kondisi', 'rusak')}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                                  it.kondisi === 'rusak'
+                                    ? 'bg-red-50 text-red-700 border-red-300 ring-2 ring-red-500/20'
+                                    : 'bg-white text-suka-brown/60 border-suka-brown/10'
+                                }`}
+                              >
+                                🔴 Rusak / Kurang
+                              </button>
                             </div>
                           </div>
 
-                          {/* Kondisi Selector */}
-                          <div className="flex items-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => updateItem(it.id, 'kondisi', 'baik')}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                                it.kondisi === 'baik'
-                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-500/20'
-                                  : 'bg-white text-suka-brown/60 border-suka-brown/10'
-                              }`}
-                            >
-                              🟢 Kondisi Baik
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => updateItem(it.id, 'kondisi', 'rusak')}
-                              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                                it.kondisi === 'rusak'
-                                  ? 'bg-red-50 text-red-700 border-red-300 ring-2 ring-red-500/20'
-                                  : 'bg-white text-suka-brown/60 border-suka-brown/10'
-                              }`}
-                            >
-                              🔴 Rusak / Kurang
-                            </button>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-suka-brown/10">
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <label className="text-[10px] font-bold text-suka-brown/70 block">
+                                  Fisik Tiba Hari Ini ({it.satuan}):
+                                </label>
+                                {it.qty_terima_sebelumnya > 0 && (
+                                  <span className="text-[9px] font-bold text-suka-brown/50">
+                                    Total: {totalAkumulasi}/{it.qty_pesan}
+                                  </span>
+                                )}
+                              </div>
+                              <input
+                                type="number"
+                                step="any"
+                                min="0"
+                                value={it.qty_datang}
+                                onChange={e => updateItem(it.id, 'qty_datang', Number(e.target.value))}
+                                className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
+                                required
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
+                                Harga Beli Faktur (Rp/{it.satuan}):
+                              </label>
+                              <input
+                                type="number"
+                                step="any"
+                                value={it.harga_terima}
+                                onChange={e => updateItem(it.id, 'harga_terima', Number(e.target.value))}
+                                className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
+                                placeholder="Harga per unit"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
+                                Catatan Dapur (Opsional):
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="Misal: Batch 1 pengiriman supir A"
+                                value={it.catatan}
+                                onChange={e => updateItem(it.id, 'catatan', e.target.value)}
+                                className="w-full px-3 py-2 text-xs font-medium text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
+                              />
+                            </div>
                           </div>
                         </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-suka-brown/10">
-                          <div>
-                            <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
-                              Jumlah Fisik Tiba ({it.satuan}):
-                            </label>
-                            <input
-                              type="number"
-                              step="any"
-                              value={it.qty_terima}
-                              onChange={e => updateItem(it.id, 'qty_terima', Number(e.target.value))}
-                              className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
-                              required
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
-                              Harga Beli Faktur (Rp/{it.satuan}):
-                            </label>
-                            <input
-                              type="number"
-                              step="any"
-                              value={it.harga_terima}
-                              onChange={e => updateItem(it.id, 'harga_terima', Number(e.target.value))}
-                              className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
-                              placeholder="Harga per unit"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="text-[10px] font-bold text-suka-brown/70 block mb-1">
-                              Catatan Dapur (Opsional):
-                            </label>
-                            <input
-                              type="text"
-                              placeholder="Misal: Daging kurang 2kg disetujui supir"
-                              value={it.catatan}
-                              onChange={e => updateItem(it.id, 'catatan', e.target.value)}
-                              className="w-full px-3 py-2 text-xs font-medium text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
 
                   {/* Upload Foto Nota Fisik (Opsional) */}

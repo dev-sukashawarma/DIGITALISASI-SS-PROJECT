@@ -15,7 +15,10 @@ type Props = {
 
 type ItemState = {
   id: string
-  qty_terima: number
+  qty_pesan: number
+  qty_terima_sebelumnya: number
+  qty_datang: number
+  harga_pesan: number
   harga_terima: number
   kondisi: 'baik' | 'rusak'
   catatan: string
@@ -26,13 +29,21 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
   
   // Inisialisasi state sesuai default dari PO
   const [items, setItems] = useState<ItemState[]>(
-    po.items.map(it => ({
-      id: it.id,
-      qty_terima: it.qty_terima ?? it.qty_pesan,
-      harga_terima: it.harga_terima ?? it.harga_pesan,
-      kondisi: (it.kondisi as 'baik' | 'rusak') ?? 'baik',
-      catatan: it.catatan || ''
-    }))
+    po.items.map(it => {
+      const prevTerima = Number(it.qty_terima || 0)
+      const qtyPesan = Number(it.qty_pesan || 0)
+      const sisaBelumTiba = Math.max(0, qtyPesan - prevTerima)
+      return {
+        id: it.id,
+        qty_pesan: qtyPesan,
+        qty_terima_sebelumnya: prevTerima,
+        qty_datang: sisaBelumTiba > 0 ? sisaBelumTiba : qtyPesan,
+        harga_pesan: Number(it.harga_pesan || 0),
+        harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
+        kondisi: 'baik',
+        catatan: it.catatan || ''
+      }
+    })
   )
 
   const updateItem = (id: string, field: keyof ItemState, value: any) => {
@@ -41,9 +52,18 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const payloadItems = items.map(it => ({
+      id: it.id,
+      qty_datang: Number(it.qty_datang || 0),
+      qty_terima: Number(it.qty_terima_sebelumnya) + Number(it.qty_datang || 0),
+      harga_terima: Number(it.harga_terima || 0),
+      kondisi: it.kondisi,
+      catatan: it.catatan
+    }))
+
     verifikasi.mutate({
       poId: po.id,
-      items: items
+      items: payloadItems
     }, {
       onSuccess: () => onClose()
     })
@@ -88,37 +108,56 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
             {po.items.map((poItem) => {
               const state = items.find(i => i.id === poItem.id)!
               const isAdhoc = !poItem.bahan_baku_id
-              
+              const totalAkumulasi = (Number(state?.qty_terima_sebelumnya || 0) + Number(state?.qty_datang || 0))
+              const satuan = isAdhoc ? poItem.satuan_ad_hoc : (poItem.bahan_baku?.satuan || poItem.bahan_baku?.satuan_standar || 'satuan')
+
               return (
                 <div key={poItem.id} className="bg-white/95 border border-suka-brown/10 rounded-3xl p-5 shadow-sm flex flex-col gap-4">
                   
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-bold text-suka-brown text-sm sm:text-base">
-                        {isAdhoc ? poItem.item_description : poItem.bahan_baku?.nama}
-                      </h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-suka-brown text-sm sm:text-base">
+                          {isAdhoc ? poItem.item_description : poItem.bahan_baku?.nama}
+                        </h3>
+                        {state?.qty_terima_sebelumnya > 0 && (
+                          <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[10px] font-black rounded-lg border border-amber-200">
+                            Sudah Tiba: {state.qty_terima_sebelumnya} {satuan}
+                          </span>
+                        )}
+                      </div>
                       {isAdhoc && (
                         <span className="inline-block px-2 py-0.5 bg-suka-cream text-suka-brown text-[10px] font-bold rounded-lg border border-suka-brown/10 mt-1">
                           Ad-hoc (Non-Katalog)
                         </span>
                       )}
                       <p className="text-xs font-semibold text-suka-brown/60 mt-1">
-                        Dipesan: <span className="text-suka-brown font-bold tabular-nums">{poItem.qty_pesan} {isAdhoc ? poItem.satuan_ad_hoc : poItem.bahan_baku?.satuan_standar}</span> &bull; 
+                        Dipesan: <span className="text-suka-brown font-bold tabular-nums">{poItem.qty_pesan} {satuan}</span> &bull; 
                         Harga PO: <span className="text-suka-brown font-bold tabular-nums">{rupiah(poItem.harga_pesan)}</span>
+                        {state?.qty_terima_sebelumnya > 0 && (
+                          <span> &bull; Sisa Belum Tiba: <span className="font-bold text-amber-700">{Math.max(0, poItem.qty_pesan - state.qty_terima_sebelumnya)} {satuan}</span></span>
+                        )}
                       </p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-dashed border-suka-brown/10">
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-suka-brown/70 uppercase tracking-wider">Qty Terima</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[11px] font-bold text-suka-brown/70 uppercase tracking-wider">Fisik Tiba Hari Ini</label>
+                        {state?.qty_terima_sebelumnya > 0 && (
+                          <span className="text-[9px] font-bold text-suka-brown/50">
+                            Total: {totalAkumulasi}/{poItem.qty_pesan}
+                          </span>
+                        )}
+                      </div>
                       <input 
                         type="number"
                         step="0.01"
                         min="0"
                         required
-                        value={state.qty_terima}
-                        onChange={e => updateItem(poItem.id, 'qty_terima', parseFloat(e.target.value) || 0)}
+                        value={state.qty_datang}
+                        onChange={e => updateItem(poItem.id, 'qty_datang', parseFloat(e.target.value) || 0)}
                         className="w-full px-3.5 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs tabular-nums"
                       />
                     </div>

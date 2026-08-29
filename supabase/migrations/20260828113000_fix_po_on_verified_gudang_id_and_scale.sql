@@ -1,5 +1,6 @@
--- 20260820155500_auto_sync_master_price_on_po.sql
--- Otomatis update harga beli master (bahan_baku_harga) dan catat history saat PO diverifikasi/diterima
+-- 20260828113000_fix_po_on_verified_gudang_id_and_scale.sql
+-- Fix kitchen UUID to Gudang Pusat ('d23e11b3-23f1-4f9a-b428-cc73e1aa9b90')
+-- and ensure to_ledger_scale is used for correct unit scale conversions on PO receipt
 
 CREATE OR REPLACE FUNCTION public.po_on_verified()
 RETURNS trigger
@@ -7,7 +8,7 @@ LANGUAGE plpgsql
 SECURITY DEFINER SET search_path = public
 AS $$
 DECLARE
-  v_kitchen_id UUID := '550e8400-e29b-41d4-a716-446655440001';
+  v_kitchen_id UUID := 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'; -- GUDANG PUSAT (HQ)
   v_item       RECORD;
   v_old_harga  NUMERIC;
 BEGIN
@@ -35,7 +36,7 @@ BEGIN
       AND poi.kondisi = 'baik'
       AND poi.bahan_baku_id IS NOT NULL
   LOOP
-    -- a) Stok kitchen naik
+    -- a) Stok kitchen/gudang pusat naik dengan skala yang tepat
     INSERT INTO public.ledger_stok (
       outlet_id, bahan_baku_id, tipe, qty,
       ref_po_id, catatan, created_by, created_at
@@ -43,7 +44,7 @@ BEGIN
       v_kitchen_id,
       v_item.bahan_baku_id,
       'pembelian_supplier',
-      v_item.qty_terima,
+      to_ledger_scale(v_kitchen_id, v_item.bahan_baku_id, v_item.qty_terima),
       NEW.id,
       'Terima dari supplier: ' || NEW.nomor_po || ' — ' || v_item.nama_bahan,
       NEW.diverifikasi_oleh,
@@ -94,6 +95,14 @@ BEGIN
       END IF;
     END IF;
   END LOOP;
+
+  -- c) Set jatuh tempo dari termin supplier
+  UPDATE public.purchase_order po
+    SET jatuh_tempo = NEW.diverifikasi_at::date + COALESCE(s.termin_hari, 0)
+    FROM public.supplier s
+    WHERE po.id = NEW.id
+      AND po.supplier_id = s.id
+      AND po.jatuh_tempo IS NULL;
 
   IF NEW.diverifikasi_at IS NULL THEN
     NEW.diverifikasi_at := NOW();

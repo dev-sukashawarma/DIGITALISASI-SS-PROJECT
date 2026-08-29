@@ -737,24 +737,28 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
     // Deductions calculation (Potongan promo subsidi food apps, diskon katalog & komisi/admin platform)
-    const totalDeductions = completed.reduce((s, o) => {
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      const itemSubtotal = o.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-      const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
-      // Jika diskon/promo explicit sudah mencakup itemDiff, jangan double count
-      const extraDiff = Math.max(0, itemDiff - (disc + promo))
-      return s + disc + promo + extraDiff
-    }, 0)
+    const totalDeductions = isSSOnlineSelected
+      ? completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0), 0)
+      : completed.reduce((s, o) => {
+          const disc = Number((o as any).discount_amount) || 0
+          const promo = Number((o as any).promo_subsidy) || 0
+          const itemSubtotal = o.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
+          const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
+          // Jika diskon/promo explicit sudah mencakup itemDiff, jangan double count
+          const extraDiff = Math.max(0, itemDiff - (disc + promo))
+          return s + disc + promo + extraDiff
+        }, 0)
 
     const netRevenue = actualNetRevenue
 
     // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
-    const grossRevenue = completed.reduce((sum, o) => {
-      const itemSubtotal = o.order_items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-      const diff = itemSubtotal > 0 && Number(o.total_amount) > itemSubtotal ? (Number(o.total_amount) - itemSubtotal) : 0
-      return sum + (itemSubtotal > 0 ? (itemSubtotal + diff) : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
-    }, 0)
+    const grossRevenue = isSSOnlineSelected
+      ? completed.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
+      : completed.reduce((sum, o) => {
+          const itemSubtotal = o.order_items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
+          const diff = itemSubtotal > 0 && Number(o.total_amount) > itemSubtotal ? (Number(o.total_amount) - itemSubtotal) : 0
+          return sum + (itemSubtotal > 0 ? (itemSubtotal + diff) : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
+        }, 0)
     const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
     let totalSettlement = 0
@@ -1518,7 +1522,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
-                    ? 'Total nilai kotor produk katalog sebelum diskon platform'
+                    ? 'Total omset produk (Subtotal setelah diskon penjual)'
                     : 'Total nilai omzet kotor sebelum diskon & subsidi'}
                 </p>
               </div>

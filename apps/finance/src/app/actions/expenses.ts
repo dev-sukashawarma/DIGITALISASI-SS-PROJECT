@@ -4,14 +4,20 @@ import { createClient } from '@supabase/supabase-js'
 import { requireRole } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk2MzI5MiwiZXhwIjoyMDk2NTM5MjkyfQ.Dy0QMAHfB8EU9BK-JuyRrBidpG6iM94t9RtiJ_viZz8'
+
+function getServiceSupabase() {
+  return createClient(supabaseUrl, supabaseServiceKey)
+}
+
 export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   // Server Action = endpoint POST publik; ini melewati RPC upsert_expense
   // (satu-satunya gerbang tulis menurut desain) pakai service-role client.
   const { role } = await requireRole(['admin_finance', 'admin', 'owner'])
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjMyOTIsImV4cCI6MjA5NjUzOTI5Mn0.RdsvP6OKs6aiRnqqd02BYiv5gzbh4uGqO88dapo0Gso'
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const supabase = getServiceSupabase()
 
   for (const it of items) {
     const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category)
@@ -51,43 +57,58 @@ export async function createSingleExpenseAction(input: {
   type: string
   created_by?: string | null
 }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  try {
+    const supabase = getServiceSupabase()
 
-  const isPusat = !input.outletId
-  const dbCategory = isPusat ? 'pengeluaran_global' : input.category
-  const dbDescription = isPusat && input.category !== 'pengeluaran_global'
-    ? `[Kategori: ${input.category}] ${input.description}`
-    : input.description
+    const isPusat = !input.outletId
+    const dbCategory = isPusat ? 'pengeluaran_global' : input.category
+    const dbDescription = isPusat && input.category !== 'pengeluaran_global'
+      ? `[Kategori: ${input.category}] ${input.description}`
+      : input.description
 
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert({
-      outlet_id: input.outletId,
-      category: dbCategory,
-      amount: input.amount,
-      description: dbDescription,
-      expense_date: input.expenseDate,
-      period_month: input.periodMonth,
-      type: input.type,
-      payment_source: input.outletId ? 'petty_cash' : 'transfer_pusat',
-      created_by: input.created_by || null
-    })
-    .select()
-    .single()
+    // Validate if created_by exists in outlet_staff before referencing it, to prevent foreign key constraint violation
+    let validStaffId: string | null = null
+    if (input.created_by) {
+      const { data: staff } = await supabase
+        .from('outlet_staff')
+        .select('id')
+        .eq('id', input.created_by)
+        .maybeSingle()
+      if (staff?.id) {
+        validStaffId = staff.id
+      }
+    }
 
-  if (error) {
-    throw new Error(error.message)
+    const { data, error } = await supabase
+      .from('expenses')
+      .insert({
+        outlet_id: input.outletId,
+        category: dbCategory,
+        amount: input.amount,
+        description: dbDescription,
+        expense_date: input.expenseDate,
+        period_month: input.periodMonth,
+        type: input.type,
+        payment_source: input.outletId ? 'petty_cash' : 'transfer_pusat',
+        created_by: validStaffId
+      })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Error inserting single expense:', error)
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, data }
+  } catch (err: any) {
+    console.error('Exception in createSingleExpenseAction:', err)
+    return { success: false, error: err?.message || 'Gagal menyimpan transaksi' }
   }
-
-  return data
 }
 
 export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const supabase = getServiceSupabase()
 
   let q1 = supabase
     .from('expenses')
@@ -119,9 +140,7 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
 }
 
 export async function deleteTransactionAction(params: { id: string; isTopup?: boolean }) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const supabase = createClient(supabaseUrl, supabaseKey)
+  const supabase = getServiceSupabase()
 
   if (params.isTopup || params.id.startsWith('topup-')) {
     const rawId = params.id.replace(/^topup-/, '')
@@ -151,3 +170,4 @@ export async function deleteTransactionAction(params: { id: string; isTopup?: bo
 
   return { success: true }
 }
+

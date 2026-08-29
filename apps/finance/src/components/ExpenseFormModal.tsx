@@ -79,7 +79,7 @@ export function ExpenseFormModal({
       const periodMonth = `${yyyyMm}-01`
       const isPusat = outletId === 'PUSAT'
 
-      await createSingleExpenseAction({
+      const res = await createSingleExpenseAction({
         outletId: isPusat ? null : outletId,
         category,
         amount: Number(amount),
@@ -89,6 +89,11 @@ export function ExpenseFormModal({
         type: type,
         created_by: userId
       })
+
+      if (!res.success) {
+        toast.error('Gagal menyimpan transaksi: ' + (res.error || 'Error'))
+        return
+      }
 
       toast.success('Transaksi berhasil ditambahkan')
       onSuccess()

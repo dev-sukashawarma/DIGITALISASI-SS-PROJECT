@@ -64,11 +64,17 @@ export function mapPositionToRole(pos: string): { role: Role; label: string } {
     return { role: 'spv', label: 'Stock Controller' }
   if (p.includes('SPV') || p.includes('SUPERVISOR')) return { role: 'spv', label: 'Supervisor' }
   if (p.includes('LEADER')) return { role: 'leader', label: 'Outlet Leader' }
-  if (p.includes('HRD') || p.includes('HR')) return { role: 'admin_hr', label: 'Admin HRD' }
-  if (p.includes('ADMIN') || p.includes('ADMINISTRASI')) return { role: 'admin', label: 'Admin' }
+  if (p.includes('HRD') || p.includes('ADMIN_HR') || p === 'HR') return { role: 'admin_hr', label: 'Admin HRD' }
   if (p.includes('FINANCE') || p.includes('KEUANGAN')) return { role: 'admin_finance', label: 'Admin Finance' }
   if (p.includes('PURCHASING')) return { role: 'purchasing', label: 'Purchasing' }
-  if (p.includes('MARCOM') || p.includes('MARKETING') || p.includes('CS') || p.includes('SS ONLINE'))
+  if (
+    p.includes('ADMIN') ||
+    p.includes('ADMINISTRASI') ||
+    p.includes('MARCOM') ||
+    p.includes('MARKETING') ||
+    p.includes('CS') ||
+    p.includes('SS ONLINE')
+  )
     return { role: 'staff_pusat', label: 'Staff Pusat / Office' }
   return { role: 'crew', label: pos || 'Staff' }
 }

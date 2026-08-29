@@ -2,9 +2,23 @@
 
 import { useState } from 'react'
 import { Avatar, Button } from '@suka/design-system'
-import { Edit, KeyRound, Trash2, Eye, X, Wallet, User, PhoneCall, FileText, Sparkles } from 'lucide-react'
+import {
+  Edit,
+  KeyRound,
+  Trash2,
+  Eye,
+  X,
+  Wallet,
+  User,
+  PhoneCall,
+  FileText,
+  Sparkles,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+} from 'lucide-react'
 import { StatusToggle } from './StatusToggle'
-import type { StaffRow, StaffStatus } from '@/lib/types'
+import type { StaffRow, StaffStatus, StaffSortKey, SortOrder } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 
 function statusBadge(status: StaffStatus) {
@@ -28,6 +42,9 @@ export function StaffTable({
   onToggleStatus,
   onToggleBonus,
   onDelete,
+  sortBy,
+  sortOrder,
+  onSort,
 }: {
   rows: StaffRow[]
   onEdit: (s: StaffRow) => void
@@ -35,6 +52,9 @@ export function StaffTable({
   onToggleStatus: (s: StaffRow, next: StaffStatus) => void
   onToggleBonus?: (s: StaffRow) => void
   onDelete: (s: StaffRow) => void
+  sortBy?: StaffSortKey
+  sortOrder?: SortOrder
+  onSort?: (key: StaffSortKey) => void
 }) {
   const [selectedStaff, setSelectedStaff] = useState<StaffRow | null>(null)
 
@@ -48,6 +68,17 @@ export function StaffTable({
     return c ? map[c] || c : '-'
   }
 
+  const renderSortIcon = (columnKey: StaffSortKey) => {
+    if (sortBy !== columnKey) {
+      return <ArrowUpDown size={13} className="text-stone-400 group-hover:text-suka-orange transition-colors" />
+    }
+    return sortOrder === 'asc' ? (
+      <ArrowUp size={13} className="text-suka-orange font-black" />
+    ) : (
+      <ArrowDown size={13} className="text-suka-orange font-black" />
+    )
+  }
+
   return (
     <div className="relative">
       <div className="overflow-hidden rounded-2xl border border-suka-gray-200 bg-white shadow-sm">
@@ -55,10 +86,51 @@ export function StaffTable({
           <table className="w-full text-left text-sm">
             <thead className="border-b border-suka-gray-200 bg-[#FDF9F3] text-suka-brown font-bold text-xs uppercase tracking-wider">
               <tr>
-                <th className="px-4 py-3.5">Nama & Username</th>
-                <th className="px-4 py-3.5">Role / Jabatan</th>
-                <th className="px-4 py-3.5">Outlet Penugasan</th>
-                <th className="px-4 py-3.5">Status</th>
+                <th
+                  onClick={() => onSort?.('name')}
+                  className="px-4 py-3.5 cursor-pointer select-none group hover:bg-stone-100/60 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Nama &amp; Username</span>
+                    {renderSortIcon('name')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => onSort?.('role')}
+                  className="px-4 py-3.5 cursor-pointer select-none group hover:bg-stone-100/60 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Role / Jabatan</span>
+                    {renderSortIcon('role')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => onSort?.('outlet')}
+                  className="px-4 py-3.5 cursor-pointer select-none group hover:bg-stone-100/60 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Outlet Penugasan</span>
+                    {renderSortIcon('outlet')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => onSort?.('salary')}
+                  className="px-4 py-3.5 text-right cursor-pointer select-none group hover:bg-stone-100/60 transition-colors hidden sm:table-cell"
+                >
+                  <div className="flex items-center justify-end gap-1.5">
+                    <span>Gaji Pokok</span>
+                    {renderSortIcon('salary')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => onSort?.('status')}
+                  className="px-4 py-3.5 cursor-pointer select-none group hover:bg-stone-100/60 transition-colors text-center"
+                >
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span>Status</span>
+                    {renderSortIcon('status')}
+                  </div>
+                </th>
                 <th className="px-4 py-3.5 text-right">Aksi</th>
               </tr>
             </thead>
@@ -112,7 +184,10 @@ export function StaffTable({
                   <td className="px-4 py-3 text-xs font-semibold text-suka-ink">
                     {s.outlets?.name ?? '-'}
                   </td>
-                  <td className="px-4 py-3">{statusBadge(s.status)}</td>
+                  <td className="px-4 py-3 text-right font-mono font-bold text-xs text-stone-800 hidden sm:table-cell">
+                    {formatRupiah(s.financials?.basic_salary || 0)}
+                  </td>
+                  <td className="px-4 py-3 text-center">{statusBadge(s.status)}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end items-center gap-1">
                       <button
@@ -150,7 +225,7 @@ export function StaffTable({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
+                  <td colSpan={6} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
                     Tidak ada data karyawan yang cocok.
                   </td>
                 </tr>
@@ -238,7 +313,7 @@ export function StaffTable({
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-suka-brown font-bold text-sm border-b border-suka-gray-100 pb-1.5">
                   <User size={16} className="text-suka-orange" />
-                  <span>Data Pribadi & Kontak</span>
+                  <span>Data Pribadi &amp; Kontak</span>
                 </div>
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="col-span-2">
@@ -291,7 +366,7 @@ export function StaffTable({
               <div className="space-y-3 pb-4">
                 <div className="flex items-center gap-2 text-suka-brown font-bold text-sm border-b border-suka-gray-100 pb-1.5">
                   <Wallet size={16} className="text-suka-orange" />
-                  <span>Kompensasi & Rekening Bank</span>
+                  <span>Kompensasi &amp; Rekening Bank</span>
                 </div>
                 {selectedStaff.financials ? (
                   <div className="space-y-2.5">

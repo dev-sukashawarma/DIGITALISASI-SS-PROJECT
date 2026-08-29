@@ -16,7 +16,7 @@ import { ResetPasswordDialog } from '@/components/modules/ResetPasswordDialog'
 import { BulkImportStaffModal } from '@/components/modules/BulkImportStaffModal'
 import { filterStaff } from '@/lib/filterStaff'
 import { exportCsv } from '@/lib/exportCsv'
-import type { StaffRow, StaffFilterValues, StaffFormValues, StaffStatus } from '@/lib/types'
+import type { StaffRow, StaffFilterValues, StaffFormValues, StaffStatus, StaffSortKey } from '@/lib/types'
 
 export default function StaffPage() {
   const queryClient = useQueryClient()
@@ -25,6 +25,8 @@ export default function StaffPage() {
     outletId: '',
     role: '',
     status: '',
+    sortBy: 'name',
+    sortOrder: 'asc',
   })
 
   const [formOpen, setFormOpen] = useState(false)
@@ -40,6 +42,22 @@ export default function StaffPage() {
     () => filterStaff(staffList, filter),
     [staffList, filter]
   )
+
+  const handleSort = (key: StaffSortKey) => {
+    setFilter((prev) => {
+      if (prev.sortBy === key) {
+        return {
+          ...prev,
+          sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc',
+        }
+      }
+      return {
+        ...prev,
+        sortBy: key,
+        sortOrder: key === 'salary' || key === 'date' ? 'desc' : 'asc',
+      }
+    })
+  }
 
   const handleCreate = (values: StaffFormValues) => {
     create.mutate(values, {
@@ -216,6 +234,9 @@ export default function StaffPage() {
       ) : (
         <StaffTable
           rows={filteredStaff}
+          sortBy={filter.sortBy}
+          sortOrder={filter.sortOrder}
+          onSort={handleSort}
           onEdit={(s) => {
             setEditingStaff(s)
             setFormOpen(true)

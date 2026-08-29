@@ -90,11 +90,16 @@ export interface StaffFormValues {
   bpjs_kesehatan?: string | null
 }
 
+export type StaffSortKey = 'name' | 'username' | 'role' | 'outlet' | 'status' | 'salary' | 'date'
+export type SortOrder = 'asc' | 'desc'
+
 export interface StaffFilterValues {
   search: string
   outletId: string
   role: string
   status: string
+  sortBy?: StaffSortKey
+  sortOrder?: SortOrder
 }
 
 // ── Attendance ──────────────────────────────────────────────

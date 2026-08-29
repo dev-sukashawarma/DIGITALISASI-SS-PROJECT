@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import {
   Upload,
   FileSpreadsheet,
@@ -14,6 +14,9 @@ import {
   ShieldCheck,
   RefreshCw,
   Search,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react'
 import { Button, Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
@@ -44,6 +47,8 @@ const ROLES: Role[] = [
   'mitra',
 ]
 
+type ModalSortKey = 'no' | 'name' | 'role' | 'outlet' | 'salary' | 'status'
+
 export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImportStaffModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,6 +56,10 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
   const [fileName, setFileName] = useState<string | null>(null)
   const [rows, setRows] = useState<ParsedStaffRow[]>([])
   const [searchTerm, setSearchTerm] = useState('')
+
+  // Sorting in modal
+  const [sortKey, setSortKey] = useState<ModalSortKey>('no')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // Options
   const [updateExisting, setUpdateExisting] = useState(true)
@@ -85,21 +94,41 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
     }
   }
 
+  const handleSort = (key: ModalSortKey) => {
+    if (sortKey === key) {
+      setSortOrder((prev) => (prev === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortOrder(key === 'salary' ? 'desc' : 'asc')
+    }
+  }
+
+  const renderSortIcon = (key: ModalSortKey) => {
+    if (sortKey !== key) {
+      return <ArrowUpDown size={11} className="text-stone-400 group-hover:text-suka-orange transition-colors" />
+    }
+    return sortOrder === 'asc' ? (
+      <ArrowUp size={11} className="text-suka-orange font-bold" />
+    ) : (
+      <ArrowDown size={11} className="text-suka-orange font-bold" />
+    )
+  }
+
   // Row update handlers
-  const handleUpdateRowRole = (index: number, newRole: Role) => {
+  const handleUpdateRowRole = (originalIndex: number, newRole: Role) => {
     setRows((prev) => {
       const next = [...prev]
-      next[index] = { ...next[index], role: newRole }
+      next[originalIndex] = { ...next[originalIndex], role: newRole }
       return next
     })
   }
 
-  const handleUpdateRowOutlet = (index: number, newOutletId: string) => {
+  const handleUpdateRowOutlet = (originalIndex: number, newOutletId: string) => {
     const foundOutlet = outlets.find((o) => o.id === newOutletId)
     setRows((prev) => {
       const next = [...prev]
-      next[index] = {
-        ...next[index],
+      next[originalIndex] = {
+        ...next[originalIndex],
         outletId: newOutletId,
         outletName: foundOutlet?.name || 'Kantor Pusat',
         isOutletMatched: true,
@@ -108,21 +137,47 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
     })
   }
 
-  const handleUpdateRowStatus = (index: number, newStatus: StaffStatus) => {
+  const handleUpdateRowStatus = (originalIndex: number, newStatus: StaffStatus) => {
     setRows((prev) => {
       const next = [...prev]
-      next[index] = { ...next[index], status: newStatus }
+      next[originalIndex] = { ...next[originalIndex], status: newStatus }
       return next
     })
   }
 
-  // Filtered rows for preview
-  const filteredRows = rows.filter(
-    (r) =>
-      r.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.outletName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.role.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Filtered & Sorted rows for preview
+  const displayRows = useMemo(() => {
+    const q = searchTerm.toLowerCase().trim()
+    const mappedWithIdx = rows.map((r, i) => ({ ...r, _originalIndex: i }))
+
+    const filtered = mappedWithIdx.filter(
+      (r) =>
+        r.name.toLowerCase().includes(q) ||
+        r.outletName.toLowerCase().includes(q) ||
+        r.role.toLowerCase().includes(q) ||
+        r.username.toLowerCase().includes(q)
+    )
+
+    const mult = sortOrder === 'desc' ? -1 : 1
+    return filtered.sort((a, b) => {
+      switch (sortKey) {
+        case 'no':
+          return (Number(a.no || 0) - Number(b.no || 0)) * mult
+        case 'name':
+          return a.name.localeCompare(b.name, 'id') * mult
+        case 'role':
+          return a.role.localeCompare(b.role, 'id') * mult
+        case 'outlet':
+          return a.outletName.localeCompare(b.outletName, 'id') * mult
+        case 'salary':
+          return (a.basicSalary - b.basicSalary) * mult
+        case 'status':
+          return a.status.localeCompare(b.status, 'id') * mult
+        default:
+          return 0
+      }
+    })
+  }, [rows, searchTerm, sortKey, sortOrder])
 
   const activeCount = rows.filter((r) => r.status === 'active').length
   const totalBaseSalary = rows.reduce((acc, r) => acc + r.basicSalary, 0)
@@ -222,7 +277,7 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
               <div>
                 <p className="text-sm font-black text-suka-brown">Klik atau Tarik File CSV / Excel ke Sini</p>
                 <p className="text-xs text-suka-gray-500 mt-0.5">
-                  Mendukung file: <strong>.csv</strong>, <strong>.xlsx</strong>, <strong>.xls</strong> (Otomatis membaca Nama, Posisi, Gaji, & Lokasi Outlet).
+                  Mendukung file: <strong>.csv</strong>, <strong>.xlsx</strong>, <strong>.xls</strong> (Otomatis membaca Nama, Posisi, Gaji, &amp; Lokasi Outlet).
                 </p>
               </div>
             </div>
@@ -332,77 +387,128 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
         {rows.length > 0 && (
           <div className="flex-1 overflow-y-auto rounded-2xl border border-suka-gray-200 min-h-[220px]">
             <table className="w-full text-left text-xs">
-              <thead className="sticky top-0 bg-[#FDF9F3] border-b border-suka-gray-200 text-suka-brown font-bold uppercase tracking-wider z-10">
+              <thead className="sticky top-0 bg-[#FDF9F3] border-b border-suka-gray-200 text-suka-brown font-bold uppercase tracking-wider z-10 select-none">
                 <tr>
-                  <th className="p-2.5 w-10 text-center">#</th>
-                  <th className="p-2.5">Nama &amp; Username</th>
-                  <th className="p-2.5">Role / Jabatan</th>
-                  <th className="p-2.5">Outlet Penugasan</th>
-                  <th className="p-2.5 text-right">Gaji Pokok</th>
+                  <th
+                    onClick={() => handleSort('no')}
+                    className="p-2.5 w-12 text-center cursor-pointer hover:bg-stone-100 transition-colors group"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>#</span>
+                      {renderSortIcon('no')}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('name')}
+                    className="p-2.5 cursor-pointer hover:bg-stone-100 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Nama &amp; Username</span>
+                      {renderSortIcon('name')}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('role')}
+                    className="p-2.5 cursor-pointer hover:bg-stone-100 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Role / Jabatan</span>
+                      {renderSortIcon('role')}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('outlet')}
+                    className="p-2.5 cursor-pointer hover:bg-stone-100 transition-colors group"
+                  >
+                    <div className="flex items-center gap-1">
+                      <span>Outlet Penugasan</span>
+                      {renderSortIcon('outlet')}
+                    </div>
+                  </th>
+                  <th
+                    onClick={() => handleSort('salary')}
+                    className="p-2.5 text-right cursor-pointer hover:bg-stone-100 transition-colors group"
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      <span>Gaji Pokok</span>
+                      {renderSortIcon('salary')}
+                    </div>
+                  </th>
                   <th className="p-2.5 text-right">Tunj. Hadir</th>
-                  <th className="p-2.5 text-center">Status</th>
+                  <th
+                    onClick={() => handleSort('status')}
+                    className="p-2.5 text-center cursor-pointer hover:bg-stone-100 transition-colors group"
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span>Status</span>
+                      {renderSortIcon('status')}
+                    </div>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
-                {filteredRows.map((r, idx) => (
-                  <tr key={idx} className="hover:bg-amber-50/20 transition-colors">
-                    <td className="p-2.5 text-center text-gray-400 font-mono">{r.no || idx + 1}</td>
-                    <td className="p-2.5">
-                      <div className="font-black text-suka-ink">{r.name}</div>
-                      <div className="text-[10px] font-mono text-suka-gray-500">@{r.username}</div>
-                    </td>
-                    <td className="p-2.5">
-                      <select
-                        value={r.role}
-                        onChange={(e) => handleUpdateRowRole(idx, e.target.value as Role)}
-                        className="rounded-lg border border-stone-300 px-2 py-1 text-xs font-semibold bg-white cursor-pointer"
-                      >
-                        {ROLES.map((role) => (
-                          <option key={role} value={role}>
-                            {role.replace('_', ' ').toUpperCase()}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="p-2.5">
-                      <select
-                        value={r.outletId}
-                        onChange={(e) => handleUpdateRowOutlet(idx, e.target.value)}
-                        className={`rounded-lg border px-2 py-1 text-xs font-semibold bg-white cursor-pointer max-w-[180px] truncate ${
-                          r.isOutletMatched
-                            ? 'border-stone-300 text-suka-ink'
-                            : 'border-amber-400 bg-amber-50 text-amber-900'
-                        }`}
-                      >
-                        {outlets.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.name}
-                          </option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="p-2.5 text-right font-mono font-bold text-stone-800">
-                      {formatRupiah(r.basicSalary)}
-                    </td>
-                    <td className="p-2.5 text-right font-mono text-stone-600">
-                      {formatRupiah(r.allowancePresence)}
-                    </td>
-                    <td className="p-2.5 text-center">
-                      <select
-                        value={r.status}
-                        onChange={(e) => handleUpdateRowStatus(idx, e.target.value as StaffStatus)}
-                        className={`rounded-lg px-2 py-0.5 text-[11px] font-bold border cursor-pointer ${
-                          r.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-red-50 text-red-700 border-red-200'
-                        }`}
-                      >
-                        <option value="active">Aktif</option>
-                        <option value="inactive">Non-Aktif</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
+                {displayRows.map((r) => {
+                  const origIdx = r._originalIndex
+                  return (
+                    <tr key={origIdx} className="hover:bg-amber-50/20 transition-colors">
+                      <td className="p-2.5 text-center text-gray-400 font-mono">{r.no || origIdx + 1}</td>
+                      <td className="p-2.5">
+                        <div className="font-black text-suka-ink">{r.name}</div>
+                        <div className="text-[10px] font-mono text-suka-gray-500">@{r.username}</div>
+                      </td>
+                      <td className="p-2.5">
+                        <select
+                          value={r.role}
+                          onChange={(e) => handleUpdateRowRole(origIdx, e.target.value as Role)}
+                          className="rounded-lg border border-stone-300 px-2 py-1 text-xs font-semibold bg-white cursor-pointer"
+                        >
+                          {ROLES.map((role) => (
+                            <option key={role} value={role}>
+                              {role.replace('_', ' ').toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-2.5">
+                        <select
+                          value={r.outletId}
+                          onChange={(e) => handleUpdateRowOutlet(origIdx, e.target.value)}
+                          className={`rounded-lg border px-2 py-1 text-xs font-semibold bg-white cursor-pointer max-w-[180px] truncate ${
+                            r.isOutletMatched
+                              ? 'border-stone-300 text-suka-ink'
+                              : 'border-amber-400 bg-amber-50 text-amber-900'
+                          }`}
+                        >
+                          {outlets.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.name}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-stone-800">
+                        {formatRupiah(r.basicSalary)}
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-stone-600">
+                        {formatRupiah(r.allowancePresence)}
+                      </td>
+                      <td className="p-2.5 text-center">
+                        <select
+                          value={r.status}
+                          onChange={(e) => handleUpdateRowStatus(origIdx, e.target.value as StaffStatus)}
+                          className={`rounded-lg px-2 py-0.5 text-[11px] font-bold border cursor-pointer ${
+                            r.status === 'active'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                          }`}
+                        >
+                          <option value="active">Aktif</option>
+                          <option value="inactive">Non-Aktif</option>
+                        </select>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

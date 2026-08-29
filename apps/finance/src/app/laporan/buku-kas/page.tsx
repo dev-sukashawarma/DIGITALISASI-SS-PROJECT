@@ -725,6 +725,7 @@ export default function BukuKasPage() {
           isAdmin={isChecker}
           onClose={() => setIsFormOpen(false)}
           onSuccess={() => {
+            setIsFormOpen(false)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
             queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
           }}

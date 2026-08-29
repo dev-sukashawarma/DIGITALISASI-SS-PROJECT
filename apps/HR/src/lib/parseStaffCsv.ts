@@ -33,7 +33,54 @@ function cleanString(val: any): string {
   return String(val ?? '').trim().replace(/\s+/g, ' ')
 }
 
+export const KNOWN_STAFF_MAPPINGS: Record<string, string> = {
+  'roni': 'roni',
+  'muhamad andrian hermawan': 'andrian',
+  'm. tajudin': 'tajudin',
+  'm tajudin': 'tajudin',
+  'abdurrohman': 'rohman',
+  'abdurrahman': 'abdurrahman',
+  'abu bakar sidik bahsin': 'abubakar',
+  'abu bakar': 'abubakar',
+  'tri rizky pamungkas': 'tririzky',
+  'tri rizky': 'tririzky',
+  'faturrahman': 'fatur',
+  'muhammad abyansah mandala': 'abyansah',
+  'abyansah': 'abyansah',
+  'm. rifqi darmawan': 'mrifqi',
+  'm.rifqi darmawan': 'mrifqi',
+  'm.rifqi': 'mrifqi',
+  'rifqi': 'rifqi',
+  'muhamad reza meisandi': 'reza',
+  'reza': 'reza',
+  'irwan kurniawan': 'irwan',
+  'yunus': 'yunus',
+  'mulyadi': 'mulyadi',
+  'muhtar arifin': 'muchtar',
+  'schatzi sayyid abiyyu': 'sayid',
+  'abdul qadir': 'abdul',
+  'abdul kadir': 'abdul',
+  'achmad luthfi': 'lutfi',
+  'lutfi': 'lutfi',
+  'indra irawan': 'adminhr',
+  'agung wardhana': 'agung',
+  'adhi setiawan': 'adi',
+  'ikbal darmansyah': 'iqbal',
+  'zikri sawaludin': 'zikri',
+  'm. fadli irawan': 'fadli',
+  'm fadli irawan': 'fadli',
+  'indra adam sami': 'adamspv',
+  'chairul rizki': 'ricki',
+}
+
 export function generateUsernameFromName(name: string, index: number, existingUsernames: Set<string>): string {
+  const cleanKey = name.toLowerCase().trim().replace(/\s+/g, ' ')
+  if (KNOWN_STAFF_MAPPINGS[cleanKey]) {
+    const mapped = KNOWN_STAFF_MAPPINGS[cleanKey]
+    existingUsernames.add(mapped)
+    return mapped
+  }
+
   let base = name
     .toLowerCase()
     .normalize('NFD')

@@ -1,8 +1,8 @@
 'use client'
 
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, ClipboardCheck, LogOut, Store } from 'lucide-react'
+import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, LogOut, Store } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import { loadInventoryDraft, removeInventoryDraft, saveInventoryDraft, type StoredDraft } from '@/lib/inventory-draft-store'
@@ -83,6 +83,90 @@ function groupItems(items: MasterItem[]) {
     groups[item.subsection] = [...(groups[item.subsection] ?? []), item]
     return groups
   }, {})
+}
+
+type CustomSelectOption = { value: string; label: string }
+
+function CustomSelect({ value, options, onChange, disabled = false, ariaLabel }: {
+  value: string
+  options: CustomSelectOption[]
+  onChange: (value: string) => void
+  disabled?: boolean
+  ariaLabel: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(Math.max(0, options.findIndex((option) => option.value === value)))
+  const containerRef = useRef<HTMLDivElement>(null)
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([])
+  const selected = options.find((option) => option.value === value) ?? options[0]
+
+  useEffect(() => {
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
+  useEffect(() => {
+    const nextIndex = options.findIndex((option) => option.value === value)
+    setActiveIndex(nextIndex >= 0 ? nextIndex : 0)
+  }, [options, value])
+
+  useEffect(() => {
+    if (open) optionRefs.current[activeIndex]?.focus()
+  }, [activeIndex, open])
+
+  function choose(option: CustomSelectOption) {
+    onChange(option.value)
+    setOpen(false)
+  }
+
+  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (disabled) return
+    if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
+      event.preventDefault()
+      setOpen(true)
+      setActiveIndex(Math.max(0, options.findIndex((option) => option.value === value)))
+    }
+  }
+
+  function handleOptionKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setActiveIndex(Math.min(options.length - 1, index + 1))
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      setActiveIndex(Math.max(0, index - 1))
+    } else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      choose(options[index])
+    } else if (event.key === 'Tab') {
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative w-full">
+      <button type="button" disabled={disabled} aria-label={ariaLabel} aria-haspopup="listbox" aria-expanded={open} onClick={() => setOpen((current) => !current)} onKeyDown={handleTriggerKeyDown} className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-sm text-slate-700 outline-none transition hover:border-orange-300 focus:border-[#f29744] focus:ring-2 focus:ring-orange-100 disabled:cursor-not-allowed disabled:opacity-60">
+        <span className="truncate">{selected?.label ?? 'Pilih'}</span>
+        <ChevronDown size={17} className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div role="listbox" aria-label={ariaLabel} className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 max-h-60 overflow-y-auto rounded-2xl border border-orange-100 bg-white p-1.5 shadow-xl shadow-orange-950/10">
+        {options.map((option, index) => <button key={option.value} ref={(element) => { optionRefs.current[index] = element }} type="button" role="option" aria-selected={option.value === value} tabIndex={index === activeIndex ? 0 : -1} onClick={() => choose(option)} onKeyDown={(event) => handleOptionKeyDown(event, index)} className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm transition ${option.value === value ? 'bg-orange-50 font-bold text-[#701604]' : 'text-slate-600 hover:bg-orange-50/70 hover:text-[#701604]'}`}>
+          <span>{option.label}</span>
+          {option.value === value && <Check size={16} className="text-[#f29744]" />}
+        </button>)}
+      </div>}
+    </div>
+  )
 }
 
 function PhotoPicker({ itemName, itemId, photo, existingPhotoUrl, onPhotoChange }: {
@@ -366,11 +450,11 @@ export default function InventoryDashboardPage() {
       <div className="mx-auto max-w-6xl space-y-5 px-4 pt-6 sm:px-8">
         <section className="rounded-3xl bg-[#701604] p-5 text-white shadow-lg sm:p-7"><p className="text-sm text-orange-100">Halo, {outletStaff.name}</p><h2 className="mt-1 text-2xl font-extrabold">{editOutletId ? `Edit inventaris ${selectedOutlet?.name ?? 'outlet'}` : 'Data inventaris outlet'}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-orange-100">Catat setiap aset sesuai kondisi sebenarnya. Setiap item wajib difoto. Data tersimpan sebagai database inventaris dan dapat diperbarui jika ada perubahan.</p></section>
         {editOutletId && <button onClick={() => router.push('/dashboard')} className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-2 text-sm font-bold text-[#701604] shadow-sm"><ArrowLeft size={16} /> Kembali ke daftar outlet</button>}
-        {!editOutletId && <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm sm:p-5"><label className="mb-2 flex items-center gap-2 text-sm font-bold text-[#400a07]"><Store size={17} /> Pilih outlet</label><select value={selectedOutletId} disabled={switchingOutlet} onChange={(event) => { void handleOutletChange(event.target.value) }} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm outline-none focus:border-[#f29744] disabled:opacity-60">{outlets.map((outlet) => <option key={outlet.id} value={outlet.id}>{outlet.name}</option>)}</select><p className="mt-2 text-xs text-slate-500">{switchingOutlet ? 'Memuat data outlet...' : draftStatus === 'saving' ? 'Menyimpan draft...' : draftStatus === 'saved' ? 'Data/draft tersimpan otomatis di perangkat ini.' : 'Isian dan foto tersimpan otomatis di perangkat ini.'}</p></section>}
+        {!editOutletId && <section className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm sm:p-5"><label className="mb-2 flex items-center gap-2 text-sm font-bold text-[#400a07]"><Store size={17} /> Pilih outlet</label><CustomSelect value={selectedOutletId} disabled={switchingOutlet} ariaLabel="Pilih outlet" options={outlets.map((outlet) => ({ value: outlet.id, label: outlet.name }))} onChange={(value) => { void handleOutletChange(value) }} /><p className="mt-2 text-xs text-slate-500">{switchingOutlet ? 'Memuat data outlet...' : draftStatus === 'saving' ? 'Menyimpan draft...' : draftStatus === 'saved' ? 'Data/draft tersimpan otomatis di perangkat ini.' : 'Isian dan foto tersimpan otomatis di perangkat ini.'}</p></section>}
         {!editOutletId && completedOutlets.length > 0 && <section className="rounded-3xl border border-green-200 bg-green-50/70 p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="font-extrabold text-green-900">Outlet sudah tersimpan</h2><p className="mt-1 text-xs text-green-700">Klik kartu untuk membuka halaman edit inventaris outlet.</p></div><span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">{completedOutlets.length} outlet</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{completedOutlets.map((outlet) => <button key={outlet.id} onClick={() => router.push(`/dashboard/edit/${outlet.id}`)} className="rounded-2xl border border-green-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-green-400"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-extrabold text-[#400a07]">{outlet.name}</p><p className="mt-1 text-xs text-green-700">Inventaris tersimpan</p></div><span className="rounded-lg bg-green-100 px-2 py-1 text-[10px] font-bold text-green-700">EDIT</span></div></button>)}</div></section>}
         {message && <div className={`rounded-2xl border p-4 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
         <>
-          {Object.entries(groups).map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm"><div className="border-b border-orange-100 bg-orange-50/70 px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); return <article key={item.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span></div><p className="mt-1 text-xs font-medium text-slate-500">{targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<select value={draft.condition} onChange={(event) => updateDraft(item.id, { condition: event.target.value as Condition })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm"><option value="baik">Baik</option><option value="perlu_perbaikan">Perlu perbaikan</option><option value="rusak">Rusak</option><option value="tidak_ada">Tidak ada</option></select></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder="Catatan item (opsional)" className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#f29744]" /></div><PhotoPicker itemName={item.name} itemId={item.id} photo={draft.photo} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} /></div></article> })}</div></section>)}
+          {Object.entries(groups).map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm"><div className="border-b border-orange-100 bg-orange-50/70 px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); return <article key={item.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span></div><p className="mt-1 text-xs font-medium text-slate-500">{targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder="Catatan item (opsional)" className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#f29744]" /></div><PhotoPicker itemName={item.name} itemId={item.id} photo={draft.photo} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} /></div></article> })}</div></section>)}
           <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Memproses foto WebP dan menyimpan...' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
         </>
       </div>

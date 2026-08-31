@@ -5,6 +5,22 @@ import { useAuth } from '@suka/auth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Building2, ChevronDown, Check } from 'lucide-react';
 
+/**
+ * Mempersingkat nama outlet untuk UI mobile dengan menghapus prefiks
+ * seperti "Suka Shawarma", "SukaShawarma", "Mitra", "SS", dsb.
+ */
+export function formatShortOutletName(name: string): string {
+  if (!name) return '';
+  if (name === 'Semua Outlet') return 'Semua Outlet';
+
+  const cleaned = name
+    .replace(/^(suka\s*shawarma|sukashawarma|mitra\s*ss|mitra|ss\s*-?|outlet)\s*[-–—:]*\s*/i, '')
+    .replace(/^[-–—:\s]+/, '')
+    .trim();
+
+  return cleaned || name;
+}
+
 export default function GlobalOutletFilter({ outlets }: { outlets: { id: string; name: string }[] }) {
   const { outletStaff } = useAuth();
   const searchParams = useSearchParams();
@@ -13,7 +29,8 @@ export default function GlobalOutletFilter({ outlets }: { outlets: { id: string;
 
   const selected = searchParams.get('outlet_id') || 'all';
   const selectedOutlet = outlets.find(o => o.id === selected);
-  const label = selected === 'all' ? 'Semua Outlet' : (selectedOutlet?.name ?? 'Outlet');
+  const rawLabel = selected === 'all' ? 'Semua Outlet' : (selectedOutlet?.name ?? 'Outlet');
+  const shortLabel = formatShortOutletName(rawLabel);
 
   // Staff yang terikat ke 1 outlet tidak perlu filter
   if (outletStaff?.role === 'regional_manager') return null;
@@ -39,9 +56,10 @@ export default function GlobalOutletFilter({ outlets }: { outlets: { id: string;
             ? 'bg-suka-orange text-white border-suka-orange shadow-[0_2px_8px_rgba(249,115,22,0.3)]'
             : 'bg-white text-suka-brown border-suka-brown/20 hover:border-suka-brown/40'
         }`}
+        title={rawLabel}
       >
         <Building2 className="w-3.5 h-3.5 shrink-0" />
-        <span className="inline max-w-[85px] sm:max-w-[150px] truncate">{label}</span>
+        <span className="inline max-w-[100px] sm:max-w-[180px] truncate">{shortLabel}</span>
         <ChevronDown className={`w-3 h-3 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
@@ -62,7 +80,7 @@ export default function GlobalOutletFilter({ outlets }: { outlets: { id: string;
                     : 'text-suka-gray-600 hover:bg-suka-gray-50 font-bold'
                 }`}
               >
-                <span className="truncate">{o.name}</span>
+                <span className="truncate">{formatShortOutletName(o.name)}</span>
                 {selected === o.id && <Check className="w-3.5 h-3.5 shrink-0 ml-2" />}
               </button>
             ))}

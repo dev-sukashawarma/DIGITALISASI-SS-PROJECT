@@ -67,6 +67,10 @@ function isOwnedDraftPhotoPath(path: string | null, userId: string, outletId: st
     && /\.(jpe?g|png|webp)$/i.test(path!)
 }
 
+function isPendingDraftPhotoPath(path: string, userId: string, outletId: string) {
+  return isOwnedDraftPhotoPath(path, userId, outletId) && path.includes('/drafts/' + outletId + '/pending/')
+}
+
 function evaluate(item: MasterItem, submitted: SubmittedItem): string {
   if (item.mode === 'presence') return submitted.is_present ? 'sesuai' : 'tidak_ada'
   if (submitted.observed_qty === null || !Number.isFinite(submitted.observed_qty)) return 'kurang'
@@ -98,7 +102,7 @@ async function optimizeSubmittedPhotos(
   outletId: string,
   items: Array<{ master_item_id: string; photo_path: string }>,
 ) {
-  const rawItems = items.filter((item) => isOwnedDraftPhotoPath(item.photo_path, userId, outletId) && !item.photo_path.toLowerCase().endsWith('.webp'))
+  const rawItems = items.filter((item) => isPendingDraftPhotoPath(item.photo_path, userId, outletId))
   if (!rawItems.length) return
 
   const { default: sharp } = await import('sharp')

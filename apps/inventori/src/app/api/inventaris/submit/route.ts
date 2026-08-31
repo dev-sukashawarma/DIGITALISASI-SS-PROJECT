@@ -5,7 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 export const runtime = 'nodejs'
 
 const PHOTO_BUCKET = 'inventaris-foto'
-const MAX_INPUT_FILE_BYTES = 12 * 1024 * 1024
+const MAX_INPUT_FILE_BYTES = 50 * 1024 * 1024
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const CONDITIONS = new Set(['baik', 'perlu_perbaikan', 'rusak', 'tidak_ada'])
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -262,7 +262,7 @@ export async function POST(request: Request) {
         return errorResponse('Foto wajib diisi untuk setiap item.')
       }
     } else {
-      if (photo.size > MAX_INPUT_FILE_BYTES) return errorResponse('Ukuran foto terlalu besar. Maksimal 12 MB per foto.')
+      if (photo.size > MAX_INPUT_FILE_BYTES) return errorResponse('Ukuran foto terlalu besar. Maksimal 50 MB per foto.')
       if (!ALLOWED_IMAGE_TYPES.has(photo.type.toLowerCase())) return errorResponse('Format foto harus JPG, PNG, atau WebP.')
     }
   }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, Camera, CheckCircle2, ClipboardList, Clock3, ImageOff, Package, Store } from 'lucide-react'
+import { AlertCircle, Camera, CheckCircle2, ChevronDown, ClipboardList, Clock3, ImageOff, Package, Search, Store, X, ZoomIn } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui'
 
@@ -27,6 +27,8 @@ type ReportSubmission = {
   submittedAt: string | null
   items: ReportItem[]
 }
+
+type StatusFilter = 'all' | 'missing' | 'complete'
 
 type Lookup = Map<string, string>
 
@@ -109,6 +111,10 @@ function badgeClass(status: string): string {
   }
 }
 
+function isCompleteStatus(status: string): boolean {
+  return statusKind(status) === 'available'
+}
+
 function SkeletonReport() {
   return (
     <div className="space-y-5 animate-pulse" aria-label="Memuat laporan inventaris">
@@ -137,6 +143,11 @@ export default function InventarisReportView() {
   const [submissions, setSubmissions] = useState<ReportSubmission[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [outletFilter, setOutletFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const [search, setSearch] = useState('')
+  const [openSubmissionIds, setOpenSubmissionIds] = useState<Set<string>>(new Set())
+  const [photoModal, setPhotoModal] = useState<{ url: string; name: string } | null>(null)
 
   useEffect(() => {
     let active = true
@@ -245,8 +256,15 @@ export default function InventarisReportView() {
         })
       }
 
+      // Satu outlet hanya memiliki satu kartu: gunakan laporan terbaru jika
+      // terdapat data historis/duplikat dari proses submit sebelumnya.
+      const latestByOutlet = new Map<string, ReportSubmission>()
+      for (const submission of normalizedSubmissions) {
+        if (!latestByOutlet.has(submission.outletId)) latestByOutlet.set(submission.outletId, submission)
+      }
+
       if (active) {
-        setSubmissions(normalizedSubmissions)
+        setSubmissions([...latestByOutlet.values()])
         setLoading(false)
       }
     }
@@ -255,8 +273,19 @@ export default function InventarisReportView() {
     return () => { active = false }
   }, [])
 
+  useEffect(() => {
+    if (!photoModal) return
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPhotoModal(null)
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [photoModal])
+
   const summary = useMemo(() => {
-    const items = submissions.flatMap((submission) => submission.items)
+    const items = submissions
+      .filter((submission) => outletFilter === 'all' || submission.outletId === outletFilter)
+      .flatMap((submission) => submission.items)
     return {
       outlets: new Set(submissions.map((submission) => submission.outletId)).size,
       items: items.length,
@@ -264,7 +293,23 @@ export default function InventarisReportView() {
       missing: items.filter((item) => statusKind(item.status) === 'missing').length,
       photos: items.filter((item) => item.photoUrl).length,
     }
-  }, [submissions])
+  }, [outletFilter, submissions])
+
+  const filteredSubmissions = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    return submissions
+      .filter((submission) => outletFilter === 'all' || submission.outletId === outletFilter)
+      .filter((submission) => !query || submission.outletName.toLowerCase().includes(query) || submission.submittedBy.toLowerCase().includes(query))
+  }, [outletFilter, search, submissions])
+
+  function toggleSubmission(submissionId: string) {
+    setOpenSubmissionIds((current) => {
+      const next = new Set(current)
+      if (next.has(submissionId)) next.delete(submissionId)
+      else next.add(submissionId)
+      return next
+    })
+  }
 
   return (
     <div className="space-y-6">
@@ -290,11 +335,42 @@ export default function InventarisReportView() {
             <SummaryTile icon={Camera} label="Dengan foto" value={`${summary.photos}/${summary.items}`} tone="orange" />
           </div>
 
-          <div className="space-y-5">
-            {submissions.map((submission) => <OutletSubmissionCard key={submission.id} submission={submission} />)}
+          <div className="rounded-3xl border border-suka-brown/10 bg-white/80 p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-suka-ink/35" />
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Cari outlet atau Area Manager..." className="w-full rounded-xl border border-suka-brown/10 bg-white py-2.5 pl-10 pr-3 text-sm text-suka-ink outline-none transition focus:border-suka-orange" />
+              </div>
+              <label className="flex items-center gap-2 text-sm font-semibold text-suka-ink/65">
+                <Store className="h-4 w-4 text-suka-orange" />
+                <select value={outletFilter} onChange={(event) => setOutletFilter(event.target.value)} className="min-w-52 rounded-xl border border-suka-brown/10 bg-white px-3 py-2.5 text-sm text-suka-ink outline-none focus:border-suka-orange">
+                  <option value="all">Semua outlet</option>
+                  {[...new Map(submissions.map((submission) => [submission.outletId, submission.outletName])).entries()].map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                </select>
+              </label>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2" role="tablist" aria-label="Filter status inventaris">
+              {([['all', 'Semua'], ['missing', 'Kurang'], ['complete', 'Lengkap']] as const).map(([value, label]) => {
+                const count = value === 'all' ? summary.items : value === 'complete' ? summary.available : summary.items - summary.available
+                return <button key={value} type="button" role="tab" aria-selected={statusFilter === value} onClick={() => setStatusFilter(value)} className={`rounded-xl px-4 py-2 text-sm font-bold transition ${statusFilter === value ? 'bg-suka-brown text-white shadow-sm' : 'bg-suka-cream/60 text-suka-ink/60 hover:bg-suka-cream'}`}>{label}<span className={`ml-2 rounded-full px-1.5 py-0.5 text-[10px] ${statusFilter === value ? 'bg-white/15 text-white' : 'bg-white text-suka-ink/50'}`}>{count}</span></button>
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {filteredSubmissions.map((submission) => <OutletSubmissionCard key={submission.id} submission={submission} statusFilter={statusFilter} isOpen={openSubmissionIds.has(submission.id)} onToggle={() => toggleSubmission(submission.id)} onPhotoClick={(photo) => setPhotoModal(photo)} />)}
+            {filteredSubmissions.length === 0 && <div className="rounded-3xl border border-dashed border-suka-brown/20 bg-white/70 px-6 py-12 text-center text-sm text-suka-ink/55">Tidak ada outlet yang sesuai dengan filter.</div>}
           </div>
         </>
       )}
+
+      {photoModal && <div className="fixed inset-0 z-50 flex items-center justify-center bg-suka-ink/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Foto ${photoModal.name}`} onClick={() => setPhotoModal(null)}>
+        <div className="relative max-h-[90vh] max-w-4xl overflow-hidden rounded-3xl bg-white p-2 shadow-2xl" onClick={(event) => event.stopPropagation()}>
+          <button type="button" onClick={() => setPhotoModal(null)} className="absolute right-4 top-4 z-10 rounded-full bg-suka-ink/70 p-2 text-white transition hover:bg-suka-ink" aria-label="Tutup foto"><X className="h-5 w-5" /></button>
+          <img src={photoModal.url} alt={`Foto ${photoModal.name}`} className="max-h-[82vh] max-w-full rounded-2xl object-contain" />
+          <p className="px-3 pb-2 pt-2 text-center text-sm font-bold text-suka-brown">{photoModal.name}</p>
+        </div>
+      </div>}
     </div>
   )
 }
@@ -326,10 +402,19 @@ function SummaryTile({
   )
 }
 
-function OutletSubmissionCard({ submission }: { submission: ReportSubmission }) {
+function OutletSubmissionCard({ submission, statusFilter, isOpen, onToggle, onPhotoClick }: {
+  submission: ReportSubmission
+  statusFilter: StatusFilter
+  isOpen: boolean
+  onToggle: () => void
+  onPhotoClick: (photo: { url: string; name: string }) => void
+}) {
+  const completeCount = submission.items.filter((item) => isCompleteStatus(item.status)).length
+  const missingCount = submission.items.length - completeCount
+  const visibleItems = submission.items.filter((item) => statusFilter === 'all' || (statusFilter === 'complete' && isCompleteStatus(item.status)) || (statusFilter === 'missing' && !isCompleteStatus(item.status)))
   return (
     <section className="overflow-hidden rounded-3xl border border-suka-brown/10 bg-white/85 shadow-sm">
-      <div className="flex flex-col gap-3 border-b border-suka-brown/10 bg-suka-cream/40 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <button type="button" onClick={onToggle} aria-expanded={isOpen} className="flex w-full flex-col gap-3 border-b border-suka-brown/10 bg-suka-cream/40 px-5 py-5 text-left transition hover:bg-suka-cream/70 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-suka-orange/10 text-suka-orange">
             <Store className="h-5 w-5" />
@@ -339,17 +424,22 @@ function OutletSubmissionCard({ submission }: { submission: ReportSubmission }) 
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-suka-ink/60">
               <span className="inline-flex items-center gap-1"><ClipboardList className="h-3.5 w-3.5" /> {submission.items.length} item</span>
               <span className="inline-flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" /> {formatDateTime(submission.submittedAt)}</span>
+              <span className="font-bold text-emerald-700">{completeCount} lengkap</span>
+              {missingCount > 0 && <span className="font-bold text-amber-700">{missingCount} kurang</span>}
             </div>
           </div>
         </div>
-        <div className="text-left text-xs sm:text-right">
-          <div className="font-semibold text-suka-ink/50">Dikirim oleh AM</div>
-          <div className="mt-0.5 font-bold text-suka-ink">{submission.submittedBy}</div>
+        <div className="flex items-center justify-between gap-4 sm:justify-end">
+          <div className="text-left text-xs sm:text-right">
+            <div className="font-semibold text-suka-ink/50">Dikirim oleh AM</div>
+            <div className="mt-0.5 font-bold text-suka-ink">{submission.submittedBy}</div>
+          </div>
+          <ChevronDown className={`h-5 w-5 shrink-0 text-suka-ink/45 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
         </div>
-      </div>
+      </button>
 
-      {submission.items.length === 0 ? (
-        <div className="px-5 py-8 text-center text-sm text-suka-ink/50">Tidak ada detail item pada submission ini.</div>
+      {!isOpen ? null : visibleItems.length === 0 ? (
+        <div className="px-5 py-8 text-center text-sm text-suka-ink/50">Tidak ada detail item pada filter ini.</div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px] text-left text-sm">
@@ -362,7 +452,7 @@ function OutletSubmissionCard({ submission }: { submission: ReportSubmission }) 
               </tr>
             </thead>
             <tbody className="divide-y divide-suka-brown/10">
-              {submission.items.map((item) => (
+              {visibleItems.map((item) => (
                 <tr key={item.id} className="align-middle transition-colors hover:bg-suka-cream/20">
                   <td className="px-5 py-3">
                     <div className="font-bold text-suka-ink">{item.name}</div>
@@ -378,9 +468,10 @@ function OutletSubmissionCard({ submission }: { submission: ReportSubmission }) 
                   </td>
                   <td className="px-4 py-3">
                     {item.photoUrl ? (
-                      <a href={item.photoUrl} target="_blank" rel="noreferrer" className="group block h-14 w-14 overflow-hidden rounded-xl border border-suka-brown/10 bg-suka-cream" aria-label={`Buka foto ${item.name}`}>
+                      <button type="button" onClick={() => onPhotoClick({ url: item.photoUrl as string, name: item.name })} className="group relative block h-14 w-14 overflow-hidden rounded-xl border border-suka-brown/10 bg-suka-cream" aria-label={`Lihat foto ${item.name}`}>
                         <img src={item.photoUrl} alt={`Foto ${item.name}`} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                      </a>
+                        <span className="absolute inset-0 grid place-items-center bg-suka-ink/0 text-white opacity-0 transition group-hover:bg-suka-ink/35 group-hover:opacity-100"><ZoomIn className="h-4 w-4" /></span>
+                      </button>
                     ) : (
                       <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-suka-ink/40"><ImageOff className="h-4 w-4" /> Tidak tersedia</span>
                     )}

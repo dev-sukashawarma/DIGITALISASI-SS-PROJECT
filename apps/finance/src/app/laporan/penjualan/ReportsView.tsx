@@ -764,7 +764,17 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let totalSettlement = 0
     let totalRealAdmin = 0
     let settlementDateRange = ''
-    if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
+
+    if (isSSOnlineSelected) {
+      totalSettlement = completed.reduce((sum, o) => {
+        const net = Number((o as any).raw_data?.net_settlement)
+        return sum + (isNaN(net) ? 0 : net)
+      }, 0)
+      totalRealAdmin = completed.reduce((sum, o) => {
+        const potongan = Number((o as any).discount_amount) || Number((o as any).raw_data?.total_potongan) || 0
+        return sum + potongan
+      }, 0)
+    } else if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
       const relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
       totalSettlement = relevantSettlements.reduce((sum, s) => {
         return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
@@ -1571,7 +1581,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
           </div>
 
-          {(selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) && (
+          {(isSSOnlineSelected || selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
               <div className="mb-4">

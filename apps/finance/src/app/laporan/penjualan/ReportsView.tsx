@@ -487,6 +487,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           customer_name: 'SS Online Customer',
           cashier_name: null,
           external_order_id: ec.order_id,
+          raw_data: raw,
           order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
             id: item.id,
             menu_item_name: item.menu_items?.name || 'Unknown Item',

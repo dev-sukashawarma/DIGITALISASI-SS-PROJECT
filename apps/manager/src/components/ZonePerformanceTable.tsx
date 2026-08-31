@@ -75,10 +75,10 @@ export default function ZonePerformanceTable({ zones }: ZonePerformanceTableProp
   }, [activeZoneData, searchQuery]);
 
   return (
-    <div className="bg-white p-6 sm:p-7 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.04)] border border-suka-brown/10 space-y-6">
+    <div className="bg-white p-4 sm:p-6 md:p-7 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.04)] border border-suka-brown/10 space-y-5 sm:space-y-6">
       
       {/* 🌟 Top Summary KPI Bar for Zone Performance */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         
         {/* KPI 1: Total Region Revenue */}
         <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent p-4 rounded-2xl border border-amber-500/20 relative overflow-hidden group transition-all duration-300 hover:shadow-md">
@@ -140,7 +140,7 @@ export default function ZonePerformanceTable({ zones }: ZonePerformanceTableProp
       {/* 🛠️ Header Title & Interactive Controls */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pt-2 pb-4 border-b border-suka-brown/10">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 bg-suka-orange text-white rounded-2xl shadow-sm">
+          <div className="p-2.5 bg-suka-orange text-white rounded-2xl shadow-sm shrink-0">
             <Layers size={22} />
           </div>
           <div>
@@ -152,7 +152,7 @@ export default function ZonePerformanceTable({ zones }: ZonePerformanceTableProp
                 </span>
               )}
             </div>
-            <p className="text-xs text-suka-gray-400 font-medium">Monitoring Omzet Aktual & Kontribusi Per-Area Manager</p>
+            <p className="text-xs text-suka-gray-400 font-medium">Monitoring Omzet Aktual &amp; Kontribusi Per-Area Manager</p>
           </div>
         </div>
 
@@ -178,7 +178,7 @@ export default function ZonePerformanceTable({ zones }: ZonePerformanceTableProp
                 setSelectedZone('all');
                 setSearchQuery('');
               }}
-              className="px-3.5 py-2 text-xs font-black text-suka-brown bg-suka-brown/5 hover:bg-suka-brown/10 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95"
+              className="px-3.5 py-2 text-xs font-black text-suka-brown bg-suka-brown/5 hover:bg-suka-brown/10 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm active:scale-95 cursor-pointer"
             >
               <ArrowLeft size={14} /> Semua Zona
             </button>
@@ -203,121 +203,201 @@ export default function ZonePerformanceTable({ zones }: ZonePerformanceTableProp
         </div>
       </div>
 
-      {/* 📊 LEVEL 1: Macro View - All Zones Table */}
+      {/* 📊 LEVEL 1: Macro View - All Zones */}
       {selectedZone === 'all' ? (
-        <div className="overflow-x-auto rounded-2xl border border-suka-brown/10 shadow-xs">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-suka-brown/[0.03] border-b border-suka-brown/10 text-[11px] font-black text-suka-brown/60 uppercase tracking-wider">
-                <th className="py-3.5 px-4 text-center w-14">Peringkat</th>
-                <th className="py-3.5 px-4">Zona / Area Manager</th>
-                <th className="py-3.5 px-4 text-center">Jumlah Cabang</th>
-                <th className="py-3.5 px-4">Porsi Kontribusi</th>
-                <th className="py-3.5 px-4 text-right">Total Omzet</th>
-                <th className="py-3.5 px-4 text-center w-24">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-suka-brown/5 text-sm font-semibold text-suka-brown bg-white">
-              {filteredZones.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-12 text-center text-suka-gray-400 text-xs">
-                    Pencarian tidak menemukan data zona.
-                  </td>
-                </tr>
-              ) : (
-                filteredZones.map((z, idx) => {
-                  const sharePct = grandTotalOmzet > 0 ? (z.totalOmzet / grandTotalOmzet) * 100 : 0;
-                  const rank = sortedZones.findIndex(sz => sz.zoneName === z.zoneName) + 1;
+        <>
+          {/* 📱 MOBILE VIEW: Clean Responsive Zone Cards */}
+          <div className="space-y-3 md:hidden">
+            {filteredZones.length === 0 ? (
+              <div className="py-12 text-center text-suka-gray-400 text-xs bg-suka-brown/[0.02] rounded-2xl border border-dashed border-suka-brown/10">
+                Pencarian tidak menemukan data zona.
+              </div>
+            ) : (
+              filteredZones.map((z) => {
+                const sharePct = grandTotalOmzet > 0 ? (z.totalOmzet / grandTotalOmzet) * 100 : 0;
+                const rank = sortedZones.findIndex((sz) => sz.zoneName === z.zoneName) + 1;
 
-                  // Rank Badge styling
-                  let rankBadgeClass = "bg-suka-brown/5 text-suka-brown/70 border-suka-brown/10";
-                  if (rank === 1) rankBadgeClass = "bg-amber-100 text-amber-900 border-amber-300 font-black shadow-xs";
-                  if (rank === 2) rankBadgeClass = "bg-slate-100 text-slate-800 border-slate-300 font-black";
-                  if (rank === 3) rankBadgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-black";
+                let rankBadgeClass = "bg-suka-brown/5 text-suka-brown/70 border-suka-brown/10";
+                if (rank === 1) rankBadgeClass = "bg-amber-100 text-amber-900 border-amber-300 font-black shadow-xs";
+                if (rank === 2) rankBadgeClass = "bg-slate-100 text-slate-800 border-slate-300 font-black";
+                if (rank === 3) rankBadgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-black";
 
-                  return (
-                    <tr
-                      key={z.zoneName}
-                      onClick={() => {
-                        setSelectedZone(z.zoneName);
-                        setSearchQuery('');
-                      }}
-                      className="hover:bg-suka-orange/[0.04] cursor-pointer transition-all duration-150 group"
-                    >
-                      {/* Rank Badge */}
-                      <td className="py-4 px-4 text-center">
-                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs border ${rankBadgeClass}`}>
+                return (
+                  <div
+                    key={z.zoneName}
+                    onClick={() => {
+                      setSelectedZone(z.zoneName);
+                      setSearchQuery('');
+                    }}
+                    className="p-4 rounded-2xl bg-white border border-suka-brown/10 hover:border-suka-orange/40 shadow-xs active:scale-[0.99] transition-all space-y-3 cursor-pointer group"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs shrink-0 border ${rankBadgeClass}`}>
                           #{rank}
                         </span>
-                      </td>
-
-                      {/* Zone Name */}
-                      <td className="py-4 px-4 font-extrabold flex items-center gap-2.5">
-                        <div className="p-2 rounded-xl bg-suka-orange/10 text-suka-orange group-hover:bg-suka-orange group-hover:text-white transition-colors">
-                          <Building2 size={16} />
-                        </div>
-                        <span className="group-hover:text-suka-orange transition-colors">Zona {z.zoneName}</span>
-                      </td>
-
-                      {/* Branch Count */}
-                      <td className="py-4 px-4 text-center">
-                        <span className="px-3 py-1 bg-suka-brown/5 rounded-full text-xs font-bold text-suka-brown">
-                          {z.outlets.length} Outlet
-                        </span>
-                      </td>
-
-                      {/* Contribution Progress Bar */}
-                      <td className="py-4 px-4 min-w-[140px]">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-suka-brown/10 rounded-full h-2 overflow-hidden">
-                            <div
-                              className="bg-gradient-to-r from-suka-orange to-amber-500 h-full rounded-full transition-all duration-500"
-                              style={{ width: `${Math.min(sharePct, 100)}%` }}
-                            />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <Building2 size={15} className="text-suka-orange shrink-0" />
+                            <span className="font-extrabold text-sm text-suka-brown truncate group-hover:text-suka-orange transition-colors">
+                              Zona {z.zoneName}
+                            </span>
                           </div>
-                          <span className="text-[11px] font-black text-suka-brown/70 min-w-[38px] text-right">
-                            {sharePct.toFixed(1)}%
+                          <span className="inline-block mt-1 px-2 py-0.5 bg-suka-brown/5 rounded-md text-[10px] font-bold text-suka-brown/70">
+                            {z.outlets.length} Outlet Aktif
                           </span>
                         </div>
-                      </td>
+                      </div>
 
-                      {/* Omzet Value */}
-                      <td className="py-4 px-4 text-right font-black text-suka-brown text-base">
-                        {formatRupiah(z.totalOmzet)}
-                      </td>
-
-                      {/* Action */}
-                      <td className="py-4 px-4 text-center">
-                        <span className="px-2.5 py-1 text-xs font-bold rounded-lg text-suka-gray-400 group-hover:bg-suka-orange group-hover:text-white inline-flex items-center gap-1 transition-all">
-                          Detail <ChevronRight size={14} />
+                      <div className="text-right shrink-0">
+                        <span className="text-base font-black text-suka-brown block">
+                          {formatRupiah(z.totalOmzet)}
                         </span>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
+                        <span className="text-[11px] font-bold text-suka-orange inline-flex items-center gap-0.5 mt-0.5">
+                          Detail <ChevronRight size={13} />
+                        </span>
+                      </div>
+                    </div>
 
-            {/* Footer Summary */}
-            {filteredZones.length > 0 && (
-              <tfoot>
-                <tr className="border-t-2 border-suka-brown/15 bg-suka-brown/[0.03] text-sm font-black text-suka-brown">
-                  <td colSpan={2} className="py-4 px-4 uppercase tracking-wider text-xs font-black">
-                    Total Region ({zones.length} Zona)
-                  </td>
-                  <td className="py-4 px-4 text-center text-xs">{totalOutletsCount} Outlet</td>
-                  <td className="py-4 px-4 text-xs text-suka-brown/60">100% Total Kontribusi</td>
-                  <td className="py-4 px-4 text-right text-lg font-black text-suka-orange">
-                    {formatRupiah(grandTotalOmzet)}
-                  </td>
-                  <td></td>
-                </tr>
-              </tfoot>
+                    {/* Progress bar + contribution share */}
+                    <div className="space-y-1 pt-2 border-t border-suka-brown/5">
+                      <div className="flex justify-between items-center text-[11px]">
+                        <span className="font-medium text-suka-gray-400">Kontribusi Wilayah</span>
+                        <span className="font-black text-suka-brown">{sharePct.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full h-2 bg-suka-brown/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-suka-orange to-amber-500 transition-all duration-500"
+                          style={{ width: `${Math.min(sharePct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
             )}
-          </table>
-        </div>
+
+            {/* Mobile Footer Summary Card */}
+            {filteredZones.length > 0 && (
+              <div className="p-4 rounded-2xl bg-suka-brown/[0.03] border border-suka-brown/15 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown/60 block">
+                    Total Region ({zones.length} Zona)
+                  </span>
+                  <span className="text-xs font-bold text-suka-brown/70">
+                    {totalOutletsCount} Outlet Terdaftar
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-base font-black text-suka-orange">
+                    {formatRupiah(grandTotalOmzet)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 💻 DESKTOP VIEW: Full Comprehensive Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-suka-brown/10 shadow-xs">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-suka-brown/[0.03] border-b border-suka-brown/10 text-[11px] font-black text-suka-brown/60 uppercase tracking-wider">
+                  <th className="py-3.5 px-4 text-center w-14">Peringkat</th>
+                  <th className="py-3.5 px-4">Zona / Area Manager</th>
+                  <th className="py-3.5 px-4 text-center">Jumlah Cabang</th>
+                  <th className="py-3.5 px-4">Porsi Kontribusi</th>
+                  <th className="py-3.5 px-4 text-right">Total Omzet</th>
+                  <th className="py-3.5 px-4 text-center w-24">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-suka-brown/5 text-sm font-semibold text-suka-brown bg-white">
+                {filteredZones.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center text-suka-gray-400 text-xs">
+                      Pencarian tidak menemukan data zona.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredZones.map((z) => {
+                    const sharePct = grandTotalOmzet > 0 ? (z.totalOmzet / grandTotalOmzet) * 100 : 0;
+                    const rank = sortedZones.findIndex((sz) => sz.zoneName === z.zoneName) + 1;
+
+                    let rankBadgeClass = "bg-suka-brown/5 text-suka-brown/70 border-suka-brown/10";
+                    if (rank === 1) rankBadgeClass = "bg-amber-100 text-amber-900 border-amber-300 font-black shadow-xs";
+                    if (rank === 2) rankBadgeClass = "bg-slate-100 text-slate-800 border-slate-300 font-black";
+                    if (rank === 3) rankBadgeClass = "bg-orange-100 text-orange-900 border-orange-300 font-black";
+
+                    return (
+                      <tr
+                        key={z.zoneName}
+                        onClick={() => {
+                          setSelectedZone(z.zoneName);
+                          setSearchQuery('');
+                        }}
+                        className="hover:bg-suka-orange/[0.04] cursor-pointer transition-all duration-150 group"
+                      >
+                        <td className="py-4 px-4 text-center">
+                          <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs border ${rankBadgeClass}`}>
+                            #{rank}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 font-extrabold flex items-center gap-2.5">
+                          <div className="p-2 rounded-xl bg-suka-orange/10 text-suka-orange group-hover:bg-suka-orange group-hover:text-white transition-colors">
+                            <Building2 size={16} />
+                          </div>
+                          <span className="group-hover:text-suka-orange transition-colors">Zona {z.zoneName}</span>
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="px-3 py-1 bg-suka-brown/5 rounded-full text-xs font-bold text-suka-brown">
+                            {z.outlets.length} Outlet
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 min-w-[140px]">
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 bg-suka-brown/10 rounded-full h-2 overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-suka-orange to-amber-500 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(sharePct, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-[11px] font-black text-suka-brown/70 min-w-[38px] text-right">
+                              {sharePct.toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-right font-black text-suka-brown text-base">
+                          {formatRupiah(z.totalOmzet)}
+                        </td>
+                        <td className="py-4 px-4 text-center">
+                          <span className="px-2.5 py-1 text-xs font-bold rounded-lg text-suka-gray-400 group-hover:bg-suka-orange group-hover:text-white inline-flex items-center gap-1 transition-all">
+                            Detail <ChevronRight size={14} />
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+              {filteredZones.length > 0 && (
+                <tfoot>
+                  <tr className="border-t-2 border-suka-brown/15 bg-suka-brown/[0.03] text-sm font-black text-suka-brown">
+                    <td colSpan={2} className="py-4 px-4 uppercase tracking-wider text-xs font-black">
+                      Total Region ({zones.length} Zona)
+                    </td>
+                    <td className="py-4 px-4 text-center text-xs">{totalOutletsCount} Outlet</td>
+                    <td className="py-4 px-4 text-xs text-suka-brown/60">100% Total Kontribusi</td>
+                    <td className="py-4 px-4 text-right text-lg font-black text-suka-orange">
+                      {formatRupiah(grandTotalOmzet)}
+                    </td>
+                    <td></td>
+                  </tr>
+                </tfoot>
+              )}
+            </table>
+          </div>
+        </>
       ) : (
-        /* 🔍 LEVEL 2: Micro View - Selected Zone Outlets Table */
+        /* 🔍 LEVEL 2: Micro View - Selected Zone Outlets */
         <div className="space-y-3">
           
           {/* Breadcrumb Header */}
@@ -337,8 +417,76 @@ export default function ZonePerformanceTable({ zones }: ZonePerformanceTableProp
             </div>
           </div>
 
-          {/* Micro Outlets Table */}
-          <div className="overflow-x-auto rounded-2xl border border-suka-brown/10 shadow-xs">
+          {/* 📱 MOBILE VIEW: Micro Outlets Card List */}
+          <div className="space-y-2.5 md:hidden">
+            {filteredOutlets.length === 0 ? (
+              <div className="py-12 text-center text-suka-gray-400 text-xs bg-suka-brown/[0.02] rounded-2xl border border-dashed border-suka-brown/10">
+                Tidak ada outlet yang cocok dengan kueri pencarian.
+              </div>
+            ) : (
+              filteredOutlets.map((outlet, idx) => {
+                const zoneTotal = activeZoneData?.totalOmzet || 1;
+                const outletShare = zoneTotal > 0 ? (outlet.omzet / zoneTotal) * 100 : 0;
+
+                return (
+                  <div
+                    key={outlet.id}
+                    className="p-3.5 rounded-2xl bg-white border border-suka-brown/10 shadow-xs space-y-2.5"
+                  >
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-black text-suka-brown/50 w-5 text-center shrink-0">
+                          #{idx + 1}
+                        </span>
+                        <Store size={15} className="text-suka-brown/40 shrink-0" />
+                        <span className="font-extrabold text-sm text-suka-brown truncate">
+                          {outlet.name}
+                        </span>
+                      </div>
+                      <span className="text-sm font-black text-suka-brown shrink-0">
+                        {formatRupiah(outlet.omzet)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 pt-1 border-t border-suka-brown/5">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-suka-brown/60">
+                        <span>Porsi dalam Zona</span>
+                        <span>{outletShare.toFixed(1)}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-suka-brown/10 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-suka-orange transition-all duration-300"
+                          style={{ width: `${Math.min(outletShare, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+
+            {/* Mobile Footer Zone Total */}
+            {activeZoneData && activeZoneData.outlets.length > 0 && (
+              <div className="p-3.5 rounded-2xl bg-suka-brown/[0.03] border border-suka-brown/15 flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-suka-brown/60 block">
+                    Total Zona {selectedZone}
+                  </span>
+                  <span className="text-xs font-bold text-suka-brown/70">
+                    {activeZoneData.outlets.length} Outlet
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-base font-black text-suka-orange">
+                    {formatRupiah(activeZoneData.totalOmzet)}
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 💻 DESKTOP VIEW: Micro Outlets Table */}
+          <div className="hidden md:block overflow-x-auto rounded-2xl border border-suka-brown/10 shadow-xs">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-suka-brown/[0.03] border-b border-suka-brown/10 text-[11px] font-black text-suka-brown/60 uppercase tracking-wider">

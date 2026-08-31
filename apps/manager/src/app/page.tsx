@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Clock, AlertTriangle, ListChecks, Calendar } 
 import RankingList from './RankingList';
 import { CustomDateFilter } from '../components/CustomDateFilter';
 import ZonePerformanceTable from '../components/ZonePerformanceTable';
+import { BonusKpiCard } from '../components/BonusKpiCard';
 import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
@@ -246,6 +247,12 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     return sum + items.reduce((s, item) => s + (Number(item.quantity) || 0), 0);
   }, 0);
 
+  const itemsSoldYesterday = (ordersYesterday || []).reduce((sum, order) => {
+    const items = order.order_items || [];
+    // @ts-ignore
+    return sum + items.reduce((s, item) => s + (Number(item.quantity) || 0), 0);
+  }, 0);
+
   let percentageChange = 0;
   if (omzetYesterday === 0) {
     percentageChange = omzetToday > 0 ? 100 : 0;
@@ -345,20 +352,22 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       </div>
       
       {/* 📊 Metrics Grid (Bento KPI Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* KPI 1: Pendapatan */}
-        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-suka-orange/30 transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Gross Revenue</h3>
-            <div className="p-2.5 bg-suka-orange/10 text-suka-orange rounded-2xl group-hover:scale-110 transition-transform">
-              <TrendingUp size={20} />
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-suka-orange/30 transition-all duration-200 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Gross Revenue</h3>
+              <div className="p-2.5 bg-suka-orange/10 text-suka-orange rounded-2xl group-hover:scale-110 transition-transform">
+                <TrendingUp size={20} />
+              </div>
             </div>
+            <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
+              {formatRupiah(omzetToday)}
+            </p>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
-            {formatRupiah(omzetToday)}
-          </p>
-          <div className="mt-3">
+          <div className="mt-3 pt-2 border-t border-suka-brown/5">
             <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full inline-flex items-center gap-1 ${
               isPositive ? 'text-emerald-800 bg-emerald-100/80 border border-emerald-200' : 'text-red-700 bg-red-100/80 border border-red-200'
             }`}>
@@ -369,17 +378,19 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         </div>
         
         {/* KPI 2: Jumlah Transaksi */}
-        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Jumlah Transaksi</h3>
-            <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform">
-              <Clock size={20} />
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-amber-500/30 transition-all duration-200 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Jumlah Transaksi</h3>
+              <div className="p-2.5 bg-amber-500/10 text-amber-600 rounded-2xl group-hover:scale-110 transition-transform">
+                <Clock size={20} />
+              </div>
             </div>
+            <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
+              {txToday} <span className="text-sm font-bold text-suka-gray-400">order</span>
+            </p>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
-            {txToday} <span className="text-sm font-bold text-suka-gray-400">order</span>
-          </p>
-          <div className="mt-3">
+          <div className="mt-3 pt-2 border-t border-suka-brown/5">
             <span className="text-[10px] font-extrabold text-suka-brown/60 bg-suka-brown/5 px-2.5 py-1 rounded-full border border-suka-brown/10 inline-block">
               Selesai pada periode ini
             </span>
@@ -387,22 +398,32 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
         </div>
 
         {/* KPI 3: Jumlah Item Terjual */}
-        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-200">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Jumlah Item Terjual</h3>
-            <div className="p-2.5 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
-              <ListChecks size={20} />
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-emerald-500/30 transition-all duration-200 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Jumlah Item Terjual</h3>
+              <div className="p-2.5 bg-emerald-500/10 text-emerald-600 rounded-2xl group-hover:scale-110 transition-transform">
+                <ListChecks size={20} />
+              </div>
             </div>
+            <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
+              {itemsSoldToday} <span className="text-sm font-bold text-suka-gray-400">porsi</span>
+            </p>
           </div>
-          <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-3 tracking-tight">
-            {itemsSoldToday} <span className="text-sm font-bold text-suka-gray-400">porsi</span>
-          </p>
-          <div className="mt-3">
+          <div className="mt-3 pt-2 border-t border-suka-brown/5">
             <span className="text-[10px] font-extrabold text-suka-brown/60 bg-suka-brown/5 px-2.5 py-1 rounded-full border border-suka-brown/10 inline-block">
               Total Produk pada periode ini
             </span>
           </div>
         </div>
+
+        {/* KPI 4: Estimasi Bonus & Insentif */}
+        <BonusKpiCard
+          itemsSoldToday={itemsSoldToday}
+          itemsSoldYesterday={itemsSoldYesterday}
+          userRole={staff?.role}
+          userName={staff?.name}
+        />
       </div>
       
       {/* 🏢 Zone Performance Monitoring Table for Regional Manager */}

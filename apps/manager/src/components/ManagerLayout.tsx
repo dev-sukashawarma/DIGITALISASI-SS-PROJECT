@@ -3,12 +3,12 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { Button } from '@suka/design-system'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3 } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
 
-export type NavItem = { href: string; label: string; icon: any }
+export type NavItem = { href: string; label: string; icon: any; external?: boolean; appKey?: 'inventori' }
 export type NavGroup = { title: string; items: NavItem[] }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -17,6 +17,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Overview', icon: LayoutDashboard },
       { href: '/reports', label: 'Laporan', icon: BarChart3 },
+      { href: '/inventori', label: 'Inventaris', icon: ClipboardCheck, external: true, appKey: 'inventori' },
     ]
   },
   {
@@ -39,6 +40,9 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [inventoriUrl, setInventoriUrl] = useState(
+    process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com',
+  )
   const { pendingRequests } = useApprovals()
 
   const brand = "SS"
@@ -48,7 +52,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
 
   const allLinks = NAV_GROUPS.flatMap(g => g.items)
 
-  const currentNavPath = allLinks.find(l => l.href !== homePath && pathname.startsWith(l.href))?.href ?? homePath
+  const currentNavPath = allLinks.find(l => !l.external && l.href !== homePath && pathname.startsWith(l.href))?.href ?? homePath
   const currentLink = allLinks.find(l => l.href === currentNavPath)
 
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -63,6 +67,12 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
     document.addEventListener('mousedown', onClickOutside)
     return () => document.removeEventListener('mousedown', onClickOutside)
   }, [isUserMenuOpen])
+
+  useEffect(() => {
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      setInventoriUrl('http://localhost:3011')
+    }
+  }, [])
 
   return (
     <div className="flex h-screen overflow-hidden bg-suka-cream">
@@ -80,15 +90,16 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                 {group.title}
               </div>
               <div className="space-y-0.5">
-                {group.items.map(({ href, label, icon: Icon }) => {
+                {group.items.map(({ href, label, icon: Icon, appKey }) => {
                   const active = currentNavPath === href
                   const isApproval = href === '/approvals'
                   const count = isApproval ? pendingRequests.length : 0
+                  const targetHref = appKey === 'inventori' ? inventoriUrl : href
 
                   return (
                     <Link
                       key={href}
-                      href={href}
+                      href={targetHref}
                       className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                         active
                           ? 'bg-suka-orange text-white shadow-xs'
@@ -192,12 +203,13 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
 
         {/* Mobile Bottom Navigation */}
         <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/90 backdrop-blur-xl rounded-full border border-suka-brown/10 shadow-[0_8px_30px_rgba(44,24,16,0.12)] flex items-center justify-around px-2 py-2 print:hidden">
-          {allLinks.map(({ href, label, icon: Icon }) => {
+          {allLinks.map(({ href, label, icon: Icon, appKey }) => {
             const active = currentNavPath === href
+            const targetHref = appKey === 'inventori' ? inventoriUrl : href
             return (
               <Link
                 key={href}
-                href={href}
+                href={targetHref}
                 className={`flex flex-col items-center justify-center min-h-[48px] min-w-[64px] gap-1 transition-all rounded-xl relative ${
                   active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
                 }`}

@@ -26,6 +26,7 @@ const getAppUrls = async () => {
     'owner-dashboard': isLocal ? 'http://localhost:3003' : (process.env.NEXT_PUBLIC_APP_URL_OWNER_DASHBOARD || 'https://owner.sukashawarma.com'),
     finance:           isLocal ? 'http://localhost:3020' : (process.env.NEXT_PUBLIC_APP_URL_FINANCE || 'https://finance.sukashawarma.com'),
     manager:           isLocal ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL_MANAGER || 'https://manager.sukashawarma.com'),
+    inventori:         isLocal ? 'http://localhost:3011' : (process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com'),
     monitoring:        isLocal ? 'http://localhost:3030' : (process.env.NEXT_PUBLIC_APP_URL_MONITORING || 'https://monitor.sukashawarma.com'),
     HR:                isLocal ? 'http://localhost:3025' : (process.env.NEXT_PUBLIC_APP_URL_HR || 'https://hr.sukashawarma.com'),
   } as Record<AppName, string>
@@ -81,6 +82,7 @@ export default async function LauncherPage() {
       desc: ['purchasing', 'purchase'].includes(staff.role) ? 'Dashboard purchasing, purchase order & pengadaan' : 'Keuangan, petty cash & pengajuan dana' 
     },
     manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area' },
+    inventori:         { label: 'Inventaris Outlet', url: APP_URL.inventori, desc: 'Pemeriksaan aset outlet dengan foto oleh Area Manager' },
     monitoring:        { label: 'Live Monitor', url: APP_URL.monitoring, desc: 'Kamera outlet on-demand tanpa rekaman' },
     HR:                { label: 'HR Dashboard',     url: APP_URL.HR,                desc: 'Database staf, absensi, cuti, payroll & kontrak' },
   }

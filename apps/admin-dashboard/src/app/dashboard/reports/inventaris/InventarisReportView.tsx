@@ -96,7 +96,22 @@ function normalizePhotoPath(value: unknown): string | null {
 function resolvePhotoUrl(value: unknown): string | null {
   const path = normalizePhotoPath(value)
   if (!path) return null
-  if (/^https?:\/\//i.test(path)) return path
+  if (/^https?:\/\//i.test(path)) {
+    // Older rows may contain an expired Supabase signed URL. Convert it back
+    // to a storage path so the authenticated server proxy can sign it again.
+    try {
+      const url = new URL(path)
+      const marker = '/storage/v1/object/sign/inventaris-foto/'
+      const markerIndex = url.pathname.indexOf(marker)
+      if (markerIndex >= 0) {
+        const storagePath = decodeURIComponent(url.pathname.slice(markerIndex + marker.length))
+        if (storagePath) return `/api/inventaris/photo?path=${encodeURIComponent(storagePath)}`
+      }
+    } catch {
+      // Keep the original URL as a last-resort fallback below.
+    }
+    return path
+  }
   return `/api/inventaris/photo?path=${encodeURIComponent(path)}`
 }
 
@@ -231,7 +246,8 @@ export default function InventarisReportView() {
           const masterId = relationId(firstValue(rawItem, ['master_item_id', 'inventaris_master_item_id', 'item_id', 'master_item']))
           const status = asText(firstValue(rawItem, ['status_penilaian', 'status', 'availability_status', 'condition', 'kondisi']))
           const photo = resolvePhotoUrl(firstValue(rawItem, [
-            'photo_url', 'photo_path', 'image_url', 'image_path', 'photo_storage_path', 'evidence_url',
+            // photo_path is canonical and photo_url can be an expired signed URL.
+            'photo_path', 'photo_storage_path', 'photo_url', 'image_path', 'image_url', 'evidence_url',
           ]))
           return {
             id: asText(firstValue(rawItem, ['id', 'item_id']), `${id}-${index}`),

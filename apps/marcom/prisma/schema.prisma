@@ -1,0 +1,81 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Outlet {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @unique
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  endorsements Endorsement[]
+  ads          Ad[]
+
+  @@map("outlets")
+}
+
+model Kol {
+  id           BigInt   @id @default(autoincrement())
+  name         String
+  tiktokUrl    String?  @map("tiktok_url")
+  instagramUrl String?  @map("instagram_url")
+  phoneNumber  String?  @map("phone_number")
+  bankAccount  String?  @map("bank_account")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  endorsements Endorsement[]
+
+  @@map("kols")
+}
+
+model Endorsement {
+  id           BigInt   @id @default(autoincrement())
+  kolId        BigInt   @map("kol_id")
+  outletId     BigInt   @map("outlet_id")
+  scheduleDate DateTime @map("schedule_date") @db.Date
+  rateCard     Decimal  @default(0) @db.Decimal(12,2) @map("rate_card")
+  postUrl      String?  @map("post_url")
+  initialViews Int?     @map("initial_views")
+  finalViews   Int?     @map("final_views")
+  visitStatus  String   @default("PENDING") @map("visit_status") 
+  postStatus   String   @default("OFF") @map("post_status") 
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  kol          Kol      @relation(fields: [kolId], references: [id], onDelete: Restrict)
+  outlet       Outlet   @relation(fields: [outletId], references: [id], onDelete: Restrict)
+
+  @@index([kolId], name: "idx_endorsements_kol_id")
+  @@index([outletId], name: "idx_endorsements_outlet_id")
+  @@index([scheduleDate], name: "idx_endorsements_date")
+  @@map("endorsements")
+}
+
+model Ad {
+  id           BigInt   @id @default(autoincrement())
+  outletId     BigInt   @map("outlet_id")
+  scheduleDate DateTime @map("schedule_date") @db.Date
+  budget       Decimal  @default(0) @db.Decimal(12,2)
+  adUrl        String?  @map("ad_url")
+  initialViews Int?     @map("initial_views")
+  finalViews   Int?     @map("final_views")
+  status       String   @default("OFF") 
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  outlet       Outlet   @relation(fields: [outletId], references: [id], onDelete: Restrict)
+
+  @@index([outletId], name: "idx_ads_outlet_id")
+  @@index([scheduleDate], name: "idx_ads_schedule_date")
+  @@map("ads")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  role      String   @default("MARCOM")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("users")
+}

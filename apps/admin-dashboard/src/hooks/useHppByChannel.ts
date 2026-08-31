@@ -135,7 +135,7 @@ export function useHppByChannel(from: string, to: string) {
         .gte("order_date", ordersGte)
         .lte("order_date", ordersLte);
 
-      const allEc: any[] = [];
+      const ecommerceSalesList: any[] = [];
       offset = 0;
       while (true) {
         const { data, error } = await queryEcommerce.range(
@@ -144,7 +144,7 @@ export function useHppByChannel(from: string, to: string) {
         );
         if (error) throw error;
         const page = data ?? [];
-        allEc.push(...page);
+        ecommerceSalesList.push(...page);
         if (page.length < PAGE_SIZE) break;
         offset += PAGE_SIZE;
       }
@@ -173,7 +173,7 @@ export function useHppByChannel(from: string, to: string) {
         });
       });
 
-      allEc.forEach((saleRecord: any) => {
+      ecommerceSalesList.forEach((saleRecord: any) => {
         const outletId = "ss-online";
         const outletType = "outlet";
         const source = saleRecord.channel_id || "ecommerce";

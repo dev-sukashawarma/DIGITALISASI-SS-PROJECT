@@ -85,14 +85,14 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         })
 
       // Fetch Ecommerce Sales (Shopee, TikTok Shop, Web SS Online) if applicable
-      const allEcRows: SalesSummaryRow[] = []
+      const allEcommerceRows: SalesSummaryRow[] = []
       if (filter.outletId === 'all' || filter.outletId === 'ss-online') {
         const PAGE_SIZE = 1000
         let offset = 0
-        const allEc: any[] = []
+        const ecommerceSalesList: any[] = []
 
         while (true) {
-          const { data: page, error: ecError } = await supabase
+          const { data: page, error: ecommerceError } = await supabase
             .from('ecommerce_sales')
             .select('id, channel_id, order_date, total_amount, raw_data')
             .gte('order_date', fromIso)
@@ -100,18 +100,18 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
             .order('order_date', { ascending: true })
             .range(offset, offset + PAGE_SIZE - 1)
 
-          if (ecError) {
-            console.error('useSalesDaily ecommerce error:', ecError)
+          if (ecommerceError) {
+            console.error('useSalesDaily ecommerce error:', ecommerceError)
             break
           }
           if (!page || page.length === 0) break
-          allEc.push(...page)
+          ecommerceSalesList.push(...page)
           if (page.length < PAGE_SIZE) break
           offset += PAGE_SIZE
         }
 
-        const ecMap = new Map<string, SalesSummaryRow>()
-        for (const saleRecord of allEc) {
+        const ecommerceSummaryMap = new Map<string, SalesSummaryRow>()
+        for (const saleRecord of ecommerceSalesList) {
           const raw = saleRecord.raw_data || {}
           const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
           const omzetKotor = Number(saleRecord.total_amount) || 0
@@ -137,7 +137,7 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           }
 
           const key = `ss-online__${salesSource}__${dateStr}`
-          const existing = ecMap.get(key) || {
+          const existing = ecommerceSummaryMap.get(key) || {
             outlet_id: 'ss-online',
             outlet_name: 'SS ONLINE',
             sales_source: salesSource,
@@ -152,13 +152,13 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           existing.jumlah_order_completed += 1
           existing.jumlah_order_all += 1
           existing.total_deductions = (existing.total_deductions || 0) + totalPotongan
-          ecMap.set(key, existing)
+          ecommerceSummaryMap.set(key, existing)
         }
 
-        allEcRows.push(...Array.from(ecMap.values()))
+        allEcommerceRows.push(...Array.from(ecommerceSummaryMap.values()))
       }
 
-      return [...posRows, ...allEcRows]
+      return [...posRows, ...allEcommerceRows]
     },
   })
 

@@ -502,7 +502,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const fetchEcommerceOrders = async () => {
       if (!selectedOutlets.includes('all') && !selectedOutlets.includes('ss-online')) return []
 
-      const allEc: any[] = []
+      const ecommerceSalesList: any[] = []
       let offset = 0
       while (true) {
         const { data, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
@@ -511,13 +511,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           throw error
         }
         const page = data ?? []
-        allEc.push(...page)
+        ecommerceSalesList.push(...page)
         if (page.length < PAGE_SIZE) break
         offset += PAGE_SIZE
       }
 
       // Map to OrderRow format
-      return allEc.map((saleRecord: any) => {
+      return ecommerceSalesList.map((saleRecord: any) => {
         const raw = saleRecord.raw_data || {}
         const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
         return {

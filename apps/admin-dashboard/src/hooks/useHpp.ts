@@ -141,7 +141,7 @@ export function useHpp(filter: PeriodFilterValue) {
         offset += PAGE_SIZE;
       }
 
-      const allEc: any[] = [];
+      const ecommerceSalesList: any[] = [];
       if (filter.outletId === "all" || filter.outletId === "ss-online") {
         let queryEcommerce = supabase
           .from("ecommerce_sales")
@@ -159,7 +159,7 @@ export function useHpp(filter: PeriodFilterValue) {
           );
           if (error) throw error;
           const page = data ?? [];
-          allEc.push(...page);
+          ecommerceSalesList.push(...page);
           if (page.length < PAGE_SIZE) break;
           offset += PAGE_SIZE;
         }
@@ -186,10 +186,10 @@ export function useHpp(filter: PeriodFilterValue) {
         });
       });
 
-      allEc.forEach((saleRecord: any) => {
+      ecommerceSalesList.forEach((saleRecord: any) => {
         const outletId = "ss-online";
         const outletType = "outlet";
-        const ecChannel = saleRecord.channel_id || "ss_online";
+        const ecommerceChannel = saleRecord.channel_id || "ss_online";
 
         saleRecord.ecommerce_sale_items?.forEach((item: any) => {
           const fallbackName = item.menu_items?.name || "Unknown";
@@ -198,7 +198,7 @@ export function useHpp(filter: PeriodFilterValue) {
             outletType,
             fallbackName,
             menuItemByNameMap,
-            ecChannel,
+            ecommerceChannel,
           );
           const qty = item.quantity || 1;
           const current = hppMap.get(outletId) || 0;

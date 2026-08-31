@@ -85,25 +85,27 @@ async function fetchEcommerceOwnerData(
     }
   }
 
-  const PAGE_SIZE = 1000
+  const fromIso = fromStart.toISOString()
+  const toIso = toEnd.toISOString()
+  const ecommerceSalesList: any[] = []
   let offset = 0
-  const allEc: any[] = []
+  const PAGE_SIZE = 1000
+
+  let query = supabase
+    .from('ecommerce_sales')
+    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
+    .gte('order_date', fromIso)
+    .lte('order_date', toIso)
+    .order('order_date', { ascending: true })
 
   while (true) {
-    const { data, error } = await supabase
-      .from('ecommerce_sales')
-      .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
-      .gte('order_date', fromStart.toISOString())
-      .lte('order_date', toEnd.toISOString())
-      .order('order_date', { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1)
-
+    const { data: page, error } = await query.range(offset, offset + PAGE_SIZE - 1)
     if (error) {
       console.error('fetchEcommerceOwnerData error:', error)
       break
     }
-    const page = data ?? []
-    allEc.push(...page)
+    if (!page || page.length === 0) break
+    ecommerceSalesList.push(...page)
     if (page.length < PAGE_SIZE) break
     offset += PAGE_SIZE
   }
@@ -116,7 +118,7 @@ async function fetchEcommerceOwnerData(
   const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
   let totalCogs = 0
 
-  for (const saleRecord of allEc) {
+  for (const saleRecord of ecommerceSalesList) {
     const raw = saleRecord.raw_data || {}
     const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
     const omzetKotor = Number(saleRecord.total_amount) || 0

@@ -6,7 +6,9 @@ export const runtime = 'nodejs'
 
 const PHOTO_BUCKET = 'inventaris-foto'
 const MAX_INPUT_FILE_BYTES = 12 * 1024 * 1024
-const PHOTO_PROCESS_CONCURRENCY = 4
+// Storage upload is network-bound after the CPU-heavy resize. A small worker
+// pool keeps the VPS busy without creating one promise per photo at once.
+const PHOTO_PROCESS_CONCURRENCY = 6
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const CONDITIONS = new Set(['baik', 'perlu_perbaikan', 'rusak', 'tidak_ada'])
 
@@ -69,6 +71,32 @@ function evaluate(item: MasterItem, submitted: SubmittedItem): string {
       : 'di_luar_target'
   }
   return submitted.observed_qty >= Number(item.target_qty) ? 'sesuai' : 'kurang'
+}
+
+async function mapWithConcurrency<T, R>(items: T[], concurrency: number, mapper: (item: T, index: number) => Promise<R>) {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  let failed = false
+  let firstError: unknown = null
+
+  async function worker() {
+    while (!failed) {
+      const index = nextIndex++
+      if (index >= items.length) return
+      try {
+        results[index] = await mapper(items[index], index)
+      } catch (error) {
+        // Let every already-running worker finish so the cleanup phase can
+        // remove all files uploaded before the request failed.
+        failed = true
+        firstError = error
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()))
+  if (failed) throw firstError
+  return results
 }
 
 async function createServerClient() {
@@ -177,6 +205,11 @@ export async function POST(request: Request) {
     existingItems = (existingItemData ?? []) as Array<{ master_item_id: string; photo_path: string }>
   }
   const existingPhotoPaths = new Set(existingItems.map((item) => item.photo_path))
+  const photoByItemId = new Map<string, File | null>()
+  for (const item of payload.items) {
+    const photo = formData.get(`photo_${item.master_item_id}`)
+    photoByItemId.set(item.master_item_id, photo instanceof File && photo.size > 0 ? photo : null)
+  }
 
   const { data: masterItems, error: masterError } = await supabase
     .from('inventaris_master_items')
@@ -200,7 +233,7 @@ export async function POST(request: Request) {
     if (item.observed_qty !== null && (!Number.isFinite(item.observed_qty) || item.observed_qty < 0)) {
       return errorResponse('Jumlah item tidak valid.')
     }
-    const photo = formData.get(`photo_${item.master_item_id}`)
+    const photo = photoByItemId.get(item.master_item_id)
     const existingPhotoPath = item.photo_path?.trim() || null
     if (!(photo instanceof File) || photo.size === 0) {
       if (!existingPhotoPath || !existingPhotoPaths.has(existingPhotoPath)) {
@@ -215,33 +248,27 @@ export async function POST(request: Request) {
   const submissionId = currentSubmission?.id ?? crypto.randomUUID()
   const uploadedPaths: string[] = []
   try {
+    const hasNewPhotos = Array.from(photoByItemId.values()).some(Boolean)
     // Load sharp only when a real upload is processed. This prevents Next.js
     // from evaluating sharp while collecting route/page data during build.
-    const { default: sharp } = await import('sharp')
-    const detailRows: Array<Record<string, string | number | boolean | null>> = []
-    // Kompres/upload beberapa foto sekaligus. Concurrency dibatasi agar CPU
-    // dan koneksi VPS tetap stabil saat satu outlet punya banyak item.
-    for (let start = 0; start < payload.items.length; start += PHOTO_PROCESS_CONCURRENCY) {
-      const batch = payload.items.slice(start, start + PHOTO_PROCESS_CONCURRENCY)
-      const rows = await Promise.all(batch.map(async (item) => {
+    const sharp = hasNewPhotos ? (await import('sharp')).default : null
+    const detailRows = await mapWithConcurrency(payload.items, PHOTO_PROCESS_CONCURRENCY, async (item) => {
         const master = masterById.get(item.master_item_id) as MasterItem
-        const photo = formData.get(`photo_${item.master_item_id}`)
+        const photo = photoByItemId.get(item.master_item_id)
         let path = item.photo_path?.trim() || null
         if (photo instanceof File && photo.size > 0) {
+          if (!sharp) throw new Error('Pemroses foto belum siap.')
           const input = Buffer.from(await photo.arrayBuffer())
-          const webp = await sharp(input)
+          const webp = await sharp(input, { limitInputPixels: 40_000_000, sequentialRead: true })
             .rotate()
             .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
             .webp({ quality: 78 })
             .toBuffer()
           const uploadId = crypto.randomUUID()
           path = `${user.id}/${submissionId}/${item.master_item_id}-${uploadId}.webp`
-          const webpBody = new Blob([
-            webp.buffer.slice(webp.byteOffset, webp.byteOffset + webp.byteLength) as ArrayBuffer,
-          ], { type: 'image/webp' })
           const { error: uploadError } = await supabase.storage
             .from(PHOTO_BUCKET)
-            .upload(path, webpBody, { contentType: 'image/webp', upsert: false })
+            .upload(path, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: false })
           if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
           uploadedPaths.push(path)
         }
@@ -255,9 +282,7 @@ export async function POST(request: Request) {
           catatan: item.catatan?.trim() || null,
           photo_path: path,
         }
-      }))
-      detailRows.push(...rows)
-    }
+      })
 
     const { error: submitError } = await supabase.rpc('submit_inventaris', {
       p_submission_id: submissionId,

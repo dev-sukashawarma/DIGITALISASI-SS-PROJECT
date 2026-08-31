@@ -413,8 +413,8 @@ function OutletSubmissionCard({ submission, statusFilter, isOpen, onToggle, onPh
   const missingCount = submission.items.length - completeCount
   const visibleItems = submission.items.filter((item) => statusFilter === 'all' || (statusFilter === 'complete' && isCompleteStatus(item.status)) || (statusFilter === 'missing' && !isCompleteStatus(item.status)))
   return (
-    <section className="overflow-hidden rounded-3xl border border-suka-brown/10 bg-white/85 shadow-sm">
-      <button type="button" onClick={onToggle} aria-expanded={isOpen} className="flex w-full flex-col gap-3 border-b border-suka-brown/10 bg-suka-cream/40 px-5 py-5 text-left transition hover:bg-suka-cream/70 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+    <section className="relative overflow-visible rounded-3xl border border-suka-brown/10 bg-white/85 shadow-sm">
+      <button type="button" onClick={onToggle} aria-expanded={isOpen} className="sticky top-0 z-20 flex w-full flex-col gap-3 border-b border-suka-brown/10 bg-suka-cream/95 px-5 py-5 text-left shadow-sm backdrop-blur-sm transition hover:bg-suka-cream sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-suka-orange/10 text-suka-orange">
             <Store className="h-5 w-5" />

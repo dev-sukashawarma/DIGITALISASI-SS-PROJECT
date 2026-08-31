@@ -224,7 +224,11 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
   }, [photo])
 
   async function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    const nextPhoto = event.currentTarget.files?.[0] ?? null
+    const input = event.currentTarget
+    const nextPhoto = input.files?.[0] ?? null
+    // Reset before awaiting the network request so React cannot release
+    // currentTarget and cause a null access after the async boundary.
+    input.value = ''
     uploadControllerRef.current?.abort()
     onPhotoChange(nextPhoto)
     onPhotoUploaded(null)
@@ -253,8 +257,6 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
         }
       }
     }
-    // Memungkinkan kamera memilih foto yang sama lagi pada percobaan berikutnya.
-    event.currentTarget.value = ''
   }
 
   const inputId = `photo-${itemId}`

@@ -5,8 +5,6 @@ import { AlertCircle, Camera, CheckCircle2, ChevronDown, ClipboardList, Clock3, 
 import { createClient } from '@/lib/supabase'
 import { PageHeader } from '@/components/ui'
 
-const PHOTO_BUCKET = process.env.NEXT_PUBLIC_INVENTARIS_PHOTO_BUCKET || 'inventaris-foto'
-
 type UnknownRecord = Record<string, unknown>
 
 type ReportItem = {
@@ -95,13 +93,11 @@ function normalizePhotoPath(value: unknown): string | null {
   return path || null
 }
 
-async function resolvePhotoUrl(supabase: ReturnType<typeof createClient>, value: unknown): Promise<string | null> {
+function resolvePhotoUrl(value: unknown): string | null {
   const path = normalizePhotoPath(value)
   if (!path) return null
   if (/^https?:\/\//i.test(path)) return path
-
-  const { data, error } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(path, 60 * 60)
-  return error ? null : data?.signedUrl ?? null
+  return `/api/inventaris/photo?path=${encodeURIComponent(path)}`
 }
 
 function badgeClass(status: string): string {
@@ -234,7 +230,7 @@ export default function InventarisReportView() {
         const items = await Promise.all(rawItems.map(async (rawItem, index): Promise<ReportItem> => {
           const masterId = relationId(firstValue(rawItem, ['master_item_id', 'inventaris_master_item_id', 'item_id', 'master_item']))
           const status = asText(firstValue(rawItem, ['status_penilaian', 'status', 'availability_status', 'condition', 'kondisi']))
-          const photo = await resolvePhotoUrl(supabase, firstValue(rawItem, [
+          const photo = resolvePhotoUrl(firstValue(rawItem, [
             'photo_url', 'photo_path', 'image_url', 'image_path', 'photo_storage_path', 'evidence_url',
           ]))
           return {

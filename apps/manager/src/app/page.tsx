@@ -41,7 +41,10 @@ const getAMName = (outletId: string, outletName: string, amMap: Map<string, stri
   }
   
   if (amMap.has(outletId)) {
-    return amMap.get(outletId)!;
+    const mapped = amMap.get(outletId)!;
+    if (!isIgnoredAM(mapped)) {
+      return mapped;
+    }
   }
 
   const name = outletName.toUpperCase();
@@ -67,8 +70,17 @@ const getAMName = (outletId: string, outletName: string, amMap: Map<string, stri
 
 const isIgnoredAM = (name: string) => {
   if (!name) return true;
-  const n = name.toUpperCase();
-  return n.includes('AREA MANAGER AM') || n.includes('TEST');
+  const n = name.trim().toUpperCase();
+  return (
+    n.startsWith('AREA MANAGER') ||
+    n.includes('TEST') ||
+    n === 'ADMIN' ||
+    n === 'DEVELOPER' ||
+    n === 'LAINNYA' ||
+    n === 'LAIN-LAIN' ||
+    n === 'OTHER' ||
+    n === 'OTHERS'
+  );
 };
 
 export default async function DashboardOverview(props: { searchParams?: Promise<{ [key: string]: string | string[] | undefined }> }) {
@@ -272,7 +284,9 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   if (staffOutlets) {
     staffOutlets.forEach((so: any) => {
       if (so.outlet_staff && so.outlet_staff.role === 'area_manager' && so.outlet_staff.is_active !== false) {
-        amMap.set(so.outlet_id, so.outlet_staff.name);
+        const staffName = (so.outlet_staff.name || '').trim();
+        if (isIgnoredAM(staffName)) return;
+        amMap.set(so.outlet_id, staffName);
       }
     });
   }

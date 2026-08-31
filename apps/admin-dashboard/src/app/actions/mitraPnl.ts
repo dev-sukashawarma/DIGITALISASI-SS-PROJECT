@@ -151,6 +151,34 @@ export async function getMitraComprehensivePnl(
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
 
+  // 4. Fetch Petty Cash & Monthly Expenses & Waste in parallel
+  const [
+    { data: pettyExpenses },
+    { data: monthlyExpenses },
+    { data: wasteRows }
+  ] = await Promise.all([
+    supabase
+      .from('petty_cash_expenses')
+      .select('id, amount, expense_date, category, description, outlet_id')
+      .in('outlet_id', targetOutletIds)
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .is('deleted_at', null)
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to),
+    supabase
+      .from('expenses')
+      .select('id, amount, expense_date, category, description, outlet_id, type')
+      .in('outlet_id', targetOutletIds)
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .eq('type', 'out')
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to),
+    supabase.rpc('get_waste_periode', {
+      p_from: filter.from,
+      p_to: filter.to,
+    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) }))
+  ])
+
   // 5. Process Channel Breakdown & COGS
   let posGross = 0
   let posDeductions = 0

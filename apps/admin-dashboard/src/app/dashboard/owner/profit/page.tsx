@@ -310,7 +310,7 @@ export default function ProfitPage() {
 
       autoTable(doc, {
         startY: 28,
-        head: [['Rincian Kategori', 'Omzet', 'HPP', 'Waste', 'Opex']],
+        head: [['Rincian Item / Kategori', 'Omzet', 'HPP', 'Waste', 'Opex']],
         body: bodyRows,
         theme: 'grid',
         headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold' },

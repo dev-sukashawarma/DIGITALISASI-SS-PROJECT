@@ -116,17 +116,17 @@ async function fetchEcommerceOwnerData(
   const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
   let totalCogs = 0
 
-  for (const ec of allEc) {
-    const raw = ec.raw_data || {}
+  for (const saleRecord of allEc) {
+    const raw = saleRecord.raw_data || {}
     const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
-    const omzetKotor = Number(ec.total_amount) || 0
+    const omzetKotor = Number(saleRecord.total_amount) || 0
     const omzetNet = Math.max(0, omzetKotor - totalPotongan)
 
-    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(ec.order_date))
-    const hourStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }).format(new Date(ec.order_date))
+    const dateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date(saleRecord.order_date))
+    const hourStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', hour: 'numeric', hour12: false }).format(new Date(saleRecord.order_date))
     const hour = parseInt(hourStr, 10) || 0
 
-    const chNorm = (ec.channel_id || '').toLowerCase()
+    const chNorm = (saleRecord.channel_id || '').toLowerCase()
     let salesSource: SalesSource = 'online'
     if (chNorm.includes('tiktok') || chNorm === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5') {
       salesSource = 'tiktok_shop' as SalesSource
@@ -164,7 +164,7 @@ async function fetchEcommerceOwnerData(
     hourMap.set(hour, curHour)
 
     let orderQty = 0
-    for (const item of (ec.ecommerce_sale_items || [])) {
+    for (const item of (saleRecord.ecommerce_sale_items || [])) {
       const menuName = item.menu_items?.name || 'Unknown Menu'
       const cleanName = cleanItemName(menuName) || menuName
       const qty = Number(item.quantity) || 0
@@ -239,10 +239,11 @@ async function fetchOwnerDashboardSummaryRaw(
   const isAll = outletId === 'all' || !outletId
 
   if (isSSOnlineOnly) {
-    const ecData = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, source)
+    const ecDataOnly = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, source)
     return {
       result: null,
-      ecData,
+      ecData: ecDataOnly,
+      fetchedAt: new Date().toISOString(),
     }
   }
 
@@ -256,16 +257,27 @@ async function fetchOwnerDashboardSummaryRaw(
 
   const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, source) : Promise.resolve(null)
 
-  const [{ data, error }, ecData] = await Promise.all([rpcPromise, ecPromise])
+  const [rpcResponse, ecDataResponse] = await Promise.all([rpcPromise, ecPromise])
 
-  if (error) throw new Error(`get_owner_dashboard_summary: ${error.message}`)
+  if (rpcResponse.error) throw new Error(`get_owner_dashboard_summary: ${rpcResponse.error.message}`)
 
   return {
-    result: data,
-    ecData,
+    result: rpcResponse.data,
+    ecData: ecDataResponse,
     fetchedAt: new Date().toISOString(),
   }
 }
+
+const getCachedOwnerDashboardSummary = unstable_cache(
+  async (fromStartIso: string, toEndIso: string, outletId: string | null, source: SalesSource) => {
+    return fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
+  },
+  ['owner-dashboard-summary-v5'],
+  {
+    revalidate: 3600,
+    tags: ['owner-dashboard', 'owner-dashboard-past'],
+  }
+)
 
 // ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC + Smart Cache ────────────
 export async function getOwnerDashboardDataFast(
@@ -283,31 +295,13 @@ export async function getOwnerDashboardDataFast(
   const outletId = filter.outletId !== 'all' ? filter.outletId : null
   const source = filter.source
 
-  let result: any
-  let ecData: any
-  let fetchedAt: string = new Date().toISOString()
+  const payload = isPast
+    ? await getCachedOwnerDashboardSummary(fromStartIso, toEndIso, outletId, source)
+    : await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
 
-  if (isPast) {
-    // Data masa lalu (lampau): di-cache selama 1 jam (3600 detik) - instan 0 ms
-    const getCachedData = unstable_cache(
-      async () => fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source),
-      ['owner-dashboard-summary-v2', fromStartIso, toEndIso, outletId || 'all', source],
-      {
-        revalidate: 3600,
-        tags: ['owner-dashboard', 'owner-dashboard-past']
-      }
-    )
-    const cached = await getCachedData()
-    result = cached.result
-    ecData = cached.ecData
-    fetchedAt = cached.fetchedAt || fetchedAt
-  } else {
-    // Data hari ini (realtime): bypass cache agar langsung sinkron dengan kasir live
-    const live = await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
-    result = live.result
-    ecData = live.ecData
-    fetchedAt = live.fetchedAt || fetchedAt
-  }
+  const result = payload.result
+  const ecData = payload.ecData
+  const fetchedAt = payload.fetchedAt || new Date().toISOString()
 
   if (!result && ecData) {
     return {

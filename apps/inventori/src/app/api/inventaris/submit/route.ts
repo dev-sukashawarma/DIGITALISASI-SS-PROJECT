@@ -16,6 +16,10 @@ type SubmittedItem = {
   is_present: boolean | null
   kondisi: string
   catatan: string | null
+  purchase_date?: string | null
+  purchase_price?: number | null
+  depreciation_rate?: number | null
+  brand?: string | null
   photo_path?: string | null
 }
 
@@ -167,7 +171,7 @@ export async function GET(request: Request) {
 
     const { data: itemData, error: itemError } = await supabase
       .from('inventaris_submission_items')
-      .select('master_item_id, observed_qty, is_present, kondisi, catatan, photo_path')
+      .select('master_item_id, observed_qty, is_present, kondisi, catatan, purchase_date, purchase_price, depreciation_rate, brand, photo_path')
       .eq('submission_id', submission.id)
     if (itemError) return errorResponse(itemError.message, 500)
 
@@ -255,6 +259,15 @@ export async function POST(request: Request) {
     if (item.observed_qty !== null && (!Number.isFinite(item.observed_qty) || item.observed_qty < 0)) {
       return errorResponse('Jumlah item tidak valid.')
     }
+    if (item.purchase_date && !/^\d{4}-\d{2}-\d{2}$/.test(item.purchase_date)) {
+      return errorResponse('Tanggal pembelian item tidak valid.')
+    }
+    if (item.purchase_price !== null && item.purchase_price !== undefined && (!Number.isFinite(item.purchase_price) || item.purchase_price < 0)) {
+      return errorResponse('Harga item tidak valid.')
+    }
+    if (item.depreciation_rate !== null && item.depreciation_rate !== undefined && (!Number.isFinite(item.depreciation_rate) || item.depreciation_rate < 0 || item.depreciation_rate > 100)) {
+      return errorResponse('Depresiasi harus berupa persentase 0 sampai 100.')
+    }
     const photo = photoByItemId.get(item.master_item_id)
     const existingPhotoPath = item.photo_path?.trim() || null
     if (!(photo instanceof File) || photo.size === 0) {
@@ -286,6 +299,10 @@ export async function POST(request: Request) {
         kondisi: item.kondisi,
         status_penilaian: evaluate(master, item),
         catatan: item.catatan?.trim() || null,
+        purchase_date: item.purchase_date?.trim() || null,
+        purchase_price: item.purchase_price ?? null,
+        depreciation_rate: item.depreciation_rate ?? null,
+        brand: item.brand?.trim() || null,
         photo_path: path,
       }
     }))

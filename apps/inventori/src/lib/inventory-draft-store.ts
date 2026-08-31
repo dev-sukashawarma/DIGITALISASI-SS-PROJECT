@@ -3,6 +3,10 @@ export type StoredDraft = {
   isPresent: boolean
   condition: 'baik' | 'perlu_perbaikan' | 'rusak' | 'tidak_ada'
   notes: string
+  purchaseDate: string
+  price: string
+  depreciationRate: string
+  brand: string
   photo: File | null
   uploadedPhotoPath?: string
   uploadedPhotoUrl?: string | null

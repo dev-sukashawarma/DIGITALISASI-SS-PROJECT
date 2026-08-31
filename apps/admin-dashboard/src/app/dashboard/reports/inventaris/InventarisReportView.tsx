@@ -15,6 +15,10 @@ type ReportItem = {
   quantity: string
   targetQuantity: string
   notes: string | null
+  purchaseDate: string | null
+  price: number | null
+  depreciationRate: number | null
+  brand: string | null
   photoUrl: string | null
 }
 
@@ -113,6 +117,17 @@ function resolvePhotoUrl(value: unknown): string | null {
     return path
   }
   return `/api/inventaris/photo?path=${encodeURIComponent(path)}`
+}
+
+function asNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null
+  const number = Number(value)
+  return Number.isFinite(number) ? number : null
+}
+
+function formatCurrency(value: number | null): string | null {
+  if (value === null || !Number.isFinite(value)) return null
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(value)
 }
 
 function badgeClass(status: string): string {
@@ -257,6 +272,10 @@ export default function InventarisReportView() {
             quantity: asText(firstValue(rawItem, ['observed_qty', 'actual_quantity', 'quantity', 'qty', 'count'])) || (rawItem.is_present === true ? 'Ada' : rawItem.is_present === false ? 'Tidak ada' : ''),
             targetQuantity: asText(firstValue(rawItem, ['target_quantity', 'expected_quantity', 'required_quantity', 'target_qty'])) || masterTargets.get(masterId) || '',
             notes: asText(firstValue(rawItem, ['catatan', 'notes'])) || null,
+            purchaseDate: asText(firstValue(rawItem, ['purchase_date', 'tanggal_pembelian'])) || null,
+            price: asNullableNumber(firstValue(rawItem, ['purchase_price', 'harga'])),
+            depreciationRate: asNullableNumber(firstValue(rawItem, ['depreciation_rate', 'depresiasi'])),
+            brand: asText(firstValue(rawItem, ['brand', 'merk'])) || null,
             photoUrl: photo,
           }
         }))
@@ -478,6 +497,12 @@ function OutletSubmissionCard({ submission, statusFilter, isOpen, onToggle, onPh
                     <div className="font-bold text-suka-ink">{item.name}</div>
                     <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-suka-ink/45">{item.category}</div>
                     {item.notes && <div className="mt-2 max-w-xl rounded-lg bg-suka-cream/60 px-2.5 py-1.5 text-xs leading-5 text-suka-ink/70"><span className="font-bold text-suka-brown">Catatan:</span> {item.notes}</div>}
+                    {(item.purchaseDate || item.price !== null || item.depreciationRate !== null || item.brand) && <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-suka-ink/65">
+                      {item.purchaseDate && <span><b className="text-suka-brown">Dibeli:</b> {item.purchaseDate}</span>}
+                      {item.brand && <span><b className="text-suka-brown">Merek:</b> {item.brand}</span>}
+                      {item.price !== null && <span><b className="text-suka-brown">Harga:</b> {formatCurrency(item.price)}</span>}
+                      {item.depreciationRate !== null && <span><b className="text-suka-brown">Depresiasi:</b> {item.depreciationRate}%/tahun</span>}
+                    </div>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-bold ${badgeClass(item.status)}`}>

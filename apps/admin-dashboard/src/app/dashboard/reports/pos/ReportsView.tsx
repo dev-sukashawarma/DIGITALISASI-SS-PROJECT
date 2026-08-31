@@ -230,13 +230,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
   const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
-  const isPast = useMemo(() => {
-    if (range === 'yesterday' || range === '7days' || range === '30days') {
-      if (dateStrRange.to && dateStrRange.to < todayJakarta) return true
-    }
-    if (range === 'custom' && customEndDate && customEndDate < todayJakarta) return true
-    return false
-  }, [range, dateStrRange, customEndDate, todayJakarta])
 
   const menuItemByNameMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -301,6 +294,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }
     return { from: '2000-01-01', to: fmt(today) }
   }, [range, customStartDate, customEndDate])
+
+  const isPast = useMemo(() => {
+    if (range === 'yesterday' || range === '7days' || range === '30days') {
+      if (dateStrRange.to && dateStrRange.to < todayJakarta) return true
+    }
+    if (range === 'custom' && customEndDate && customEndDate < todayJakarta) return true
+    return false
+  }, [range, dateStrRange, customEndDate, todayJakarta])
 
   // Pawoon data hanya tersedia s.d. Juli 2026 — sembunyikan filter Pawoon
   // jika rentang filter tidak mencakup satupun hari di Juli 2026 atau sebelumnya.

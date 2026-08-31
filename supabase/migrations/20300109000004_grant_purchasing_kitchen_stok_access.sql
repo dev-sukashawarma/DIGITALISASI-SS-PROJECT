@@ -1,4 +1,4 @@
-﻿-- 20300109000004_grant_purchasing_kitchen_stok_access.sql
+-- 20300109000004_grant_purchasing_kitchen_stok_access.sql
 -- Penyetaraan kewenangan role 'purchasing' di modul stok agar setara dengan 'kitchen'.
 -- Memberikan hak akses seluruh outlet (accessible_outlet_ids), penerbitan surat jalan (create_surat_jalan),
 -- serta RLS kebijakan pada tabel surat_jalan, surat_jalan_item, dan bahan_baku_substitusi.

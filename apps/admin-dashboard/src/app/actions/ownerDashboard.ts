@@ -4,7 +4,6 @@
 import { cookies } from 'next/headers'
 import { unstable_cache, revalidateTag } from 'next/cache'
 import { db } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
@@ -219,21 +218,48 @@ export async function revalidateOwnerDashboardCache() {
   revalidateTag('owner-dashboard')
 }
 
-function getDirectSupabase() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false }
+const FULL_ACCESS_ROLES = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'admin_finance', 'purchasing']
+
+/** Menentukan scope outlet caller berdasarkan sesi login (bukan service-role),
+ * supaya auth.uid() terisi di dalam RPC SECURITY DEFINER dan accessible_outlet_ids()
+ * ikut memfilter. scopeKey dipakai sebagai bagian kunci cache agar user dengan
+ * scope berbeda tidak saling membaca cache satu sama lain.
+ */
+async function resolveCallerScope() {
+  const cookieStore = await cookies()
+  const supabase = createSupabaseServerClient({
+    getAll: () => cookieStore.getAll(),
+    setAll: () => {}
   })
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Unauthorized')
+
+  const { data: staff, error: staffError } = await supabase
+    .from('outlet_staff')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (staffError) throw new Error(`resolveCallerScope: ${staffError.message}`)
+
+  if (staff?.role && FULL_ACCESS_ROLES.includes(staff.role)) {
+    return { supabase, scopeKey: 'all', allowedOutletIds: 'all' as const }
+  }
+
+  const { data: outletIds, error: outletIdsError } = await supabase.rpc('accessible_outlet_ids')
+  if (outletIdsError) throw new Error(`resolveCallerScope: ${outletIdsError.message}`)
+
+  const allowedOutletIds: string[] = (outletIds ?? []).map((id: any) => String(id)).sort()
+  return { supabase, scopeKey: allowedOutletIds.join(','), allowedOutletIds }
 }
 
 async function fetchOwnerDashboardSummaryRaw(
+  supabase: any,
   fromStartIso: string,
   toEndIso: string,
   outletId: string | null,
   source: SalesSource
 ) {
-  const supabase = getDirectSupabase()
   const fromStart = new Date(fromStartIso)
   const toEnd = new Date(toEndIso)
 
@@ -270,22 +296,13 @@ async function fetchOwnerDashboardSummaryRaw(
   }
 }
 
-const getCachedOwnerDashboardSummary = unstable_cache(
-  async (fromStartIso: string, toEndIso: string, outletId: string | null, source: SalesSource) => {
-    return fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
-  },
-  ['owner-dashboard-summary-v5'],
-  {
-    revalidate: 3600,
-    tags: ['owner-dashboard', 'owner-dashboard-past'],
-  }
-)
-
 // ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC + Smart Cache ────────────
 export async function getOwnerDashboardDataFast(
   filter: PeriodFilterValue,
   outlets: Outlet[]
 ) {
+  const { supabase, scopeKey, allowedOutletIds } = await resolveCallerScope()
+
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd    = new Date(`${filter.to}T23:59:59.999+07:00`)
 
@@ -297,9 +314,24 @@ export async function getOwnerDashboardDataFast(
   const outletId = filter.outletId !== 'all' ? filter.outletId : null
   const source = filter.source
 
+  if (outletId && outletId !== 'ss-online' && allowedOutletIds !== 'all' && !allowedOutletIds.includes(outletId)) {
+    throw new Error('Forbidden: outlet not in caller scope')
+  }
+
+  const getCachedOwnerDashboardSummary = unstable_cache(
+    async (fromStartIso: string, toEndIso: string, outletId: string | null, source: SalesSource) => {
+      return fetchOwnerDashboardSummaryRaw(supabase, fromStartIso, toEndIso, outletId, source)
+    },
+    ['owner-dashboard-summary-v6', scopeKey],
+    {
+      revalidate: 3600,
+      tags: ['owner-dashboard'],
+    }
+  )
+
   const payload = isPast
     ? await getCachedOwnerDashboardSummary(fromStartIso, toEndIso, outletId, source)
-    : await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
+    : await fetchOwnerDashboardSummaryRaw(supabase, fromStartIso, toEndIso, outletId, source)
 
   const result = payload.result
   const ecommerceData = payload.ecommerceData

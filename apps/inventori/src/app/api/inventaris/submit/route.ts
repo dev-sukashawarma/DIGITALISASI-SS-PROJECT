@@ -67,10 +67,6 @@ function isOwnedDraftPhotoPath(path: string | null, userId: string, outletId: st
     && /\.(jpe?g|png|webp)$/i.test(path!)
 }
 
-function isPendingDraftPhotoPath(path: string, userId: string, outletId: string) {
-  return isOwnedDraftPhotoPath(path, userId, outletId) && path.includes('/drafts/' + outletId + '/pending/')
-}
-
 function evaluate(item: MasterItem, submitted: SubmittedItem): string {
   if (item.mode === 'presence') return submitted.is_present ? 'sesuai' : 'tidak_ada'
   if (submitted.observed_qty === null || !Number.isFinite(submitted.observed_qty)) return 'kurang'
@@ -95,41 +91,30 @@ async function createServerClient() {
   return supabase
 }
 
-async function optimizeSubmittedPhotos(
+async function optimizeFallbackPhotosInPlace(
   supabase: Awaited<ReturnType<typeof createServerClient>>,
-  submissionId: string,
-  userId: string,
-  outletId: string,
-  items: Array<{ master_item_id: string; photo_path: string }>,
+  paths: string[],
 ) {
-  const rawItems = items.filter((item) => isPendingDraftPhotoPath(item.photo_path, userId, outletId))
-  if (!rawItems.length) return
+  if (!paths.length) return
 
   const { default: sharp } = await import('sharp')
-  await Promise.all(rawItems.map(async (item) => {
+  await Promise.all(paths.map(async (path) => {
     try {
-      const { data, error } = await supabase.storage.from(PHOTO_BUCKET).download(item.photo_path)
+      const { data, error } = await supabase.storage.from(PHOTO_BUCKET).download(path)
       if (error || !data) throw new Error(error?.message ?? 'Foto asli tidak ditemukan.')
       const webp = await sharp(Buffer.from(await data.arrayBuffer()), { limitInputPixels: 40_000_000, sequentialRead: true })
         .rotate()
         .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
         .webp({ quality: 72 })
         .toBuffer()
-      const webpPath = `${userId}/${submissionId}/${item.master_item_id}-${crypto.randomUUID()}.webp`
       const { error: uploadError } = await supabase.storage
         .from(PHOTO_BUCKET)
-        .upload(webpPath, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: false })
+        .upload(path, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: true })
       if (uploadError) throw new Error(uploadError.message)
-
-      const { error: updateError } = await supabase
-        .from('inventaris_submission_items')
-        .update({ photo_path: webpPath })
-        .eq('submission_id', submissionId)
-        .eq('master_item_id', item.master_item_id)
-      if (updateError) throw new Error(updateError.message)
-      await supabase.storage.from(PHOTO_BUCKET).remove([item.photo_path])
     } catch (error) {
-      console.error('[inventaris] optimasi foto submit background gagal', { submissionId, itemId: item.master_item_id, error })
+      // Keep the original object and database path intact when optimization
+      // fails. A valid original photo is better than a broken reference.
+      console.error('[inventaris] optimasi foto fallback gagal', { path, error })
     }
   }))
 }
@@ -322,9 +307,14 @@ export async function POST(request: Request) {
     const replacedPaths = oldPaths.filter((path) => !retainedPaths.has(path))
     if (replacedPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(replacedPaths)
 
-    after(async () => {
-      await optimizeSubmittedPhotos(supabase, submissionId, user.id, payload.outlet_id, detailRows)
-    })
+    // Photos uploaded by /api/inventaris/photo are already optimized there.
+    // Only fallback files attached directly to submit need conversion. Keep
+    // the same storage path so the database can never point to a deleted file.
+    if (fallbackUploadedPaths.length > 0) {
+      after(async () => {
+        await optimizeFallbackPhotosInPlace(supabase, fallbackUploadedPaths)
+      })
+    }
 
     return NextResponse.json({ ok: true, submission_id: submissionId, updated: Boolean(currentSubmission) })
   } catch (error) {

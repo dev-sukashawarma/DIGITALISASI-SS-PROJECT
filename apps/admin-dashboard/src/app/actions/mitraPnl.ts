@@ -484,23 +484,33 @@ export async function getMitraComprehensivePnl(
 
   const netProfit = grossProfit - grandTotalOpex - totalWaste - managementFeeAmount
 
+  // 9. Investment & Historical BEP (Calculated first to determine profit sharing)
+  let totalModal = 0
+  let totalOmzetHistoris = 0
+  let totalTransferHistoris = 0
+  if (investments) {
+    totalModal = investments.reduce((sum, inv) => sum + (Number(inv.nilai_investasi) || 0), 0)
+    totalOmzetHistoris = investments.reduce((sum, inv) => sum + (Number(inv.omzet_historis) || 0), 0)
+    totalTransferHistoris = investments.reduce((sum, inv) => sum + (Number(inv.transfer_historis) || 0), 0)
+  }
+
+  let totalTransfers = 0
+  if (transfers) {
+    totalTransfers = transfers.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
+  }
+
+  const totalProfitDistributed = totalOmzetHistoris + totalTransferHistoris + totalTransfers
+  const roi = totalModal > 0 ? (totalProfitDistributed / totalModal) * 100 : 0
+  const bepPercentage = Math.min(roi, 100)
+
+  // JIKA SUDAH BEP 100%, maka keuntungan antara mitra dan pusat jadi 50:50
+  if (totalModal > 0 && totalProfitDistributed >= totalModal) {
+    profitSharingPct = 50
+  }
+
   // Mitra profit share is only distributed when net profit is positive
   const mitraShare = netProfit > 0 ? (netProfit * (profitSharingPct / 100)) : 0
   const profitMarginPct = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0
-
-  // 9. Investment & Historical BEP
-  let totalModal = 0
-  if (investments) {
-    totalModal = investments.reduce((sum, inv) => sum + (Number(inv.nilai_investasi) || 0), 0)
-  }
-
-  let totalProfitDistributed = 0
-  if (transfers) {
-    totalProfitDistributed = transfers.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
-  }
-
-  const roi = totalModal > 0 ? (totalProfitDistributed / totalModal) * 100 : 0
-  const bepPercentage = Math.min(roi, 100)
 
   return {
     period: {

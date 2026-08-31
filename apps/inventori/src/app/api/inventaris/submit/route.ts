@@ -134,6 +134,21 @@ async function optimizeSubmittedPhotos(
   }))
 }
 
+async function uploadPendingSubmissionPhoto(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  userId: string,
+  outletId: string,
+  itemId: string,
+  photo: File,
+) {
+  const path = `${userId}/drafts/${outletId}/pending/${itemId}-${crypto.randomUUID()}.webp`
+  const { error } = await supabase.storage
+    .from(PHOTO_BUCKET)
+    .upload(path, photo, { contentType: photo.type, cacheControl: '3600', upsert: false })
+  if (error) throw new Error(`Gagal upload foto: ${error.message}`)
+  return path
+}
+
 async function getCurrentSubmission(supabase: Awaited<ReturnType<typeof createServerClient>>, outletId: string) {
   const { data, error } = await supabase
     .from('inventaris_submissions')
@@ -268,10 +283,16 @@ export async function POST(request: Request) {
   }
 
   const submissionId = currentSubmission?.id ?? crypto.randomUUID()
+  const fallbackUploadedPaths: string[] = []
   try {
-    const detailRows = payload.items.map((item) => {
+    const detailRows = await Promise.all(payload.items.map(async (item) => {
       const master = masterById.get(item.master_item_id) as MasterItem
-      const path = item.photo_path?.trim() || null
+      const photo = photoByItemId.get(item.master_item_id)
+      let path = item.photo_path?.trim() || null
+      if (!path && photo) {
+        path = await uploadPendingSubmissionPhoto(supabase, user.id, payload.outlet_id, item.master_item_id, photo)
+        fallbackUploadedPaths.push(path)
+      }
       if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)
       return {
         master_item_id: item.master_item_id,
@@ -282,7 +303,7 @@ export async function POST(request: Request) {
         catatan: item.catatan?.trim() || null,
         photo_path: path,
       }
-    })
+    }))
 
     const { error: submitError } = await supabase.rpc('submit_inventaris', {
       p_submission_id: submissionId,
@@ -307,6 +328,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ ok: true, submission_id: submissionId, updated: Boolean(currentSubmission) })
   } catch (error) {
+    if (fallbackUploadedPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(fallbackUploadedPaths)
     return errorResponse(error instanceof Error ? error.message : 'Gagal menyimpan inventaris.', 500)
   }
 }

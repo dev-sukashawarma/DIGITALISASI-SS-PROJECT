@@ -265,7 +265,7 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
       <label htmlFor={inputId} className="relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/40 text-center hover:border-[#f29744]">
         {photo && previewUrl ? <>
           <img src={previewUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
-          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : 'text-green-700'}`}>{uploading ? 'Mengunggah foto…' : uploadError ? 'Gagal · tekan untuk coba lagi' : 'Foto tersimpan · server mengoptimalkan'}</span>
+          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : uploadedPhotoPath ? 'text-green-700' : 'text-slate-600'}`}>{uploading ? 'Mengunggah foto…' : uploadError ? 'Gagal · tekan untuk coba lagi' : uploadedPhotoPath ? 'Foto tersimpan · server mengoptimalkan' : 'Foto siap dikirim'}</span>
         </> : existingPhotoUrl ? <>
           <img src={existingPhotoUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
           <span className="absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold text-green-700 backdrop-blur-sm">Foto tersimpan · tekan untuk ganti</span>
@@ -280,7 +280,7 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
       </label>
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={handleChange} />
       <p className="mt-2 truncate text-[10px] text-slate-500" title={photo?.name}>
-        {uploadError ? uploadError : uploading ? 'Mengunggah foto asli…' : photo && uploadedPhotoPath ? `${photo.name} · tersimpan, server mengoptimalkan` : photo ? `${photo.name} · menunggu upload` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto tersimpan, server mengoptimalkan' : 'Belum ada foto'}
+        {uploadError ? uploadError : uploading ? 'Mengunggah foto asli…' : photo && uploadedPhotoPath ? `${photo.name} · tersimpan, server mengoptimalkan` : photo ? `${photo.name} · siap dikirim saat disimpan` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto tersimpan, server mengoptimalkan' : 'Belum ada foto'}
       </p>
     </div>
   )
@@ -440,7 +440,7 @@ export default function InventoryDashboardPage() {
   const completedOutlets = outlets.filter((outlet) => savedOutletIds.has(outlet.id))
   const allPhotos = items.length > 0 && items.every((item) => {
     const draft = drafts[item.id]
-    return draft?.photo ? Boolean(draft.uploadedPhotoPath) : Boolean(draft?.uploadedPhotoPath || draft?.existingPhotoPath)
+    return Boolean(draft?.photo || draft?.uploadedPhotoPath || draft?.existingPhotoPath)
   })
   const photoUploadsPending = items.some((item) => Boolean(drafts[item.id]?.photo && !drafts[item.id]?.uploadedPhotoPath))
   const allFieldsValid = items.length > 0 && items.every((item) => {
@@ -502,8 +502,10 @@ export default function InventoryDashboardPage() {
       const detailRows: Array<Record<string, string | number | boolean | null>> = []
       for (const item of items) {
         const draft = drafts[item.id] ?? emptyDraft()
-        if (draft.photo && !draft.uploadedPhotoPath) throw new Error(`Foto ${item.name} masih diproses server.`)
-        if (!draft.uploadedPhotoPath && !draft.existingPhotoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
+        if (!draft.photo && !draft.uploadedPhotoPath && !draft.existingPhotoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
+        // Fallback: bila respons upload latar belum sempat tersimpan di state,
+        // server menerima File asli ini lalu mengoptimalkannya setelah respons.
+        if (draft.photo && !draft.uploadedPhotoPath) formData.append(`photo_${item.id}`, draft.photo, draft.photo.name)
         detailRows.push({
           master_item_id: item.id,
           observed_qty: item.mode === 'presence' ? null : Number(draft.observedQty),
@@ -562,7 +564,7 @@ export default function InventoryDashboardPage() {
         {message && <div className={`rounded-2xl border p-4 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
         {editOutletId && <>
           {Object.entries(groups).map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm"><div className="border-b border-orange-100 bg-orange-50/70 px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); const freezer = isFreezerItem(item); return <article key={item.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span>{freezer && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-700">Catatan wajib</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{freezer ? 'Catat total unit dan ukuran freezer yang tersedia (400L, 600L, atau 750L).' : targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder={freezer ? 'Wajib: contoh “400L 1 unit, 600L 1 unit, 750L tidak ada; kondisi baik”' : 'Catatan item (opsional)'} className={`mt-3 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#f29744] ${freezer && !draft.notes.trim() ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`} />{freezer && <p className="mt-1 text-xs text-red-600">Tuliskan ukuran freezer dan kondisinya agar data aset lengkap.</p>}</div><PhotoPicker outletId={selectedOutletId} itemName={item.name} itemId={item.id} photo={draft.photo} uploadedPhotoPath={draft.uploadedPhotoPath} uploadedPhotoUrl={draft.uploadedPhotoUrl} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} onPhotoUploaded={(path, url) => updateDraft(item.id, { uploadedPhotoPath: path ?? undefined, uploadedPhotoUrl: url ?? null })} /></div></article> })}</div></section>)}
-          <button disabled={submitting || photoUploadsPending || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Menyimpan data inventaris...' : photoUploadsPending ? 'Menunggu foto selesai disimpan...' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
+      <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Menyimpan data inventaris...' : photoUploadsPending ? 'Simpan inventaris · foto siap dikirim' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
         </>}
       </div>
     </main>

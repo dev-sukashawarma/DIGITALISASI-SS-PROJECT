@@ -91,13 +91,12 @@ export async function POST(request: Request) {
   if (!masterItem) return errorResponse('Item inventaris tidak valid.')
 
   try {
-    // The production bucket currently allows only image/webp. The file is
-    // uploaded immediately under a pending .webp path, then overwritten with
-    // the real WebP bytes by the background optimizer below.
+    // File asli langsung diterima pada path sementara. Server menimpanya
+    // dengan byte WebP pada proses background setelah respons dikirim.
     const path = `${user.id}/drafts/${outletId}/pending/${itemId}-${crypto.randomUUID()}.webp`
     const { error: uploadError } = await supabase.storage
       .from(PHOTO_BUCKET)
-      .upload(path, photo, { contentType: 'image/webp', cacheControl: '3600', upsert: false })
+      .upload(path, photo, { contentType: photo.type, cacheControl: '3600', upsert: false })
     if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
 
     if (isOwnedDraftPath(previousPath, user.id, outletId)) {

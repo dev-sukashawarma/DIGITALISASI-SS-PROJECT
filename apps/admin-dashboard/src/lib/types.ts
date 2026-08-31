@@ -143,6 +143,7 @@ export interface SalesSummaryRow {
   jumlah_order_all: number
   total_deductions?: number
   platform_fee?: number
+  total_qty?: number
 }
 
 export interface MenuSalesRow {

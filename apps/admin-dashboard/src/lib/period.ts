@@ -25,8 +25,13 @@ export function presetRange(preset: Preset, now = new Date()): { from: string; t
   return { from: addDays(todayStr, -span), to: todayStr }
 }
 
+export function diffDays(from: string, to: string): number {
+  const days = Math.round((Date.parse(to) - Date.parse(from)) / 86400000) + 1
+  return Number.isFinite(days) && days > 0 ? days : 1
+}
+
 export function previousRange(range: { from: string; to: string }): { from: string; to: string } {
-  const days = Math.round((Date.parse(range.to) - Date.parse(range.from)) / 86400000) + 1
+  const days = diffDays(range.from, range.to)
   return { from: addDays(range.from, -days), to: addDays(range.from, -1) }
 }
 
@@ -36,3 +41,4 @@ export function monthRange(year: number, month: number): { from: string; to: str
   const lastDay = new Date(year, month, 0).getDate()
   return { from: `${year}-${mm}-01`, to: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` }
 }
+

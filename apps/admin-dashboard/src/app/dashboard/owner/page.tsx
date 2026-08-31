@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import { presetRange, previousRange } from '@/lib/period'
+import { presetRange, previousRange, diffDays } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
 import { getBuyOneGetOneSummary, getOwnerDashboardDataFast } from '@/app/actions/ownerDashboard'
 import OwnerDashboardView from './OwnerDashboardView'
@@ -63,7 +63,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const menuSales     = curData.menuRows
   const prevMenuSales = prevData.menuRows
 
-  const leaderboard = buildLeaderboard(curData.kpiRows, prevData.kpiRows)
+  const daysCount = diffDays(filter.from, filter.to)
+  const leaderboard = buildLeaderboard(curData.kpiRows, prevData.kpiRows, daysCount)
 
   // 5. Send pre-computed data to Client View
   return (

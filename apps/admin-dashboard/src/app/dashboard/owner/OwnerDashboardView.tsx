@@ -8,7 +8,6 @@ import { PeriodFilter } from '@/components/PeriodFilter'
 import { KpiCards } from '@/components/KpiCards'
 import { SourceBreakdown } from '@/components/SourceBreakdown'
 import { TopMenus } from '@/components/TopMenus'
-import { BottomMenus } from '@/components/BottomMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import { DailyTargetBoard } from '@/components/DailyTargetBoard'
 import { PageHeader } from '@/components/ui'
@@ -16,6 +15,7 @@ import type { PeriodFilterValue, Outlet, SalesSummaryRow } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import dynamic from 'next/dynamic'
+import { presetRange, diffDays } from '@/lib/period'
 
 const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
@@ -87,6 +87,8 @@ export default function OwnerDashboardView({
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
   const isOneDay = filter.from === filter.to
+  const p30 = presetRange('30d')
+  const is30Days = (filter.from === p30.from && filter.to === p30.to) || diffDays(filter.from, filter.to) === 30
 
   const handleFilterChange = (newFilter: PeriodFilterValue) => {
     const params = new URLSearchParams()
@@ -133,9 +135,14 @@ export default function OwnerDashboardView({
             cogsBreakdown={cogsBreakdown}
           />
 
-          {/* Indikator target harian realtime */}
-          {role !== 'MITRA' && filter.outletId !== 'ss-online' && (
+          {/* Indikator target harian realtime (hanya tampil saat filter 1 hari: hari ini / kemarin) */}
+          {role !== 'MITRA' && filter.outletId !== 'ss-online' && isOneDay && (
             <DailyTargetBoard filter={filter} kpiRows={curKpiRows || []} />
+          )}
+
+          {/* Leaderboard Kinerja Outlet (Full Width di atas saat filter 30 hari) */}
+          {is30Days && !isReadOnly && filter.outletId !== 'ss-online' && (
+            <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
           )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -148,11 +155,11 @@ export default function OwnerDashboardView({
             </div>
             <div className="space-y-6">
               <TopMenus rows={menuRows || []} />
-              {filter.outletId !== 'ss-online' && <BottomMenus rows={menuRows || []} />}
             </div>
           </div>
 
-          {!isReadOnly && filter.outletId !== 'ss-online' && (
+          {/* Leaderboard Kinerja Outlet (posisi default bawah saat bukan filter 30 hari) */}
+          {!is30Days && !isReadOnly && filter.outletId !== 'ss-online' && (
             <OutletLeaderboard entries={leaderboard || []} allOutlets={outlets} />
           )}
         </div>

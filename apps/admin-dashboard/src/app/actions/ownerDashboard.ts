@@ -152,10 +152,12 @@ async function fetchEcommerceOwnerData(
     curHour.jumlah_order_completed += 1
     hourMap.set(hour, curHour)
 
+    let orderQty = 0
     for (const item of (ec.ecommerce_sale_items || [])) {
       const menuName = item.menu_items?.name || 'Unknown Menu'
       const cleanName = cleanItemName(menuName) || menuName
       const qty = Number(item.quantity) || 0
+      orderQty += qty
       const revenue = Number(item.subtotal) || (Number(item.price) * qty) || 0
 
       const curMenu = menuMap.get(cleanName) || { name: cleanName, qty: 0, revenue: 0 }
@@ -184,6 +186,7 @@ async function fetchEcommerceOwnerData(
       }
       totalCogs += qty * itemHpp
     }
+    existingKpi.total_qty = (existingKpi.total_qty || 0) + orderQty
   }
 
   return {
@@ -357,6 +360,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
     }
 
     // Accumulate KPI
+    const orderQty = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)
     const key = `${o.outlet_id}|${srcKey}|${dateStr}`
     const existing = acc.get(key)
     if (existing) {
@@ -364,6 +368,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
       existing.jumlah_order_completed += 1
       existing.jumlah_order_all += 1
       existing.total_deductions = (existing.total_deductions || 0) + deduction
+      existing.total_qty = (existing.total_qty || 0) + orderQty
     } else {
       acc.set(key, {
         outlet_id: o.outlet_id,
@@ -372,6 +377,7 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
         sales_date: dateStr,
         omzet: totalAmt,
         total_deductions: deduction,
+        total_qty: orderQty,
         jumlah_order_completed: 1,
         jumlah_order_all: 1,
       })
@@ -463,7 +469,7 @@ export async function getOwnerDashboardDataFast(
   const result = data as {
     kpi_rows:    Array<{
       outlet_id: string; sales_source: string; sales_date: string
-      omzet: number; order_count: number; total_deductions: number
+      omzet: number; order_count: number; total_deductions: number; total_qty?: number
     }>
     hourly_rows: Array<{ sales_hour: number; omzet: number; order_count: number }>
     menu_rows:   Array<{ menu_name: string; qty: number; revenue: number }>
@@ -482,6 +488,7 @@ export async function getOwnerDashboardDataFast(
     jumlah_order_completed: Number(r.order_count),
     jumlah_order_all:       Number(r.order_count),
     total_deductions:       Number(r.total_deductions),
+    total_qty:              Number(r.total_qty || 0),
   }))
 
   const hourMap = new Map<number, SalesHourlyRow>()

@@ -1,8 +1,37 @@
-// @ts-nocheck
+import { useState, useMemo } from 'react'
 import type { LeaderboardEntry } from '@/lib/leaderboard'
 import { rupiah, rupiahCompact } from '@/lib/format'
-import { useState, useMemo } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Info } from 'lucide-react'
+
+function getPerformanceTierBadge(tier?: string) {
+  switch (tier) {
+    case 'OPTIMIS':
+      return {
+        label: 'OPTIMIS',
+        style: 'bg-emerald-50 text-emerald-700 border-emerald-200/70',
+        dot: 'bg-emerald-500',
+      }
+    case 'PROGRESIF':
+      return {
+        label: 'PROGRESIF',
+        style: 'bg-blue-50 text-blue-700 border-blue-200/70',
+        dot: 'bg-blue-500',
+      }
+    case 'MODERAT':
+      return {
+        label: 'MODERAT',
+        style: 'bg-amber-50 text-amber-800 border-amber-200/70',
+        dot: 'bg-amber-500',
+      }
+    case 'PESIMIS':
+    default:
+      return {
+        label: 'PESIMIS',
+        style: 'bg-red-50 text-red-700 border-red-200/70',
+        dot: 'bg-red-500',
+      }
+  }
+}
 
 export function OutletLeaderboard({ entries, allOutlets }: { entries: LeaderboardEntry[], allOutlets: {id: string, name: string}[] }) {
   const [query, setQuery] = useState('')
@@ -23,7 +52,10 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
         omzet: 0,
         orders: 0,
         aov: 0,
-        deltaPct: null
+        deltaPct: null,
+        total_qty: 0,
+        avg_daily_qty: 0,
+        performance_tier: 'PESIMIS'
       } as LeaderboardEntry
     })
     
@@ -42,7 +74,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
       <div className="flex flex-wrap gap-4 items-center justify-between">
         <div>
           <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Leaderboard Kinerja Outlet</h3>
-          <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Peringkat outlet berdasarkan omzet penjualan terkomparasi</p>
+          <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Peringkat outlet berdasarkan omzet penjualan dan rata-rata porsi harian</p>
         </div>
         
         <div className="relative">
@@ -54,6 +86,32 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9 pr-4 py-2 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-sm outline-none transition-all w-64"
           />
+        </div>
+      </div>
+
+      {/* Legend Keterangan Kategori Performa SS 2.0 */}
+      <div className="bg-amber-50/40 border border-amber-200/50 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex items-center gap-1.5 font-bold text-suka-brown text-xs">
+          <Info className="w-3.5 h-3.5 text-suka-orange shrink-0" />
+          <span>Kriteria Performa Outlet (Skema SS 2.0):</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 text-red-700 border border-red-200/70">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+            PESIMIS: ≤ 75 pcs/hari
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200/70">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+            MODERAT: 76 – 150 pcs/hari
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200/70">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+            PROGRESIF: 151 – 299 pcs/hari
+          </span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/70">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            OPTIMIS: ≥ 300 pcs/hari
+          </span>
         </div>
       </div>
 
@@ -79,6 +137,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
               : 'text-red-700 bg-red-50 border-red-200/50'
 
             const cleanOutletName = e.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase()
+            const tierBadge = getPerformanceTierBadge(e.performance_tier)
 
             return (
               <div key={e.outlet_id} className="bg-white border border-suka-gray-100 rounded-2xl p-4 shadow-sm">
@@ -87,7 +146,15 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                     <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${rankColor}`}>
                       {rankDisplay}
                     </span>
-                    <span className="font-bold text-suka-ink text-sm truncate">{cleanOutletName}</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold text-suka-ink text-sm truncate">{cleanOutletName}</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-extrabold border ${tierBadge.style}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${tierBadge.dot}`} />
+                          {tierBadge.label} · {(e.total_qty ?? 0).toLocaleString('id-ID')} pcs ({e.avg_daily_qty?.toLocaleString('id-ID', { maximumFractionDigits: 1 }) ?? 0}/hr)
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border shrink-0 ${deltaColor}`}>
                     {e.deltaPct == null 
@@ -103,8 +170,8 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                     <p className="font-extrabold text-suka-brown text-sm">{rupiahCompact(e.omzet)}</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-[10px] text-suka-gray-400 font-bold uppercase mb-0.5">Order</p>
-                    <p className="font-extrabold text-suka-gray-700 text-sm">{e.orders.toLocaleString('id-ID')}</p>
+                    <p className="text-[10px] text-suka-gray-400 font-bold uppercase mb-0.5">Item Terjual</p>
+                    <p className="font-extrabold text-suka-gray-700 text-sm">{(e.total_qty ?? 0).toLocaleString('id-ID')} pcs</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-suka-gray-400 font-bold uppercase mb-0.5">AOV</p>
@@ -129,9 +196,10 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
               <th className="py-3 px-6 w-16 text-center">Rank</th>
               <th className="py-3 px-6">Nama Outlet</th>
               <th className="py-3 px-6 text-right">Omzet</th>
-              <th className="py-3 px-6 text-right">Jumlah Order</th>
+              <th className="py-3 px-6 text-right">Item Terjual</th>
               <th className="py-3 px-6 text-right">AOV</th>
               <th className="py-3 px-6 text-center">Tren vs Lalu</th>
+              <th className="py-3 px-6 text-center">Tipe Performa</th>
             </tr>
           </thead>
           <tbody className="font-medium divide-y divide-suka-gray-100">
@@ -155,6 +223,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                 : 'text-red-700 bg-red-50 border-red-200/50'
 
               const cleanOutletName = e.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase()
+              const tierBadge = getPerformanceTierBadge(e.performance_tier)
 
               return (
                 <tr 
@@ -168,7 +237,7 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                   </td>
                   <td className="py-4 px-6 text-suka-ink font-bold">{cleanOutletName}</td>
                   <td className="py-4 px-6 text-right text-suka-brown font-extrabold">{rupiah(e.omzet)}</td>
-                  <td className="py-4 px-6 text-right text-suka-gray-600">{e.orders.toLocaleString('id-ID')}</td>
+                  <td className="py-4 px-6 text-right text-suka-gray-700 font-bold">{(e.total_qty ?? 0).toLocaleString('id-ID')} pcs</td>
                   <td className="py-4 px-6 text-right text-suka-gray-600">{rupiah(e.aov)}</td>
                   <td className="py-4 px-6 text-center">
                     <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${deltaColor}`}>
@@ -178,12 +247,23 @@ export function OutletLeaderboard({ entries, allOutlets }: { entries: Leaderboar
                       }
                     </span>
                   </td>
+                  <td className="py-4 px-6 text-center">
+                    <div className="inline-flex flex-col items-center gap-0.5">
+                      <span className={`inline-flex items-center gap-1.5 text-[10px] px-2.5 py-0.5 rounded-full font-extrabold border ${tierBadge.style}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tierBadge.dot}`} />
+                        {tierBadge.label}
+                      </span>
+                      <span className="text-[10px] text-suka-gray-400 font-semibold">
+                        {e.avg_daily_qty?.toLocaleString('id-ID', { maximumFractionDigits: 1 }) ?? 0} pcs/hari
+                      </span>
+                    </div>
+                  </td>
                 </tr>
               )
             })}
             {displayedEntries.length === 0 && (
               <tr>
-                <td colSpan={6} className="py-8 text-center text-suka-gray-400 font-semibold">
+                <td colSpan={7} className="py-8 text-center text-suka-gray-400 font-semibold">
                   Tidak ada outlet yang sesuai pencarian
                 </td>
               </tr>

@@ -186,12 +186,12 @@ export function useHpp(filter: PeriodFilterValue) {
         });
       });
 
-      allEc.forEach((ec: any) => {
+      allEc.forEach((saleRecord: any) => {
         const outletId = "ss-online";
         const outletType = "outlet";
-        const ecChannel = ec.channel_id || "ss_online";
+        const ecChannel = saleRecord.channel_id || "ss_online";
 
-        ec.ecommerce_sale_items?.forEach((item: any) => {
+        saleRecord.ecommerce_sale_items?.forEach((item: any) => {
           const fallbackName = item.menu_items?.name || "Unknown";
           const hpp = getItemHpp(
             item.menu_items,

@@ -111,16 +111,16 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         }
 
         const ecMap = new Map<string, SalesSummaryRow>()
-        for (const ec of allEc) {
-          const raw = ec.raw_data || {}
+        for (const saleRecord of allEc) {
+          const raw = saleRecord.raw_data || {}
           const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
-          const omzetKotor = Number(ec.total_amount) || 0
+          const omzetKotor = Number(saleRecord.total_amount) || 0
           const omzetNet = Math.max(0, omzetKotor - totalPotongan)
 
-          const d = new Date(ec.order_date)
+          const d = new Date(saleRecord.order_date)
           const dateStr = new Date(d.getTime() + (7 * 60 * 60 * 1000)).toISOString().split('T')[0]
 
-          const chNorm = (ec.channel_id || '').toLowerCase()
+          const chNorm = (saleRecord.channel_id || '').toLowerCase()
           let salesSource: SalesSource = 'online'
           if (chNorm.includes('tiktok') || chNorm === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5') {
             salesSource = 'tiktok_shop' as SalesSource

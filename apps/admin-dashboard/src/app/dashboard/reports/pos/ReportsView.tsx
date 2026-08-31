@@ -517,26 +517,26 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       }
 
       // Map to OrderRow format
-      return allEc.map((ec: any) => {
-        const raw = ec.raw_data || {}
+      return allEc.map((saleRecord: any) => {
+        const raw = saleRecord.raw_data || {}
         const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
         return {
-          id: ec.id,
+          id: saleRecord.id,
           order_number: 0,
           status: 'completed',
-          payment_method: ec.channel_id,
-          total_amount: ec.total_amount,
+          payment_method: saleRecord.channel_id,
+          total_amount: saleRecord.total_amount,
           discount_amount: totalPotongan,
           promo_subsidy: 0,
-          created_at: ec.order_date,
+          created_at: saleRecord.order_date,
           outlet_id: 'ss-online',
-          channel: ec.channel_id,
+          channel: saleRecord.channel_id,
           sales_source: 'Online',
           customer_name: 'SS Online Customer',
           cashier_name: null,
-          external_order_id: ec.order_id,
+          external_order_id: saleRecord.order_id,
           raw_data: raw,
-          order_items: (ec.ecommerce_sale_items || []).map((item: any) => {
+          order_items: (saleRecord.ecommerce_sale_items || []).map((item: any) => {
             const menuItem = item.menu_id ? menuItemByIdMap.get(item.menu_id) : null
             return {
               id: item.id,

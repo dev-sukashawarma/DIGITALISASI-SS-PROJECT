@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -28,7 +28,9 @@ import {
   PieChart,
   Store,
   Sparkles,
-  Search
+  Search,
+  Download,
+  FileText
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'

@@ -217,7 +217,17 @@ export default function ProfitPage() {
         description="Analisis mendalam perbandingan omzet penjualan, beban pokok, dan biaya operasional" 
         icon={Calculator}
       >
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button disabled={isExporting} onClick={handleExportCSV} className={`flex items-center gap-1.5 bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border border-green-200 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <Download className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+            <button disabled={isExporting} onClick={handleExportPDF} className={`flex items-center gap-1.5 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border border-red-200 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <FileText className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
+          <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
+        </div>
       </PageHeader>
 
       {error && (
@@ -283,7 +293,7 @@ export default function ProfitPage() {
                 </h3>
                 <div className="flex items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
                   <span>HPP: {rupiah(totalHpp)}</span>
-                  <span>â€¢</span>
+                  <span>Ã¢â‚¬Â¢</span>
                   <span>Waste: {rupiah(totalWaste)}</span>
                 </div>
               </div>
@@ -671,6 +681,7 @@ export default function ProfitPage() {
     </div>
   )
 }
+
 
 
 

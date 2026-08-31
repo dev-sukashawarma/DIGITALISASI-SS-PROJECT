@@ -4,6 +4,8 @@ export type StoredDraft = {
   condition: 'baik' | 'perlu_perbaikan' | 'rusak' | 'tidak_ada'
   notes: string
   photo: File | null
+  existingPhotoPath?: string
+  existingPhotoUrl?: string | null
 }
 
 export type InventoryDraftSnapshot = {
@@ -20,7 +22,11 @@ const STORE_NAME = 'drafts'
 const LOCAL_PREFIX = 'suka-inventori-draft:'
 
 function storageKey(staffId: string, tanggal: string, outletId: string) {
-  return `${LOCAL_PREFIX}${staffId}:${tanggal}:${outletId}`
+  // Draft inventaris bukan data harian. Parameter tanggal dipertahankan pada
+  // API internal agar tidak memutus pemanggil lama, tetapi key harus tetap
+  // sama lintas hari untuk user + outlet yang sama.
+  void tanggal
+  return `${LOCAL_PREFIX}${staffId}:${outletId}`
 }
 
 function snapshotKey(staffId: string, tanggal: string, outletId: string) {

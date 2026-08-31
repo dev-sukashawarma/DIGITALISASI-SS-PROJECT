@@ -16,6 +16,7 @@ type SubmittedItem = {
   is_present: boolean | null
   kondisi: string
   catatan: string | null
+  photo_path?: string | null
 }
 
 type Payload = {
@@ -32,6 +33,19 @@ type MasterItem = {
   target_qty: number | null
   target_min: number | null
   target_max: number | null
+}
+
+type CurrentSubmission = {
+  id: string
+  outlet_id: string
+  tanggal: string
+  area_scores: Record<string, unknown>
+  notes: string | null
+  updated_at: string
+}
+
+type CurrentSubmissionItem = SubmittedItem & {
+  photo_path: string
 }
 
 function errorResponse(message: string, status = 400) {
@@ -69,6 +83,56 @@ async function createServerClient() {
   return supabase
 }
 
+async function getCurrentSubmission(supabase: Awaited<ReturnType<typeof createServerClient>>, outletId: string) {
+  const { data, error } = await supabase
+    .from('inventaris_submissions')
+    .select('id, outlet_id, tanggal, area_scores, notes, updated_at')
+    .eq('outlet_id', outletId)
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data as CurrentSubmission | null) ?? null
+}
+
+export async function GET(request: Request) {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return errorResponse('Sesi login tidak ditemukan.', 401)
+
+  const outletId = new URL(request.url).searchParams.get('outlet_id')
+  if (!outletId) return errorResponse('Outlet wajib dipilih.')
+
+  const { data: allowedData, error: allowedError } = await supabase.rpc('accessible_outlet_ids')
+  if (allowedError) return errorResponse(allowedError.message, 403)
+  if (!getAccessibleIds(allowedData).includes(outletId)) {
+    return errorResponse('Outlet di luar scope akses Anda.', 403)
+  }
+
+  try {
+    const submission = await getCurrentSubmission(supabase, outletId)
+    if (!submission) return NextResponse.json({ submission: null })
+
+    const { data: itemData, error: itemError } = await supabase
+      .from('inventaris_submission_items')
+      .select('master_item_id, observed_qty, is_present, kondisi, catatan, photo_path')
+      .eq('submission_id', submission.id)
+    if (itemError) return errorResponse(itemError.message, 500)
+
+    const items = await Promise.all(((itemData ?? []) as CurrentSubmissionItem[]).map(async (item) => {
+      const { data: signedUrlData } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .createSignedUrl(item.photo_path, 60 * 60)
+      return { ...item, photo_url: signedUrlData?.signedUrl ?? null }
+    }))
+
+    return NextResponse.json({ submission: { ...submission, items } })
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Gagal memuat inventaris.', 500)
+  }
+}
+
 export async function POST(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -95,6 +159,24 @@ export async function POST(request: Request) {
     return errorResponse('Outlet di luar scope akses Anda.', 403)
   }
 
+  let currentSubmission: CurrentSubmission | null
+  try {
+    currentSubmission = await getCurrentSubmission(supabase, payload.outlet_id)
+  } catch (error) {
+    return errorResponse(error instanceof Error ? error.message : 'Gagal memuat inventaris lama.', 500)
+  }
+
+  let existingItems: Array<{ master_item_id: string; photo_path: string }> = []
+  if (currentSubmission) {
+    const { data: existingItemData, error: existingItemError } = await supabase
+      .from('inventaris_submission_items')
+      .select('master_item_id, photo_path')
+      .eq('submission_id', currentSubmission.id)
+    if (existingItemError) return errorResponse(existingItemError.message, 500)
+    existingItems = (existingItemData ?? []) as Array<{ master_item_id: string; photo_path: string }>
+  }
+  const existingPhotoPaths = new Set(existingItems.map((item) => item.photo_path))
+
   const { data: masterItems, error: masterError } = await supabase
     .from('inventaris_master_items')
     .select('id, mode, target_qty, target_min, target_max')
@@ -114,33 +196,44 @@ export async function POST(request: Request) {
       return errorResponse('Jumlah item tidak valid.')
     }
     const photo = formData.get(`photo_${item.master_item_id}`)
-    if (!(photo instanceof File) || photo.size === 0) return errorResponse('Foto wajib diisi untuk setiap item.')
-    if (photo.size > MAX_INPUT_FILE_BYTES) return errorResponse('Ukuran foto terlalu besar. Maksimal 12 MB per foto.')
-    if (!ALLOWED_IMAGE_TYPES.has(photo.type.toLowerCase())) return errorResponse('Format foto harus JPG, PNG, atau WebP.')
+    const existingPhotoPath = item.photo_path?.trim() || null
+    if (!(photo instanceof File) || photo.size === 0) {
+      if (!existingPhotoPath || !existingPhotoPaths.has(existingPhotoPath)) {
+        return errorResponse('Foto wajib diisi untuk setiap item.')
+      }
+    } else {
+      if (photo.size > MAX_INPUT_FILE_BYTES) return errorResponse('Ukuran foto terlalu besar. Maksimal 12 MB per foto.')
+      if (!ALLOWED_IMAGE_TYPES.has(photo.type.toLowerCase())) return errorResponse('Format foto harus JPG, PNG, atau WebP.')
+    }
   }
 
-  const submissionId = crypto.randomUUID()
+  const submissionId = currentSubmission?.id ?? crypto.randomUUID()
   const uploadedPaths: string[] = []
   try {
     const detailRows: Array<Record<string, string | number | boolean | null>> = []
     for (const item of payload.items) {
       const master = masterById.get(item.master_item_id) as MasterItem
-      const photo = formData.get(`photo_${item.master_item_id}`) as File
-      const input = Buffer.from(await photo.arrayBuffer())
-      const webp = await sharp(input)
-        .rotate()
-        .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-        .webp({ quality: 78 })
-        .toBuffer()
-      const path = `${user.id}/${submissionId}/${item.master_item_id}.webp`
-      const webpBody = new Blob([
-        webp.buffer.slice(webp.byteOffset, webp.byteOffset + webp.byteLength) as ArrayBuffer,
-      ], { type: 'image/webp' })
-      const { error: uploadError } = await supabase.storage
-        .from(PHOTO_BUCKET)
-        .upload(path, webpBody, { contentType: 'image/webp', upsert: false })
-      if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
-      uploadedPaths.push(path)
+      const photo = formData.get(`photo_${item.master_item_id}`)
+      let path = item.photo_path?.trim() || null
+      if (photo instanceof File && photo.size > 0) {
+        const input = Buffer.from(await photo.arrayBuffer())
+        const webp = await sharp(input)
+          .rotate()
+          .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+          .webp({ quality: 78 })
+          .toBuffer()
+        const uploadId = crypto.randomUUID()
+        path = `${user.id}/${submissionId}/${item.master_item_id}-${uploadId}.webp`
+        const webpBody = new Blob([
+          webp.buffer.slice(webp.byteOffset, webp.byteOffset + webp.byteLength) as ArrayBuffer,
+        ], { type: 'image/webp' })
+        const { error: uploadError } = await supabase.storage
+          .from(PHOTO_BUCKET)
+          .upload(path, webpBody, { contentType: 'image/webp', upsert: false })
+        if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
+        uploadedPaths.push(path)
+      }
+      if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)
       detailRows.push({
         master_item_id: item.master_item_id,
         observed_qty: master.mode === 'presence' ? null : item.observed_qty,
@@ -161,10 +254,15 @@ export async function POST(request: Request) {
       p_items: detailRows,
     })
     if (submitError) {
-      throw new Error(submitError.message.includes('duplicate') ? 'Inventaris outlet ini sudah dicatat hari ini.' : submitError.message)
+      throw new Error(submitError.message)
     }
 
-    return NextResponse.json({ ok: true, submission_id: submissionId })
+    const oldPaths = existingItems.map((item) => item.photo_path)
+    const retainedPaths = new Set(detailRows.map((row) => row.photo_path).filter((path): path is string => typeof path === 'string'))
+    const replacedPaths = oldPaths.filter((path) => !retainedPaths.has(path))
+    if (replacedPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(replacedPaths)
+
+    return NextResponse.json({ ok: true, submission_id: submissionId, updated: Boolean(currentSubmission) })
   } catch (error) {
     if (uploadedPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(uploadedPaths)
     return errorResponse(error instanceof Error ? error.message : 'Gagal menyimpan inventaris.', 500)

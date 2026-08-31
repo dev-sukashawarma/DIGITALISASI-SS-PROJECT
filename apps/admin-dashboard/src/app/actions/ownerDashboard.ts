@@ -239,10 +239,10 @@ async function fetchOwnerDashboardSummaryRaw(
   const isAll = outletId === 'all' || !outletId
 
   if (isSSOnlineOnly) {
-    const ecDataOnly = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, source)
+    const ecommerceDataOnly = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, source)
     return {
       result: null,
-      ecData: ecDataOnly,
+      ecommerceData: ecommerceDataOnly,
       fetchedAt: new Date().toISOString(),
     }
   }
@@ -255,15 +255,15 @@ async function fetchOwnerDashboardSummaryRaw(
     p_test_outlet_id: TEST_OUTLET_ID,
   })
 
-  const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, source) : Promise.resolve(null)
+  const ecommercePromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, source) : Promise.resolve(null)
 
-  const [rpcResponse, ecDataResponse] = await Promise.all([rpcPromise, ecPromise])
+  const [rpcResponse, ecommerceDataResponse] = await Promise.all([rpcPromise, ecommercePromise])
 
   if (rpcResponse.error) throw new Error(`get_owner_dashboard_summary: ${rpcResponse.error.message}`)
 
   return {
     result: rpcResponse.data,
-    ecData: ecDataResponse,
+    ecommerceData: ecommerceDataResponse,
     fetchedAt: new Date().toISOString(),
   }
 }
@@ -300,13 +300,13 @@ export async function getOwnerDashboardDataFast(
     : await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
 
   const result = payload.result
-  const ecData = payload.ecData
+  const ecommerceData = payload.ecommerceData
   const fetchedAt = payload.fetchedAt || new Date().toISOString()
 
-  if (!result && ecData) {
+  if (!result && ecommerceData) {
     return {
-      ...ecData,
-      totalCogsOpex: ecData.totalCogs + ecData.totalOpex,
+      ...ecommerceData,
+      totalCogsOpex: ecommerceData.totalCogs + ecommerceData.totalOpex,
       fetchedAt,
       isCached: isPast,
     }
@@ -351,23 +351,23 @@ export async function getOwnerDashboardDataFast(
   let totalOpex = Number(result?.total_opex ?? 0)
 
   let kpiRows = posKpiRows
-  if (ecData) {
-    kpiRows = [...posKpiRows, ...ecData.kpiRows]
-    for (const h of ecData.hourlyRows) {
+  if (ecommerceData) {
+    kpiRows = [...posKpiRows, ...ecommerceData.kpiRows]
+    for (const h of ecommerceData.hourlyRows) {
       const cur = hourMap.get(h.sales_hour) || { sales_hour: h.sales_hour, omzet: 0, jumlah_order_completed: 0 }
       cur.omzet += h.omzet
       cur.jumlah_order_completed += h.jumlah_order_completed
       hourMap.set(h.sales_hour, cur)
     }
-    for (const m of ecData.menuRows) {
+    for (const m of ecommerceData.menuRows) {
       const clean = cleanItemName(m.name) || 'Unknown Menu'
       const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
       cur.qty += m.qty
       cur.revenue += m.revenue
       menuMap.set(clean, cur)
     }
-    totalCogs += ecData.totalCogs
-    totalOpex += ecData.totalOpex
+    totalCogs += ecommerceData.totalCogs
+    totalOpex += ecommerceData.totalOpex
   }
 
   const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)

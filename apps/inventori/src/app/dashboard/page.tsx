@@ -40,6 +40,24 @@ type ExistingSubmission = {
   }>
 }
 
+type InventoryReferenceData = {
+  outlets: Outlet[]
+  items: MasterItem[]
+  savedOutletIds: string[]
+}
+
+type InventoryReferenceCacheEntry = {
+  promise: Promise<InventoryReferenceData>
+  data?: InventoryReferenceData
+  expiresAt: number
+}
+
+// Reference data is identical while the AM moves between the outlet list and
+// the edit page. Keep one in-flight request/result per staff member so route
+// transitions do not repeat the same three Supabase queries.
+const referenceCache = new Map<string, InventoryReferenceCacheEntry>()
+const REFERENCE_CACHE_TTL = 5 * 60 * 1000
+
 const todayJakarta = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
 const asIds = (value: unknown): string[] => (Array.isArray(value) ? value : [])
   .map((row) => typeof row === 'string' ? row : (row as { accessible_outlet_ids?: string } | null)?.accessible_outlet_ids)
@@ -293,6 +311,49 @@ async function fetchCurrentSubmission(outletId: string): Promise<ExistingSubmiss
   return result?.submission ?? null
 }
 
+async function loadInventoryReference(staffId: string, supabase: ReturnType<typeof createClient>): Promise<InventoryReferenceData> {
+  const cached = referenceCache.get(staffId)
+  if (cached && cached.data && cached.expiresAt > Date.now()) return cached.data
+  if (cached && cached.expiresAt > Date.now()) return cached.promise
+
+  const promise = (async () => {
+    const { data: rpcData, error: rpcError } = await supabase.rpc('accessible_outlet_ids')
+    if (rpcError) throw new Error(rpcError.message)
+    const ids = asIds(rpcData)
+    if (!ids.length) return { outlets: [], items: [], savedOutletIds: [] }
+
+    const [outletResult, itemResult, submissionResult] = await Promise.all([
+      supabase.from('outlets').select('id, name').in('id', ids).order('name'),
+      supabase.from('inventaris_master_items').select('id, section, subsection, name, mode, target_qty, target_min, target_max, unit, sort_order').order('sort_order'),
+      supabase.from('inventaris_submissions').select('outlet_id').in('outlet_id', ids),
+    ])
+    const queryError = outletResult.error || itemResult.error || submissionResult.error
+    if (queryError) throw new Error(queryError.message)
+
+    return {
+      outlets: (outletResult.data ?? []) as Outlet[],
+      items: (itemResult.data ?? []) as MasterItem[],
+      savedOutletIds: (submissionResult.data ?? []).map((row: { outlet_id: string }) => row.outlet_id),
+    }
+  })()
+
+  referenceCache.set(staffId, { promise, expiresAt: Date.now() + REFERENCE_CACHE_TTL })
+  try {
+    const data = await promise
+    referenceCache.set(staffId, { promise: Promise.resolve(data), data, expiresAt: Date.now() + REFERENCE_CACHE_TTL })
+    return data
+  } catch (error) {
+    referenceCache.delete(staffId)
+    throw error
+  }
+}
+
+function markReferenceSaved(staffId: string, outletId: string) {
+  const entry = referenceCache.get(staffId)
+  if (!entry?.data || entry.data.savedOutletIds.includes(outletId)) return
+  entry.data.savedOutletIds = [...entry.data.savedOutletIds, outletId]
+}
+
 function draftsFromSubmission(submission: ExistingSubmission | null) {
   return Object.fromEntries((submission?.items ?? []).map((item) => [item.master_item_id, {
     ...emptyDraft(),
@@ -359,28 +420,18 @@ export default function InventoryDashboardPage() {
     let cancelled = false
     async function load() {
       setLoading(true)
-      const { data: rpcData, error: rpcError } = await supabase.rpc('accessible_outlet_ids')
-      if (rpcError) {
-        if (!cancelled) setMessage({ type: 'error', text: rpcError.message })
-        setLoading(false)
-        return
-      }
-      const ids = asIds(rpcData)
-      const [outletResult, itemResult, submissionResult] = await Promise.all([
-        supabase.from('outlets').select('id, name').in('id', ids).order('name'),
-        supabase.from('inventaris_master_items').select('id, section, subsection, name, mode, target_qty, target_min, target_max, unit, sort_order').order('sort_order'),
-        supabase.from('inventaris_submissions').select('outlet_id').in('outlet_id', ids),
-      ])
-      if (!cancelled) {
-        if (outletResult.error || itemResult.error) {
-          setMessage({ type: 'error', text: outletResult.error?.message ?? itemResult.error?.message ?? 'Gagal memuat data' })
-        } else {
-          const nextOutlets = (outletResult.data ?? []) as Outlet[]
-          const nextItems = (itemResult.data ?? []) as MasterItem[]
+      try {
+        const reference = await loadInventoryReference(currentStaffId, supabase)
+        if (!cancelled) {
+          const nextOutlets = reference.outlets
+          const nextItems = reference.items
           const initialOutletId = editOutletId && nextOutlets.some((outlet) => outlet.id === editOutletId)
             ? editOutletId
             : nextOutlets[0]?.id ?? ''
-          const [savedDraft, currentSubmission] = initialOutletId
+          // The outlet list only needs lightweight reference data. Loading the
+          // full submission here made “Mulai isi” wait for an unnecessary API
+          // request; fetch the submission only on the edit route.
+          const [savedDraft, currentSubmission] = editOutletId && initialOutletId
             ? await Promise.all([
               loadInventoryDraft(currentStaffId, todayJakarta(), initialOutletId),
               fetchCurrentSubmission(initialOutletId).catch((error) => {
@@ -393,7 +444,7 @@ export default function InventoryDashboardPage() {
           setOutlets(nextOutlets)
           setItems(nextItems)
           setSelectedOutletId(initialOutletId)
-          setSavedOutletIds(new Set((submissionResult.data ?? []).map((row: { outlet_id: string }) => row.outlet_id)))
+          setSavedOutletIds(new Set(reference.savedOutletIds))
           setDrafts(draftsForItems(nextItems, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
           setScores(savedDraft?.scores ?? scoresFromSubmission(currentSubmission))
           setNotes(savedDraft?.notes ?? currentSubmission?.notes ?? '')
@@ -401,11 +452,18 @@ export default function InventoryDashboardPage() {
           draftReadyRef.current = true
         }
         setLoading(false)
+      } catch (error) {
+        if (!cancelled) setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal memuat data inventaris.' })
+        setLoading(false)
       }
     }
     void load()
     return () => { cancelled = true }
   }, [editOutletId, staffId, supabase])
+
+  useEffect(() => {
+    if (!editOutletId && selectedOutletId) router.prefetch(`/dashboard/edit/${selectedOutletId}`)
+  }, [editOutletId, router, selectedOutletId])
 
   useEffect(() => {
     if (!staffId || !selectedOutletId || !draftReadyRef.current) return
@@ -528,6 +586,7 @@ export default function InventoryDashboardPage() {
       if (!response.ok) throw new Error(result?.error ?? 'Gagal mengirim inventaris.')
       await removeInventoryDraft(staffId, todayJakarta(), selectedOutletId)
       setSavedOutletIds((current) => new Set([...current, selectedOutletId]))
+      markReferenceSaved(staffId, selectedOutletId)
       setDraftStatus('idle')
       setMessage(null)
       setCompletedSubmission({ outletName: selectedOutlet?.name ?? 'outlet', updated: Boolean(result?.updated) })

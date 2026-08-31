@@ -30,6 +30,7 @@ type Payload = {
 
 type MasterItem = {
   id: string
+  name: string
   mode: 'quantity' | 'presence' | 'range'
   target_qty: number | null
   target_min: number | null
@@ -180,7 +181,7 @@ export async function POST(request: Request) {
 
   const { data: masterItems, error: masterError } = await supabase
     .from('inventaris_master_items')
-    .select('id, mode, target_qty, target_min, target_max')
+    .select('id, name, mode, target_qty, target_min, target_max')
     .eq('is_active', true)
   if (masterError) return errorResponse(masterError.message, 500)
 
@@ -192,6 +193,10 @@ export async function POST(request: Request) {
   }
 
   for (const item of payload.items) {
+    const master = masterById.get(item.master_item_id)
+    if (master?.name.toLowerCase().includes('freezer') && !item.catatan?.trim()) {
+      return errorResponse('Catatan freezer wajib diisi dengan ukuran dan kondisi freezer.')
+    }
     if (!CONDITIONS.has(item.kondisi)) return errorResponse('Kondisi item tidak valid.')
     if (item.observed_qty !== null && (!Number.isFinite(item.observed_qty) || item.observed_qty < 0)) {
       return errorResponse('Jumlah item tidak valid.')

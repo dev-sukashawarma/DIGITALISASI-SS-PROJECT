@@ -16,6 +16,7 @@ type ReportItem = {
   status: string
   quantity: string
   targetQuantity: string
+  notes: string | null
   photoUrl: string | null
 }
 
@@ -25,6 +26,7 @@ type ReportSubmission = {
   outletName: string
   submittedBy: string
   submittedAt: string | null
+  notes: string | null
   items: ReportItem[]
 }
 
@@ -242,6 +244,7 @@ export default function InventarisReportView() {
             status,
             quantity: asText(firstValue(rawItem, ['observed_qty', 'actual_quantity', 'quantity', 'qty', 'count'])) || (rawItem.is_present === true ? 'Ada' : rawItem.is_present === false ? 'Tidak ada' : ''),
             targetQuantity: asText(firstValue(rawItem, ['target_quantity', 'expected_quantity', 'required_quantity', 'target_qty'])) || masterTargets.get(masterId) || '',
+            notes: asText(firstValue(rawItem, ['catatan', 'notes'])) || null,
             photoUrl: photo,
           }
         }))
@@ -252,6 +255,7 @@ export default function InventarisReportView() {
           outletName: outletNames.get(outletId) ?? 'Outlet tanpa nama',
           submittedBy: staffNames.get(relationId(firstValue(rawSubmission, ['submitted_by', 'submitted_by_id', 'created_by', 'area_manager_id', 'am_id']))) ?? 'Area Manager',
           submittedAt: asText(firstValue(rawSubmission, ['submitted_at', 'created_at', 'updated_at'])) || null,
+          notes: asText(firstValue(rawSubmission, ['notes', 'catatan'])) || null,
           items,
         })
       }
@@ -438,6 +442,10 @@ function OutletSubmissionCard({ submission, statusFilter, isOpen, onToggle, onPh
         </div>
       </button>
 
+      {submission.notes && <div className="border-b border-suka-brown/10 bg-white px-5 py-3 text-sm text-suka-ink/75 sm:px-6">
+        <span className="font-bold text-suka-brown">Catatan pemeriksaan:</span> {submission.notes}
+      </div>}
+
       {!isOpen ? null : visibleItems.length === 0 ? (
         <div className="px-5 py-8 text-center text-sm text-suka-ink/50">Tidak ada detail item pada filter ini.</div>
       ) : (
@@ -457,6 +465,7 @@ function OutletSubmissionCard({ submission, statusFilter, isOpen, onToggle, onPh
                   <td className="px-5 py-3">
                     <div className="font-bold text-suka-ink">{item.name}</div>
                     <div className="mt-0.5 text-[11px] font-semibold uppercase tracking-wide text-suka-ink/45">{item.category}</div>
+                    {item.notes && <div className="mt-2 max-w-xl rounded-lg bg-suka-cream/60 px-2.5 py-1.5 text-xs leading-5 text-suka-ink/70"><span className="font-bold text-suka-brown">Catatan:</span> {item.notes}</div>}
                   </td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex rounded-lg border px-2.5 py-1 text-xs font-bold ${badgeClass(item.status)}`}>

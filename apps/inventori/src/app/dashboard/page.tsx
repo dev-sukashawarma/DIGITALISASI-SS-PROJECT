@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, LogOut, Store } from 'lucide-react'
+import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, ExternalLink, LogOut, Store } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import { loadInventoryDraft, removeInventoryDraft, saveInventoryDraft, type StoredDraft } from '@/lib/inventory-draft-store'
@@ -260,11 +260,29 @@ export default function InventoryDashboardPage() {
   const [switchingOutlet, setSwitchingOutlet] = useState(false)
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const routeParams = useParams<{ outletId?: string }>()
   const editOutletId = typeof routeParams?.outletId === 'string' ? routeParams.outletId : null
   const router = useRouter()
   const staffId = outletStaff?.id ?? null
   const draftReadyRef = useRef(false)
+  const sessionMenuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!sessionMenuOpen) return
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (!sessionMenuRef.current?.contains(event.target as Node)) setSessionMenuOpen(false)
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSessionMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutsideClick)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [sessionMenuOpen])
 
   useEffect(() => {
     draftReadyRef.current = false
@@ -450,7 +468,13 @@ export default function InventoryDashboardPage() {
       <header className="border-b border-orange-100 bg-white px-4 py-4 shadow-sm sm:px-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
           <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#701604] text-white"><ClipboardCheck size={23} /></span><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#f29744]">SUKASHAWARMA</p><h1 className="text-xl font-extrabold text-[#400a07]">Inventaris Outlet</h1></div></div>
-          <button onClick={() => void signOut()} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-50"><LogOut size={16} /> Keluar</button>
+          <div ref={sessionMenuRef} className="relative">
+            <button type="button" aria-haspopup="menu" aria-expanded={sessionMenuOpen} onClick={() => setSessionMenuOpen((current) => !current)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition hover:bg-slate-50 focus:border-[#f29744] focus:ring-2 focus:ring-orange-100"><LogOut size={16} /> Menu <ChevronDown size={16} className={`transition-transform ${sessionMenuOpen ? 'rotate-180' : ''}`} /></button>
+            {sessionMenuOpen && <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-50 w-52 rounded-2xl border border-orange-100 bg-white p-1.5 shadow-xl shadow-orange-950/10">
+              <button type="button" role="menuitem" onClick={() => { setSessionMenuOpen(false); window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com' }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-[#701604]"><ExternalLink size={16} className="text-[#f29744]" /> Kembali ke portal</button>
+              <button type="button" role="menuitem" onClick={() => { setSessionMenuOpen(false); void signOut() }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-700 transition hover:bg-red-50"><LogOut size={16} /> Keluar dari akun</button>
+            </div>}
+          </div>
         </div>
       </header>
       <div className="mx-auto max-w-6xl space-y-5 px-4 pt-6 sm:px-8">

@@ -13,6 +13,8 @@ import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah } from '@/lib/format'
 import { PageHeader, StatTilesSkeleton } from '@/components/ui'
+import { getProfitExportBreakdown } from '@/app/actions/profitExport'
+import { toast } from 'sonner'
 import CountUp from 'react-countup'
 import { 
   TrendingUp, 
@@ -26,7 +28,9 @@ import {
   PieChart,
   Store,
   Sparkles,
-  Search
+  Search,
+  Download,
+  FileText
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'
@@ -208,6 +212,121 @@ export default function ProfitPage() {
   const isHealthy = displayMargin >= 20
   const isModerate = displayMargin >= 5 && displayMargin < 20
 
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExportCSV = async () => {
+    setIsExporting(true)
+    const tId = toast.loading('Menyiapkan data kategori...')
+    try {
+      const breakdowns = await getProfitExportBreakdown(filter)
+      const breakdownMap = new Map(breakdowns.map(b => [b.outlet_id, b]))
+
+      const headers = ['Outlet', 'Kategori', 'Detail', 'Nilai (Rp)']
+      const rows: any[] = []
+
+      outletBreakdown.forEach(item => {
+        rows.push([`"${item.name}"`, 'TOTAL', 'Omzet', item.omzet])
+        rows.push([`"${item.name}"`, 'TOTAL', 'HPP', item.hpp])
+        rows.push([`"${item.name}"`, 'TOTAL', 'Waste', item.waste])
+        rows.push([`"${item.name}"`, 'TOTAL', 'Opex', item.expense])
+        rows.push([`"${item.name}"`, 'TOTAL', 'Laba Bersih', item.net])
+
+        const b = breakdownMap.get(item.id)
+        if (b) {
+          b.omzet_breakdown.forEach(om => rows.push([`"${item.name}"`, 'Omzet', `"${om.name}"`, om.amount]))
+          b.waste_breakdown.forEach(w => rows.push([`"${item.name}"`, 'Waste', `"${w.name}"`, w.amount]))
+          b.opex_breakdown.forEach(op => rows.push([`"${item.name}"`, 'Opex', `"${op.name}"`, op.amount]))
+        }
+      })
+
+      const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n')
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `Breakdown_Laba_Rugi_Kategori_${filter.from}_${filter.to}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('Ekspor CSV berhasil', { id: tId })
+    } catch (e) {
+      toast.error('Gagal mengekspor CSV', { id: tId })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleExportPDF = async () => {
+    setIsExporting(true)
+    const tId = toast.loading('Menyiapkan file PDF lengkap...')
+    try {
+      const breakdowns = await getProfitExportBreakdown(filter)
+      const breakdownMap = new Map(breakdowns.map(b => [b.outlet_id, b]))
+
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+      ])
+
+      const doc = new jsPDF({ orientation: 'portrait' })
+      doc.text('Laporan Laba Rugi Lanjutan per Outlet', 14, 15)
+      doc.setFontSize(10)
+      doc.text(`Periode: ${filter.from} s/d ${filter.to}`, 14, 22)
+
+      const bodyRows: any[] = []
+      outletBreakdown.forEach(item => {
+        bodyRows.push([
+          { content: item.name, colSpan: 5, styles: { fillColor: [243, 244, 246], fontStyle: 'bold', textColor: [17, 24, 39] } }
+        ])
+        bodyRows.push([
+          { content: 'TOTAL UTAMA', styles: { fontStyle: 'bold' } },
+          { content: rupiah(item.omzet), styles: { fontStyle: 'bold', halign: 'right' } },
+          { content: rupiah(item.hpp), styles: { fontStyle: 'bold', halign: 'right' } },
+          { content: rupiah(item.waste), styles: { fontStyle: 'bold', halign: 'right' } },
+          { content: rupiah(item.expense), styles: { fontStyle: 'bold', halign: 'right' } }
+        ])
+
+        const b = breakdownMap.get(item.id)
+        if (b) {
+          if (b.omzet_breakdown.length > 0) {
+            bodyRows.push([{ content: 'SUMBER OMZET (Top 5)', colSpan: 5, styles: { fontStyle: 'italic', textColor: [100, 100, 100] } }])
+            b.omzet_breakdown.forEach(x => {
+              bodyRows.push([`  â†³ ${x.name}`, { content: rupiah(x.amount), styles: { halign: 'right' } }, '-', '-', '-'])
+            })
+          }
+          if (b.waste_breakdown.length > 0) {
+            bodyRows.push([{ content: 'WASTE BAHAN BAKU (Top 5)', colSpan: 5, styles: { fontStyle: 'italic', textColor: [100, 100, 100] } }])
+            b.waste_breakdown.forEach(x => {
+              bodyRows.push([`  â†³ ${x.name}`, '-', '-', { content: rupiah(x.amount), styles: { halign: 'right' } }, '-'])
+            })
+          }
+          if (b.opex_breakdown.length > 0) {
+            bodyRows.push([{ content: 'PENGELUARAN OPEX (Top 5)', colSpan: 5, styles: { fontStyle: 'italic', textColor: [100, 100, 100] } }])
+            b.opex_breakdown.forEach(x => {
+              bodyRows.push([`  â†³ ${x.name}`, '-', '-', '-', { content: rupiah(x.amount), styles: { halign: 'right' } }])
+            })
+          }
+        }
+      })
+
+      autoTable(doc, {
+        startY: 28,
+        head: [['Rincian Item / Kategori', 'Omzet', 'HPP', 'Waste', 'Opex']],
+        body: bodyRows,
+        theme: 'grid',
+        headStyles: { fillColor: [249, 115, 22], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: { 0: { cellWidth: 70 } }
+      })
+
+      doc.save(`Breakdown_Laba_Rugi_Kategori_${filter.from}_${filter.to}.pdf`)
+      toast.success('Ekspor PDF berhasil', { id: tId })
+    } catch (e) {
+      toast.error('Gagal mengekspor PDF', { id: tId })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-8 animate-fade-in pb-12">
       <PageHeader 
@@ -215,7 +334,17 @@ export default function ProfitPage() {
         description="Analisis mendalam perbandingan omzet penjualan, beban pokok, dan biaya operasional" 
         icon={Calculator}
       >
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
+        <div className="flex flex-col sm:flex-row items-center gap-3">
+          <div className="flex items-center gap-2">
+            <button disabled={isExporting} onClick={handleExportCSV} className={`flex items-center gap-1.5 bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border border-green-200 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <Download className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export CSV'}
+            </button>
+            <button disabled={isExporting} onClick={handleExportPDF} className={`flex items-center gap-1.5 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border border-red-200 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
+              <FileText className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export PDF'}
+            </button>
+          </div>
+          <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
+        </div>
       </PageHeader>
 
       {error && (
@@ -281,7 +410,7 @@ export default function ProfitPage() {
                 </h3>
                 <div className="flex items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
                   <span>HPP: {rupiah(totalHpp)}</span>
-                  <span>•</span>
+                  <span>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢</span>
                   <span>Waste: {rupiah(totalWaste)}</span>
                 </div>
               </div>
@@ -669,3 +798,10 @@ export default function ProfitPage() {
     </div>
   )
 }
+
+
+
+
+
+
+

@@ -11,11 +11,11 @@ export default async function SetoranPage() {
     { data: balances },
     { data: txs },
   ] = await Promise.all([
-    supabase.from('cash_locations').select('*').order('label'),
-    supabase.from('cash_balances').select('*'),
+    supabase.from('cash_location').select('*').order('label'),
+    supabase.from('cash_balance').select('*'),
     supabase
-      .from('cash_transactions')
-      .select('*, cash_location:location_id(label), outlet:outlet_id(name)')
+      .from('cash_transaction')
+      .select('*, cash_location:cash_location_id(label, kind), outlet:outlet_id(name)')
       .order('occurred_at', { ascending: false })
       .limit(100),
   ])

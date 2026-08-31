@@ -9,6 +9,7 @@ import { SaranInbox } from './SaranInbox'
 import { TransferListView } from './TransferListView'
 import { MitraProfitLossSection } from '../../mitra/MitraProfitLossSection'
 import { InvestmentDialog } from '@/components/InvestmentDialog'
+import { PeriodFilter } from '@/components/PeriodFilter'
 import { 
   Users, 
   UploadCloud, 
@@ -519,14 +520,24 @@ export function KelolaMitraView({
               outlets={mitraOutlets}
             />
           ) : (
-            <div className="p-14 text-center bg-white/90 backdrop-blur-md rounded-3xl border border-dashed border-amber-200 shadow-xs space-y-3">
+            <div className="p-14 text-center bg-white/90 backdrop-blur-md rounded-3xl border border-dashed border-amber-200 shadow-xs space-y-5">
               <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
                 <Store className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-[#2A1D16] text-base">Belum Ada Transaksi di Jaringan Kemitraan</h3>
-              <p className="text-xs text-[#6E5A4E] max-w-md mx-auto font-normal">
-                Silakan sesuaikan filter rentang tanggal atau pastikan outlet mitra telah terhubung dengan data penjualan.
-              </p>
+              <div>
+                <h3 className="font-bold text-[#2A1D16] text-base">Belum Ada Transaksi di Jaringan Kemitraan</h3>
+                <p className="text-xs text-[#6E5A4E] max-w-md mx-auto font-normal mt-2">
+                  Silakan sesuaikan filter rentang tanggal atau pastikan outlet mitra telah terhubung dengan data penjualan.
+                </p>
+              </div>
+              <div className="flex justify-center mt-4">
+                <PeriodFilter
+                  value={currentFilter}
+                  onChange={handleFilterChange}
+                  outlets={mitraOutlets}
+                  hideSource
+                />
+              </div>
             </div>
           )}
         </div>

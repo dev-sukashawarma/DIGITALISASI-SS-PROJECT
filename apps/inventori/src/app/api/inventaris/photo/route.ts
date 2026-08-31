@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@suka/auth'
 
 export const runtime = 'nodejs'
@@ -35,7 +35,30 @@ async function createServerClient() {
 function isOwnedDraftPath(path: string | null, userId: string, outletId: string) {
   return Boolean(path)
     && path!.startsWith(`${userId}/drafts/${outletId}/`)
-    && path!.toLowerCase().endsWith('.webp')
+    && /\.(jpe?g|png|webp)$/i.test(path!)
+}
+
+async function optimizeUploadedPhoto(supabase: Awaited<ReturnType<typeof createServerClient>>, rawPath: string) {
+  try {
+    const { data, error } = await supabase.storage.from(PHOTO_BUCKET).download(rawPath)
+    if (error || !data) throw new Error(error?.message ?? 'Foto asli tidak ditemukan.')
+
+    const { default: sharp } = await import('sharp')
+    const webp = await sharp(Buffer.from(await data.arrayBuffer()), { limitInputPixels: 40_000_000, sequentialRead: true })
+      .rotate()
+      .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+      .webp({ quality: 72 })
+      .toBuffer()
+    const { error: uploadError } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(rawPath, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: true })
+    if (uploadError) throw new Error(uploadError.message)
+
+    return rawPath
+  } catch (error) {
+    console.error('[inventaris] optimasi foto background gagal', { rawPath, error })
+    return null
+  }
 }
 
 export async function POST(request: Request) {
@@ -68,17 +91,11 @@ export async function POST(request: Request) {
   if (!masterItem) return errorResponse('Item inventaris tidak valid.')
 
   try {
-    const { default: sharp } = await import('sharp')
-    const input = Buffer.from(await photo.arrayBuffer())
-    const webp = await sharp(input, { limitInputPixels: 40_000_000, sequentialRead: true })
-      .rotate()
-      .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 72 })
-      .toBuffer()
-    const path = `${user.id}/drafts/${outletId}/${itemId}-${crypto.randomUUID()}.webp`
+    const extension = photo.type.toLowerCase() === 'image/png' ? 'png' : photo.type.toLowerCase() === 'image/webp' ? 'webp' : 'jpg'
+    const path = `${user.id}/drafts/${outletId}/${itemId}-${crypto.randomUUID()}.${extension}`
     const { error: uploadError } = await supabase.storage
       .from(PHOTO_BUCKET)
-      .upload(path, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: false })
+      .upload(path, photo, { contentType: photo.type, cacheControl: '3600', upsert: false })
     if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
 
     if (isOwnedDraftPath(previousPath, user.id, outletId)) {
@@ -88,7 +105,10 @@ export async function POST(request: Request) {
     const { data: signedUrlData } = await supabase.storage
       .from(PHOTO_BUCKET)
       .createSignedUrl(path, 24 * 60 * 60)
-    return NextResponse.json({ ok: true, photo_path: path, photo_url: signedUrlData?.signedUrl ?? null })
+    after(async () => {
+      await optimizeUploadedPhoto(supabase, path)
+    })
+    return NextResponse.json({ ok: true, photo_path: path, photo_url: signedUrlData?.signedUrl ?? null, optimizing: true })
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : 'Gagal memproses foto.', 500)
   }

@@ -263,13 +263,13 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
       <label htmlFor={inputId} className="relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/40 text-center hover:border-[#f29744]">
         {photo && previewUrl ? <>
           <img src={previewUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
-          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : 'text-green-700'}`}>{uploading ? 'Menyimpan foto ke server…' : uploadError ? 'Gagal · tekan untuk coba lagi' : 'Foto WebP tersimpan · tekan untuk ganti'}</span>
+          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : 'text-green-700'}`}>{uploading ? 'Mengunggah foto…' : uploadError ? 'Gagal · tekan untuk coba lagi' : 'Foto tersimpan · server mengoptimalkan'}</span>
         </> : existingPhotoUrl ? <>
           <img src={existingPhotoUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
           <span className="absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold text-green-700 backdrop-blur-sm">Foto tersimpan · tekan untuk ganti</span>
         </> : uploadedPhotoUrl ? <>
           <img src={uploadedPhotoUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
-          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : 'text-green-700'}`}>{uploading ? 'Menyimpan foto ke server…' : 'Foto WebP tersimpan · tekan untuk ganti'}</span>
+          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : 'text-green-700'}`}>{uploading ? 'Mengunggah foto…' : 'Foto tersimpan · server mengoptimalkan'}</span>
         </> : <>
           <Camera className="text-[#f29744]" size={28} />
           <span className="mt-2 text-xs font-bold text-[#701604]">Ambil foto barang</span>
@@ -278,7 +278,7 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
       </label>
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={handleChange} />
       <p className="mt-2 truncate text-[10px] text-slate-500" title={photo?.name}>
-        {uploadError ? uploadError : uploading ? 'Mengompres dan menyimpan di server…' : photo && uploadedPhotoPath ? `${photo.name} · WebP tersimpan di server` : photo ? `${photo.name} · menunggu upload` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto WebP tersimpan di server' : 'Belum ada foto'}
+        {uploadError ? uploadError : uploading ? 'Mengunggah foto asli…' : photo && uploadedPhotoPath ? `${photo.name} · tersimpan, server mengoptimalkan` : photo ? `${photo.name} · menunggu upload` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto tersimpan, server mengoptimalkan' : 'Belum ada foto'}
       </p>
     </div>
   )

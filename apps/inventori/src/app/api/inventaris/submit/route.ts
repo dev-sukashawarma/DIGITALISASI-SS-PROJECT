@@ -1,14 +1,11 @@
 import { cookies } from 'next/headers'
-import { NextResponse } from 'next/server'
+import { after, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@suka/auth'
 
 export const runtime = 'nodejs'
 
 const PHOTO_BUCKET = 'inventaris-foto'
 const MAX_INPUT_FILE_BYTES = 12 * 1024 * 1024
-// Storage upload is network-bound after the CPU-heavy resize. A small worker
-// pool keeps the VPS busy without creating one promise per photo at once.
-const PHOTO_PROCESS_CONCURRENCY = 6
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const CONDITIONS = new Set(['baik', 'perlu_perbaikan', 'rusak', 'tidak_ada'])
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -67,7 +64,7 @@ function isOwnedDraftPhotoPath(path: string | null, userId: string, outletId: st
   return Boolean(path)
     && UUID_PATTERN.test(outletId)
     && path!.startsWith(`${userId}/drafts/${outletId}/`)
-    && path!.toLowerCase().endsWith('.webp')
+    && /\.(jpe?g|png|webp)$/i.test(path!)
 }
 
 function evaluate(item: MasterItem, submitted: SubmittedItem): string {
@@ -81,32 +78,6 @@ function evaluate(item: MasterItem, submitted: SubmittedItem): string {
   return submitted.observed_qty >= Number(item.target_qty) ? 'sesuai' : 'kurang'
 }
 
-async function mapWithConcurrency<T, R>(items: T[], concurrency: number, mapper: (item: T, index: number) => Promise<R>) {
-  const results = new Array<R>(items.length)
-  let nextIndex = 0
-  let failed = false
-  let firstError: unknown = null
-
-  async function worker() {
-    while (!failed) {
-      const index = nextIndex++
-      if (index >= items.length) return
-      try {
-        results[index] = await mapper(items[index], index)
-      } catch (error) {
-        // Let every already-running worker finish so the cleanup phase can
-        // remove all files uploaded before the request failed.
-        failed = true
-        firstError = error
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()))
-  if (failed) throw firstError
-  return results
-}
-
 async function createServerClient() {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
@@ -118,6 +89,45 @@ async function createServerClient() {
     },
   })
   return supabase
+}
+
+async function optimizeSubmittedPhotos(
+  supabase: Awaited<ReturnType<typeof createServerClient>>,
+  submissionId: string,
+  userId: string,
+  outletId: string,
+  items: Array<{ master_item_id: string; photo_path: string }>,
+) {
+  const rawItems = items.filter((item) => isOwnedDraftPhotoPath(item.photo_path, userId, outletId) && !item.photo_path.toLowerCase().endsWith('.webp'))
+  if (!rawItems.length) return
+
+  const { default: sharp } = await import('sharp')
+  await Promise.all(rawItems.map(async (item) => {
+    try {
+      const { data, error } = await supabase.storage.from(PHOTO_BUCKET).download(item.photo_path)
+      if (error || !data) throw new Error(error?.message ?? 'Foto asli tidak ditemukan.')
+      const webp = await sharp(Buffer.from(await data.arrayBuffer()), { limitInputPixels: 40_000_000, sequentialRead: true })
+        .rotate()
+        .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+        .webp({ quality: 72 })
+        .toBuffer()
+      const webpPath = `${userId}/${submissionId}/${item.master_item_id}-${crypto.randomUUID()}.webp`
+      const { error: uploadError } = await supabase.storage
+        .from(PHOTO_BUCKET)
+        .upload(webpPath, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: false })
+      if (uploadError) throw new Error(uploadError.message)
+
+      const { error: updateError } = await supabase
+        .from('inventaris_submission_items')
+        .update({ photo_path: webpPath })
+        .eq('submission_id', submissionId)
+        .eq('master_item_id', item.master_item_id)
+      if (updateError) throw new Error(updateError.message)
+      await supabase.storage.from(PHOTO_BUCKET).remove([item.photo_path])
+    } catch (error) {
+      console.error('[inventaris] optimasi foto submit background gagal', { submissionId, itemId: item.master_item_id, error })
+    }
+  }))
 }
 
 async function getCurrentSubmission(supabase: Awaited<ReturnType<typeof createServerClient>>, outletId: string) {
@@ -254,43 +264,21 @@ export async function POST(request: Request) {
   }
 
   const submissionId = currentSubmission?.id ?? crypto.randomUUID()
-  const uploadedPaths: string[] = []
   try {
-    const hasNewPhotos = Array.from(photoByItemId.values()).some(Boolean)
-    // Load sharp only when a real upload is processed. This prevents Next.js
-    // from evaluating sharp while collecting route/page data during build.
-    const sharp = hasNewPhotos ? (await import('sharp')).default : null
-    const detailRows = await mapWithConcurrency(payload.items, PHOTO_PROCESS_CONCURRENCY, async (item) => {
-        const master = masterById.get(item.master_item_id) as MasterItem
-        const photo = photoByItemId.get(item.master_item_id)
-        let path = item.photo_path?.trim() || null
-        if (photo instanceof File && photo.size > 0) {
-          if (!sharp) throw new Error('Pemroses foto belum siap.')
-          const input = Buffer.from(await photo.arrayBuffer())
-          const webp = await sharp(input, { limitInputPixels: 40_000_000, sequentialRead: true })
-            .rotate()
-            .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-            .webp({ quality: 78 })
-            .toBuffer()
-          const uploadId = crypto.randomUUID()
-          path = `${user.id}/${submissionId}/${item.master_item_id}-${uploadId}.webp`
-          const { error: uploadError } = await supabase.storage
-            .from(PHOTO_BUCKET)
-            .upload(path, webp, { contentType: 'image/webp', cacheControl: '31536000', upsert: false })
-          if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
-          uploadedPaths.push(path)
-        }
-        if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)
-        return {
-          master_item_id: item.master_item_id,
-          observed_qty: master.mode === 'presence' ? null : item.observed_qty,
-          is_present: master.mode === 'presence' ? item.is_present : null,
-          kondisi: item.kondisi,
-          status_penilaian: evaluate(master, item),
-          catatan: item.catatan?.trim() || null,
-          photo_path: path,
-        }
-      })
+    const detailRows = payload.items.map((item) => {
+      const master = masterById.get(item.master_item_id) as MasterItem
+      const path = item.photo_path?.trim() || null
+      if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)
+      return {
+        master_item_id: item.master_item_id,
+        observed_qty: master.mode === 'presence' ? null : item.observed_qty,
+        is_present: master.mode === 'presence' ? item.is_present : null,
+        kondisi: item.kondisi,
+        status_penilaian: evaluate(master, item),
+        catatan: item.catatan?.trim() || null,
+        photo_path: path,
+      }
+    })
 
     const { error: submitError } = await supabase.rpc('submit_inventaris', {
       p_submission_id: submissionId,
@@ -309,9 +297,12 @@ export async function POST(request: Request) {
     const replacedPaths = oldPaths.filter((path) => !retainedPaths.has(path))
     if (replacedPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(replacedPaths)
 
+    after(async () => {
+      await optimizeSubmittedPhotos(supabase, submissionId, user.id, payload.outlet_id, detailRows)
+    })
+
     return NextResponse.json({ ok: true, submission_id: submissionId, updated: Boolean(currentSubmission) })
   } catch (error) {
-    if (uploadedPaths.length > 0) await supabase.storage.from(PHOTO_BUCKET).remove(uploadedPaths)
     return errorResponse(error instanceof Error ? error.message : 'Gagal menyimpan inventaris.', 500)
   }
 }

@@ -61,3 +61,60 @@ export function useCashDeposit() {
     },
   })
 }
+
+export function useCashDepositHistory(filters?: { startDate?: string; endDate?: string; outletId?: string }) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery({
+    queryKey: ['cash_deposit_history', filters],
+    queryFn: async () => {
+      let q = supabase
+        .from('cash_transaction')
+        .select('*, cash_location:cash_location_id(label, kind), outlet:outlet_id(name)')
+        .eq('source_type', 'cash_deposit')
+        .order('occurred_at', { ascending: false })
+
+      if (filters?.startDate) {
+        q = q.gte('occurred_at', filters.startDate)
+      }
+      if (filters?.endDate) {
+        q = q.lte('occurred_at', filters.endDate + 'T23:59:59.999Z')
+      }
+      if (filters?.outletId) {
+        q = q.eq('outlet_id', filters.outletId)
+      }
+
+      const { data, error } = await q
+      if (error) throw error
+      return data || []
+    }
+  })
+}
+
+export function useShiftDepositHistory(filters?: { startDate?: string; endDate?: string; outletId?: string }) {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery({
+    queryKey: ['shift_deposit_history', filters],
+    queryFn: async () => {
+      let q = supabase
+        .from('shifts')
+        .select('id, start_time, end_time, actual_ending_cash, expected_ending_cash, variance, starting_cash, notes, status, outlet:outlet_id(name), staff:staff_id(name)')
+        .eq('status', 'closed')
+        .order('end_time', { ascending: false })
+
+      if (filters?.startDate) {
+        q = q.gte('end_time', filters.startDate)
+      }
+      if (filters?.endDate) {
+        q = q.lte('end_time', filters.endDate + 'T23:59:59.999Z')
+      }
+      if (filters?.outletId) {
+        q = q.eq('outlet_id', filters.outletId)
+      }
+
+      const { data, error } = await q
+      if (error) throw error
+      return data || []
+    }
+  })
+}
+

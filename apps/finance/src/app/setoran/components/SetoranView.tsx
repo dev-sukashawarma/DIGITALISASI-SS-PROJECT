@@ -168,7 +168,7 @@ export function SetoranView({
         )}
       </SectionCard>
 
-      <SectionCard title="Setoran Terbaru">
+      <SectionCard title="Setoran Terbaru" action={<Link href="/setoran/history" className="text-sm font-medium text-suka-orange hover:underline">Lihat Riwayat Lengkap &rarr;</Link>}>
         {deposits.length === 0 ? (
           <p className="py-6 text-center text-suka-gray-400">Belum ada setoran tunai.</p>
         ) : (

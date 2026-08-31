@@ -19,16 +19,16 @@ export function TopMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
   }, [list, mode])
 
   return (
-    <div className="bg-white/80 backdrop-blur-xl p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4 flex flex-col h-full">
+    <div className="bg-white/80 backdrop-blur-xl p-5 sm:p-6 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] space-y-4 flex flex-col h-full">
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Menu Terlaris</h3>
           
           {/* Custom segmented control switcher */}
-          <div className="bg-suka-cream p-0.5 rounded-lg border border-suka-brown/5 flex gap-0.5 text-[10px] font-bold">
+          <div className="bg-suka-cream p-0.5 rounded-lg border border-suka-brown/5 flex gap-0.5 text-[10px] font-bold shrink-0">
             <button 
               onClick={() => setMode('qty')} 
-              className={`px-3 py-1 rounded-md transition-all ${
+              className={`px-2.5 sm:px-3 py-1 rounded-md transition-all ${
                 mode === 'qty' 
                   ? 'bg-suka-orange text-white shadow-sm' 
                   : 'text-suka-brown/60 hover:text-suka-brown'
@@ -38,7 +38,7 @@ export function TopMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
             </button>
             <button 
               onClick={() => setMode('revenue')} 
-              className={`px-3 py-1 rounded-md transition-all ${
+              className={`px-2.5 sm:px-3 py-1 rounded-md transition-all ${
                 mode === 'revenue' 
                   ? 'bg-suka-orange text-white shadow-sm' 
                   : 'text-suka-brown/60 hover:text-suka-brown'
@@ -51,7 +51,7 @@ export function TopMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
         <p className="text-xs text-suka-gray-400 font-semibold mt-0.5">Menu terpopuler berdasarkan pesanan completed</p>
       </div>
 
-      <div className="flex-1 mt-4">
+      <div className="flex-1 mt-3 sm:mt-4">
         {list.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-suka-gray-400 text-sm">
             Belum ada data menu
@@ -64,7 +64,7 @@ export function TopMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
               visible: { transition: { staggerChildren: 0.05 } },
               hidden: {},
             }}
-            className="space-y-4"
+            className="space-y-3.5 sm:space-y-4"
           >
             {list.map((m, i) => {
               const currentValue = m[mode]
@@ -87,19 +87,19 @@ export function TopMenus({ rows = [] }: { rows?: AggregatedMenuSales[] }) {
                   }}
                   className="space-y-1.5 group"
                 >
-                  <div className="flex justify-between items-center text-xs">
-                    <div className="flex items-center gap-2 font-bold text-suka-ink truncate mr-4">
+                  <div className="flex justify-between items-center text-xs gap-2">
+                    <div className="flex items-center gap-1.5 sm:gap-2 font-bold text-suka-ink truncate min-w-0 flex-1">
                       {/* Stylized Rank Badge */}
                       <span 
-                        className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] border font-extrabold ${
+                        className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] border font-extrabold shrink-0 ${
                           isTop3 ? rankColors[i] : 'text-suka-gray-400 bg-suka-gray-50 border-suka-gray-100'
                         }`}
                       >
                         {i === 0 && isTop3 ? <Crown className="w-3 h-3" /> : i + 1}
                       </span>
-                      <span className="truncate text-suka-ink font-bold">{m.name}</span>
+                      <span className="truncate text-suka-ink font-bold text-xs" title={m.name}>{m.name}</span>
                     </div>
-                    <span className="font-extrabold text-suka-brown whitespace-nowrap">
+                    <span className="font-extrabold text-suka-brown whitespace-nowrap text-xs shrink-0 ml-1">
                       {mode === 'qty' ? `${m.qty} porsi` : rupiah(m.revenue)}
                     </span>
                   </div>

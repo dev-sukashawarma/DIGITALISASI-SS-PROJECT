@@ -16,20 +16,20 @@ export function PageHeader({
   icon?: React.ElementType
 }) {
   return (
-    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between mb-8 relative z-50">
-      <div className="flex-1">
+    <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between mb-6 sm:mb-8 relative z-50">
+      <div className="flex-1 min-w-0">
         {/* Playful Display Header */}
-        <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide flex items-center gap-3">
-          {arguments[0].icon && React.createElement(arguments[0].icon, { className: "w-8 h-8 md:w-10 md:h-10 text-suka-orange" })}
-          {title}
+        <h1 className="font-display text-3xl sm:text-4xl lg:text-5xl text-suka-brown tracking-wide flex items-center gap-2.5 sm:gap-3">
+          {arguments[0].icon && React.createElement(arguments[0].icon, { className: "w-7 h-7 sm:w-8 sm:h-8 md:w-10 md:h-10 text-suka-orange" })}
+          <span>{title}</span>
         </h1>
         {description && (
-          <p className="text-suka-ink/60 mt-3 font-medium text-sm">
+          <p className="text-suka-ink/60 mt-1.5 sm:mt-2 font-medium text-xs sm:text-sm">
             {description}
           </p>
         )}
       </div>
-      {children && <div className="shrink-0 xl:mt-2">{children}</div>}
+      {children && <div className="shrink-0 w-full 2xl:w-auto">{children}</div>}
     </div>
   )
 }

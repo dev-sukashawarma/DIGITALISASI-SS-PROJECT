@@ -24,8 +24,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
   const isReadOnly = profile?.role === 'MITRA'
   const lockedOutletId = isReadOnly ? profile?.outlet_id : null
 
-  // 2. Build Filter from searchParams or Default
-  const defaultRange = presetRange('today')
+  // 2. Build Filter from searchParams or Default (Default: Kemarin)
+  const defaultRange = presetRange('yesterday')
   const filter: PeriodFilterValue = {
     from: sp.from || defaultRange.from,
     to: sp.to || defaultRange.to,
@@ -80,6 +80,10 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       menuRows={menuSales}
       prevMenuRows={prevMenuSales}
       leaderboard={leaderboard}
+      curCogs={curData.totalCogs}
+      prevCogs={prevData.totalCogs}
+      curOpex={curData.totalOpex}
+      prevOpex={prevData.totalOpex}
       curCogsOpex={curData.totalCogsOpex}
       prevCogsOpex={prevData.totalCogsOpex}
       cogsBreakdown={{ cogs: curData.totalCogs, opex: curData.totalOpex }}

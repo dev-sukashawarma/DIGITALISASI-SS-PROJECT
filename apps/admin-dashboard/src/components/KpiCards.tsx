@@ -3,7 +3,7 @@ import type { SalesSummaryRow } from '@/lib/types'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { aov, deltaPct } from '@/lib/format'
 import CountUp from 'react-countup'
-import { TrendingUp, DollarSign, UtensilsCrossed, Boxes } from 'lucide-react'
+import { TrendingUp, DollarSign, UtensilsCrossed, Boxes, Receipt } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 interface KpiCardsProps {
@@ -12,6 +12,10 @@ interface KpiCardsProps {
   hourlyRows?: { sales_hour: number; omzet: number; jumlah_order_completed: number }[]
   menuRows?: AggregatedMenuSales[]
   prevMenuRows?: AggregatedMenuSales[]
+  curCogs?: number
+  prevCogs?: number
+  curOpex?: number
+  prevOpex?: number
   curCogsOpex?: number
   prevCogsOpex?: number
   cogsBreakdown?: { cogs: number; opex: number }
@@ -23,10 +27,23 @@ export function KpiCards({
   hourlyRows = [],
   menuRows = [],
   prevMenuRows = [],
+  curCogs: propCurCogs,
+  prevCogs: propPrevCogs,
+  curOpex: propCurOpex,
+  prevOpex: propPrevOpex,
   curCogsOpex = 0,
   prevCogsOpex = 0,
   cogsBreakdown,
 }: KpiCardsProps) {
+  // Extract COGS & OPEX with fallback
+  const curCogs = propCurCogs ?? cogsBreakdown?.cogs ?? 0
+  const curOpex = propCurOpex ?? cogsBreakdown?.opex ?? 0
+  const prevCogs = propPrevCogs ?? 0
+  const prevOpex = propPrevOpex ?? 0
+
+  const totalCurCogsOpex = curCogsOpex || (curCogs + curOpex)
+  const totalPrevCogsOpex = prevCogsOpex || (prevCogs + prevOpex)
+
   // Current values
   // Note: r.omzet in DB (sales_hourly_scoped) is SUM(total_amount), which is actually Net Revenue
   const netRevenue = rows.reduce((s, r) => s + r.omzet, 0)
@@ -46,11 +63,12 @@ export function KpiCards({
   const prevTotalPcs = (prevMenuRows || []).reduce((s, r) => s + (Number(r.qty) || 0), 0)
 
   // Deltas: Laba Bersih (Net) = Omzet Kotor - Potongan - (COGS + OPEX)
-  const netProfit = (grossRevenue - totalDeductions) - curCogsOpex
-  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - prevCogsOpex
+  const netProfit = (grossRevenue - totalDeductions) - totalCurCogsOpex
+  const prevNetProfit = (prevGrossRevenue - prevTotalDeductions) - totalPrevCogsOpex
 
   const dGross = deltaPct(grossRevenue, prevGrossRevenue)
-  const dCogsOpex = prevCogsOpex > 0 ? deltaPct(curCogsOpex, prevCogsOpex) : null
+  const dCogs = prevCogs > 0 ? deltaPct(curCogs, prevCogs) : null
+  const dOpex = prevOpex > 0 ? deltaPct(curOpex, prevOpex) : null
   const dPcs = prevTotalPcs > 0 ? deltaPct(totalPcs, prevTotalPcs) : (totalPcs > 0 && prevTotalPcs === 0 ? 100 : null)
   const dCompleted = deltaPct(completed, prevCompleted)
   const dAov = deltaPct(currentAov, prevAov)
@@ -69,19 +87,31 @@ export function KpiCards({
       color: '#f29744', // Suka Orange
       subtext: 'Pemasukan kotor sebelum potongan',
     },
-    // 2. COGS + OPEX
+    // 2. Total COGS (HPP)
     {
-      id: 'cogs-opex',
-      label: 'COGS + OPEX',
-      value: curCogsOpex,
+      id: 'cogs',
+      label: 'Total COGS (HPP)',
+      value: curCogs,
       isString: false,
       isRupiah: true,
-      delta: dCogsOpex,
+      delta: dCogs,
       icon: Boxes,
-      color: '#ef4444', // Rose / Red
-      subtext: 'HPP bahan & beban operasional',
+      color: '#f97316', // Orange / Amber
+      subtext: 'HPP bahan baku resep',
     },
-    // 3. Total Pcs Terjual + Jumlah Order (Combined)
+    // 3. Beban Operasional (OPEX)
+    {
+      id: 'opex',
+      label: 'Beban Operasional (OPEX)',
+      value: curOpex,
+      isString: false,
+      isRupiah: true,
+      delta: dOpex,
+      icon: Receipt,
+      color: '#ef4444', // Rose / Red
+      subtext: 'Biaya operasional & petty cash',
+    },
+    // 4. Total Pcs Terjual + Jumlah Order (Combined)
     {
       id: 'pcs-order',
       isCustom: true,
@@ -94,7 +124,7 @@ export function KpiCards({
       icon: UtensilsCrossed,
       color: '#8b5cf6', // Violet
     },
-    // 4. Average (AOV)
+    // 5. Average (AOV)
     {
       id: 'average',
       label: 'AOV (Average Order Value)',
@@ -106,7 +136,7 @@ export function KpiCards({
       color: '#0284c7', // Sky Blue
       subtext: 'Rata-rata nilai per belanja',
     },
-    // 5. Net (Laba Bersih: Omzet Kotor - (COGS+OPEX))
+    // 6. Net (Laba Bersih: Omzet Kotor - (COGS+OPEX))
     {
       id: 'net',
       label: 'Laba Bersih (Net)',
@@ -128,7 +158,7 @@ export function KpiCards({
         visible: { transition: { staggerChildren: 0.08 } },
         hidden: {},
       }}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3.5 sm:gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6 gap-3 sm:gap-4"
     >
       {cards.map((c) => {
         if (!c) return null
@@ -145,44 +175,44 @@ export function KpiCards({
                 hidden: { opacity: 0, y: 15 },
                 visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
               }}
-              className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
+              className="bg-white/80 backdrop-blur-xl p-3.5 sm:p-4 xl:p-4.5 rounded-2xl sm:rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
             >
               {/* Aksen Warna Vertikal */}
-              <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-3xl" style={{ backgroundColor: c.color }} />
+              <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-2xl sm:rounded-l-3xl" style={{ backgroundColor: c.color }} />
               
               <div className="relative z-10 flex flex-col h-full justify-between ml-1.5 sm:ml-2">
-                <div className="flex justify-between items-start gap-2">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">{c.label}</p>
-                    <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">{c.subtext}</p>
+                <div className="flex justify-between items-start gap-1.5">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] sm:text-xs font-semibold text-suka-gray-500 uppercase tracking-wider truncate" title={c.label}>{c.label}</p>
+                    <p className="text-[10px] sm:text-[11px] text-suka-gray-400 font-medium mt-0.5 truncate" title={c.subtext}>{c.subtext}</p>
                   </div>
-                  <div className="p-2 rounded-xl shrink-0" style={{ backgroundColor: `${c.color}10` }}>
-                    <Icon className="w-5 h-5" style={{ color: c.color }} />
+                  <div className="p-1.5 sm:p-2 rounded-xl shrink-0" style={{ backgroundColor: `${c.color}10` }}>
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: c.color }} />
                   </div>
                 </div>
 
-                <div className="mt-4 sm:mt-5 flex items-baseline justify-between gap-2 flex-wrap">
+                <div className="mt-3.5 sm:mt-4 flex items-baseline justify-between gap-1.5 flex-wrap">
                   <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
                     <div className="flex items-baseline gap-1">
-                      <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
+                      <h3 className="text-base sm:text-lg xl:text-xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                         <CountUp end={c.totalPcs as number} duration={1} separator="." />
                       </h3>
-                      <span className="text-[11px] font-bold text-suka-gray-500 uppercase">Pcs</span>
+                      <span className="text-[10px] sm:text-[11px] font-bold text-suka-gray-500 uppercase">Pcs</span>
                     </div>
 
                     <span className="text-suka-gray-300 font-bold">•</span>
 
                     <div className="flex items-baseline gap-1">
-                      <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
+                      <h3 className="text-base sm:text-lg xl:text-xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                         <CountUp end={c.completed as number} duration={1} separator="." />
                       </h3>
-                      <span className="text-[11px] font-bold text-suka-gray-500 uppercase">Order</span>
+                      <span className="text-[10px] sm:text-[11px] font-bold text-suka-gray-500 uppercase">Order</span>
                     </div>
                   </div>
                   
                   {hasPcsDelta && (
                     <span 
-                      className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
+                      className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5 shrink-0 ${
                         isPcsPositive 
                           ? 'text-green-700 bg-green-100/80' 
                           : 'text-rose-500 bg-rose-50'
@@ -210,25 +240,25 @@ export function KpiCards({
               hidden: { opacity: 0, y: 15 },
               visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
             }}
-            className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
+            className="bg-white/80 backdrop-blur-xl p-3.5 sm:p-4 xl:p-4.5 rounded-2xl sm:rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
           >
             {/* Aksen Warna Vertikal */}
-            <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-3xl" style={{ backgroundColor: c.color }} />
+            <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-2xl sm:rounded-l-3xl" style={{ backgroundColor: c.color }} />
             
             <div className="relative z-10 flex flex-col h-full justify-between ml-1.5 sm:ml-2">
-              <div className="flex justify-between items-start gap-2">
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">{c.label}</p>
-                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">{c.subtext}</p>
+              <div className="flex justify-between items-start gap-1.5">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] sm:text-xs font-semibold text-suka-gray-500 uppercase tracking-wider truncate" title={c.label}>{c.label}</p>
+                  <p className="text-[10px] sm:text-[11px] text-suka-gray-400 font-medium mt-0.5 truncate" title={c.subtext}>{c.subtext}</p>
                 </div>
-                <div className="p-2 rounded-xl shrink-0" style={{ backgroundColor: `${c.color}10` }}>
-                  <Icon className="w-5 h-5" style={{ color: c.color }} />
+                <div className="p-1.5 sm:p-2 rounded-xl shrink-0" style={{ backgroundColor: `${c.color}10` }}>
+                  <Icon className="w-4 h-4 sm:w-5 sm:h-5" style={{ color: c.color }} />
                 </div>
               </div>
 
-              <div className="mt-4 sm:mt-5 flex items-baseline justify-between gap-2 flex-wrap">
+              <div className="mt-3.5 sm:mt-4 flex items-baseline justify-between gap-1.5 flex-wrap">
                 <div className="min-w-0">
-                  <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
+                  <h3 className="text-base sm:text-lg xl:text-xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                     {c.isString ? (
                       c.value
                     ) : (
@@ -249,7 +279,7 @@ export function KpiCards({
                 
                 {hasDelta && (
                   <span 
-                    className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
+                    className={`text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5 shrink-0 ${
                       isPositive 
                         ? 'text-green-700 bg-green-100/80' 
                         : 'text-rose-500 bg-rose-50'

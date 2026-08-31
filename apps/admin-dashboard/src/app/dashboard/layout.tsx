@@ -21,7 +21,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <main id="dashboard-main-scroll" className="flex-1 overflow-y-auto w-full">
             <ScrollRestoration selector="#dashboard-main-scroll" />
             {/* Bottom padding on mobile keeps content clear of the fixed BottomNav. */}
-            <div className="w-full p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8">{children}</div>
+            <div className="w-full p-3 sm:p-5 lg:p-6 xl:p-8 pb-24 lg:pb-8">{children}</div>
           </main>
         </SwipeableLayout>
       </div>

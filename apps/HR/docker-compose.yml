@@ -1,0 +1,15 @@
+﻿version: '3.8'
+
+services:
+  waha:
+    image: devlikeapro/waha:latest
+    container_name: waha-hr
+    restart: unless-stopped
+    ports:
+      - " 3008:3000\
+ environment:
+ - WAHA_API_KEY=
+ - WHATSAPP_DEFAULT_ENGINE=WEBJS
+ - WAHA_DASHBOARD_ENABLED=true
+ volumes:
+ - ./waha_sessions:/app/.sessions

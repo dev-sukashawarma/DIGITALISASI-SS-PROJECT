@@ -15,7 +15,7 @@ const ROLE_HOME: Record<string, string> = {
   LEADER: '/dashboard/leader',
   PURCHASING: '/dashboard/pembelian',
 }
-const FALLBACK_HOME = '/dashboard/hr'
+const FALLBACK_HOME = '/dashboard/owner'
 
 export function ClientRedirect() {
   const { role } = useRole()

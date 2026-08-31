@@ -93,7 +93,7 @@ export default async function EditResepPage({ params }: { params: Promise<{ menu
 
   return (
     <div className="w-full space-y-6">
-      <Link href="/dashboard/resep" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-suka-primary">
+      <Link href="/resep" className="inline-flex items-center text-sm font-medium text-gray-500 hover:text-suka-primary">
         <ArrowLeft className="w-4 h-4 mr-1" /> Kembali ke Manajemen Resep
       </Link>
 

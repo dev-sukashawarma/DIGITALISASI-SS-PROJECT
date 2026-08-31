@@ -9,7 +9,7 @@ interface DashboardState {
 
 export const useDashboardStore = create<DashboardState>((set) => ({
   filter: {
-    ...presetRange('today'),
+    ...presetRange('yesterday'),
     outletId: 'all',
     source: 'all',
   },

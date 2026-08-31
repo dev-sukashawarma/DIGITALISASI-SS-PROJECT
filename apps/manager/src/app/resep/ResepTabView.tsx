@@ -236,7 +236,7 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
                           </td>
                           <td className="px-6 py-4 text-right">
                             <Link
-                              href={`/dashboard/resep/${menu.id}`}
+                              href={`/resep/${menu.id}`}
                               className="inline-flex items-center px-3 py-1.5 bg-suka-primary/10 hover:bg-suka-primary/20 text-suka-primary rounded-xl text-xs font-bold transition-colors"
                             >
                               {menu.isPackage ? 'Lihat Resep' : (menu.hasBOM ? 'Edit Resep' : 'Buat Resep')}

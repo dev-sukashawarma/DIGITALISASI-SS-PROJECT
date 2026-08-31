@@ -155,9 +155,9 @@ export function PeriodFilter({
   const currentPreset = activePreset()
 
   return (
-    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center w-full justify-end">
+    <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5 sm:gap-3 sm:items-center w-full 2xl:w-auto justify-end">
       {/* 1. Date Range Presets (Segmented control) — stack on mobile, inline on desktop */}
-      <div className="bg-white/60 backdrop-blur-xl p-1.5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-stretch gap-1 text-xs font-bold w-full sm:w-auto flex-wrap sm:flex-nowrap">
+      <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto overflow-x-auto no-scrollbar sm:flex-nowrap">
         {(['kemarin', 'today', '7d', '30d', 'this_month'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p
@@ -166,7 +166,7 @@ export function PeriodFilter({
             <button
               key={p}
               onClick={() => setPreset(p)}
-              className={`flex-1 sm:flex-none px-1.5 sm:px-4 py-2 sm:py-2.5 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
+              className={`flex-1 sm:flex-none px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-lg whitespace-nowrap transition-all active:scale-95 cursor-pointer ${
                 isActive
                   ? 'bg-suka-orange text-white shadow-md font-extrabold ring-1 ring-black/5'
                   : 'text-suka-brown/70 hover:text-suka-brown hover:bg-suka-orange/5'
@@ -185,7 +185,7 @@ export function PeriodFilter({
       </div>
 
       {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
         {!lockedOutletId && (
           <OutletCombobox
             value={value.outletId}

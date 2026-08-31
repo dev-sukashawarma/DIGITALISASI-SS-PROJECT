@@ -34,6 +34,10 @@ interface OwnerDashboardViewProps {
   menuRows: AggregatedMenuSales[]
   prevMenuRows?: AggregatedMenuSales[]
   leaderboard: any[]
+  curCogs?: number
+  prevCogs?: number
+  curOpex?: number
+  prevOpex?: number
   curCogsOpex?: number
   prevCogsOpex?: number
   cogsBreakdown?: { cogs: number; opex: number }
@@ -79,6 +83,10 @@ export default function OwnerDashboardView({
   menuRows,
   prevMenuRows,
   leaderboard,
+  curCogs,
+  prevCogs,
+  curOpex,
+  prevOpex,
   curCogsOpex,
   prevCogsOpex,
   cogsBreakdown,
@@ -130,6 +138,10 @@ export default function OwnerDashboardView({
             hourlyRows={hourlyRows || []}
             menuRows={menuRows || []}
             prevMenuRows={prevMenuRows || []}
+            curCogs={curCogs}
+            prevCogs={prevCogs}
+            curOpex={curOpex}
+            prevOpex={prevOpex}
             curCogsOpex={curCogsOpex}
             prevCogsOpex={prevCogsOpex}
             cogsBreakdown={cogsBreakdown}

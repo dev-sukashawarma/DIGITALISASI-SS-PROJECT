@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { Button } from '@suka/design-system'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
@@ -23,6 +23,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Manajemen',
     items: [
+      { href: '/resep', label: 'Resep & HPP', icon: BookOpen },
       { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
       { href: '/team', label: 'Tim / Kru', icon: Users },
       { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
@@ -196,7 +197,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
 
         {/* Scrollable Main */}
         <main className="flex-1 overflow-y-auto w-full">
-          <div className="max-w-7xl mx-auto p-3 sm:p-6 lg:p-8 pb-28 md:pb-8">
+          <div className={`${pathname.startsWith('/resep') ? 'w-full' : 'max-w-7xl mx-auto'} p-3 sm:p-6 lg:p-8 pb-28 md:pb-8`}>
             {children}
           </div>
         </main>

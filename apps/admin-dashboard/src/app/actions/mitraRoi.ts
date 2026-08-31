@@ -171,6 +171,26 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
   return baseHpp
 }
 
+  // Try using the optimized PostgreSQL RPC first
+  let rpcDataByOutlet: Record<string, { grossRevenue: number, totalDeductions: number, totalCogs: number }> = {}
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
+    p_outlet_ids: mitraOutletIds,
+    p_from: SYSTEM_START_DATE,
+    p_to: new Date().toISOString()
+  })
+
+  if (!rpcError && rpcData && Array.isArray(rpcData)) {
+    for (const row of rpcData) {
+      const oid = row.outlet_id
+      if (!rpcDataByOutlet[oid]) {
+        rpcDataByOutlet[oid] = { grossRevenue: 0, totalDeductions: 0, totalCogs: 0 }
+      }
+      rpcDataByOutlet[oid].grossRevenue += Number(row.gross_revenue) || 0
+      rpcDataByOutlet[oid].totalDeductions += Number(row.deductions) || 0
+      rpcDataByOutlet[oid].totalCogs += Number(row.cogs) || 0
+    }
+  }
+
   for (const oid of mitraOutletIds) {
     const inv = invMap[oid]
     const profile = profiles.find(p => (p.outlet_ids || []).includes(oid))
@@ -180,40 +200,48 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
     const transferHistoris = Number(inv?.transfer_historis) || 0
     const mgmtFeePct = Number(inv?.management_fee) || 0
 
-    const outletOrders = allOrders.filter(o => o.outlet_id === oid)
     let grossRevenue = 0
     let totalDeductions = 0
     let totalCogs = 0
 
-    outletOrders.forEach(order => {
-      const totalAmt = Number(order.total_amount) || 0
-      const disc = Number(order.discount_amount) || 0
-      const promo = Number(order.promo_subsidy) || 0
-      const ch = (order.channel || 'pos').toLowerCase()
-      const src = (order.sales_source || ch).toLowerCase()
-
-      let itemGross = 0
-      let orderCogs = 0
-
-      if (Array.isArray(order.order_items)) {
-        for (const item of order.order_items) {
-          const qty = Number(item.quantity) || 1
-          itemGross += Number(item.subtotal) || (qty * Number(item.unit_price || 0)) || 0
-
-          const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
-          orderCogs += (hpp * qty)
-        }
+    if (!rpcError && rpcData && Array.isArray(rpcData)) {
+      if (rpcDataByOutlet[oid]) {
+        grossRevenue = rpcDataByOutlet[oid].grossRevenue
+        totalDeductions = rpcDataByOutlet[oid].totalDeductions
+        totalCogs = rpcDataByOutlet[oid].totalCogs
       }
+    } else {
+      const outletOrders = allOrders.filter(o => o.outlet_id === oid)
+      outletOrders.forEach(order => {
+        const totalAmt = Number(order.total_amount) || 0
+        const disc = Number(order.discount_amount) || 0
+        const promo = Number(order.promo_subsidy) || 0
+        const ch = (order.channel || 'pos').toLowerCase()
+        const src = (order.sales_source || ch).toLowerCase()
 
-      const itemDiff = itemGross > totalAmt ? itemGross - totalAmt : 0
-      const extraDiff = Math.max(0, itemDiff - (disc + promo))
-      const deductions = disc + promo + extraDiff
-      const grossRev = itemGross > 0 ? itemGross : (totalAmt + disc + promo)
+        let itemGross = 0
+        let orderCogs = 0
 
-      grossRevenue += grossRev
-      totalDeductions += deductions
-      totalCogs += orderCogs
-    })
+        if (Array.isArray(order.order_items)) {
+          for (const item of order.order_items) {
+            const qty = Number(item.quantity) || 1
+            itemGross += Number(item.subtotal) || (qty * Number(item.unit_price || 0)) || 0
+
+            const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
+            orderCogs += (hpp * qty)
+          }
+        }
+
+        const itemDiff = itemGross > totalAmt ? itemGross - totalAmt : 0
+        const extraDiff = Math.max(0, itemDiff - (disc + promo))
+        const deductions = disc + promo + extraDiff
+        const grossRev = itemGross > 0 ? itemGross : (totalAmt + disc + promo)
+
+        grossRevenue += grossRev
+        totalDeductions += deductions
+        totalCogs += orderCogs
+      })
+    }
 
     const opex = (pettyExpenses?.filter(p => p.outlet_id === oid).reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0) +
                  (monthlyExpenses?.filter(m => m.outlet_id === oid).reduce((sum, m) => sum + Number(m.amount || 0), 0) || 0)

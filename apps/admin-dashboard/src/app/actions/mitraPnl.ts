@@ -151,49 +151,6 @@ export async function getMitraComprehensivePnl(
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
 
-  const PAGE_SIZE = 1000
-  const allOrders: any[] = []
-  let offset = 0
-  while (true) {
-    const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
-    if (error) {
-      console.error('Error fetching mitra orders:', error)
-      break
-    }
-    if (!page || page.length === 0) break
-    allOrders.push(...page)
-    if (page.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
-  }
-
-  // 4. Fetch Petty Cash & Monthly Expenses & Waste in parallel
-  const [
-    { data: pettyExpenses },
-    { data: monthlyExpenses },
-    { data: wasteRows }
-  ] = await Promise.all([
-    supabase
-      .from('petty_cash_expenses')
-      .select('id, amount, expense_date, category, description, outlet_id')
-      .in('outlet_id', targetOutletIds)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .is('deleted_at', null)
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to),
-    supabase
-      .from('expenses')
-      .select('id, amount, expense_date, category, description, outlet_id, type')
-      .in('outlet_id', targetOutletIds)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .eq('type', 'out')
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to),
-    supabase.rpc('get_waste_periode', {
-      p_from: filter.from,
-      p_to: filter.to,
-    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) }))
-  ])
-
   // 5. Process Channel Breakdown & COGS
   let posGross = 0
   let posDeductions = 0
@@ -215,90 +172,145 @@ export async function getMitraComprehensivePnl(
 
   const outletGrossRevMap = new Map<string, number>()
 
-function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
-  if (!menuItem) return 0
-  let baseHpp = 0
-  const normCh = channel ? channel.toLowerCase() : null
-  let channelHppVal: number | null = null
+  // Try using the optimized PostgreSQL RPC first
+  const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
+    p_outlet_ids: targetOutletIds,
+    p_from: fromStart.toISOString(),
+    p_to: toEnd.toISOString()
+  })
 
-  if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-    if (
-      normCh === 'ss-online' ||
-      normCh === 'ss_online' ||
-      normCh.includes('tiktok') ||
-      normCh.includes('shopee') ||
-      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-    ) {
-      channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
-    } else {
-      channelHppVal = menuItem.channel_hpp[normCh] ?? null
-    }
-  }
+  if (!rpcError && rpcData && Array.isArray(rpcData)) {
+    // We successfully retrieved the pre-aggregated data from the database
+    for (const row of rpcData) {
+      const gross = Number(row.gross_revenue) || 0
+      const ded = Number(row.deductions) || 0
+      const cogs = Number(row.cogs) || 0
+      const count = Number(row.order_count) || 0
 
-  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-    baseHpp = Number(channelHppVal)
-  } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
-    baseHpp = Number(menuItem.hpp_override)
-  } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
-    baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component ? getItemHpp(pkg.component, outletType, channel) : (Number(pkg.component?.hpp_override) || 0)
-      const qty = Number(pkg.quantity) || 1
-      return sum + (compHpp * qty)
-    }, 0)
-  }
-  if (outletType === 'mitra' && baseHpp > 0) {
-    return Math.round(baseHpp * 1.10)
-  }
-  return baseHpp
-}
+      outletGrossRevMap.set(row.outlet_id, (outletGrossRevMap.get(row.outlet_id) || 0) + gross)
 
-  for (const ord of allOrders) {
-    const totalAmt = Number(ord.total_amount) || 0
-    const disc = Number(ord.discount_amount) || 0
-    const promo = Number(ord.promo_subsidy) || 0
-    const ch = (ord.channel || 'pos').toLowerCase()
-    const src = (ord.sales_source || ch).toLowerCase()
-
-    let itemGross = 0
-    let orderCogs = 0
-
-    if (Array.isArray(ord.order_items)) {
-      for (const item of ord.order_items) {
-        const qty = Number(item.quantity) || 1
-        itemGross += Number(item.subtotal) || (qty * Number(item.unit_price || 0)) || 0
-
-        const hpp = getItemHpp(item.menu_items, 'mitra', ord.channel)
-        orderCogs += (hpp * qty)
+      if (row.channel_group === 'foodApps') {
+        faGross += gross
+        faDeductions += ded
+        faCogs += cogs
+        faCount += count
+        grabRev += Number(row.grab_rev) || 0
+        gofoodRev += Number(row.gofood_rev) || 0
+        shopeeRev += Number(row.shopee_rev) || 0
+      } else if (row.channel_group === 'tiktok') {
+        tkGross += gross
+        tkDeductions += ded
+        tkCogs += cogs
+        tkCount += count
+      } else {
+        posGross += gross
+        posDeductions += ded
+        posCogs += cogs
+        posCount += count
       }
     }
+  } else {
+    // Fallback to memory-heavy JavaScript processing if RPC doesn't exist yet
+    function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+      if (!menuItem) return 0
+      let baseHpp = 0
+      const normCh = channel ? channel.toLowerCase() : null
+      let channelHppVal: number | null = null
 
-    const itemDiff = itemGross > totalAmt ? itemGross - totalAmt : 0
-    const extraDiff = Math.max(0, itemDiff - (disc + promo))
-    const deductions = disc + promo + extraDiff
-    const grossRev = itemGross > 0 ? itemGross : (totalAmt + disc + promo)
+      if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
+        if (
+          normCh === 'ss-online' ||
+          normCh === 'ss_online' ||
+          normCh.includes('tiktok') ||
+          normCh.includes('shopee') ||
+          normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+          normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
+        ) {
+          channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
+        } else {
+          channelHppVal = menuItem.channel_hpp[normCh] ?? null
+        }
+      }
 
-    outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
+      if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+        baseHpp = Number(channelHppVal)
+      } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
+        baseHpp = Number(menuItem.hpp_override)
+      } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
+        baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
+          const compHpp = pkg.component ? getItemHpp(pkg.component, outletType, channel) : (Number(pkg.component?.hpp_override) || 0)
+          const qty = Number(pkg.quantity) || 1
+          return sum + (compHpp * qty)
+        }, 0)
+      }
+      if (outletType === 'mitra' && baseHpp > 0) {
+        return Math.round(baseHpp * 1.10)
+      }
+      return baseHpp
+    }
 
-    if (src.includes('grab') || src.includes('gofood') || src.includes('shopee') || src === 'food_delivery' || ch.includes('grab') || ch.includes('go') || ch.includes('shopee')) {
-      faGross += grossRev
-      faDeductions += deductions
-      faCogs += orderCogs
-      faCount++
-      if (src.includes('grab') || ch.includes('grab')) grabRev += totalAmt
-      else if (src.includes('gofood') || src.includes('go_food') || ch.includes('go')) gofoodRev += totalAmt
-      else if (src.includes('shopee') || ch.includes('shopee')) shopeeRev += totalAmt
-    } else if (src.includes('tiktok') || ch.includes('tiktok')) {
-      tkGross += grossRev
-      tkDeductions += deductions
-      tkCogs += orderCogs
-      tkCount++
-    } else {
-      // Default to POS (Dine-in, Takeaway, QRIS, Kasir)
-      posGross += grossRev
-      posDeductions += deductions
-      posCogs += orderCogs
-      posCount++
+    const PAGE_SIZE = 1000
+    const allOrders: any[] = []
+    let offset = 0
+    while (true) {
+      const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
+      if (error) {
+        console.error('Error fetching mitra orders:', error)
+        break
+      }
+      if (!page || page.length === 0) break
+      allOrders.push(...page)
+      if (page.length < PAGE_SIZE) break
+      offset += PAGE_SIZE
+    }
+
+    for (const ord of allOrders) {
+      const totalAmt = Number(ord.total_amount) || 0
+      const disc = Number(ord.discount_amount) || 0
+      const promo = Number(ord.promo_subsidy) || 0
+      const ch = (ord.channel || 'pos').toLowerCase()
+      const src = (ord.sales_source || ch).toLowerCase()
+
+      let itemGross = 0
+      let orderCogs = 0
+
+      if (Array.isArray(ord.order_items)) {
+        for (const item of ord.order_items) {
+          const qty = Number(item.quantity) || 1
+          itemGross += Number(item.subtotal) || (qty * Number(item.unit_price || 0)) || 0
+
+          const hpp = getItemHpp(item.menu_items, 'mitra', ord.channel)
+          orderCogs += (hpp * qty)
+        }
+      }
+
+      const itemDiff = itemGross > totalAmt ? itemGross - totalAmt : 0
+      const extraDiff = Math.max(0, itemDiff - (disc + promo))
+      const deductions = disc + promo + extraDiff
+      const grossRev = itemGross > 0 ? itemGross : (totalAmt + disc + promo)
+
+      outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
+
+      if (src.includes('grab') || src.includes('gofood') || src.includes('shopee') || src === 'food_delivery' || ch.includes('grab') || ch.includes('go') || ch.includes('shopee')) {
+        faGross += grossRev
+        faDeductions += deductions
+        faCogs += orderCogs
+        faCount++
+        if (src.includes('grab') || ch.includes('grab')) grabRev += totalAmt
+        else if (src.includes('gofood') || src.includes('go_food') || ch.includes('go')) gofoodRev += totalAmt
+        else if (src.includes('shopee') || ch.includes('shopee')) shopeeRev += totalAmt
+      } else if (src.includes('tiktok') || ch.includes('tiktok')) {
+        tkGross += grossRev
+        tkDeductions += deductions
+        tkCogs += orderCogs
+        tkCount++
+      } else {
+        // Default to POS (Dine-in, Takeaway, QRIS, Kasir)
+        posGross += grossRev
+        posDeductions += deductions
+        posCogs += orderCogs
+        posCount++
+      }
     }
   }
 

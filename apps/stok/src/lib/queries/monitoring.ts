@@ -436,38 +436,6 @@ export async function fetchRecentLedger(limit = 50): Promise<LedgerFeedEntry[]> 
   return await attachSaldoIsGram(supabase, withSatuan) as LedgerFeedEntry[];
 }
 
-export interface StockoutForecastItem {
-  outlet_id: string;
-  outlet_name: string;
-  bahan_baku_id: string;
-  item_name: string;
-  satuan: string | null;
-  satuan_kecil: string | null;
-  faktor_tampilan: number | null;
-  current_qty: number;
-  threshold: number;
-  daily_rate: number;
-  days_left: number;
-}
-
-/**
- * Fetch stockout forecast (cross-outlet). Returns items projected to run out
- * within `maxDays`, sorted soonest-first — predictive early warning before an
- * item hits the threshold. Backed by stockout_forecast_spv (definer view).
- */
-export async function fetchStockoutForecast(maxDays = 1, limit = 6): Promise<StockoutForecastItem[]> {
-  const supabase = createSupabaseBrowserClient();
-  const { data, error } = await supabase
-    .from('stockout_forecast_spv')
-    .select('outlet_id, outlet_name, bahan_baku_id, item_name, satuan, current_qty, threshold, daily_rate, days_left')
-    .lte('days_left', maxDays)
-    .order('days_left', { ascending: true })
-    .limit(limit);
-
-  if (error) throw error;
-  return await attachSatuanKecil(supabase, (data || []) as StockoutForecastItem[]);
-}
-
 const LOSS_TIPE = ['waste', 'rejected_kiriman', 'opname_selisih'] as const;
 
 export interface WasteTodaySummary {

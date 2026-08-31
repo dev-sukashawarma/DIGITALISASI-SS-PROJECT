@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@suka/auth';
 import type { SPVMonitoringData, CrewMonitoringData } from '@/lib/types/monitoring';
-import { fetchSPVMonitoringData, fetchLeaderMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchStockoutForecast, fetchWasteToday } from '@/lib/queries/monitoring';
+import { fetchSPVMonitoringData, fetchLeaderMonitoringData, fetchCrewMonitoringData, fetchRecentLedger, fetchWasteToday } from '@/lib/queries/monitoring';
 import { useAutoRefresh } from './useAutoRefresh';
 import { useRealtimeInvalidate } from '@suka/realtime';
 
@@ -17,21 +17,6 @@ export function useRecentLedger(limit = 50) {
     refetchInterval: 15000,
     staleTime: 10000,
     gcTime: 60000,
-    retry: 2,
-  });
-}
-
-/**
- * Predictive stockout forecast — items projected to run out within `maxDays`.
- * Slower-moving signal; refreshes every 60s.
- */
-export function useStockoutForecast(maxDays = 1, limit = 6) {
-  return useQuery({
-    queryKey: ['monitoring', 'stockoutForecast', maxDays, limit],
-    queryFn: () => fetchStockoutForecast(maxDays, limit),
-    refetchInterval: 60000,
-    staleTime: 45000,
-    gcTime: 120000,
     retry: 2,
   });
 }

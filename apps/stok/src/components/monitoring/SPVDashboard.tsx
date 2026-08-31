@@ -10,7 +10,6 @@ import { BudgetOutletTabContent } from './budget/BudgetOutletTabContent';
 import {
   useSPVMonitoringData,
   useLeaderMonitoringData,
-  useStockoutForecast,
   useWasteToday,
   useMonitoringRealtime
 } from '@/hooks/useMonitoringData';
@@ -19,7 +18,7 @@ import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
-import { RefreshCw, Search, X, Bell, CheckCircle2, TrendingDown, Trash2, Store } from 'lucide-react';
+import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
@@ -107,7 +106,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const { data, isLoading } = isLeaderScoped ? leaderQuery : spvQuery;
 
   // Real-time and proactive hooks
-  const stockoutForecastQuery = useStockoutForecast(1, 6);
   const wasteTodayQuery = useWasteToday();
 
   // Pending request approvals hook
@@ -119,23 +117,11 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     refetchInterval: 30000
   });
 
-  const stockoutForecast = useMemo(() => {
-    const raw = stockoutForecastQuery.data || [];
-    if (!allowedOutletIds) return raw;
-    return raw.filter(item => allowedOutletIds.includes(item.outlet_id));
-  }, [stockoutForecastQuery.data, allowedOutletIds]);
-
   const wasteToday = useMemo(() => {
     const raw = wasteTodayQuery.data?.entries || [];
     if (!allowedOutletIds) return raw;
     return raw.filter(entry => allowedOutletIds.includes(entry.outlet_id));
   }, [wasteTodayQuery.data?.entries, allowedOutletIds]);
-
-  // Compute stats specifically for the selected outlet
-  const outletForecastCount = useMemo(() => {
-    if (!selectedOutletId) return 0;
-    return stockoutForecast.filter(f => f.outlet_id === selectedOutletId).length;
-  }, [stockoutForecast, selectedOutletId]);
 
   const outletWasteCount = useMemo(() => {
     if (!selectedOutletId) return 0;
@@ -563,11 +549,6 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
 
                 {/* Secondary Proactive Stats */}
                 <div className="flex items-center gap-4 text-xs font-bold text-suka-brown/70">
-                  {outletForecastCount > 0 && (
-                    <span className="flex items-center gap-1 text-amber-700 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                      <TrendingDown className="w-3.5 h-3.5" /> {outletForecastCount} habis dalam 24j
-                    </span>
-                  )}
                   {outletWasteCount > 0 && (
                     <span className="flex items-center gap-1 text-suka-brown/70 bg-suka-cream/60 px-2 py-1 rounded-lg border border-suka-brown/10">
                       <Trash2 className="w-3.5 h-3.5" /> {outletWasteCount} waste hari ini

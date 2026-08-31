@@ -1,11 +1,19 @@
-import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { cookies, headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import ResepTabView from './ResepTabView'
 import { getMenuCategoryGroup, getSizeRank } from './categoryHelper'
 
 export const dynamic = 'force-dynamic'
 
 export default async function ResepPage() {
+  const headersList = await headers()
+  const staff = parseStaffHeader(headersList.get(STAFF_HEADER))
+
+  if (staff?.role === 'area_manager') {
+    redirect('/')
+  }
+
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),

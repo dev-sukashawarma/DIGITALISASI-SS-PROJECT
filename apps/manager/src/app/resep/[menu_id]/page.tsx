@@ -1,5 +1,6 @@
-import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { cookies, headers } from 'next/headers'
+import { redirect } from 'next/navigation'
+import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { ResepEditor } from './ResepEditor'
@@ -7,6 +8,13 @@ import { ResepEditor } from './ResepEditor'
 export const dynamic = 'force-dynamic'
 
 export default async function EditResepPage({ params }: { params: Promise<{ menu_id: string }> }) {
+  const headersList = await headers()
+  const staff = parseStaffHeader(headersList.get(STAFF_HEADER))
+
+  if (staff?.role === 'area_manager') {
+    redirect('/')
+  }
+
   const menu_id = (await params).menu_id
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({

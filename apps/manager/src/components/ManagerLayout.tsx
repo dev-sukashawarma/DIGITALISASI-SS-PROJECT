@@ -2,13 +2,20 @@
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { Button } from '@suka/design-system'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
 
-export type NavItem = { href: string; label: string; icon: any; external?: boolean; appKey?: 'inventori' }
+export type NavItem = { 
+  href: string; 
+  label: string; 
+  icon: any; 
+  external?: boolean; 
+  appKey?: 'inventori';
+  allowedRoles?: string[];
+  excludedRoles?: string[];
+}
 export type NavGroup = { title: string; items: NavItem[] }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -23,12 +30,20 @@ const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Manajemen',
     items: [
-      { href: '/resep', label: 'Resep & HPP', icon: BookOpen },
+      { href: '/resep', label: 'Resep & HPP', icon: BookOpen, excludedRoles: ['area_manager'] },
       { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
       { href: '/team', label: 'Tim / Kru', icon: Users },
       { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
     ]
   }
+];
+
+// Primary 4 items shown on the mobile bottom bar
+const PRIMARY_NAV_ITEMS: NavItem[] = [
+  { href: '/', label: 'Overview', icon: LayoutDashboard },
+  { href: '/reports', label: 'Laporan', icon: BarChart3 },
+  { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
+  { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
 ];
 
 interface ManagerLayoutProps {
@@ -41,6 +56,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const { outletStaff, signOut } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isMenuSheetOpen, setIsMenuSheetOpen] = useState(false)
   const [inventoriUrl, setInventoriUrl] = useState(
     process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com',
   )
@@ -51,12 +67,28 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const homePath = "/"
   const defaultTitle = "Manager Dashboard"
 
-  const allLinks = NAV_GROUPS.flatMap(g => g.items)
+  const isItemVisible = (item: NavItem) => {
+    if (!outletStaff) return true
+    if (item.excludedRoles && item.excludedRoles.includes(outletStaff.role)) return false
+    if (item.allowedRoles && !item.allowedRoles.includes(outletStaff.role)) return false
+    return true
+  }
+
+  const visibleGroups = NAV_GROUPS
+    .map(group => ({
+      ...group,
+      items: group.items.filter(isItemVisible)
+    }))
+    .filter(group => group.items.length > 0)
+
+  const allLinks = visibleGroups.flatMap(g => g.items)
 
   const currentNavPath = allLinks.find(l => !l.external && l.href !== homePath && pathname.startsWith(l.href))?.href ?? homePath
   const currentLink = allLinks.find(l => l.href === currentNavPath)
 
   const userMenuRef = useRef<HTMLDivElement>(null)
+
+  const isMenuSubItemActive = !PRIMARY_NAV_ITEMS.some(item => item.href === currentNavPath)
 
   useEffect(() => {
     if (!isUserMenuOpen) return
@@ -75,9 +107,23 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
     }
   }, [])
 
+  // Close sheet on route changes
+  useEffect(() => {
+    setIsMenuSheetOpen(false)
+  }, [pathname])
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true)
+    try {
+      await signOut()
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-suka-cream">
-      {/* Sidebar */}
+      {/* Sidebar (Desktop) */}
       <aside className="hidden w-64 shrink-0 border-r border-suka-brown/10 bg-white/80 backdrop-blur-xl md:flex md:flex-col print:hidden shadow-[4px_0_24px_rgba(44,24,16,0.02)] z-20">
         <div className="p-5 border-b border-suka-brown/5 flex items-center gap-3">
           <div className="text-xl font-black text-suka-brown tracking-tight leading-none">{brand}<span className="text-suka-orange">{brandAccent}</span></div>
@@ -85,7 +131,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
 
         {/* Navigation List */}
         <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
-          {NAV_GROUPS.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.title} className="space-y-1">
               <div className="px-3 text-[10px] font-black uppercase tracking-wider text-suka-gray-400 mb-2">
                 {group.title}
@@ -149,6 +195,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
               <button 
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="w-9 h-9 rounded-full bg-white flex items-center justify-center hover:bg-suka-gray-50 transition-colors border border-suka-brown/20 shadow-sm cursor-pointer"
+                aria-label="User menu"
               >
                 <User className="w-4 h-4 text-suka-brown" />
               </button>
@@ -173,14 +220,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                         Kembali ke Portal
                       </Link>
                       <button 
-                        onClick={async () => {
-                          setIsLoggingOut(true)
-                          try {
-                            await signOut()
-                          } finally {
-                            setIsLoggingOut(false)
-                          }
-                        }}
+                        onClick={handleLogout}
                         disabled={isLoggingOut}
                         className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors text-left cursor-pointer"
                       >
@@ -202,35 +242,179 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
           </div>
         </main>
 
-        {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden fixed bottom-3 left-3 right-3 z-40 bg-white/90 backdrop-blur-xl rounded-full border border-suka-brown/10 shadow-[0_8px_30px_rgba(44,24,16,0.12)] flex items-center justify-around px-2 py-2 print:hidden">
-          {allLinks.map(({ href, label, icon: Icon, appKey }) => {
-            const active = currentNavPath === href
-            const targetHref = appKey === 'inventori' ? inventoriUrl : href
-            return (
-              <Link
-                key={href}
-                href={targetHref}
-                className={`flex flex-col items-center justify-center min-h-[48px] min-w-[64px] gap-1 transition-all rounded-xl relative ${
-                  active ? 'text-suka-orange' : 'text-suka-gray-400 hover:text-suka-brown'
+        {/* Mobile Bottom Navigation Bar */}
+        <nav 
+          className="md:hidden fixed bottom-0 left-0 w-full z-40 bg-white/95 backdrop-blur-2xl border-t border-suka-brown/10 rounded-t-[24px] shadow-[0_-8px_32px_rgba(44,24,16,0.08)] print:hidden"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 8px)' }}
+        >
+          <div className="flex items-center justify-around h-[70px] px-2 pt-1.5">
+            {PRIMARY_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = currentNavPath === href
+              const isApproval = href === '/approvals'
+              const count = isApproval ? pendingRequests.length : 0
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className="relative flex-1 flex flex-col items-center justify-center gap-1 min-w-0 px-0.5"
+                >
+                  <span
+                    className={`relative flex items-center justify-center transition-all duration-300 ${
+                      active
+                        ? 'w-10 h-10 rounded-full bg-suka-orange text-white shadow-md shadow-suka-orange/30 scale-105'
+                        : 'w-10 h-10 rounded-full bg-transparent text-suka-gray-400 hover:bg-suka-gray-50'
+                    }`}
+                  >
+                    <Icon size={20} className="shrink-0" />
+                    {count > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm">
+                        {count > 9 ? '9+' : count}
+                      </span>
+                    )}
+                  </span>
+                  <span
+                    className={`text-[10px] tracking-tight leading-tight truncate max-w-full transition-all duration-300 ${
+                      active ? 'font-black text-suka-orange scale-100' : 'font-semibold text-suka-gray-400 scale-95'
+                    }`}
+                  >
+                    {label}
+                  </span>
+                </Link>
+              )
+            })}
+
+            {/* Menu Sheet Trigger */}
+            <button
+              type="button"
+              onClick={() => setIsMenuSheetOpen(true)}
+              className="flex-1 flex flex-col items-center justify-center gap-1 px-0.5 cursor-pointer"
+            >
+              <span
+                className={`relative flex items-center justify-center transition-all duration-300 ${
+                  isMenuSubItemActive || isMenuSheetOpen
+                    ? 'w-10 h-10 rounded-full bg-suka-orange text-white shadow-md shadow-suka-orange/30 scale-105'
+                    : 'w-10 h-10 rounded-full bg-transparent text-suka-gray-400 hover:bg-suka-gray-50'
                 }`}
               >
-                <div className={`p-1.5 rounded-full transition-all ${active ? 'bg-suka-orange/10 text-suka-orange' : 'bg-transparent'}`}>
-                  <Icon size={20} strokeWidth={active ? 2.5 : 2} />
-                </div>
-                <span className={`text-[10px] ${active ? 'font-black text-suka-orange' : 'font-semibold'}`}>
-                  {label}
-                </span>
-                {href === '/approvals' && pendingRequests.length > 0 && (
-                  <div className="absolute top-1 right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-white flex items-center justify-center">
-                    <span className="text-[8px] font-bold text-white">{pendingRequests.length > 9 ? '9+' : pendingRequests.length}</span>
-                  </div>
-                )}
-              </Link>
-            )
-          })}
+                <Menu size={20} className="shrink-0" />
+              </span>
+              <span
+                className={`text-[10px] tracking-tight leading-tight transition-all duration-300 ${
+                  isMenuSubItemActive || isMenuSheetOpen
+                    ? 'font-black text-suka-orange scale-100'
+                    : 'font-semibold text-suka-gray-400 scale-95'
+                }`}
+              >
+                Menu
+              </span>
+            </button>
+          </div>
         </nav>
+
+        {/* Mobile Full-Nav Bottom Sheet Drawer */}
+        {isMenuSheetOpen && (
+          <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-suka-brown/40 backdrop-blur-sm transition-opacity"
+              onClick={() => setIsMenuSheetOpen(false)}
+            />
+
+            {/* Drawer Container */}
+            <div 
+              className="relative bg-white/95 backdrop-blur-3xl rounded-t-[32px] border-t border-suka-brown/10 shadow-[0_-10px_40px_rgba(44,24,16,0.15)] max-h-[85vh] overflow-y-auto"
+              style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
+            >
+              {/* Drawer Header */}
+              <div className="sticky top-0 bg-white/90 backdrop-blur-xl px-6 pt-5 pb-4 flex items-center justify-between border-b border-suka-brown/5 z-10">
+                <div>
+                  <div className="text-lg font-black text-suka-brown tracking-tight">
+                    {brand}<span className="text-suka-orange">{brandAccent}</span> Menu
+                  </div>
+                  {outletStaff && (
+                    <p className="text-[11px] font-bold text-suka-orange uppercase tracking-wider mt-0.5">
+                      {outletStaff.name} • {outletStaff.role.replace('_', ' ')}
+                    </p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMenuSheetOpen(false)}
+                  className="w-9 h-9 rounded-full bg-suka-gray-50 border border-suka-gray-200/60 flex items-center justify-center text-suka-gray-500 hover:bg-suka-gray-100 hover:text-suka-brown active:scale-95 transition-all cursor-pointer"
+                  aria-label="Tutup menu"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Drawer Content */}
+              <div className="px-5 py-5 space-y-6">
+                {visibleGroups.map((group) => (
+                  <div key={group.title}>
+                    <h3 className="px-2 mb-3 text-[11px] font-black text-suka-gray-400 uppercase tracking-widest">
+                      {group.title}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {group.items.map(({ href, label, icon: Icon, appKey }) => {
+                        const active = currentNavPath === href
+                        const isApproval = href === '/approvals'
+                        const count = isApproval ? pendingRequests.length : 0
+                        const targetHref = appKey === 'inventori' ? inventoriUrl : href
+
+                        return (
+                          <Link
+                            key={href}
+                            href={targetHref}
+                            onClick={() => setIsMenuSheetOpen(false)}
+                            className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold text-xs sm:text-sm transition-all active:scale-95 ${
+                              active
+                                ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/20 scale-[1.02]'
+                                : 'bg-white text-suka-brown border border-suka-brown/10 hover:bg-suka-orange/5 hover:border-suka-orange/20'
+                            }`}
+                          >
+                            <Icon size={18} className={active ? 'text-white' : 'text-suka-orange'} />
+                            <span className="truncate flex-1">{label}</span>
+                            {count > 0 && (
+                              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full shrink-0 shadow-sm border ${
+                                active ? 'bg-white text-suka-orange border-white' : 'bg-red-500 text-white border-white'
+                              }`}>
+                                {count > 9 ? '9+' : count}
+                              </span>
+                            )}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Quick Portal & Logout Actions */}
+                <div className="pt-2 border-t border-suka-brown/5 space-y-2">
+                  <Link
+                    href={process.env.NEXT_PUBLIC_PORTAL_URL || "https://app.sukashawarma.com"}
+                    onClick={() => setIsMenuSheetOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-2xl font-bold text-xs text-suka-brown bg-suka-cream/80 hover:bg-suka-cream border border-suka-brown/10 active:scale-95 transition-all"
+                  >
+                    <LayoutDashboard size={16} className="text-suka-orange" />
+                    Kembali ke Portal
+                  </Link>
+
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-3 rounded-2xl font-bold text-xs text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 active:scale-95 transition-transform cursor-pointer"
+                  >
+                    {isLoggingOut ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} className="text-red-500" />}
+                    {isLoggingOut ? 'Keluar...' : 'Logout'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
+

@@ -2,6 +2,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
+import { unstable_cache, revalidateTag } from 'next/cache'
 import { db } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import { createSupabaseServerClient } from '@suka/auth'
@@ -212,65 +213,108 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
   return getOwnerDashboardDataFast(filter, outlets)
 }
 
-// ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC ────────────
+export async function revalidateOwnerDashboardCache() {
+  revalidateTag('owner-dashboard')
+}
+
+function getDirectSupabase() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false }
+  })
+}
+
+async function fetchOwnerDashboardSummaryRaw(
+  fromStartIso: string,
+  toEndIso: string,
+  outletId: string | null,
+  source: SalesSource
+) {
+  const supabase = getDirectSupabase()
+  const fromStart = new Date(fromStartIso)
+  const toEnd = new Date(toEndIso)
+
+  const isSSOnlineOnly = outletId === 'ss-online'
+  const isAll = outletId === 'all' || !outletId
+
+  if (isSSOnlineOnly) {
+    const ecData = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, source)
+    return {
+      result: null,
+      ecData,
+    }
+  }
+
+  const rpcPromise = supabase.rpc('get_owner_dashboard_summary', {
+    p_from:           fromStartIso,
+    p_to:             toEndIso,
+    p_outlet_id:      outletId && outletId !== 'all' ? outletId : null,
+    p_source:         source,
+    p_test_outlet_id: TEST_OUTLET_ID,
+  })
+
+  const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, source) : Promise.resolve(null)
+
+  const [{ data, error }, ecData] = await Promise.all([rpcPromise, ecPromise])
+
+  if (error) throw new Error(`get_owner_dashboard_summary: ${error.message}`)
+
+  return {
+    result: data,
+    ecData,
+  }
+}
+
+// ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC + Smart Cache ────────────
 export async function getOwnerDashboardDataFast(
   filter: PeriodFilterValue,
   outlets: Outlet[]
 ) {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: (cookiesToSet) => {
-      try {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options as any)
-        })
-      } catch { /* SSR ignored */ }
-    }
-  })
-
   const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
   const toEnd    = new Date(`${filter.to}T23:59:59.999+07:00`)
 
-  const isSSOnlineOnly = filter.outletId === 'ss-online'
-  const isAll = filter.outletId === 'all'
+  const todayJakarta = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+  const isPast = filter.to < todayJakarta
 
-  if (isSSOnlineOnly) {
-    const ecData = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source)
+  const fromStartIso = fromStart.toISOString()
+  const toEndIso = toEnd.toISOString()
+  const outletId = filter.outletId !== 'all' ? filter.outletId : null
+  const source = filter.source
+
+  let result: any
+  let ecData: any
+
+  if (isPast) {
+    // Data masa lalu (lampau): di-cache selama 1 jam (3600 detik) - instan 0 ms
+    const getCachedData = unstable_cache(
+      async () => fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source),
+      ['owner-dashboard-summary-v2', fromStartIso, toEndIso, outletId || 'all', source],
+      {
+        revalidate: 3600,
+        tags: ['owner-dashboard', 'owner-dashboard-past']
+      }
+    )
+    const cached = await getCachedData()
+    result = cached.result
+    ecData = cached.ecData
+  } else {
+    // Data hari ini (realtime): bypass cache agar langsung sinkron dengan kasir live
+    const live = await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
+    result = live.result
+    ecData = live.ecData
+  }
+
+  if (!result && ecData) {
     return {
       ...ecData,
       totalCogsOpex: ecData.totalCogs + ecData.totalOpex,
     }
   }
 
-  const rpcPromise = supabase.rpc('get_owner_dashboard_summary', {
-    p_from:           fromStart.toISOString(),
-    p_to:             toEnd.toISOString(),
-    p_outlet_id:      filter.outletId !== 'all' ? filter.outletId : null,
-    p_source:         filter.source,
-    p_test_outlet_id: TEST_OUTLET_ID,
-  })
-
-  const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source) : Promise.resolve(null)
-
-  const [{ data, error }, ecData] = await Promise.all([rpcPromise, ecPromise])
-
-  if (error) throw new Error(`get_owner_dashboard_summary: ${error.message}`)
-
-  const result = data as {
-    kpi_rows:    Array<{
-      outlet_id: string; sales_source: string; sales_date: string
-      omzet: number; order_count: number; total_deductions: number; total_qty?: number
-    }>
-    hourly_rows: Array<{ sales_hour: number; omzet: number; order_count: number }>
-    menu_rows:   Array<{ menu_name: string; qty: number; revenue: number }>
-    total_cogs:  number
-    total_opex:  number
-  }
-
   const nameById = new Map(outlets.map((o) => [o.id, o.name]))
 
-  const posKpiRows: SalesSummaryRow[] = (result.kpi_rows ?? []).map((r) => ({
+  const posKpiRows: SalesSummaryRow[] = (result?.kpi_rows ?? []).map((r: any) => ({
     outlet_id:              r.outlet_id,
     outlet_name:            nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
     sales_source:           r.sales_source as SalesSource,
@@ -286,7 +330,7 @@ export async function getOwnerDashboardDataFast(
   for (let i = 0; i < 24; i++) {
     hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
   }
-  for (const h of result.hourly_rows ?? []) {
+  for (const h of result?.hourly_rows ?? []) {
     hourMap.set(h.sales_hour, {
       sales_hour:             h.sales_hour,
       omzet:                  Number(h.omzet),
@@ -295,7 +339,7 @@ export async function getOwnerDashboardDataFast(
   }
 
   const menuMap = new Map<string, { name: string; qty: number; revenue: number }>()
-  for (const r of result.menu_rows ?? []) {
+  for (const r of result?.menu_rows ?? []) {
     const clean = cleanItemName(r.menu_name) || 'Unknown Menu'
     const cur = menuMap.get(clean) || { name: clean, qty: 0, revenue: 0 }
     cur.qty += Number(r.qty || 0)
@@ -303,8 +347,8 @@ export async function getOwnerDashboardDataFast(
     menuMap.set(clean, cur)
   }
 
-  let totalCogs = Number(result.total_cogs ?? 0)
-  let totalOpex = Number(result.total_opex ?? 0)
+  let totalCogs = Number(result?.total_cogs ?? 0)
+  let totalOpex = Number(result?.total_opex ?? 0)
 
   let kpiRows = posKpiRows
   if (ecData) {
@@ -337,8 +381,8 @@ export async function getOwnerDashboardDataFast(
     totalOpex,
     totalCogsOpex: totalCogs + totalOpex,
     buyOneGetOne: {
-      transactions: Number(result.bogo_transactions ?? 0),
-      giftUnits: Number(result.bogo_gift_units ?? 0)
+      transactions: Number(result?.bogo_transactions ?? 0),
+      giftUnits: Number(result?.bogo_gift_units ?? 0)
     }
   }
 }

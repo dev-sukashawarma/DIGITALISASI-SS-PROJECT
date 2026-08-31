@@ -11,6 +11,7 @@ const MAX_INPUT_FILE_BYTES = 12 * 1024 * 1024
 const PHOTO_PROCESS_CONCURRENCY = 6
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const CONDITIONS = new Set(['baik', 'perlu_perbaikan', 'rusak', 'tidak_ada'])
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
 type SubmittedItem = {
   master_item_id: string
@@ -60,6 +61,13 @@ function getAccessibleIds(value: unknown): string[] {
   return value
     .map((row) => typeof row === 'string' ? row : (row as { accessible_outlet_ids?: string } | null)?.accessible_outlet_ids)
     .filter((id): id is string => Boolean(id))
+}
+
+function isOwnedDraftPhotoPath(path: string | null, userId: string, outletId: string) {
+  return Boolean(path)
+    && UUID_PATTERN.test(outletId)
+    && path!.startsWith(`${userId}/drafts/${outletId}/`)
+    && path!.toLowerCase().endsWith('.webp')
 }
 
 function evaluate(item: MasterItem, submitted: SubmittedItem): string {
@@ -236,7 +244,7 @@ export async function POST(request: Request) {
     const photo = photoByItemId.get(item.master_item_id)
     const existingPhotoPath = item.photo_path?.trim() || null
     if (!(photo instanceof File) || photo.size === 0) {
-      if (!existingPhotoPath || !existingPhotoPaths.has(existingPhotoPath)) {
+      if (!existingPhotoPath || (!existingPhotoPaths.has(existingPhotoPath) && !isOwnedDraftPhotoPath(existingPhotoPath, user.id, payload.outlet_id))) {
         return errorResponse('Foto wajib diisi untuk setiap item.')
       }
     } else {

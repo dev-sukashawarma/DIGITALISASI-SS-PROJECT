@@ -197,14 +197,21 @@ function SubmissionSuccessScreen({ outletName, updated, onContinue }: {
   )
 }
 
-function PhotoPicker({ itemName, itemId, photo, existingPhotoUrl, onPhotoChange }: {
+function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, uploadedPhotoUrl, existingPhotoUrl, onPhotoChange, onPhotoUploaded }: {
+  outletId: string
   itemName: string
   itemId: string
   photo: File | null
+  uploadedPhotoPath?: string
+  uploadedPhotoUrl?: string | null
   existingPhotoUrl?: string | null
   onPhotoChange: (photo: File | null) => void
+  onPhotoUploaded: (path: string | null, url?: string | null) => void
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+  const uploadControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!photo) {
@@ -216,8 +223,36 @@ function PhotoPicker({ itemName, itemId, photo, existingPhotoUrl, onPhotoChange 
     return () => URL.revokeObjectURL(objectUrl)
   }, [photo])
 
-  function handleChange(event: ChangeEvent<HTMLInputElement>) {
-    onPhotoChange(event.currentTarget.files?.[0] ?? null)
+  async function handleChange(event: ChangeEvent<HTMLInputElement>) {
+    const nextPhoto = event.currentTarget.files?.[0] ?? null
+    uploadControllerRef.current?.abort()
+    onPhotoChange(nextPhoto)
+    onPhotoUploaded(null)
+    setUploadError(null)
+    if (nextPhoto) {
+      setUploading(true)
+      const controller = new AbortController()
+      uploadControllerRef.current = controller
+      const formData = new FormData()
+      formData.append('outlet_id', outletId)
+      formData.append('item_id', itemId)
+      if (uploadedPhotoPath) formData.append('previous_path', uploadedPhotoPath)
+      formData.append('photo', nextPhoto, nextPhoto.name)
+      try {
+        const response = await fetch('/api/inventaris/photo', { method: 'POST', body: formData, signal: controller.signal })
+        const result = await response.json().catch(() => null) as { error?: string; photo_path?: string; photo_url?: string | null } | null
+        if (!response.ok || !result?.photo_path) throw new Error(result?.error ?? 'Foto gagal disimpan ke server.')
+        onPhotoUploaded(result.photo_path, result.photo_url)
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setUploadError(error instanceof Error ? error.message : 'Foto gagal disimpan ke server.')
+      } finally {
+        if (uploadControllerRef.current === controller) {
+          uploadControllerRef.current = null
+          setUploading(false)
+        }
+      }
+    }
     // Memungkinkan kamera memilih foto yang sama lagi pada percobaan berikutnya.
     event.currentTarget.value = ''
   }
@@ -228,10 +263,13 @@ function PhotoPicker({ itemName, itemId, photo, existingPhotoUrl, onPhotoChange 
       <label htmlFor={inputId} className="flex min-h-32 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/40 text-center hover:border-[#f29744]">
         {photo && previewUrl ? <>
           <img src={previewUrl} alt={`Foto ${itemName}`} className="h-32 w-full object-cover" />
-          <span className="px-2 py-2 text-[11px] font-bold text-green-700">Foto baru siap · tekan untuk ganti</span>
+          <span className={`px-2 py-2 text-[11px] font-bold ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : 'text-green-700'}`}>{uploading ? 'Menyimpan foto ke server…' : uploadError ? 'Gagal · tekan untuk coba lagi' : 'Foto WebP tersimpan · tekan untuk ganti'}</span>
         </> : existingPhotoUrl ? <>
           <img src={existingPhotoUrl} alt={`Foto ${itemName}`} className="h-32 w-full object-cover" />
           <span className="px-2 py-2 text-[11px] font-bold text-green-700">Foto tersimpan · tekan untuk ganti</span>
+        </> : uploadedPhotoUrl ? <>
+          <img src={uploadedPhotoUrl} alt={`Foto ${itemName}`} className="h-32 w-full object-cover" />
+          <span className={`px-2 py-2 text-[11px] font-bold ${uploading ? 'text-orange-600' : 'text-green-700'}`}>{uploading ? 'Menyimpan foto ke server…' : 'Foto WebP tersimpan · tekan untuk ganti'}</span>
         </> : <>
           <Camera className="text-[#f29744]" size={28} />
           <span className="mt-2 text-xs font-bold text-[#701604]">Ambil foto barang</span>
@@ -240,7 +278,7 @@ function PhotoPicker({ itemName, itemId, photo, existingPhotoUrl, onPhotoChange 
       </label>
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={handleChange} />
       <p className="mt-2 truncate text-[10px] text-slate-500" title={photo?.name}>
-        {photo ? `${photo.name} · tersimpan sementara` : existingPhotoUrl ? 'Foto database tetap digunakan' : 'Belum ada foto'}
+        {uploadError ? uploadError : uploading ? 'Mengompres dan menyimpan di server…' : photo && uploadedPhotoPath ? `${photo.name} · WebP tersimpan di server` : photo ? `${photo.name} · menunggu upload` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto WebP tersimpan di server' : 'Belum ada foto'}
       </p>
     </div>
   )
@@ -398,7 +436,11 @@ export default function InventoryDashboardPage() {
   const groups = useMemo(() => groupItems(items), [items])
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId)
   const completedOutlets = outlets.filter((outlet) => savedOutletIds.has(outlet.id))
-  const allPhotos = items.length > 0 && items.every((item) => Boolean(drafts[item.id]?.photo || drafts[item.id]?.existingPhotoPath))
+  const allPhotos = items.length > 0 && items.every((item) => {
+    const draft = drafts[item.id]
+    return draft?.photo ? Boolean(draft.uploadedPhotoPath) : Boolean(draft?.uploadedPhotoPath || draft?.existingPhotoPath)
+  })
+  const photoUploadsPending = items.some((item) => Boolean(drafts[item.id]?.photo && !drafts[item.id]?.uploadedPhotoPath))
   const allFieldsValid = items.length > 0 && items.every((item) => {
     const draft = drafts[item.id]
     const quantityValid = item.mode === 'presence' || (draft?.observedQty.trim() !== '' && Number.isFinite(Number(draft?.observedQty)))
@@ -458,15 +500,15 @@ export default function InventoryDashboardPage() {
       const detailRows: Array<Record<string, string | number | boolean | null>> = []
       for (const item of items) {
         const draft = drafts[item.id] ?? emptyDraft()
-        if (draft.photo) formData.append(`photo_${item.id}`, draft.photo, draft.photo.name)
-        else if (!draft.existingPhotoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
+        if (draft.photo && !draft.uploadedPhotoPath) throw new Error(`Foto ${item.name} masih diproses server.`)
+        if (!draft.uploadedPhotoPath && !draft.existingPhotoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
         detailRows.push({
           master_item_id: item.id,
           observed_qty: item.mode === 'presence' ? null : Number(draft.observedQty),
           is_present: item.mode === 'presence' ? draft.isPresent : null,
           kondisi: draft.condition,
           catatan: draft.notes.trim() || null,
-          photo_path: draft.photo ? null : draft.existingPhotoPath ?? null,
+          photo_path: draft.uploadedPhotoPath ?? draft.existingPhotoPath ?? null,
         })
       }
       formData.append('payload', JSON.stringify({
@@ -517,8 +559,8 @@ export default function InventoryDashboardPage() {
         {!editOutletId && completedOutlets.length > 0 && <section className="rounded-3xl border border-green-200 bg-green-50/70 p-5 shadow-sm"><div className="flex items-center justify-between gap-3"><div><h2 className="font-extrabold text-green-900">Outlet sudah tersimpan</h2><p className="mt-1 text-xs text-green-700">Klik kartu untuk membuka halaman edit inventaris outlet.</p></div><span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">{completedOutlets.length} outlet</span></div><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{completedOutlets.map((outlet) => <button key={outlet.id} onClick={() => router.push(`/dashboard/edit/${outlet.id}`)} className="rounded-2xl border border-green-200 bg-white p-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-green-400"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-extrabold text-[#400a07]">{outlet.name}</p><p className="mt-1 text-xs text-green-700">Inventaris tersimpan</p></div><span className="rounded-lg bg-green-100 px-2 py-1 text-[10px] font-bold text-green-700">EDIT</span></div></button>)}</div></section>}
         {message && <div className={`rounded-2xl border p-4 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
         {editOutletId && <>
-          {Object.entries(groups).map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm"><div className="border-b border-orange-100 bg-orange-50/70 px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); const freezer = isFreezerItem(item); return <article key={item.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span>{freezer && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-700">Catatan wajib</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{freezer ? 'Catat total unit dan ukuran freezer yang tersedia (400L, 600L, atau 750L).' : targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder={freezer ? 'Wajib: contoh “400L 1 unit, 600L 1 unit, 750L tidak ada; kondisi baik”' : 'Catatan item (opsional)'} className={`mt-3 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#f29744] ${freezer && !draft.notes.trim() ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`} />{freezer && <p className="mt-1 text-xs text-red-600">Tuliskan ukuran freezer dan kondisinya agar data aset lengkap.</p>}</div><PhotoPicker itemName={item.name} itemId={item.id} photo={draft.photo} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} /></div></article> })}</div></section>)}
-          <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Memproses foto WebP dan menyimpan...' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
+          {Object.entries(groups).map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm"><div className="border-b border-orange-100 bg-orange-50/70 px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); const freezer = isFreezerItem(item); return <article key={item.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span>{freezer && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-700">Catatan wajib</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{freezer ? 'Catat total unit dan ukuran freezer yang tersedia (400L, 600L, atau 750L).' : targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder={freezer ? 'Wajib: contoh “400L 1 unit, 600L 1 unit, 750L tidak ada; kondisi baik”' : 'Catatan item (opsional)'} className={`mt-3 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#f29744] ${freezer && !draft.notes.trim() ? 'border-red-200 bg-red-50/30' : 'border-slate-200'}`} />{freezer && <p className="mt-1 text-xs text-red-600">Tuliskan ukuran freezer dan kondisinya agar data aset lengkap.</p>}</div><PhotoPicker outletId={selectedOutletId} itemName={item.name} itemId={item.id} photo={draft.photo} uploadedPhotoPath={draft.uploadedPhotoPath} uploadedPhotoUrl={draft.uploadedPhotoUrl} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} onPhotoUploaded={(path, url) => updateDraft(item.id, { uploadedPhotoPath: path ?? undefined, uploadedPhotoUrl: url ?? null })} /></div></article> })}</div></section>)}
+          <button disabled={submitting || photoUploadsPending || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Menyimpan data inventaris...' : photoUploadsPending ? 'Menunggu foto selesai disimpan...' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
         </>}
       </div>
     </main>

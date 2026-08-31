@@ -4,6 +4,8 @@ export type StoredDraft = {
   condition: 'baik' | 'perlu_perbaikan' | 'rusak' | 'tidak_ada'
   notes: string
   photo: File | null
+  uploadedPhotoPath?: string
+  uploadedPhotoUrl?: string | null
   existingPhotoPath?: string
   existingPhotoUrl?: string | null
 }

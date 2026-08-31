@@ -74,6 +74,16 @@ async function fetchEcommerceOwnerData(
   toEnd: Date,
   sourceFilter: SalesSource = 'all'
 ) {
+  if (sourceFilter === 'pos' || sourceFilter === 'endors') {
+    return {
+      kpiRows: [],
+      hourlyRows: [],
+      menuRows: [],
+      totalCogs: 0,
+      totalOpex: 0,
+    }
+  }
+
   const PAGE_SIZE = 1000
   let offset = 0
   const allEc: any[] = []
@@ -81,7 +91,7 @@ async function fetchEcommerceOwnerData(
   while (true) {
     const { data, error } = await supabase
       .from('ecommerce_sales')
-      .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp)))))')
+      .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
       .gte('order_date', fromStart.toISOString())
       .lte('order_date', toEnd.toISOString())
       .order('order_date', { ascending: true })
@@ -199,226 +209,7 @@ async function fetchEcommerceOwnerData(
 }
 
 export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: Outlet[]) {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: (cookiesToSet) => {
-      try {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options as any)
-        })
-      } catch {
-        // SSR ignored
-      }
-    }
-  })
-
-  // Fetch all completed orders with pagination
-  // Fix: filter.from/to is YYYY-MM-DD. Use +07:00 timezone to get exactly 00:00 to 23:59 local time.
-  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
-  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
-
-  if (filter.outletId === 'ss-online') {
-    const ecData = await fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source)
-    return {
-      ...ecData,
-      totalCogsOpex: ecData.totalCogs + ecData.totalOpex,
-    }
-  }
-
-  let ordersQ = supabase
-    .from('orders')
-    .select('outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .eq('status', 'completed')
-    .gte('created_at', fromStart.toISOString())
-    .lte('created_at', toEnd.toISOString())
-
-  if (filter.outletId !== 'all') ordersQ = ordersQ.eq('outlet_id', filter.outletId)
-
-  // Query expenses & petty cash expenses for OPEX calculation
-  let expQ = supabase
-    .from('expenses')
-    .select('amount, outlet_id')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .gte('expense_date', filter.from)
-    .lte('expense_date', filter.to)
-
-  let pettyQ = supabase
-    .from('petty_cash_expenses')
-    .select('amount, outlet_id')
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .gte('expense_date', filter.from)
-    .lte('expense_date', filter.to)
-
-  if (filter.outletId !== 'all') {
-    expQ = expQ.eq('outlet_id', filter.outletId)
-    pettyQ = pettyQ.eq('outlet_id', filter.outletId)
-  }
-
-  const PAGE_SIZE = 1000
-  const allOrders: any[] = []
-  let offset = 0
-  while (true) {
-    const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
-    if (error) throw new Error(error.message)
-    if (!page || page.length === 0) break
-    allOrders.push(...page)
-    if (page.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
-  }
-
-  const isAll = filter.outletId === 'all'
-  const ecPromise = isAll ? fetchEcommerceOwnerData(supabase, fromStart, toEnd, filter.source) : Promise.resolve(null)
-
-  const [{ data: expData }, { data: pettyData }, ecData] = await Promise.all([
-    expQ,
-    pettyQ,
-    ecPromise
-  ])
-
-  const totalExpensesMonthly = (expData || [])
-    .filter((e: any) => !isTestOutlet(e.outlet_id))
-    .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0)
-
-  const totalExpensesPetty = (pettyData || [])
-    .filter((e: any) => !isTestOutlet(e.outlet_id))
-    .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0)
-
-  let totalOpex = totalExpensesMonthly + totalExpensesPetty
-
-  const outletTypeMap = new Map(outlets.map((o) => [o.id, o.type || 'outlet']))
-  let totalCogs = 0
-  const acc = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
-  const hourMap = new Map<number, SalesHourlyRow>()
-  for (let i = 0; i < 24; i++) hourMap.set(i, { sales_hour: i, omzet: 0, jumlah_order_completed: 0 })
-
-  for (const o of allOrders) {
-    if (isTestOutlet(o.outlet_id)) continue
-
-    const d = new Date(o.created_at)
-    const localDate = new Date(d.getTime() + 7 * 3600 * 1000)
-    const dateStr = localDate.toISOString().split('T')[0]
-    const hour = localDate.getUTCHours()
-
-    const srcKey = (o.is_endorse ? 'endors' : (o.sales_source || 'pos')).toLowerCase() as SalesSource
-    if (filter.source !== 'all' && srcKey !== filter.source.toLowerCase()) continue
-
-    const totalAmt = Number(o.total_amount || 0)
-    const disc = Number(o.discount_amount) || 0
-    const promo = Number(o.promo_subsidy) || 0
-    let deduction = 0
-    if (disc > 0 || promo > 0) {
-      deduction = disc + promo
-    } else {
-      const itemSubtotal = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      deduction = itemSubtotal > totalAmt ? itemSubtotal - totalAmt : 0
-    }
-
-    // Accumulate COGS (HPP)
-    const oType = outletTypeMap.get(o.outlet_id)
-    const orderChannel = (o.channel || o.sales_source || '').toLowerCase()
-    if (o.order_items && Array.isArray(o.order_items)) {
-      for (const oi of o.order_items) {
-        const qty = Number(oi.quantity || 1)
-        let itemHpp = 0
-        const mi = oi.menu_items
-        if (mi) {
-          let channelHppVal: number | null = null
-          if (mi.channel_hpp && typeof mi.channel_hpp === 'object' && orderChannel) {
-            if (
-              orderChannel === 'ss-online' ||
-              orderChannel === 'ss_online' ||
-              orderChannel.includes('tiktok') ||
-              orderChannel.includes('shopee') ||
-              orderChannel === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-              orderChannel === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-            ) {
-              channelHppVal = mi.channel_hpp.ss_online ?? mi.channel_hpp.tiktok_shop ?? mi.channel_hpp.shopee_shop ?? mi.channel_hpp[orderChannel] ?? null
-            } else {
-              channelHppVal = mi.channel_hpp[orderChannel] ?? null
-            }
-          }
-
-          if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-            itemHpp = Number(channelHppVal)
-          } else if (mi.hpp_override !== null && mi.hpp_override !== undefined && Number(mi.hpp_override) > 0) {
-            itemHpp = Number(mi.hpp_override)
-          } else if (mi.is_package && Array.isArray(mi.package_items)) {
-            itemHpp = mi.package_items.reduce((sum: number, pkg: any) => {
-              const compHpp = Number(pkg.component?.hpp_override || 0)
-              const pQty = Number(pkg.quantity || 1)
-              return sum + compHpp * pQty
-            }, 0)
-          }
-        }
-        if (oType === 'mitra' && itemHpp > 0) {
-          itemHpp = Math.round(itemHpp * 1.1)
-        }
-        totalCogs += qty * itemHpp
-      }
-    }
-
-    // Accumulate KPI
-    const orderQty = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0)
-    const key = `${o.outlet_id}|${srcKey}|${dateStr}`
-    const existing = acc.get(key)
-    if (existing) {
-      existing.omzet += totalAmt
-      existing.jumlah_order_completed += 1
-      existing.jumlah_order_all += 1
-      existing.total_deductions = (existing.total_deductions || 0) + deduction
-      existing.total_qty = (existing.total_qty || 0) + orderQty
-    } else {
-      acc.set(key, {
-        outlet_id: o.outlet_id,
-        outlet_name: '',
-        sales_source: srcKey,
-        sales_date: dateStr,
-        omzet: totalAmt,
-        total_deductions: deduction,
-        total_qty: orderQty,
-        jumlah_order_completed: 1,
-        jumlah_order_all: 1,
-      })
-    }
-
-    // Accumulate Hourly
-    const b = hourMap.get(hour)
-    if (b) {
-      b.omzet += totalAmt
-      b.jumlah_order_completed += 1
-    }
-  }
-
-  const summaryResult = Array.from(acc.values())
-  const nameById = new Map(outlets.map((o) => [o.id, o.name]))
-  let kpiRows = summaryResult.map((r) => ({
-    ...r,
-    outlet_name: nameById.get(r.outlet_id) ?? 'Outlet Tidak Dikenal',
-  }))
-
-  if (ecData) {
-    kpiRows = [...kpiRows, ...ecData.kpiRows]
-    for (const h of ecData.hourlyRows) {
-      const cur = hourMap.get(h.sales_hour) || { sales_hour: h.sales_hour, omzet: 0, jumlah_order_completed: 0 }
-      cur.omzet += h.omzet
-      cur.jumlah_order_completed += h.jumlah_order_completed
-      hourMap.set(h.sales_hour, cur)
-    }
-    totalCogs += ecData.totalCogs
-    totalOpex += ecData.totalOpex
-  }
-
-  const hourlyRows = Array.from(hourMap.values()).sort((a, b) => a.sales_hour - b.sales_hour)
-
-  return {
-    kpiRows,
-    hourlyRows,
-    totalCogs,
-    totalOpex,
-    totalCogsOpex: totalCogs + totalOpex,
-  }
+  return getOwnerDashboardDataFast(filter, outlets)
 }
 
 // ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC ────────────

@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+:root {
+  --suka-orange: #f29744;
+  --suka-brown: #701604;
+  --suka-ink: #400a07;
+  --suka-cream: #fff7ed;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: #fffaf5;
+  color: #1f2937;
+  font-family: Arial, Helvetica, sans-serif;
+}

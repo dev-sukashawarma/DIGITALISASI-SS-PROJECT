@@ -54,7 +54,28 @@ export async function POST(req: Request) {
     );
     if (!hasEnrollment) return NextResponse.json({ ok: false, reason: "not_enrolled" }, { status: 422 });
 
-    // Validasi radius GPS server-side = GEOFENCE_RADIUS_M (konsisten dgn client) + toleransi akurasi
+    // Radius mengikuti pengaturan pusat. Row outlet tetap didahulukan agar
+    // konfigurasi hasil sinkronisasi/exception tetap kompatibel dengan data lama.
+    const { data: radiusConfig } = await admin
+      .from("outlet_attendance_config")
+      .select("radius_m")
+      .eq("outlet_id", body.outlet_id)
+      .maybeSingle();
+    let configuredRadiusM = Number(radiusConfig?.radius_m ?? 0);
+    if (!Number.isFinite(configuredRadiusM) || configuredRadiusM <= 0) {
+      const { data: globalRadiusRow } = await admin
+        .from("global_settings")
+        .select("value")
+        .eq("key", "global_attendance_config")
+        .maybeSingle();
+      const globalRadiusValue = globalRadiusRow?.value as { radius_m?: number } | null;
+      configuredRadiusM = Number(globalRadiusValue?.radius_m ?? GEOFENCE_RADIUS_M);
+    }
+    if (!Number.isFinite(configuredRadiusM) || configuredRadiusM <= 0) {
+      configuredRadiusM = GEOFENCE_RADIUS_M;
+    }
+
+    // Validasi radius GPS server-side + toleransi akurasi.
     const { data: outlet } = await admin
       .from("outlets")
       .select("lat, lng")
@@ -163,11 +184,11 @@ export async function POST(req: Request) {
         }
       }
 
-      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= GEOFENCE_RADIUS_M
+      // Toleransi akurasi dinamis: Jarak - Akurasi GPS <= radius pengaturan.
       const accuracy = Number(body.gps_accuracy ?? 0);
       const adjustedDistance = distanceM !== null ? Math.max(0, distanceM - accuracy) : null;
 
-      if (adjustedDistance === null || adjustedDistance > GEOFENCE_RADIUS_M) {
+      if (adjustedDistance === null || adjustedDistance > configuredRadiusM) {
         return NextResponse.json({
           ok: false,
           reason: `too_far_from_outlet: Jarak ${Math.round(distanceM || 0)}m (Akurasi ${Math.round(accuracy)}m)`,
@@ -211,7 +232,7 @@ export async function POST(req: Request) {
 
     let { data: cfg } = await admin
       .from("outlet_attendance_config")
-      .select("jam_masuk,jam_keluar,toleransi_menit,absen_window_mode")
+      .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode")
       .eq("outlet_id", body.outlet_id)
       .maybeSingle();
 

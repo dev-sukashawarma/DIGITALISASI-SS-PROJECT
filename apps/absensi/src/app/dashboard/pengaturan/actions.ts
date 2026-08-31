@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
-const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "owner", "regional_manager"];
+const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager"];
 
 function getSupabaseAdmin() {
   return createClient(
@@ -21,7 +21,7 @@ async function verifySettingsRole(supabaseAdmin: ReturnType<typeof getSupabaseAd
     .maybeSingle();
 
   if (!staff || staff.status !== "active" || !SETTINGS_ALLOWED_ROLES.includes(staff.role)) {
-    throw new Error("Akses Ditolak: Hanya Admin, Admin HR, Regional Manager, dan Owner yang diizinkan mengubah konfigurasi absensi.");
+    throw new Error("Akses Ditolak: Hanya Admin, Admin HR, dan Regional Manager yang diizinkan mengubah konfigurasi absensi.");
   }
 }
 

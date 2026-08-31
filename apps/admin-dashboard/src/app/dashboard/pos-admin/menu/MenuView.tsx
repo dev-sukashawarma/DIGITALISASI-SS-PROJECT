@@ -731,216 +731,540 @@ export default function MenuView({
         </div>
       )}
 
+
       {/* Filters Container */}
       <div className="flex flex-col gap-3">
         {/* Channel Filter Dropdown (custom, non-native) */}
         <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-xs flex flex-wrap items-center gap-3">
-        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
+          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Filter Channel:</span>
 
-        <div className="relative" ref={channelDropdownRef}>
-          <button
-            type="button"
-            onClick={() => setChannelDropdownOpen(o => !o)}
-            aria-haspopup="listbox"
-            aria-expanded={channelDropdownOpen}
-            className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl pl-3.5 pr-3 py-2 min-w-[260px] justify-between hover:bg-gray-100 transition-all cursor-pointer"
-          >
-            <span className="flex items-center gap-2 text-xs font-bold text-gray-800">
-              <span>{selectedChannelOption.icon}</span>
-              <span>{selectedChannelOption.label}</span>
-              <span className="text-gray-400 font-semibold">({selectedChannelOption.count})</span>
-            </span>
-            {channelDropdownOpen
-              ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
-          </button>
-
-          {channelDropdownOpen && (
-            <div
-              role="listbox"
-              className="absolute z-20 mt-2 w-full min-w-[280px] bg-white rounded-2xl border border-gray-100 shadow-lg py-1.5 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150"
+          <div className="relative" ref={channelDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setChannelDropdownOpen(o => !o)}
+              aria-haspopup="listbox"
+              aria-expanded={channelDropdownOpen}
+              className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl pl-3.5 pr-3 py-2 min-w-[260px] justify-between hover:bg-gray-100 transition-all cursor-pointer"
             >
-              {channelOptions.map(opt => {
-                const isSelected = activeChannelFilter === opt.key
-                const theme = CHANNEL_THEME_CLASSES[opt.theme] ?? CHANNEL_THEME_CLASSES.gray
-                return (
-                  <button
-                    key={opt.key || 'all'}
-                    type="button"
-                    role="option"
-                    aria-selected={isSelected}
-                    onClick={() => { setActiveChannelFilter(opt.key); setChannelDropdownOpen(false) }}
-                    className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
-                      isSelected ? theme.selected : theme.row
-                    }`}
-                  >
-                    <span className="flex items-center gap-2.5">
-                      <span>{opt.icon}</span>
-                      <span>{opt.label}</span>
-                    </span>
-                    <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isSelected ? theme.badgeSelected : theme.badge}`}>
-                      {opt.count}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      </div>
+              <span className="flex items-center gap-2 text-xs font-bold text-gray-800">
+                <span>{selectedChannelOption.icon}</span>
+                <span>{selectedChannelOption.label}</span>
+                <span className="text-gray-400 font-semibold">({selectedChannelOption.count})</span>
+              </span>
+              {channelDropdownOpen
+                ? <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                : <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />}
+            </button>
 
-      {/* Category Filter Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-hide">
-        <button
-          onClick={() => setActiveCategoryFilter('all')}
-          className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === 'all' ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
-        >
-          Semua Kategori
-        </button>
-        {initialCategories.map((c) => (
+            {channelDropdownOpen && (
+              <div
+                role="listbox"
+                className="absolute z-20 mt-2 w-full min-w-[280px] bg-white rounded-2xl border border-gray-100 shadow-lg py-1.5 max-h-80 overflow-y-auto animate-in fade-in slide-in-from-top-2 duration-150"
+              >
+                {channelOptions.map(opt => {
+                  const isSelected = activeChannelFilter === opt.key
+                  const theme = CHANNEL_THEME_CLASSES[opt.theme] ?? CHANNEL_THEME_CLASSES.gray
+                  return (
+                    <button
+                      key={opt.key || 'all'}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      onClick={() => { setActiveChannelFilter(opt.key); setChannelDropdownOpen(false) }}
+                      className={`w-full flex items-center justify-between gap-3 px-4 py-2.5 text-xs font-bold transition-colors cursor-pointer ${
+                        isSelected ? theme.selected : theme.row
+                      }`}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <span>{opt.icon}</span>
+                        <span>{opt.label}</span>
+                      </span>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${isSelected ? theme.badgeSelected : theme.badge}`}>
+                        {opt.count}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-hide">
           <button
-            key={c.id}
-            onClick={() => setActiveCategoryFilter(c.id)}
-            className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === c.id ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            onClick={() => setActiveCategoryFilter('all')}
+            className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === 'all' ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
           >
-            {c.name}
+            Semua Kategori
           </button>
-        ))}
-      </div>
+          {initialCategories.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => setActiveCategoryFilter(c.id)}
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeCategoryFilter === c.id ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
       </div>
 
       {showForm && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-0 sm:p-4 lg:p-6"
           onClick={(e) => { if (e.target === e.currentTarget) closeForm() }}
         >
-          <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl flex flex-col max-h-[92vh] animate-scale-in overflow-hidden border border-gray-100">
+          <div className="bg-white sm:rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col h-full sm:h-auto max-h-[100dvh] sm:max-h-[90vh] animate-scale-in overflow-hidden border border-slate-100">
             {/* Sticky header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 flex-shrink-0 bg-white/80 backdrop-blur-md z-10">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-amber-100 to-amber-50 rounded-2xl flex items-center justify-center shadow-inner border border-amber-200/50">
-                  <Sandwich className="w-7 h-7 text-amber-500" strokeWidth={1.5} />
+            <div className="flex items-center justify-between px-5 py-4 sm:px-8 sm:py-5 border-b border-slate-100 shrink-0 bg-white/95 backdrop-blur-md z-10">
+              <div className="flex items-center gap-3.5">
+                <div className="w-11 h-11 sm:w-12 sm:h-12 bg-amber-50 rounded-2xl flex items-center justify-center border border-amber-200/60 shadow-xs shrink-0">
+                  <Sandwich className="w-6 h-6 text-amber-500" strokeWidth={1.75} />
                 </div>
                 <div>
-                  <h2 className="font-extrabold text-2xl text-gray-900 tracking-tight">
+                  <h2 className="font-extrabold text-lg sm:text-xl text-slate-900 tracking-tight">
                     {form.id ? 'Edit Menu' : 'Tambah Menu Baru'}
                   </h2>
-                  <p className="text-sm font-medium text-gray-500 mt-1">
-                    {form.id ? 'Perbarui data menu' : 'Isi detail menu baru'}
+                  <p className="text-xs sm:text-sm font-medium text-slate-500">
+                    {form.id ? 'Perbarui data, harga, dan ketersediaan menu' : 'Isi detail menu baru untuk POS & Online'}
                   </p>
                 </div>
               </div>
-              <button onClick={closeForm}
-                className="w-11 h-11 bg-gray-50 hover:bg-red-50 hover:text-red-500 rounded-full flex items-center justify-center text-gray-400 transition-all duration-200 border border-gray-100 hover:border-red-100">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="w-10 h-10 bg-slate-50 hover:bg-red-50 hover:text-red-500 rounded-xl flex items-center justify-center text-slate-400 transition-all border border-slate-200/60 hover:border-red-200 cursor-pointer"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Scrollable body */}
-            <form onSubmit={handleSave} className="flex flex-col flex-1 overflow-hidden bg-[#F9FAFB]">
-              <div className="overflow-y-auto flex-1 px-8 py-8">
+            <form onSubmit={handleSave} className="flex flex-col flex-1 min-h-0 overflow-hidden bg-slate-50/60">
+              <div className="overflow-y-auto flex-1 min-h-0 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 space-y-6">
                 
                 {/* Error */}
                 {error && (
-                  <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl p-4 text-red-600 text-sm shadow-sm animate-shake">
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <span className="font-medium">{error}</span>
+                  <div className="flex items-center gap-3 bg-red-50 border border-red-200 rounded-2xl p-4 text-red-700 text-sm shadow-xs animate-shake">
+                    <AlertCircle className="w-5 h-5 shrink-0 text-red-500" />
+                    <span className="font-semibold">{error}</span>
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Left Column */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                  
+                  {/* ── LEFT COLUMN: Foto, Informasi Menu, Pengaturan Ketersediaan ── */}
                   <div className="space-y-6">
-                    {/* Photo Upload */}
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm">
-                      <label className="input-label mb-3 block text-gray-700 font-bold">Foto Produk</label>
+                    {/* Card 1: Foto Produk */}
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                          <UploadCloud className="w-4 h-4 text-amber-500" />
+                          Foto Produk
+                        </label>
+                        {displayImage && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              preview ? resetImage() : setForm(p => ({ ...p, image_url: null }))
+                            }}
+                            className="text-xs font-bold text-red-500 hover:text-red-600 flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Hapus Foto
+                          </button>
+                        )}
+                      </div>
+
                       <div 
-                        className={`relative border-2 border-dashed rounded-2xl transition-all duration-200 group cursor-pointer overflow-hidden flex flex-col items-center justify-center min-h-[220px]
-                          ${displayImage ? 'border-transparent bg-gray-900 shadow-inner' : 'border-gray-200 bg-gray-50/50 hover:bg-amber-50/30 hover:border-amber-300'}`}
+                        className={`relative border-2 border-dashed rounded-2xl transition-all duration-200 group cursor-pointer overflow-hidden flex flex-col items-center justify-center min-h-[190px] sm:min-h-[210px]
+                          ${displayImage ? 'border-slate-200 bg-slate-900 shadow-inner' : 'border-slate-300 bg-slate-50/60 hover:bg-amber-50/40 hover:border-amber-400'}`}
                         onClick={() => fileRef.current?.click()}
                       >
                         {displayImage ? (
                           <>
-                            <Image src={displayImage} alt="Preview" fill className="object-cover opacity-90 group-hover:opacity-40 transition-opacity duration-300" unoptimized={true} />
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-                              <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                                <UploadCloud className="w-6 h-6 text-white" />
+                            <Image src={displayImage} alt="Preview" fill className="object-cover opacity-95 group-hover:opacity-40 transition-opacity duration-200" unoptimized={true} />
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
+                              <div className="w-10 h-10 rounded-full bg-white/30 backdrop-blur-md flex items-center justify-center text-white shadow-md">
+                                <UploadCloud className="w-5 h-5" />
                               </div>
-                              <span className="text-white text-sm font-semibold drop-shadow-md">Ganti Foto</span>
+                              <span className="text-white text-xs font-bold drop-shadow">Klik untuk Ganti Foto</span>
                             </div>
                             {preview && (
-                              <span className="absolute top-4 left-4 bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg leading-none shadow-lg z-20 flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                              <span className="absolute top-3 left-3 bg-amber-500 text-white text-[11px] font-extrabold px-2.5 py-1 rounded-lg shadow-md z-20 flex items-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
                                 BARU
                               </span>
                             )}
                           </>
                         ) : (
-                          <div className="flex flex-col items-center gap-4 text-gray-400 p-8">
-                            <div className="w-16 h-16 rounded-[1.25rem] bg-amber-50 flex items-center justify-center group-hover:scale-110 group-hover:bg-amber-100 transition-all duration-300 border border-amber-100/50 group-hover:border-amber-200 group-hover:shadow-sm">
-                              <UploadCloud className="w-8 h-8 text-amber-500" />
+                          <div className="flex flex-col items-center gap-3 text-slate-400 p-6 text-center">
+                            <div className="w-12 h-12 rounded-2xl bg-amber-50 flex items-center justify-center border border-amber-200/50 group-hover:scale-105 group-hover:bg-amber-100 transition-all">
+                              <UploadCloud className="w-6 h-6 text-amber-500" />
                             </div>
-                            <div className="text-center">
-                              <p className="text-base font-bold text-gray-700 mb-1.5 group-hover:text-amber-600 transition-colors">Klik untuk upload foto</p>
-                              <p className="text-xs text-gray-400 font-medium">Format: JPG, PNG, WebP (Maks. 5MB)</p>
+                            <div>
+                              <p className="text-sm font-bold text-slate-700 group-hover:text-amber-600 transition-colors">Klik untuk upload foto menu</p>
+                              <p className="text-xs text-slate-400 mt-0.5 font-medium">Format: JPG, PNG, WebP (Maks. 5MB)</p>
                             </div>
                           </div>
                         )}
                       </div>
-                      {displayImage && (
-                        <div className="mt-4 flex justify-end">
-                          <button type="button" onClick={(e) => { e.stopPropagation(); preview ? resetImage() : setForm(p => ({ ...p, image_url: null })) }} className="text-red-500 text-sm flex items-center gap-2 font-bold hover:text-red-600 transition-colors bg-red-50/50 hover:bg-red-50 px-4 py-2 rounded-xl border border-transparent hover:border-red-100">
-                            <Trash2 className="w-4 h-4" /> Hapus Foto
-                          </button>
-                        </div>
-                      )}
                       <input ref={fileRef} type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" onChange={handleFile} />
                     </div>
 
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-6">
-                      {/* Name */}
+                    {/* Card 2: Informasi Menu (Nama & Deskripsi) */}
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
                       <div>
-                        <label className="input-label text-gray-700 font-bold mb-2 block">Nama Menu <span className="text-red-500">*</span></label>
-                        <input type="text" value={form.name}
+                        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                          Nama Menu <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={form.name}
                           onChange={(e) => setForm({ ...form, name: e.target.value })}
-                          required maxLength={100} className="input bg-gray-50 focus:bg-white text-base py-3" placeholder="Cth: Chicken Shawarma" autoFocus />
+                          required
+                          maxLength={100}
+                          className="input bg-slate-50 focus:bg-white text-sm sm:text-base font-semibold py-2.5"
+                          placeholder="Cth: Spesial Suka Lovers"
+                          autoFocus
+                        />
                       </div>
 
-                      {/* Description */}
                       <div>
-                        <label className="input-label text-gray-700 font-bold mb-2 block flex items-center justify-between">
-                          <span>Deskripsi</span>
-                          <span className="text-gray-400 font-medium text-xs bg-gray-100 px-2 py-1 rounded-md">Opsional</span>
-                        </label>
-                        <textarea value={form.description}
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            Deskripsi
+                          </label>
+                          <span className="text-[11px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                            Opsional
+                          </span>
+                        </div>
+                        <textarea
+                          value={form.description}
                           onChange={(e) => setForm({ ...form, description: e.target.value })}
-                          maxLength={300} rows={3} className="input resize-none bg-gray-50 focus:bg-white text-base py-3"
-                          placeholder="Deskripsi singkat yang menggugah selera..." />
+                          maxLength={300}
+                          rows={2}
+                          className="input resize-none bg-slate-50 focus:bg-white text-xs sm:text-sm py-2.5 font-normal"
+                          placeholder="Deskripsi singkat yang menggugah selera..."
+                        />
                       </div>
                     </div>
-                  </div>
 
-                  {/* Right Column */}
-                  <div className="space-y-6">
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-5">
-                      <div className="flex items-center justify-between border-b border-gray-100 pb-3">
-                        <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-                          <Sandwich className="w-4 h-4 text-amber-500" />
-                          Pengaturan Harga (Offline & Food Apps)
+                    {/* Card 3: Pengaturan Ketersediaan & Visibilitas (Berada tepat di bawah Nama & Deskripsi) */}
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+                          Pengaturan Ketersediaan
                         </h3>
-                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60">
-                          Multi-Channel Price
+                        <span className="text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          Stok &amp; Outlet
                         </span>
                       </div>
 
-                      {/* Price & Category Grid */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Toggle: Status Stok Menu */}
+                      <div
+                        onClick={() => setForm({ ...form, is_available: !form.is_available })}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
+                          ${form.is_available
+                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/60'
+                            : 'border-rose-200 bg-rose-50/40 hover:bg-rose-50/60'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
+                            ${form.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                            {form.is_available ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-xs sm:text-sm font-bold truncate ${form.is_available ? 'text-emerald-900' : 'text-rose-900'}`}>
+                              {form.is_available ? 'Status Stok: Tersedia (In Stock)' : 'Status Stok: Habis (Out of Stock)'}
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium truncate">
+                              {form.is_available ? 'Menu siap dipesan oleh pelanggan' : 'Menu dinonaktifkan dari pemesanan'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_available ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_available ? 'left-6' : 'left-1'}`} />
+                        </div>
+                      </div>
+
+                      {/* Toggle: Outlet Spesifik */}
+                      <div className="space-y-3">
+                        <div
+                          onClick={() => {
+                            const isSpecific = form.outlet_ids !== null;
+                            if (isSpecific) {
+                              setForm({ ...form, outlet_ids: null }); // Global
+                            } else {
+                              setForm({ ...form, outlet_ids: [] }); // Specific
+                            }
+                          }}
+                          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
+                            ${form.outlet_ids !== null
+                              ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/60'
+                              : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 pr-2">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
+                              ${form.outlet_ids !== null ? 'bg-amber-100 text-amber-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                              <Store className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className={`text-xs sm:text-sm font-bold truncate ${form.outlet_ids !== null ? 'text-amber-900' : 'text-slate-700'}`}>
+                                {form.outlet_ids !== null ? 'Outlet Pilihan (Spesifik)' : 'Berlaku Global (Semua Outlet)'}
+                              </p>
+                              <p className="text-[11px] text-slate-500 font-medium truncate">
+                                {form.outlet_ids !== null ? 'Hanya dijual di cabang yang dipilih' : 'Otomatis aktif di semua cabang'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.outlet_ids !== null ? 'bg-amber-500' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.outlet_ids !== null ? 'left-6' : 'left-1'}`} />
+                          </div>
+                        </div>
+
+                        {/* Outlet Selector Body */}
+                        {form.outlet_ids !== null && initialOutlets.length > 0 && (
+                          <div className="p-4 rounded-xl border border-amber-200/80 bg-amber-50/30 space-y-3 animate-in fade-in duration-200">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                              <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wider flex items-center gap-1.5">
+                                Pilih Outlet:
+                                {form.outlet_ids && form.outlet_ids.length > 0 && (
+                                  <span className="font-semibold text-amber-700 bg-amber-100/70 px-2 py-0.5 rounded-md normal-case">
+                                    {form.outlet_ids.length} dipilih
+                                  </span>
+                                )}
+                              </span>
+                              <div className="relative w-full sm:w-48">
+                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  placeholder="Cari outlet..."
+                                  value={outletSearch}
+                                  onChange={e => setOutletSearch(e.target.value)}
+                                  className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Selected Outlets Badges */}
+                            {form.outlet_ids && form.outlet_ids.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5 p-2 bg-white/80 border border-amber-100 rounded-lg max-h-24 overflow-y-auto">
+                                {form.outlet_ids.map(id => {
+                                  const out = initialOutlets.find(o => o.id === id)
+                                  if (!out) return null
+                                  return (
+                                    <span key={id} className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 text-amber-800 text-xs font-semibold rounded-md border border-amber-200">
+                                      {out.name}
+                                      <button
+                                        type="button"
+                                        onClick={() => setForm({ ...form, outlet_ids: form.outlet_ids!.filter(oid => oid !== id) })}
+                                        className="hover:text-red-500 rounded p-0.5 transition-colors cursor-pointer"
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </span>
+                                  )
+                                })}
+                              </div>
+                            )}
+
+                            {/* Outlet List Checkbox Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-y-auto pr-1">
+                              {initialOutlets.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase())).map(o => {
+                                const isChecked = form.outlet_ids!.includes(o.id)
+                                return (
+                                  <label key={o.id} className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all border text-xs font-semibold select-none
+                                    ${isChecked ? 'bg-white border-amber-300 text-amber-950 shadow-xs' : 'bg-slate-50/80 border-slate-200/60 text-slate-700 hover:bg-white'}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => {
+                                        const curr = form.outlet_ids || []
+                                        if (e.target.checked) {
+                                          setForm({ ...form, outlet_ids: [...curr, o.id] })
+                                        } else {
+                                          setForm({ ...form, outlet_ids: curr.filter(id => id !== o.id) })
+                                        }
+                                      }}
+                                      className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer"
+                                    />
+                                    <span className="truncate">{o.name}</span>
+                                  </label>
+                                )
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Toggle: Tampilkan di Order-Online Website */}
+                      <div
+                        onClick={() => setForm({ ...form, is_published_order_online: !form.is_published_order_online })}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
+                          ${form.is_published_order_online
+                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/60'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
+                            ${form.is_published_order_online ? 'bg-emerald-100 text-emerald-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                            <Globe className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-xs sm:text-sm font-bold truncate ${form.is_published_order_online ? 'text-emerald-900' : 'text-slate-700'}`}>
+                              Tampilkan di Website Order-Online
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium truncate">
+                              {form.is_published_order_online ? 'Menu disinkronkan ke katalog website publik' : 'Hanya tersimpan di internal Admin & POS'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_published_order_online ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_published_order_online ? 'left-6' : 'left-1'}`} />
+                        </div>
+                      </div>
+
+                      {/* Toggle: Ketersediaan di Food Apps (Online Channels) */}
+                      <div className="space-y-3">
+                        <div
+                          onClick={() => {
+                            const willBeOnline = !form.is_available_online
+                            setForm({ ...form, is_available_online: willBeOnline, available_online_channels: willBeOnline ? null : [] })
+                          }}
+                          className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
+                            ${form.is_available_online
+                              ? 'border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50/60'
+                              : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0 pr-2">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
+                              ${form.is_available_online ? 'bg-indigo-100 text-indigo-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                              <Globe className="w-4 h-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className={`text-xs sm:text-sm font-bold truncate ${form.is_available_online ? 'text-indigo-950' : 'text-slate-700'}`}>
+                                {form.is_available_online ? 'Tersedia di Food Apps (Online)' : 'Hanya Kasir Toko (Offline Only)'}
+                              </p>
+                              <p className="text-[11px] text-slate-500 font-medium truncate">
+                                {form.is_available_online ? 'Menu dapat dipesan di platform mitra online' : 'Sembunyikan dari aplikasi online'}
+                              </p>
+                            </div>
+                          </div>
+                          <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_available_online ? 'bg-indigo-600' : 'bg-slate-300'}`}>
+                            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_available_online ? 'left-6' : 'left-1'}`} />
+                          </div>
+                        </div>
+
+                        {/* Food Apps Channel Details */}
+                        {form.is_available_online && initialChannels.length > 0 && (
+                          <div className="p-4 rounded-xl border border-indigo-200/70 bg-indigo-50/30 space-y-3 animate-in fade-in duration-200">
+                            <p className="text-[11px] font-bold text-indigo-900 uppercase tracking-wider">
+                              Pilih Saluran Penjualan:
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setForm({ ...form, available_online_channels: null })}
+                                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all border text-left flex items-center justify-between cursor-pointer ${
+                                  form.available_online_channels === null
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span>Semua Platform</span>
+                                {form.available_online_channels === null && <Check className="w-3.5 h-3.5 ml-1" />}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setForm({ ...form, available_online_channels: ['pos_kasir'] })}
+                                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all border text-left flex items-center justify-between cursor-pointer ${
+                                  form.available_online_channels !== null
+                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                                }`}
+                              >
+                                <span>Channel Spesifik</span>
+                                {form.available_online_channels !== null && <Check className="w-3.5 h-3.5 ml-1" />}
+                              </button>
+                            </div>
+
+                            {form.available_online_channels !== null && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-indigo-100/70">
+                                <label className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 cursor-pointer select-none">
+                                  <input
+                                    type="checkbox"
+                                    checked={form.available_online_channels.includes('pos_kasir')}
+                                    onChange={(e) => {
+                                      const curr = form.available_online_channels || []
+                                      if (e.target.checked) {
+                                        setForm({ ...form, available_online_channels: [...curr, 'pos_kasir'] })
+                                      } else {
+                                        setForm({ ...form, available_online_channels: curr.filter(c => c !== 'pos_kasir') })
+                                      }
+                                    }}
+                                    className="w-4 h-4 text-amber-500 rounded border-slate-300 focus:ring-amber-500"
+                                  />
+                                  <span>Kasir Toko (Offline)</span>
+                                </label>
+
+                                {initialChannels.map(ch => {
+                                  const slug = getSlug(ch.id)
+                                  const isChecked = form.available_online_channels!.includes(slug)
+                                  return (
+                                    <label key={ch.id} className="flex items-center gap-2 p-2 bg-white rounded-lg border border-slate-200 text-xs font-semibold text-slate-800 cursor-pointer select-none">
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={(e) => {
+                                          const curr = form.available_online_channels || []
+                                          if (e.target.checked) {
+                                            setForm({ ...form, available_online_channels: [...curr, slug] })
+                                          } else {
+                                            setForm({ ...form, available_online_channels: curr.filter(c => c !== slug) })
+                                          }
+                                        }}
+                                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                                      />
+                                      <ChannelLogoIcon channelKey={slug} />
+                                      <span className="truncate">{ch.name}</span>
+                                    </label>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* ── RIGHT COLUMN: Pengaturan Harga Multi-Channel, Tipe Menu & Paket ── */}
+                  <div className="space-y-6">
+                    {/* Card 4: Pengaturan Harga & Kategori */}
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                          <Store className="w-4 h-4 text-amber-500" />
+                          Pengaturan Harga &amp; Kategori
+                        </h3>
+                        <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200/60">
+                          Multi-Channel
+                        </span>
+                      </div>
+
+                      {/* Offline Price & Strike Price */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider flex items-center gap-1.5">
-                            <Store className="w-3.5 h-3.5 text-amber-600" />
+                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 block">
                             Harga Offline <span className="text-red-500">*</span>
                           </label>
-                          <CurrencyInput value={form.price}
+                          <CurrencyInput
+                            value={form.price}
                             onChange={(v) => {
                               const valStr = String(v)
                               setForm(prev => ({
@@ -952,598 +1276,368 @@ export default function MenuView({
                                 }
                               }))
                             }}
-                            required className="input bg-gray-50 focus:bg-white font-bold text-gray-900 text-base py-2.5" />
+                            required
+                            className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2.5"
+                          />
                         </div>
                         <div>
-                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider flex items-center justify-between">
-                            <span>Harga Coret</span>
-                            <span className="text-[10px] font-medium text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">Opsional</span>
-                          </label>
-                          <CurrencyInput value={form.strike_price}
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                              Harga Coret
+                            </label>
+                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+                              Opsional
+                            </span>
+                          </div>
+                          <CurrencyInput
+                            value={form.strike_price}
                             onChange={(v) => setForm({ ...form, strike_price: String(v) })}
-                            className="input bg-gray-50 focus:bg-white text-gray-900 text-base py-2.5" />
-                        </div>
-                        <div className="sm:col-span-2">
-                          <label className="input-label text-gray-700 font-bold mb-1.5 block text-xs uppercase tracking-wider">Kategori Menu</label>
-                          <select value={form.category_id}
-                            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                            className="input bg-gray-50 focus:bg-white text-sm py-2.5 font-medium">
-                            <option value="">-- Pilih Kategori --</option>
-                            {initialCategories.map((c) => (
-                              <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                          </select>
+                            className="input bg-slate-50 focus:bg-white text-slate-900 text-sm py-2.5"
+                          />
                         </div>
                       </div>
 
-                      {/* CONTAINER PENGATURAN HARGA ONLINE (FOOD APPS) */}
-                      <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                            <label className="block text-xs font-bold text-indigo-900 uppercase tracking-wider flex items-center gap-2">
-                              <Globe className="w-4 h-4 text-indigo-600" />
-                              Harga Online (Food Apps)
-                            </label>
-
-                            {/* OPSI: Satu Harga Semua VS Pilih Per Channel */}
-                            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[11px] font-bold">
-                              <button
-                                type="button"
-                                onClick={() => setOnlinePriceMode('unified')}
-                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                                  onlinePriceMode === 'unified'
-                                    ? 'bg-indigo-600 text-white shadow-xs'
-                                    : 'text-slate-600 hover:bg-slate-200'
-                                }`}
-                              >
-                                Semua Food Apps (Satu Harga)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setOnlinePriceMode('per_channel')}
-                                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
-                                  onlinePriceMode === 'per_channel'
-                                    ? 'bg-indigo-600 text-white shadow-xs'
-                                    : 'text-slate-600 hover:bg-slate-200'
-                                }`}
-                              >
-                                Pilih Salah Satu / Per App
-                              </button>
-                            </div>
-                          </div>
-
-                          {onlinePriceMode === 'unified' ? (
-                            <div className="space-y-1.5">
-                              <CurrencyInput
-                                value={
-                                  form.channel_prices['gofood'] ||
-                                  form.channel_prices['grabfood'] ||
-                                  form.channel_prices['shopeefood'] ||
-                                  form.channel_prices['tiktok_go'] ||
-                                  form.channel_prices['all_food_apps'] ||
-                                  form.price
-                                }
-                                onChange={(v) => {
-                                  const valStr = String(v)
-                                  setForm(prev => {
-                                    const newPrices = { ...prev.channel_prices }
-                                    const slugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'all_food_apps', 'online']
-                                    slugs.forEach(s => { newPrices[s] = valStr })
-                                    if (initialChannels && initialChannels.length > 0) {
-                                      initialChannels.forEach(ch => {
-                                        const slug = ch.id.toLowerCase().replace(/\s+/g, '')
-                                        if (slug !== 'pos_kasir') newPrices[slug] = valStr
-                                      })
-                                    }
-                                    return { ...prev, channel_prices: newPrices }
-                                  })
-                                }}
-                                placeholder={form.price || '0'}
-                                className="input bg-slate-50 focus:bg-white font-bold text-slate-900 text-sm py-2"
-                              />
-                              <p className="text-[11px] text-slate-500 font-medium">
-                                Harga online ini otomatis berlaku seragam untuk semua aplikasi (GoFood, GrabFood, ShopeeFood, TikTok Go, dsb).
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="space-y-2 pt-1">
-                              <p className="text-[11px] font-bold text-indigo-900">Masukkan harga spesifik per aplikasi online:</p>
-                              <div className="grid grid-cols-1 gap-2.5">
-                                {initialChannels.filter(c => c.id.toLowerCase() !== 'pos_kasir').map(ch => {
-                                  const slug = getSlug(ch.id)
-                                  const val = form.channel_prices[slug] || form.price
-                                  return (
-                                    <div key={ch.id} className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2">
-                                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5 shrink-0">
-                                        <ChannelLogoIcon channelKey={slug} />
-                                        <span>{ch.name}</span>
-                                      </span>
-                                      <div className="w-28 sm:w-32 shrink-0">
-                                        <CurrencyInput
-                                          value={val}
-                                          onChange={(v) => {
-                                            const valStr = String(v)
-                                            setForm(prev => ({
-                                              ...prev,
-                                              channel_prices: {
-                                                ...prev.channel_prices,
-                                                [slug]: valStr
-                                              }
-                                            }))
-                                          }}
-                                          className="input bg-white text-xs font-bold text-slate-900 py-1.5 px-2.5 w-full text-right"
-                                        />
-                                      </div>
-                                    </div>
-                                  )
-                                })}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-100 mt-4">
-                        <div className="md:col-span-2">
-                          <label className="flex items-center gap-2 cursor-pointer p-3 bg-amber-50 rounded-xl border border-amber-200">
-                            <input
-                              type="checkbox"
-                              checked={form.is_campaign_active}
-                              onChange={(e) => setForm({ ...form, is_campaign_active: e.target.checked })}
-                              className="w-4 h-4 text-amber-500 bg-white border-amber-300 rounded focus:ring-amber-500"
-                            />
-                            <div>
-                              <span className="font-bold text-amber-900 text-sm block">Aktifkan Harga Campaign (Tiktok GO dll)</span>
-                              <span className="text-xs text-amber-700">Jika aktif, kasir bisa memilih harga normal vs harga campaign saat order.</span>
-                            </div>
-                          </label>
-                        </div>
-                        
-                        {form.is_campaign_active && (
-                          <div className="md:col-span-1">
-                            <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
-                              Harga Campaign <span className="text-red-500">*</span>
-                            </label>
-                            <CurrencyInput value={form.campaign_price}
-                              onChange={(v) => setForm({ ...form, campaign_price: String(v) })}
-                              placeholder="0"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                      {/* Menu Type Toggle */}
+                      {/* Kategori Menu */}
                       <div>
-                        <label className="input-label mb-2 block text-gray-700 font-bold">Tipe Menu</label>
-                        <div className="flex bg-gray-100/80 p-1.5 rounded-[1.25rem]">
-                          <button type="button" 
-                            onClick={() => setForm({ ...form, is_package: false })}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${!form.is_package ? 'bg-white shadow text-gray-900 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>
-                            Satuan
-                          </button>
-                          <button type="button" 
-                            onClick={() => setForm({ ...form, is_package: true })}
-                            className={`flex-1 py-2.5 text-sm font-bold rounded-xl transition-all duration-200 ${form.is_package ? 'bg-white shadow text-gray-900 scale-[1.02]' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200/50'}`}>
-                            Paket (Combo)
-                          </button>
-                        </div>
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 block">
+                          Kategori Menu
+                        </label>
+                        <select
+                          value={form.category_id}
+                          onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+                          className="input bg-slate-50 focus:bg-white text-sm py-2.5 font-semibold text-slate-800"
+                        >
+                          <option value="">-- Pilih Kategori --</option>
+                          {initialCategories.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
                       </div>
 
-                      {/* Package Builder */}
-                      {form.is_package && (
-                        <div className="space-y-4 p-5 bg-amber-50/60 rounded-[1.25rem] border border-amber-100/60 animate-in fade-in slide-in-from-top-2 duration-300">
-                          <label className="input-label text-amber-900 font-bold flex items-center justify-between mb-1">
-                            <span>Isi Paket</span>
-                            <span className="text-xs font-semibold text-amber-700 bg-amber-200/50 px-2.5 py-1 rounded-full">{form.package_items.length} item</span>
+                      {/* Online Prices Box */}
+                      <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-2.5">
+                          <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Globe className="w-3.5 h-3.5 text-indigo-600" />
+                            Harga Food Apps (Online)
                           </label>
-                          
-                          <div className="space-y-3">
-                            {form.package_items.map((pi, idx) => (
-                              <div key={pi.temp_id} className="flex gap-3 items-center bg-white p-3 rounded-xl border border-amber-100 shadow-sm">
-                                <div className="flex-1 space-y-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex-1">
-                                      <MenuPicker 
-                                        value={pi.menu_item_id}
-                                        items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                                        onChange={(val) => {
-                                          const newItems = [...form.package_items];
-                                          newItems[idx].menu_item_id = val;
-                                          
-                                          let newBasePrice = 0;
-                                          newItems.forEach(item => {
-                                            const m = initialItems.find(x => x.id === item.menu_item_id);
-                                            if (m) newBasePrice += (m.price * item.quantity);
-                                          });
-                                          
-                                          setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
+
+                          {/* Mode switcher: Unified vs Per App */}
+                          <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-[11px] font-bold">
+                            <button
+                              type="button"
+                              onClick={() => setOnlinePriceMode('unified')}
+                              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                                onlinePriceMode === 'unified'
+                                  ? 'bg-white text-slate-900 shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              Satu Harga Semua
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setOnlinePriceMode('per_channel')}
+                              className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                                onlinePriceMode === 'per_channel'
+                                  ? 'bg-white text-slate-900 shadow-xs'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              Per Aplikasi
+                            </button>
+                          </div>
+                        </div>
+
+                        {onlinePriceMode === 'unified' ? (
+                          <div className="space-y-1.5">
+                            <CurrencyInput
+                              value={
+                                form.channel_prices['gofood'] ||
+                                form.channel_prices['grabfood'] ||
+                                form.channel_prices['shopeefood'] ||
+                                form.channel_prices['tiktok_go'] ||
+                                form.channel_prices['all_food_apps'] ||
+                                form.price
+                              }
+                              onChange={(v) => {
+                                const valStr = String(v)
+                                setForm(prev => {
+                                  const newPrices = { ...prev.channel_prices }
+                                  const slugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'all_food_apps', 'online']
+                                  slugs.forEach(s => { newPrices[s] = valStr })
+                                  if (initialChannels && initialChannels.length > 0) {
+                                    initialChannels.forEach(ch => {
+                                      const slug = ch.id.toLowerCase().replace(/\s+/g, '')
+                                      if (slug !== 'pos_kasir') newPrices[slug] = valStr
+                                    })
+                                  }
+                                  return { ...prev, channel_prices: newPrices }
+                                })
+                              }}
+                              placeholder={form.price || '0'}
+                              className="input bg-white font-bold text-slate-900 text-sm py-2"
+                            />
+                            <p className="text-[11px] text-slate-500 font-medium">
+                              Harga online ini berlaku seragam untuk GoFood, GrabFood, ShopeeFood, TikTok Go, dsb.
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2 pt-1">
+                            <p className="text-[11px] font-bold text-slate-600">Harga spesifik per aplikasi:</p>
+                            <div className="grid grid-cols-1 gap-2">
+                              {initialChannels.filter(c => c.id.toLowerCase() !== 'pos_kasir').map(ch => {
+                                const slug = getSlug(ch.id)
+                                const val = form.channel_prices[slug] || form.price
+                                return (
+                                  <div key={ch.id} className="bg-white p-2.5 rounded-xl border border-slate-200 flex items-center justify-between gap-2 shadow-2xs">
+                                    <span className="text-xs font-bold text-slate-800 flex items-center gap-2 shrink-0">
+                                      <ChannelLogoIcon channelKey={slug} />
+                                      <span>{ch.name}</span>
+                                    </span>
+                                    <div className="w-32 shrink-0">
+                                      <CurrencyInput
+                                        value={val}
+                                        onChange={(v) => {
+                                          const valStr = String(v)
+                                          setForm(prev => ({
+                                            ...prev,
+                                            channel_prices: {
+                                              ...prev.channel_prices,
+                                              [slug]: valStr
+                                            }
+                                          }))
                                         }}
+                                        className="input bg-slate-50 text-xs font-bold text-slate-900 py-1.5 px-2.5 w-full text-right"
                                       />
                                     </div>
                                   </div>
-                                  
-                                  {pi.or_menu_item_id !== undefined && pi.or_menu_item_id !== null && (
-                                    <div className="flex items-center gap-3 pl-4 border-l-2 border-amber-200 animate-in fade-in slide-in-from-top-2 duration-300">
-                                      <span className="text-xs font-bold text-amber-500 uppercase tracking-widest shrink-0">ATAU</span>
-                                      <div className="flex-1">
-                                        <MenuPicker 
-                                          value={pi.or_menu_item_id || ''}
-                                          items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
-                                          onChange={(val) => {
-                                            const newItems = [...form.package_items];
-                                            newItems[idx].or_menu_item_id = val;
-                                            setForm({ ...form, package_items: newItems });
-                                          }}
-                                        />
-                                      </div>
-                                      <button type="button" onClick={() => {
-                                          const newItems = [...form.package_items];
-                                          newItems[idx].or_menu_item_id = null;
-                                          setForm({ ...form, package_items: newItems });
-                                      }} className="w-10 h-10 shrink-0 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors">
-                                        <X className="w-4 h-4" />
-                                      </button>
-                                    </div>
-                                  )}
-                                  
-                                  {(pi.or_menu_item_id === undefined || pi.or_menu_item_id === null) && (
-                                    <button type="button" onClick={() => {
-                                        const newItems = [...form.package_items];
-                                        newItems[idx].or_menu_item_id = '';
-                                        setForm({ ...form, package_items: newItems });
-                                    }} className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-1 pl-1">
-                                      <Plus className="w-3 h-3" /> Tambah Opsi Atau
-                                    </button>
-                                  )}
-                                </div>
-                                <div className="w-24">
-                                  <input type="number" min="1" className="input text-center px-2 bg-gray-50 py-2.5 font-bold" 
-                                    value={pi.quantity}
-                                    onChange={(e) => {
-                                      const qty = parseInt(e.target.value) || 1;
-                                      const newItems = [...form.package_items];
-                                      newItems[idx].quantity = qty;
-
-                                      let newBasePrice = 0;
-                                      newItems.forEach(item => {
-                                        const m = initialItems.find(x => x.id === item.menu_item_id);
-                                        if (m) newBasePrice += (m.price * item.quantity);
-                                      });
-
-                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                                    }}
-                                  />
-                                </div>
-                                <button type="button" onClick={() => {
-                                  const newItems = form.package_items.filter((_, i) => i !== idx);
-                                  
-                                  let newBasePrice = 0;
-                                  newItems.forEach(item => {
-                                    const m = initialItems.find(x => x.id === item.menu_item_id);
-                                    if (m) newBasePrice += (m.price * item.quantity);
-                                  });
-
-                                  setForm({ ...form, package_items: newItems, price: String(newBasePrice) });
-                                }} className="w-11 h-11 shrink-0 bg-red-50 rounded-xl flex items-center justify-center text-red-500 hover:bg-red-100 hover:text-red-600 transition-colors border border-transparent hover:border-red-200">
-                                  <Trash2 className="w-5 h-5" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-
-                          <button type="button" onClick={() => {
-                            setForm({ ...form, package_items: [...form.package_items, { menu_item_id: '', quantity: 1, temp_id: Math.random().toString() }] })
-                          }} className="w-full py-3 mt-3 text-sm font-bold text-amber-600 bg-amber-100/50 hover:bg-amber-100 rounded-xl flex items-center justify-center gap-2 transition-all border border-amber-200/50 border-dashed hover:border-solid hover:shadow-sm">
-                            <Plus className="w-4 h-4" /> Tambah Item Paket
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Ketersediaan */}
-                    <div className="bg-white p-6 rounded-[1.5rem] border border-gray-100 shadow-sm space-y-4">
-                      <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2.5">
-                        <div className="w-2.5 h-2.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
-                        Pengaturan Ketersediaan
-                      </h3>
-
-                      {/* Availability toggle (Status Stok Menu) */}
-                      <button type="button"
-                        onClick={() => setForm({ ...form, is_available: !form.is_available })}
-                        className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
-                          ${form.is_available
-                            ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50'
-                            : 'border-red-200 bg-red-50/40 hover:bg-red-50'}`}>
-                        <div className="flex items-center gap-4">
-                          <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                            ${form.is_available ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
-                            {form.is_available
-                              ? <ToggleRight className="w-7 h-7" />
-                              : <ToggleLeft  className="w-7 h-7" />}
-                          </div>
-                          <div className="text-left">
-                            <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available ? 'text-emerald-800' : 'text-red-800'}`}>
-                              {form.is_available ? 'Status Stok: Tersedia (In Stock)' : 'Status Stok: Habis (Out of Stock)'}
-                            </p>
-                            <p className="text-xs font-medium text-gray-500">
-                              {form.is_available ? 'Stok menu ada dan siap dipesan pelanggan' : 'Tandai menu sebagai stok habis'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                          ${form.is_available ? 'bg-emerald-500' : 'bg-red-400'}`}>
-                          <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
-                            transition-transform duration-300 ${form.is_available ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
-                        </div>
-                      </button>
-
-                      {/* Outlet Assignment toggle */}
-                      <div className="space-y-3 mt-4">
-                        <button type="button"
-                          onClick={() => {
-                            const isSpecific = form.outlet_ids !== null;
-                            if (isSpecific) {
-                              setForm({ ...form, outlet_ids: null }); // Turn OFF -> Global
-                            } else {
-                              setForm({ ...form, outlet_ids: [] }); // Turn ON -> Specific
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
-                            ${form.outlet_ids !== null
-                              ? 'border-fuchsia-200 bg-fuchsia-50/40 hover:bg-fuchsia-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
-                          <div className="flex items-center gap-4">
-                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                              ${form.outlet_ids !== null ? 'bg-fuchsia-100 text-fuchsia-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
-                              {form.outlet_ids !== null
-                                ? <ToggleRight className="w-7 h-7" />
-                                : <ToggleLeft  className="w-7 h-7" />}
-                            </div>
-                            <div className="text-left">
-                              <p className={`text-sm font-bold leading-none mb-1.5 ${form.outlet_ids !== null ? 'text-fuchsia-800' : 'text-gray-600'}`}>
-                                Outlet Spesifik
-                              </p>
-                              <p className="text-xs font-medium text-gray-500">
-                                {form.outlet_ids !== null ? 'Hanya berlaku di outlet pilihan' : 'Berlaku global di semua outlet'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                            ${form.outlet_ids !== null ? 'bg-fuchsia-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
-                              transition-transform duration-300 ${form.outlet_ids !== null ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
-                          </div>
-                        </button>
-                        
-                        {form.outlet_ids !== null && initialOutlets.length > 0 && (
-                          <div className="p-5 rounded-[1.25rem] border border-fuchsia-100 bg-fuchsia-50/30 ml-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                              <p className="text-[11px] font-bold text-fuchsia-800/70 uppercase tracking-widest flex items-center gap-2.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-fuchsia-400 shadow-[0_0_4px_rgba(217,70,239,0.5)]"></span>
-                                Pilih Outlet: {form.outlet_ids && form.outlet_ids.length > 0 && <span className="normal-case font-semibold text-fuchsia-600 bg-fuchsia-100/50 px-2 py-0.5 rounded-md">({form.outlet_ids.length} cabang dipilih)</span>}
-                              </p>
-                              <div className="relative w-full sm:w-1/2">
-                                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-fuchsia-400" />
-                                <input 
-                                  type="text" 
-                                  placeholder="Cari outlet..." 
-                                  value={outletSearch} 
-                                  onChange={e => setOutletSearch(e.target.value)} 
-                                  className="w-full bg-white border border-fuchsia-100 rounded-lg pl-9 pr-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-fuchsia-500/20 shadow-sm" 
-                                />
-                              </div>
-                            </div>
-                            
-                            {/* Selected Outlets Summary */}
-                            {form.outlet_ids && form.outlet_ids.length > 0 && (
-                              <div className="mb-4 p-3 bg-white/60 border border-fuchsia-100/50 rounded-xl">
-                                <p className="text-xs font-semibold text-gray-500 mb-2">Menu ini akan aktif di cabang berikut:</p>
-                                <div className="flex flex-wrap gap-2">
-                                  {form.outlet_ids.map(id => {
-                                    const out = initialOutlets.find(o => o.id === id);
-                                    if (!out) return null;
-                                    return (
-                                      <span key={id} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-fuchsia-100 text-fuchsia-800 text-xs font-bold rounded-lg border border-fuchsia-200 shadow-sm">
-                                        {out.name}
-                                        <button type="button" onClick={() => setForm({ ...form, outlet_ids: form.outlet_ids!.filter(oid => oid !== id) })} className="hover:bg-fuchsia-200 rounded-full p-0.5 transition-colors">
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      </span>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-
-
-                            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                              {initialOutlets.filter(o => o.name.toLowerCase().includes(outletSearch.toLowerCase())).map(o => {
-                                const isChecked = form.outlet_ids!.includes(o.id);
-                                return (
-                                  <label key={o.id} className={`flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all duration-200 border ${isChecked ? 'bg-fuchsia-50/80 border-fuchsia-200 shadow-sm' : 'hover:bg-white border-transparent hover:border-fuchsia-100'}`}>
-                                    <div className="relative flex items-center shrink-0">
-                                      <input type="checkbox" 
-                                        checked={isChecked}
-                                        onChange={(e) => {
-                                          const curr = form.outlet_ids || [];
-                                          if (e.target.checked) {
-                                            setForm({ ...form, outlet_ids: [...curr, o.id] });
-                                          } else {
-                                            setForm({ ...form, outlet_ids: curr.filter(id => id !== o.id) });
-                                          }
-                                        }}
-                                        className="peer sr-only" />
-                                      <div className="w-5 h-5 rounded-[6px] border-[2px] border-gray-300 peer-checked:border-fuchsia-500 peer-checked:bg-fuchsia-500 transition-colors shadow-sm"></div>
-                                      <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
-                                        <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
-                                      </div>
-                                    </div>
-                                    <span className={`text-sm font-bold ${isChecked ? 'text-fuchsia-900' : 'text-gray-700'}`}>{o.name}</span>
-                                  </label>
-                                );
+                                )
                               })}
                             </div>
                           </div>
                         )}
                       </div>
 
-                      {/* Order-Online publish toggle */}
-                      <div className="space-y-3">
-                        <button type="button" onClick={() => setForm({ ...form, is_published_order_online: !form.is_published_order_online })}
-                          className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300 ${form.is_published_order_online ? 'border-emerald-200 bg-emerald-50/50' : 'border-gray-200 bg-gray-50'}`}>
-                          <div className="flex items-center gap-4">
-                            <Globe className={`w-6 h-6 ${form.is_published_order_online ? 'text-emerald-600' : 'text-gray-400'}`} />
-                            <div className="text-left">
-                              <p className={`text-sm font-bold ${form.is_published_order_online ? 'text-emerald-800' : 'text-gray-600'}`}>Tampilkan di Order-Online Website</p>
-                              <p className="text-xs text-gray-500">{form.is_published_order_online ? 'Menu akan disinkronkan ke website Order-Online' : 'Menu hanya tersimpan di Admin dan POS'}</p>
-                            </div>
+                      {/* Campaign Price */}
+                      <div className="pt-3 border-t border-slate-100 space-y-3">
+                        <label className="flex items-center gap-2.5 cursor-pointer p-3 bg-amber-50/70 hover:bg-amber-50 rounded-xl border border-amber-200/70 transition-colors select-none">
+                          <input
+                            type="checkbox"
+                            checked={form.is_campaign_active}
+                            onChange={(e) => setForm({ ...form, is_campaign_active: e.target.checked })}
+                            className="w-4 h-4 text-amber-500 bg-white border-amber-300 rounded focus:ring-amber-500"
+                          />
+                          <div className="min-w-0">
+                            <span className="font-bold text-amber-950 text-xs sm:text-sm block">
+                              Aktifkan Harga Campaign (TikTok GO dll)
+                            </span>
+                            <span className="text-[11px] text-amber-700">
+                              Kasir dapat memilih harga normal vs harga campaign saat transaksi.
+                            </span>
                           </div>
-                          <div className={`w-14 h-7 rounded-full relative ${form.is_published_order_online ? 'bg-emerald-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${form.is_published_order_online ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
-                          </div>
-                        </button>
-                      </div>
+                        </label>
 
-                      {/* Online Availability toggle */}
-                      <div className="space-y-3">
-                        <button type="button"
-                          onClick={() => {
-                            const willBeOnline = !form.is_available_online;
-                            setForm({ ...form, is_available_online: willBeOnline, available_online_channels: willBeOnline ? null : [] })
-                          }}
-                          className={`w-full flex items-center justify-between p-4 rounded-[1.25rem] border-2 transition-all duration-300
-                            ${form.is_available_online
-                              ? 'border-indigo-200 bg-indigo-50/40 hover:bg-indigo-50'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}>
-                          <div className="flex items-center gap-4">
-                            <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 shadow-sm
-                              ${form.is_available_online ? 'bg-indigo-100 text-indigo-600' : 'bg-white border border-gray-200 text-gray-400'}`}>
-                              {form.is_available_online
-                                ? <ToggleRight className="w-7 h-7" />
-                                : <ToggleLeft  className="w-7 h-7" />}
-                            </div>
-                            <div className="text-left">
-                              <p className={`text-sm font-bold leading-none mb-1.5 ${form.is_available_online ? 'text-indigo-800' : 'text-gray-600'}`}>
-                                {form.is_available_online ? 'Tersedia di Food Apps' : 'Hanya POS (Offline)'}
-                              </p>
-                              <p className="text-xs font-medium text-gray-500">
-                                {form.is_available_online ? 'Menu muncul di aplikasi online' : 'Sembunyikan dari aplikasi online'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className={`w-14 h-7 rounded-full transition-all duration-300 relative flex-shrink-0 shadow-inner
-                            ${form.is_available_online ? 'bg-indigo-500' : 'bg-gray-300'}`}>
-                            <span className={`absolute top-1/2 -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-sm
-                              transition-transform duration-300 ${form.is_available_online ? 'left-[calc(100%-1.5rem)]' : 'left-1'}`} />
-                          </div>
-                        </button>
-                        
-                        {form.is_available_online && initialChannels.length > 0 && (
-                          <div className="p-5 rounded-[1.25rem] border border-indigo-100 bg-indigo-50/30 ml-4 animate-in fade-in slide-in-from-top-2 duration-300">
-                            <p className="text-[11px] font-bold text-indigo-800/70 uppercase tracking-widest mb-4 flex items-center gap-2.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 shadow-[0_0_4px_rgba(99,102,241,0.5)]"></span>
-                              Platform Online & Channel Tersedia:
-                            </p>
-                            <div className="space-y-3">
-                              <label className="flex items-center gap-3.5 cursor-pointer group">
-                                <div className="relative flex items-center">
-                                  <input type="radio" 
-                                    checked={form.available_online_channels === null} 
-                                    onChange={() => setForm({ ...form, available_online_channels: null })}
-                                    className="peer sr-only" />
-                                  <div className="w-5 h-5 rounded-full border-[2.5px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
-                                    <div className="w-2 h-2 rounded-full bg-white"></div>
-                                  </div>
-                                </div>
-                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Semua Platform (Offline Toko + Food Apps)</span>
-                              </label>
-                              <label className="flex items-center gap-3.5 cursor-pointer group">
-                                <div className="relative flex items-center">
-                                  <input type="radio" 
-                                    checked={form.available_online_channels !== null} 
-                                    onChange={() => setForm({ ...form, available_online_channels: ['pos_kasir'] })}
-                                    className="peer sr-only" />
-                                  <div className="w-5 h-5 rounded-full border-[2.5px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
-                                  <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
-                                    <div className="w-2 h-2 rounded-full bg-white"></div>
-                                  </div>
-                                </div>
-                                <span className="text-sm text-gray-700 font-bold group-hover:text-indigo-700 transition-colors">Pilih Channel Spesifik</span>
-                              </label>
-                            </div>
-                            
-                            {form.available_online_channels !== null && (
-                              <div className="mt-5 pl-8 pt-5 border-t border-indigo-100/60 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-in fade-in duration-300">
-                                {/* Checkbox Kasir Toko (Offline) */}
-                                <label className="flex items-center gap-3 cursor-pointer hover:bg-white p-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-amber-100 hover:shadow-sm">
-                                  <div className="relative flex items-center">
-                                    <input type="checkbox" 
-                                      checked={form.available_online_channels.includes('pos_kasir')}
-                                      onChange={(e) => {
-                                        const curr = form.available_online_channels || [];
-                                        if (e.target.checked) {
-                                          setForm({ ...form, available_online_channels: [...curr, 'pos_kasir'] });
-                                        } else {
-                                          setForm({ ...form, available_online_channels: curr.filter(c => c !== 'pos_kasir') });
-                                        }
-                                      }}
-                                      className="peer sr-only" />
-                                    <div className="w-5 h-5 rounded-[6px] border-[2px] border-amber-400 peer-checked:border-amber-500 peer-checked:bg-amber-500 transition-colors shadow-sm"></div>
-                                    <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
-                                      <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
-                                    </div>
-                                  </div>
-                                  <span className="text-sm font-bold text-slate-800">Kasir Toko (Offline)</span>
-                                </label>
-
-                                {initialChannels.map(ch => {
-                                  const slug = getSlug(ch.id);
-                                  const isChecked = form.available_online_channels!.includes(slug);
-                                  return (
-                                    <label key={ch.id} className="flex items-center gap-3 cursor-pointer hover:bg-white p-2.5 rounded-xl transition-all duration-200 border border-transparent hover:border-indigo-100 hover:shadow-sm">
-                                      <div className="relative flex items-center">
-                                        <input type="checkbox" 
-                                          checked={isChecked}
-                                          onChange={(e) => {
-                                            const curr = form.available_online_channels || [];
-                                            if (e.target.checked) {
-                                              setForm({ ...form, available_online_channels: [...curr, slug] });
-                                            } else {
-                                              setForm({ ...form, available_online_channels: curr.filter(c => c !== slug) });
-                                            }
-                                          }}
-                                          className="peer sr-only" />
-                                        <div className="w-5 h-5 rounded-[6px] border-[2px] border-gray-300 peer-checked:border-indigo-500 peer-checked:bg-indigo-500 transition-colors shadow-sm"></div>
-                                        <div className="absolute inset-0 flex items-center justify-center opacity-0 peer-checked:opacity-100 transition-opacity">
-                                          <Check className="w-3.5 h-3.5 text-white stroke-[3]" />
-                                        </div>
-                                      </div>
-                                      <span className="text-sm font-bold text-gray-700">{ch.name}</span>
-                                    </label>
-                                  );
-                                })}
-                              </div>
-                            )}
+                        {form.is_campaign_active && (
+                          <div className="pl-6 animate-in fade-in duration-200">
+                            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                              Nominal Harga Campaign <span className="text-red-500">*</span>
+                            </label>
+                            <CurrencyInput
+                              value={form.campaign_price}
+                              onChange={(v) => setForm({ ...form, campaign_price: String(v) })}
+                              placeholder="0"
+                              className="input bg-white font-bold text-slate-900 text-sm py-2"
+                            />
                           </div>
                         )}
                       </div>
+
                     </div>
+
+                    {/* Card 5: Tipe Menu & Komposisi Paket */}
+                    <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 block">
+                          Tipe Menu
+                        </label>
+                        <div className="flex bg-slate-100 p-1 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, is_package: false })}
+                            className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-150 cursor-pointer ${
+                              !form.is_package
+                                ? 'bg-white shadow-xs text-slate-900'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            Satuan
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForm({ ...form, is_package: true })}
+                            className={`flex-1 py-2 text-xs sm:text-sm font-bold rounded-lg transition-all duration-150 cursor-pointer ${
+                              form.is_package
+                                ? 'bg-white shadow-xs text-slate-900'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            Paket (Combo)
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Package Builder if combo */}
+                      {form.is_package && (
+                        <div className="space-y-3 p-4 bg-amber-50/50 rounded-xl border border-amber-200/60 animate-in fade-in duration-200">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-bold text-amber-950 uppercase tracking-wider">Isi Paket Combo</span>
+                            <span className="text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                              {form.package_items.length} item
+                            </span>
+                          </div>
+
+                          <div className="space-y-2.5">
+                            {form.package_items.map((pi, idx) => (
+                              <div key={pi.temp_id} className="p-3 bg-white rounded-xl border border-amber-100 shadow-2xs space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <MenuPicker
+                                      value={pi.menu_item_id}
+                                      items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                      onChange={(val) => {
+                                        const newItems = [...form.package_items]
+                                        newItems[idx].menu_item_id = val
+                                        
+                                        let newBasePrice = 0
+                                        newItems.forEach(item => {
+                                          const m = initialItems.find(x => x.id === item.menu_item_id)
+                                          if (m) newBasePrice += (m.price * item.quantity)
+                                        })
+                                        
+                                        setForm({ ...form, package_items: newItems, price: String(newBasePrice) })
+                                      }}
+                                    />
+                                  </div>
+                                  <div className="w-16 shrink-0">
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      className="input text-center px-1 bg-slate-50 py-2 text-xs font-bold"
+                                      value={pi.quantity}
+                                      onChange={(e) => {
+                                        const qty = parseInt(e.target.value) || 1
+                                        const newItems = [...form.package_items]
+                                        newItems[idx].quantity = qty
+
+                                        let newBasePrice = 0
+                                        newItems.forEach(item => {
+                                          const m = initialItems.find(x => x.id === item.menu_item_id)
+                                          if (m) newBasePrice += (m.price * item.quantity)
+                                        })
+
+                                        setForm({ ...form, package_items: newItems, price: String(newBasePrice) })
+                                      }}
+                                    />
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newItems = form.package_items.filter((_, i) => i !== idx)
+                                      let newBasePrice = 0
+                                      newItems.forEach(item => {
+                                        const m = initialItems.find(x => x.id === item.menu_item_id)
+                                        if (m) newBasePrice += (m.price * item.quantity)
+                                      })
+                                      setForm({ ...form, package_items: newItems, price: String(newBasePrice) })
+                                    }}
+                                    className="w-8 h-8 shrink-0 bg-red-50 rounded-lg flex items-center justify-center text-red-500 hover:bg-red-100 transition-colors cursor-pointer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
+
+                                {/* ATAU alternative */}
+                                {pi.or_menu_item_id !== undefined && pi.or_menu_item_id !== null && (
+                                  <div className="flex items-center gap-2 pl-3 border-l-2 border-amber-300">
+                                    <span className="text-[10px] font-extrabold text-amber-600 uppercase shrink-0">ATAU</span>
+                                    <div className="flex-1 min-w-0">
+                                      <MenuPicker
+                                        value={pi.or_menu_item_id || ''}
+                                        items={initialItems.filter(i => !i.is_package && i.id !== form.id)}
+                                        onChange={(val) => {
+                                          const newItems = [...form.package_items]
+                                          newItems[idx].or_menu_item_id = val
+                                          setForm({ ...form, package_items: newItems })
+                                        }}
+                                      />
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const newItems = [...form.package_items]
+                                        newItems[idx].or_menu_item_id = null
+                                        setForm({ ...form, package_items: newItems })
+                                      }}
+                                      className="w-7 h-7 shrink-0 bg-slate-100 rounded flex items-center justify-center text-slate-400 hover:text-slate-600"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                )}
+
+                                {(pi.or_menu_item_id === undefined || pi.or_menu_item_id === null) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newItems = [...form.package_items]
+                                      newItems[idx].or_menu_item_id = ''
+                                      setForm({ ...form, package_items: newItems })
+                                    }}
+                                    className="text-[11px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 pl-1 cursor-pointer"
+                                  >
+                                    <Plus className="w-3 h-3" /> Tambah Opsi Alternatif (Atau)
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setForm({ ...form, package_items: [...form.package_items, { menu_item_id: '', quantity: 1, temp_id: Math.random().toString() }] })
+                            }}
+                            className="w-full py-2.5 text-xs font-bold text-amber-700 bg-amber-100/60 hover:bg-amber-100 rounded-xl flex items-center justify-center gap-1.5 transition-all border border-amber-200 border-dashed cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> Tambah Item Paket
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
                   </div>
+
+                </div>
 
               </div>
 
-            {/* Sticky footer — action buttons */}
-            <div className="flex gap-4 px-8 py-5 border-t border-gray-100 flex-shrink-0 bg-white/95 backdrop-blur-md z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-              <button type="button" onClick={closeForm}
-                  className="px-8 py-3.5 rounded-[1.25rem] font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all duration-200 w-1/3 text-sm flex items-center justify-center border border-gray-200/50">
+              {/* ── STICKY FOOTER (Always visible & fixed on mobile & desktop) ── */}
+              <div className="flex items-center gap-3 sm:gap-4 px-4 py-3.5 sm:px-8 sm:py-4 border-t border-slate-200/80 shrink-0 bg-white/95 backdrop-blur-md z-10 shadow-[0_-4px_12px_rgba(0,0,0,0.03)] pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+                <button
+                  type="button"
+                  onClick={closeForm}
+                  className="px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-all text-xs sm:text-sm flex items-center justify-center border border-slate-200/60 w-24 sm:w-32 shrink-0 cursor-pointer"
+                >
                   Batal
                 </button>
-                <button type="submit" disabled={saving || uploading}
-                  className="btn-primary flex-1 py-3.5 rounded-[1.25rem] text-base font-bold shadow-lg shadow-amber-500/30 hover:shadow-amber-500/40 hover:-translate-y-0.5 transition-all duration-200">
+                <button
+                  type="submit"
+                  disabled={saving || uploading}
+                  className="btn-primary flex-1 py-2.5 sm:py-3 rounded-xl sm:rounded-2xl text-xs sm:text-sm font-bold shadow-md shadow-amber-500/25 hover:shadow-amber-500/35 active:scale-[0.99] transition-all cursor-pointer"
+                >
                   {(saving || uploading)
-                    ? <div className="flex items-center justify-center gap-2"><Loader2 className="w-5 h-5 animate-spin" /><span>{uploading ? 'Mengupload...' : 'Menyimpan...'}</span></div>
+                    ? <div className="flex items-center justify-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /><span>{uploading ? 'Mengupload...' : 'Menyimpan...'}</span></div>
                     : form.id ? 'Simpan Perubahan' : 'Tambah Menu Baru'}
                 </button>
               </div>
@@ -1664,6 +1758,7 @@ export default function MenuView({
                               c => c.toLowerCase().replace(/\s+/g, '') === slug || (slug === 'tiktokgo' && (c === 'tiktokgo' || c === 'tiktok_go'))
                             );
                           };
+
 
                           const isRealInChannel = (slug: string) => {
                             return hasExplicitChannel(slug);

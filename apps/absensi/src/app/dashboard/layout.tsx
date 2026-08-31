@@ -31,8 +31,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Hanya Leader, Admin, Area Manager, Regional Manager, dan Admin HR yang boleh akses Enrollment
   const isEnrollmentAllowed = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
 
-  // Hanya Regional Manager, HR, Admin, dan Owner yang boleh akses Pengaturan Absensi (Leader & Area Manager dilarang)
-  const isSettingsAllowed = ["admin", "admin_hr", "owner", "regional_manager"].includes(outletStaff?.role || "");
+  // Hanya Admin, Admin HR, dan Regional Manager yang boleh akses Pengaturan Absensi.
+  const isSettingsAllowed = ["admin", "admin_hr", "regional_manager"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },

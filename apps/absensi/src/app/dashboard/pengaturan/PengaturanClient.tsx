@@ -35,7 +35,7 @@ type Props = {
   initialOutletConfigs: OutletConfig[];
 };
 
-const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "owner", "regional_manager"];
+const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager"];
 
 export default function PengaturanClient({ initialGlobalConfig, initialOutlets, initialOutletConfigs }: Props) {
   const { outletStaff } = useAuth();
@@ -333,7 +333,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
           <div className="space-y-2">
             <h3 className="text-xl font-black text-slate-900 tracking-tight">Akses Konfigurasi Dibatasi</h3>
             <p className="text-sm text-slate-600 leading-relaxed max-w-md mx-auto">
-              Konfigurasi jam kerja dan toleransi absensi merupakan kebijakan terpusat yang hanya dapat diubah oleh <strong>Regional Manager, Admin HR, Admin, dan Owner</strong>.
+              Konfigurasi jam kerja dan toleransi absensi merupakan kebijakan terpusat yang hanya dapat diubah oleh <strong>Regional Manager, Admin HR, dan Admin</strong>.
             </p>
           </div>
           <div className="pt-2">

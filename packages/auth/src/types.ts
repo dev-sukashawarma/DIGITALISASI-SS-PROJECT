@@ -18,6 +18,7 @@ export type Role =
 export type AppName =
   | 'pos-kasir'
   | 'absensi'
+  | 'inventori'
   | 'stok'
   | 'distribusi'
   | 'owner-dashboard'

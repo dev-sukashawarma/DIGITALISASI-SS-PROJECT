@@ -4,7 +4,8 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote, Store,
-  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet
+  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet,
+  Clock, RefreshCw
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'
@@ -13,6 +14,22 @@ import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
+
+function formatLastUpdated(dateIso?: string) {
+  if (!dateIso) return ''
+  try {
+    const d = new Date(dateIso)
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d) + ' WIB'
+  } catch {
+    return ''
+  }
+}
 
 import type { Outlet } from '@/pos-types'
 import MultiSelectDropdown from '@/components/MultiSelectDropdown'
@@ -211,6 +228,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
+  const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
+  const isPast = useMemo(() => {
+    if (range === 'yesterday' || range === '7days' || range === '30days') {
+      if (dateStrRange.to && dateStrRange.to < todayJakarta) return true
+    }
+    if (range === 'custom' && customEndDate && customEndDate < todayJakarta) return true
+    return false
+  }, [range, dateStrRange, customEndDate, todayJakarta])
 
   const menuItemByNameMap = useMemo(() => {
     const map = new Map<string, any>()
@@ -565,6 +591,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     setMenuItems(menuItemsData ?? [])
     setSettlements(settlementsData ?? [])
     setLoading(false)
+    setLastUpdated(new Date().toISOString())
   }, [range, selectedOutlets, customStartDate, customEndDate, dateStrRange])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
@@ -1507,6 +1534,35 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               </>
             )}
           </div>
+        </div>
+
+        {/* Status Sinkronisasi / Last Updated */}
+        <div className="no-print flex flex-wrap items-center justify-between gap-2.5 -mt-4 mb-2 text-xs">
+          <div className="flex items-center gap-2">
+            {isPast ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => fetchOrders()}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Muat ulang data transaksi dari database"
+          >
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${loading ? 'animate-spin' : ''}`} />
+            <span>Segarkan Data</span>
+          </button>
         </div>
       
 

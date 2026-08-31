@@ -30,10 +30,28 @@ import {
   Sparkles,
   Search,
   Download,
-  FileText
+  FileText,
+  Clock,
+  RefreshCw
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'
+
+function formatLastUpdated(dateIso?: string) {
+  if (!dateIso) return ''
+  try {
+    const d = new Date(dateIso)
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d) + ' WIB'
+  } catch {
+    return ''
+  }
+}
 
 // Helper for channel classification
 function getChannelGroup(source: string): 'outlet' | 'food_apps' | 'tiktok_go' | 'website' {
@@ -65,6 +83,18 @@ export default function ProfitPage() {
   const [outletSearch, setOutletSearch] = useState('')
   const [sortBy, setSortBy] = useState<'net' | 'margin' | 'omzet'>('net')
   const [mitraInvestments, setMitraInvestments] = useState<Record<string, any>>({})
+  const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
+  const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
+  const isPast = filter.to < todayJakarta
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
+    queryClient.invalidateQueries({ queryKey: ['expenses'] })
+    queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
+    queryClient.invalidateQueries({ queryKey: ['waste'] })
+    setLastUpdated(new Date().toISOString())
+    toast.success('Memperbarui data laba rugi dari database...')
+  }
 
   useEffect(() => {
     async function loadInvestments() {
@@ -853,6 +883,35 @@ export default function ProfitPage() {
           <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
         </div>
       </PageHeader>
+
+      {/* Status Sinkronisasi / Last Updated */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-4 mb-2 text-xs">
+        <div className="flex items-center gap-2">
+          {isPast ? (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+              <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+            </span>
+          )}
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+          title="Muat ulang data laba rugi dari database"
+        >
+          <RefreshCw className={`w-3 h-3 text-suka-orange ${loading ? 'animate-spin' : ''}`} />
+          <span>Segarkan Data</span>
+        </button>
+      </div>
 
       {error && (
         <div className="p-4 bg-red-50 text-red-700 rounded-2xl border border-red-200 text-sm flex items-center gap-3">

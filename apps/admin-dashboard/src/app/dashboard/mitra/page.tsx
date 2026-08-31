@@ -217,6 +217,8 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       initialRoiStats={initialRoiData}
       isAdminMode={isAdminOrOwner && !ownProfile}
       allMitraProfiles={allMitraProfiles}
+      lastUpdated={curData.fetchedAt}
+      isCached={curData.isCached}
     />
   )
 }

@@ -27,7 +27,8 @@ import {
   Send,
   HelpCircle,
   Receipt,
-  Utensils
+  Utensils,
+  RefreshCw
 } from 'lucide-react'
 import { deltaPct } from '@/lib/format'
 import dynamic from 'next/dynamic'
@@ -47,6 +48,22 @@ const RevenueTrendChart = dynamic(
   { ssr: false, loading: () => <div className="h-64 bg-white rounded-2xl border border-suka-gray-200 animate-pulse" /> }
 )
 
+function formatLastUpdated(dateIso?: string) {
+  if (!dateIso) return ''
+  try {
+    const d = new Date(dateIso)
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d) + ' WIB'
+  } catch {
+    return ''
+  }
+}
+
 export function MitraDashboardView({ 
   mitra, 
   outlets = [],
@@ -63,7 +80,9 @@ export function MitraDashboardView({
   initialSuggestions = [],
   initialRoiStats = { roi: 0, bepPercentage: 0 },
   isAdminMode = false,
-  allMitraProfiles = []
+  allMitraProfiles = [],
+  lastUpdated,
+  isCached,
 }: any) {
   const router = useRouter()
   const supabase = createClient()
@@ -358,6 +377,34 @@ export function MitraDashboardView({
               </div>
             </div>
           )}
+        </div>
+
+        {/* Status Sinkronisasi / Last Updated */}
+        <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-4 mb-2 text-xs">
+          <div className="flex items-center gap-2">
+            {isCached ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => router.refresh()}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white/90 hover:bg-white border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+            title="Muat ulang data dari database"
+          >
+            <RefreshCw className="w-3 h-3 text-suka-orange" />
+            <span>Segarkan Data</span>
+          </button>
         </div>
 
         {!outlets || outlets.length === 0 ? (

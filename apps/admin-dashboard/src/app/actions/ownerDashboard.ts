@@ -282,21 +282,28 @@ export async function getOwnerDashboardDataFast(
   const outletId = filter.outletId !== 'all' ? filter.outletId : null
   const source = filter.source
 
-  // Smart caching:
-  // Data masa lalu (lampau): di-cache selama 1 jam (3600 detik) - instan 0 ms
-  // Data hari ini: di-cache 30 detik untuk menahan spike load saat banyak user akses bersamaan
-  const revalidateSeconds = isPast ? 3600 : 30
+  let result: any
+  let ecData: any
 
-  const getCachedData = unstable_cache(
-    async () => fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source),
-    ['owner-dashboard-summary-v2', fromStartIso, toEndIso, outletId || 'all', source],
-    {
-      revalidate: revalidateSeconds,
-      tags: ['owner-dashboard', isPast ? 'owner-dashboard-past' : 'owner-dashboard-today']
-    }
-  )
-
-  const { result, ecData } = await getCachedData()
+  if (isPast) {
+    // Data masa lalu (lampau): di-cache selama 1 jam (3600 detik) - instan 0 ms
+    const getCachedData = unstable_cache(
+      async () => fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source),
+      ['owner-dashboard-summary-v2', fromStartIso, toEndIso, outletId || 'all', source],
+      {
+        revalidate: 3600,
+        tags: ['owner-dashboard', 'owner-dashboard-past']
+      }
+    )
+    const cached = await getCachedData()
+    result = cached.result
+    ecData = cached.ecData
+  } else {
+    // Data hari ini (realtime): bypass cache agar langsung sinkron dengan kasir live
+    const live = await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
+    result = live.result
+    ecData = live.ecData
+  }
 
   if (!result && ecData) {
     return {

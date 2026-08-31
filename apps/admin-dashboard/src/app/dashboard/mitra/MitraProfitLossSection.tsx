@@ -150,7 +150,7 @@ export function MitraProfitLossSection({
       {!isLoading && (
         <>
           {/* WATERFALL SUMMARY CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 mb-6 relative z-10">
             {/* 1. Gross Revenue */}
             <div className="bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl shadow-xs flex flex-col justify-between hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between mb-3">
@@ -162,7 +162,7 @@ export function MitraProfitLossSection({
                 </div>
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-bold text-[#2A1D16] tracking-tight tabular-nums">
+                <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-[#2A1D16] tracking-tight tabular-nums truncate">
                   {formatRp(summary.grossRevenue)}
                 </h3>
                 <p className="text-xs text-[#8C7566] font-normal mt-1">
@@ -182,7 +182,7 @@ export function MitraProfitLossSection({
                 </div>
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-bold text-orange-600 tracking-tight tabular-nums">
+                <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-orange-600 tracking-tight tabular-nums truncate">
                   -{formatRp(summary.totalCogs + summary.totalDeductions)}
                 </h3>
                 <p className="text-xs text-[#8C7566] font-normal mt-1">
@@ -206,7 +206,7 @@ export function MitraProfitLossSection({
                 </div>
               </div>
               <div>
-                <h3 className="text-xl sm:text-2xl font-bold text-red-500 tracking-tight tabular-nums">
+                <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-red-500 tracking-tight tabular-nums truncate">
                   -{formatRp(summary.totalOpex + summary.totalWaste)}
                 </h3>
                 <p className="text-xs text-[#8C7566] font-normal mt-1">
@@ -238,7 +238,7 @@ export function MitraProfitLossSection({
               </div>
 
               <div className="relative z-10">
-                <h3 className={`text-xl sm:text-2xl font-bold tracking-tight tabular-nums ${isDeficit ? 'text-amber-400' : 'text-amber-400'}`}>
+                <h3 className={`text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold tracking-tight tabular-nums truncate ${isDeficit ? 'text-amber-400' : 'text-amber-400'}`}>
                   {formatRp(summary.mitraShare)}
                 </h3>
                 <div className="flex items-center justify-between text-xs text-white/80 mt-1 font-medium">

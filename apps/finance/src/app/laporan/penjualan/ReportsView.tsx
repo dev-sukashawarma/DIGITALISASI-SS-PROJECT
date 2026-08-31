@@ -344,42 +344,42 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     if (range === 'today') {
       const today = new Date()
-      ordersGte = `${formatLocalDate(today)}T00:00:00`
+      ordersGte = `${formatLocalDate(today)}T00:00:00+07:00`
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       const endD = new Date()
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
-      ordersLt = `${formatLocalDate(endD)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
+      ordersLt = `${formatLocalDate(endD)}T00:00:00+07:00`
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
     } else if (range === 'this_month' || range === 'thisMonth') {
       const d = new Date()
-      ordersGte = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00`
+      ordersGte = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00+07:00`
     } else if (range === 'last_month' || range === 'lastMonth') {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const lastDay = new Date(y, m, 0).getDate()
-      ordersGte = `${y}-${pad(m)}-01T00:00:00`
-      ordersLte = `${y}-${pad(m)}-${pad(lastDay)}T23:59:59`
+      ordersGte = `${y}-${pad(m)}-01T00:00:00+07:00`
+      ordersLte = `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`
     } else if (range === 'custom' && customStartDate && customEndDate) {
-      ordersGte = `${customStartDate}T00:00:00`
-      ordersLte = `${customEndDate}T23:59:59`
+      ordersGte = `${customStartDate}T00:00:00+07:00`
+      ordersLte = `${customEndDate}T23:59:59+07:00`
     }
 
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
         .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
       if (ordersLt) query = query.lt('created_at', ordersLt)
@@ -400,32 +400,32 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     if (range === 'today') {
       const today = new Date()
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(today)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(today)}T00:00:00+07:00`)
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       const endD = new Date()
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`).lt('end_time', `${formatLocalDate(endD)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`).lt('end_time', `${formatLocalDate(endD)}T00:00:00+07:00`)
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`)
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`)
     } else if (range === 'this_month' || range === 'thisMonth') {
       const d = new Date()
-      qShifts = qShifts.gte('end_time', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00+07:00`)
     } else if (range === 'last_month' || range === 'lastMonth') {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const lastDay = new Date(y, m, 0).getDate()
-      qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59`)
+      qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00+07:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`)
     } else if (range === 'custom' && customStartDate && customEndDate) {
-      qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00`).lte('end_time', `${customEndDate}T23:59:59`)
+      qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00+07:00`).lte('end_time', `${customEndDate}T23:59:59+07:00`)
     }
 
     // Supabase/PostgREST membatasi max 1000 baris per query.
@@ -451,7 +451,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       let query = supabase
         .from('ecommerce_sales')
         .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .order('order_date', { ascending: false })
+        .order('id', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
       if (ordersLt) query = query.lt('order_date', ordersLt)
@@ -480,7 +480,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       // Map to OrderRow format
       return allEc.map((ec: any) => {
         const raw = ec.raw_data || {}
-        const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+        const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
         return {
           id: ec.id,
           order_number: 0,
@@ -1625,26 +1625,26 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </div>
 
                 {/* 6. Admin Settlement (Conditional) */}
-                <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-                  <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-                  <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                      {isSSOnlineSelected ? 'Potongan Kas Settlement (Bank)' : 'Admin Settlement'}
-                    </p>
-                    <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                      {isSSOnlineSelected
-                        ? 'Total potongan biaya saat pencairan dana masuk ke rekening bank'
-                        : 'Platform commission + Creator commission + WHT'}
-                    </p>
-                    {analytics.settlementDateRange && (
-                      <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {analytics.settlementDateRange}
+                {!isSSOnlineSelected && (
+                  <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                    <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10">
+                      <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                        Admin Settlement
                       </p>
-                    )}
+                      <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
+                      <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
+                        Platform commission + Creator commission + WHT
+                      </p>
+                      {analytics.settlementDateRange && (
+                        <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {analytics.settlementDateRange}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}

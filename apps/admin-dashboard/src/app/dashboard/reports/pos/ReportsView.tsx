@@ -12,7 +12,6 @@ import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import { useHppByChannel } from '@/hooks/useHppByChannel'
 import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
 
 import type { Outlet } from '@/pos-types'
@@ -51,6 +50,7 @@ interface OrderRow {
   external_order_id?: string | null
   order_items: {
     id: string
+    menu_item_id?: string | null
     menu_item_name: string
     quantity: number
     unit_price: number
@@ -80,9 +80,14 @@ function getItemHpp(
   outletType?: string, 
   fallbackName?: string, 
   menuItemByNameMap?: Map<string, any>,
-  channel?: string | null
+  channel?: string | null,
+  menuItemId?: string | null,
+  menuItemByIdMap?: Map<string, any>
 ): number {
   let itemObj = menuItem
+  if (!itemObj && menuItemId && menuItemByIdMap?.has(menuItemId)) {
+    itemObj = menuItemByIdMap.get(menuItemId)
+  }
   if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
     const cleanKey = cleanItemName(fallbackName)
     if (menuItemByNameMap.has(cleanKey)) {
@@ -215,6 +220,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     return map
   }, [menuItems])
+
+  const menuItemByIdMap = useMemo(() => {
+    const map = new Map<string, any>()
+    menuItems.forEach(mi => {
+      if (mi.id) {
+        map.set(mi.id, mi)
+      }
+    })
+    return map
+  }, [menuItems])
   
   // Date Range State
   const [range, setRange] = useState<DateRangeType>(initialOutlets.length === 1 ? 'yesterday' : 'thisMonth')
@@ -269,8 +284,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     if (!from) return false
     return new Date(from) < new Date(PAWOON_CUTOFF)
   }, [range, dateStrRange.from])
-
-  const { rows: hppRows } = useHppByChannel(dateStrRange.from, dateStrRange.to)
 
   // Table State
   const [searchQuery, setSearchQuery] = useState('')
@@ -341,42 +354,42 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     if (range === 'today') {
       const today = new Date()
-      ordersGte = `${formatLocalDate(today)}T00:00:00`
+      ordersGte = `${formatLocalDate(today)}T00:00:00+07:00`
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       const endD = new Date()
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
-      ordersLt = `${formatLocalDate(endD)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
+      ordersLt = `${formatLocalDate(endD)}T00:00:00+07:00`
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
     } else if (range === 'this_month' || range === 'thisMonth') {
       const d = new Date()
-      ordersGte = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00`
+      ordersGte = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00+07:00`
     } else if (range === 'last_month' || range === 'lastMonth') {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const lastDay = new Date(y, m, 0).getDate()
-      ordersGte = `${y}-${pad(m)}-01T00:00:00`
-      ordersLte = `${y}-${pad(m)}-${pad(lastDay)}T23:59:59`
+      ordersGte = `${y}-${pad(m)}-01T00:00:00+07:00`
+      ordersLte = `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`
     } else if (range === 'custom' && customStartDate && customEndDate) {
-      ordersGte = `${customStartDate}T00:00:00`
-      ordersLte = `${customEndDate}T23:59:59`
+      ordersGte = `${customStartDate}T00:00:00+07:00`
+      ordersLte = `${customEndDate}T23:59:59+07:00`
     }
 
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .order('created_at', { ascending: false })
+        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)')
+        .order('id', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
       if (ordersLt) query = query.lt('created_at', ordersLt)
@@ -397,32 +410,32 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     if (range === 'today') {
       const today = new Date()
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(today)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(today)}T00:00:00+07:00`)
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       const endD = new Date()
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`).lt('end_time', `${formatLocalDate(endD)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`).lt('end_time', `${formatLocalDate(endD)}T00:00:00+07:00`)
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`)
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`)
     } else if (range === 'this_month' || range === 'thisMonth') {
       const d = new Date()
-      qShifts = qShifts.gte('end_time', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00+07:00`)
     } else if (range === 'last_month' || range === 'lastMonth') {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const lastDay = new Date(y, m, 0).getDate()
-      qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59`)
+      qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00+07:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`)
     } else if (range === 'custom' && customStartDate && customEndDate) {
-      qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00`).lte('end_time', `${customEndDate}T23:59:59`)
+      qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00+07:00`).lte('end_time', `${customEndDate}T23:59:59+07:00`)
     }
 
     // Supabase/PostgREST membatasi max 1000 baris per query.
@@ -447,8 +460,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildEcommerceQuery = () => {
       let query = supabase
         .from('ecommerce_sales')
-        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .order('order_date', { ascending: false })
+        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal)')
+        .order('id', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
       if (ordersLt) query = query.lt('order_date', ordersLt)
@@ -477,7 +490,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       // Map to OrderRow format
       return allEc.map((ec: any) => {
         const raw = ec.raw_data || {}
-        const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+        const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
         return {
           id: ec.id,
           order_number: 0,
@@ -494,15 +507,19 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           cashier_name: null,
           external_order_id: ec.order_id,
           raw_data: raw,
-          order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
-            id: item.id,
-            menu_item_name: item.menu_items?.name || 'Unknown Item',
-            quantity: item.quantity,
-            unit_price: item.price,
-            subtotal: item.subtotal,
-            package_choices: null,
-            menu_items: item.menu_items
-          }))
+          order_items: (ec.ecommerce_sale_items || []).map((item: any) => {
+            const menuItem = item.menu_id ? menuItemByIdMap.get(item.menu_id) : null
+            return {
+              id: item.id,
+              menu_item_id: item.menu_id,
+              menu_item_name: menuItem?.name || 'Unknown Item',
+              quantity: item.quantity,
+              unit_price: item.price,
+              subtotal: item.subtotal,
+              package_choices: null,
+              menu_items: menuItem
+            }
+          })
         }
       }) as OrderRow[]
     }
@@ -683,7 +700,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         const outletType = outletTypeMap.get(o.outlet_id)
         const orderChannel = o.channel || o.sales_source
         return sum + o.order_items.reduce((itemSum, item) => {
-          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, orderChannel);
+          const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
+          const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, orderChannel, item.menu_item_id, menuItemByIdMap);
           return itemSum + (hpp * item.quantity);
         }, 0)
       }, 0)
@@ -829,7 +847,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       totalRealAdmin,
       settlementDateRange
     }
-  }, [orders, shifts, selectedChannels, hppRows, menuItemByNameMap, settlements])
+  }, [orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, settlements])
 
   const selectedOutletName = selectedOutlets.includes('all') 
       ? 'Semua Cabang' 
@@ -916,7 +934,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         }
         
         const key = `${cleanName}-${groupLabel}`
-        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source)
+        const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
+        const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source, item.menu_item_id, menuItemByIdMap)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -940,7 +959,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
-  }, [filteredTableData, outlets, menuItemByNameMap])
+  }, [filteredTableData, outlets, menuItemByNameMap, menuItemByIdMap])
 
   const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
   const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')
@@ -1094,7 +1113,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             }
           }
           
-          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           
           catData.itemMap[key].qty += oi.quantity
           catData.itemMap[key].revenue += oi.subtotal
@@ -1260,7 +1280,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             }
           }
           
-          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           const itemHpp = hppPerUnit * oi.quantity
           const itemDeduction = orderItemsGross > 0 ? (oi.subtotal / orderItemsGross) * orderTotalDeductions : 0
           const itemGrossProfit = oi.subtotal - itemHpp - itemDeduction
@@ -1505,13 +1526,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       ) : (
         <>
           {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 xl:gap-5">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
-            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
+                <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossRevenue)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Total omset produk (Subtotal setelah diskon penjual)'
@@ -1521,11 +1542,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
 
             {/* 2. Total COGS */}
-            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalHPP)}</p>
+                <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalHPP)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Modal bahan dasar (Tarif HPP khusus SS Online)'
@@ -1535,13 +1556,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
 
             {/* 3. Admin Platform */}
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
                   {isSSOnlineSelected ? 'Beban Biaya Platform (P&L)' : 'Admin Platform & Promo'}
                 </p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
+                <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalDeductions)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
@@ -1551,11 +1572,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
 
             {/* 4. Gross Profit */}
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
+                <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossProfit)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   Gross Revenue - (COGS + Admin Platform)
                 </p>
@@ -1573,15 +1594,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </h2>
                 <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-5">
                 {/* 5. Settlement (Conditional) */}
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
                       {isSSOnlineSelected ? 'Total Settlement (Uang Cair)' : 'Total Settlement'}
                     </p>
-                    <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
+                    <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalSettlement)}</p>
                     <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
                       {isSSOnlineSelected
                         ? 'Uang Bersih yang Masuk ke Saldo Toko / Rekening Bank (Omset - Potongan Kas)'
@@ -1597,26 +1618,26 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </div>
 
                 {/* 6. Admin Settlement (Conditional) */}
-                <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
-                  <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
-                  <div className="relative z-10">
-                    <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                      {isSSOnlineSelected ? 'Potongan Kas Settlement (Bank)' : 'Admin Settlement'}
-                    </p>
-                    <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
-                    <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                      {isSSOnlineSelected
-                        ? 'Total potongan biaya saat pencairan dana masuk ke rekening bank'
-                        : 'Platform commission + Creator commission + WHT'}
-                    </p>
-                    {analytics.settlementDateRange && (
-                      <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
-                        <Calendar className="w-3.5 h-3.5" />
-                        {analytics.settlementDateRange}
+                {!isSSOnlineSelected && (
+                  <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                    <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                    <div className="relative z-10">
+                      <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
+                        Admin Settlement
                       </p>
-                    )}
+                      <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalRealAdmin)}</p>
+                      <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
+                        Platform commission + Creator commission + WHT
+                      </p>
+                      {analytics.settlementDateRange && (
+                        <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {analytics.settlementDateRange}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </>
           )}

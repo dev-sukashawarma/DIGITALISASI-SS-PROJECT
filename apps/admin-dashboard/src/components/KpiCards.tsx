@@ -128,7 +128,7 @@ export function KpiCards({
         visible: { transition: { staggerChildren: 0.08 } },
         hidden: {},
       }}
-      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4"
+      className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-3.5 sm:gap-4"
     >
       {cards.map((c) => {
         if (!c) return null
@@ -145,12 +145,12 @@ export function KpiCards({
                 hidden: { opacity: 0, y: 15 },
                 visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
               }}
-              className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
+              className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
             >
               {/* Aksen Warna Vertikal */}
               <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-3xl" style={{ backgroundColor: c.color }} />
               
-              <div className="relative z-10 flex flex-col h-full justify-between ml-2">
+              <div className="relative z-10 flex flex-col h-full justify-between ml-1.5 sm:ml-2">
                 <div className="flex justify-between items-start gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">{c.label}</p>
@@ -161,10 +161,10 @@ export function KpiCards({
                   </div>
                 </div>
 
-                <div className="mt-5 flex items-baseline justify-between gap-2 flex-wrap">
-                  <div className="flex items-baseline gap-2 min-w-0 flex-wrap">
+                <div className="mt-4 sm:mt-5 flex items-baseline justify-between gap-2 flex-wrap">
+                  <div className="flex items-baseline gap-1.5 min-w-0 flex-wrap">
                     <div className="flex items-baseline gap-1">
-                      <h3 className="text-xl sm:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
+                      <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                         <CountUp end={c.totalPcs as number} duration={1} separator="." />
                       </h3>
                       <span className="text-[11px] font-bold text-suka-gray-500 uppercase">Pcs</span>
@@ -173,7 +173,7 @@ export function KpiCards({
                     <span className="text-suka-gray-300 font-bold">•</span>
 
                     <div className="flex items-baseline gap-1">
-                      <h3 className="text-xl sm:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
+                      <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                         <CountUp end={c.completed as number} duration={1} separator="." />
                       </h3>
                       <span className="text-[11px] font-bold text-suka-gray-500 uppercase">Order</span>
@@ -182,7 +182,7 @@ export function KpiCards({
                   
                   {hasPcsDelta && (
                     <span 
-                      className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
+                      className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
                         isPcsPositive 
                           ? 'text-green-700 bg-green-100/80' 
                           : 'text-rose-500 bg-rose-50'
@@ -210,12 +210,12 @@ export function KpiCards({
               hidden: { opacity: 0, y: 15 },
               visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 24 } }
             }}
-            className="bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
+            className="bg-white/80 backdrop-blur-xl p-4 sm:p-5 rounded-3xl border border-suka-brown/10 shadow-sm relative overflow-hidden group hover:shadow-[0_20px_40px_rgb(0,0,0,0.08)] hover:-translate-y-1 transition-all duration-300 flex flex-col justify-between min-w-0"
           >
             {/* Aksen Warna Vertikal */}
             <div className="absolute top-0 left-0 w-2 h-full opacity-50 group-hover:opacity-100 transition-opacity duration-300 rounded-l-3xl" style={{ backgroundColor: c.color }} />
             
-            <div className="relative z-10 flex flex-col h-full justify-between ml-2">
+            <div className="relative z-10 flex flex-col h-full justify-between ml-1.5 sm:ml-2">
               <div className="flex justify-between items-start gap-2">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-suka-gray-500 uppercase tracking-wider">{c.label}</p>
@@ -226,9 +226,9 @@ export function KpiCards({
                 </div>
               </div>
 
-              <div className="mt-5 flex items-baseline justify-between gap-3 flex-wrap">
+              <div className="mt-4 sm:mt-5 flex items-baseline justify-between gap-2 flex-wrap">
                 <div className="min-w-0">
-                  <h3 className="text-xl sm:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
+                  <h3 className="text-lg sm:text-xl xl:text-xl 2xl:text-2xl font-bold text-suka-brown tracking-tight tabular-nums whitespace-nowrap">
                     {c.isString ? (
                       c.value
                     ) : (
@@ -249,7 +249,7 @@ export function KpiCards({
                 
                 {hasDelta && (
                   <span 
-                    className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
+                    className={`text-[10px] sm:text-[11px] px-2 sm:px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0 ${
                       isPositive 
                         ? 'text-green-700 bg-green-100/80' 
                         : 'text-rose-500 bg-rose-50'

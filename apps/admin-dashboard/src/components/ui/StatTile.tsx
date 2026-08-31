@@ -56,7 +56,7 @@ export function StatTile(props: {
         )}
       </div>
       <div className="mt-4">
-        <h3 className="text-2xl font-bold text-suka-brown">{value}</h3>
+        <h3 className="text-xl sm:text-2xl font-bold text-suka-brown tracking-tight tabular-nums">{value}</h3>
         {sub && <p className={`text-[10px] font-semibold mt-1 uppercase ${a.sub}`}>{sub}</p>}
       </div>
     </motion.div>

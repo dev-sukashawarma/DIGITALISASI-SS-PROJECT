@@ -266,36 +266,36 @@ export default function ProfitClient({
                     )}
 
                     {/* Scorecards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4">
+                        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
                                 <PieChart className="w-24 h-24" />
                             </div>
-                            <p className="text-gray-500 text-sm font-medium mb-1 relative">Total Transaksi</p>
-                            <h3 className="text-3xl font-black text-gray-900 relative">{totalOrders.toLocaleString('id-ID')} <span className="text-lg text-gray-400 font-medium">struk</span></h3>
+                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1 relative">Total Transaksi</p>
+                            <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-gray-900 relative tabular-nums leading-tight">{totalOrders.toLocaleString('id-ID')} <span className="text-sm sm:text-base text-gray-400 font-medium">struk</span></h3>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
                                 <DollarSign className="w-24 h-24" />
                             </div>
-                            <p className="text-gray-500 text-sm font-medium mb-1 relative">Total Pendapatan (Omset)</p>
-                            <h3 className="text-3xl font-black text-blue-600 relative">{formatRp(totalOmset)}</h3>
+                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1 relative">Total Pendapatan (Omset)</p>
+                            <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-blue-600 relative tabular-nums leading-tight">{formatRp(totalOmset)}</h3>
                         </div>
-                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
+                        <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-100 relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
                                 <Store className="w-24 h-24" />
                             </div>
-                            <p className="text-gray-500 text-sm font-medium mb-1 relative flex items-center gap-2">
+                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1 relative flex items-center gap-2">
                                 Total HPP (Modal)
                             </p>
-                            <h3 className="text-3xl font-black text-red-500 relative">{formatRp(totalHpp)}</h3>
+                            <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-red-500 relative tabular-nums leading-tight">{formatRp(totalHpp)}</h3>
                         </div>
-                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-6 rounded-2xl shadow-lg shadow-green-500/30 text-white relative overflow-hidden group">
+                        <div className="bg-gradient-to-br from-green-500 to-emerald-600 p-5 sm:p-6 rounded-2xl shadow-lg shadow-green-500/30 text-white relative overflow-hidden group">
                             <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 group-hover:-rotate-12 transition-transform duration-500">
                                 <TrendingUp className="w-24 h-24" />
                             </div>
-                            <p className="text-green-50 text-sm font-medium mb-1 relative">Laba Kotor (Gross Profit)</p>
-                            <h3 className="text-3xl font-black relative">{formatRp(grossProfit)}</h3>
+                            <p className="text-green-50 text-xs font-bold uppercase tracking-wider mb-1 relative">Laba Kotor (Gross Profit)</p>
+                            <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black relative tabular-nums leading-tight">{formatRp(grossProfit)}</h3>
                             <div className="mt-2 inline-flex items-center gap-1 bg-white/20 px-2.5 py-1 rounded-full text-xs font-bold backdrop-blur-sm">
                                 Margin: {marginPct.toFixed(1)}%
                             </div>

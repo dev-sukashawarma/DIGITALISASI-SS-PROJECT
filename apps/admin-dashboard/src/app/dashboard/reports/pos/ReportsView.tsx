@@ -12,7 +12,6 @@ import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import { useHppByChannel } from '@/hooks/useHppByChannel'
 import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
 
 import type { Outlet } from '@/pos-types'
@@ -51,6 +50,7 @@ interface OrderRow {
   external_order_id?: string | null
   order_items: {
     id: string
+    menu_item_id?: string | null
     menu_item_name: string
     quantity: number
     unit_price: number
@@ -80,9 +80,14 @@ function getItemHpp(
   outletType?: string, 
   fallbackName?: string, 
   menuItemByNameMap?: Map<string, any>,
-  channel?: string | null
+  channel?: string | null,
+  menuItemId?: string | null,
+  menuItemByIdMap?: Map<string, any>
 ): number {
   let itemObj = menuItem
+  if (!itemObj && menuItemId && menuItemByIdMap?.has(menuItemId)) {
+    itemObj = menuItemByIdMap.get(menuItemId)
+  }
   if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
     const cleanKey = cleanItemName(fallbackName)
     if (menuItemByNameMap.has(cleanKey)) {
@@ -215,6 +220,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     return map
   }, [menuItems])
+
+  const menuItemByIdMap = useMemo(() => {
+    const map = new Map<string, any>()
+    menuItems.forEach(mi => {
+      if (mi.id) {
+        map.set(mi.id, mi)
+      }
+    })
+    return map
+  }, [menuItems])
   
   // Date Range State
   const [range, setRange] = useState<DateRangeType>(initialOutlets.length === 1 ? 'yesterday' : 'thisMonth')
@@ -269,8 +284,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     if (!from) return false
     return new Date(from) < new Date(PAWOON_CUTOFF)
   }, [range, dateStrRange.from])
-
-  const { rows: hppRows } = useHppByChannel(dateStrRange.from, dateStrRange.to)
 
   // Table State
   const [searchQuery, setSearchQuery] = useState('')
@@ -375,8 +388,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .order('id', { ascending: false })
+        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)')
+        .order('created_at', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
       if (ordersLt) query = query.lt('created_at', ordersLt)
@@ -447,8 +460,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildEcommerceQuery = () => {
       let query = supabase
         .from('ecommerce_sales')
-        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .order('id', { ascending: false })
+        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal)')
+        .order('order_date', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
       if (ordersLt) query = query.lt('order_date', ordersLt)
@@ -494,15 +507,19 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           cashier_name: null,
           external_order_id: ec.order_id,
           raw_data: raw,
-          order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
-            id: item.id,
-            menu_item_name: item.menu_items?.name || 'Unknown Item',
-            quantity: item.quantity,
-            unit_price: item.price,
-            subtotal: item.subtotal,
-            package_choices: null,
-            menu_items: item.menu_items
-          }))
+          order_items: (ec.ecommerce_sale_items || []).map((item: any) => {
+            const menuItem = item.menu_id ? menuItemByIdMap.get(item.menu_id) : null
+            return {
+              id: item.id,
+              menu_item_id: item.menu_id,
+              menu_item_name: menuItem?.name || 'Unknown Item',
+              quantity: item.quantity,
+              unit_price: item.price,
+              subtotal: item.subtotal,
+              package_choices: null,
+              menu_items: menuItem
+            }
+          })
         }
       }) as OrderRow[]
     }
@@ -683,7 +700,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         const outletType = outletTypeMap.get(o.outlet_id)
         const orderChannel = o.channel || o.sales_source
         return sum + o.order_items.reduce((itemSum, item) => {
-          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, orderChannel);
+          const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
+          const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, orderChannel, item.menu_item_id, menuItemByIdMap);
           return itemSum + (hpp * item.quantity);
         }, 0)
       }, 0)
@@ -829,7 +847,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       totalRealAdmin,
       settlementDateRange
     }
-  }, [orders, shifts, selectedChannels, hppRows, menuItemByNameMap, settlements])
+  }, [orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, settlements])
 
   const selectedOutletName = selectedOutlets.includes('all') 
       ? 'Semua Cabang' 
@@ -916,7 +934,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         }
         
         const key = `${cleanName}-${groupLabel}`
-        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source)
+        const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
+        const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source, item.menu_item_id, menuItemByIdMap)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -940,7 +959,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
-  }, [filteredTableData, outlets, menuItemByNameMap])
+  }, [filteredTableData, outlets, menuItemByNameMap, menuItemByIdMap])
 
   const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
   const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')
@@ -1094,7 +1113,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             }
           }
           
-          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           
           catData.itemMap[key].qty += oi.quantity
           catData.itemMap[key].revenue += oi.subtotal
@@ -1260,7 +1280,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             }
           }
           
-          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           const itemHpp = hppPerUnit * oi.quantity
           const itemDeduction = orderItemsGross > 0 ? (oi.subtotal / orderItemsGross) * orderTotalDeductions : 0
           const itemGrossProfit = oi.subtotal - itemHpp - itemDeduction

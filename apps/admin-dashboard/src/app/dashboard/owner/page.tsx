@@ -88,6 +88,8 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       prevCogsOpex={prevData.totalCogsOpex}
       cogsBreakdown={{ cogs: curData.totalCogs, opex: curData.totalOpex }}
       buyOneGetOne={buyOneGetOne}
+      lastUpdated={curData.fetchedAt}
+      isCached={curData.isCached}
     />
   )
 }

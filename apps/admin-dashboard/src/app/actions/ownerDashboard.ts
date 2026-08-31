@@ -263,6 +263,7 @@ async function fetchOwnerDashboardSummaryRaw(
   return {
     result: data,
     ecData,
+    fetchedAt: new Date().toISOString(),
   }
 }
 
@@ -284,6 +285,7 @@ export async function getOwnerDashboardDataFast(
 
   let result: any
   let ecData: any
+  let fetchedAt: string = new Date().toISOString()
 
   if (isPast) {
     // Data masa lalu (lampau): di-cache selama 1 jam (3600 detik) - instan 0 ms
@@ -298,17 +300,21 @@ export async function getOwnerDashboardDataFast(
     const cached = await getCachedData()
     result = cached.result
     ecData = cached.ecData
+    fetchedAt = cached.fetchedAt || fetchedAt
   } else {
     // Data hari ini (realtime): bypass cache agar langsung sinkron dengan kasir live
     const live = await fetchOwnerDashboardSummaryRaw(fromStartIso, toEndIso, outletId, source)
     result = live.result
     ecData = live.ecData
+    fetchedAt = live.fetchedAt || fetchedAt
   }
 
   if (!result && ecData) {
     return {
       ...ecData,
       totalCogsOpex: ecData.totalCogs + ecData.totalOpex,
+      fetchedAt,
+      isCached: isPast,
     }
   }
 
@@ -383,7 +389,9 @@ export async function getOwnerDashboardDataFast(
     buyOneGetOne: {
       transactions: Number(result?.bogo_transactions ?? 0),
       giftUnits: Number(result?.bogo_gift_units ?? 0)
-    }
+    },
+    fetchedAt,
+    isCached: isPast,
   }
 }
 

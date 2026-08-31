@@ -451,10 +451,11 @@ export default function InventoryDashboardPage() {
   })
 
   if (completedSubmission) {
-    return <SubmissionSuccessScreen outletName={completedSubmission.outletName} updated={completedSubmission.updated} onContinue={() => {
-      setCompletedSubmission(null)
-      if (editOutletId) router.push('/dashboard')
-    }} />
+    return <SubmissionSuccessScreen
+      outletName={completedSubmission.outletName}
+      updated={completedSubmission.updated}
+      onContinue={() => router.replace('/dashboard')}
+    />
   }
 
   function updateDraft(itemId: string, patch: Partial<Draft>) {

@@ -7,6 +7,7 @@ export const runtime = 'nodejs'
 
 const PHOTO_BUCKET = 'inventaris-foto'
 const MAX_INPUT_FILE_BYTES = 12 * 1024 * 1024
+const PHOTO_PROCESS_CONCURRENCY = 4
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const CONDITIONS = new Set(['baik', 'perlu_perbaikan', 'rusak', 'tidak_ada'])
 
@@ -211,38 +212,44 @@ export async function POST(request: Request) {
   const uploadedPaths: string[] = []
   try {
     const detailRows: Array<Record<string, string | number | boolean | null>> = []
-    for (const item of payload.items) {
-      const master = masterById.get(item.master_item_id) as MasterItem
-      const photo = formData.get(`photo_${item.master_item_id}`)
-      let path = item.photo_path?.trim() || null
-      if (photo instanceof File && photo.size > 0) {
-        const input = Buffer.from(await photo.arrayBuffer())
-        const webp = await sharp(input)
-          .rotate()
-          .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
-          .webp({ quality: 78 })
-          .toBuffer()
-        const uploadId = crypto.randomUUID()
-        path = `${user.id}/${submissionId}/${item.master_item_id}-${uploadId}.webp`
-        const webpBody = new Blob([
-          webp.buffer.slice(webp.byteOffset, webp.byteOffset + webp.byteLength) as ArrayBuffer,
-        ], { type: 'image/webp' })
-        const { error: uploadError } = await supabase.storage
-          .from(PHOTO_BUCKET)
-          .upload(path, webpBody, { contentType: 'image/webp', upsert: false })
-        if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
-        uploadedPaths.push(path)
-      }
-      if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)
-      detailRows.push({
-        master_item_id: item.master_item_id,
-        observed_qty: master.mode === 'presence' ? null : item.observed_qty,
-        is_present: master.mode === 'presence' ? item.is_present : null,
-        kondisi: item.kondisi,
-        status_penilaian: evaluate(master, item),
-        catatan: item.catatan?.trim() || null,
-        photo_path: path,
-      })
+    // Kompres/upload beberapa foto sekaligus. Concurrency dibatasi agar CPU
+    // dan koneksi VPS tetap stabil saat satu outlet punya banyak item.
+    for (let start = 0; start < payload.items.length; start += PHOTO_PROCESS_CONCURRENCY) {
+      const batch = payload.items.slice(start, start + PHOTO_PROCESS_CONCURRENCY)
+      const rows = await Promise.all(batch.map(async (item) => {
+        const master = masterById.get(item.master_item_id) as MasterItem
+        const photo = formData.get(`photo_${item.master_item_id}`)
+        let path = item.photo_path?.trim() || null
+        if (photo instanceof File && photo.size > 0) {
+          const input = Buffer.from(await photo.arrayBuffer())
+          const webp = await sharp(input)
+            .rotate()
+            .resize({ width: 1200, height: 1200, fit: 'inside', withoutEnlargement: true })
+            .webp({ quality: 78 })
+            .toBuffer()
+          const uploadId = crypto.randomUUID()
+          path = `${user.id}/${submissionId}/${item.master_item_id}-${uploadId}.webp`
+          const webpBody = new Blob([
+            webp.buffer.slice(webp.byteOffset, webp.byteOffset + webp.byteLength) as ArrayBuffer,
+          ], { type: 'image/webp' })
+          const { error: uploadError } = await supabase.storage
+            .from(PHOTO_BUCKET)
+            .upload(path, webpBody, { contentType: 'image/webp', upsert: false })
+          if (uploadError) throw new Error(`Gagal upload foto: ${uploadError.message}`)
+          uploadedPaths.push(path)
+        }
+        if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)
+        return {
+          master_item_id: item.master_item_id,
+          observed_qty: master.mode === 'presence' ? null : item.observed_qty,
+          is_present: master.mode === 'presence' ? item.is_present : null,
+          kondisi: item.kondisi,
+          status_penilaian: evaluate(master, item),
+          catatan: item.catatan?.trim() || null,
+          photo_path: path,
+        }
+      }))
+      detailRows.push(...rows)
     }
 
     const { error: submitError } = await supabase.rpc('submit_inventaris', {

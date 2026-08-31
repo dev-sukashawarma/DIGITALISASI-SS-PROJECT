@@ -391,7 +391,7 @@ export function MitraDashboardView({
                   </div>
                 </div>
                 <div className="mt-auto flex flex-col gap-3">
-                  <h3 className="text-3xl lg:text-[2rem] font-black text-suka-brown tracking-tighter tabular-nums drop-shadow-sm break-all leading-none">
+                  <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
                     Rp <CountUp end={currentOmzet} duration={1.5} separator="." decimals={0} />
                   </h3>
                   <div className="mt-1">
@@ -413,7 +413,7 @@ export function MitraDashboardView({
                   </div>
                 </div>
                 <div className="mt-auto flex flex-col gap-4">
-                  <h3 className="text-3xl lg:text-[2rem] font-black text-suka-brown tracking-tighter tabular-nums drop-shadow-sm break-all leading-none">
+                  <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
                     Rp <CountUp end={currentInvestasi} duration={1.5} separator="." decimals={0} />
                   </h3>
                   
@@ -453,7 +453,7 @@ export function MitraDashboardView({
                   </div>
                 </div>
                 <div className="mt-auto flex flex-col gap-3">
-                  <h3 className="text-3xl lg:text-[2rem] font-black text-suka-brown tracking-tighter tabular-nums drop-shadow-sm break-all leading-none">
+                  <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
                     {roiStats.loading ? (
                       <span className="text-suka-gray-300">...</span>
                     ) : (

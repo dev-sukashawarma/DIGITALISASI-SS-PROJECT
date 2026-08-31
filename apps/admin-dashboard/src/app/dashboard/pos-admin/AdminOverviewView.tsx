@@ -330,13 +330,13 @@ export default function AdminOverviewView({
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[1,2,3,4].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
+          {[1,2,3,4,5].map(i => <div key={i} className="card h-28 animate-pulse bg-gray-50" />)}
         </div>
       ) : (
         <>
           {/* ── KPI Cards (Today) ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 gap-4">
             <div className="card p-5 bg-gradient-to-br from-amber-400 to-amber-600 text-white relative overflow-hidden shadow-amber-500/30 shadow-lg border-0">
               <div className="absolute -top-4 -right-4 w-24 h-24 bg-white/10 rounded-full" />
               <div className="relative">
@@ -352,9 +352,9 @@ export default function AdminOverviewView({
                   </div>
                 )}
                 <p className="text-[10px] font-bold text-white/80 uppercase tracking-widest">Pendapatan {PERIOD_SHORT[chartRange]}</p>
-                <p className="text-2xl font-bold mt-0.5 leading-tight">{formatRupiah(analytics.todayRevenue)}</p>
+                <p className="text-xl sm:text-2xl 2xl:text-3xl font-bold mt-0.5 leading-tight tabular-nums truncate">{formatRupiah(analytics.todayRevenue)}</p>
                 {analytics.hasComparison && (
-                  <p className="text-[10px] text-white/60 mt-1 font-medium">Periode lalu: {formatRupiah(analytics.prevRevenue)}</p>
+                  <p className="text-[10px] text-white/60 mt-1 font-medium truncate">Periode lalu: {formatRupiah(analytics.prevRevenue)}</p>
                 )}
               </div>
             </div>
@@ -365,7 +365,7 @@ export default function AdminOverviewView({
                 <ShoppingBag className="w-4.5 h-4.5 text-blue-500" strokeWidth={1.5} />
               </div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pesanan {PERIOD_SHORT[chartRange]}</p>
-              <p className="text-3xl font-bold text-gray-900 mt-0.5">{analytics.totalOrdersCount}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-0.5 tabular-nums">{analytics.totalOrdersCount}</p>
             </div>
 
             <div className="card p-5 shadow-sm border border-gray-100">
@@ -373,7 +373,7 @@ export default function AdminOverviewView({
                 <TrendingUp className="w-4.5 h-4.5 text-emerald-500" strokeWidth={1.5} />
               </div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Rata-rata Pesanan</p>
-              <p className="text-xl font-bold text-gray-900 mt-0.5">{formatRupiah(analytics.avgOrderValue)}</p>
+              <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-0.5 tabular-nums truncate">{formatRupiah(analytics.avgOrderValue)}</p>
             </div>
 
             <div className="card p-5 shadow-sm border border-violet-100 bg-violet-50/30">
@@ -381,7 +381,7 @@ export default function AdminOverviewView({
                 <Tag className="w-4.5 h-4.5 text-violet-600" strokeWidth={1.5} />
               </div>
               <p className="text-[10px] font-bold text-violet-500 uppercase tracking-widest">Order Promo Terjadwal</p>
-              <p className="text-3xl font-bold text-violet-900 mt-0.5">{scheduledPromoOrderCount}</p>
+              <p className="text-2xl sm:text-3xl font-bold text-violet-900 mt-0.5 tabular-nums">{scheduledPromoOrderCount}</p>
             </div>
 
             <div className="card p-5 shadow-sm border border-gray-100">
@@ -389,7 +389,7 @@ export default function AdminOverviewView({
                 <Clock className="w-4.5 h-4.5 text-purple-500" strokeWidth={1.5} />
               </div>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Jam Tersibuk</p>
-              <p className="text-3xl font-bold text-gray-900 mt-0.5">
+              <p className="text-2xl sm:text-3xl font-bold text-gray-900 mt-0.5 tabular-nums">
                 {analytics.totalOrdersCount > 0 ? `${String(analytics.peakHour).padStart(2, '0')}:00` : '—'}
               </p>
             </div>

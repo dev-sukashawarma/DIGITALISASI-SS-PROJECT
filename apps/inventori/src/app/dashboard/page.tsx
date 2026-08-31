@@ -1,6 +1,6 @@
 'use client'
 
-import { type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, ExternalLink, LogOut, Store } from 'lucide-react'
 import { useAuth } from '@suka/auth'
@@ -108,7 +108,7 @@ function CustomSelect({ value, options, onChange, disabled = false, ariaLabel }:
     const handleOutsideClick = (event: MouseEvent) => {
       if (!containerRef.current?.contains(event.target as Node)) setOpen(false)
     }
-    const handleEscape = (event: KeyboardEvent) => {
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') setOpen(false)
     }
     document.addEventListener('mousedown', handleOutsideClick)
@@ -133,7 +133,7 @@ function CustomSelect({ value, options, onChange, disabled = false, ariaLabel }:
     setOpen(false)
   }
 
-  function handleTriggerKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+  function handleTriggerKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>) {
     if (disabled) return
     if (event.key === 'Enter' || event.key === ' ' || event.key === 'ArrowDown') {
       event.preventDefault()
@@ -142,7 +142,7 @@ function CustomSelect({ value, options, onChange, disabled = false, ariaLabel }:
     }
   }
 
-  function handleOptionKeyDown(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+  function handleOptionKeyDown(event: ReactKeyboardEvent<HTMLButtonElement>, index: number) {
     if (event.key === 'ArrowDown') {
       event.preventDefault()
       setActiveIndex(Math.min(options.length - 1, index + 1))
@@ -298,7 +298,7 @@ export default function InventoryDashboardPage() {
     const handleOutsideClick = (event: MouseEvent) => {
       if (!sessionMenuRef.current?.contains(event.target as Node)) setSessionMenuOpen(false)
     }
-    const handleEscape = (event: KeyboardEvent) => {
+    const handleEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === 'Escape') setSessionMenuOpen(false)
     }
     document.addEventListener('mousedown', handleOutsideClick)

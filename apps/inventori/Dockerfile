@@ -12,7 +12,7 @@ COPY packages/offline-queue/package.json packages/offline-queue/package.json
 COPY apps/inventori/package.json apps/inventori/package.json
 
 RUN --mount=type=cache,id=yarn-cache-v3,sharing=locked,target=/usr/local/share/.cache/yarn/v6 \
-  corepack enable && yarn install --frozen-lockfile --network-timeout 600000
+  corepack enable && (yarn install --frozen-lockfile --network-timeout 600000 || (yarn cache clean --all && yarn install --frozen-lockfile --network-timeout 600000))
 
 COPY packages packages
 COPY apps/inventori apps/inventori
@@ -32,7 +32,7 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/inventori build
+RUN corepack enable && yarn workspace @suka/inventori build --webpack
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /repo/apps/inventori

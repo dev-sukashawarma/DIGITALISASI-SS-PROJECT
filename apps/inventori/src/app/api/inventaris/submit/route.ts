@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import sharp from 'sharp'
 import { createSupabaseServerClient } from '@suka/auth'
 
 export const runtime = 'nodejs'
@@ -216,6 +215,9 @@ export async function POST(request: Request) {
   const submissionId = currentSubmission?.id ?? crypto.randomUUID()
   const uploadedPaths: string[] = []
   try {
+    // Load sharp only when a real upload is processed. This prevents Next.js
+    // from evaluating sharp while collecting route/page data during build.
+    const { default: sharp } = await import('sharp')
     const detailRows: Array<Record<string, string | number | boolean | null>> = []
     // Kompres/upload beberapa foto sekaligus. Concurrency dibatasi agar CPU
     // dan koneksi VPS tetap stabil saat satu outlet punya banyak item.

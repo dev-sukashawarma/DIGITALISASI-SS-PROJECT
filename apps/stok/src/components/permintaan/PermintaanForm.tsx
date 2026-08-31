@@ -39,7 +39,7 @@ export function PermintaanForm({
   onCartViewChange?: (isCart: boolean) => void
 }) {
   const { outletStaff } = useAuth()
-  const isKitchenRole = ['kitchen', 'admin_kitchen', 'admin', 'owner', 'developer'].includes(outletStaff?.role ?? '')
+  const isKitchenRole = ['kitchen', 'admin_kitchen', 'admin', 'owner', 'developer', 'purchasing'].includes(outletStaff?.role ?? '')
 
   const { saran } = useSaranItem(outletId)
   const { bahanBaku } = useBahanBaku()

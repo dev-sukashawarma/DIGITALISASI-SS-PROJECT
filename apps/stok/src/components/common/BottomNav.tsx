@@ -33,7 +33,7 @@ export function BottomNav() {
 
   const role = outletStaff?.role
   const isApprover = isApproverRole(role)
-  const isKitchenOrAdmin = ['kitchen', 'admin', 'admin_finance', 'owner', 'developer'].includes(role ?? '')
+  const isKitchenOrAdmin = ['kitchen', 'purchasing', 'admin', 'admin_finance', 'owner', 'developer'].includes(role ?? '')
   const isLeaderOrSPV = ['spv', 'regional_manager', 'leader', 'area_manager'].includes(role ?? '')
 
   // 1. Pending Approvals

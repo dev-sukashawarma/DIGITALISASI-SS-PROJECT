@@ -33,7 +33,7 @@ export function MonitoringPage() {
   // baru aman ditambahkan ke check ini.
   const isMultiOutletScoped = role === 'leader' || role === 'area_manager';
 
-  if (role === 'spv' || role === 'kitchen' || role === 'admin' || role === 'admin_hr' || role === 'regional_manager' || role === 'admin_finance' || role === 'owner') {
+  if (role === 'spv' || role === 'kitchen' || role === 'purchasing' || role === 'admin' || role === 'admin_hr' || role === 'regional_manager' || role === 'admin_finance' || role === 'owner') {
     return <SPVDashboard />;
   }
 

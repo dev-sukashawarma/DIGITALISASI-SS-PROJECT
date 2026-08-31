@@ -271,7 +271,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     if (visibleOutlets.length > 0 && !selectedOutletId) {
       let defaultOutletId = visibleOutlets[0].outlet_id;
       
-      const isKitchenRole = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'admin_hr' || outletStaff?.role === 'admin_finance';
+      const isKitchenRole = outletStaff?.role === 'kitchen' || outletStaff?.role === 'purchasing' || outletStaff?.role === 'admin' || outletStaff?.role === 'admin_hr' || outletStaff?.role === 'admin_finance';
       if (isKitchenRole) {
         const gudang = visibleOutlets.find(o => o.outlet_name.toUpperCase().includes('GUDANG'));
         if (gudang) {

@@ -27,7 +27,7 @@ export default function PermintaanPage() {
   if (!outletStaff) return null
 
   const isKitchen = selectedOutletId === KITCHEN_OUTLET_ID
-    || ['admin', 'spv', 'regional_manager', 'owner', 'kitchen'].includes(outletStaff.role)
+    || ['admin', 'spv', 'regional_manager', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(outletStaff.role)
 
   const canApprove = canApprovePermintaan(outletStaff.role)
 

@@ -19,6 +19,7 @@ import MultiSelectDropdown from '@/components/MultiSelectDropdown'
 import BranchFilter from '@/components/BranchFilter'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 interface ShiftRow {
   id: string
@@ -188,7 +189,7 @@ function extractOrderPackages(order: OrderRow) {
 }
 
 export default function ReportsView({ initialOutlets: rawInitialOutlets }: ReportsViewProps) {
-  const initialOutlets = useMemo(() => rawInitialOutlets.filter(o => !o.name.toLowerCase().includes('outlet tes')), [rawInitialOutlets])
+  const initialOutlets = useMemo(() => rawInitialOutlets.filter(o => !isTestOutlet(o)), [rawInitialOutlets])
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
@@ -389,6 +390,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       let query = supabase
         .from('orders')
         .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)')
+        .neq('outlet_id', TEST_OUTLET_ID)
         .order('id', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
@@ -401,6 +403,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let qShifts = supabase
       .from('shifts')
       .select('id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance')
+      .neq('outlet_id', TEST_OUTLET_ID)
       .eq('status', 'closed')
       .order('end_time', { ascending: false })
       
@@ -553,7 +556,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // akan menimpa balik data yang sudah benar dengan hasil unbounded.
     if (requestId !== fetchOrdersRequestId.current) return
 
-    setOrders([...ordersData, ...ecommerceData].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+    setOrders(
+      [...ordersData, ...ecommerceData]
+        .filter((o) => !isTestOutlet(o.outlet_id))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    )
     setShifts(shiftsData ?? [])
     setMenuItems(menuItemsData ?? [])
     setSettlements(settlementsData ?? [])

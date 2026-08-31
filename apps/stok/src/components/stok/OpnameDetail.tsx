@@ -16,7 +16,7 @@ const TIPE_LABEL: Record<string, string> = {
 export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const { outletStaff } = useAuth()
   const role = outletStaff?.role
-  const canViewThresholdAndLoss = ['kitchen', 'admin', 'admin_finance', 'owner', 'developer'].includes((role as string) ?? '')
+  const canViewThresholdAndLoss = ['kitchen', 'admin', 'admin_finance', 'owner', 'developer', 'purchasing'].includes((role as string) ?? '')
   const [opname, setOpname] = useState<Opname | null>(null)
   const [items, setItems] = useState<OpnameItem[]>([])
   const [bomUsage, setBomUsage] = useState<Record<string, number>>({})
@@ -86,6 +86,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const roleLabel = useMemo(() => {
     switch (role) {
       case 'kitchen': return 'Kitchen'
+      case 'purchasing': return 'Purchasing'
       case 'admin_finance': return 'Finance'
       case 'admin': return 'Admin'
       case 'owner': return 'Owner'

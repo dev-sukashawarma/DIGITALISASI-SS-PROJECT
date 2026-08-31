@@ -64,8 +64,8 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const isApprover = isApproverRole(role)
   const canReceivePO = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
   const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
-  const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer'].includes(role ?? '')
-  const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
+  const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer', 'purchasing'].includes(role ?? '')
+  const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer', 'purchasing'].includes(role ?? '')
   const canViewHPP = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
 
   // 1. Pending Approvals Permintaan
@@ -227,6 +227,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const getRoleLabel = (role?: string) => {
     switch (role) {
       case 'kitchen': return '👨‍🍳 Central Kitchen'
+      case 'purchasing': return '🛒 Purchasing / Pengadaan'
       case 'spv': return '👔 Supervisor'
       case 'admin': return '⚡ Admin Pusat'
       case 'owner': return '👑 Owner'

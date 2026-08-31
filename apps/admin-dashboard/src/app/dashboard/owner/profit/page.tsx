@@ -55,7 +55,12 @@ export default function ProfitPage() {
   const supabase = createClient()
   const debounceRef = useRef<any>(null)
 
-  const { data: outlets = [] } = useOutlets()
+  const { data: rawOutlets = [] } = useOutlets()
+  const outlets = useMemo(() => [
+    { id: 'ss-online', name: 'SS ONLINE', type: 'online' } as any,
+    ...rawOutlets.filter(o => !isTestOutlet(o))
+  ], [rawOutlets])
+
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
   const [outletSearch, setOutletSearch] = useState('')
   const [sortBy, setSortBy] = useState<'net' | 'margin' | 'omzet'>('net')
@@ -113,25 +118,16 @@ export default function ProfitPage() {
 
   // Calculations (Filter out any test outlet)
   const actualGrossRevenue = useMemo(
-    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + r.omzet + (r.total_deductions || 0), 0), 
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0), 
     [sales.rows]
   )
 
   const totalPotongan = useMemo(
-    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => {
-      let fee = (r.total_deductions || 0)
-      const gross = (r.omzet || 0) + (r.total_deductions || 0)
-      const grp = getChannelGroup(r.sales_source || '')
-      if (fee === 0 && gross > 0) {
-        if (grp === 'food_apps') fee = Math.round(gross * 0.20)
-        else if (grp === 'tiktok_go') fee = Math.round(gross * 0.10)
-      }
-      return sum + fee
-    }, 0), 
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0), 
     [sales.rows]
   )
   const totalPlatformFee = useMemo(
-    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (r.platform_fee || 0), 0), 
+    () => sales.rows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.platform_fee) || 0), 0), 
     [sales.rows]
   )
   const totalDeductions = totalPotongan + totalPlatformFee
@@ -182,14 +178,9 @@ export default function ProfitPage() {
     })
 
     sales.rows.filter(s => !isTestOutlet(s.outlet_id)).forEach(s => {
-      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name, omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
-      let deductions = (s.total_deductions || 0) + (s.platform_fee || 0)
-      const gross = (s.omzet || 0) + (s.total_deductions || 0)
-      const grp = getChannelGroup(s.sales_source || '')
-      if (deductions === 0 && gross > 0) {
-        if (grp === 'food_apps') deductions = Math.round(gross * 0.20)
-        else if (grp === 'tiktok_go') deductions = Math.round(gross * 0.10)
-      }
+      const cur = map.get(s.outlet_id) ?? { name: s.outlet_name || (s.outlet_id === 'ss-online' ? 'SS ONLINE' : 'Outlet Tidak Dikenal'), omzet: 0, deductions: 0, expense: 0, hpp: 0, waste: 0 }
+      const deductions = (Number(s.total_deductions) || 0) + (Number(s.platform_fee) || 0)
+      const gross = (Number(s.omzet) || 0) + (Number(s.total_deductions) || 0)
       cur.omzet += gross
       cur.deductions += deductions
       map.set(s.outlet_id, cur)

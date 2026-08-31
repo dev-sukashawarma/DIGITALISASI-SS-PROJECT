@@ -173,6 +173,30 @@ function CustomSelect({ value, options, onChange, disabled = false, ariaLabel }:
   )
 }
 
+function SubmissionSuccessScreen({ outletName, updated, onContinue }: {
+  outletName: string
+  updated: boolean
+  onContinue: () => void
+}) {
+  return (
+    <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6">
+      <section className="w-full max-w-lg rounded-[2rem] border border-green-100 bg-white px-6 py-12 text-center shadow-xl shadow-green-950/10 sm:px-12" aria-live="polite">
+        <div className="relative mx-auto mb-7 h-28 w-28">
+          <span className="absolute inset-0 rounded-full bg-green-200/70 animate-ping" />
+          <div className="relative grid h-28 w-28 place-items-center rounded-full bg-gradient-to-br from-green-400 to-emerald-600 text-white shadow-lg shadow-green-200 transition-transform duration-300 hover:scale-110">
+            <Check size={54} strokeWidth={3.5} className="animate-bounce" />
+          </div>
+        </div>
+        <p className="text-sm font-extrabold uppercase tracking-[0.18em] text-green-600">Berhasil disimpan</p>
+        <h1 className="mt-3 text-2xl font-extrabold text-[#400a07]">Inventaris {updated ? 'berhasil diperbarui' : 'berhasil dicatat'}</h1>
+        <p className="mt-3 text-base font-semibold text-slate-700">Data inventaris <span className="text-[#701604]">{outletName}</span> sudah tersimpan.</p>
+        <p className="mt-2 text-sm leading-6 text-slate-500">Data sudah masuk ke database dan dapat dilihat di dashboard admin.</p>
+        <button type="button" onClick={onContinue} className="mt-8 inline-flex items-center justify-center rounded-2xl bg-[#f29744] px-6 py-3 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:-translate-y-0.5 hover:bg-[#e6842f] focus:outline-none focus:ring-2 focus:ring-orange-200 focus:ring-offset-2">Kembali ke daftar outlet</button>
+      </section>
+    </main>
+  )
+}
+
 function PhotoPicker({ itemName, itemId, photo, existingPhotoUrl, onPhotoChange }: {
   itemName: string
   itemId: string
@@ -260,6 +284,7 @@ export default function InventoryDashboardPage() {
   const [switchingOutlet, setSwitchingOutlet] = useState(false)
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
+  const [completedSubmission, setCompletedSubmission] = useState<{ outletName: string; updated: boolean } | null>(null)
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const routeParams = useParams<{ outletId?: string }>()
   const editOutletId = typeof routeParams?.outletId === 'string' ? routeParams.outletId : null
@@ -381,6 +406,13 @@ export default function InventoryDashboardPage() {
     return quantityValid && freezerNotesValid
   })
 
+  if (completedSubmission) {
+    return <SubmissionSuccessScreen outletName={completedSubmission.outletName} updated={completedSubmission.updated} onContinue={() => {
+      setCompletedSubmission(null)
+      if (editOutletId) router.push('/dashboard')
+    }} />
+  }
+
   function updateDraft(itemId: string, patch: Partial<Draft>) {
     setDrafts((current) => ({ ...current, [itemId]: { ...emptyDraft(), ...current[itemId], ...patch } }))
   }
@@ -450,7 +482,8 @@ export default function InventoryDashboardPage() {
       await removeInventoryDraft(staffId, todayJakarta(), selectedOutletId)
       setSavedOutletIds((current) => new Set([...current, selectedOutletId]))
       setDraftStatus('idle')
-      setMessage({ type: 'success', text: `Inventaris berhasil ${result?.updated ? 'diperbarui' : 'disimpan'}${result?.submission_id ? ` (${result.submission_id})` : ''}. Data tersedia di dashboard admin dan masih bisa diedit.` })
+      setMessage(null)
+      setCompletedSubmission({ outletName: selectedOutlet?.name ?? 'outlet', updated: Boolean(result?.updated) })
     } catch (error) {
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal mengirim inventaris.' })
     } finally {

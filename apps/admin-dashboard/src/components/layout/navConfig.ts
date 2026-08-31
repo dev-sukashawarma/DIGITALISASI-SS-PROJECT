@@ -68,7 +68,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Package, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/inventaris', label: 'Inventaris Outlet', shortLabel: 'Inventaris', icon: ClipboardList, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/pembelian', label: 'Pembelian', shortLabel: 'Pembelian', icon: ShoppingCart, roles: ['ADMIN'] },

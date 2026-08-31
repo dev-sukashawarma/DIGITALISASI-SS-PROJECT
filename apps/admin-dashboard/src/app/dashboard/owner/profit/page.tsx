@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useMemo, useState, useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
@@ -13,6 +13,8 @@ import { computeProfit, computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah } from '@/lib/format'
 import { PageHeader, StatTilesSkeleton } from '@/components/ui'
+import { getProfitExportBreakdown } from '@/app/actions/profitExport'
+import { toast } from 'react-hot-toast'
 import CountUp from 'react-countup'
 import { 
   TrendingUp, 
@@ -281,7 +283,7 @@ export default function ProfitPage() {
                 </h3>
                 <div className="flex items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
                   <span>HPP: {rupiah(totalHpp)}</span>
-                  <span>•</span>
+                  <span>â€¢</span>
                   <span>Waste: {rupiah(totalWaste)}</span>
                 </div>
               </div>
@@ -669,3 +671,8 @@ export default function ProfitPage() {
     </div>
   )
 }
+
+
+
+
+

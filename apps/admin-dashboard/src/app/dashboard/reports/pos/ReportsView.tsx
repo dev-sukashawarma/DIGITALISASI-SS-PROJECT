@@ -354,42 +354,42 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     if (range === 'today') {
       const today = new Date()
-      ordersGte = `${formatLocalDate(today)}T00:00:00`
+      ordersGte = `${formatLocalDate(today)}T00:00:00+07:00`
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       const endD = new Date()
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
-      ordersLt = `${formatLocalDate(endD)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
+      ordersLt = `${formatLocalDate(endD)}T00:00:00+07:00`
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      ordersGte = `${formatLocalDate(d)}T00:00:00`
+      ordersGte = `${formatLocalDate(d)}T00:00:00+07:00`
     } else if (range === 'this_month' || range === 'thisMonth') {
       const d = new Date()
-      ordersGte = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00`
+      ordersGte = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00+07:00`
     } else if (range === 'last_month' || range === 'lastMonth') {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const lastDay = new Date(y, m, 0).getDate()
-      ordersGte = `${y}-${pad(m)}-01T00:00:00`
-      ordersLte = `${y}-${pad(m)}-${pad(lastDay)}T23:59:59`
+      ordersGte = `${y}-${pad(m)}-01T00:00:00+07:00`
+      ordersLte = `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`
     } else if (range === 'custom' && customStartDate && customEndDate) {
-      ordersGte = `${customStartDate}T00:00:00`
-      ordersLte = `${customEndDate}T23:59:59`
+      ordersGte = `${customStartDate}T00:00:00+07:00`
+      ordersLte = `${customEndDate}T23:59:59+07:00`
     }
 
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
         .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)')
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
       if (ordersLt) query = query.lt('created_at', ordersLt)
@@ -410,32 +410,32 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     if (range === 'today') {
       const today = new Date()
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(today)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(today)}T00:00:00+07:00`)
     } else if (range === 'yesterday') {
       const d = new Date()
       d.setDate(d.getDate() - 1)
       const endD = new Date()
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`).lt('end_time', `${formatLocalDate(endD)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`).lt('end_time', `${formatLocalDate(endD)}T00:00:00+07:00`)
     } else if (range === '7days') {
       const d = new Date()
       d.setDate(d.getDate() - 7)
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`)
     } else if (range === '30days') {
       const d = new Date()
       d.setDate(d.getDate() - 30)
-      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${formatLocalDate(d)}T00:00:00+07:00`)
     } else if (range === 'this_month' || range === 'thisMonth') {
       const d = new Date()
-      qShifts = qShifts.gte('end_time', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00`)
+      qShifts = qShifts.gte('end_time', `${d.getFullYear()}-${pad(d.getMonth() + 1)}-01T00:00:00+07:00`)
     } else if (range === 'last_month' || range === 'lastMonth') {
       const d = new Date()
       d.setMonth(d.getMonth() - 1)
       const y = d.getFullYear()
       const m = d.getMonth() + 1
       const lastDay = new Date(y, m, 0).getDate()
-      qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59`)
+      qShifts = qShifts.gte('end_time', `${y}-${pad(m)}-01T00:00:00+07:00`).lte('end_time', `${y}-${pad(m)}-${pad(lastDay)}T23:59:59+07:00`)
     } else if (range === 'custom' && customStartDate && customEndDate) {
-      qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00`).lte('end_time', `${customEndDate}T23:59:59`)
+      qShifts = qShifts.gte('end_time', `${customStartDate}T00:00:00+07:00`).lte('end_time', `${customEndDate}T23:59:59+07:00`)
     }
 
     // Supabase/PostgREST membatasi max 1000 baris per query.
@@ -461,7 +461,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       let query = supabase
         .from('ecommerce_sales')
         .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal)')
-        .order('order_date', { ascending: false })
+        .order('id', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
       if (ordersLt) query = query.lt('order_date', ordersLt)

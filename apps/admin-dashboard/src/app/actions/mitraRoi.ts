@@ -73,10 +73,11 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   
   if (mitraOutletIds.length === 0) return {}
 
-  // 1. Fetch investments & profiles
-  const [invRes, profRes] = await Promise.all([
+  // 1. Fetch investments, profiles, and transfers
+  const [invRes, profRes, transfersRes] = await Promise.all([
     supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
-    supabase.from('mitra_profiles').select('*')
+    supabase.from('mitra_profiles').select('*'),
+    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds)
   ])
   
   const invMap: Record<string, any> = {}
@@ -85,6 +86,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   })
   
   const profiles = profRes.data || []
+  const transfersData = transfersRes.data || []
 
   // 2. Fetch all completed orders strictly from 1 August 2026
   const SYSTEM_START_DATE = '2026-07-31T17:00:00.000Z' // 2026-08-01 00:00:00 WIB
@@ -194,11 +196,17 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
   for (const oid of mitraOutletIds) {
     const inv = invMap[oid]
     const profile = profiles.find(p => (p.outlet_ids || []).includes(oid))
-    const pct = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
+    let pct = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
     const modalInvestasi = Number(inv?.nilai_investasi) || 0
     const omzetHistoris = Number(inv?.omzet_historis) || 0
     const transferHistoris = Number(inv?.transfer_historis) || 0
     const mgmtFeePct = Number(inv?.management_fee) || 0
+    const systemTransfers = transfersData.filter(t => t.outlet_id === oid).reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
+
+    // JIKA SUDAH BEP 100%, maka keuntungan antara mitra dan pusat jadi 50:50
+    if (modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi) {
+      pct = 50
+    }
 
     let grossRevenue = 0
     let totalDeductions = 0

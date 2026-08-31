@@ -13,6 +13,14 @@ function errorResponse(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status })
 }
 
+function isSafePhotoPath(path: string) {
+  return path.length > 0
+    && path.length <= 1024
+    && !path.includes('..')
+    && /^[0-9a-f-]+\//i.test(path)
+    && path.toLowerCase().endsWith('.webp')
+}
+
 function getAccessibleIds(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value
@@ -113,4 +121,25 @@ export async function POST(request: Request) {
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : 'Gagal memproses foto.', 500)
   }
+}
+
+/** Foto bukti untuk laporan. Jalur ini sengaja hanya tersedia untuk admin. */
+export async function GET(request: Request) {
+  const supabase = await createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return errorResponse('Sesi login tidak ditemukan.', 401)
+
+  const { data: staff, error: staffError } = await supabase
+    .from('outlet_staff')
+    .select('role')
+    .eq('id', user.id)
+    .maybeSingle()
+  if (staffError || staff?.role !== 'admin') return errorResponse('Akses laporan hanya untuk admin.', 403)
+
+  const path = new URL(request.url).searchParams.get('path')?.trim() ?? ''
+  if (!isSafePhotoPath(path)) return errorResponse('Path foto tidak valid.')
+
+  const { data, error } = await supabase.storage.from(PHOTO_BUCKET).createSignedUrl(path, 10 * 60)
+  if (error || !data?.signedUrl) return errorResponse('Foto tidak tersedia.', 404)
+  return NextResponse.redirect(data.signedUrl, { headers: { 'Cache-Control': 'private, max-age=300' } })
 }

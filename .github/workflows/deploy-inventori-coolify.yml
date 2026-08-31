@@ -1,0 +1,31 @@
+name: Deploy Inventori to Coolify
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/inventori/**'
+      - 'packages/auth/**'
+      - 'packages/ui/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - 'Dockerfile'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-inventori-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # URL webhook adalah secret GitHub agar tidak bocor ke repository.
+    # Jika belum diisi, job berhenti aman tanpa men-deploy aplikasi lain.
+    if: ${{ secrets.COOLIFY_INVENTORI_DEPLOY_WEBHOOK != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger Coolify deployment
+        env:
+          DEPLOY_WEBHOOK: ${{ secrets.COOLIFY_INVENTORI_DEPLOY_WEBHOOK }}
+        run: |
+          curl --fail --show-error --silent --location --request POST "$DEPLOY_WEBHOOK"

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Camera, CheckCircle2, ClipboardCheck, LogOut, Store } from 'lucide-react'
 import { useAuth } from '@suka/auth'
-import { compressImageToWebP } from '@suka/design-system'
 import { createClient } from '@/lib/supabase'
 
 type ItemMode = 'quantity' | 'presence' | 'range'
@@ -129,47 +128,35 @@ export default function InventoryDashboardPage() {
       setMessage({ type: 'error', text: !allPhotos ? 'Foto wajib diisi untuk setiap item sebelum dikirim.' : 'Jumlah wajib diisi untuk semua item yang memiliki target jumlah.' })
       return
     }
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      setMessage({ type: 'error', text: 'Sesi login tidak ditemukan. Silakan login ulang.' })
-      return
-    }
-    const submissionId = crypto.randomUUID()
-    const uploadedPaths: string[] = []
     setSubmitting(true)
     try {
+      const formData = new FormData()
       const detailRows: Array<Record<string, string | number | boolean | null>> = []
       for (const item of items) {
         const draft = drafts[item.id]
-        const compressed = await compressImageToWebP(draft.photo as File, 1200, 1200, 0.78)
-        const path = `${user.id}/${submissionId}/${item.id}.webp`
-        const { error } = await supabase.storage.from('inventaris-foto').upload(path, compressed, { contentType: 'image/webp', upsert: false })
-        if (error) throw new Error(`Gagal upload foto ${item.name}: ${error.message}`)
-        uploadedPaths.push(path)
+        if (!draft.photo) throw new Error(`Foto ${item.name} belum dipilih.`)
+        formData.append(`photo_${item.id}`, draft.photo, draft.photo.name)
         detailRows.push({
-          submission_id: submissionId,
           master_item_id: item.id,
           observed_qty: item.mode === 'presence' ? null : Number(draft.observedQty),
           is_present: item.mode === 'presence' ? draft.isPresent : null,
           kondisi: draft.condition,
-          status_penilaian: evaluation(item, draft),
           catatan: draft.notes.trim() || null,
-          photo_path: path,
         })
       }
-      const { error: submitError } = await supabase.rpc('submit_inventaris', {
-        p_submission_id: submissionId,
-        p_outlet_id: selectedOutletId,
-        p_tanggal: todayJakarta(),
-        p_area_scores: scores,
-        p_notes: notes.trim() || null,
-        p_items: detailRows,
-      })
-      if (submitError) throw new Error(submitError.message.includes('duplicate') ? 'Inventaris outlet ini sudah dicatat hari ini.' : submitError.message)
+      formData.append('payload', JSON.stringify({
+        outlet_id: selectedOutletId,
+        tanggal: todayJakarta(),
+        area_scores: scores,
+        notes: notes.trim() || null,
+        items: detailRows,
+      }))
+      const response = await fetch('/api/inventaris/submit', { method: 'POST', body: formData })
+      const result = await response.json().catch(() => null) as { error?: string } | null
+      if (!response.ok) throw new Error(result?.error ?? 'Gagal mengirim inventaris.')
       setDoneOutlets((current) => new Set([...current, selectedOutletId]))
       setMessage({ type: 'success', text: 'Inventaris berhasil dikirim dan sudah final. Data langsung tersedia di dashboard admin.' })
     } catch (error) {
-      if (uploadedPaths.length > 0) await supabase.storage.from('inventaris-foto').remove(uploadedPaths)
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal mengirim inventaris.' })
     } finally {
       setSubmitting(false)
@@ -196,7 +183,7 @@ export default function InventoryDashboardPage() {
         {isDone ? <section className="rounded-3xl border border-green-200 bg-green-50 p-8 text-center"><CheckCircle2 className="mx-auto text-green-600" size={48} /><h2 className="mt-3 text-xl font-extrabold text-green-800">Sudah tercatat</h2><p className="mt-2 text-sm text-green-700">Inventaris {selectedOutlet?.name ?? 'outlet'} untuk hari ini sudah final.</p></section> : <>
           {Object.entries(groups).map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-100 bg-white shadow-sm"><div className="border-b border-orange-100 bg-orange-50/70 px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id]; const result = evaluation(item, draft); return <article key={item.id} className="p-5"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span></div><p className="mt-1 text-xs font-medium text-slate-500">{targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-slate-200 px-3 py-2 text-sm" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<select value={draft.condition} onChange={(event) => updateDraft(item.id, { condition: event.target.value as Condition })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm"><option value="baik">Baik</option><option value="perlu_perbaikan">Perlu perbaikan</option><option value="rusak">Rusak</option><option value="tidak_ada">Tidak ada</option></select></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder="Catatan item (opsional)" className="mt-3 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-[#f29744]" /></div><div className="w-full shrink-0 lg:w-56"><label className="flex min-h-32 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/40 text-center hover:border-[#f29744]">{draft.photo ? <><img src={URL.createObjectURL(draft.photo)} alt={`Foto ${item.name}`} className="h-32 w-full object-cover" /><span className="px-2 py-2 text-[11px] font-bold text-green-700">Foto siap · ganti foto</span></> : <><Camera className="text-[#f29744]" size={28} /><span className="mt-2 text-xs font-bold text-[#701604]">Ambil foto barang</span><span className="mt-1 text-[10px] text-slate-500">JPG/PNG/WebP</span></>}<input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="hidden" onChange={(event) => updateDraft(item.id, { photo: event.target.files?.[0] ?? null })} /></label></div></div></article> })}</div></section>)}
           <section className="rounded-3xl border border-orange-100 bg-white p-5 shadow-sm"><h2 className="font-extrabold text-[#400a07]">Skor area & catatan</h2><p className="mt-1 text-xs text-slate-500">Nilai 1 (buruk) sampai 5 (sangat baik). Bagian ini tidak menggantikan foto item.</p><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{SCORE_FIELDS.map(([key, label]) => <label key={key} className="text-xs font-bold text-slate-600">{label}<select value={scores[key] ?? ''} onChange={(event) => setScores((current) => ({ ...current, [key]: event.target.value }))} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-normal"><option value="">Pilih</option>{[1, 2, 3, 4, 5].map((value) => <option key={value} value={value}>{value}</option>)}</select></label>)}</div><textarea value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Catatan umum outlet (opsional)" className="mt-4 min-h-24 w-full rounded-xl border border-slate-200 px-3 py-3 text-sm outline-none focus:border-[#f29744]" /></section>
-          <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Mengirim dan mengunggah foto...' : `Kirim inventaris ${selectedOutlet?.name ?? ''}`}</button>
+          <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Mengompres WebP di server dan menyimpan...' : `Kirim inventaris ${selectedOutlet?.name ?? ''}`}</button>
         </>}
       </div>
     </main>

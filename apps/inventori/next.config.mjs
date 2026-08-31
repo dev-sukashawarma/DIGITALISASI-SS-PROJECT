@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@suka/auth', '@suka/design-system'],
+  serverExternalPackages: ['sharp'],
   experimental: { optimizePackageImports: ['lucide-react'] },
   typescript: { tsconfigPath: './tsconfig.json' },
   allowedDevOrigins: ['127.0.0.1'],

@@ -29,11 +29,19 @@ export async function POST(request: Request) {
   }
 
   const db = createServiceClient()
-  const { data: outlet } = await db
+  const { data: outlet, error: outletError } = await db
     .from('outlets')
     .select('id, name, app_enabled, is_active')
     .eq('id', body.outlet_id)
     .maybeSingle()
+
+  // Kegagalan database TIDAK boleh menyamar jadi "outlet tidak melayani".
+  // Ini gerbang terakhir sebelum tagihan: insiden nyata harus terlihat,
+  // bukan tersembunyi di balik pesan bisnis yang salah.
+  if (outletError) {
+    console.error('gagal membaca outlet', outletError)
+    return NextResponse.json({ error: 'Gagal memeriksa outlet' }, { status: 502 })
+  }
 
   if (!outlet || outlet.app_enabled !== true) {
     return NextResponse.json(

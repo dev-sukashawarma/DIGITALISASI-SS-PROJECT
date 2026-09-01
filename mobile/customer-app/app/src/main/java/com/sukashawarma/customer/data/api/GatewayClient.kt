@@ -7,6 +7,7 @@ import io.ktor.client.call.body
 import io.ktor.client.engine.android.Android
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -65,6 +66,17 @@ class GatewayClient(
 
     private fun tokenAtauNull(): String? = sessionStore.baca()?.token
 
+    /**
+     * Sisipkan header `Authorization` HANYA bila ada token tersimpan. Tanpa
+     * penjagaan ini, permintaan sebelum login mengirim literal string
+     * `"Bearer null"` — bukan tanpa header sama sekali — yang membuat log
+     * server menyesatkan (walau gateway tetap membalas 401 di kedua kasus).
+     */
+    private fun HttpRequestBuilder.sisipkanOtorisasi() {
+        val token = tokenAtauNull()
+        if (token != null) header("Authorization", "Bearer $token")
+    }
+
     suspend fun loginGoogle(idToken: String): GatewayResult<AuthResponse> {
         return try {
             val response = client.post("$baseUrl/api/v1/auth/google") {
@@ -103,7 +115,7 @@ class GatewayClient(
         return try {
             val response = client.post("$baseUrl/api/v1/checkout/validate") {
                 contentType(ContentType.Application.Json)
-                header("Authorization", "Bearer ${tokenAtauNull()}")
+                sisipkanOtorisasi()
                 setBody(request)
             }
             hasil(response)
@@ -116,7 +128,7 @@ class GatewayClient(
         return try {
             val response = client.post("$baseUrl/api/v1/orders") {
                 contentType(ContentType.Application.Json)
-                header("Authorization", "Bearer ${tokenAtauNull()}")
+                sisipkanOtorisasi()
                 setBody(request)
             }
             hasil(response)
@@ -128,7 +140,7 @@ class GatewayClient(
     suspend fun orderDetail(orderId: String): GatewayResult<OrderDetailDto> {
         return try {
             val response = client.get("$baseUrl/api/v1/orders/$orderId") {
-                header("Authorization", "Bearer ${tokenAtauNull()}")
+                sisipkanOtorisasi()
             }
             hasil(response)
         } catch (e: Exception) {
@@ -139,7 +151,7 @@ class GatewayClient(
     suspend fun ordersList(): GatewayResult<OrdersListResponse> {
         return try {
             val response = client.get("$baseUrl/api/v1/orders/list") {
-                header("Authorization", "Bearer ${tokenAtauNull()}")
+                sisipkanOtorisasi()
             }
             hasil(response)
         } catch (e: Exception) {

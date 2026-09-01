@@ -8,7 +8,13 @@ plugins {
 }
 
 // Base URL Retail Gateway — override via `gatewayBaseUrl=...` di local.properties
-// (tak di-commit) untuk dev lokal. Default menunjuk produksi.
+// (tak di-commit) untuk dev lokal.
+//
+// BELUM DIKONFIRMASI. Domain Retail Gateway belum di-deploy saat baris ini
+// ditulis; nilai default di bawah adalah TEBAKAN berdasarkan pola penamaan
+// app lain di monorepo ini (bukan domain nyata — sudah dicek, string ini
+// tidak muncul di tempat lain di repo). Timpa lewat local.properties, dan
+// perbaiki nilai default ini begitu domain sebenarnya diketahui.
 val localProperties = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }

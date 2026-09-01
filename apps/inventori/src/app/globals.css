@@ -7,6 +7,13 @@
   --suka-cream: #fff7ed;
 }
 
+@theme {
+  --color-suka-orange: #f29744;
+  --color-suka-brown: #701604;
+  --color-suka-ink: #400a07;
+  --color-suka-cream: #fff7ed;
+}
+
 * { box-sizing: border-box; }
 html, body { min-height: 100%; }
 body {

@@ -68,6 +68,12 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           }
         })
 
+      // Batas hari Asia/Jakarta untuk query ecommerce (kolom order_date bertipe
+      // timestamp, bukan date). Sebelumnya dihitung bersama query `orders` mentah
+      // yang sudah dihapus, sehingga variabelnya sempat hilang.
+      const fromIso = new Date(`${filter.from}T00:00:00+07:00`).toISOString()
+      const toIso = new Date(`${filter.to}T23:59:59.999+07:00`).toISOString()
+
       // Fetch Ecommerce Sales (Shopee, TikTok Shop, Web SS Online) if applicable
       const allEcommerceRows: SalesSummaryRow[] = []
       if (filter.outletId === 'all' || filter.outletId === 'ss-online') {

@@ -8,6 +8,28 @@
 
 **Tech Stack:** Next.js 15 (App Router), TypeScript, `@supabase/supabase-js`, `jose` (JWT sesi), Xendit REST API, Vitest.
 
+## ⚠️ Perubahan setelah rencana ini dieksekusi
+
+**Kode ambil 4 digit DIBUANG seluruhnya** (2026-09-01, setelah pemilik menanyakan
+hubungannya dengan nomor pesanan). Pesanan sudah punya kode uniknya sendiri:
+`orders.order_number`, berurutan per outlet, diisi trigger
+`generate_daily_outlet_order_number`, dan sudah dipakai kasir sehari-hari.
+Kode 4 digit adalah nomor kedua untuk pesanan yang sudah punya nomor — dan karena
+dihitung dari hash, ia bertabrakan ±13% hari per outlet.
+
+Yang terhapus: `src/lib/pickupCode.ts` beserta 4 test-nya, kolom `orders.pickup_code`
+dan indeksnya, kolom `retail.order_drafts.pickup_code`, serta seluruh field
+`pickup_code` di balasan API. Pelanggan menyebut `order_number`.
+
+Efek samping yang bagus: tanpa `CREATE INDEX` pada `public.orders`, migration tidak
+lagi mengunci penulisan di tabel transaksi 19 outlet. Syarat "jalankan sebelum jam
+12:00" jadi jauh lebih longgar, walau tetap disarankan.
+
+**Task 6 di bawah sudah tidak berlaku.** Sisa rencana tetap sahih; untuk bentuk API
+yang mutakhir, kode di `apps/retail-gateway/src/app/api/` adalah sumber kebenaran.
+
+---
+
 **Spec:** `SUKASHAWARMA MOBILE APP RETAIL/docs/2026-09-01-sukashawarma-app-design.md`
 
 **Desain layar:** `SUKASHAWARMA MOBILE APP RETAIL/design/` (kanvas 16 layar)

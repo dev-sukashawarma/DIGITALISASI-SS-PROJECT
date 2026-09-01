@@ -253,7 +253,7 @@ git commit -m "feat(customer-app): sistem desain dengan kontras warna terkunci t
 - Create: `apps/retail-gateway/src/app/api/v1/orders/list/route.ts`
 
 **Interfaces:**
-- Produces: `GET /api/v1/orders/list` → `{ orders: [{ id, status, status_dapur, pickup_code, total_amount, pos_order_number, outlet_name, created_at }] }`
+- Produces: `GET /api/v1/orders/list` → `{ orders: [{ id, status, status_dapur, total_amount, pos_order_number, outlet_name, created_at }] }`
 
 **Kenapa task ini ada di rencana Android:** review akhir Tahap 1a menemukan layar Riwayat (layar 14) tidak punya endpoint — hanya ada `GET /orders/[id]`. Ditunda saat itu karena bukan pemblokir gateway. Sekarang ia pemblokir, jadi dikerjakan di sini.
 
@@ -281,7 +281,7 @@ export async function GET(request: Request) {
   // melewati RLS, jadi tanpa filter ini seluruh riwayat pelanggan lain terbuka.
   const { data: drafts, error } = await retail
     .from('order_drafts')
-    .select('id, status, pickup_code, total_amount, outlet_id, pos_order_id, pos_order_number, created_at')
+    .select('id, status, total_amount, outlet_id, pos_order_id, pos_order_number, created_at')
     .eq('customer_id', sesi.customerId)
     .order('created_at', { ascending: false })
     .limit(BATAS)
@@ -315,7 +315,6 @@ export async function GET(request: Request) {
       id: d.id,
       status: d.status,
       status_dapur: d.pos_order_id ? statusDapur.get(d.pos_order_id) ?? null : null,
-      pickup_code: d.pickup_code,
       total_amount: d.total_amount,
       pos_order_number: d.pos_order_number,
       outlet_name: namaOutlet.get(d.outlet_id) ?? null,
@@ -468,8 +467,8 @@ Expected: PASS 6/6
 | `GET /api/v1/outlets` | `{ outlets: [{ id, name, address, lat, lng, is_active }] }` |
 | `GET /api/v1/catalog?outlet_id=` | `{ items: [{ id, name, description, price, image_url, is_available, category_id, sort_order }] }` |
 | `POST /api/v1/checkout/validate` | sukses `{ ok: true, subtotal, discountAmount, total }` · gagal-bisnis HTTP 200 `{ ok: false, alasan, pesan?, masalah? }` |
-| `POST /api/v1/orders` | `{ order_id, pickup_code, payment_url, total_amount, expires_at, duplicate? }` |
-| `GET /api/v1/orders/{id}` | `{ id, status, status_dapur, pickup_code, total_amount, pos_order_number, outlet_name, created_at }` |
+| `POST /api/v1/orders` | `{ order_id, payment_url, total_amount, expires_at, duplicate? }` |
+| `GET /api/v1/orders/{id}` | `{ id, status, status_dapur, total_amount, pos_order_number, outlet_name, created_at }` |
 | `GET /api/v1/orders/list` | `{ orders: [ ...seperti di atas ] }` |
 
 > **Perhatikan:** `checkout/validate` memakai `discountAmount` (camelCase) sedangkan endpoint lain memakai `total_amount` (snake_case). Itu ketidakseragaman nyata di gateway yang sudah tercatat sebagai temuan tertunda — **cerminkan apa adanya**, jangan "diperbaiki" di sisi Android.
@@ -899,9 +898,11 @@ git commit -m "feat(customer-app): pembayaran Xendit dengan kontrak idempotensi 
 
 - [ ] **Step 1: Layar Sukses**
 
-Kode ambil 4 digit ditampilkan **sebesar mungkin** — itu satu-satunya hal yang dibutuhkan pelanggan di depan kasir. Plus QR yang memuat kode yang sama.
+Nomor pesanan (`pos_order_number`) ditampilkan **sebesar mungkin** — itu satu-satunya hal yang dibutuhkan pelanggan di depan kasir. Plus QR yang memuat nomor yang sama.
 
-> **Keterbatasan yang harus Anda ketahui:** kode 4 digit bisa bertabrakan (±13% peluang per outlet per hari pada ~50 pesanan). Ini sudah diangkat ke pemilik sebagai keputusan terbuka. Kalau keputusannya melebarkan ke 6 digit, perubahannya ada di gateway (`pickupCode.ts`) dan aplikasi hanya menampilkan apa yang diberikan — jangan menghardcode panjang 4 digit di tata letak.
+Nomor ini berasal dari `orders.order_number`: berurutan per outlet, diisi trigger database, dan sudah dipakai kasir sehari-hari. Tidak ada kode ambil terpisah — versi awal rencana punya kode 4 digit sendiri, tapi itu nomor kedua untuk pesanan yang sudah punya nomor, dan ia bertabrakan. Sudah dibuang dari gateway.
+
+> **Jangan menghardcode panjang nomor di tata letak.** `order_number` tumbuh seiring waktu — outlet ramai bisa mencapai lima digit. Tata letaknya harus menampung itu.
 
 - [ ] **Step 2: Status pesanan**
 
@@ -972,7 +973,7 @@ Expected: kosong. Kalau ada yang muncul, **berhenti** — ada kredensial yang bo
 
 - [ ] **Step 3: Uji lapangan di outlet pilot**
 
-Satu transaksi nyata bernilai kecil, dengan kasir yang sudah dilatih. Verifikasi berurutan: pesanan muncul di layar kasir · kode ambil cocok · stok bahan baku terpotong · notifikasi status sampai.
+Satu transaksi nyata bernilai kecil, dengan kasir yang sudah dilatih. Verifikasi berurutan: pesanan muncul di layar kasir · nomor pesanan cocok dengan yang ditampilkan aplikasi · stok bahan baku terpotong · notifikasi status sampai.
 
 - [ ] **Step 4: Commit dan siapkan Play Console**
 

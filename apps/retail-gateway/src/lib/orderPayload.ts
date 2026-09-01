@@ -17,7 +17,6 @@ export function susunPayloadPos(input: {
   subtotal: number
   discountAmount: number
   total: number
-  pickupCode: string
 }): { p_order: Record<string, unknown>; p_items: Record<string, unknown>[] } {
   const sekarang = new Date().toISOString()
 
@@ -27,7 +26,7 @@ export function susunPayloadPos(input: {
     customer_name: input.customerName,
     customer_phone: input.customerPhone,
     cashier_name: null,
-    notes: `Pesanan aplikasi. Kode ambil: ${input.pickupCode}`,
+    notes: 'Pesanan aplikasi',
     payment_method: 'qris',
     total_amount: input.total,
     discount_amount: input.discountAmount,

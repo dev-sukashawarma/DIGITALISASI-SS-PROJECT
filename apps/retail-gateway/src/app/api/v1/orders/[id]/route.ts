@@ -18,7 +18,7 @@ export async function GET(
   // menebak id pesanan bisa membaca pesanan orang lain.
   const { data: draft } = await retail
     .from('order_drafts')
-    .select('id, status, pickup_code, total_amount, outlet_id, pos_order_id, pos_order_number, created_at')
+    .select('id, status, total_amount, outlet_id, pos_order_id, pos_order_number, created_at')
     .eq('id', id)
     .eq('customer_id', sesi.customerId)
     .maybeSingle()
@@ -48,7 +48,6 @@ export async function GET(
     id: draft.id,
     status: draft.status,
     status_dapur: statusDapur,
-    pickup_code: draft.pickup_code,
     total_amount: draft.total_amount,
     pos_order_number: draft.pos_order_number,
     outlet_name: outlet?.name ?? null,

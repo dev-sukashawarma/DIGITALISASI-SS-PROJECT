@@ -1148,21 +1148,38 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
     }> = {}
 
-    let totalKodeUnik = 0
-
+    // "Total Revenue" per item HARUS bersumber dari rumus gross yang sama
+    // dengan kartu KPI di layar (total_amount + diskon + promo per order),
+    // bukan dari sekadar menjumlahkan order_items.subtotal.
+    //
+    // Sebelumnya kode ini menjumlahkan oi.subtotal apa adanya sebagai
+    // "revenue" per item. Untuk data produksi (Agustus 2026), jumlah subtotal
+    // item (Rp 1.830.040.996) TIDAK sama dengan gross order-level
+    // (Rp 1.925.547.615, POS saja) — subtotal item sudah memperhitungkan
+    // sebagian promo di level item (mis. item hadiah BOGO bersubtotal Rp 0)
+    // tapi belum memperhitungkan diskon/subsidi di level order. Akibatnya
+    // Grand Total di PDF (Rp 1.891.149.794 untuk 1-31 Agustus semua channel)
+    // berbeda ~Rp 87 juta dari Gross Revenue di layar (Rp 1.978.446.055).
+    //
+    // Perbaikannya: gross per order (`orderGross`, rumus sama dengan KPI)
+    // dibagi proporsional ke tiap item berdasarkan porsi subtotal-nya. Dengan
+    // begitu jumlah "revenue" seluruh item per order SELALU tepat sama dengan
+    // orderGross — sehingga bucket "Penyesuaian Sistem (Kode Unik QRIS)" yang
+    // dulu menambal selisih itu (dan hanya menambal satu arah, gejala yang
+    // sama seperti bug extraDiff) tidak lagi diperlukan dan dihapus.
     validOrders.forEach(o => {
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
       const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
       const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
-      
+
       let categoryName = srcInfo.label
       const isPawoon = o.customer_name === 'Pawoon Import' || srcKey === 'pos_pawoon' || srcKey === 'pos'
 
       if (isPawoon) {
         const hasFA = o.order_items.some(item => item.menu_item_name.includes('FA') || item.menu_item_name.includes('FOOD APPS'))
         const hasTikTok = o.order_items.some(item => item.menu_item_name.toLowerCase().includes('tiktok'))
-        
+
         if (isTikTok || hasTikTok) {
           categoryName = 'POS Pawoon (TikTok)'
         } else if (hasFA || isFoodApp) {
@@ -1185,38 +1202,41 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       }
 
       const outletType = outletTypeMap.get(o.outlet_id)
-      
+
       if (!categoryMap[categoryName]) {
         categoryMap[categoryName] = { categoryName, grossRevenue: 0, itemMap: {} }
       }
 
       const catData = categoryMap[categoryName]
 
-      let orderItemSubtotal = 0
+      const disc = Number((o as any).discount_amount) || 0
+      const promo = Number((o as any).promo_subsidy) || 0
+      const orderGross = Number(o.total_amount) + disc + promo
+      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+
       if (o.order_items && o.order_items.length > 0) {
         o.order_items.forEach(oi => {
           const key = cleanItemName(oi.menu_item_name)
           if (!catData.itemMap[key]) {
-            catData.itemMap[key] = { 
-              name: key, 
-              qty: 0, 
-              revenue: 0, 
+            catData.itemMap[key] = {
+              name: key,
+              qty: 0,
+              revenue: 0,
               hppTotal: 0,
               unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
             }
           }
-          
+
           const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
           const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
-          
+          const itemRevenue = orderItemsGross > 0 ? (Number(oi.subtotal) / orderItemsGross) * orderGross : 0
+
           catData.itemMap[key].qty += oi.quantity
-          catData.itemMap[key].revenue += oi.subtotal
+          catData.itemMap[key].revenue += itemRevenue
           catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
-          catData.grossRevenue += oi.subtotal
-          orderItemSubtotal += oi.subtotal
+          catData.grossRevenue += itemRevenue
         })
-      } else if (Number(o.total_amount) > 0 || Number((o as any).discount_amount) > 0 || Number((o as any).promo_subsidy) > 0) {
-        const grossAmount = Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+      } else if (orderGross > 0) {
         const key = `Order #${o.order_number} (${o.customer_name || 'Pelanggan'})`
         if (!catData.itemMap[key]) {
           catData.itemMap[key] = {
@@ -1224,35 +1244,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             qty: 0,
             revenue: 0,
             hppTotal: 0,
-            unitPrice: grossAmount
+            unitPrice: orderGross
           }
         }
         catData.itemMap[key].qty += 1
-        catData.itemMap[key].revenue += grossAmount
-        catData.grossRevenue += grossAmount
-        orderItemSubtotal += grossAmount
-      }
-
-      if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
-        totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)
+        catData.itemMap[key].revenue += orderGross
+        catData.grossRevenue += orderGross
       }
     })
-
-    if (totalKodeUnik > 0) {
-      categoryMap['Penyesuaian Sistem (Kode Unik QRIS)'] = {
-        categoryName: 'Penyesuaian Sistem (Kode Unik QRIS)',
-        grossRevenue: totalKodeUnik,
-        itemMap: {
-          'Kode Unik QRIS': {
-            name: 'Kode Unik QRIS & Penyesuaian Nominal',
-            qty: 1,
-            revenue: totalKodeUnik,
-            hppTotal: 0,
-            unitPrice: totalKodeUnik
-          }
-        }
-      }
-    }
 
     // 3. Ubah ke array dan sort
     const categories = Object.values(categoryMap).map(cat => ({
@@ -1305,21 +1304,25 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; adminPlatform: number; grossProfit: number; unitPrice: number }>
     }> = {}
 
-    let totalKodeUnik = 0
-
+    // "Total Revenue" per item HARUS bersumber dari rumus gross yang sama
+    // dengan kartu KPI di layar (total_amount + diskon + promo per order),
+    // bukan dari sekadar menjumlahkan order_items.subtotal — lihat penjelasan
+    // lengkap di komentar blok PDF Kategori (fungsi downloadPDFAllChannels)
+    // yang punya perbaikan identik. Grand Total di CSV sebelumnya berbeda
+    // ~Rp 87 juta dari Gross Revenue di layar untuk alasan yang sama.
     validOrders.forEach(o => {
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
       const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
       const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
-      
+
       let categoryName = srcInfo.label
       const isPawoon = o.customer_name === 'Pawoon Import' || srcKey === 'pos_pawoon' || srcKey === 'pos'
 
       if (isPawoon) {
         const hasFA = o.order_items.some(item => item.menu_item_name.includes('FA') || item.menu_item_name.includes('FOOD APPS'))
         const hasTikTok = o.order_items.some(item => item.menu_item_name.toLowerCase().includes('tiktok'))
-        
+
         if (isTikTok || hasTikTok) {
           categoryName = 'POS Pawoon (TikTok)'
         } else if (hasFA || isFoodApp) {
@@ -1342,59 +1345,54 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       }
 
       const outletType = outletTypeMap.get(o.outlet_id)
-      
+
       if (!categoryMap[categoryName]) {
         categoryMap[categoryName] = { categoryName, grossRevenue: 0, itemMap: {} }
       }
 
       const catData = categoryMap[categoryName]
 
-      // Hitung total potongan / admin platform untuk pesanan ini.
-      // Harus memakai rumus yang SAMA dengan perhitungan KPI di atas, kalau
-      // tidak angka di Export CSV/PDF akan berbeda dari yang tampil di layar.
-      // Tebakan `extraDiff` dari selisih subtotal sudah dihapus di keduanya —
-      // alasan lengkapnya ada di komentar perhitungan KPI.
+      // Rumus SAMA dengan kartu KPI di layar dan blok PDF Kategori.
       const disc = Number((o as any).discount_amount) || 0
       const promo = Number((o as any).promo_subsidy) || 0
+      const orderGross = Number(o.total_amount) + disc + promo
       const orderTotalDeductions = disc + promo
-      // Dipakai sebagai PEMBAGI untuk membagi potongan pesanan secara
-      // proporsional ke tiap item (lihat `itemDeduction` di bawah) — bukan lagi
-      // untuk menebak diskon.
+      // Pembagi untuk membagi gross & potongan pesanan secara proporsional
+      // ke tiap item, berdasarkan porsi subtotal masing-masing.
       const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
 
-      let orderItemSubtotal = 0
       if (o.order_items && o.order_items.length > 0) {
         o.order_items.forEach(oi => {
           const key = cleanItemName(oi.menu_item_name)
           if (!catData.itemMap[key]) {
-            catData.itemMap[key] = { 
-              name: key, 
-              qty: 0, 
-              revenue: 0, 
+            catData.itemMap[key] = {
+              name: key,
+              qty: 0,
+              revenue: 0,
               hppTotal: 0,
               adminPlatform: 0,
               grossProfit: 0,
               unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
             }
           }
-          
+
           const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
           const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           const itemHpp = hppPerUnit * oi.quantity
-          const itemDeduction = orderItemsGross > 0 ? (oi.subtotal / orderItemsGross) * orderTotalDeductions : 0
-          const itemGrossProfit = oi.subtotal - itemHpp - itemDeduction
+          const itemWeight = orderItemsGross > 0 ? Number(oi.subtotal) / orderItemsGross : 0
+          const itemRevenue = itemWeight * orderGross
+          const itemDeduction = itemWeight * orderTotalDeductions
+          const itemGrossProfit = itemRevenue - itemHpp - itemDeduction
 
           catData.itemMap[key].qty += oi.quantity
-          catData.itemMap[key].revenue += oi.subtotal
+          catData.itemMap[key].revenue += itemRevenue
           catData.itemMap[key].hppTotal += itemHpp
           catData.itemMap[key].adminPlatform += itemDeduction
           catData.itemMap[key].grossProfit += itemGrossProfit
 
-          catData.grossRevenue += oi.subtotal
-          orderItemSubtotal += oi.subtotal
+          catData.grossRevenue += itemRevenue
         })
-      } else if (Number(o.total_amount) > 0 || Number((o as any).discount_amount) > 0 || Number((o as any).promo_subsidy) > 0) {
-        const grossAmount = Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+      } else if (orderGross > 0) {
         const key = `Order #${o.order_number} (${o.customer_name || 'Pelanggan'})`
         if (!catData.itemMap[key]) {
           catData.itemMap[key] = {
@@ -1404,43 +1402,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             hppTotal: 0,
             adminPlatform: 0,
             grossProfit: 0,
-            unitPrice: grossAmount
+            unitPrice: orderGross
           }
         }
         const itemDeduction = orderTotalDeductions
-        const itemGrossProfit = grossAmount - itemDeduction
+        const itemGrossProfit = orderGross - itemDeduction
 
         catData.itemMap[key].qty += 1
-        catData.itemMap[key].revenue += grossAmount
+        catData.itemMap[key].revenue += orderGross
         catData.itemMap[key].adminPlatform += itemDeduction
         catData.itemMap[key].grossProfit += itemGrossProfit
 
-        catData.grossRevenue += grossAmount
-        orderItemSubtotal += grossAmount
-      }
-
-      if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
-        totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)
+        catData.grossRevenue += orderGross
       }
     })
-
-    if (totalKodeUnik > 0) {
-      categoryMap['Penyesuaian Sistem (Kode Unik QRIS)'] = {
-        categoryName: 'Penyesuaian Sistem (Kode Unik QRIS)',
-        grossRevenue: totalKodeUnik,
-        itemMap: {
-          'Kode Unik QRIS': {
-            name: 'Kode Unik QRIS & Penyesuaian Nominal',
-            qty: 1,
-            revenue: totalKodeUnik,
-            hppTotal: 0,
-            adminPlatform: 0,
-            grossProfit: totalKodeUnik,
-            unitPrice: totalKodeUnik
-          }
-        }
-      }
-    }
 
     const categories = Object.values(categoryMap).map(cat => ({
       categoryName: cat.categoryName,

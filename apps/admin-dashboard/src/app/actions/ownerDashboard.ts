@@ -90,15 +90,25 @@ async function fetchEcommerceOwnerData(
   let offset = 0
   const PAGE_SIZE = 1000
 
-  let query = supabase
+  // `order_date` disimpan sebagai tengah malam tiap hari, jadi 1.377 baris hanya
+  // punya ~30 timestamp unik (sampai 75 baris kembar dalam satu hari). Mengurut
+  // hanya dengan kolom itu membuat paginasi tidak deterministik: tiap halaman
+  // adalah query terpisah, dan urutan di dalam kelompok kembar bisa berbeda
+  // antar-query, sehingga sebagian baris terhitung dua kali dan sebagian
+  // terlewat. `id` unik dipakai sebagai pemecah seri.
+  //
+  // Query juga dibangun ulang tiap halaman — builder Supabase bersifat mutable,
+  // memakai ulang satu instance untuk beberapa `.range()` rapuh.
+  const buildEcommerceQuery = () => supabase
     .from('ecommerce_sales')
     .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
     .gte('order_date', fromIso)
     .lte('order_date', toIso)
     .order('order_date', { ascending: true })
+    .order('id', { ascending: true })
 
   while (true) {
-    const { data: page, error } = await query.range(offset, offset + PAGE_SIZE - 1)
+    const { data: page, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
     if (error) {
       console.error('fetchEcommerceOwnerData error:', error)
       break
@@ -253,6 +263,82 @@ async function resolveCallerScope() {
   return { supabase, scopeKey: allowedOutletIds.join(','), allowedOutletIds }
 }
 
+/* ── Penggabungan dua potongan periode yang saling lepas (disjoint) ──────
+ * Dipakai split-range cache: bagian "hari lampau" (beku, boleh di-cache lama)
+ * dijumlahkan dengan bagian "hari ini" (harus selalu segar). Seluruh agregat
+ * di sini aditif terhadap rentang tanggal yang tidak beririsan:
+ *  - kpi_rows  : kunci (outlet, source, tanggal) — tanggal beda → cukup concat
+ *  - hourly    : dijumlahkan per jam
+ *  - menu      : dijumlahkan per nama menu
+ *  - cogs/opex : jumlah biasa
+ *  - bogo_transactions: COUNT(DISTINCT order_id); satu order hanya milik satu
+ *    tanggal, jadi jumlah dari dua rentang lepas = distinct count gabungannya.
+ */
+function sumByKey<T>(rows: T[], key: (r: T) => string | number, fields: string[]) {
+  const map = new Map<string | number, any>()
+  for (const r of rows) {
+    const k = key(r)
+    const cur = map.get(k)
+    if (!cur) {
+      map.set(k, { ...r })
+      continue
+    }
+    for (const f of fields) cur[f] = Number(cur[f] || 0) + Number((r as any)[f] || 0)
+  }
+  return Array.from(map.values())
+}
+
+function mergeSummaryResult(a: any, b: any) {
+  if (!a) return b
+  if (!b) return a
+  return {
+    kpi_rows: [...(a.kpi_rows ?? []), ...(b.kpi_rows ?? [])],
+    hourly_rows: sumByKey(
+      [...(a.hourly_rows ?? []), ...(b.hourly_rows ?? [])],
+      (r: any) => r.sales_hour,
+      ['omzet', 'order_count']
+    ).sort((x: any, y: any) => x.sales_hour - y.sales_hour),
+    menu_rows: sumByKey(
+      [...(a.menu_rows ?? []), ...(b.menu_rows ?? [])],
+      (r: any) => r.menu_name,
+      ['qty', 'revenue']
+    ),
+    total_cogs:        Number(a.total_cogs ?? 0)        + Number(b.total_cogs ?? 0),
+    total_opex:        Number(a.total_opex ?? 0)        + Number(b.total_opex ?? 0),
+    bogo_transactions: Number(a.bogo_transactions ?? 0) + Number(b.bogo_transactions ?? 0),
+    bogo_gift_units:   Number(a.bogo_gift_units ?? 0)   + Number(b.bogo_gift_units ?? 0),
+  }
+}
+
+function mergeEcommerceData(a: any, b: any) {
+  if (!a) return b
+  if (!b) return a
+  return {
+    kpiRows: [...(a.kpiRows ?? []), ...(b.kpiRows ?? [])],
+    hourlyRows: sumByKey(
+      [...(a.hourlyRows ?? []), ...(b.hourlyRows ?? [])],
+      (r: any) => r.sales_hour,
+      ['omzet', 'jumlah_order_completed']
+    ).sort((x: any, y: any) => x.sales_hour - y.sales_hour),
+    menuRows: sumByKey(
+      [...(a.menuRows ?? []), ...(b.menuRows ?? [])],
+      (r: any) => r.name,
+      ['qty', 'revenue']
+    ),
+    totalCogs: Number(a.totalCogs ?? 0) + Number(b.totalCogs ?? 0),
+    totalOpex: Number(a.totalOpex ?? 0) + Number(b.totalOpex ?? 0),
+  }
+}
+
+function mergeSummaryPayload(histPayload: any, livePayload: any) {
+  return {
+    result:        mergeSummaryResult(histPayload.result, livePayload.result),
+    ecommerceData: mergeEcommerceData(histPayload.ecommerceData, livePayload.ecommerceData),
+    // Freshness yang dilaporkan ke UI mengikuti potongan paling baru (hari ini).
+    fetchedAt:     livePayload.fetchedAt,
+  }
+}
+
 async function fetchOwnerDashboardSummaryRaw(
   supabase: any,
   fromStartIso: string,
@@ -329,9 +415,40 @@ export async function getOwnerDashboardDataFast(
     }
   )
 
-  const payload = isPast
-    ? await getCachedOwnerDashboardSummary(fromStartIso, toEndIso, outletId, source)
-    : await fetchOwnerDashboardSummaryRaw(supabase, fromStartIso, toEndIso, outletId, source)
+  // ── Split-range cache ────────────────────────────────────────────────
+  // Sebelumnya cache HANYA dipakai saat seluruh rentang sudah lewat
+  // (filter.to < hari ini). Akibatnya preset yang paling sering dipakai —
+  // "30 hari terakhir", "bulan ini", "hari ini" — selalu berakhir di hari ini
+  // sehingga tidak pernah kena cache dan menghitung ulang seluruh rentang.
+  //
+  // Sekarang rentang yang melewati batas hari dipecah dua: bagian lampau
+  // (beku, ikut cache 1 jam yang sama seperti sebelumnya) + bagian hari ini
+  // (selalu segar), lalu dijumlahkan. Untuk 30 hari, 29 hari di antaranya
+  // dilayani dari cache. TTL sengaja tetap 3600 detik agar jaminan kesegaran
+  // tidak berubah dari perilaku yang sudah berjalan.
+  const spansToday = !isPast && filter.from < todayJakarta
+  let payload: any
+
+  if (isPast) {
+    payload = await getCachedOwnerDashboardSummary(fromStartIso, toEndIso, outletId, source)
+  } else if (spansToday) {
+    const yesterdayJakarta = (() => {
+      const d = new Date(`${todayJakarta}T00:00:00.000+07:00`)
+      d.setUTCDate(d.getUTCDate() - 1)
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d)
+    })()
+    const histToIso   = new Date(`${yesterdayJakarta}T23:59:59.999+07:00`).toISOString()
+    const liveFromIso = new Date(`${todayJakarta}T00:00:00.000+07:00`).toISOString()
+
+    const [histPayload, livePayload] = await Promise.all([
+      getCachedOwnerDashboardSummary(fromStartIso, histToIso, outletId, source),
+      fetchOwnerDashboardSummaryRaw(supabase, liveFromIso, toEndIso, outletId, source),
+    ])
+    payload = mergeSummaryPayload(histPayload, livePayload)
+  } else {
+    // Rentang seluruhnya hari ini / ke depan — tidak ada bagian beku untuk di-cache.
+    payload = await fetchOwnerDashboardSummaryRaw(supabase, fromStartIso, toEndIso, outletId, source)
+  }
 
   const result = payload.result
   const ecommerceData = payload.ecommerceData

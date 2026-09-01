@@ -62,5 +62,9 @@ body {
 .status-dot.issue { background: #ffe4e6; color: #be123c; }
 .check-row { transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
 .check-row:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(64, 10, 7, 0.05); }
+.sidak-completed-ripple { position: absolute; width: 25rem; height: 25rem; left: 50%; top: 50%; border-radius: 50%; border: 1px solid rgba(5, 150, 105, 0.16); transform: translate(-50%, -50%) scale(0.2); animation: sidak-complete-ripple 1.1s ease-out both; }
+.sidak-completed-check { animation: sidak-complete-pop 620ms cubic-bezier(.2, 1.35, .4, 1) both; }
+@keyframes sidak-complete-pop { from { opacity: 0; transform: scale(0.4) rotate(-14deg); } to { opacity: 1; transform: scale(1) rotate(0); } }
+@keyframes sidak-complete-ripple { from { opacity: 0.95; transform: translate(-50%, -50%) scale(0.2); } to { opacity: 0; transform: translate(-50%, -50%) scale(1.2); } }
 @media (prefers-reduced-motion: reduce) { .check-row { transition: none; } .check-row:hover { transform: none; } }
 @media (max-width: 800px) { .sidak-checklist-grid { grid-template-columns: 1fr; } }

@@ -168,7 +168,8 @@ export function useHpp(filter: PeriodFilterValue) {
       const hppMap = new Map<string, number>();
 
       allOrders.forEach((o: any) => {
-        if (o.status === "cancelled" || o.status === "void" || isTestOutlet(o.outlet_id)) return;
+        if (o.status !== "completed" && o.status !== "settled") return;
+        if (isTestOutlet(o.outlet_id)) return;
         const outletType = outletTypeMap.get(o.outlet_id);
         const orderChannel = o.channel || o.sales_source;
 

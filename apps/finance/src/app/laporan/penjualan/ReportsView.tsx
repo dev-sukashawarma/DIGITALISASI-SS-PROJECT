@@ -680,13 +680,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
 
     // Calculate Total HPP using order_items menu_items
-    const totalHPP = filteredOrders
-      .filter(o => o.status !== 'cancelled' && o.status !== 'void')
+    const totalHPP = completed
       .reduce((sum, o) => {
         const outletType = outletTypeMap.get(o.outlet_id)
         const orderChannel = o.channel || o.sales_source
         return sum + o.order_items.reduce((itemSum, item) => {
-          const hpp = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, orderChannel);
+          const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
+          const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, orderChannel, item.menu_item_id, menuItemByIdMap);
           return itemSum + (hpp * item.quantity);
         }, 0)
       }, 0)

@@ -153,7 +153,7 @@ export function useHppByChannel(from: string, to: string) {
       const keyFn = (oId: string, src: string) => oId + "|" + src;
 
       allOrders.forEach((o: any) => {
-        if (o.status === "cancelled" || o.status === "void") return;
+        if (o.status !== "completed" && o.status !== "settled") return;
         const outletType = outletTypeMap.get(o.outlet_id);
         const source = o.payment_method || "unknown";
         const orderChannel = o.channel || o.sales_source;

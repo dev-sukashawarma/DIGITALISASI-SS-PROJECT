@@ -47,6 +47,38 @@ describe('bersihkanKatalog', () => {
     expect(hasil[0].price).toBe(25000)
   })
 
+  it('memperlakukan ketersediaan yang tidak diketahui sebagai habis', () => {
+    const hasil = bersihkanKatalog([
+      {
+        id: 'a', name: 'Shawarma Ayam Original', price: 25000, description: null,
+        deskripsi_app: null, image_url: null, foto_app: null,
+        is_available: null, category_id: null, sort_order: null,
+      },
+      {
+        id: 'b', name: 'Kebab Mini', price: 15000, description: null,
+        deskripsi_app: null, image_url: null, foto_app: null,
+        category_id: null, sort_order: null,
+      },
+    ])
+    expect(hasil[0].is_available).toBe(false)
+    expect(hasil[1].is_available).toBe(false)
+  })
+
+  it('membuang baris dengan harga tak sah alih-alih mengirim NaN', () => {
+    const hasil = bersihkanKatalog([
+      { id: 'a', name: 'Harga huruf', price: 'abc', is_available: true },
+      { id: 'b', name: 'Harga negatif', price: -500, is_available: true },
+      { id: 'c', name: 'Tanpa harga', is_available: true },
+      {
+        id: 'd', name: 'Sah', price: 12000, description: null, deskripsi_app: null,
+        image_url: null, foto_app: null, is_available: true, category_id: null, sort_order: null,
+      },
+    ])
+    expect(hasil).toHaveLength(1)
+    expect(hasil[0].id).toBe('d')
+    expect(hasil[0].price).toBe(12000)
+  })
+
   it('membuang baris tanpa id atau nama', () => {
     const hasil = bersihkanKatalog([
       { id: null, name: 'Tanpa id', price: 1000 },

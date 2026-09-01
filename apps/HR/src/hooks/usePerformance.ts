@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PerformanceRecord } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { isTestOutlet } from '@/lib/outletFilters'
 
 export function usePerformance(month: number, year: number, outletFilter?: string) {
   const supabase = createClient()
@@ -13,7 +15,7 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
       let staffQuery = supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, is_bonus_eligible,
+          id, name, role, is_bonus_eligible, username,
           outlets!outlet_staff_outlet_id_fkey(name)
         `)
         .eq('status', 'active')
@@ -23,9 +25,12 @@ export function usePerformance(month: number, year: number, outletFilter?: strin
         staffQuery = staffQuery.eq('outlet_id', outletFilter)
       }
 
-      const { data: staffList, error: staffErr } = await staffQuery
+      const { data: rawStaffList, error: staffErr } = await staffQuery
       if (staffErr) throw staffErr
-      if (!staffList || !staffList.length) return []
+      const staffList = (rawStaffList ?? []).filter(
+        (s: any) => !isTestOrDevStaff(s) && !isTestOutlet(s.outlets)
+      )
+      if (!staffList.length) return []
 
       // 2. Format start & end of month
       const startDate = `${year}-${String(month).padStart(2, '0')}-01`

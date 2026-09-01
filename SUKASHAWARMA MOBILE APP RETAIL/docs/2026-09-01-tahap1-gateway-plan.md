@@ -1525,6 +1525,7 @@ git commit -m "feat(retail-gateway): validasi pra-bayar outlet, ketersediaan, da
   - `type Tagihan = { ref: string; url: string; status: 'menunggu' | 'lunas' | 'gagal' }`
   - `buatTagihan(input: { externalId: string; amount: number; description: string; customerName: string }): Promise<Tagihan>`
   - `bacaStatusWebhook(payload: unknown): { externalId: string; status: 'lunas' | 'gagal' } | null`
+  - `rahasiaCocok(diberikan: string | null, diharapkan: string): boolean` — perbandingan tahan-waktu
 
 - [ ] **Step 1: Tulis test yang gagal**
 
@@ -1577,10 +1578,26 @@ Expected: FAIL — `Cannot find module './xendit'`
 ```typescript
 // apps/retail-gateway/src/lib/xendit.ts
 
+import { timingSafeEqual } from 'node:crypto'
+
 export type Tagihan = {
   ref: string
   url: string
   status: 'menunggu' | 'lunas' | 'gagal'
+}
+
+/**
+ * Perbandingan rahasia tahan-waktu.
+ * Preseden proyek: P8 di pos-kasir (2026-07-21) — perbandingan string biasa
+ * membocorkan rahasia sedikit demi sedikit lewat selisih waktu balasan.
+ * Dipakai oleh webhook Xendit dan cron.
+ */
+export function rahasiaCocok(diberikan: string | null, diharapkan: string): boolean {
+  if (!diberikan) return false
+  const a = Buffer.from(diberikan)
+  const b = Buffer.from(diharapkan)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
 }
 
 const BATAS_BAYAR_DETIK = 15 * 60
@@ -1593,6 +1610,13 @@ export async function buatTagihan(input: {
 }): Promise<Tagihan> {
   const key = process.env.XENDIT_SECRET_KEY
   if (!key) throw new Error('XENDIT_SECRET_KEY belum di-set')
+
+  // Penjagaan di batas pembayaran. Tagihan nol atau negatif adalah tanda ada
+  // yang salah di hulu; tolak di sini daripada menunggu Xendit menolaknya
+  // setelah satu perjalanan jaringan.
+  if (!Number.isInteger(input.amount) || input.amount < 1) {
+    throw new Error('Nilai tagihan tidak sah')
+  }
 
   const res = await fetch('https://api.xendit.co/v2/invoices', {
     method: 'POST',
@@ -2084,7 +2108,7 @@ Expected: PASS 7/7
 // apps/retail-gateway/src/app/api/webhooks/xendit/route.ts
 import { NextResponse } from 'next/server'
 import { createServiceClient, createRetailClient } from '@/lib/supabase'
-import { bacaStatusWebhook } from '@/lib/xendit'
+import { bacaStatusWebhook, rahasiaCocok } from '@/lib/xendit'
 import { susunPayloadPos } from '@/lib/orderPayload'
 import type { ItemPesanan } from '@/lib/pricing'
 
@@ -2096,7 +2120,8 @@ export async function POST(request: Request) {
   // keberadaan pesanan kepada pemanggil yang tidak berhak.
   const token = request.headers.get('x-callback-token')
   const diharapkan = process.env.XENDIT_WEBHOOK_TOKEN
-  if (!diharapkan || token !== diharapkan) {
+  // Perbandingan tahan-waktu, bukan `!==`. Lihat catatan di `rahasiaCocok`.
+  if (!diharapkan || !rahasiaCocok(token, diharapkan)) {
     return NextResponse.json({ error: 'Tidak diizinkan' }, { status: 401 })
   }
 
@@ -2243,12 +2268,14 @@ git commit -m "feat(retail-gateway): webhook Xendit mendorong pesanan berbayar k
 // apps/retail-gateway/src/app/api/cron/expire-drafts/route.ts
 import { NextResponse } from 'next/server'
 import { createRetailClient } from '@/lib/supabase'
+import { rahasiaCocok } from '@/lib/xendit'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
   const rahasia = process.env.CRON_SECRET
-  if (!rahasia || request.headers.get('authorization') !== `Bearer ${rahasia}`) {
+  // Perbandingan tahan-waktu, bukan `!==`. Lihat catatan di `rahasiaCocok`.
+  if (!rahasia || !rahasiaCocok(request.headers.get('authorization'), `Bearer ${rahasia}`)) {
     return NextResponse.json({ error: 'Tidak diizinkan' }, { status: 401 })
   }
 

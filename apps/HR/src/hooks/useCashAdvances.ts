@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { CashAdvance, CashAdvancePayment } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 interface CashAdvanceRow extends CashAdvance {
   outlet_staff: {
@@ -63,7 +64,7 @@ export function useCashAdvances() {
 
       if (error) throw error
       const rawData = (data as unknown as CashAdvanceRow[]) ?? []
-      return rawData.filter((r) => r.outlet_staff?.role !== 'kiosk')
+      return rawData.filter((r) => !isTestOrDevStaff(r.outlet_staff))
     },
   })
 }

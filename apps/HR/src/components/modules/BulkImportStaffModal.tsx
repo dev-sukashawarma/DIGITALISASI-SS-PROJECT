@@ -5,14 +5,10 @@ import {
   Upload,
   FileSpreadsheet,
   CheckCircle2,
-  AlertTriangle,
-  AlertCircle,
   X,
   Users,
   DollarSign,
-  Building2,
   ShieldCheck,
-  RefreshCw,
   Search,
   ArrowUpDown,
   ArrowUp,
@@ -65,8 +61,7 @@ export function BulkImportStaffModal({ outlets, onClose, onSuccess }: BulkImport
 
   // Options
   const [updateExisting, setUpdateExisting] = useState(true)
-  const [defaultPassword, setDefaultPassword] = useState('123456')
-  const [syncPayroll, setSyncPayroll] = useState(true)
+  const defaultPassword = '123456'
   const [periodMonth, setPeriodMonth] = useState(1)
   const [periodYear, setPeriodYear] = useState(2026)
 

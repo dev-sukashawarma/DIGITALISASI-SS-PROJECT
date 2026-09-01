@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { StaffContract } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { isTestOutlet } from '@/lib/outletFilters'
 
 export function useContracts(outletFilter?: string) {
   const supabase = createClient()
@@ -13,7 +15,7 @@ export function useContracts(outletFilter?: string) {
       let q = supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, phone, contract_type, join_date, resign_date, status,
+          id, name, role, username, phone, contract_type, join_date, resign_date, status,
           outlets!outlet_staff_outlet_id_fkey(name)
         `)
         .order('name')
@@ -27,7 +29,9 @@ export function useContracts(outletFilter?: string) {
 
       const today = new Date()
 
-      return (data ?? []).map((s: any) => {
+      return (data ?? [])
+        .filter((s: any) => !isTestOrDevStaff(s) && !isTestOutlet(s.outlets))
+        .map((s: any) => {
         let status: 'active' | 'expiring_soon' | 'expired' | 'renewed' = 'active'
         if (s.resign_date) {
           const end = new Date(s.resign_date)

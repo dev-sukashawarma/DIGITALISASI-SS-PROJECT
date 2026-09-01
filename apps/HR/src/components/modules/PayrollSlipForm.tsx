@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button, Spinner } from '@suka/design-system'
+import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
 import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
@@ -38,7 +38,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   const [transportAllowance, setTransportAllowance] = useState(initial.transportAllowance)
   const [communicationAllowance, setCommunicationAllowance] = useState(initial.communicationAllowance)
   const [salesBonus, setSalesBonus] = useState(initial.salesBonus)
-  const [positionAllowance, setPositionAllowance] = useState(initial.positionAllowance)
+  const [positionAllowance] = useState(initial.positionAllowance)
 
   // 2. Deductions Components (Potongan)
   const [cashAdvanceDeduction, setCashAdvanceDeduction] = useState(initial.cashAdvanceDeduction)

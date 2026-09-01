@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { DisciplineRecord } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export function useDiscipline() {
   const qc = useQueryClient()
@@ -18,7 +19,7 @@ export function useDiscipline() {
         return []
       }
 
-      return (data || []) as DisciplineRecord[]
+      return ((data || []) as DisciplineRecord[]).filter((r) => !isTestOrDevStaff(r.outlet_staff))
     },
   })
 

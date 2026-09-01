@@ -1,7 +1,23 @@
+import { timingSafeEqual } from 'node:crypto'
+
 export type Tagihan = {
   ref: string
   url: string
   status: 'menunggu' | 'lunas' | 'gagal'
+}
+
+/**
+ * Perbandingan rahasia tahan-waktu.
+ * Preseden proyek: P8 di pos-kasir (2026-07-21) — perbandingan string biasa
+ * membocorkan rahasia sedikit demi sedikit lewat selisih waktu balasan.
+ * Dipakai oleh webhook Xendit dan cron.
+ */
+export function rahasiaCocok(diberikan: string | null, diharapkan: string): boolean {
+  if (!diberikan) return false
+  const a = Buffer.from(diberikan)
+  const b = Buffer.from(diharapkan)
+  if (a.length !== b.length) return false
+  return timingSafeEqual(a, b)
 }
 
 const BATAS_BAYAR_DETIK = 15 * 60

@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { AttendanceLog, AttendanceFilterValues } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { isTestOutlet } from '@/lib/outletFilters'
 
 export function useAttendance(filter: AttendanceFilterValues) {
   const supabase = createClient()
@@ -82,7 +84,10 @@ export function useAttendance(filter: AttendanceFilterValues) {
         }
         const { data: logData, error: logErr } = await logQuery
         if (logErr) throw logErr
-        return (logData ?? []) as AttendanceLog[]
+        const filteredLogs = ((logData ?? []) as AttendanceLog[]).filter(
+          (r) => !isTestOrDevStaff(r.outlet_staff) && !isTestOutlet(r.outlets)
+        )
+        return filteredLogs
       }
 
       // Group into daily entries (clock_in and clock_out)
@@ -137,7 +142,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
         }
       }
 
-      let result = Array.from(grouped.values())
+      let result = Array.from(grouped.values()).filter(
+        (r) => !isTestOrDevStaff(r.outlet_staff) && !isTestOutlet(r.outlets)
+      )
 
       if (filter.status && filter.status !== 'all') {
         result = result.filter((r) => r.status === filter.status)

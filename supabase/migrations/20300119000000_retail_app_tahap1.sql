@@ -19,13 +19,21 @@ ALTER TABLE public.outlets
 COMMENT ON COLUMN public.outlets.app_enabled IS
   'Outlet melayani pesanan dari aplikasi pelanggan. Pilot: nyalakan 2-3 outlet saja.';
 
--- 3. Kode pengambilan di orders -----------------------------------------
-ALTER TABLE public.orders
-  ADD COLUMN IF NOT EXISTS pickup_code text;
-
-CREATE INDEX IF NOT EXISTS orders_pickup_code_idx
-  ON public.orders (outlet_id, pickup_code)
-  WHERE pickup_code IS NOT NULL;
+-- 3. Kode pengambilan: TIDAK ADA, dan itu disengaja ---------------------
+-- Pesanan sudah punya kode uniknya sendiri: `orders.order_number`, yang
+-- diisi trigger `generate_daily_outlet_order_number` sebagai MAX+1 per
+-- outlet dan tidak pernah direset harian. Kasir sudah memakai nomor itu
+-- sehari-hari.
+--
+-- Versi awal rencana ini menambahkan `orders.pickup_code` 4 digit — nomor
+-- kedua untuk pesanan yang sudah punya nomor. Karena dihitung dari hash
+-- dan bukan dari urutan, ia bertabrakan (±13% peluang per outlet per hari
+-- pada ~50 pesanan). Dibuang; pelanggan menyebut nomor pesanannya.
+--
+-- Efek sampingnya bagus: tanpa CREATE INDEX pada `public.orders`,
+-- migration ini tidak lagi mengunci penulisan di tabel transaksi 19
+-- outlet. Yang tersisa hanya ADD COLUMN berdefault konstan, yang di
+-- Postgres modern bersifat metadata-only.
 
 -- 4. Skema retail --------------------------------------------------------
 CREATE SCHEMA IF NOT EXISTS retail;
@@ -49,7 +57,6 @@ CREATE TABLE IF NOT EXISTS retail.order_drafts (
   subtotal numeric NOT NULL,
   discount_amount numeric NOT NULL DEFAULT 0,
   total_amount numeric NOT NULL,
-  pickup_code text NOT NULL,
   status text NOT NULL DEFAULT 'menunggu_bayar'
     CHECK (status IN ('menunggu_bayar', 'dibayar', 'kadaluarsa', 'gagal')),
   payment_ref text,

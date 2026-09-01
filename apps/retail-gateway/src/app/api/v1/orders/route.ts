@@ -4,7 +4,6 @@ import { createServiceClient, createRetailClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
 import { periksaKeranjang, jumlahWajar } from '@/lib/validateCart'
 import { hitungTotal, type ItemPesanan } from '@/lib/pricing'
-import { buatKodeAmbil } from '@/lib/pickupCode'
 import { buatTagihan } from '@/lib/xendit'
 
 export const dynamic = 'force-dynamic'
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
   // mengembalikan draft yang sudah ada, bukan membuat tagihan baru.
   const { data: sudahAda } = await retail
     .from('order_drafts')
-    .select('id, pickup_code, payment_url, total_amount, expires_at, status')
+    .select('id, payment_url, total_amount, expires_at, status')
     .eq('client_order_id', body.client_order_id)
     .eq('customer_id', sesi.customerId)
     .maybeSingle()
@@ -85,7 +84,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       order_id: sudahAda.id,
-      pickup_code: sudahAda.pickup_code,
       payment_url: sudahAda.payment_url,
       total_amount: sudahAda.total_amount,
       expires_at: sudahAda.expires_at,
@@ -143,7 +141,6 @@ export async function POST(request: Request) {
   }))
 
   const rincian = hitungTotal(itemsTepercaya, DISKON_PILOT_PERSEN)
-  const kodeAmbil = buatKodeAmbil(body.client_order_id)
   const kedaluwarsa = new Date(Date.now() + BATAS_BAYAR_MS)
 
   // URUTAN INI PENTING. Draft dipesan LEBIH DULU, sebelum tagihan dibuat.
@@ -162,7 +159,6 @@ export async function POST(request: Request) {
       subtotal: rincian.subtotal,
       discount_amount: rincian.discountAmount,
       total_amount: rincian.total,
-      pickup_code: kodeAmbil,
       expires_at: kedaluwarsa.toISOString(),
     })
     .select('id')
@@ -173,7 +169,7 @@ export async function POST(request: Request) {
     if ((draftError as { code?: string } | null)?.code === '23505') {
       const { data: pemenang } = await retail
         .from('order_drafts')
-        .select('id, pickup_code, payment_url, total_amount, expires_at')
+        .select('id, payment_url, total_amount, expires_at')
         .eq('client_order_id', body.client_order_id)
         .maybeSingle()
 
@@ -194,7 +190,6 @@ export async function POST(request: Request) {
       if (pemenang) {
         return NextResponse.json({
           order_id: pemenang.id,
-          pickup_code: pemenang.pickup_code,
           payment_url: pemenang.payment_url,
           total_amount: pemenang.total_amount,
           expires_at: pemenang.expires_at,
@@ -266,7 +261,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     order_id: draft.id,
-    pickup_code: kodeAmbil,
     payment_url: tagihan.url,
     total_amount: rincian.total,
     expires_at: kedaluwarsa.toISOString(),

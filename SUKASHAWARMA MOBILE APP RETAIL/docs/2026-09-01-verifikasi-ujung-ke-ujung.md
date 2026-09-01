@@ -8,7 +8,7 @@ login → katalog → validasi → tagihan Xendit → webhook → pesanan di kas
 
 **Aturan pakai:** kerjakan fase berurutan. Setiap langkah punya hasil yang diharapkan. **Kalau hasilnya berbeda, berhenti di situ** — jangan lanjut ke fase berikutnya, karena kegagalan di hulu akan menyamar jadi kegagalan lain di hilir.
 
-**Waktu:** Fase 1-4 sekitar satu jam, **wajib sebelum jam 12:00** saat outlet tutup. Fase 5-6 setelah outlet buka.
+**Waktu:** Fase 1-4 sekitar satu jam. **Disarankan** sebelum jam 12:00 saat outlet tutup, walau tidak lagi wajib — lihat catatan di Fase 1. Fase 5-6 setelah outlet buka.
 
 ---
 
@@ -41,7 +41,9 @@ Periksa di panel Coolify, aplikasi `retail-gateway`: apakah "Automatic Deploymen
 
 ## Fase 1 — Terapkan migration
 
-**Jendela wajib: sebelum jam 12:00, outlet tutup.** `CREATE INDEX` pada `public.orders` mengunci penulisan selama pembangunan indeks; tabel itu memuat seluruh riwayat transaksi 19 outlet.
+**Risiko penguncian sudah hilang.** Versi awal migration ini membuat indeks pada `public.orders`, yang mengunci penulisan di tabel transaksi 19 outlet selama pembangunannya. Indeks itu ikut terbuang saat kode ambil dihapus. Yang tersisa hanya `ADD COLUMN` berdefault konstan, yang di Postgres modern bersifat metadata-only.
+
+Tetap **disarankan** dijalankan saat outlet tutup, tapi bukan lagi syarat.
 
 **1.1 Periksa file akan ter-parse sebelum menyentuh produksi**
 
@@ -73,11 +75,6 @@ Diharapkan: tiga baris
 
 ```bash
 supabase db query "SELECT column_name FROM information_schema.columns WHERE table_name='outlets' AND column_name='app_enabled';" --linked
-```
-Diharapkan: satu baris
-
-```bash
-supabase db query "SELECT column_name FROM information_schema.columns WHERE table_name='orders' AND column_name='pickup_code';" --linked
 ```
 Diharapkan: satu baris
 
@@ -324,9 +321,9 @@ curl -s -X POST "$GW/api/v1/orders" \
   -H "authorization: Bearer $TOKEN" -H "content-type: application/json" \
   -d "{\"client_order_id\":\"$COID\",\"outlet_id\":\"<OUTLET_ID>\",\"items\":[{\"menu_item_id\":\"<MENU_ID>\",\"name\":\"<Nama Menu>\",\"unit_price\":<HARGA>,\"quantity\":1}]}"
 ```
-Diharapkan: `{"order_id":"...","pickup_code":"NNNN","payment_url":"https://checkout.xendit.co/...","total_amount":<HARGA>,"expires_at":"..."}`
+Diharapkan: `{"order_id":"...","payment_url":"https://checkout.xendit.co/...","total_amount":<HARGA>,"expires_at":"..."}`
 
-**Catat `pickup_code` dan `order_id`.**
+**Catat `order_id`.** Belum ada nomor pesanan pada tahap ini — nomor itu ditetapkan trigger saat pesanan masuk kasir, yaitu setelah pembayaran.
 
 **5.4 Uji idempotensi — kirim permintaan yang SAMA persis lagi**
 
@@ -364,7 +361,7 @@ Kalau masih `menunggu_bayar` setelah 1 menit: webhook tidak sampai. Periksa log 
 
 ```bash
 supabase db query "
-SELECT order_number, source, channel, sales_source, status, pickup_code,
+SELECT order_number, source, channel, sales_source, status,
        total_amount, external_order_id, client_order_id
 FROM orders WHERE client_order_id = '$COID';" --linked
 ```
@@ -374,7 +371,6 @@ FROM orders WHERE client_order_id = '$COID';" --linked
 | `order_number` | angka (ditetapkan trigger, bukan kita) |
 | `source`, `channel`, `sales_source` | `app` |
 | `status` | `preparing` |
-| `pickup_code` | sama dengan yang diterima aplikasi di 5.3 |
 | `external_order_id` | **`NULL`** |
 
 > **`external_order_id` WAJIB `NULL`.** Kalau terisi, trigger BOM akan melewati pesanan ini dan stok tidak akan terpotong. Ini perbaikan Critical dari review akhir — langkah ini yang membuktikannya benar-benar mendarat.
@@ -391,7 +387,7 @@ Diharapkan: nama menu apa adanya (dengan `|NOTE|` hanya bila ada catatan), `subt
 
 **6.4 Pesanan muncul di layar kasir**
 
-Buka POS kasir di outlet pilot. Pesanan harus terlihat dengan nomor dari 6.2. Minta kasir mencarinya lewat kode ambil.
+Buka POS kasir di outlet pilot. Pesanan harus terlihat dengan nomor dari 6.2. Minta kasir mencarinya seperti mencari pesanan lain — tidak ada mekanisme pencarian khusus untuk pesanan aplikasi.
 
 **6.5 UJI TERPENTING — stok bahan baku terpotong**
 

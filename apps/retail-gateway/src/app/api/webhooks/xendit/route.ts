@@ -33,7 +33,7 @@ export async function POST(request: Request) {
   const retail = createRetailClient()
   const { data: draft } = await retail
     .from('order_drafts')
-    .select('id, client_order_id, customer_id, outlet_id, items, subtotal, discount_amount, total_amount, pickup_code, status, pos_order_id')
+    .select('id, client_order_id, customer_id, outlet_id, items, subtotal, discount_amount, total_amount, status, pos_order_id')
     .eq('client_order_id', peristiwa.externalId)
     .maybeSingle()
 
@@ -70,7 +70,6 @@ export async function POST(request: Request) {
     subtotal: Number(draft.subtotal),
     discountAmount: Number(draft.discount_amount),
     total: Number(draft.total_amount),
-    pickupCode: draft.pickup_code,
   })
 
   const db = createServiceClient()
@@ -124,21 +123,9 @@ export async function POST(request: Request) {
 
   const posOrder = hasil as { id: string; order_number: number }
 
-  const { error: kodeError } = await db
-    .from('orders')
-    .update({ pickup_code: draft.pickup_code })
-    .eq('id', posOrder.id)
-
-  // Kode ambil gagal tercatat: pesanan tetap masuk dapur, tapi kasir tidak
-  // bisa mencarinya lewat kolom kode. Terdegradasi, bukan fatal — kodenya
-  // masih tertulis di `notes`. Tetap harus terlihat.
-  if (kodeError) {
-    console.error('GAGAL MENCATAT KODE AMBIL', {
-      order_id: posOrder.id,
-      pickup_code: draft.pickup_code,
-      error: kodeError,
-    })
-  }
+  // Tidak ada kode ambil yang perlu dicatat: `order_number` yang dikembalikan
+  // RPC sudah menjadi kode unik pesanan, diisi trigger per outlet dan dipakai
+  // kasir sehari-hari. Pelanggan menyebut nomor itu.
 
   const { error: draftUpdateError } = await retail
     .from('order_drafts')

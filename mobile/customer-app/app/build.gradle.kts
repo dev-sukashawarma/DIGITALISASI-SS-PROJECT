@@ -1,9 +1,20 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
 }
+
+// Base URL Retail Gateway — override via `gatewayBaseUrl=...` di local.properties
+// (tak di-commit) untuk dev lokal. Default menunjuk produksi.
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val gatewayBaseUrl: String =
+    (localProperties.getProperty("gatewayBaseUrl") ?: "https://retail-gateway.sukashawarma.com")
 
 android {
     namespace = "com.sukashawarma.customer"
@@ -17,6 +28,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "GATEWAY_BASE_URL", "\"$gatewayBaseUrl\"")
     }
 
     buildTypes {

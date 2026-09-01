@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PayrollRecord } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export function usePayroll(month: number, year: number) {
   const supabase = createClient()
@@ -82,7 +83,7 @@ export function usePayroll(month: number, year: number) {
       if (error) throw error
       const rawData = (data as unknown as any[]) ?? []
       return rawData
-        .filter((r) => r.outlet_staff?.role !== 'kiosk')
+        .filter((r) => !isTestOrDevStaff(r.outlet_staff))
         .map((r) => ({
           ...r,
           outlet_staff: {

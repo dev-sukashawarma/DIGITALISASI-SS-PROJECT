@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { ShiftRosterItem, ShiftType } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export function useRoster(outletId: string, startDate: string, endDate: string) {
   const supabase = createClient()
@@ -11,14 +12,15 @@ export function useRoster(outletId: string, startDate: string, endDate: string) 
     enabled: !!outletId,
     queryFn: async () => {
       // 1. Fetch staff assigned to this outlet
-      const { data: staffList, error: staffErr } = await supabase
+      const { data: rawStaffList, error: staffErr } = await supabase
         .from('outlet_staff')
-        .select('id, name, role')
+        .select('id, name, role, username')
         .eq('outlet_id', outletId)
         .eq('status', 'active')
 
       if (staffErr) throw staffErr
-      if (!staffList || !staffList.length) return []
+      const staffList = (rawStaffList ?? []).filter((s) => !isTestOrDevStaff(s))
+      if (!staffList.length) return []
 
       // 2. Fetch attendance logs to see existing logged shifts or generated roster items
       const { data: attLogs } = await supabase

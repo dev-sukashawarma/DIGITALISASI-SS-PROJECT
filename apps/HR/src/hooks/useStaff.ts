@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { StaffRow } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export function useStaff() {
   const supabase = createClient()
@@ -58,13 +59,15 @@ export function useStaff() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      const mapped = (data ?? []).map((r: any) => ({
         ...r,
         outlet_ids: (r.staff_outlets ?? []).map((s: any) => s.outlet_id),
         financials: Array.isArray(r.staff_financials)
           ? r.staff_financials[0]
           : (r.staff_financials || null),
       })) as StaffRow[]
+
+      return mapped.filter((s) => !isTestOrDevStaff(s))
     },
   })
 }

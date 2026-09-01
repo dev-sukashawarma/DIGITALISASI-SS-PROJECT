@@ -4,6 +4,8 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { AttendanceLog, AttendanceFilterValues } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
+import { isTestOutlet } from '@/lib/outletFilters'
 
 export function useAttendance(filter: AttendanceFilterValues) {
   const supabase = createClient()
@@ -82,32 +84,38 @@ export function useAttendance(filter: AttendanceFilterValues) {
         }
         const { data: logData, error: logErr } = await logQuery
         if (logErr) throw logErr
-        
-        return (logData ?? []).map(log => ({
-          ...log,
-          photo_url: log.stealth_photo_in_url
-            ? (log.stealth_photo_in_url.startsWith('http') ? log.stealth_photo_in_url : supabase.storage.from('selfies').getPublicUrl(log.stealth_photo_in_url).data.publicUrl)
-            : null,
-          clock_out_photo_url: log.stealth_photo_out_url
-            ? (log.stealth_photo_out_url.startsWith('http') ? log.stealth_photo_out_url : supabase.storage.from('selfies').getPublicUrl(log.stealth_photo_out_url).data.publicUrl)
-            : null
-        })) as AttendanceLog[]
+
+        return (logData ?? [])
+          .map((log: any) => ({
+            ...log,
+            photo_url: log.stealth_photo_in_url
+              ? (log.stealth_photo_in_url.startsWith('http')
+                  ? log.stealth_photo_in_url
+                  : supabase.storage.from('selfies').getPublicUrl(log.stealth_photo_in_url).data.publicUrl)
+              : null,
+            clock_out_photo_url: log.stealth_photo_out_url
+              ? (log.stealth_photo_out_url.startsWith('http')
+                  ? log.stealth_photo_out_url
+                  : supabase.storage.from('selfies').getPublicUrl(log.stealth_photo_out_url).data.publicUrl)
+              : null,
+          }))
+          .filter((r: any) => !isTestOrDevStaff(r.outlet_staff) && !isTestOutlet(r.outlets)) as AttendanceLog[]
       }
 
       // Fetch outlet_staff separately because of missing foreign key relationship
       if (rawRows.length > 0) {
-        const staffIds = Array.from(new Set(rawRows.map(r => r.outlet_staff_id).filter(Boolean)))
+        const staffIds = Array.from(new Set(rawRows.map((r) => r.outlet_staff_id).filter(Boolean)))
         if (staffIds.length > 0) {
           const { data: staffs } = await supabase
             .from('outlet_staff')
             .select('id, name, role, username')
             .in('id', staffIds)
-          
+
           if (staffs) {
-            const staffMap = new Map(staffs.map(s => [s.id, s]))
-            rawRows = rawRows.map(r => ({
+            const staffMap = new Map(staffs.map((s) => [s.id, s]))
+            rawRows = rawRows.map((r) => ({
               ...r,
-              outlet_staff: staffMap.get(r.outlet_staff_id) || null
+              outlet_staff: staffMap.get(r.outlet_staff_id) || null,
             }))
           }
         }
@@ -169,7 +177,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
         }
       }
 
-      let result = Array.from(grouped.values())
+      let result = Array.from(grouped.values()).filter(
+        (r) => !isTestOrDevStaff(r.outlet_staff) && !isTestOutlet(r.outlets)
+      )
 
       if (filter.status && filter.status !== 'all') {
         result = result.filter((r) => r.status === filter.status)

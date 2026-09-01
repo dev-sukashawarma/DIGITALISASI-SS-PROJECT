@@ -78,3 +78,17 @@ ALTER TABLE retail.order_drafts ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON SCHEMA retail FROM anon, authenticated;
 REVOKE ALL ON ALL TABLES IN SCHEMA retail FROM anon, authenticated;
+
+-- Gateway berbicara ke skema ini lewat PostgREST dengan service_role.
+-- Skema baru TIDAK otomatis memberi hak apa pun: tanpa blok ini, setiap
+-- panggilan ke tabel retail gagal dan seluruh produk mati.
+GRANT USAGE ON SCHEMA retail TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA retail TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA retail TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail
+  GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail
+  GRANT ALL ON SEQUENCES TO service_role;
+
+-- Minta PostgREST memuat ulang cache skemanya.
+NOTIFY pgrst, 'reload schema';

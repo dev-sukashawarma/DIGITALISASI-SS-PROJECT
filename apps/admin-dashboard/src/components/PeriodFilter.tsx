@@ -156,8 +156,7 @@ export function PeriodFilter({
 
   return (
     <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5 sm:gap-3 sm:items-center w-full 2xl:w-auto justify-end">
-      {/* 1. Date Range Presets (Segmented control) — stack on mobile, inline on desktop */}
-      <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto overflow-x-auto no-scrollbar sm:flex-nowrap">
+      <div className="bg-white/60 backdrop-blur-xl p-1 sm:p-1.5 rounded-xl sm:rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-wrap items-stretch gap-0.5 sm:gap-1 text-[11px] sm:text-xs font-bold w-full sm:w-auto">
         {(['kemarin', 'today', '7d', '30d', 'this_month'] as const).map((pOrKemarin) => {
           const p = pOrKemarin === 'kemarin' ? 'yesterday' : pOrKemarin;
           const isActive = currentPreset === p

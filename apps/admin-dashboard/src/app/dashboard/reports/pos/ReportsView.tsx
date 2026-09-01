@@ -812,13 +812,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const netRevenue = actualNetRevenue
 
     // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
-    const grossRevenue = isSSOnlineSelected
-      ? completed.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
-      : completed.reduce((sum, o) => {
-          const itemSubtotal = o.order_items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-          const diff = itemSubtotal > 0 && Number(o.total_amount) > itemSubtotal ? (Number(o.total_amount) - itemSubtotal) : 0
-          return sum + (itemSubtotal > 0 ? (itemSubtotal + diff) : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
-        }, 0)
+    const grossRevenue = actualNetRevenue + totalDeductions
     const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
     let totalSettlement = 0

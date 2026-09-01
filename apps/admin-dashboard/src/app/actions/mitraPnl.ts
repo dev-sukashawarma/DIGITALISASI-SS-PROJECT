@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -142,7 +143,11 @@ export async function getMitraComprehensivePnl(
   const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
 
   // 3. Fetch Orders (Paginated)
-  let ordersQ = supabase
+  // Query dibangun ulang tiap halaman lewat fungsi ini — builder Supabase
+  // bersifat mutable, memakai ulang instance yang sama untuk beberapa `.range()`
+  // rapuh. `.order('id')` WAJIB: tanpa urutan deterministik, paginasi bisa
+  // melewatkan atau menggandakan baris antar-halaman.
+  const buildOrdersQuery = () => supabase
     .from('orders')
     .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
     .in('outlet_id', targetOutletIds)
@@ -150,6 +155,7 @@ export async function getMitraComprehensivePnl(
     .eq('status', 'completed')
     .gte('created_at', fromStart.toISOString())
     .lte('created_at', toEnd.toISOString())
+    .order('id', { ascending: true })
 
   // 4. Fetch Petty Cash & Monthly Expenses & Waste in parallel
   const [
@@ -170,7 +176,11 @@ export async function getMitraComprehensivePnl(
       .select('id, amount, expense_date, category, description, outlet_id, type')
       .in('outlet_id', targetOutletIds)
       .neq('outlet_id', TEST_OUTLET_ID)
-      .eq('type', 'out')
+      // Sebelumnya `.eq('type','out')` — tipe yang tidak pernah dipakai
+      // pengeluaran sungguhan (hanya 13 baris tes yang kini sudah dihapus).
+      // Akibatnya pengeluaran bulanan mitra tidak pernah ikut terhitung.
+      // Pengeluaran nyata bertipe 'expense'.
+      .eq('type', 'expense')
       .gte('expense_date', filter.from)
       .lte('expense_date', filter.to),
     supabase.rpc('get_waste_periode', {
@@ -277,20 +287,10 @@ export async function getMitraComprehensivePnl(
       return baseHpp
     }
 
-    const PAGE_SIZE = 1000
-    const allOrders: any[] = []
-    let offset = 0
-    while (true) {
-      const { data: page, error } = await ordersQ.range(offset, offset + PAGE_SIZE - 1)
-      if (error) {
-        console.error('Error fetching mitra orders:', error)
-        break
-      }
-      if (!page || page.length === 0) break
-      allOrders.push(...page)
-      if (page.length < PAGE_SIZE) break
-      offset += PAGE_SIZE
-    }
+    // Error saat paginasi TIDAK boleh ditelan: sebelumnya `break` diam-diam
+    // membuat data separuh dipakai seolah lengkap, sehingga laba mitra
+    // dilaporkan terlalu kecil tanpa gejala apa pun.
+    const allOrders = await fetchAllPages<any>(buildOrdersQuery)
 
     for (const ord of allOrders) {
       const totalAmt = Number(ord.total_amount) || 0

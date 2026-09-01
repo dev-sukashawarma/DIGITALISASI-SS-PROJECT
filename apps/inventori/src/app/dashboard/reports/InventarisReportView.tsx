@@ -124,7 +124,7 @@ export default function InventarisReportView({ outletId }: { outletId?: string }
         </div>
       </div>
     </header>
-    <div className={`mx-auto grid w-full gap-5 px-4 pt-6 md:grid-cols-[230px_minmax(0,1fr)] sm:px-8 ${outletId ? 'max-w-[1600px]' : 'max-w-[1280px]'}`}>
+    <div className={`mx-auto grid w-full gap-5 px-4 pt-6 lg:grid-cols-[260px_minmax(0,1fr)] sm:px-8 ${outletId ? 'max-w-[1600px]' : 'max-w-[1280px]'}`}>
       <AdminInventoryNavigation active="reports" />
       <div className="min-w-0 space-y-5">
       <section className="rounded-3xl bg-[#701604] p-5 text-white shadow-lg sm:p-7"><p className="text-sm text-orange-100">Halo, {outletStaff?.name ?? 'Admin'}</p><h2 className="mt-1 text-2xl font-extrabold">{outletId ? `Laporan ${selectedOutletName}` : 'Pusat laporan inventaris'}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-orange-100">{outletId ? 'Kelola dan periksa detail laporan inventaris outlet dalam format tabel.' : 'Pilih outlet untuk melihat laporan inventaris secara lengkap.'}</p></section>

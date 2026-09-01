@@ -90,15 +90,25 @@ async function fetchEcommerceOwnerData(
   let offset = 0
   const PAGE_SIZE = 1000
 
-  let query = supabase
+  // `order_date` disimpan sebagai tengah malam tiap hari, jadi 1.377 baris hanya
+  // punya ~30 timestamp unik (sampai 75 baris kembar dalam satu hari). Mengurut
+  // hanya dengan kolom itu membuat paginasi tidak deterministik: tiap halaman
+  // adalah query terpisah, dan urutan di dalam kelompok kembar bisa berbeda
+  // antar-query, sehingga sebagian baris terhitung dua kali dan sebagian
+  // terlewat. `id` unik dipakai sebagai pemecah seri.
+  //
+  // Query juga dibangun ulang tiap halaman — builder Supabase bersifat mutable,
+  // memakai ulang satu instance untuk beberapa `.range()` rapuh.
+  const buildEcommerceQuery = () => supabase
     .from('ecommerce_sales')
     .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
     .gte('order_date', fromIso)
     .lte('order_date', toIso)
     .order('order_date', { ascending: true })
+    .order('id', { ascending: true })
 
   while (true) {
-    const { data: page, error } = await query.range(offset, offset + PAGE_SIZE - 1)
+    const { data: page, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
     if (error) {
       console.error('fetchEcommerceOwnerData error:', error)
       break

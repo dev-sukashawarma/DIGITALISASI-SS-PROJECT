@@ -82,12 +82,21 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         const ecommerceSalesList: any[] = []
 
         while (true) {
+          // `order_date` bukan pengurut yang aman untuk paginasi: nilainya
+          // disimpan sebagai tengah malam tiap hari, sehingga 1.377 baris hanya
+          // punya ~30 timestamp unik (satu hari bisa memuat 75 baris kembar).
+          // Tiap halaman adalah query terpisah, dan urutan baris di dalam
+          // kelompok kembar tidak dijamin sama antar-query — akibatnya sebagian
+          // baris terhitung dua kali dan sebagian terlewat, membuat omzet
+          // berubah-ubah antar-refresh. `id` unik dipakai sebagai pemecah seri
+          // agar urutannya deterministik.
           const { data: page, error: ecommerceError } = await supabase
             .from('ecommerce_sales')
             .select('id, channel_id, order_date, total_amount, raw_data')
             .gte('order_date', fromIso)
             .lte('order_date', toIso)
             .order('order_date', { ascending: true })
+            .order('id', { ascending: true })
             .range(offset, offset + PAGE_SIZE - 1)
 
           if (ecommerceError) {

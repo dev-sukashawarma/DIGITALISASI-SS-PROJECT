@@ -27,8 +27,16 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
           .neq('outlet_id', TEST_OUTLET_ID)
           .gte('sales_date', filter.from)
           .lte('sales_date', filter.to)
+          // Urutan HARUS unik. Grain view ini adalah (outlet_id, sales_source,
+          // sales_date) -- mengurut hanya dengan (sales_date, outlet_id)
+          // menyisakan sampai 6 baris kembar (satu per sales_source), dan batas
+          // halaman jatuh tepat di tengah kelompok kembar itu. Karena tiap
+          // halaman adalah query terpisah, baris di dalam kelompok kembar bisa
+          // terhitung dua kali atau terlewat. Ketiga kolom bersama-sama unik
+          // (2.081 baris = 2.081 kombinasi).
           .order('sales_date', { ascending: true })
           .order('outlet_id', { ascending: true })
+          .order('sales_source', { ascending: true })
 
         if (filter.outletId !== 'all') b = b.eq('outlet_id', filter.outletId)
         if (filter.source !== 'all') b = b.eq('sales_source', filter.source)

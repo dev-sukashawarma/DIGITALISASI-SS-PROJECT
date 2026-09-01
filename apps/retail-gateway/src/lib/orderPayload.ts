@@ -37,7 +37,14 @@ export function susunPayloadPos(input: {
     source: 'app',
     channel: 'app',
     sales_source: 'app',
-    external_order_id: input.clientOrderId,
+    // `external_order_id` SENGAJA TIDAK DIISI. Trigger BOM punya penjaga
+    // `IF NEW.external_order_id IS NOT NULL THEN RETURN NEW` (tiga migration:
+    // 20260725000000, 20300103000008, 20300103000010) untuk melewati impor
+    // historis Pawoon. Mengisinya di sini membuat SETIAP pesanan aplikasi
+    // dilewati trigger, sehingga stok bahan baku tidak pernah terpotong —
+    // uang masuk, makanan keluar, sistem tidak tahu. Idempotensi tidak
+    // membutuhkannya: `orders.client_order_id` sudah berkendala UNIQUE dan
+    // itulah yang dipakai jalur 23505 di webhook.
     created_at: sekarang,
     updated_at: sekarang,
   }

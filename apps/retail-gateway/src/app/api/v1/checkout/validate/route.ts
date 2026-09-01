@@ -59,7 +59,13 @@ export async function POST(request: Request) {
 
   // Ketersediaan & harga SELALU dibaca segar di titik ini, tidak dari cache.
   // `true` hanya melewati cache outlet ini -- jangan buang cache outlet lain.
-  const katalog = await ambilKatalog(body.outlet_id, true)
+  let katalog
+  try {
+    katalog = await ambilKatalog(body.outlet_id, true)
+  } catch (e) {
+    console.error('gagal memuat katalog segar', e)
+    return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
+  }
   const masalah = periksaKeranjang(body.items, katalog)
 
   if (masalah.length > 0) {

@@ -52,6 +52,7 @@ export async function POST(request: Request) {
     .from('order_drafts')
     .select('id, pickup_code, payment_url, total_amount, expires_at, status')
     .eq('client_order_id', body.client_order_id)
+    .eq('customer_id', sesi.customerId)
     .maybeSingle()
 
   if (sudahAda) {
@@ -115,13 +116,33 @@ export async function POST(request: Request) {
   }
 
   // Pemeriksaan terakhir sebelum tagihan dibuat, langsung ke produksi.
-  const katalog = await ambilKatalog(body.outlet_id, true)
+  let katalog
+  try {
+    katalog = await ambilKatalog(body.outlet_id, true)
+  } catch (e) {
+    console.error('gagal memuat katalog segar', e)
+    return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
+  }
   const masalah = periksaKeranjang(body.items, katalog)
   if (masalah.length > 0) {
     return NextResponse.json({ error: 'keranjang_berubah', masalah }, { status: 409 })
   }
 
-  const rincian = hitungTotal(body.items, DISKON_PILOT_PERSEN)
+  // Nama item diambil dari KATALOG, bukan dari klien. `periksaKeranjang`
+  // hanya mencocokkan id, ketersediaan, dan harga — nama tidak pernah
+  // dibandingkan. Nama dari klien berakhir di `nama|NOTE|catatan` yang dibaca
+  // struk dapur, jadi nama karangan (atau yang memuat `|NOTE|` sendiri) bisa
+  // merusak cetakan dapur.
+  const petaMenu = new Map(katalog.map((m) => [m.id, m]))
+  const itemsTepercaya: ItemPesanan[] = body.items.map((it) => ({
+    menu_item_id: it.menu_item_id,
+    name: petaMenu.get(it.menu_item_id)?.name ?? it.name,
+    unit_price: it.unit_price,
+    quantity: it.quantity,
+    note: it.note ? String(it.note).slice(0, 200).replace(/\|NOTE\|/g, ' ') : undefined,
+  }))
+
+  const rincian = hitungTotal(itemsTepercaya, DISKON_PILOT_PERSEN)
   const kodeAmbil = buatKodeAmbil(body.client_order_id)
   const kedaluwarsa = new Date(Date.now() + BATAS_BAYAR_MS)
 
@@ -137,7 +158,7 @@ export async function POST(request: Request) {
       client_order_id: body.client_order_id,
       customer_id: sesi.customerId,
       outlet_id: body.outlet_id,
-      items: body.items,
+      items: itemsTepercaya,
       subtotal: rincian.subtotal,
       discount_amount: rincian.discountAmount,
       total_amount: rincian.total,
@@ -159,8 +180,13 @@ export async function POST(request: Request) {
       // Pemenang mungkin belum selesai membuat tagihannya. Jangan kembalikan
       // payment_url kosong -- suruh aplikasi mencoba lagi sebentar lagi.
       if (pemenang && !pemenang.payment_url) {
+        // Bentuk balasan SAMA dengan jalur pemeriksaan awal. Aplikasi Android
+        // mencocokkan kode mesin `error`, bukan kalimatnya.
         return NextResponse.json(
-          { error: 'Pesanan sedang diproses, coba lagi sebentar' },
+          {
+            error: 'pesanan_sedang_diproses',
+            pesan: 'Pesanan sedang diproses, coba lagi sebentar.',
+          },
           { status: 409 }
         )
       }
@@ -199,7 +225,16 @@ export async function POST(request: Request) {
     // Draft sudah terlanjur ada. Tandai gagal supaya tidak menggantung sebagai
     // `menunggu_bayar` yang tak akan pernah bisa dibayar, dan supaya percobaan
     // ulang dengan client_order_id yang sama tidak tersandung draft mati ini.
-    await retail.from('order_drafts').update({ status: 'gagal' }).eq('id', draft.id)
+    const { error: tandaiGagalError } = await retail
+      .from('order_drafts')
+      .update({ status: 'gagal' })
+      .eq('id', draft.id)
+    if (tandaiGagalError) {
+      console.error('GAGAL MENANDAI DRAFT GAGAL', {
+        client_order_id: body.client_order_id,
+        error: tandaiGagalError,
+      })
+    }
     return NextResponse.json({ error: 'Gagal membuat tagihan pembayaran' }, { status: 502 })
   }
 

@@ -1,5 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 import type { OfficeVoucher } from '@/lib/officeVoucher'
 import { LOGO_BASE64 } from '@/utils/logoBase64'
 
@@ -20,7 +18,9 @@ function angkaTerbilang(angka: number): string {
   return 'Rp ' + angka.toLocaleString('id-ID')
 }
 
-export function generateVoucherPDF(voucher: OfficeVoucher): void {
+export async function generateVoucherPDF(voucher: OfficeVoucher): Promise<void> {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',

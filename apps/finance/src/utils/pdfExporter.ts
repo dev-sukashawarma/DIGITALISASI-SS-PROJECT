@@ -1,6 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
 const loadImage = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -50,6 +47,8 @@ const formatRupiah = (amount: number): string => {
 }
 
 export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData): Promise<void> => {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
@@ -213,6 +212,8 @@ export const generateExecutiveItemReportPDF = async (data: ExecutiveReportData):
 }
 
 export const generateCategorizedReportPDF = async (data: CategorizedReportData): Promise<void> => {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',

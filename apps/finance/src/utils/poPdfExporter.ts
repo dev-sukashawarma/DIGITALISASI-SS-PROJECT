@@ -1,6 +1,3 @@
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
-
 export interface POPDFData {
   id: string
   nomor_po: string
@@ -66,6 +63,8 @@ export function terbilang(n: number): string {
 }
 
 export async function generatePurchaseOrderPDF(po: POPDFData) {
+  const { jsPDF } = await import('jspdf')
+  const autoTable = (await import('jspdf-autotable')).default
   const doc = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',

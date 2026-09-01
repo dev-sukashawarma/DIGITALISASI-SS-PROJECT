@@ -7,8 +7,6 @@ import { Button, Spinner } from '@suka/design-system'
 import { SectionCard, StatCard, TxStatusBadge } from '@/components/ui'
 import { useCashDepositHistory, useShiftDepositHistory, useOutlets } from '@/hooks/useCashDeposit'
 import { rupiah, tanggalWaktu } from '@/lib/format'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 type TabType = 'shift_pos' | 'kas_pusat'
 
@@ -131,7 +129,9 @@ export function HistoryView() {
     }
   }
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
+    const { jsPDF } = await import('jspdf')
+    const autoTable = (await import('jspdf-autotable')).default
     const fileSuffix = startDate && endDate ? `${startDate}_sd_${endDate}` : 'semua'
     const doc = new jsPDF({
       orientation: 'landscape',

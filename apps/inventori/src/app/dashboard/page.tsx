@@ -380,6 +380,8 @@ function scoresFromSubmission(submission: ExistingSubmission | null) {
 
 export default function InventoryDashboardPage() {
   const { outletStaff, loading: authLoading, signOut } = useAuth()
+  const userRole = String(outletStaff?.role ?? '').trim().toLowerCase()
+  const isAdmin = userRole === 'admin'
   const supabase = useMemo(() => createClient(), [])
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [items, setItems] = useState<MasterItem[]>([])
@@ -417,6 +419,10 @@ export default function InventoryDashboardPage() {
       document.removeEventListener('keydown', handleEscape)
     }
   }, [sessionMenuOpen])
+
+  useEffect(() => {
+    if (!authLoading && isAdmin) router.replace('/dashboard/reports')
+  }, [authLoading, isAdmin, router])
 
   useEffect(() => {
     draftReadyRef.current = false
@@ -609,8 +615,8 @@ export default function InventoryDashboardPage() {
     }
   }
 
-  if (authLoading || loading) return <main className="grid min-h-screen place-items-center p-6 text-slate-500">Memuat inventaris...</main>
-  if (!outletStaff || !['area_manager', 'admin', 'owner'].includes(outletStaff.role)) {
+  if (authLoading || loading || isAdmin) return <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6 text-slate-500">Membuka dashboard admin...</main>
+  if (!outletStaff || !['area_manager', 'admin', 'owner'].includes(userRole)) {
     return <main className="grid min-h-screen place-items-center p-6 text-center"><div><h1 className="text-xl font-bold text-[#400a07]">Akses tidak tersedia</h1><p className="mt-2 text-sm text-slate-500">Aplikasi ini hanya dapat digunakan oleh Area Manager.</p></div></main>
   }
 
@@ -622,7 +628,7 @@ export default function InventoryDashboardPage() {
           <div ref={sessionMenuRef} className="relative">
             <button type="button" aria-haspopup="menu" aria-expanded={sessionMenuOpen} onClick={() => setSessionMenuOpen((current) => !current)} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition hover:bg-slate-50 focus:border-[#f29744] focus:ring-2 focus:ring-orange-100"><LogOut size={16} /> Menu <ChevronDown size={16} className={`transition-transform ${sessionMenuOpen ? 'rotate-180' : ''}`} /></button>
             {sessionMenuOpen && <div role="menu" className="absolute right-0 top-[calc(100%+8px)] z-50 w-52 rounded-2xl border border-orange-100 bg-white p-1.5 shadow-xl shadow-orange-950/10">
-              {outletStaff?.role === 'admin' && <button type="button" role="menuitem" onClick={() => { setSessionMenuOpen(false); router.push('/dashboard/reports') }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-[#701604]"><ClipboardList size={16} className="text-[#f29744]" /> Laporan inventaris</button>}
+              {isAdmin && <button type="button" role="menuitem" onClick={() => { setSessionMenuOpen(false); router.push('/dashboard/reports') }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-[#701604]"><ClipboardList size={16} className="text-[#f29744]" /> Laporan inventaris</button>}
               <button type="button" role="menuitem" onClick={() => { setSessionMenuOpen(false); window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com' }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-[#701604]"><ExternalLink size={16} className="text-[#f29744]" /> Kembali ke portal</button>
               <button type="button" role="menuitem" onClick={() => { setSessionMenuOpen(false); void signOut() }} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold text-red-700 transition hover:bg-red-50"><LogOut size={16} /> Keluar dari akun</button>
             </div>}

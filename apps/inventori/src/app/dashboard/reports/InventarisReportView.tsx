@@ -110,8 +110,11 @@ export default function InventarisReportView({ outletId }: { outletId?: string }
   const selectedOutlet = data.find((submission) => submission.outletId === outletId)
   const selectedOutletName = selectedOutlet?.outletName ?? allOutlets.find((outlet) => outlet.id === outletId)?.name ?? 'outlet'
 
-  return <main className="min-h-screen bg-[#fffaf5] pb-24 text-suka-ink md:pb-12">
-    <header className="border-b border-orange-100 bg-white px-4 py-4 shadow-sm sm:px-8">
+  return <main className="min-h-screen bg-[#4A1713] pb-24 text-suka-ink md:pb-12">
+    <div className="flex min-h-screen flex-col lg:flex-row">
+    <AdminInventoryNavigation active="reports" />
+    <div className="min-w-0 flex-1 bg-[#fffaf5] lg:rounded-l-[2.5rem]">
+    <header className="border-b border-orange-100 bg-white px-4 py-4 shadow-sm sm:px-8 lg:rounded-tl-[2.5rem]">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
         <div className="flex items-center gap-3"><span className="grid h-11 w-11 place-items-center rounded-2xl bg-[#701604] text-white"><ClipboardCheck size={23} /></span><div><p className="text-xs font-bold uppercase tracking-[0.18em] text-[#f29744]">SUKASHAWARMA</p><h1 className="text-xl font-extrabold text-[#400a07]">Inventaris Outlet</h1></div></div>
         <div ref={sessionMenuRef} className="relative">
@@ -124,9 +127,7 @@ export default function InventarisReportView({ outletId }: { outletId?: string }
         </div>
       </div>
     </header>
-    <div className={`mx-auto grid w-full gap-5 px-4 pt-6 lg:grid-cols-[260px_minmax(0,1fr)] sm:px-8 ${outletId ? 'max-w-[1600px]' : 'max-w-[1280px]'}`}>
-      <AdminInventoryNavigation active="reports" />
-      <div className="min-w-0 space-y-5">
+    <div className={`mx-auto w-full space-y-5 px-4 pt-6 sm:px-8 ${outletId ? 'max-w-[1600px]' : 'max-w-[1280px]'}`}>
       <section className="rounded-3xl bg-[#701604] p-5 text-white shadow-lg sm:p-7"><p className="text-sm text-orange-100">Halo, {outletStaff?.name ?? 'Admin'}</p><h2 className="mt-1 text-2xl font-extrabold">{outletId ? `Laporan ${selectedOutletName}` : 'Pusat laporan inventaris'}</h2><p className="mt-2 max-w-2xl text-sm leading-6 text-orange-100">{outletId ? 'Kelola dan periksa detail laporan inventaris outlet dalam format tabel.' : 'Pilih outlet untuk melihat laporan inventaris secara lengkap.'}</p></section>
       <button type="button" onClick={() => router.push(outletId ? '/dashboard/reports' : '/dashboard')} className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-2 text-sm font-bold text-[#701604] shadow-sm"><ArrowLeft className="h-4 w-4" /> {outletId ? 'Kembali ke daftar outlet' : 'Kembali ke dashboard'}</button>
       {loading ? <div className="grid gap-4 md:grid-cols-3"><div className="h-28 animate-pulse rounded-3xl bg-white" /><div className="h-28 animate-pulse rounded-3xl bg-white" /><div className="h-28 animate-pulse rounded-3xl bg-white" /></div> : error ? <div className="rounded-3xl border border-rose-200 bg-rose-50 p-8 text-center text-rose-700"><AlertCircle className="mx-auto mb-3" /><b>Gagal memuat laporan</b><p className="mt-1 text-sm">{error}</p></div> : <>
@@ -144,18 +145,26 @@ export default function InventarisReportView({ outletId }: { outletId?: string }
         <ReportTable submissions={visible} filter={filter} onPhoto={setPhoto} />
         </>}
       </>}
-      </div>
     </div>
     {photo && <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4" onClick={() => setPhoto(null)}><div className="relative max-h-full max-w-3xl rounded-3xl bg-white p-2" onClick={(event) => event.stopPropagation()}><button type="button" className="absolute right-4 top-4 rounded-full bg-black/60 p-2 text-white" onClick={() => setPhoto(null)}><X className="h-5 w-5" /></button><img src={photo.url} alt={`Foto ${photo.name}`} className="max-h-[78vh] max-w-full rounded-2xl object-contain" /><p className="p-2 text-center text-sm font-bold">{photo.name}</p></div></div>}
+    </div>
+    </div>
   </main>
 }
 
 function OutletCards({ data, outlets, query, onQueryChange, onOpen }: { data: Submission[]; outlets: OutletOption[]; query: string; onQueryChange: (value: string) => void; onOpen: (id: string) => void }) {
   return <section className="space-y-4">
     <div className="rounded-3xl border border-suka-brown/10 bg-white p-4 shadow-sm sm:p-5"><div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_280px]"><label className="relative block"><span className="sr-only">Cari outlet</span><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-suka-ink/40" /><input value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder="Cari outlet atau Area Manager..." className="w-full rounded-xl border border-suka-brown/15 bg-white py-3 pl-10 pr-3 text-sm outline-none transition focus:border-suka-orange focus:ring-2 focus:ring-orange-100" /></label><OutletSwitcher data={outlets} onOpen={onOpen} /></div></div>
-    <div className="grid gap-4 sm:grid-cols-2">{data.map((submission) => { const recorded = submission.items.length > 0; return <button key={submission.outletId} type="button" onClick={() => onOpen(submission.outletId)} className="group rounded-3xl border border-orange-100 bg-white p-5 text-left shadow-sm transition hover:-translate-y-1 hover:border-suka-orange/50 hover:shadow-lg hover:shadow-orange-950/10 focus:outline-none focus:ring-2 focus:ring-suka-orange/40"><div className="flex items-start justify-between gap-4"><span className={`grid h-12 w-12 place-items-center rounded-2xl transition ${recorded ? 'bg-suka-cream text-suka-brown group-hover:bg-suka-brown group-hover:text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-slate-700 group-hover:text-white'}`}>{recorded ? <ClipboardCheck className="h-6 w-6" /> : <ClipboardX className="h-6 w-6" />}</span><span className={`rounded-full px-3 py-1 text-xs font-bold ${recorded ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{recorded ? `${submission.items.length} item` : 'Belum dicatat'}</span></div><h3 className="mt-5 text-lg font-extrabold text-suka-brown">{submission.outletName}</h3><p className={`mt-1 text-sm ${recorded ? 'text-suka-ink/60' : 'font-semibold text-slate-500'}`}>{recorded ? `Laporan terakhir oleh ${submission.submittedBy}` : 'Belum ada pencatatan inventaris'}</p><div className="mt-5 flex items-center justify-between border-t border-orange-100 pt-4 text-xs font-bold text-suka-orange"><span>{recorded ? 'Buka laporan inventori' : 'Mulai pencatatan'}</span><ArrowLeft className="h-4 w-4 rotate-180 transition group-hover:translate-x-1" /></div></button> })}{data.length === 0 && <div className="sm:col-span-2 rounded-3xl border border-dashed border-orange-200 bg-white p-12 text-center text-sm text-suka-ink/60">Outlet tidak ditemukan.</div>}</div>
+    <div className="grid gap-4 sm:grid-cols-2">{data.map((submission, index) => { const recorded = submission.items.length > 0; const tone = cardTones[index % cardTones.length]; return <button key={submission.outletId} type="button" onClick={() => onOpen(submission.outletId)} className={`group relative min-h-[245px] overflow-hidden rounded-[1.75rem] border p-5 text-left shadow-lg transition hover:-translate-y-1 hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-orange-200 ${tone.card}`}><span className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full border border-white/15" /><span className="pointer-events-none absolute -bottom-24 -left-10 h-44 w-44 rounded-full bg-white/10" /><div className="relative flex h-full flex-col"><div className="flex items-start justify-between gap-4"><span className={`grid h-12 w-12 place-items-center rounded-2xl ${tone.icon}`}>{recorded ? <ClipboardCheck className="h-6 w-6" /> : <ClipboardX className="h-6 w-6" />}</span><span className={`rounded-full px-3 py-1 text-xs font-black ${tone.chip}`}>{recorded ? `${submission.items.length} item` : 'Belum dicatat'}</span></div><div className="mt-auto pt-10"><p className={`text-[10px] font-black uppercase tracking-[0.18em] ${tone.eyebrow}`}>{recorded ? 'Laporan terbaru' : 'Menunggu pencatatan'}</p><h3 className="mt-2 text-xl font-black leading-tight">{submission.outletName}</h3><p className={`mt-2 text-sm ${tone.muted}`}>{recorded ? `Laporan terakhir oleh ${submission.submittedBy}` : 'Belum ada pencatatan inventaris'}</p></div><div className={`mt-5 flex items-center justify-between border-t pt-4 text-xs font-black ${tone.footer}`}><span>{recorded ? 'Buka laporan inventori' : 'Mulai pencatatan'}</span><ArrowLeft className="h-4 w-4 rotate-180 transition group-hover:translate-x-1" /></div></div></button> })}{data.length === 0 && <div className="sm:col-span-2 rounded-3xl border border-dashed border-orange-200 bg-white p-12 text-center text-sm text-suka-ink/60">Outlet tidak ditemukan.</div>}</div>
   </section>
 }
+
+const cardTones = [
+  { card: 'border-[#701604] bg-[#701604] text-white', icon: 'bg-white/15 text-[#ffd4a8]', chip: 'bg-white/15 text-white', eyebrow: 'text-orange-200', muted: 'text-orange-100', footer: 'border-white/20 text-orange-100' },
+  { card: 'border-[#f29744] bg-[#f29744] text-[#400a07]', icon: 'bg-white/35 text-[#701604]', chip: 'bg-white/55 text-[#701604]', eyebrow: 'text-[#701604]/70', muted: 'text-[#4A1713]/75', footer: 'border-[#701604]/20 text-[#701604]' },
+  { card: 'border-[#283c35] bg-[#283c35] text-white', icon: 'bg-white/15 text-[#f7c58b]', chip: 'bg-[#f7c58b] text-[#283c35]', eyebrow: 'text-[#f7c58b]', muted: 'text-white/70', footer: 'border-white/20 text-[#f7c58b]' },
+  { card: 'border-[#a65e44] bg-[#a65e44] text-white', icon: 'bg-white/15 text-white', chip: 'bg-white/20 text-white', eyebrow: 'text-orange-100', muted: 'text-white/75', footer: 'border-white/20 text-white' },
+]
 
 function EmptyOutletState({ outletName }: { outletName: string }) {
   return <section className="rounded-3xl border border-dashed border-suka-brown/15 bg-white px-6 py-16 text-center shadow-sm"><span className="mx-auto grid h-20 w-20 place-items-center rounded-[1.75rem] bg-slate-100 text-slate-400"><ClipboardX className="h-10 w-10" /></span><h2 className="mt-6 text-xl font-extrabold text-suka-brown">Belum ada laporan inventaris</h2><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-suka-ink/60">Outlet <b>{outletName}</b> belum melakukan pencatatan inventaris. Data akan muncul di sini setelah pemeriksaan disimpan.</p></section>

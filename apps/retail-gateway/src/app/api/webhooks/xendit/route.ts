@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         .eq('client_order_id', draft.client_order_id)
         .maybeSingle()
       if (pemenang) {
-        await retail
+        const { error: sinkronError } = await retail
           .from('order_drafts')
           .update({
             status: 'dibayar',
@@ -97,6 +97,18 @@ export async function POST(request: Request) {
             pos_order_number: pemenang.order_number,
           })
           .eq('id', draft.id)
+
+        // Sama seperti jalur utama: kalau draft gagal diselaraskan, balas 500
+        // supaya Xendit mengirim ulang dan percobaan berikutnya mencobanya lagi.
+        if (sinkronError) {
+          console.error('GAGAL MENYELARASKAN DRAFT DENGAN PESANAN PEMENANG', {
+            client_order_id: draft.client_order_id,
+            pos_order_id: pemenang.id,
+            error: sinkronError,
+          })
+          return NextResponse.json({ error: 'Gagal menyelesaikan pesanan' }, { status: 500 })
+        }
+
         return NextResponse.json({ ok: true, duplicate: true })
       }
     }
@@ -112,12 +124,23 @@ export async function POST(request: Request) {
 
   const posOrder = hasil as { id: string; order_number: number }
 
-  await db
+  const { error: kodeError } = await db
     .from('orders')
     .update({ pickup_code: draft.pickup_code })
     .eq('id', posOrder.id)
 
-  await retail
+  // Kode ambil gagal tercatat: pesanan tetap masuk dapur, tapi kasir tidak
+  // bisa mencarinya lewat kolom kode. Terdegradasi, bukan fatal — kodenya
+  // masih tertulis di `notes`. Tetap harus terlihat.
+  if (kodeError) {
+    console.error('GAGAL MENCATAT KODE AMBIL', {
+      order_id: posOrder.id,
+      pickup_code: draft.pickup_code,
+      error: kodeError,
+    })
+  }
+
+  const { error: draftUpdateError } = await retail
     .from('order_drafts')
     .update({
       status: 'dibayar',
@@ -126,6 +149,20 @@ export async function POST(request: Request) {
       pos_order_number: posOrder.order_number,
     })
     .eq('id', draft.id)
+
+  // Pesanan sudah di dapur dan uang sudah masuk, tapi draft tidak tahu.
+  // Balas 500 supaya Xendit mengirim ulang: percobaan berikutnya menemukan
+  // pesanan lewat jalur 23505 dan menyembuhkan draft ini sendiri. Membalas
+  // 200 di sini akan menghentikan pengiriman ulang dan mengunci draft
+  // selamanya di `menunggu_bayar`.
+  if (draftUpdateError) {
+    console.error('GAGAL MENANDAI DRAFT DIBAYAR', {
+      client_order_id: draft.client_order_id,
+      pos_order_id: posOrder.id,
+      error: draftUpdateError,
+    })
+    return NextResponse.json({ error: 'Gagal menyelesaikan pesanan' }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true, order_number: posOrder.order_number })
 }

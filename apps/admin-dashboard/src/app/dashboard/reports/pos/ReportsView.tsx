@@ -840,6 +840,27 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       : completed.reduce((s, o) => {
           const disc = Number((o as any).discount_amount) || 0
           const promo = Number((o as any).promo_subsidy) || 0
+
+          // Baris SS Online (ecommerce_sales: TikTok Shop & Shopee) TIDAK ikut
+          // menebak diskon dari selisih subtotal. Potongan platform sudah
+          // tercatat eksplisit di raw_data dan sudah masuk ke discount_amount
+          // saat pemetaan, jadi menebaknya lagi hanya menambah angka palsu.
+          //
+          // Mengapa palsu: tebakan di bawah hanya menjumlahkan selisih POSITIF
+          // dan membuang yang negatif. Pada data impor TikTok Shop Agustus 2026,
+          // 557 baris berselisih +Rp 13.446.000 dan 493 baris −Rp 12.920.000 —
+          // bersihnya hanya Rp 526.000 (pembulatan platform, wajar). Karena sisi
+          // negatif dibuang, angkanya membengkak jadi Rp 10.403.168 dan ikut
+          // ditambahkan ke Gross Revenue. Itulah sebabnya Rangkuman Penjualan
+          // menampilkan omzet ~Rp 22 juta lebih tinggi daripada Ringkasan Bisnis
+          // dan Untung Rugi untuk periode yang sama.
+          //
+          // Untuk order POS logika ini tetap dipakai dan memang sehat: subtotal
+          // item konsisten dengan total_amount karena berasal dari satu sistem
+          // (selisihnya hanya Rp 5 dari 18 order pada periode yang sama).
+          const isEcommerceRow = (o as any).outlet_id === 'ss-online'
+          if (isEcommerceRow) return s + disc + promo
+
           const itemSubtotal = o.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
           const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
           // Jika diskon/promo explicit sudah mencakup itemDiff, jangan double count
@@ -1326,9 +1347,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       // Hitung total potongan / admin platform untuk pesanan ini
       const disc = Number((o as any).discount_amount) || 0
       const promo = Number((o as any).promo_subsidy) || 0
+      // Sama seperti perhitungan KPI di atas: baris SS Online tidak ikut menebak
+      // diskon dari selisih subtotal, karena tebakan itu hanya menjumlahkan
+      // selisih positif dan membuang yang negatif sehingga menggelembung.
+      // Tanpa pengecualian ini, angka di Export CSV/PDF akan berbeda dari layar.
       const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
       const itemDiff = orderItemsGross > Number(o.total_amount) ? orderItemsGross - Number(o.total_amount) : 0
-      const extraDiff = Math.max(0, itemDiff - (disc + promo))
+      const extraDiff = (o as any).outlet_id === 'ss-online'
+        ? 0
+        : Math.max(0, itemDiff - (disc + promo))
       const orderTotalDeductions = disc + promo + extraDiff
 
       let orderItemSubtotal = 0

@@ -1,0 +1,67 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="padding: 20px;">
+    <button style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+  </div>
+
+  <div style="flex-grow: 1; padding: 24px 28px 0; display: flex; flex-direction: column; gap: 32px;">
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div class="num" style="font-size: 30px; line-height: 1.15;">Masukkan kode</div>
+      <div style="font-size: 14px; color: #6b5548; line-height: 1.6;">Kode 6 angka dikirim lewat WhatsApp ke <span style="font-weight: 700; color: #400a07;">+62 812 3456 7890</span></div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px;">
+      <div class="num" style="height: 62px; border-radius: 12px; background: #ffffff; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center; font-size: 26px;">4</div>
+      <div class="num" style="height: 62px; border-radius: 12px; background: #ffffff; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center; font-size: 26px;">8</div>
+      <div class="num" style="height: 62px; border-radius: 12px; background: #ffffff; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center; font-size: 26px;">2</div>
+      <div class="num" style="height: 62px; border-radius: 12px; background: #ffffff; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center; font-size: 26px;">1</div>
+      <div class="num" style="height: 62px; border-radius: 12px; background: #ffffff; border: 2px solid #701604; display: flex; align-items: center; justify-content: center; font-size: 26px;">
+        <span style="width: 2px; height: 26px; background: #701604; display: block;"></span>
+      </div>
+      <div class="num" style="height: 62px; border-radius: 12px; background: #ffffff; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center; font-size: 26px;"></div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9a7a63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+      <span style="font-size: 13px; color: #9a7a63;">Kirim ulang kode dalam</span>
+      <span class="num" style="font-size: 16px; color: #701604;">00:47</span>
+    </div>
+
+    <div style="display: flex; align-items: flex-start; gap: 10px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 14px 16px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a7a63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 1px;"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><circle cx="12" cy="7.6" r="0.6" fill="#9a7a63"></circle></svg>
+      <span style="font-size: 12px; color: #6b5548; line-height: 1.55;">Tidak menerima kode? Pastikan WhatsApp aktif dan nomornya benar.</span>
+    </div>
+  </div>
+
+  <div style="padding: 20px 28px 40px;">
+    <button style="width: 100%; height: 56px; border-radius: 999px; background: #701604; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 16px; font-weight: 700; color: #ffffff;">Verifikasi</span>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

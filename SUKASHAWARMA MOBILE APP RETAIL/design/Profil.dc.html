@@ -1,0 +1,101 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+    .scrollarea::-webkit-scrollbar { width: 0; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="padding: 20px 20px 14px; flex-shrink: 0;">
+    <div style="font-size: 24px; font-weight: 800;">Profil</div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 30px; display: flex; flex-direction: column; gap: 16px;">
+
+    <div style="display: flex; align-items: center; gap: 16px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 18px;">
+      <div style="width: 60px; height: 60px; border-radius: 999px; background: #f29744; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <span class="num" style="font-size: 24px; color: #400a07;">RA</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1; min-width: 0;">
+        <div style="font-size: 17px; font-weight: 800;">Rizky Ananda</div>
+        <div style="font-size: 13px; color: #9a7a63;">rizky.ananda@gmail.com</div>
+      </div>
+    </div>
+
+    <div style="background: #f29744; border-radius: 16px; padding: 16px 18px; display: flex; align-items: flex-start; gap: 12px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;"><path d="M12 3 3 20h18z"></path><line x1="12" y1="10" x2="12" y2="14"></line><circle cx="12" cy="17" r="0.6" fill="#400a07"></circle></svg>
+      <div style="display: flex; flex-direction: column; gap: 8px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 800;">Nomor WhatsApp belum ditambahkan</div>
+        <div style="font-size: 12px; line-height: 1.5;">Tambahkan nomormu supaya poin tetap aman kalau ganti HP, dan kasir bisa menemukanmu di outlet.</div>
+        <button style="align-self: flex-start; padding: 10px 20px; border-radius: 999px; background: #400a07; border: none; cursor: pointer; margin-top: 2px;">
+          <span style="font-size: 13px; font-weight: 700; color: #ffffff;">Tambahkan, dapat 50 poin</span>
+        </button>
+      </div>
+    </div>
+
+    <div style="background: #701604; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 16px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 13px; font-weight: 700; color: #f29744; letter-spacing: 1px;">POIN KAMU</span>
+        <span style="padding: 5px 12px; border-radius: 999px; background: #f29744; font-size: 11px; font-weight: 800; color: #400a07;">BRONZE</span>
+      </div>
+      <div style="display: flex; align-items: baseline; gap: 10px;">
+        <span class="num" style="font-size: 44px; color: #ffffff; line-height: 1;">340</span>
+        <span style="font-size: 14px; color: #e8c4a8; font-weight: 600;">poin ≈ Rp17.000</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="height: 8px; border-radius: 999px; background: #8c2a12; overflow: hidden;">
+          <div style="width: 45%; height: 8px; border-radius: 999px; background: #f29744;"></div>
+        </div>
+        <div style="font-size: 12px; color: #e8c4a8;">Belanja Rp165.000 lagi untuk naik ke Silver</div>
+      </div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;">
+      <div style="display: flex; align-items: center; gap: 14px; padding: 17px 18px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><path d="M16 12h3"></path></svg>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Dompet &amp; Voucher</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <div style="height: 1px; background: #f1ddc9;"></div>
+      <div style="display: flex; align-items: center; gap: 14px; padding: 17px 18px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><line x1="19" y1="8" x2="19" y2="14"></line><line x1="22" y1="11" x2="16" y2="11"></line></svg>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Ajak Teman</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <div style="height: 1px; background: #f1ddc9;"></div>
+      <div style="display: flex; align-items: center; gap: 14px; padding: 17px 18px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Notifikasi</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+      <div style="height: 1px; background: #f1ddc9;"></div>
+      <div style="display: flex; align-items: center; gap: 14px; padding: 17px 18px;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 2.1-2.5 3.6"></path><circle cx="12" cy="17.2" r="0.6" fill="#701604"></circle></svg>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600;">Bantuan</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+      </div>
+    </div>
+
+    <button style="width: 100%; height: 52px; border-radius: 999px; background: none; border: 1.5px solid #e0c8b2; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 14px; font-weight: 700; color: #9a7a63;">Keluar</span>
+    </button>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

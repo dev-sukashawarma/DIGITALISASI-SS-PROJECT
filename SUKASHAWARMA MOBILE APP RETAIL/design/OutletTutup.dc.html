@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+    .scrollarea::-webkit-scrollbar { width: 0; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <div style="padding: 20px 20px 14px; display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+    <div style="width: 40px; height: 40px; border-radius: 999px; background: #ecdcc9; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9a7a63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0;">
+      <div style="font-size: 15px; font-weight: 700;">Suka Shawarma Empang</div>
+      <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #9a7a63; font-weight: 600;">
+        <span style="width: 7px; height: 7px; border-radius: 999px; background: #c9b3a1; display: block;"></span>
+        <span>Tutup · buka jam 14:00</span>
+      </div>
+    </div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 6px 20px 210px; display: flex; flex-direction: column; gap: 18px;">
+
+    <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 20px; padding: 26px 22px; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+      <div style="width: 68px; height: 68px; border-radius: 999px; background: #fdf0e2; display: flex; align-items: center; justify-content: center;">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f29744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+        <div class="num" style="font-size: 24px;">Outlet buka jam 14:00</div>
+        <div style="font-size: 14px; color: #6b5548; text-align: center; line-height: 1.55;">Sekitar 2 jam 40 menit lagi.<br>Keranjangmu sudah kami simpan.</div>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 15px; font-weight: 800;">Menunggu di keranjang</div>
+
+      <div style="display: flex; align-items: center; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 12px; opacity: 0.85;">
+        <div style="width: 64px; height: 64px; border-radius: 12px; background: linear-gradient(135deg, #f7dcc0, #e6b085); display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0764a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg></div>
+        <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700;">Shawarma Ayam Original</div>
+          <div style="font-size: 12px; color: #9a7a63;">2 porsi · Extra Keju</div>
+        </div>
+        <span class="num" style="font-size: 17px; color: #701604;">Rp60.000</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 12px; opacity: 0.85;">
+        <div style="width: 64px; height: 64px; border-radius: 12px; background: linear-gradient(135deg, #f7dcc0, #e6b085); display: flex; align-items: center; justify-content: center; flex-shrink: 0;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0764a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg></div>
+        <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700;">Es Kopi Susu</div>
+          <div style="font-size: 12px; color: #9a7a63;">1 gelas</div>
+        </div>
+        <span class="num" style="font-size: 17px; color: #701604;">Rp15.000</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px; background: #fdf0e2; border-radius: 16px; padding: 14px 16px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f29744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      <span style="font-size: 13px; color: #6b5548; line-height: 1.5; flex-grow: 1;">Jatiasih sudah buka sekarang, 7,6 km dari kamu</span>
+      <span style="font-size: 13px; font-weight: 700; color: #701604; text-decoration: underline; white-space: nowrap;">Pindah</span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 20px 28px; background: #fff7ed; border-top: 1px solid #f1ddc9; display: flex; flex-direction: column; gap: 12px;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span style="font-size: 14px; color: #6b5548;">Total keranjang</span>
+      <span class="num" style="font-size: 22px;">Rp75.000</span>
+    </div>
+    <button style="width: 100%; height: 56px; border-radius: 999px; background: #701604; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px;">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#f29744" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Ingatkan saya saat buka</span>
+    </button>
+    <div style="text-align: center; font-size: 12px; color: #9a7a63;">Kami kirim notifikasi tepat jam 14:00</div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

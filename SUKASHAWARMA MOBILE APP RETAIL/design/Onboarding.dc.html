@@ -1,0 +1,57 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="position: relative; height: 480px; flex-shrink: 0;">
+    <div style="width: 390px; height: 480px; background: linear-gradient(160deg, #f7dcc0, #de9a63); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;">
+      <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#a1653a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg>
+      <span style="font-size: 12px; font-weight: 700; color: #a1653a; letter-spacing: 0.5px;">FOTO SAMPUL 780 x 960</span>
+    </div>
+    <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 200px; background: linear-gradient(to bottom, rgba(255,247,237,0), #fff7ed);"></div>
+  </div>
+
+  <div style="flex-grow: 1; padding: 0 28px 40px; display: flex; flex-direction: column; justify-content: space-between;">
+
+    <div style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="num" style="font-size: 38px; line-height: 1.08;">Pesan dulu,<br>ambil tanpa antre.</div>
+      <div style="font-size: 15px; color: #6b5548; line-height: 1.6;">Bayar dari HP, datang saat pesananmu sudah siap. Kumpulkan poin di setiap pembelian.</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px;">
+      <div style="display: flex; align-items: center; gap: 8px; justify-content: center;">
+        <span style="width: 24px; height: 6px; border-radius: 999px; background: #701604; display: block;"></span>
+        <span style="width: 6px; height: 6px; border-radius: 999px; background: #e0c8b2; display: block;"></span>
+        <span style="width: 6px; height: 6px; border-radius: 999px; background: #e0c8b2; display: block;"></span>
+      </div>
+
+      <button style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer;">
+        <span style="font-size: 16px; font-weight: 700; color: #ffffff;">Mulai Pesan</span>
+      </button>
+
+      <button style="width: 100%; height: 48px; border-radius: 999px; background: none; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <span style="font-size: 14px; font-weight: 700; color: #701604;">Lihat menu dulu</span>
+      </button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

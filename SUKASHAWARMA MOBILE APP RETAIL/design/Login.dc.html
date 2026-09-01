@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden; padding: 0 28px;">
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 20px;">
+    <div style="width: 96px; height: 96px; border-radius: 28px; background: #701604; display: flex; align-items: center; justify-content: center;">
+      <span class="num" style="font-size: 44px; color: #f29744;">SS</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <div class="num" style="font-size: 28px;">Suka Shawarma</div>
+      <div style="font-size: 14px; color: #6b5548; text-align: center; line-height: 1.55;">Masuk untuk memesan dan<br>mengumpulkan poin</div>
+    </div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 12px; padding-bottom: 40px;">
+
+    <button style="width: 100%; height: 56px; border-radius: 999px; background: #ffffff; border: 1.5px solid #e0c8b2; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px;">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#4285F4" d="M45 24c0-1.6-.1-2.7-.4-3.9H24v7.1h12c-.2 1.9-1.5 4.8-4.4 6.7l6.7 5.2C42.2 35.5 45 30.3 45 24z"></path><path fill="#34A853" d="M24 46c5.9 0 10.9-2 14.5-5.3l-6.9-5.4c-1.9 1.3-4.4 2.2-7.6 2.2-5.8 0-10.7-3.8-12.5-9.1l-7.1 5.5C8.1 41 15.5 46 24 46z"></path><path fill="#FBBC05" d="M11.5 28.4c-.5-1.4-.7-2.9-.7-4.4s.3-3 .7-4.4l-7.1-5.5C2.9 17 2 20.4 2 24s.9 7 2.4 9.9z"></path><path fill="#EA4335" d="M24 10.6c3.3 0 5.5 1.4 6.7 2.6l5.9-5.8C33 4.1 29.9 2 24 2 15.5 2 8.1 7 4.4 14.1l7.1 5.5c1.8-5.3 6.7-9 12.5-9z"></path></svg>
+      <span style="font-size: 15px; font-weight: 700; color: #400a07;">Lanjut dengan Google</span>
+    </button>
+
+    <button style="width: 100%; height: 56px; border-radius: 999px; background: #0a7d2c; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffffff"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.2-.4-4.5-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1-.2.2-.6.8-.8 1-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.6-1.2.1-.1 0-.3 0-.4l-.8-1.9c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.9.9-.9 2.1-.1 3.4a9.6 9.6 0 0 0 4 3.6c1.5.6 2.2.7 2.9.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2-.1-.1-.2-.1-.4-.2z"></path></svg>
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Lanjut dengan WhatsApp</span>
+    </button>
+
+    <div style="text-align: center; font-size: 12px; color: #9a7a63; line-height: 1.6; padding: 12px 8px 0;">
+      Dengan masuk, kamu setuju pada <a href="#" style="font-weight: 700;">Syarat Layanan</a> dan <a href="#" style="font-weight: 700;">Kebijakan Privasi</a> Suka Shawarma
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

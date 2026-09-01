@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createRetailClient } from '@/lib/supabase'
+import { rahasiaCocok } from '@/lib/xendit'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
   const rahasia = process.env.CRON_SECRET
-  if (!rahasia || request.headers.get('authorization') !== `Bearer ${rahasia}`) {
+  // Perbandingan tahan-waktu, bukan `!==`. Lihat catatan di `rahasiaCocok`.
+  if (!rahasia || !rahasiaCocok(request.headers.get('authorization'), `Bearer ${rahasia}`)) {
     return NextResponse.json({ error: 'Tidak diizinkan' }, { status: 401 })
   }
 

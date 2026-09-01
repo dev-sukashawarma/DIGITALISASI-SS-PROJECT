@@ -530,13 +530,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       // Map to OrderRow format
       return ecommerceSalesList.map((saleRecord: any) => {
         const raw = saleRecord.raw_data || {}
-        const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
+        const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+        // `ecommerce_sales.total_amount` sudah bernilai KOTOR (sebelum fee platform).
+        // Sebelumnya nilai itu dipetakan apa adanya ke `total_amount` sementara fee
+        // juga diisikan ke `discount_amount`. Karena KPI menghitung
+        // gross = total_amount + potongan, fee platform jadi terhitung DUA KALI
+        // dan Gross Revenue kelebihan sebesar fee (Rp 12,5 juta pada Agustus 2026).
+        //
+        // Dipetakan ke NET agar konsisten dengan useSalesDaily (Untung Rugi) dan
+        // ownerDashboard (Ringkasan Bisnis), yang keduanya menyimpan omzet net +
+        // potongan terpisah sehingga gross-nya kembali tepat sama dengan kotor.
+        // Fee tetap tampil di kartu "Admin Platform & Promo" lewat discount_amount.
+        const omzetNet = Math.max(0, (Number(saleRecord.total_amount) || 0) - totalPotongan)
                 return {
           id: saleRecord.id,
           order_number: 0,
           status: 'completed',
           payment_method: saleRecord.channel_id,
-          total_amount: saleRecord.total_amount,
+          total_amount: omzetNet,
           discount_amount: totalPotongan,
           promo_subsidy: 0,
           created_at: saleRecord.order_date,

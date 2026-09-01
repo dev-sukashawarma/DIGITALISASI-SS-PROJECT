@@ -116,3 +116,19 @@ Keadaan 2 dan 3 **wajib dibedakan**. Kalau disamakan, mitra dengan sinyal jelek 
 ## Di luar cakupan
 
 KPI, omzet, ROI/BEP, tren harian, orderan, menu terlaris, transfer bagi hasil, tim outlet, saran & kritik. Semua itu sub-proyek 1–5.
+
+---
+
+## Temuan yang sengaja ditunda (hasil eksekusi, 2026-09-01)
+
+Ditemukan oleh review menyeluruh saat sub-proyek 0 dieksekusi. Semuanya **belum menggigit hari ini** karena layar mitra masih kosong — tapi ketiga yang pertama **wajib diputuskan sebelum sub-proyek 1 menampilkan angka uang**.
+
+| # | Temuan | Kenapa ditunda | Kapan wajib digarap |
+|---|---|---|---|
+| F5 | `MitraRepository.getProfile` memakai `limit=1` tanpa `order` — kalau satu user punya dua baris `mitra_profiles`, app diam-diam mengambil mana saja yang lebih dulu dikembalikan Postgres | Butuh keputusan: tambah `order` deterministik, atau perlakukan `size() > 1` sebagai anomali yang dilaporkan | Sebelum sub-proyek 1. Provisioning mitra **sudah pernah salah sekali** (9 akun yatim + profil Cileungsi menempel di `user_id` keliru), dan perbaikan manual Task 0 memindahkan `user_id` — persis operasi yang bisa meninggalkan duplikat |
+| F6 | `resolveStartDestination` mengabaikan `MitraProfile.isAktif` — mitra yang kemitraannya sudah berakhir tetap mendarat di `MITRA_DASHBOARD`, bedanya cuma badge merah | Tak berbahaya selama layarnya kosong | Sebelum sub-proyek 1, atau mantan mitra terus melihat keuangan outlet |
+| F7 | Dashboard menampilkan `staff?.outletName`, yang diturunkan dari `outlet_staff.outlet_id` **dan ditimpa baris absensi hari ini** (mekanisme BKO/mutasi harian) — padahal sumber kebenaran outlet mitra adalah `mitra_profiles.outlet_ids` | Audit menunjukkan keduanya cocok 9/9 hari ini, jadi masih kosmetik | Saat sub-proyek 1 memakai outlet untuk memfilter angka. Override absensi membuatnya lebih buruk dari sekadar beda statis |
+| F9 | `app/build.gradle.kts` punya dua blok `dependencies { }` berisi daftar `project(...)` identik | Pre-existing & repo-wide; merapikannya menyeret diff branch fondasi ke luar cakupan | Commit pembersihan tersendiri. Akan menggigit orang yang menambah dependency ke satu salinan saja |
+| F10 | `feature/mitra` mendeklarasikan 4 dependency tak terpakai (`navigation-compose`, `activity-compose`, `core:network`, Hilt+kapt) | Byte-identik dengan `feature/home` — itu konvensi repo, bukan cacat branch ini | Bersamaan dengan F9. Biayanya satu putaran kapt tiap build modul |
+
+Dua hal lain yang sudah **diverifikasi aman** dan tidak perlu digarap: rute `home`/`absensi` yang tetap terdaftar saat logged out **tidak** punya permukaan deep link (manifest hanya punya intent-filter MAIN/LAUNCHER), dan `NavGraph.equals` bersifat struktural termasuk `startDestinationId` — dikonfirmasi dari bytecode androidx.navigation 2.7.7 — sehingga back stack tidak ter-reset oleh recomposition biasa, sekaligus itulah yang membuat transisi retry-berhasil bekerja.

@@ -12,6 +12,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { CATEGORY_META } from '@/lib/expenseCategories'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
@@ -71,11 +72,16 @@ export default function InputPengeluaranPage() {
     return list
   }, [expenseRows, target])
 
-  const selectOptions = [
-    { label: '🏢 Semua Outlet', value: 'all' },
-    ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (company-wide)', value: 'PUSAT' }] : []),
-    ...outlets.map(o => ({ label: o.name, value: o.id }))
-  ]
+  const validOutlets = useMemo(() => {
+    return outlets.filter(o => !isExcludedOutlet(o))
+  }, [outlets])
+
+  const selectOptions = useMemo(() => [
+    { label: '🏢 Semua Unit (Cabang & Pusat)', value: 'all' },
+    { label: '🏪 Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+    ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (OPEX)', value: 'PUSAT' }] : []),
+    ...validOutlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
+  ], [isAdmin, validOutlets])
 
   const loading = expensesLoading
 

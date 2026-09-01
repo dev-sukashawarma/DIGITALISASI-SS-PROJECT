@@ -9,6 +9,7 @@ import { rupiah, tanggal } from '@/lib/format'
 import { Receipt, FileText, ExternalLink, Store, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
 import { TargetCombobox } from '@/components/TargetCombobox'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 
 const ITEMS_PER_PAGE = 50;
 
@@ -344,7 +345,7 @@ export default function PettyCashExpensesTab() {
               onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
-                ...outlets.map(o => ({ value: o.id, label: o.name }))
+                ...outlets.filter(o => !isExcludedOutlet(o)).map(o => ({ value: o.id, label: o.name }))
               ]}
               className="w-full"
             />

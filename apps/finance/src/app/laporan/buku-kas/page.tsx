@@ -32,6 +32,7 @@ import { BulkImportModal } from '@/components/BulkImportModal'
 import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
@@ -71,13 +72,14 @@ export default function BukuKasPage() {
   const [isDeleting, setIsDeleting] = useState(false)
 
   const isPusat = target === 'PUSAT'
+  const isAllOutlets = target === 'ALL_OUTLETS'
 
   const filter = useMemo(() => ({
     from: startDate,
     to: endDate,
-    outletId: isPusat ? 'all' : target,
+    outletId: (isPusat || isAllOutlets) ? 'all' : target,
     source: 'monthly' as const
-  }), [startDate, endDate, target, isPusat])
+  }), [startDate, endDate, target, isPusat, isAllOutlets])
 
   const { rows: expenseRows = [], loading: expensesLoading, error: expensesError } = useExpenses(filter)
 
@@ -86,8 +88,9 @@ export default function BukuKasPage() {
     let list: any[] = []
 
     expenseRows.forEach(r => {
-      if (target !== 'all' && target !== 'PUSAT' && (r.scope === 'pusat' || r.outlet_id !== target)) return
       if (target === 'PUSAT' && r.scope === 'outlet') return
+      if (target === 'ALL_OUTLETS' && r.scope === 'pusat') return
+      if (target !== 'all' && target !== 'PUSAT' && target !== 'ALL_OUTLETS' && (r.scope === 'pusat' || r.outlet_id !== target)) return
       
       list.push({
         id: r.id,
@@ -142,11 +145,16 @@ export default function BukuKasPage() {
     }
   }, [allTransactions])
 
-  const selectOptions = [
+  const validOutlets = useMemo(() => {
+    return outlets.filter(o => !isExcludedOutlet(o))
+  }, [outlets])
+
+  const selectOptions = useMemo(() => [
     { label: '🏢 Semua Unit (Cabang & Pusat)', value: 'all' },
+    { label: '🏪 Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
     { label: '🏢 Kantor Pusat (OPEX Pusat)', value: 'PUSAT' },
-    ...outlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
-  ]
+    ...validOutlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
+  ], [validOutlets])
 
   const loading = expensesLoading
 

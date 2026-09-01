@@ -11,6 +11,7 @@ import NumberFlow from '@number-flow/react'
 import { exportToExcel, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 
 interface SalesItemRow {
   sales_date: string | null
@@ -351,7 +352,7 @@ export default function OutletRevenueTab() {
               onChange={handleOutletChange}
               options={[
                 { value: 'all', label: 'Semua Outlet' },
-                ...outlets.map(o => ({ value: o.id, label: o.name }))
+                ...outlets.filter(o => !isExcludedOutlet(o)).map(o => ({ value: o.id, label: o.name }))
               ]}
               className="w-full"
             />

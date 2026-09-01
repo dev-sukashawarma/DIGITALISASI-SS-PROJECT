@@ -1,4 +1,4 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
@@ -166,7 +166,7 @@ interface ReportsViewProps {
   initialOutlets: Outlet[]
 }
 
-// ─── Helper for extracting packages/combos ───
+// â”€â”€â”€ Helper for extracting packages/combos â”€â”€â”€
 function extractOrderPackages(order: OrderRow) {
   const pkgs: { name: string; qty: number; choices?: Record<string, string> }[] = []
   
@@ -303,7 +303,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return false
   }, [range, dateStrRange, customEndDate, todayJakarta])
 
-  // Pawoon data hanya tersedia s.d. Juli 2026 — sembunyikan filter Pawoon
+  // Pawoon data hanya tersedia s.d. Juli 2026 â€” sembunyikan filter Pawoon
   // jika rentang filter tidak mencakup satupun hari di Juli 2026 atau sebelumnya.
   const PAWOON_CUTOFF = '2026-08-01'
   const isPawoonVisible = useMemo(() => {
@@ -359,7 +359,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const fetchOrdersRequestId = useRef(0)
 
   const fetchOrders = useCallback(async () => {
-    // Kustom Tanggal butuh KEDUA input terisi — kalau salah satu masih kosong
+    // Kustom Tanggal butuh KEDUA input terisi â€” kalau salah satu masih kosong
     // (state transisi normal saat user baru pindah ke "Kustom Tanggal" atau
     // baru isi satu input), jangan fetch sama sekali. Selain sia-sia, fetch
     // ini tanpa bound tanggal akan menarik SELURUH riwayat order 19 outlet.
@@ -472,25 +472,47 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // Query yang sudah dirampingkan (lean select) jauh lebih cepat (~90% lebih ringan)
     // dan tidak lagi membebani PostgREST dengan nested joins 4-tingkat.
     const PAGE_SIZE = 1000
-    const fetchAllOrders = async () => {
-      const all: OrderRow[] = []
+    // Halaman ditarik per-gelombang secara paralel, bukan satu per satu.
+    // Rentang 30 hari â‰ˆ 31 halaman; sebelumnya itu berarti 31 round-trip
+    // BERURUTAN (tiap halaman menunggu halaman sebelumnya selesai). Sekarang
+    // 4 halaman ditembak berbarengan lalu berhenti begitu ada halaman pendek
+    // (tanda sudah mentok) â€” tanpa perlu query COUNT tambahan.
+    // Ini murni perubahan cara mengambil data; urutan hasil tetap dijaga
+    // (gelombang diproses berurutan) dan tidak ada logika agregasi yang berubah.
+    const PAGE_CONCURRENCY = 4
+
+    const fetchAllPaged = async <T,>(buildQuery: () => any, label: string): Promise<T[]> => {
+      const all: T[] = []
       let offset = 0
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const { data, error } = await buildOrdersQuery().range(offset, offset + PAGE_SIZE - 1)
-        if (error) throw error
-        const page = data ?? []
-        all.push(...(page as OrderRow[]))
-        if (page.length < PAGE_SIZE) break
-        offset += PAGE_SIZE
+        const wave = await Promise.all(
+          Array.from({ length: PAGE_CONCURRENCY }, (_, i) =>
+            buildQuery().range(offset + i * PAGE_SIZE, offset + (i + 1) * PAGE_SIZE - 1)
+          )
+        )
+        let reachedEnd = false
+        for (const { data, error } of wave) {
+          if (error) {
+            console.error(`${label} error:`, error)
+            throw error
+          }
+          const page = (data ?? []) as T[]
+          all.push(...page)
+          if (page.length < PAGE_SIZE) reachedEnd = true
+        }
+        if (reachedEnd) break
+        offset += PAGE_CONCURRENCY * PAGE_SIZE
       }
       return all
     }
 
+    const fetchAllOrders = () => fetchAllPaged<OrderRow>(buildOrdersQuery, 'fetchAllOrders')
+
     const buildEcommerceQuery = () => {
       let query = supabase
         .from('ecommerce_sales')
-        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal)')
+        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .order('id', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
@@ -503,25 +525,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const fetchEcommerceOrders = async () => {
       if (!selectedOutlets.includes('all') && !selectedOutlets.includes('ss-online')) return []
 
-      const ecommerceSalesList: any[] = []
-      let offset = 0
-      while (true) {
-        const { data, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
-        if (error) {
-          console.error("fetchEcommerceOrders error:", error)
-          throw error
-        }
-        const page = data ?? []
-        ecommerceSalesList.push(...page)
-        if (page.length < PAGE_SIZE) break
-        offset += PAGE_SIZE
-      }
+      const ecommerceSalesList = await fetchAllPaged<any>(buildEcommerceQuery, 'fetchEcommerceOrders')
 
       // Map to OrderRow format
       return ecommerceSalesList.map((saleRecord: any) => {
         const raw = saleRecord.raw_data || {}
         const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
-        return {
+                return {
           id: saleRecord.id,
           order_number: 0,
           status: 'completed',
@@ -538,16 +548,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           external_order_id: saleRecord.order_id,
           raw_data: raw,
           order_items: (saleRecord.ecommerce_sale_items || []).map((item: any) => {
-            const menuItem = item.menu_id ? menuItemByIdMap.get(item.menu_id) : null
+            const menuItemName = item.menu_items?.name || 'Unknown Item'
             return {
               id: item.id,
               menu_item_id: item.menu_id,
-              menu_item_name: menuItem?.name || 'Unknown Item',
+              menu_item_name: menuItemName,
               quantity: item.quantity,
               unit_price: item.price,
               subtotal: item.subtotal,
               package_choices: null,
-              menu_items: menuItem
+              menu_items: item.menu_items
             }
           })
         }
@@ -577,7 +587,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       qSettlements
     ])
 
-    // Abaikan hasil fetch basi — request lebih baru (mis. user selesai memilih
+    // Abaikan hasil fetch basi â€” request lebih baru (mis. user selesai memilih
     // custom date setelah sebelumnya sempat fire fetch tanpa bound tanggal)
     // bisa resolve lebih dulu; tanpa guard ini, respons lama yang telat datang
     // akan menimpa balik data yang sudah benar dengan hasil unbounded.
@@ -603,10 +613,37 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   useEffect(() => {
     const supabase = createClient()
     let timer: ReturnType<typeof setTimeout> | null = null
+    let pendingWhileHidden = false
+
+    // Tiap order masuk dari outlet MANA PUN memicu penarikan ulang seluruh
+    // rentang (30 hari â‰ˆ puluhan ribu baris). Dengan debounce 600ms, di jam
+    // sibuk halaman ini praktis menarik ulang terus-menerus dan itulah yang
+    // paling terasa sebagai "lemot". Dua peredam:
+    //  1. Jendela debounce diperlebar â€” laporan periode panjang tidak butuh
+    //     kesegaran sub-detik.
+    //  2. Saat tab tidak terlihat, penarikan ditunda sampai user kembali,
+    //     supaya tab yang dibiarkan terbuka berhenti membebani DB.
+    const REFRESH_DEBOUNCE_MS = 4000
+
+    const runRefresh = () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        pendingWhileHidden = true
+        return
+      }
+      fetchOrders()
+    }
     const refresh = () => {
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => fetchOrders(), 600)
+      timer = setTimeout(runRefresh, REFRESH_DEBOUNCE_MS)
     }
+    const onVisible = () => {
+      if (!document.hidden && pendingWhileHidden) {
+        pendingWhileHidden = false
+        fetchOrders()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
     const realtime = supabase
       .channel('pos-reports-orders-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
@@ -614,6 +651,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .subscribe()
     return () => {
       if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
       supabase.removeChannel(realtime)
     }
   }, [fetchOrders])
@@ -636,12 +674,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }
   }, [isSSOnlineSelected])
 
-  // ─── Available Channels ───
+  // â”€â”€â”€ Available Channels â”€â”€â”€
   const PAWOON_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
   const availableChannels = useMemo(() => {
     const map = new Map<string, { key: string; label: string }>()
 
-    // Channel standar — Pawoon hanya dimasukkan jika range mencakup Juli 2026 atau sebelumnya
+    // Channel standar â€” Pawoon hanya dimasukkan jika range mencakup Juli 2026 atau sebelumnya
     const defaults = [
       { key: 'pos_kasir', label: 'POS KASIR (Internal)' },
       ...(isPawoonVisible ? [
@@ -670,7 +708,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return Array.from(map.values())
   }, [orders, isPawoonVisible, PAWOON_KEYS])
 
-  // ─── Shared helper (used in analytics useMemo AND downloadCSVAllChannels) ───
+  // â”€â”€â”€ Shared helper (used in analytics useMemo AND downloadCSVAllChannels) â”€â”€â”€
   const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
   const isChannelSelected = (target: string, order: any, src: string) => {
@@ -695,7 +733,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return src === target
   }
 
-  // ─── Derived Analytics ───
+  // â”€â”€â”€ Derived Analytics â”€â”€â”€
   const analytics = useMemo(() => {
 
     const filteredOrders = selectedChannels.includes('all') 
@@ -717,7 +755,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // NET methodology (konsisten dengan halaman Laba Kotor, keputusan owner
     // 2026-07-29): order completed ditambah, order cancelled (void) DIKURANGKAN.
     // Cakupan lain di halaman ini (jumlah item terjual, best seller, breakdown
-    // pembayaran) SENGAJA tetap completed-only untuk saat ini — hanya kartu
+    // pembayaran) SENGAJA tetap completed-only untuk saat ini â€” hanya kartu
     // Gross Revenue/Gross Profit yang diperbaiki (2026-07-31, kasus EMPANG
     // 24 Juli: void P7KY2P6LD8NY7 Rp94.000 dulu tidak mengurangi apa pun).
     const actualNetRevenue = computeNetRevenueVoidAware(filteredOrders)
@@ -889,7 +927,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     unknown: { label: 'Lainnya', color: '#6b7280', bg: 'bg-gray-50', icon: Package },
   }
 
-  // ─── Available Payment Methods ───
+  // â”€â”€â”€ Available Payment Methods â”€â”€â”€
   const availablePaymentMethods = useMemo(() => {
     const map = new Map<string, string>()
     map.set('cash', 'Tunai (Cash)')
@@ -1417,7 +1455,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   return (
     <div className="space-y-8 pb-12 animate-fade-in" id="report-content">
 
-      {/* ── Header Web (Hidden on Print) ── */}
+      {/* â”€â”€ Header Web (Hidden on Print) â”€â”€ */}
       <div className="no-print flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
@@ -1545,7 +1583,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+                <span>Live Realtime Â· Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
               </span>
             )}
           </div>
@@ -1561,7 +1599,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         </div>
       
 
-      {/* ── Header Print (Only Visible on Print) ── */}
+      {/* â”€â”€ Header Print (Only Visible on Print) â”€â”€ */}
       <div className="hidden print:flex bg-white py-4 mb-6 border-b-2 border-gray-900 items-start justify-between">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
@@ -1583,9 +1621,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         </div>
       ) : (
         <>
-          {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
+          {/* â”€â”€ KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) â”€â”€ */}
           <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 xl:gap-5">
-            {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
+            {/* 1. Gross Revenue â€” omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
@@ -1808,7 +1846,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           </div>
 
           <div className="grid grid-cols-1 gap-6">
-            {/* ── Best Sellers ── */}
+            {/* â”€â”€ Best Sellers â”€â”€ */}
             <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
               <div className="flex items-center gap-2 mb-5">
                 <Award className="w-5 h-5 text-amber-500" />
@@ -1822,7 +1860,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   {analytics.bestSellers.map((item, idx) => {
                     const maxQty = analytics.bestSellers[0].qty
                     const pct = (item.qty / maxQty) * 100
-                    const medals = ['🥇', '🥈', '🥉']
+                    const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰']
                     return (
                       <div key={item.name} className="group">
                         <div className="flex items-center gap-3 mb-1.5">
@@ -2030,7 +2068,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                                 <div key={idx} className="whitespace-normal leading-tight text-[13px] flex items-start gap-1.5">
                                   <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">{i.quantity}x</span> 
                                   <span className={i.is_promo_reward ? 'text-emerald-700 font-semibold' : ''}>
-                                    {i.is_promo_reward ? `Gratis · ${cleanItemName(i.menu_item_name)}` : cleanItemName(i.menu_item_name)}
+                                    {i.is_promo_reward ? `Gratis Â· ${cleanItemName(i.menu_item_name)}` : cleanItemName(i.menu_item_name)}
                                   </span>
                                 </div>
                               ))}
@@ -2730,6 +2768,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     </div>
   )
 }
+
+
+
 
 
 

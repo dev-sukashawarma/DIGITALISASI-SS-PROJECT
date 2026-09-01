@@ -74,22 +74,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         }
       })
 
-      const pettyCashRows = (pettyCashExpenses ?? []).map((row: any) => ({
-        id: row.id,
-        outlet_id: row.outlet_id,
-        outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
-        category: row.category,
-        scope: 'outlet' as const, // petty cash selalu di outlet
-        amount: Number(row.amount),
-        description: row.description ?? '',
-        expense_date: row.expense_date,
-        period_month: row.expense_date.slice(0, 7) + '-01', // Fallback month start
-        receipt_url: row.receipt_url,
-        type: row.type || 'expense',
-        source: 'petty_cash' as const
-      }))
-
-      return [...monthlyRows, ...pettyCashRows] as ExpenseRow[]
+      return monthlyRows as ExpenseRow[]
     },
   })
   return { rows: query.data ?? EMPTY_ROWS, loading: query.isLoading, error: query.error ? (query.error as Error).message : null }

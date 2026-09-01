@@ -7,7 +7,6 @@ import {
   Wallet,
   FileText,
   UploadCloud,
-  ArrowDownRight,
   ArrowUpRight,
   Download,
   Calendar,
@@ -17,7 +16,8 @@ import {
   X,
   Trash2,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Users
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -25,7 +25,6 @@ import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { useExpenses } from '@/hooks/useExpenses'
-import { usePettyCashTopups } from '@/hooks/usePettyCashTopups'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
@@ -77,17 +76,15 @@ export default function BukuKasPage() {
     from: startDate,
     to: endDate,
     outletId: isPusat ? 'all' : target,
-    source: 'all' as const
+    source: 'monthly' as const
   }), [startDate, endDate, target, isPusat])
 
   const { rows: expenseRows = [], loading: expensesLoading, error: expensesError } = useExpenses(filter)
-  const { data: topupRows = [], isLoading: topupsLoading } = usePettyCashTopups(filter)
 
-  // Merge expense rows and topup rows (treated as income)
+  // Pure OPEX Expense Rows
   const allTransactions = useMemo(() => {
     let list: any[] = []
 
-    // 1. Process normal expenses
     expenseRows.forEach(r => {
       if (target !== 'all' && target !== 'PUSAT' && (r.scope === 'pusat' || r.outlet_id !== target)) return
       if (target === 'PUSAT' && r.scope === 'outlet') return
@@ -101,48 +98,46 @@ export default function BukuKasPage() {
         division: r.division ?? (r.scope === 'pusat' ? 'General' : '-'),
         description: r.description,
         amount: r.amount,
-        type: r.type || 'expense', // 'income' or 'expense'
+        type: 'expense',
         receipt_url: r.receipt_url || null,
         isTopup: false
       })
     })
 
-    // 2. Process topups (only applicable to outlets)
-    if (target !== 'PUSAT') {
-      topupRows.forEach(t => {
-        list.push({
-          id: `topup-${t.id}`,
-          date: t.transfer_date || t.created_at.split('T')[0],
-          category: 'Petty Cash Topup',
-          outlet_name: t.outlet_name ?? '-',
-          recipient_name: '-',
-          division: 'Operasional Outlet',
-          description: `Top up dari Pusat`,
-          amount: t.amount,
-          type: 'income',
-          receipt_url: null,
-          isTopup: true
-        })
-      })
-    }
-
     // Sort descending by date
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
-  }, [expenseRows, topupRows, target])
+  }, [expenseRows, target])
 
-  // Summary calculation
+  // Summary OPEX calculation
   const summary = useMemo(() => {
-    let totalIncome = 0
-    let totalExpense = 0
+    let totalOpex = 0
+    let salary = 0
+    let nonSalary = 0
+    let pusat = 0
+    let outlet = 0
+
     allTransactions.forEach(t => {
-      if (t.type === 'income') totalIncome += Number(t.amount || 0)
-      else totalExpense += Number(t.amount || 0)
+      const amt = Number(t.amount || 0)
+      totalOpex += amt
+      if (t.category === 'salary') {
+        salary += amt
+      } else {
+        nonSalary += amt
+      }
+      if (t.outlet_name === 'Kantor Pusat') {
+        pusat += amt
+      } else {
+        outlet += amt
+      }
     })
+
     return {
-      income: totalIncome,
-      expense: totalExpense,
-      net: totalIncome - totalExpense,
+      totalOpex,
+      salary,
+      nonSalary,
+      pusat,
+      outlet,
       count: allTransactions.length
     }
   }, [allTransactions])
@@ -153,7 +148,7 @@ export default function BukuKasPage() {
     ...outlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
   ]
 
-  const loading = expensesLoading || topupsLoading
+  const loading = expensesLoading
 
   // Export to Excel handler using ExcelJS
   const handleExportExcel = async () => {
@@ -168,15 +163,15 @@ export default function BukuKasPage() {
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet('Laporan OPEX')
 
-      worksheet.mergeCells('A1:K1')
+      worksheet.mergeCells('A1:I1')
       const titleCell = worksheet.getCell('A1')
-      titleCell.value = 'Laporan Buku Kas & Pengeluaran OPEX - SukaShawarma'
+      titleCell.value = 'Laporan Pengeluaran OPEX - SukaShawarma'
       titleCell.font = { size: 14, bold: true }
 
       worksheet.getCell('A3').value = `Periode: ${startDate} s/d ${endDate}`
       worksheet.getCell('A3').font = { bold: true }
 
-      const headers = ['No', 'Tanggal', 'Tipe Arus Kas', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Pemasukan (Rp)', 'Pengeluaran (Rp)']
+      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
       const headerRow = worksheet.getRow(5)
       headerRow.values = headers
       headerRow.eachCell((cell) => {
@@ -190,30 +185,26 @@ export default function BukuKasPage() {
         row.values = [
           idx + 1,
           r.date,
-          r.type === 'income' ? 'Masuk' : 'Keluar',
           r.outlet_name,
           r.recipient_name || '-',
           r.division || '-',
-          r.isTopup ? r.category : labelOf(r.category),
+          labelOf(r.category),
           r.description || '-',
           r.receipt_url ? 'Ada Struk' : '-',
-          r.type === 'income' ? r.amount : 0,
-          r.type !== 'income' ? r.amount : 0
+          r.amount
         ]
-        row.getCell(10).numFmt = 'Rp #,##0'
-        row.getCell(11).numFmt = 'Rp #,##0'
+        row.getCell(9).numFmt = 'Rp #,##0'
         curIdx++
       })
 
       const totalRow = worksheet.getRow(curIdx)
-      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', '', summary.income, summary.expense]
+      totalRow.values = ['TOTAL', '', '', '', '', '', '', '', summary.totalOpex]
       totalRow.font = { bold: true }
-      totalRow.getCell(10).numFmt = 'Rp #,##0'
-      totalRow.getCell(11).numFmt = 'Rp #,##0'
+      totalRow.getCell(9).numFmt = 'Rp #,##0'
 
       worksheet.columns.forEach(col => { col.width = 16 })
-      worksheet.getColumn(8).width = 30
-      worksheet.getColumn(6).width = 30
+      worksheet.getColumn(7).width = 30
+      worksheet.getColumn(5).width = 24
 
       const buffer = await workbook.xlsx.writeBuffer()
       const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -232,19 +223,17 @@ export default function BukuKasPage() {
     }
 
     try {
-      const headers = ['No', 'Tanggal', 'Tipe Arus Kas', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Pemasukan (Rp)', 'Pengeluaran (Rp)']
+      const headers = ['No', 'Tanggal', 'Unit / Cabang', 'Nama Pemohon', 'Divisi', 'Kategori', 'Keterangan', 'Bukti Nota', 'Nominal Pengeluaran (Rp)']
       const rows = allTransactions.map((r, idx) => [
         idx + 1,
         `"${r.date}"`,
-        `"${r.type === 'income' ? 'Masuk' : 'Keluar'}"`,
         `"${(r.outlet_name || '').replace(/"/g, '""')}"`,
         `"${(r.recipient_name || '-').replace(/"/g, '""')}"`,
         `"${(r.division || '-').replace(/"/g, '""')}"`,
-        `"${(r.isTopup ? r.category : labelOf(r.category)).replace(/"/g, '""')}"`,
+        `"${labelOf(r.category).replace(/"/g, '""')}"`,
         `"${(r.description || '-').replace(/"/g, '""')}"`,
         `"${r.receipt_url ? 'Ada Struk' : '-'}"`,
-        r.type === 'income' ? r.amount : 0,
-        r.type !== 'income' ? r.amount : 0
+        r.amount
       ])
 
       const summaryRow = [
@@ -256,9 +245,7 @@ export default function BukuKasPage() {
         '',
         '',
         '',
-        '',
-        summary.income,
-        summary.expense
+        summary.totalOpex
       ]
 
       const csvContent = '\uFEFF' + [
@@ -271,7 +258,7 @@ export default function BukuKasPage() {
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.setAttribute('href', url)
-      link.setAttribute('download', `Laporan_Buku_Kas_${startDate}_${endDate}.csv`)
+      link.setAttribute('download', `Laporan_OPEX_${startDate}_${endDate}.csv`)
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
@@ -317,9 +304,8 @@ export default function BukuKasPage() {
     if (!deletingTx) return
     setIsDeleting(true)
     try {
-      await deleteTransactionAction({ id: deletingTx.id, isTopup: deletingTx.isTopup })
+      await deleteTransactionAction({ id: deletingTx.id })
       queryClient.invalidateQueries({ queryKey: ['expenses'] })
-      queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
       toast.success('Transaksi berhasil dihapus!')
       setDeletingTx(null)
     } catch (err: any) {
@@ -332,8 +318,8 @@ export default function BukuKasPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Buku Kas & Pengeluaran (OPEX)"
-        description="Pencatatan mutasi kas harian, operasional cabang, dan biaya operasional pusat."
+        title="Pengeluaran & OPEX"
+        description="Pencatatan dan rincian beban operasional (Gaji, Operasional Cabang, dan Beban Kantor Pusat)."
       >
         <div className="flex flex-wrap items-center gap-2">
           <Button
@@ -452,29 +438,19 @@ export default function BukuKasPage() {
         </div>
       </div>
 
-      {/* SUMMARY STATS */}
+      {/* SUMMARY STATS (PURE OPEX) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center gap-1">
-              <ArrowDownRight size={14} /> Total Kas Masuk (Topup)
-            </div>
-            <div className="text-2xl font-black text-emerald-700 mt-1">
-              {rupiah(summary.income)}
-            </div>
-          </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-            IN
-          </div>
-        </div>
-
+        {/* Total OPEX */}
         <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
           <div>
             <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
-              <ArrowUpRight size={14} /> Total Kas Keluar (OPEX)
+              <ArrowUpRight size={14} /> Total Pengeluaran (OPEX)
             </div>
             <div className="text-2xl font-black text-rose-700 mt-1">
-              {rupiah(summary.expense)}
+              {rupiah(summary.totalOpex)}
+            </div>
+            <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
+              {summary.count} transaksi operasional
             </div>
           </div>
           <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
@@ -482,17 +458,39 @@ export default function BukuKasPage() {
           </div>
         </div>
 
+        {/* Salary */}
         <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
           <div>
-            <div className="text-xs font-bold text-suka-orange uppercase tracking-wider flex items-center gap-1">
-              <Wallet size={14} /> Arus Bersih Periode Ini
+            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
+              <Users size={14} /> Gaji & Payroll
             </div>
-            <div className={`text-2xl font-black mt-1 ${summary.net >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-              {rupiah(summary.net)}
+            <div className="text-2xl font-black text-indigo-700 mt-1">
+              {rupiah(summary.salary)}
+            </div>
+            <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
+              Beban gaji crew & kantor
             </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-orange-50 text-suka-orange flex items-center justify-center font-bold">
-            NET
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            PAY
+          </div>
+        </div>
+
+        {/* Non-Salary OPEX */}
+        <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
+          <div>
+            <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
+              <Store size={14} /> Operasional Cabang & Pusat
+            </div>
+            <div className="text-2xl font-black text-amber-700 mt-1">
+              {rupiah(summary.nonSalary)}
+            </div>
+            <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
+              Listrik, wifi, bahan, operasional
+            </div>
+          </div>
+          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            OPEX
           </div>
         </div>
       </div>
@@ -502,20 +500,20 @@ export default function BukuKasPage() {
         <div className="px-5 py-4 border-b border-suka-gray-100 flex justify-between items-center bg-gray-50/50">
           <div className="font-extrabold text-suka-brown text-sm flex items-center gap-2">
             <FileText size={16} className="text-suka-orange" />
-            Daftar Mutasi Transaksi ({allTransactions.length})
+            Daftar Pengeluaran OPEX ({allTransactions.length})
           </div>
         </div>
 
         {loading ? (
           <div className="p-12 text-center text-gray-400 font-medium">
             <div className="w-8 h-8 border-3 border-suka-orange border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-            Memuat data transaksi...
+            Memuat data pengeluaran...
           </div>
         ) : allTransactions.length === 0 ? (
           <div className="p-12 text-center text-gray-400">
             <Wallet size={40} className="mx-auto mb-3 opacity-30 text-suka-orange" />
-            <p className="font-bold text-gray-600">Belum ada transaksi</p>
-            <p className="text-xs text-gray-400 mt-1">Tidak ada catatan pengeluaran/topup pada filter dan rentang tanggal ini.</p>
+            <p className="font-bold text-gray-600">Belum ada pengeluaran</p>
+            <p className="text-xs text-gray-400 mt-1">Tidak ada catatan pengeluaran OPEX pada filter dan rentang tanggal ini.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -523,35 +521,23 @@ export default function BukuKasPage() {
               <thead className="bg-gray-50 border-b border-suka-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-4 py-3">Tanggal</th>
-                  <th className="px-3 py-3">Tipe</th>
                   <th className="px-4 py-3">Unit / Cabang</th>
                   <th className="px-4 py-3">Nama Pemohon</th>
                   <th className="px-4 py-3">Divisi</th>
                   <th className="px-4 py-3">Kategori</th>
                   <th className="px-4 py-3">Keterangan</th>
                   <th className="px-3 py-3 text-center">Bukti Nota</th>
-                  <th className="px-5 py-3 text-right">Nominal (Rp)</th>
+                  <th className="px-5 py-3 text-right">Nominal Pengeluaran (Rp)</th>
                   <th className="px-3 py-3 text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
                 {allTransactions.map((tx) => {
-                  const isInc = tx.type === 'income'
                   const hasReceipt = Boolean(tx.receipt_url)
                   return (
                     <tr key={tx.id} className="hover:bg-amber-50/30 transition-colors font-medium">
                       <td className="px-4 py-3.5 whitespace-nowrap text-gray-600 font-bold">
                         {tx.date}
-                      </td>
-                      <td className="px-3 py-3.5 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
-                          isInc 
-                            ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-                            : 'bg-rose-100 text-rose-800 border border-rose-200'
-                        }`}>
-                          {isInc ? <ArrowDownRight size={12} /> : <ArrowUpRight size={12} />}
-                          {isInc ? 'MASUK' : 'KELUAR'}
-                        </span>
                       </td>
                       <td className="px-4 py-3.5 text-suka-brown font-bold whitespace-nowrap">
                         {tx.outlet_name}
@@ -570,7 +556,7 @@ export default function BukuKasPage() {
                       </td>
                       <td className="px-4 py-3.5 text-gray-700 whitespace-nowrap">
                         <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 font-semibold text-[10px] border border-amber-100">
-                          {tx.isTopup ? tx.category : labelOf(tx.category)}
+                          {labelOf(tx.category)}
                         </span>
                       </td>
                       <td className="px-4 py-3.5 text-gray-600 max-w-xs truncate" title={tx.description}>
@@ -591,10 +577,8 @@ export default function BukuKasPage() {
                           <span className="text-[10px] text-gray-400 italic">-</span>
                         )}
                       </td>
-                      <td className={`px-5 py-3.5 text-right font-black whitespace-nowrap text-sm ${
-                        isInc ? 'text-emerald-600' : 'text-rose-600'
-                      }`}>
-                        {isInc ? '+' : '-'}{rupiah(tx.amount)}
+                      <td className="px-5 py-3.5 text-right font-black whitespace-nowrap text-sm text-rose-600">
+                        -{rupiah(tx.amount)}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
                         <button
@@ -727,7 +711,6 @@ export default function BukuKasPage() {
           onSuccess={() => {
             setIsFormOpen(false)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
-            queryClient.invalidateQueries({ queryKey: ['petty_cash_topups'] })
           }}
         />
       )}

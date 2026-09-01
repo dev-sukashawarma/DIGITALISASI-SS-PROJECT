@@ -109,33 +109,41 @@ export async function createSingleExpenseAction(input: {
 
 export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
   const supabase = getServiceSupabase()
+  const PAGE_SIZE = 1000
 
-  let q1 = supabase
-    .from('expenses')
-    .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
-    .gte('expense_date', filter.from)
-    .lte('expense_date', filter.to)
+  const buildQuery = () => {
+    let q = supabase
+      .from('expenses')
+      .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
+      .eq('type', 'expense')
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to)
+      .order('expense_date', { ascending: false })
+      .order('id', { ascending: false })
 
-  let q2 = supabase
-    .from('petty_cash_expenses')
-    .select('id, outlet_id, category, amount, description, expense_date, receipt_url, type, outlets(name)')
-    .in('category', ['operasional', 'utilitas', 'lainnya'])
-    .gte('expense_date', filter.from)
-    .lte('expense_date', filter.to)
+    if (filter.outletId && filter.outletId !== 'all') {
+      if (filter.outletId === 'PUSAT') {
+        q = q.is('outlet_id', null)
+      } else {
+        q = q.eq('outlet_id', filter.outletId)
+      }
+    }
 
-  if (filter.outletId !== 'all') {
-    q1 = q1.eq('outlet_id', filter.outletId)
-    q2 = q2.eq('outlet_id', filter.outletId)
+    return q
   }
 
-  const [res1, res2] = await Promise.all([q1, q2])
-
-  if (res1.error) throw res1.error
-  if (res2.error) throw res2.error
+  const allExpenses: any[] = []
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
+    if (error) throw error
+    const page = data ?? []
+    allExpenses.push(...page)
+    if (page.length < PAGE_SIZE) break
+  }
 
   return {
-    expenses: res1.data || [],
-    pettyCashExpenses: res2.data || []
+    expenses: allExpenses,
+    pettyCashExpenses: []
   }
 }
 

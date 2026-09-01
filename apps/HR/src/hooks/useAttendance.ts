@@ -69,6 +69,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
           .select(`
             id, staff_id, outlet_id, date, clock_in, clock_out,
             status, late_minutes, notes, created_at, updated_at,
+            stealth_photo_in_url, stealth_photo_out_url,
             outlet_staff!attendance_logs_staff_id_fkey(name, role, username),
             outlets!attendance_logs_outlet_id_fkey(name)
           `)
@@ -81,7 +82,16 @@ export function useAttendance(filter: AttendanceFilterValues) {
         }
         const { data: logData, error: logErr } = await logQuery
         if (logErr) throw logErr
-        return (logData ?? []) as AttendanceLog[]
+        
+        return (logData ?? []).map(log => ({
+          ...log,
+          photo_url: log.stealth_photo_in_url
+            ? (log.stealth_photo_in_url.startsWith('http') ? log.stealth_photo_in_url : supabase.storage.from('selfies').getPublicUrl(log.stealth_photo_in_url).data.publicUrl)
+            : null,
+          clock_out_photo_url: log.stealth_photo_out_url
+            ? (log.stealth_photo_out_url.startsWith('http') ? log.stealth_photo_out_url : supabase.storage.from('selfies').getPublicUrl(log.stealth_photo_out_url).data.publicUrl)
+            : null
+        })) as AttendanceLog[]
       }
 
       // Fetch outlet_staff separately because of missing foreign key relationship
@@ -137,7 +147,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
         const item = grouped.get(key)!
         if (r.type === 'in') {
           item.clock_in = r.ts_server
-          item.photo_url = r.selfie_url || null
+          item.photo_url = r.selfie_url
+            ? (r.selfie_url.startsWith('http') ? r.selfie_url : supabase.storage.from('selfies').getPublicUrl(r.selfie_url).data.publicUrl)
+            : null
           if (r.gps_lat) item.lat = Number(r.gps_lat)
           if (r.gps_lng) item.lng = Number(r.gps_lng)
           if (r.is_manual_button) item.notes = 'Absen Manual'
@@ -151,7 +163,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
           }
         } else if (r.type === 'out') {
           item.clock_out = r.ts_server
-          item.clock_out_photo_url = r.selfie_url || null
+          item.clock_out_photo_url = r.selfie_url
+            ? (r.selfie_url.startsWith('http') ? r.selfie_url : supabase.storage.from('selfies').getPublicUrl(r.selfie_url).data.publicUrl)
+            : null
         }
       }
 

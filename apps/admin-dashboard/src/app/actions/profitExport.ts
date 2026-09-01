@@ -92,9 +92,12 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
       .neq('outlet_id', TEST_OUTLET_ID)
       .gte('sales_date', filter.from)
       .lte('sales_date', filter.to)
+      // `sales_source` wajib ikut: tanpa itu masih ada 45 baris kembar dan
+      // paginasi bisa menggandakan/melewatkan baris di batas halaman.
       .order('sales_date', { ascending: true })
       .order('outlet_id', { ascending: true })
       .order('menu_name', { ascending: true })
+      .order('sales_source', { ascending: true })
     if (filter.outletId !== 'all') b = b.eq('outlet_id', filter.outletId)
     return b
   }

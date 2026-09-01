@@ -46,9 +46,12 @@ export default async function AdminOverviewPage() {
     .from('sales_hourly_spv')
     .select('sales_date, omzet')
     .gte('sales_date', chartFrom)
+    // `sales_source` wajib ikut: tanpa itu 8.304 baris hanya punya 4.991
+    // kombinasi unik, sehingga paginasi bisa menggandakan/melewatkan baris.
     .order('sales_date', { ascending: true })
     .order('outlet_id', { ascending: true })
     .order('sales_hour', { ascending: true })
+    .order('sales_source', { ascending: true })
 
   const [outletsRes, orders, chartDaily] = await Promise.all([
     supabase.from('outlets').select('*').order('name'),

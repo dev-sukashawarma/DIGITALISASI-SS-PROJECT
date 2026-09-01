@@ -17,7 +17,6 @@
     "@suka/design-system": "*",
     "@suka/realtime": "*",
     "@supabase/ssr": "^0.5.1",
-    "@supabase/supabase-js": "^2.38.0",
     "@tanstack/react-query": "^5.51.0",
     "date-fns": "^3.0.0",
     "framer-motion": "^11.0.0",
@@ -39,6 +38,7 @@
     "zustand": "^4.5.4"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.110.7",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^20.10.6",
     "@types/papaparse": "^5.5.2",

@@ -44,8 +44,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
         .from('attendance')
         .select(`
           id, outlet_staff_id, outlet_id, type, ts_server, status,
-          selfie_url, gps_lat, gps_lng, is_mock_location, telat_menit,
-          outlet_staff!attendance_outlet_staff_id_fkey(name, role, username),
+          selfie_url, gps_lat, gps_lng, telat_menit, is_manual_button,
           outlets!attendance_outlet_id_fkey(name)
         `)
         .order('ts_server', { ascending: false })
@@ -61,7 +60,7 @@ export function useAttendance(filter: AttendanceFilterValues) {
         query = query.eq('outlet_id', filter.outletId)
       }
 
-      const { data: rawRows, error } = await query
+      let { data: rawRows, error } = await query
 
       if (error || !rawRows) {
         // Fallback to attendance_logs if attendance query fails
@@ -83,6 +82,25 @@ export function useAttendance(filter: AttendanceFilterValues) {
         const { data: logData, error: logErr } = await logQuery
         if (logErr) throw logErr
         return (logData ?? []) as AttendanceLog[]
+      }
+
+      // Fetch outlet_staff separately because of missing foreign key relationship
+      if (rawRows.length > 0) {
+        const staffIds = Array.from(new Set(rawRows.map(r => r.outlet_staff_id).filter(Boolean)))
+        if (staffIds.length > 0) {
+          const { data: staffs } = await supabase
+            .from('outlet_staff')
+            .select('id, name, role, username')
+            .in('id', staffIds)
+          
+          if (staffs) {
+            const staffMap = new Map(staffs.map(s => [s.id, s]))
+            rawRows = rawRows.map(r => ({
+              ...r,
+              outlet_staff: staffMap.get(r.outlet_staff_id) || null
+            }))
+          }
+        }
       }
 
       // Group into daily entries (clock_in and clock_out)
@@ -122,14 +140,14 @@ export function useAttendance(filter: AttendanceFilterValues) {
           item.photo_url = r.selfie_url || null
           if (r.gps_lat) item.lat = Number(r.gps_lat)
           if (r.gps_lng) item.lng = Number(r.gps_lng)
-          if (r.is_mock_location) item.is_mock_location = true
+          if (r.is_manual_button) item.notes = 'Absen Manual'
           if (r.status === 'telat' || r.status === 'terlambat') {
             item.status = 'terlambat'
             item.late_minutes = r.telat_menit || 0
           } else if (r.status === 'telat_toleransi') {
             item.status = 'terlambat'
             item.late_minutes = r.telat_menit || 0
-            item.notes = 'Telat dalam toleransi'
+            item.notes = item.notes ? item.notes + ', Telat dalam toleransi' : 'Telat dalam toleransi'
           }
         } else if (r.type === 'out') {
           item.clock_out = r.ts_server

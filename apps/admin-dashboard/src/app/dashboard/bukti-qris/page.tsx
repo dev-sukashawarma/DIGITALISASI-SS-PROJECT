@@ -10,6 +10,7 @@ import { PeriodFilter } from '@/components/PeriodFilter'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export default function BuktiQrisPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -33,55 +34,62 @@ export default function BuktiQrisPage() {
   async function fetchProofs() {
     setLoading(true)
     try {
-      let q = supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          customer_name,
-          total_amount,
-          created_at,
-          payment_proof_url,
-          status,
-          scheduled_promo_names,
-          outlet:outlet_id (
-            name
-          )
-        `)
-        .eq('payment_method', 'qris')
-        .not('payment_proof_url', 'is', null)
-        .order('created_at', { ascending: false })
+      // 30 hari menghasilkan ~8.400 bukti bayar — jauh di atas batas 1.000
+      // PostgREST. Tanpa paginasi, halaman ini hanya menampilkan sebagian kecil
+      // bukti dan admin yang memverifikasi pembayaran melewatkan sisanya tanpa
+      // tanda apa pun. `.order('id')` ditambahkan sebagai pemecah seri agar
+      // urutan antar-halaman deterministik (created_at saja bisa kembar).
+      const buildProofsQuery = () => {
+        let q = supabase
+          .from('orders')
+          .select(`
+            id,
+            order_number,
+            customer_name,
+            total_amount,
+            created_at,
+            payment_proof_url,
+            status,
+            scheduled_promo_names,
+            outlet:outlet_id (
+              name
+            )
+          `)
+          .eq('payment_method', 'qris')
+          .not('payment_proof_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
 
-      if (filter.outletId !== 'all') {
-        q = q.eq('outlet_id', filter.outletId)
-      }
-
-      if (filter.from) {
-        const start = new Date(filter.from)
-        start.setHours(0, 0, 0, 0)
-        q = q.gte('created_at', start.toISOString())
-      }
-
-      if (filter.to) {
-        const end = new Date(filter.to)
-        end.setHours(23, 59, 59, 999)
-        q = q.lte('created_at', end.toISOString())
-      }
-
-      if (filter.source && filter.source !== 'all') {
-        if (filter.source === 'pos') {
-          q = q.eq('sales_source', 'pos').is('channel', null)
-        } else if (filter.source === 'online') {
-          q = q.eq('sales_source', 'online')
-        } else {
-          q = q.eq('channel', filter.source)
+        if (filter.outletId !== 'all') {
+          q = q.eq('outlet_id', filter.outletId)
         }
+
+        if (filter.from) {
+          const start = new Date(filter.from)
+          start.setHours(0, 0, 0, 0)
+          q = q.gte('created_at', start.toISOString())
+        }
+
+        if (filter.to) {
+          const end = new Date(filter.to)
+          end.setHours(23, 59, 59, 999)
+          q = q.lte('created_at', end.toISOString())
+        }
+
+        if (filter.source && filter.source !== 'all') {
+          if (filter.source === 'pos') {
+            q = q.eq('sales_source', 'pos').is('channel', null)
+          } else if (filter.source === 'online') {
+            q = q.eq('sales_source', 'online')
+          } else {
+            q = q.eq('channel', filter.source)
+          }
+        }
+        return q
       }
 
-      const { data, error } = await q
-
-      if (error) throw error
-      setOrders(data || [])
+      // fetchAllPages melempar bila ada error, jadi ditangkap blok catch di bawah.
+      setOrders(await fetchAllPages<any>(buildProofsQuery))
     } catch (err) {
       console.error('Failed to fetch proofs:', err)
     } finally {

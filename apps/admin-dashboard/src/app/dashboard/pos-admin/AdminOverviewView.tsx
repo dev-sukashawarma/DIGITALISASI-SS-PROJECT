@@ -9,6 +9,7 @@ import { formatRupiah } from '@/lib/validations'
 import dynamic from 'next/dynamic'
 import type { Outlet } from '@/pos-types'
 import BranchFilter from '@/components/BranchFilter'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 import { toast } from 'sonner'
 
 const OverviewAreaChart = dynamic(() => import('./OverviewAreaChart'), {
@@ -57,19 +58,27 @@ export default function AdminOverviewView({
     setLoading(true)
     const supabase = createClient()
 
+    // Kedua query di bawah bisa melampaui batas 1.000 baris PostgREST
+    // (orders 30 hari + pembanding ≈ 60.000 baris; ecommerce_sales ≈ 7.000),
+    // dan pemotongannya senyap — tanpa error. `.order('id')` disertakan sebagai
+    // pemecah seri supaya urutan antar-halaman deterministik.
     // SS Online: fetch dari ecommerce_sales
     if (selectedOutlet === 'ss-online') {
-      let q = supabase
-        .from('ecommerce_sales')
-        .select('id, total_amount, order_date, channel_id, raw_data')
-        .order('order_date', { ascending: true })
+      const buildEcommerceQuery = () => {
+        let q = supabase
+          .from('ecommerce_sales')
+          .select('id, total_amount, order_date, channel_id, raw_data')
+          .order('order_date', { ascending: true })
+          .order('id', { ascending: true })
 
-      const lowerBound = dateRange.prevStart ?? dateRange.start
-      if (lowerBound) q = q.gte('order_date', lowerBound.toISOString())
-      if (dateRange.end) q = q.lte('order_date', dateRange.end.toISOString())
+        const lowerBound = dateRange.prevStart ?? dateRange.start
+        if (lowerBound) q = q.gte('order_date', lowerBound.toISOString())
+        if (dateRange.end) q = q.lte('order_date', dateRange.end.toISOString())
+        return q
+      }
 
-      const { data } = await q
-      const mapped: OrderRow[] = (data ?? []).map((e: any) => {
+      const data = await fetchAllPages<any>(buildEcommerceQuery)
+      const mapped: OrderRow[] = data.map((e: any) => {
         const raw = e.raw_data || {}
         const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
         return {
@@ -89,22 +98,25 @@ export default function AdminOverviewView({
     }
 
     // POS orders
-    let q = supabase
-      .from('orders')
-      .select('id, status, total_amount, created_at, outlet_id, channel, sales_source, scheduled_promo_names')
-      .eq('status', 'completed')
-      .order('created_at', { ascending: true })
+    const buildOrdersQuery = () => {
+      let q = supabase
+        .from('orders')
+        .select('id, status, total_amount, created_at, outlet_id, channel, sales_source, scheduled_promo_names')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
 
-    const lowerBound = dateRange.prevStart ?? dateRange.start
-    if (lowerBound) q = q.gte('created_at', lowerBound.toISOString())
-    if (dateRange.end) q = q.lte('created_at', dateRange.end.toISOString())
+      const lowerBound = dateRange.prevStart ?? dateRange.start
+      if (lowerBound) q = q.gte('created_at', lowerBound.toISOString())
+      if (dateRange.end) q = q.lte('created_at', dateRange.end.toISOString())
 
-    if (selectedOutlet !== 'all') {
-      q = q.eq('outlet_id', selectedOutlet)
+      if (selectedOutlet !== 'all') {
+        q = q.eq('outlet_id', selectedOutlet)
+      }
+      return q
     }
 
-    const { data } = await q
-    setOrders(data ?? [])
+    setOrders(await fetchAllPages<any>(buildOrdersQuery))
     setLoading(false)
   }, [selectedOutlet, dateRange])
 

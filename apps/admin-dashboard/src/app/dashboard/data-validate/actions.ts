@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export type DBMenuData = {
   name: string
@@ -108,7 +109,11 @@ export async function getDBDataForValidation(
     ? ['tiktokgo', 'tiktok_go', 'tiktok']
     : [dbChannel]
 
-  const { data: orders, error: ordersError } = await supabase
+  // Satu outlet saja bisa mencapai ~3.400 order dalam 30 hari — di atas batas
+  // 1.000 baris PostgREST, yang memotong hasil tanpa error. Karena halaman ini
+  // dipakai untuk MEMBANDINGKAN data POS dengan laporan platform, data yang
+  // terpotong justru memunculkan selisih palsu — persis kebalikan dari tujuannya.
+  const buildOrdersQuery = () => supabase
     .from('orders')
     .select(`
       id,
@@ -122,10 +127,9 @@ export async function getDBDataForValidation(
     .or(`channel.in.(${channelAliases.join(',')}),sales_source.in.(${channelAliases.join(',')})`)
     .gte('created_at', from)
     .lte('created_at', to)
+    .order('id', { ascending: true })
 
-  if (ordersError) {
-    throw new Error(ordersError.message)
-  }
+  const orders = await fetchAllPages<any>(buildOrdersQuery)
 
   const agg = new Map<string, DBMenuData>()
 

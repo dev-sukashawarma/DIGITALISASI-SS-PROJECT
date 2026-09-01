@@ -10,6 +10,7 @@ import { User, Store, Lock, Unlock, Users, UserCheck, UserX, MapPin, Monitor, Cl
 import dynamic from 'next/dynamic'
 import OpnameDetailModal from './OpnameDetailModal'
 import LiveCameraPanel from './LiveCameraPanel'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 // Feature flag: keep Live Camera code available while rollout is paused.
 const LIVE_CAMERA_ENABLED = false
@@ -253,15 +254,21 @@ export default function MonitoringPage() {
       const start = new Date(`${fromDate}T00:00:00+07:00`).toISOString()
       const end = new Date(`${toDate}T23:59:59+07:00`).toISOString()
 
-      const [outRes, stfRes, mapRes, attRes, catRes, recRes, opnRes, ordersRes] = await Promise.all([
+      // `attendance` (≈2.400 baris/30 hari) dan `orders` (≈31.000) melampaui
+      // batas 1.000 baris PostgREST. Tanpa paginasi keduanya terpotong tanpa
+      // error, sehingga papan monitoring menampilkan kehadiran & aktivitas POS
+      // yang jauh lebih sedikit dari kenyataan. `.order('id')` sebagai pemecah
+      // seri agar urutan antar-halaman deterministik.
+      const [outRes, stfRes, mapRes, attRows, catRes, recRes, opnRes, ordersRows] = await Promise.all([
         supabase.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true),
         supabase.from('outlet_staff').select('id, name, outlet_id, role, is_active').eq('is_active', true).in('role', ['crew', 'leader', 'spv', 'regional_manager', 'area_manager']),
         supabase.from('staff_outlets').select('staff_id, outlet_id'),
-        supabase.from('attendance')
+        fetchAllPages<any>(() => supabase.from('attendance')
           .select('outlet_id, outlet_staff_id, type, ts_server')
           .gte('ts_server', start)
           .lte('ts_server', end)
-          .order('ts_server', { ascending: true }),
+          .order('ts_server', { ascending: true })
+          .order('outlet_staff_id', { ascending: true })),
         supabase.from('checklist_categories')
           .select('id, outlet_id, checklist_items(id, is_required)')
           .eq('phase', 'buka'),
@@ -273,11 +280,15 @@ export default function MonitoringPage() {
           .select('id, outlet_id, created_at')
           .gte('created_at', start)
           .lte('created_at', end),
-        supabase.from('orders')
-          .select('outlet_id, pos_client, created_at')
+        fetchAllPages<any>(() => supabase.from('orders')
+          .select('id, outlet_id, pos_client, created_at')
           .gte('created_at', start)
           .lte('created_at', end)
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true }))
       ])
+      const attRes = { data: attRows }
+      const ordersRes = { data: ordersRows }
 
       const validOutlets = (outRes.data || []) as Outlet[]
       
@@ -294,8 +305,16 @@ export default function MonitoringPage() {
       const ticksMap: Record<string, string[]> = {}
       if (recRes.data && recRes.data.length > 0) {
         const recIds = recRes.data.map(r => r.id)
-        const { data: tickRes } = await supabase.from('daily_checklist_ticks').select('item_id, record_id').in('record_id', recIds)
-        
+        // Satu record checklist bisa punya ratusan tik; untuk rentang 30 hari
+        // × 19 outlet totalnya jauh melewati 1.000 baris.
+        const tickRes = await fetchAllPages<any>(() => supabase
+          .from('daily_checklist_ticks')
+          .select('item_id, record_id')
+          .in('record_id', recIds)
+          .order('record_id', { ascending: true })
+          .order('item_id', { ascending: true }))
+
+
         if (tickRes) {
           recRes.data.forEach(rec => {
             if (!ticksMap[rec.outlet_id]) ticksMap[rec.outlet_id] = []

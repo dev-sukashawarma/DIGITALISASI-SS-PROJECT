@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchAllPages } from '@/lib/fetchAllPages'
 
 export type OutletBreakdownDetails = {
   outlet_id: string
@@ -27,15 +28,40 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
 
   const opexMap = new Map<string, Map<string, number>>() 
   
-  let q1 = supabase.from('expenses').select('outlet_id, category, amount').neq('outlet_id', TEST_OUTLET_ID).gte('expense_date', filter.from).lte('expense_date', filter.to)
-  let q2 = supabase.from('petty_cash_expenses').select('outlet_id, category, amount').neq('outlet_id', TEST_OUTLET_ID).in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities']).gte('expense_date', filter.from).lte('expense_date', filter.to)
-
-  if (filter.outletId !== 'all') {
-    q1 = q1.eq('outlet_id', filter.outletId)
-    q2 = q2.eq('outlet_id', filter.outletId)
+  // Rincian ini masuk ke file CSV/PDF yang diarsipkan & dibagikan, jadi angka
+  // yang terpotong ikut tersimpan permanen. `petty_cash_expenses` sendiri sudah
+  // >1.400 baris per bulan — di atas batas 1.000 PostgREST — sehingga tanpa
+  // paginasi ekspor melaporkan biaya yang terlalu kecil.
+  const buildExpensesQuery = () => {
+    let b = supabase.from('expenses')
+      .select('outlet_id, category, amount')
+      .neq('outlet_id', TEST_OUTLET_ID)
+      // Tabel `expenses` juga memuat baris pemasukan (type='income');
+      // tanpa saringan ini pemasukan ikut terhitung sebagai biaya.
+      .eq('type', 'expense')
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to)
+      .order('id', { ascending: true })
+    if (filter.outletId !== 'all') b = b.eq('outlet_id', filter.outletId)
+    return b
   }
 
-  const [resExp, resPc] = await Promise.all([q1, q2])
+  const buildPettyCashQuery = () => {
+    let b = supabase.from('petty_cash_expenses')
+      .select('outlet_id, category, amount')
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities'])
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to)
+      .order('id', { ascending: true })
+    if (filter.outletId !== 'all') b = b.eq('outlet_id', filter.outletId)
+    return b
+  }
+
+  const [expenseRows, pettyCashRows] = await Promise.all([
+    fetchAllPages<any>(buildExpensesQuery),
+    fetchAllPages<any>(buildPettyCashQuery),
+  ])
 
   const processExpense = (row: any, mapCat: (c: string) => string) => {
     if (isTestOutlet(row.outlet_id) || !row.outlet_id) return
@@ -45,32 +71,40 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
     opexMap.get(row.outlet_id)!.set(cat, cur + Number(row.amount))
   }
 
-  resExp.data?.forEach(r => processExpense(r, c => c || 'Lainnya'))
-  resPc.data?.forEach(r => processExpense(r, c => {
+  expenseRows.forEach(r => processExpense(r, c => c || 'Lainnya'))
+  pettyCashRows.forEach(r => processExpense(r, c => {
     if (c === 'bb') return 'bahan_baku'
     if (c === 'outlet' || c === 'operasional') return 'pengeluaran_outlet'
     if (c === 'utilities') return 'utilitas'
     return c || 'Lainnya'
   }))
 
-  const omzetMap = new Map<string, Map<string, number>>() 
-  let qOmzet = supabase.from('menu_sales_scoped').select('outlet_id, menu_name, revenue').neq('outlet_id', TEST_OUTLET_ID).gte('sales_date', filter.from).lte('sales_date', filter.to)
-  if (filter.outletId !== 'all') qOmzet = qOmzet.eq('outlet_id', filter.outletId)
-  
-  let offset = 0
-  const PAGE_SIZE = 1000
-  while (true) {
-    const { data: page } = await qOmzet.range(offset, offset + PAGE_SIZE - 1)
-    if (!page || page.length === 0) break
-    for (const r of page) {
-      if (isTestOutlet(r.outlet_id)) continue
-      const cleanName = (r.menu_name || 'Unknown Menu').split('|')[0].trim()
-      if (!omzetMap.has(r.outlet_id)) omzetMap.set(r.outlet_id, new Map())
-      const cur = omzetMap.get(r.outlet_id)!.get(cleanName) || 0
-      omzetMap.get(r.outlet_id)!.set(cleanName, cur + Number(r.revenue))
-    }
-    if (page.length < PAGE_SIZE) break
-    offset += PAGE_SIZE
+  // 30 hari ≈ 31.800 baris di sini (outlet × menu × tanggal) = ~32 halaman.
+  // Loop sebelumnya memakai ulang satu builder tanpa `ORDER BY`; tanpa urutan
+  // yang stabil, baris bisa terlewat ATAU tercatat dua kali antar-halaman —
+  // dan pada 32 halaman itu hampir pasti terjadi. Kesalahan semacam ini lebih
+  // sulit terdeteksi daripada sekadar terpotong, karena totalnya bisa naik
+  // maupun turun tanpa pola.
+  const omzetMap = new Map<string, Map<string, number>>()
+  const buildOmzetQuery = () => {
+    let b = supabase.from('menu_sales_scoped')
+      .select('outlet_id, menu_name, revenue')
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .gte('sales_date', filter.from)
+      .lte('sales_date', filter.to)
+      .order('sales_date', { ascending: true })
+      .order('outlet_id', { ascending: true })
+      .order('menu_name', { ascending: true })
+    if (filter.outletId !== 'all') b = b.eq('outlet_id', filter.outletId)
+    return b
+  }
+
+  for (const r of await fetchAllPages<any>(buildOmzetQuery)) {
+    if (isTestOutlet(r.outlet_id)) continue
+    const cleanName = (r.menu_name || 'Unknown Menu').split('|')[0].trim()
+    if (!omzetMap.has(r.outlet_id)) omzetMap.set(r.outlet_id, new Map())
+    const cur = omzetMap.get(r.outlet_id)!.get(cleanName) || 0
+    omzetMap.get(r.outlet_id)!.set(cleanName, cur + Number(r.revenue))
   }
 
   const wasteMap = new Map<string, Map<string, number>>()

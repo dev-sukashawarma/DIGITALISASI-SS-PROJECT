@@ -15,6 +15,67 @@ button { cursor: pointer; }
 @keyframes monitor-pulse { 50% { opacity: .45; transform: scale(.88); } }
 .status-pulse { animation: monitor-pulse 1.5s ease-in-out infinite; }
 
+/* Marker staff di halaman /lokasi (Leaflet divIcon). */
+.staff-marker { background: transparent; border: 0; }
+.staff-marker__pin { position: relative; display: block; width: 34px; height: 34px; }
+
+.staff-marker__avatar {
+  position: absolute; inset: 0; border-radius: 9999px;
+  border: 3px solid #fff; background: var(--pin) center/cover no-repeat;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, .35);
+  display: grid; place-items: center;
+  color: #fff; font-size: 11px; font-weight: 800; line-height: 1;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+.staff-marker:hover .staff-marker__avatar { transform: scale(1.14); }
+.staff-marker--selected .staff-marker__avatar {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 4px rgba(234, 88, 12, .35), 0 4px 12px rgba(15, 23, 42, .4);
+}
+.staff-marker--mock .staff-marker__avatar { border-color: #e11d48; }
+
+/* Denyut hanya untuk staff yang sedang bergerak — kalau semua pin berdenyut,
+   tidak ada lagi yang menonjol dan justru menyulitkan membaca peta. */
+.staff-marker__pulse {
+  position: absolute; inset: -5px; border-radius: 9999px;
+  background: var(--pin); opacity: .4;
+  animation: staff-pulse 1.9s ease-out infinite;
+}
+@keyframes staff-pulse {
+  0% { transform: scale(.62); opacity: .45; }
+  70%, 100% { transform: scale(1.4); opacity: 0; }
+}
+
+.staff-marker__heading { position: absolute; inset: 0; pointer-events: none; }
+.staff-marker__heading::before {
+  content: ''; position: absolute; left: 50%; top: -10px; margin-left: -5px;
+  border-left: 5px solid transparent; border-right: 5px solid transparent;
+  border-bottom: 8px solid var(--pin);
+  filter: drop-shadow(0 1px 1px rgba(15, 23, 42, .3));
+}
+
+.staff-marker__label {
+  position: absolute; left: 50%; top: 38px; transform: translateX(-50%);
+  white-space: nowrap; padding: 1px 6px; border-radius: 6px;
+  background: rgba(255, 255, 255, .92); color: #172033;
+  font-size: 10px; font-weight: 700; line-height: 1.5;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .2);
+}
+.staff-marker__label b { color: #e11d48; }
+
+.staff-tooltip {
+  border: 0; border-radius: 8px; padding: 4px 8px;
+  background: #172033; color: #fff;
+  font-size: 11px; font-weight: 600; box-shadow: 0 4px 12px rgba(15, 23, 42, .35);
+}
+.staff-tooltip::before { border-top-color: #172033; }
+
+/* Dipasang/dicabut dari JS: aktif kecuali saat zoom (lihat MapBridge). */
+.staff-map--animated .leaflet-marker-icon { transition: transform .7s linear; }
+
+.leaflet-container { font: inherit; background: #e9edf2; }
+.leaflet-popup-content { margin: 12px 14px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }

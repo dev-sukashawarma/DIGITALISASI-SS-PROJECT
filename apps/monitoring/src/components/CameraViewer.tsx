@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2, Radio, VideoOff, X } from 'lucide-react'
-import { Room, RoomEvent, Track } from 'livekit-client'
+import { createLocalAudioTrack, LocalAudioTrack, Room, RoomEvent, Track } from 'livekit-client'
 import { createClient } from '@/lib/supabase'
 
 type Credentials = {
@@ -40,8 +40,10 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
   const requestIdRef = useRef<string | null>(null)
   const stopRequested = useRef(false)
   const stopSent = useRef(false)
+  const talkTrackRef = useRef<LocalAudioTrack | null>(null)
   const [phase, setPhase] = useState<'requesting' | 'waiting' | 'playing' | 'error'>('requesting')
   const [error, setError] = useState<string | null>(null)
+  const [talking, setTalking] = useState(false)
 
   const sendStop = useCallback((requestId: string | null) => {
     if (!requestId || stopSent.current) return
@@ -60,6 +62,29 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
     stopStream()
     onClose()
   }, [onClose, stopStream])
+
+  const stopTalking = useCallback(() => {
+    const track = talkTrackRef.current
+    talkTrackRef.current = null
+    if (track) {
+      roomRef.current?.localParticipant.unpublishTrack(track)
+      track.stop()
+    }
+    setTalking(false)
+  }, [])
+
+  const startTalking = useCallback(async () => {
+    const room = roomRef.current
+    if (!room || phase === 'error' || talkTrackRef.current) return
+    try {
+      const track = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true })
+      await room.localParticipant.publishTrack(track)
+      talkTrackRef.current = track
+      setTalking(true)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Mikrofon tidak dapat digunakan')
+    }
+  }, [phase])
 
   useEffect(() => {
     let disposed = false
@@ -109,11 +134,12 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
 
     return () => {
       disposed = true
+      stopTalking()
       room.disconnect()
       roomRef.current = null
       stopStream()
     }
-  }, [outletId, sendStop, stopStream])
+  }, [outletId, sendStop, stopStream, stopTalking])
 
   useEffect(() => {
     const handlePageHide = () => stopStream()
@@ -127,6 +153,8 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
     return () => window.removeEventListener('keydown', handleKey)
   }, [close])
 
+  useEffect(() => () => stopTalking(), [stopTalking])
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-3 backdrop-blur-sm sm:p-8" role="dialog" aria-modal="true" aria-label={`Kamera ${outletName}`}>
       <div className="w-full max-w-6xl overflow-hidden rounded-3xl bg-white shadow-2xl shadow-slate-950/30">
@@ -137,6 +165,15 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
           </div>
           <div className="flex items-center gap-2">
             <span className="hidden items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-xs font-bold text-slate-600 sm:flex"><Radio size={14} />Aktif sampai ditutup</span>
+            <button
+              onPointerDown={() => void startTalking()}
+              onPointerUp={stopTalking}
+              onPointerCancel={stopTalking}
+              onPointerLeave={stopTalking}
+              disabled={phase === 'requesting' || phase === 'error'}
+              className={`rounded-xl px-3 py-2 text-xs font-extrabold transition-colors ${talking ? 'bg-rose-500 text-white' : 'bg-orange-100 text-orange-700 hover:bg-orange-200'} disabled:cursor-not-allowed disabled:opacity-50`}
+              aria-label="Tekan dan tahan untuk berbicara ke POS"
+            >{talking ? 'Berbicara…' : 'Tekan untuk bicara'}</button>
             <button onClick={close} className="grid h-10 w-10 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-300" aria-label="Tutup kamera"><X size={20} /></button>
           </div>
         </header>

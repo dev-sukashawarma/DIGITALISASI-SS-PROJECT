@@ -1,0 +1,111 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+    .scrollarea::-webkit-scrollbar { width: 0; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden;">
+
+  <div style="padding: 20px 20px 14px; display: flex; flex-direction: column; gap: 16px; flex-shrink: 0;">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <button style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <div style="font-size: 20px; font-weight: 800;">Pilih Outlet</div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 12px; padding: 12px 14px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a7a63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+      <span style="font-size: 14px; color: #9a7a63;">Cari nama outlet atau area</span>
+    </div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 30px; display: flex; flex-direction: column; gap: 20px;">
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 13px; font-weight: 800; color: #9a7a63;">TERDEKAT DARI KAMU</div>
+
+      <div style="display: flex; align-items: flex-start; gap: 14px; background: #ffffff; border: 2px solid #701604; border-radius: 16px; padding: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 5px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700;">Suka Shawarma Empang</div>
+          <div style="font-size: 12px; color: #9a7a63; line-height: 1.45;">Jl. Empang Raya No. 24, Bogor Selatan</div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <span style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #0a7d2c;">
+              <span style="width: 7px; height: 7px; border-radius: 999px; background: #0a7d2c; display: block;"></span>Buka
+            </span>
+            <span style="font-size: 12px; color: #9a7a63;">siap 15 menit</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0;">
+          <span class="num" style="font-size: 18px; color: #701604;">0,8 km</span>
+          <span style="width: 24px; height: 24px; border-radius: 999px; background: #0a7d2c; display: flex; align-items: center; justify-content: center;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          </span>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 5px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700;">Suka Shawarma Cibubur</div>
+          <div style="font-size: 12px; color: #9a7a63; line-height: 1.45;">Jl. Alternatif Cibubur KM 3, Depok</div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <span style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #b06a00;">
+              <span style="width: 7px; height: 7px; border-radius: 999px; background: #f29744; display: block;"></span>Ramai
+            </span>
+            <span style="font-size: 12px; color: #9a7a63;">siap 30 menit</span>
+          </div>
+        </div>
+        <span class="num" style="font-size: 18px; color: #701604; flex-shrink: 0;">4,2 km</span>
+      </div>
+
+      <div style="display: flex; align-items: flex-start; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 5px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700;">Suka Shawarma Jatiasih</div>
+          <div style="font-size: 12px; color: #9a7a63; line-height: 1.45;">Jl. Raya Jatiasih No. 8, Bekasi</div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <span style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #0a7d2c;">
+              <span style="width: 7px; height: 7px; border-radius: 999px; background: #0a7d2c; display: block;"></span>Buka
+            </span>
+            <span style="font-size: 12px; color: #9a7a63;">siap 18 menit</span>
+          </div>
+        </div>
+        <span class="num" style="font-size: 18px; color: #701604; flex-shrink: 0;">7,6 km</span>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 13px; font-weight: 800; color: #9a7a63;">BELUM BUKA</div>
+
+      <div style="display: flex; align-items: flex-start; gap: 14px; background: #faf1e6; border: 1px solid #ecdcc9; border-radius: 16px; padding: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 5px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700; color: #9a7a63;">Suka Shawarma Bantarjati</div>
+          <div style="font-size: 12px; color: #b09a89; line-height: 1.45;">Jl. Bantarjati Kaum No. 12, Bogor Utara</div>
+          <div style="display: flex; align-items: center; gap: 10px; margin-top: 4px;">
+            <span style="display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 700; color: #b09a89;">
+              <span style="width: 7px; height: 7px; border-radius: 999px; background: #c9b3a1; display: block;"></span>Buka 14:00
+            </span>
+          </div>
+        </div>
+        <span class="num" style="font-size: 18px; color: #b09a89; flex-shrink: 0;">2,1 km</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {}
+</script>
+</body>
+</html>

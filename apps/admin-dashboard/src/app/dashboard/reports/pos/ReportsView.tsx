@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 'use client'
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
@@ -778,8 +778,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     outlets.forEach(o => outletTypeMap.set(o.id, o.type || 'outlet'))
 
     // Calculate Total HPP using order_items menu_items
-    const totalHPP = filteredOrders
-      .filter(o => o.status !== 'cancelled' && o.status !== 'void')
+    const totalHPP = completed
       .reduce((sum, o) => {
         const outletType = outletTypeMap.get(o.outlet_id)
         const orderChannel = o.channel || o.sales_source

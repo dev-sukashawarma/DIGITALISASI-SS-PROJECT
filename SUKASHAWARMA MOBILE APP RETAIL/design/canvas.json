@@ -1,0 +1,47 @@
+{
+  "artboards": [
+    { "file": "Onboarding.dc.html", "x": 0, "y": 0, "w": 390, "h": 844, "title": "1 · Onboarding" },
+    { "file": "Login.dc.html", "x": 490, "y": 0, "w": 390, "h": 844, "title": "2 · Pilihan Login" },
+    { "file": "InputNomor.dc.html", "x": 980, "y": 0, "w": 390, "h": 844, "title": "3 · Input Nomor" },
+    { "file": "OTP.dc.html", "x": 1470, "y": 0, "w": 390, "h": 844, "title": "4 · Verifikasi OTP" },
+
+    { "file": "Main.dc.html", "x": 0, "y": 1100, "w": 390, "h": 844, "title": "5-12 · Alur Pesan (bisa diklik)", "is_interactive": true },
+    { "file": "PilihOutlet.dc.html", "x": 490, "y": 1100, "w": 390, "h": 844, "title": "6 · Pilih Outlet" },
+
+    { "file": "StatusPesanan.dc.html", "x": 0, "y": 2200, "w": 390, "h": 844, "title": "13 · Status Pesanan" },
+    { "file": "Riwayat.dc.html", "x": 490, "y": 2200, "w": 390, "h": 844, "title": "14 · Riwayat" },
+    { "file": "Profil.dc.html", "x": 980, "y": 2200, "w": 390, "h": 844, "title": "15 · Profil" },
+    { "file": "OutletTutup.dc.html", "x": 1470, "y": 2200, "w": 390, "h": 844, "title": "16 · Outlet Belum Buka" }
+  ],
+  "annotations": [
+    {
+      "id": "nota-masuk",
+      "x": 0,
+      "y": -190,
+      "w": 900,
+      "text": "MASUK\nGoogle dan WhatsApp berdampingan. Verifikasi nomor bersifat opsional (bisa ditambahkan dari Profil), tapi wajib untuk mencairkan hadiah referral."
+    },
+    {
+      "id": "nota-inti",
+      "x": 0,
+      "y": 1960,
+      "w": 900,
+      "text": "ALUR PESAN - BISA DIKLIK\nArtboard kiri hidup: tekan + atau kartu menu, atur tambahan dan jumlah, lalu Keranjang > Ringkasan > Metode Bayar > QRIS > Sukses. Delapan layar dalam satu artboard karena antar-artboard tidak berbagi state."
+    },
+    {
+      "id": "nota-setelah",
+      "x": 0,
+      "y": 3060,
+      "w": 900,
+      "text": "SETELAH PESAN\nStatus pesanan, riwayat dengan Pesan Lagi, profil dengan dorongan verifikasi nomor, dan keadaan outlet belum buka dengan tombol Ingatkan Saya."
+    },
+    {
+      "id": "nota-warna",
+      "x": 1960,
+      "y": 1100,
+      "w": 420,
+      "text": "ATURAN WARNA YANG MENGIKAT\nTombol utama SELALU Suka Brown #701604 dengan teks putih (kontras 11,6:1).\nSuka Orange #f29744 hanya untuk aksen, badge, dan harga, SELALU dengan teks Suka Ink #400a07 (7,3:1).\nTeks putih di atas oranye = 2,3:1 = gagal WCAG. Jangan dipakai di mana pun."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -1,0 +1,678 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+    a { color: #701604; } a:hover { color: #400a07; }
+    .scrollarea::-webkit-scrollbar { width: 0; }
+    .num { font-family: 'Lilita One', Impact, sans-serif; letter-spacing: 0.5px; }
+    button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  </style>
+</helmet>
+
+<div style="width: 390px; height: 844px; background: #fff7ed; color: #400a07; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+<!-- ============ KATALOG ============ -->
+<sc-if value="{{isKatalog}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px;">
+
+  <div style="padding: 20px 20px 14px; background: #fff7ed; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <div style="width: 40px; height: 40px; border-radius: 999px; background: #f29744; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0;">
+        <div style="font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Suka Shawarma Empang</div>
+        <div style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #0a7d2c; font-weight: 600;">
+          <span style="width: 7px; height: 7px; border-radius: 999px; background: #0a7d2c; display: block;"></span>
+          <span>Buka · siap dalam 15 menit</span>
+        </div>
+      </div>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 12px; padding: 12px 14px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a7a63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg>
+      <span style="font-size: 14px; color: #9a7a63;">Cari shawarma, kebab, minuman</span>
+    </div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 140px; display: flex; flex-direction: column; gap: 22px;">
+
+    <div style="background: #f29744; border-radius: 16px; padding: 18px 20px; display: flex; align-items: center; gap: 14px;">
+      <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
+        <div class="num" style="font-size: 22px; line-height: 1.1;">DISKON 20%</div>
+        <div style="font-size: 13px; font-weight: 600; line-height: 1.35;">Pesanan pertama di aplikasi. Otomatis terpakai.</div>
+      </div>
+      <div class="num" style="font-size: 44px; opacity: 0.35;">%</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 17px; font-weight: 800;">Sering Kamu Pesan</div>
+      <sc-for list="{{favorites}}" as="item" hint-placeholder-count="2">
+        <div style="display: flex; align-items: center; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 12px;">
+          <div style="width: 76px; height: 76px; border-radius: 12px; background: linear-gradient(135deg, #f7dcc0, #e6b085); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b0764a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+            <div style="font-size: 15px; font-weight: 700;">{{item.name}}</div>
+            <div style="font-size: 12px; color: #9a7a63;">Terakhir dipesan {{item.last}}</div>
+            <div class="num" style="font-size: 18px; color: #701604; margin-top: 2px;">{{item.priceLabel}}</div>
+          </div>
+          <button onClick="{{item.add}}" style="width: 44px; height: 44px; border-radius: 999px; background: #701604; color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 17px; font-weight: 800;">Shawarma</div>
+      <sc-for list="{{shawarma}}" as="item" hint-placeholder-count="3">
+        <div onClick="{{item.open}}" style="display: flex; align-items: center; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 12px;">
+          <div style="width: 76px; height: 76px; border-radius: 12px; background: linear-gradient(135deg, #f7dcc0, #e6b085); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b0764a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+            <div style="font-size: 15px; font-weight: 700;">{{item.name}}</div>
+            <div style="font-size: 12px; color: #9a7a63; line-height: 1.4;">{{item.desc}}</div>
+            <div class="num" style="font-size: 18px; color: #701604; margin-top: 2px;">{{item.priceLabel}}</div>
+          </div>
+          <button onClick="{{item.add}}" style="width: 44px; height: 44px; border-radius: 999px; background: #701604; color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 17px; font-weight: 800;">Minuman</div>
+      <sc-for list="{{minuman}}" as="item" hint-placeholder-count="2">
+        <div onClick="{{item.open}}" style="display: flex; align-items: center; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 12px;">
+          <div style="width: 76px; height: 76px; border-radius: 12px; background: linear-gradient(135deg, #f7dcc0, #e6b085); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#b0764a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;">
+            <div style="font-size: 15px; font-weight: 700;">{{item.name}}</div>
+            <div style="font-size: 12px; color: #9a7a63; line-height: 1.4;">{{item.desc}}</div>
+            <div class="num" style="font-size: 18px; color: #701604; margin-top: 2px;">{{item.priceLabel}}</div>
+          </div>
+          <button onClick="{{item.add}}" style="width: 44px; height: 44px; border-radius: 999px; background: #701604; color: #ffffff; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{hasCart}}" hint-placeholder-val="{{true}}">
+    <div style="position: absolute; left: 0; right: 0; bottom: 76px; padding: 0 20px;">
+      <button onClick="{{goKeranjang}}" style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: space-between; padding: 0 22px;">
+        <span style="font-size: 14px; font-weight: 700; color: #ffffff;">{{cartCountLabel}}</span>
+        <span style="display: flex; align-items: center; gap: 10px;">
+          <span class="num" style="font-size: 20px; color: #ffffff;">{{cartTotalLabel}}</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </span>
+      </button>
+    </div>
+  </sc-if>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 76px; background: #ffffff; border-top: 1px solid #f1ddc9; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center;">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"></path><path d="M5 10v10h14V10"></path></svg>
+      <span style="font-size: 11px; font-weight: 700; color: #701604;">Beranda</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"></path><line x1="9" y1="8" x2="15" y2="8"></line><line x1="9" y1="12" x2="15" y2="12"></line></svg>
+      <span style="font-size: 11px; font-weight: 600; color: #b09a89;">Pesanan</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="13" rx="3"></rect><path d="M16 12h3"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; color: #b09a89;">Dompet</span>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b09a89" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"></path></svg>
+      <span style="font-size: 11px; font-weight: 600; color: #b09a89;">Profil</span>
+    </div>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ DETAIL ITEM ============ -->
+<sc-if value="{{isDetail}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px;">
+  <div style="position: relative; height: 280px; flex-shrink: 0;">
+    <div style="width: 390px; height: 280px; background: linear-gradient(150deg, #f7dcc0, #e0a271); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;">
+      <svg width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="#a86b3e" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg>
+      <span style="font-size: 12px; font-weight: 700; color: #a86b3e; letter-spacing: 0.5px;">FOTO PRODUK 780 x 560</span>
+    </div>
+    <button onClick="{{goKatalog}}" style="position: absolute; top: 20px; left: 20px; width: 44px; height: 44px; border-radius: 999px; background: #fff7ed; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 22px 20px 120px; display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div class="num" style="font-size: 27px; line-height: 1.15;">{{sel.name}}</div>
+      <div style="font-size: 14px; color: #6b5548; line-height: 1.55;">{{sel.descLong}}</div>
+      <div class="num" style="font-size: 24px; color: #701604; margin-top: 4px;">{{sel.priceLabel}}</div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div style="font-size: 15px; font-weight: 800;">Tambahan</div>
+      <button onClick="{{toggleKeju}}" style="display: flex; align-items: center; gap: 14px; background: {{kejuBg}}; border: 1.5px solid {{kejuBorder}}; border-radius: 16px; padding: 14px 16px; width: 100%; text-align: left;">
+        <span style="width: 24px; height: 24px; border-radius: 8px; border: 2px solid {{kejuBorder}}; background: {{kejuFill}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </span>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600; color: #400a07;">Extra Keju</span>
+        <span class="num" style="font-size: 16px; color: #701604;">+Rp5.000</span>
+      </button>
+      <button onClick="{{toggleKentang}}" style="display: flex; align-items: center; gap: 14px; background: {{kentangBg}}; border: 1.5px solid {{kentangBorder}}; border-radius: 16px; padding: 14px 16px; width: 100%; text-align: left;">
+        <span style="width: 24px; height: 24px; border-radius: 8px; border: 2px solid {{kentangBorder}}; background: {{kentangFill}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </span>
+        <span style="flex-grow: 1; font-size: 15px; font-weight: 600; color: #400a07;">Extra Kentang</span>
+        <span class="num" style="font-size: 16px; color: #701604;">+Rp7.000</span>
+      </button>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <div style="font-size: 15px; font-weight: 800;">Catatan untuk dapur</div>
+      <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 12px; padding: 14px 16px; font-size: 14px; color: #9a7a63; min-height: 56px;">Jangan pedas, saus dipisah</div>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <div style="font-size: 15px; font-weight: 800;">Jumlah</div>
+      <div style="display: flex; align-items: center; gap: 18px;">
+        <button onClick="{{decQty}}" style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2.5" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+        <span class="num" style="font-size: 22px; min-width: 24px; text-align: center;">{{qty}}</span>
+        <button onClick="{{incQty}}" style="width: 44px; height: 44px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: #fff7ed; border-top: 1px solid #f1ddc9;">
+    <button onClick="{{addDetail}}" style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center; gap: 12px;">
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Tambah ke Keranjang</span>
+      <span class="num" style="font-size: 19px; color: #f29744;">{{detailTotalLabel}}</span>
+    </button>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ KERANJANG ============ -->
+<sc-if value="{{isKeranjang}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px;">
+  <div style="display: flex; align-items: center; gap: 14px; padding: 20px; flex-shrink: 0;">
+    <button onClick="{{goKatalog}}" style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div style="font-size: 20px; font-weight: 800;">Keranjang</div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 140px; display: flex; flex-direction: column; gap: 18px;">
+    <div style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 14px 16px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f29744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 700;">Ambil di Empang</div>
+        <div style="font-size: 12px; color: #9a7a63;">Jl. Empang Raya No. 24, Bogor</div>
+      </div>
+    </div>
+
+    <sc-for list="{{cartRows}}" as="row" hint-placeholder-count="2">
+      <div style="display: flex; align-items: flex-start; gap: 14px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 14px;">
+        <div style="width: 64px; height: 64px; border-radius: 12px; background: linear-gradient(135deg, #f7dcc0, #e6b085); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#b0764a" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="14" rx="3"></rect><circle cx="12" cy="13" r="3.4"></circle><path d="M8.5 6l1.2-2h4.6L15.5 6"></path></svg>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px; flex-grow: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 700;">{{row.name}}</div>
+          <div style="font-size: 12px; color: #9a7a63; line-height: 1.4;">{{row.note}}</div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px;">
+            <span class="num" style="font-size: 17px; color: #701604;">{{row.priceLabel}}</span>
+            <span style="display: flex; align-items: center; gap: 14px;">
+              <button onClick="{{row.dec}}" style="width: 32px; height: 32px; border-radius: 999px; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="3" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+              <span class="num" style="font-size: 17px; min-width: 16px; text-align: center;">{{row.qty}}</span>
+              <button onClick="{{row.inc}}" style="width: 32px; height: 32px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center;">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+
+    <button onClick="{{goKatalog}}" style="align-self: flex-start; font-size: 14px; font-weight: 700; color: #701604; text-decoration: underline;">Tambah item lain</button>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: #fff7ed; border-top: 1px solid #f1ddc9; display: flex; flex-direction: column; gap: 14px;">
+    <div style="display: flex; align-items: center; justify-content: space-between;">
+      <span style="font-size: 14px; color: #6b5548;">Subtotal</span>
+      <span class="num" style="font-size: 20px;">{{cartTotalLabel}}</span>
+    </div>
+    <button onClick="{{goCheckout}}" style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Lanjut ke Pembayaran</span>
+    </button>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ CHECKOUT ============ -->
+<sc-if value="{{isCheckout}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px;">
+  <div style="display: flex; align-items: center; gap: 14px; padding: 20px; flex-shrink: 0;">
+    <button onClick="{{goKeranjang}}" style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div style="font-size: 20px; font-weight: 800;">Ringkasan</div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 140px; display: flex; flex-direction: column; gap: 18px;">
+
+    <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <sc-for list="{{cartRows}}" as="row" hint-placeholder-count="2">
+        <div style="display: flex; align-items: flex-start; gap: 12px;">
+          <span class="num" style="font-size: 15px; color: #f29744; min-width: 24px;">{{row.qtyLabel}}</span>
+          <span style="flex-grow: 1; font-size: 14px; font-weight: 600; line-height: 1.4;">{{row.name}}</span>
+          <span class="num" style="font-size: 15px;">{{row.priceLabel}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 12px; background: #ffffff; border: 1px dashed #f29744; border-radius: 16px; padding: 14px 16px;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f29744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3a2.5 2.5 0 0 0 0 6v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3a2.5 2.5 0 0 0 0-6z"></path><line x1="12" y1="7" x2="12" y2="17" stroke-dasharray="2 3"></line></svg>
+      <span style="flex-grow: 1; font-size: 14px; font-weight: 700;">PERTAMA20 dipakai</span>
+      <span style="font-size: 13px; font-weight: 700; color: #0a7d2c;">Hemat {{diskonLabel}}</span>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 14px; color: #6b5548;">Subtotal</span>
+        <span class="num" style="font-size: 16px;">{{cartTotalLabel}}</span>
+      </div>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 14px; color: #6b5548;">Diskon promo</span>
+        <span class="num" style="font-size: 16px; color: #0a7d2c;">{{diskonNegLabel}}</span>
+      </div>
+      <div style="height: 1px; background: #f1ddc9;"></div>
+      <div style="display: flex; align-items: center; justify-content: space-between;">
+        <span style="font-size: 15px; font-weight: 800;">Total Bayar</span>
+        <span class="num" style="font-size: 24px; color: #701604;">{{grandTotalLabel}}</span>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; background: #fdf0e2; border-radius: 16px; padding: 14px 16px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f29744" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 14.6 9 21 9.6 16.2 13.9 17.6 20.2 12 17 6.4 20.2 7.8 13.9 3 9.6 9.4 9"></polygon></svg>
+      <span style="font-size: 13px; font-weight: 600; color: #6b5548;">Kamu akan dapat <span class="num" style="color: #701604; font-size: 15px;">{{poinLabel}}</span> setelah pesanan diambil</span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: #fff7ed; border-top: 1px solid #f1ddc9;">
+    <button onClick="{{goBayar}}" style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center; gap: 12px;">
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Pilih Pembayaran</span>
+      <span class="num" style="font-size: 19px; color: #f29744;">{{grandTotalLabel}}</span>
+    </button>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ METODE BAYAR ============ -->
+<sc-if value="{{isBayar}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px;">
+  <div style="display: flex; align-items: center; gap: 14px; padding: 20px; flex-shrink: 0;">
+    <button onClick="{{goCheckout}}" style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div style="font-size: 20px; font-weight: 800;">Metode Pembayaran</div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 140px; display: flex; flex-direction: column; gap: 10px;">
+    <sc-for list="{{methods}}" as="m" hint-placeholder-count="5">
+      <button onClick="{{m.pick}}" style="display: flex; align-items: center; gap: 14px; background: {{m.bg}}; border: 1.5px solid {{m.border}}; border-radius: 16px; padding: 16px; width: 100%; text-align: left;">
+        <span style="width: 44px; height: 44px; border-radius: 12px; background: {{m.tint}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <span class="num" style="font-size: 14px; color: #400a07;">{{m.abbr}}</span>
+        </span>
+        <span style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1;">
+          <span style="font-size: 15px; font-weight: 700; color: #400a07;">{{m.name}}</span>
+          <span style="font-size: 12px; color: #9a7a63;">{{m.note}}</span>
+        </span>
+        <span style="width: 24px; height: 24px; border-radius: 999px; border: 2px solid {{m.dotBorder}}; background: {{m.dotFill}}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </span>
+      </button>
+    </sc-for>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: #fff7ed; border-top: 1px solid #f1ddc9;">
+    <button onClick="{{goQris}}" style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center; gap: 12px;">
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Bayar Sekarang</span>
+      <span class="num" style="font-size: 19px; color: #f29744;">{{grandTotalLabel}}</span>
+    </button>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ QRIS ============ -->
+<sc-if value="{{isQris}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px;">
+  <div style="display: flex; align-items: center; gap: 14px; padding: 20px; flex-shrink: 0;">
+    <button onClick="{{goBayar}}" style="width: 44px; height: 44px; border-radius: 999px; border: 1.5px solid #e0c8b2; display: flex; align-items: center; justify-content: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#400a07" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+    </button>
+    <div style="font-size: 20px; font-weight: 800;">Bayar dengan QRIS</div>
+  </div>
+
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 0 20px 130px; display: flex; flex-direction: column; align-items: center; gap: 22px;">
+
+    <div style="display: flex; align-items: center; gap: 10px; background: #fdf0e2; border-radius: 999px; padding: 10px 20px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+      <span style="font-size: 13px; font-weight: 700;">Selesaikan dalam</span>
+      <span class="num" style="font-size: 17px; color: #701604;">14:52</span>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 20px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 18px; width: 100%;">
+      <div class="num" style="font-size: 32px; color: #701604;">{{grandTotalLabel}}</div>
+      <svg width="220" height="220" viewBox="0 0 21 21" style="display: block;">
+        <rect x="0" y="0" width="21" height="21" fill="#ffffff"></rect>
+        <sc-for list="{{qrCells}}" as="c" hint-placeholder-count="120">
+          <rect x="{{c.x}}" y="{{c.y}}" width="1" height="1" fill="#400a07"></rect>
+        </sc-for>
+      </svg>
+      <div style="font-size: 13px; color: #9a7a63; text-align: center; line-height: 1.5;">Pindai dengan GoPay, OVO, DANA,<br>ShopeePay, atau m-banking</div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 14px 16px; width: 100%;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9a7a63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16"></line><circle cx="12" cy="7.6" r="0.6" fill="#9a7a63"></circle></svg>
+      <span style="font-size: 12px; color: #6b5548; line-height: 1.5;">Pesanan baru dikirim ke dapur setelah pembayaran terkonfirmasi</span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: #fff7ed; border-top: 1px solid #f1ddc9;">
+    <button onClick="{{goSukses}}" style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Saya Sudah Bayar</span>
+    </button>
+  </div>
+</div>
+</sc-if>
+
+<!-- ============ SUKSES ============ -->
+<sc-if value="{{isSukses}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; flex-direction: column; height: 844px; padding: 0 20px;">
+  <div class="scrollarea" style="flex-grow: 1; overflow-y: auto; padding: 56px 0 130px; display: flex; flex-direction: column; align-items: center; gap: 26px;">
+
+    <div style="width: 84px; height: 84px; border-radius: 999px; background: #0a7d2c; display: flex; align-items: center; justify-content: center;">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+      <div class="num" style="font-size: 26px;">Pembayaran Berhasil</div>
+      <div style="font-size: 14px; color: #6b5548; text-align: center; line-height: 1.5;">Pesananmu sudah masuk ke dapur Empang</div>
+    </div>
+
+    <div style="background: #701604; border-radius: 20px; padding: 26px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%;">
+      <div style="font-size: 13px; font-weight: 700; color: #f29744; letter-spacing: 1px;">KODE PENGAMBILAN</div>
+      <div class="num" style="font-size: 62px; color: #ffffff; line-height: 1;">4821</div>
+      <div style="font-size: 12px; color: #e8c4a8; text-align: center; line-height: 1.5;">Tunjukkan kode ini ke kasir</div>
+    </div>
+
+    <div style="background: #ffffff; border: 1px solid #f1ddc9; border-radius: 16px; padding: 18px; display: flex; align-items: center; gap: 16px; width: 100%;">
+      <svg width="64" height="64" viewBox="0 0 21 21" style="flex-shrink: 0;">
+        <rect x="0" y="0" width="21" height="21" fill="#ffffff"></rect>
+        <sc-for list="{{qrCells}}" as="c" hint-placeholder-count="120">
+          <rect x="{{c.x}}" y="{{c.y}}" width="1" height="1" fill="#400a07"></rect>
+        </sc-for>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 4px; flex-grow: 1;">
+        <div style="font-size: 14px; font-weight: 700;">Atau pindai QR</div>
+        <div style="font-size: 12px; color: #9a7a63; line-height: 1.45;">Kasir memindai ini untuk membuka pesananmu</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 10px; background: #fdf0e2; border-radius: 16px; padding: 14px 16px; width: 100%;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#701604" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15 14"></polyline></svg>
+      <span style="font-size: 13px; font-weight: 600; color: #6b5548;">Perkiraan siap <span class="num" style="font-size: 15px; color: #701604;">14:35</span></span>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 16px 20px 24px; background: #fff7ed; display: flex; flex-direction: column; gap: 10px;">
+    <button style="width: 100%; height: 56px; border-radius: 999px; background: #701604; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 15px; font-weight: 700; color: #ffffff;">Lihat Status Pesanan</span>
+    </button>
+    <button onClick="{{reset}}" style="width: 100%; height: 48px; border-radius: 999px; display: flex; align-items: center; justify-content: center;">
+      <span style="font-size: 14px; font-weight: 700; color: #701604;">Kembali ke Beranda</span>
+    </button>
+  </div>
+</div>
+</sc-if>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = {
+      screen: 'katalog',
+      cart: [],
+      selId: 'sh-ayam',
+      keju: false,
+      kentang: false,
+      qty: 1,
+      metode: 'qris'
+    };
+  }
+
+  menu() {
+    return [
+      { id: 'sh-ayam', cat: 'shawarma', name: 'Shawarma Ayam Original', price: 25000, seed: 'shawarma-ayam',
+        desc: 'Ayam panggang, sayur segar, saus khas', descLong: 'Ayam panggang bumbu Timur Tengah, selada, tomat, bawang bombay, dan saus khas Suka Shawarma dalam tortilla hangat.' },
+      { id: 'sh-sapi', cat: 'shawarma', name: 'Shawarma Daging Sapi', price: 32000, seed: 'shawarma-sapi',
+        desc: 'Sapi cincang, keju leleh, saus bawang', descLong: 'Daging sapi cincang bumbu rempah, keju leleh, dan saus bawang putih. Porsi mengenyangkan.' },
+      { id: 'sh-jumbo', cat: 'shawarma', name: 'Shawarma Jumbo Ayam', price: 35000, seed: 'shawarma-jumbo',
+        desc: 'Porsi dobel, cocok buat berdua', descLong: 'Porsi dobel dari Original. Isi ayam dua kali lipat, tortilla lebih besar.' },
+      { id: 'kebab-mini', cat: 'shawarma', name: 'Kebab Mini', price: 15000, seed: 'kebab-mini',
+        desc: 'Ukuran kecil, harga bersahabat', descLong: 'Versi kecil untuk camilan sore. Isi ayam, sayur, saus.' },
+      { id: 'es-teh', cat: 'minuman', name: 'Es Teh Manis', price: 8000, seed: 'es-teh-manis',
+        desc: 'Teh tubruk, manisnya pas', descLong: 'Teh tubruk diseduh segar, gula cair, es batu. Manisnya pas.' },
+      { id: 'es-kopi', cat: 'minuman', name: 'Es Kopi Susu', price: 15000, seed: 'es-kopi-susu',
+        desc: 'Robusta lokal, susu segar', descLong: 'Robusta lokal, susu segar, gula aren. Diracik per gelas.' }
+    ];
+  }
+
+  fmt(n) {
+    return 'Rp' + String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  }
+
+  addToCart(id, extras, qty) {
+    var cart = this.state.cart.slice();
+    var found = null;
+    for (var i = 0; i < cart.length; i++) {
+      if (cart[i].id === id && cart[i].keju === extras.keju && cart[i].kentang === extras.kentang) { found = i; }
+    }
+    if (found !== null) {
+      cart[found] = { id: cart[found].id, keju: cart[found].keju, kentang: cart[found].kentang, qty: cart[found].qty + qty };
+    } else {
+      cart.push({ id: id, keju: extras.keju, kentang: extras.kentang, qty: qty });
+    }
+    this.setState({ cart: cart, screen: 'katalog' });
+  }
+
+  bump(index, delta) {
+    var cart = this.state.cart.slice();
+    var next = cart[index].qty + delta;
+    if (next < 1) { cart.splice(index, 1); }
+    else { cart[index] = { id: cart[index].id, keju: cart[index].keju, kentang: cart[index].kentang, qty: next }; }
+    this.setState({ cart: cart });
+  }
+
+  lineTotal(row) {
+    var m = null, list = this.menu();
+    for (var i = 0; i < list.length; i++) { if (list[i].id === row.id) { m = list[i]; } }
+    var unit = m.price + (row.keju ? 5000 : 0) + (row.kentang ? 7000 : 0);
+    return unit * row.qty;
+  }
+
+  qrCells() {
+    var cells = [];
+    for (var i = 0; i < 21; i++) {
+      for (var j = 0; j < 21; j++) {
+        var corner = (i < 7 && j < 7) || (i < 7 && j > 13) || (i > 13 && j < 7);
+        var on;
+        if (corner) {
+          var ci = i > 13 ? i - 14 : i, cj = j > 13 ? j - 14 : j;
+          on = (ci === 0 || ci === 6 || cj === 0 || cj === 6) || (ci > 1 && ci < 5 && cj > 1 && cj < 5);
+        } else {
+          on = ((i * 7 + j * 13 + (i * j) % 5) % 3) === 0;
+        }
+        if (on) { cells.push({ x: j, y: i }); }
+      }
+    }
+    return cells;
+  }
+
+  renderVals() {
+    var self = this;
+    var s = this.state;
+    var list = this.menu();
+
+    var sel = list[0];
+    for (var i = 0; i < list.length; i++) { if (list[i].id === s.selId) { sel = list[i]; } }
+
+    var mapItem = function (m) {
+      return {
+        name: m.name,
+        desc: m.desc,
+        last: '3 hari lalu',
+        priceLabel: self.fmt(m.price),
+        open: function () { self.setState({ screen: 'detail', selId: m.id, keju: false, kentang: false, qty: 1 }); },
+        add: function () { self.addToCart(m.id, { keju: false, kentang: false }, 1); }
+      };
+    };
+
+    var shawarma = [], minuman = [], favorites = [];
+    for (var k = 0; k < list.length; k++) {
+      if (list[k].cat === 'shawarma') { shawarma.push(mapItem(list[k])); }
+      else { minuman.push(mapItem(list[k])); }
+    }
+    favorites.push(mapItem(list[0]));
+
+    var cartRows = [], cartTotal = 0, cartCount = 0;
+    for (var c = 0; c < s.cart.length; c++) {
+      (function (row, idx) {
+        var m = null;
+        for (var q = 0; q < list.length; q++) { if (list[q].id === row.id) { m = list[q]; } }
+        var notes = [];
+        if (row.keju) { notes.push('Extra Keju'); }
+        if (row.kentang) { notes.push('Extra Kentang'); }
+        var lt = self.lineTotal(row);
+        cartTotal += lt;
+        cartCount += row.qty;
+        cartRows.push({
+          name: m.name,
+          note: notes.length ? notes.join(', ') : 'Tanpa tambahan',
+          qty: row.qty,
+          qtyLabel: row.qty + 'x',
+          priceLabel: self.fmt(lt),
+          inc: function () { self.bump(idx, 1); },
+          dec: function () { self.bump(idx, -1); }
+        });
+      })(s.cart[c], c);
+    }
+
+    var diskon = Math.round(cartTotal * 0.2);
+    var grand = cartTotal - diskon;
+
+    var unitDetail = sel.price + (s.keju ? 5000 : 0) + (s.kentang ? 7000 : 0);
+
+    var methodDefs = [
+      { id: 'qris', abbr: 'QR', name: 'QRIS', note: 'Semua e-wallet & m-banking', tint: '#fdf0e2' },
+      { id: 'gopay', abbr: 'GO', name: 'GoPay', note: 'Bayar langsung dari saldo', tint: '#e4f0fb' },
+      { id: 'ovo', abbr: 'OVO', name: 'OVO', note: 'Bayar langsung dari saldo', tint: '#ece4fb' },
+      { id: 'dana', abbr: 'DN', name: 'DANA', note: 'Bayar langsung dari saldo', tint: '#e4f2fb' },
+      { id: 'va', abbr: 'VA', name: 'Virtual Account', note: 'BCA, Mandiri, BNI, BRI', tint: '#f0eee9' }
+    ];
+    var methods = [];
+    for (var mm = 0; mm < methodDefs.length; mm++) {
+      (function (d) {
+        var active = s.metode === d.id;
+        methods.push({
+          abbr: d.abbr, name: d.name, note: d.note, tint: d.tint,
+          bg: active ? '#fdf0e2' : '#ffffff',
+          border: active ? '#f29744' : '#f1ddc9',
+          dotBorder: active ? '#0a7d2c' : '#dcc7b4',
+          dotFill: active ? '#0a7d2c' : '#ffffff',
+          pick: function () { self.setState({ metode: d.id }); }
+        });
+      })(methodDefs[mm]);
+    }
+
+    return {
+      isKatalog: s.screen === 'katalog',
+      isDetail: s.screen === 'detail',
+      isKeranjang: s.screen === 'keranjang',
+      isCheckout: s.screen === 'checkout',
+      isBayar: s.screen === 'bayar',
+      isQris: s.screen === 'qris',
+      isSukses: s.screen === 'sukses',
+
+      favorites: favorites,
+      shawarma: shawarma,
+      minuman: minuman,
+
+      sel: {
+        name: sel.name,
+        descLong: sel.descLong,
+        priceLabel: this.fmt(sel.price)
+      },
+      qty: s.qty,
+      detailTotalLabel: this.fmt(unitDetail * s.qty),
+      kejuBg: s.keju ? '#fdf0e2' : '#ffffff',
+      kejuBorder: s.keju ? '#f29744' : '#f1ddc9',
+      kejuFill: s.keju ? '#f29744' : '#ffffff',
+      kentangBg: s.kentang ? '#fdf0e2' : '#ffffff',
+      kentangBorder: s.kentang ? '#f29744' : '#f1ddc9',
+      kentangFill: s.kentang ? '#f29744' : '#ffffff',
+
+      hasCart: s.cart.length > 0,
+      cartRows: cartRows,
+      cartCountLabel: cartCount + ' item di keranjang',
+      cartTotalLabel: this.fmt(cartTotal),
+      diskonLabel: this.fmt(diskon),
+      diskonNegLabel: '-' + this.fmt(diskon),
+      grandTotalLabel: this.fmt(grand),
+      poinLabel: Math.floor(grand / 1000) + ' poin',
+
+      methods: methods,
+      qrCells: this.qrCells(),
+
+      goKatalog: function () { self.setState({ screen: 'katalog' }); },
+      goKeranjang: function () { self.setState({ screen: 'keranjang' }); },
+      goCheckout: function () { self.setState({ screen: 'checkout' }); },
+      goBayar: function () { self.setState({ screen: 'bayar' }); },
+      goQris: function () { self.setState({ screen: 'qris' }); },
+      goSukses: function () { self.setState({ screen: 'sukses' }); },
+      reset: function () { self.setState({ screen: 'katalog', cart: [] }); },
+      toggleKeju: function () { self.setState({ keju: !self.state.keju }); },
+      toggleKentang: function () { self.setState({ kentang: !self.state.kentang }); },
+      incQty: function () { self.setState({ qty: self.state.qty + 1 }); },
+      decQty: function () { if (self.state.qty > 1) { self.setState({ qty: self.state.qty - 1 }); } },
+      addDetail: function () { self.addToCart(self.state.selId, { keju: self.state.keju, kentang: self.state.kentang }, self.state.qty); }
+    };
+  }
+}
+</script>
+</body>
+</html>

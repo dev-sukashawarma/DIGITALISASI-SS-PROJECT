@@ -50,7 +50,6 @@ async function fetchMonthlyLateMinutes(
       if (mins > 0) {
         const staffId = l.staff_id
         const current = lateMinutesMap.get(staffId) || 0
-        // If logs has higher, use max
         if (mins > current) {
           lateMinutesMap.set(staffId, mins)
         }
@@ -61,6 +60,68 @@ async function fetchMonthlyLateMinutes(
   }
 
   return lateMinutesMap
+}
+
+/**
+ * Fetch automatic monthly sales bonuses for Crew, AM, and RM from RPCs
+ */
+async function fetchMonthlySalesBonuses(
+  supabase: ReturnType<typeof createClient>,
+  month: number,
+  year: number
+): Promise<Map<string, { bonus: number; note: string }>> {
+  const bonusMap = new Map<string, { bonus: number; note: string }>()
+
+  try {
+    const [crewRes, amRes, rmRes] = await Promise.all([
+      supabase.rpc('get_monthly_crew_bonus', { p_month: month, p_year: year, p_outlet_id: null }),
+      supabase.rpc('get_monthly_am_bonus', { p_month: month, p_year: year }),
+      supabase.rpc('get_monthly_rm_bonus', { p_month: month, p_year: year }),
+    ])
+
+    // 1. Crew & Leader Bonuses
+    if (crewRes.data && Array.isArray(crewRes.data)) {
+      crewRes.data.forEach((c: any) => {
+        const amount = Number(c.total_bonus) || 0
+        if (amount > 0) {
+          bonusMap.set(c.crew_id, {
+            bonus: amount,
+            note: `Sales Bonus: Rp ${amount.toLocaleString('id-ID')} (Pool: ${c.total_pcs_outlet} pcs / ${c.active_crew_count} kru)`,
+          })
+        }
+      })
+    }
+
+    // 2. Area Manager Bonuses
+    if (amRes.data && Array.isArray(amRes.data)) {
+      amRes.data.forEach((a: any) => {
+        const amount = Number(a.total_bonus) || 0
+        if (amount > 0) {
+          bonusMap.set(a.staff_id, {
+            bonus: amount,
+            note: `Sales Bonus AM: Rp ${amount.toLocaleString('id-ID')} (${a.total_pcs} pcs x Rp 50)`,
+          })
+        }
+      })
+    }
+
+    // 3. Regional Manager Bonuses
+    if (rmRes.data && Array.isArray(rmRes.data)) {
+      rmRes.data.forEach((r: any) => {
+        const amount = Number(r.total_bonus) || 0
+        if (amount > 0) {
+          bonusMap.set(r.staff_id, {
+            bonus: amount,
+            note: `Sales Bonus RM: Rp ${amount.toLocaleString('id-ID')} (${r.total_pcs_global} pcs x Rp 50)`,
+          })
+        }
+      })
+    }
+  } catch (e) {
+    console.error('Error fetching monthly sales bonuses:', e)
+  }
+
+  return bonusMap
 }
 
 export function usePayrollMutations() {
@@ -92,7 +153,10 @@ export function usePayrollMutations() {
       /* 2. Fetch Automatic Attendance Late Minutes */
       const lateMinutesMap = await fetchMonthlyLateMinutes(supabase, month, year)
 
-      /* 3. Fetch active Kasbon (Cash Advances) */
+      /* 3. Fetch Automatic Sales Bonuses (Crew, AM, RM) */
+      const salesBonusMap = await fetchMonthlySalesBonuses(supabase, month, year)
+
+      /* 4. Fetch active Kasbon (Cash Advances) */
       const { data: kasbons } = await supabase
         .from('cash_advances')
         .select('staff_id, remaining, amount')
@@ -104,7 +168,7 @@ export function usePayrollMutations() {
         kasbonMap.set(k.staff_id, prev + (Number(k.remaining) || 0))
       })
 
-      /* 4. Build payroll rows with auto late deduction (Rp 1.000/mnt) and kasbon */
+      /* 5. Build payroll rows with auto late deduction, kasbon, and sales bonus */
       const rows = staff.map((s: any) => {
         const fin = Array.isArray(s.staff_financials)
           ? s.staff_financials[0]
@@ -127,7 +191,11 @@ export function usePayrollMutations() {
           deductionNotes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
         }
 
-        const totalEarnings = basicSalary + allowancePosition + allowancePresence
+        const autoBonusInfo = salesBonusMap.get(s.id)
+        const autoBonusAmount = autoBonusInfo?.bonus || 0
+        const bonusNote = autoBonusInfo?.note || null
+
+        const totalEarnings = basicSalary + allowancePosition + allowancePresence + autoBonusAmount
         const totalSalary = Math.max(0, totalEarnings - totalDeductions)
 
         return {
@@ -137,8 +205,8 @@ export function usePayrollMutations() {
           basic_salary: basicSalary,
           allowance_position: allowancePosition,
           allowance_presence: allowancePresence,
-          bonus: 0,
-          bonus_note: null,
+          bonus: autoBonusAmount,
+          bonus_note: bonusNote,
           deductions: totalDeductions,
           deduction_note: deductionNotes.join(' | ') || null,
           total_salary: totalSalary,
@@ -146,7 +214,7 @@ export function usePayrollMutations() {
         }
       })
 
-      /* 5. Bulk upsert */
+      /* 6. Bulk upsert */
       const { error: upsertErr } = await supabase
         .from('payroll_records')
         .upsert(rows, { onConflict: 'staff_id,period_month,period_year' })
@@ -173,8 +241,9 @@ export function usePayrollMutations() {
       if (slipsErr) throw slipsErr
       if (!slips || slips.length === 0) throw new Error('Tidak ada slip draft untuk disinkronkan.')
 
-      // 2. Fetch monthly late minutes
+      // 2. Fetch monthly late minutes & sales bonuses
       const lateMinutesMap = await fetchMonthlyLateMinutes(supabase, month, year)
+      const salesBonusMap = await fetchMonthlySalesBonuses(supabase, month, year)
 
       let updatedCount = 0
 
@@ -190,25 +259,42 @@ export function usePayrollMutations() {
         }
 
         const totalDeductions = kasbonDeduction + lateDeduction
-        const notes: string[] = []
-        if (kasbonDeduction > 0) notes.push(`Kasbon: Rp ${kasbonDeduction.toLocaleString('id-ID')}`)
+        const dedNotes: string[] = []
+        if (kasbonDeduction > 0) dedNotes.push(`Kasbon: Rp ${kasbonDeduction.toLocaleString('id-ID')}`)
         if (lateMinutes > 0) {
-          notes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
+          dedNotes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
         }
+
+        // Sync sales bonus while preserving overtime if any
+        let currentOvertime = 0
+        if (slip.bonus_note) {
+          const otMatch = slip.bonus_note.match(/(?:overtime|lembur)[:\s]*rp?\s*([0-9.,]+)/i)
+          if (otMatch) currentOvertime = Number(otMatch[1].replace(/[^0-9]/g, '')) || 0
+        }
+
+        const autoBonusInfo = salesBonusMap.get(slip.staff_id)
+        const autoBonusAmount = autoBonusInfo?.bonus || 0
+        const totalBonus = currentOvertime + autoBonusAmount
+
+        const bonusNotes: string[] = []
+        if (currentOvertime > 0) bonusNotes.push(`Lembur: Rp ${currentOvertime.toLocaleString('id-ID')}`)
+        if (autoBonusInfo?.note) bonusNotes.push(autoBonusInfo.note)
 
         const totalEarnings =
           Number(slip.basic_salary) +
           Number(slip.allowance_position) +
           Number(slip.allowance_presence) +
-          Number(slip.bonus)
+          Number(totalBonus)
 
         const totalSalary = Math.max(0, totalEarnings - totalDeductions)
 
         await supabase
           .from('payroll_records')
           .update({
+            bonus: totalBonus,
+            bonus_note: bonusNotes.join(' | ') || null,
             deductions: totalDeductions,
-            deduction_note: notes.join(' | ') || null,
+            deduction_note: dedNotes.join(' | ') || null,
             total_salary: totalSalary,
           })
           .eq('id', slip.id)

@@ -8,6 +8,7 @@ import {
   Calendar,
   AlertTriangle,
   Award,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -54,6 +55,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Banknote,
     items: [
       { href: '/payroll', label: 'Payroll & Slip Gaji', shortLabel: 'Payroll', icon: Banknote },
+      { href: '/crew-bonus', label: 'Bonus & Insentif Penjualan', shortLabel: 'Bonus Insentif', icon: Sparkles },
     ],
   },
   {

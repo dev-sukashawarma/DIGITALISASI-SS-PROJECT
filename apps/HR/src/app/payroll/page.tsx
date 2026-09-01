@@ -53,7 +53,7 @@ export default function PayrollPage() {
       {
         onSuccess: (count) =>
           toast.success(
-            `Berhasil membuat ${count} slip gaji (Denda keterlambatan Rp 1.000/menit otomatis terkalkulasi)`
+            `Berhasil membuat ${count} slip gaji (Bonus Penjualan & Denda Telat otomatis terkalkulasi)`
           ),
         onError: (e: any) => toast.error(e.message || 'Gagal generate slip'),
       }
@@ -66,9 +66,9 @@ export default function PayrollPage() {
       {
         onSuccess: (count) =>
           toast.success(
-            `Berhasil menyinkronkan denda keterlambatan absensi otomatis (Rp 1.000/mnt) untuk ${count} slip gaji!`
+            `Berhasil menyinkronkan denda absensi dan bonus penjualan otomatis untuk ${count} slip gaji draft!`
           ),
-        onError: (e: any) => toast.error(e.message || 'Gagal menyinkronkan absensi'),
+        onError: (e: any) => toast.error(e.message || 'Gagal menyinkronkan data otomatis'),
       }
     )
   }
@@ -263,14 +263,14 @@ export default function PayrollPage() {
                 onClick={handleSyncAttendance}
                 disabled={payrollMutations.syncAttendanceDeductions.isPending || payrollData.length === 0}
                 className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
-                title="Hitung ulang denda keterlambatan absensi otomatis (Rp 1.000/menit) untuk seluruh slip draft"
+                title="Hitung ulang denda keterlambatan absensi dan bonus porsi penjualan otomatis untuk seluruh slip draft"
               >
                 {payrollMutations.syncAttendanceDeductions.isPending ? (
                   <Spinner size={16} />
                 ) : (
                   <>
                     <Zap size={14} />
-                    <span>Sinkron Absensi (Auto)</span>
+                    <span>Sinkron Absensi &amp; Bonus</span>
                   </>
                 )}
               </Button>

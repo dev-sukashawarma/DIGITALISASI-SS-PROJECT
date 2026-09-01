@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Button, Spinner } from '@suka/design-system'
+import { Button } from '@suka/design-system'
 import { formatRupiah } from '@/lib/format'
 import type { PayrollRecord } from '@/lib/types'
 import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
@@ -49,6 +49,10 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
   // Live attendance lookup
   const [fetchingAtt, setFetchingAtt] = useState(false)
   const [liveAttMinutes, setLiveAttMinutes] = useState<number | null>(null)
+
+  // Live sales bonus lookup (Crew, AM, RM)
+  const [fetchingBonus, setFetchingBonus] = useState(false)
+  const [liveBonusInfo, setLiveBonusInfo] = useState<{ amount: number; description: string } | null>(null)
 
   useEffect(() => {
     const fetchLiveAtt = async () => {
@@ -100,8 +104,73 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
       }
     }
 
+    const fetchLiveBonus = async () => {
+      setFetchingBonus(true)
+      try {
+        const supabase = createClient()
+        const staffRole = record.outlet_staff?.role
+
+        if (staffRole === 'area_manager') {
+          const { data } = await supabase.rpc('get_monthly_am_bonus', {
+            p_month: record.period_month,
+            p_year: record.period_year,
+          })
+          const match = (data || []).find((a: any) => a.staff_id === record.staff_id)
+          if (match) {
+            const amt = Number(match.total_bonus) || 0
+            setLiveBonusInfo({
+              amount: amt,
+              description: `AM (${match.total_pcs} pcs x Rp 50)`,
+            })
+            if (salesBonus === 0 && amt > 0) {
+              setSalesBonus(amt)
+            }
+          }
+        } else if (staffRole === 'regional_manager') {
+          const { data } = await supabase.rpc('get_monthly_rm_bonus', {
+            p_month: record.period_month,
+            p_year: record.period_year,
+          })
+          const match = (data || []).find((r: any) => r.staff_id === record.staff_id)
+          if (match) {
+            const amt = Number(match.total_bonus) || 0
+            setLiveBonusInfo({
+              amount: amt,
+              description: `RM (${match.total_pcs_global} pcs x Rp 50)`,
+            })
+            if (salesBonus === 0 && amt > 0) {
+              setSalesBonus(amt)
+            }
+          }
+        } else {
+          // Crew & Leader
+          const { data } = await supabase.rpc('get_monthly_crew_bonus', {
+            p_month: record.period_month,
+            p_year: record.period_year,
+            p_outlet_id: null,
+          })
+          const match = (data || []).find((c: any) => c.crew_id === record.staff_id)
+          if (match) {
+            const amt = Number(match.total_bonus) || 0
+            setLiveBonusInfo({
+              amount: amt,
+              description: `Pool (${match.total_pcs_outlet} pcs / ${match.active_crew_count} kru)`,
+            })
+            if (salesBonus === 0 && amt > 0) {
+              setSalesBonus(amt)
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore
+      } finally {
+        setFetchingBonus(false)
+      }
+    }
+
     fetchLiveAtt()
-  }, [record.staff_id, record.period_month, record.period_year])
+    fetchLiveBonus()
+  }, [record.staff_id, record.period_month, record.period_year, record.outlet_staff?.role])
 
   // Calculations
   const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
@@ -175,6 +244,36 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
           <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
             <DollarSign size={14} className="text-emerald-600" />
             <span>1. Komponen Penerimaan (Earnings)</span>
+          </div>
+
+          {/* Automatic Sales Bonus Indicator Banner */}
+          <div className="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} className="text-suka-orange shrink-0" />
+              <div>
+                <span className="font-bold text-orange-950">Koneksi Bonus Penjualan (POS):</span>{' '}
+                {fetchingBonus ? (
+                  <span className="text-suka-gray-500">Mengecek bonus porsi terjual...</span>
+                ) : liveBonusInfo && liveBonusInfo.amount > 0 ? (
+                  <span className="text-emerald-800 font-bold">
+                    Terhitung {formatRupiah(liveBonusInfo.amount)} &bull; {liveBonusInfo.description}
+                  </span>
+                ) : (
+                  <span className="text-suka-gray-500 font-medium">Rp 0 / Belum ada target tercapai</span>
+                )}
+              </div>
+            </div>
+
+            {liveBonusInfo && liveBonusInfo.amount > 0 && liveBonusInfo.amount !== salesBonus && (
+              <button
+                type="button"
+                onClick={() => setSalesBonus(liveBonusInfo.amount)}
+                className="px-2 py-1 text-[11px] font-bold bg-white text-orange-900 hover:bg-orange-100 rounded-lg border border-orange-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+              >
+                <RefreshCw size={10} />
+                <span>Terapkan Otomatis ({formatRupiah(liveBonusInfo.amount)})</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -261,6 +360,17 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                 className={inputClass}
                 value={salesBonus}
                 onChange={(e) => setSalesBonus(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Tunjangan Jabatan (Rp)</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={positionAllowance}
+                onChange={(e) => setPositionAllowance(Number(e.target.value))}
                 min={0}
               />
             </div>

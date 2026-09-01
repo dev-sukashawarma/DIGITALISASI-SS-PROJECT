@@ -136,10 +136,12 @@ export default function ProfitPage() {
     }
   }, [supabase, queryClient])
 
-  const sales = useSalesDaily(filter, outlets)
-  const expenses = useExpenses(filter)
-  const hpp = useHpp(filter)
-  const waste = useWaste(filter)
+  const effectiveFilter = useMemo(() => ({ ...filter, source: 'all' as const }), [filter])
+  
+  const sales = useSalesDaily(effectiveFilter, outlets)
+  const expenses = useExpenses(effectiveFilter)
+  const hpp = useHpp(effectiveFilter)
+  const waste = useWaste(effectiveFilter)
 
   const loading = sales.loading || expenses.loading || hpp.loading || waste.loading
   const error = sales.error || expenses.error || hpp.error || waste.error
@@ -880,7 +882,7 @@ export default function ProfitPage() {
               <FileText className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export PDF'}
             </button>
           </div>
-          <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} />
+          <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} />
         </div>
       </PageHeader>
 

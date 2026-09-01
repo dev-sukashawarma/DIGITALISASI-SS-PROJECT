@@ -44,3 +44,23 @@
 body {
   animation: suka-page-fadein 0.4s ease forwards;
 }
+
+.sidak-display { font-family: "Lilita One", "Plus Jakarta Sans", sans-serif; letter-spacing: -0.02em; }
+.sidak-page { --sidak-line: rgba(112, 22, 4, 0.1); }
+.sidak-hero { background: #701604; box-shadow: 0 22px 44px rgba(112, 22, 4, 0.16); }
+.sidak-hero::after { content: ""; position: absolute; width: 360px; height: 360px; right: -120px; top: -150px; border: 1px solid rgba(255, 247, 237, 0.16); border-radius: 50%; box-shadow: 0 0 0 34px rgba(255, 247, 237, 0.04), 0 0 0 68px rgba(255, 247, 237, 0.04); }
+.sidak-hero-mark { position: absolute; right: 7%; bottom: 1.4rem; display: flex; align-items: end; gap: 0.7rem; color: rgba(255, 247, 237, 0.16); font-family: "Lilita One", sans-serif; font-size: 4.4rem; line-height: 0.75; transform: rotate(-8deg); }
+.sidak-hero-mark span:last-child { font-family: "Plus Jakarta Sans", sans-serif; font-size: 0.55rem; font-weight: 800; line-height: 1.05; letter-spacing: 0.12em; }
+.sidak-panel { border: 1px solid var(--sidak-line); background: rgba(255, 255, 255, 0.92); box-shadow: 0 12px 30px rgba(64, 10, 7, 0.04); backdrop-filter: blur(10px); }
+.progress-ring { display: grid; width: 3.7rem; height: 3.7rem; place-items: center; border-radius: 999px; background: conic-gradient(#f29744 var(--progress), #f8e8dc 0); position: relative; }
+.progress-ring::before { content: ""; position: absolute; inset: 5px; border-radius: inherit; background: white; }
+.progress-ring span { position: relative; z-index: 1; color: #701604; font-size: 0.75rem; font-weight: 900; }
+.stat-chip { display: inline-flex; align-items: center; gap: 0.35rem; border-radius: 999px; background: #fff7ed; padding: 0.45rem 0.7rem; color: #701604; font-size: 0.68rem; font-weight: 800; }
+.sidak-checklist-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.status-dot { display: inline-flex; align-items: center; border-radius: 999px; background: #f3f4f6; padding: 0.3rem 0.55rem; color: #9ca3af; font-size: 0.58rem; font-weight: 900; }
+.status-dot.ok { background: #dcfce7; color: #047857; }
+.status-dot.issue { background: #ffe4e6; color: #be123c; }
+.check-row { transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease; }
+.check-row:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(64, 10, 7, 0.05); }
+@media (prefers-reduced-motion: reduce) { .check-row { transition: none; } .check-row:hover { transform: none; } }
+@media (max-width: 800px) { .sidak-checklist-grid { grid-template-columns: 1fr; } }

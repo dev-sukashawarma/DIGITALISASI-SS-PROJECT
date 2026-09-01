@@ -24,7 +24,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/', label: 'Overview', icon: LayoutDashboard },
       { href: '/reports', label: 'Laporan', icon: BarChart3 },
-      { href: '/inventori', label: 'Inventaris', icon: ClipboardCheck, external: true, appKey: 'inventori' },
+      { href: '/inventaris-sidak', label: 'Sidak Inventaris', icon: ClipboardCheck, allowedRoles: ['regional_manager', 'area_manager'] },
     ]
   },
   {

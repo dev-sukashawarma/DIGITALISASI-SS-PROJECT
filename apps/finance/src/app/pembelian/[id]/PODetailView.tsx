@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw, FileText, Printer } from 'lucide-react'
-import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
+import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, useUpdatePOPayment, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
 import { useBahanBakuOptions } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
@@ -156,6 +156,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
+  const updatePayment = useUpdatePOPayment()
   const { data: bahanBakuOptions = [] } = useBahanBakuOptions()
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceUrls, setInvoiceUrls] = useState<string[]>([])
@@ -163,6 +164,20 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   const [showVerifikasi, setShowVerifikasi] = useState(false)
   const [syncSaving, setSyncSaving] = useState(false)
   const [syncDone, setSyncDone] = useState(false)
+  
+  // Payment states
+  const [isEditingPayment, setIsEditingPayment] = useState(false)
+  const [paymentStatus, setPaymentStatus] = useState<string>('unpaid')
+  const [paidAt, setPaidAt] = useState<string>('')
+  const [paidAmount, setPaidAmount] = useState<number | ''>('')
+
+  useEffect(() => {
+    if (po) {
+      setPaymentStatus(po.payment_status || 'unpaid')
+      setPaidAt(po.paid_at ? po.paid_at.split('T')[0] : '')
+      setPaidAmount(po.paid_amount ?? '')
+    }
+  }, [po])
 
   useEffect(() => {
     if (!po?.invoice_urls?.length) return
@@ -464,6 +479,105 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           <span className="font-bold text-amber-900 uppercase tracking-wider mr-1">Catatan PO:</span>{po.catatan}
         </div>
       )}
+
+      {/* Payment Info */}
+      <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-suka-brown/10 shadow-sm p-5 sm:p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-suka-brown text-sm uppercase tracking-wider flex items-center gap-2">
+            <FileText className="w-4 h-4 text-suka-orange" />
+            Informasi Pembayaran
+          </h2>
+          {!isEditingPayment ? (
+            <button
+              onClick={() => setIsEditingPayment(true)}
+              className="flex items-center gap-1.5 text-xs font-bold text-suka-orange hover:text-suka-brown bg-suka-orange/10 px-3.5 py-1.5 rounded-xl border border-suka-orange/20 transition-all active:scale-95 cursor-pointer"
+            >
+              <span>Edit Pembayaran</span>
+            </button>
+          ) : null}
+        </div>
+        
+        {!isEditingPayment ? (
+          <div className="flex flex-wrap items-center gap-6 text-sm">
+            <div>
+              <span className="text-suka-brown/60 font-semibold block text-xs">Status Pembayaran</span>
+              <span className={`font-bold mt-1 inline-block px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider border ${po.payment_status === 'lunas' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
+                {po.payment_status === 'lunas' ? 'Lunas' : 'Unpaid'}
+              </span>
+            </div>
+            <div>
+              <span className="text-suka-brown/60 font-semibold block text-xs">Tanggal Pembayaran</span>
+              <span className="font-bold text-suka-brown mt-1 block">
+                {po.paid_at ? new Date(po.paid_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
+              </span>
+            </div>
+            <div>
+              <span className="text-suka-brown/60 font-semibold block text-xs">Nominal Pembayaran</span>
+              <span className="font-bold text-suka-brown mt-1 block">
+                {po.paid_amount ? rupiah(po.paid_amount) : '—'}
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 pt-2 border-t border-suka-brown/5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-suka-brown mb-1.5">Status Pembayaran</label>
+                <select
+                  value={paymentStatus}
+                  onChange={e => setPaymentStatus(e.target.value)}
+                  className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
+                >
+                  <option value="unpaid">Unpaid</option>
+                  <option value="lunas">Lunas</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-suka-brown mb-1.5">Tanggal Pembayaran</label>
+                <input
+                  type="date"
+                  value={paidAt}
+                  onChange={e => setPaidAt(e.target.value)}
+                  className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-suka-brown mb-1.5">Nominal Pembayaran</label>
+                <input
+                  type="number"
+                  value={paidAmount}
+                  onChange={e => setPaidAmount(e.target.value ? Number(e.target.value) : '')}
+                  className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
+                  placeholder="Rp 0"
+                />
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={async () => {
+                  await updatePayment.mutateAsync({ id: po.id, paid_at: paidAt || null, payment_status: paymentStatus, paid_amount: paidAmount === '' ? null : paidAmount })
+                  setIsEditingPayment(false)
+                }}
+                disabled={updatePayment.isPending}
+                className="px-4 py-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white rounded-xl text-xs font-bold hover:opacity-95 transition-all disabled:opacity-50"
+              >
+                {updatePayment.isPending ? 'Menyimpan...' : 'Simpan Pembayaran'}
+              </button>
+              <button
+                onClick={() => {
+                  setIsEditingPayment(false)
+                  setPaymentStatus(po.payment_status || 'unpaid')
+                  setPaidAt(po.paid_at ? po.paid_at.split('T')[0] : '')
+                  setPaidAmount(po.paid_amount ?? '')
+                }}
+                className="px-4 py-2 border border-suka-brown/20 text-suka-brown/70 rounded-xl text-xs font-bold hover:bg-suka-cream transition-colors"
+              >
+                Batal
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Verifikasi info */}
       {po.diverifikasi_at && (

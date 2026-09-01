@@ -142,6 +142,55 @@ export function LaporanClient({
     toast.success('Laporan berhasil diekspor ke CSV')
   }
 
+  // Export to Excel (XLS)
+  const handleExportXLS = () => {
+    if (filtered.length === 0) {
+      toast.error('Tidak ada data untuk diekspor')
+      return
+    }
+
+    const headers = [
+      'Nomor PO', 'Tanggal PO', 'Supplier', 'Status PO', 'Jumlah Item Pesan', 
+      'Jumlah Item Terima', 'Total Nilai PO (Rp)', 'Realisasi Terima (Rp)', 
+      'Status Pembayaran', 'Tgl Verifikasi Gudang', 'Dibuat Oleh'
+    ]
+
+    const rows = filtered.map(p => [
+      p.nomor_po,
+      p.tanggal_po,
+      p.supplier_nama,
+      p.status,
+      p.jumlah_item || 0,
+      p.jumlah_item_terima || 0,
+      p.total_nilai || 0,
+      p.total_nilai_terima || p.total_nilai || 0,
+      p.payment_status || 'unpaid',
+      p.diverifikasi_at ? new Date(p.diverifikasi_at).toLocaleDateString('id-ID') : '-',
+      p.nama_dibuat_oleh || ''
+    ])
+
+    let tableHtml = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8" /><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Laporan</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head><body><table>'
+    tableHtml += '<thead><tr>'
+    headers.forEach(h => { tableHtml += `<th>${h}</th>` })
+    tableHtml += '</tr></thead><tbody>'
+    rows.forEach(r => {
+      tableHtml += '<tr>'
+      r.forEach(c => { tableHtml += `<td>${c}</td>` })
+      tableHtml += '</tr>'
+    })
+    tableHtml += '</tbody></table></body></html>'
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.setAttribute('href', url)
+    link.setAttribute('download', `Laporan_Pembelian_${fromDate}_sd_${toDate}.xls`)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    toast.success('Laporan berhasil diekspor ke Excel')
+  }
+
   return (
     <div className="space-y-6 animate-fade-in font-sans pb-12">
       {/* Header */}
@@ -149,13 +198,22 @@ export function LaporanClient({
         title="Laporan & Rekapitulasi Pembelian" 
         description="Analisis komitmen biaya pengadaan bahan baku, kinerja pemenuhan supplier, dan ekspor riwayat dokumen PO."
         action={
-          <button
-            onClick={handleExportCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white font-bold text-xs rounded-2xl hover:opacity-95 active:scale-95 transition-all shadow-md shadow-suka-brown/20 cursor-pointer"
-          >
-            <Download className="w-4 h-4 text-suka-orange" />
-            <span>Ekspor CSV</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-suka-brown/20 text-suka-brown font-bold text-xs rounded-2xl hover:bg-suka-cream active:scale-95 transition-all shadow-sm cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-suka-orange" />
+              <span>Ekspor CSV</span>
+            </button>
+            <button
+              onClick={handleExportXLS}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-suka-brown to-suka-ink text-white font-bold text-xs rounded-2xl hover:opacity-95 active:scale-95 transition-all shadow-md shadow-suka-brown/20 cursor-pointer"
+            >
+              <Download className="w-4 h-4 text-suka-orange" />
+              <span>Ekspor XLS</span>
+            </button>
+          </div>
         }
       />
 

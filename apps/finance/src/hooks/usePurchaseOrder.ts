@@ -46,6 +46,9 @@ export type PurchaseOrder = {
   updated_at: string
   jatuh_tempo?: string | null
   termin_hari?: number | null
+  paid_at?: string | null
+  payment_status?: string | null
+  paid_amount?: number | null
 }
 
 export type POWithItems = PurchaseOrder & { items: POItem[] }
@@ -69,6 +72,7 @@ export type POSummary = {
   diverifikasi_at?: string | null
   paid_at?: string | null
   payment_status?: string | null
+  paid_amount?: number | null
   tanggal_estimasi_tiba?: string | null
 }
 
@@ -110,7 +114,7 @@ export function usePurchaseOrders(filters?: { from?: string; to?: string; status
       const poIds = data.map((p: any) => p.id)
       const { data: extras } = await supabase
         .from('purchase_order')
-        .select('id, diverifikasi_at, paid_at, payment_status, tanggal_estimasi_tiba')
+        .select('id, diverifikasi_at, paid_at, payment_status, paid_amount, tanggal_estimasi_tiba')
         .in('id', poIds)
 
       const extrasMap = new Map((extras ?? []).map(x => [x.id, x]))
@@ -121,6 +125,7 @@ export function usePurchaseOrders(filters?: { from?: string; to?: string; status
           diverifikasi_at: p.diverifikasi_at ?? extra?.diverifikasi_at ?? null,
           paid_at: p.paid_at ?? extra?.paid_at ?? null,
           payment_status: p.payment_status ?? extra?.payment_status ?? 'unpaid',
+          paid_amount: p.paid_amount ?? extra?.paid_amount ?? null,
           tanggal_estimasi_tiba: p.tanggal_estimasi_tiba ?? extra?.tanggal_estimasi_tiba ?? null,
         }
       })
@@ -231,6 +236,25 @@ export function useUpdatePOStatus() {
       qc.invalidateQueries({ queryKey: ['purchase-orders'] })
       qc.invalidateQueries({ queryKey: ['purchase-order', vars.id] })
       toast.success('Status PO diperbarui')
+    },
+    onError: (e: any) => toast.error(e.message),
+  })
+}
+
+export function useUpdatePOPayment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, paid_at, payment_status, paid_amount }: { id: string; paid_at: string | null; payment_status: string; paid_amount: number | null }) => {
+      const { error } = await supabase
+        .from('purchase_order')
+        .update({ paid_at, payment_status, paid_amount })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] })
+      qc.invalidateQueries({ queryKey: ['purchase-order', vars.id] })
+      toast.success('Status pembayaran PO diperbarui')
     },
     onError: (e: any) => toast.error(e.message),
   })

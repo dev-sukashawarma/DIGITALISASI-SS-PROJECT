@@ -12,6 +12,11 @@ export const dynamic = 'force-dynamic'
 const DISKON_PILOT_PERSEN = 0
 const BATAS_BAYAR_MS = 15 * 60 * 1000
 
+/** Bentuk nomor HP Indonesia yang wajar: 08xxx, 62xxx, atau +62xxx. */
+function nomorHpWajar(nomor: string): boolean {
+  return /^(\+62|62|0)8\d{7,12}$/.test(nomor.replace(/[\s-]/g, ''))
+}
+
 export async function POST(request: Request) {
   const sesi = await requireCustomer(request)
   if (!sesi) return NextResponse.json({ error: 'Sesi tidak sah' }, { status: 401 })
@@ -50,6 +55,33 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (sudahAda) {
+    // `client_order_id` adalah kunci sekali-pakai, BUKAN id keranjang.
+    // Draft yang sudah mati tidak boleh dikembalikan sebagai sukses: pelanggan
+    // akan menerima tautan bayar yang tidak berlaku dan terkunci selamanya
+    // pada id itu. Cron menghanguskan draft tak dibayar tiap 15 menit, jadi
+    // ini kejadian rutin, bukan kasus tepi.
+    if (sudahAda.status === 'kadaluarsa' || sudahAda.status === 'gagal') {
+      return NextResponse.json(
+        {
+          error: 'pesanan_kadaluarsa',
+          pesan: 'Pesanan sebelumnya sudah kedaluwarsa. Silakan buat pesanan baru.',
+        },
+        { status: 409 }
+      )
+    }
+
+    // Draft hidup tapi tagihannya belum tercatat: proses mati di tengah, atau
+    // permintaan kembar yang pemenangnya belum selesai membuat tagihan.
+    if (!sudahAda.payment_url) {
+      return NextResponse.json(
+        {
+          error: 'pesanan_sedang_diproses',
+          pesan: 'Pesanan sedang diproses, coba lagi sebentar.',
+        },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json({
       order_id: sudahAda.id,
       pickup_code: sudahAda.pickup_code,
@@ -171,12 +203,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Gagal membuat tagihan pembayaran' }, { status: 502 })
   }
 
-  await retail
+  const { error: updateError } = await retail
     .from('order_drafts')
     .update({ payment_ref: tagihan.ref, payment_url: tagihan.url })
     .eq('id', draft.id)
 
-  if (body.customer_phone) {
+  // Tagihan sudah ada di Xendit tapi tidak tercatat di draft. Pelanggan tetap
+  // menerima tautannya dari balasan ini, tapi percobaan ulang akan melihat
+  // draft tanpa payment_url. Harus terlihat, bukan ditelan.
+  if (updateError) {
+    console.error('GAGAL MENCATAT TAGIHAN KE DRAFT', {
+      client_order_id: body.client_order_id,
+      payment_ref: tagihan.ref,
+      error: updateError,
+    })
+  }
+
+  // Nomor hanya ditulis bila bentuknya wajar. Tanpa saringan ini, string
+  // sembarang dari klien langsung mendarat di profil pelanggan, dan kasir
+  // yang menelepon saat pesanan bermasalah menghubungi nomor yang tidak ada.
+  if (body.customer_phone && nomorHpWajar(body.customer_phone)) {
     await retail
       .from('customers')
       .update({ phone: body.customer_phone, updated_at: new Date().toISOString() })

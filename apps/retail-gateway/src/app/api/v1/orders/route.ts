@@ -93,6 +93,61 @@ export async function POST(request: Request) {
   const kodeAmbil = buatKodeAmbil(body.client_order_id)
   const kedaluwarsa = new Date(Date.now() + BATAS_BAYAR_MS)
 
+  // URUTAN INI PENTING. Draft dipesan LEBIH DULU, sebelum tagihan dibuat.
+  // Kendala unik pada `client_order_id` adalah satu-satunya penjaga yang
+  // benar-benar atomik. Kalau tagihan dibuat duluan, dua permintaan yang
+  // benar-benar bersamaan menghasilkan DUA tagihan Xendit sebelum kendala itu
+  // sempat menangkapnya -- dan pelanggan yang tertagih dua kali adalah
+  // kegagalan yang paling merusak kepercayaan.
+  const { data: draft, error: draftError } = await retail
+    .from('order_drafts')
+    .insert({
+      client_order_id: body.client_order_id,
+      customer_id: sesi.customerId,
+      outlet_id: body.outlet_id,
+      items: body.items,
+      subtotal: rincian.subtotal,
+      discount_amount: rincian.discountAmount,
+      total_amount: rincian.total,
+      pickup_code: kodeAmbil,
+      expires_at: kedaluwarsa.toISOString(),
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (draftError || !draft) {
+    // 23505 = dua permintaan berlomba untuk client_order_id yang sama.
+    if ((draftError as { code?: string } | null)?.code === '23505') {
+      const { data: pemenang } = await retail
+        .from('order_drafts')
+        .select('id, pickup_code, payment_url, total_amount, expires_at')
+        .eq('client_order_id', body.client_order_id)
+        .maybeSingle()
+
+      // Pemenang mungkin belum selesai membuat tagihannya. Jangan kembalikan
+      // payment_url kosong -- suruh aplikasi mencoba lagi sebentar lagi.
+      if (pemenang && !pemenang.payment_url) {
+        return NextResponse.json(
+          { error: 'Pesanan sedang diproses, coba lagi sebentar' },
+          { status: 409 }
+        )
+      }
+
+      if (pemenang) {
+        return NextResponse.json({
+          order_id: pemenang.id,
+          pickup_code: pemenang.pickup_code,
+          payment_url: pemenang.payment_url,
+          total_amount: pemenang.total_amount,
+          expires_at: pemenang.expires_at,
+          duplicate: true,
+        })
+      }
+    }
+    console.error('Gagal menyimpan draft pesanan:', draftError)
+    return NextResponse.json({ error: 'Gagal menyimpan pesanan' }, { status: 500 })
+  }
+
   const { data: pelanggan } = await retail
     .from('customers')
     .select('name')
@@ -109,49 +164,17 @@ export async function POST(request: Request) {
     })
   } catch (e) {
     console.error('Gagal membuat tagihan Xendit:', e)
+    // Draft sudah terlanjur ada. Tandai gagal supaya tidak menggantung sebagai
+    // `menunggu_bayar` yang tak akan pernah bisa dibayar, dan supaya percobaan
+    // ulang dengan client_order_id yang sama tidak tersandung draft mati ini.
+    await retail.from('order_drafts').update({ status: 'gagal' }).eq('id', draft.id)
     return NextResponse.json({ error: 'Gagal membuat tagihan pembayaran' }, { status: 502 })
   }
 
-  const { data: draft, error: draftError } = await retail
+  await retail
     .from('order_drafts')
-    .insert({
-      client_order_id: body.client_order_id,
-      customer_id: sesi.customerId,
-      outlet_id: body.outlet_id,
-      items: body.items,
-      subtotal: rincian.subtotal,
-      discount_amount: rincian.discountAmount,
-      total_amount: rincian.total,
-      pickup_code: kodeAmbil,
-      payment_ref: tagihan.ref,
-      payment_url: tagihan.url,
-      expires_at: kedaluwarsa.toISOString(),
-    })
-    .select('id')
-    .maybeSingle()
-
-  if (draftError || !draft) {
-    // 23505 = dua permintaan berlomba untuk client_order_id yang sama.
-    if ((draftError as { code?: string } | null)?.code === '23505') {
-      const { data: pemenang } = await retail
-        .from('order_drafts')
-        .select('id, pickup_code, payment_url, total_amount, expires_at')
-        .eq('client_order_id', body.client_order_id)
-        .maybeSingle()
-      if (pemenang) {
-        return NextResponse.json({
-          order_id: pemenang.id,
-          pickup_code: pemenang.pickup_code,
-          payment_url: pemenang.payment_url,
-          total_amount: pemenang.total_amount,
-          expires_at: pemenang.expires_at,
-          duplicate: true,
-        })
-      }
-    }
-    console.error('Gagal menyimpan draft pesanan:', draftError)
-    return NextResponse.json({ error: 'Gagal menyimpan pesanan' }, { status: 500 })
-  }
+    .update({ payment_ref: tagihan.ref, payment_url: tagihan.url })
+    .eq('id', draft.id)
 
   if (body.customer_phone) {
     await retail

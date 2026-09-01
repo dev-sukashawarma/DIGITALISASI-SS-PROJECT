@@ -31,6 +31,13 @@ export async function buatTagihan(input: {
   const key = process.env.XENDIT_SECRET_KEY
   if (!key) throw new Error('XENDIT_SECRET_KEY belum di-set')
 
+  // Penjagaan di batas pembayaran. Tagihan nol atau negatif adalah tanda ada
+  // yang salah di hulu; tolak di sini daripada menunggu Xendit menolaknya
+  // setelah satu perjalanan jaringan.
+  if (!Number.isInteger(input.amount) || input.amount < 1) {
+    throw new Error('Nilai tagihan tidak sah')
+  }
+
   const res = await fetch('https://api.xendit.co/v2/invoices', {
     method: 'POST',
     headers: {

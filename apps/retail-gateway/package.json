@@ -10,16 +10,16 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.45.0",
-    "jose": "^5.9.6",
-    "next": "^15.0.0",
+    "@supabase/supabase-js": "^2.110.7",
+    "jose": "^6.1.0",
+    "next": "^16.1.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0"
+    "@types/react": "^19.2.18",
+    "typescript": "^5",
+    "vitest": "^2.0.0"
   }
 }

@@ -7,7 +7,7 @@ export async function GET() {
   const db = createServiceClient()
   const { data, error } = await db
     .from('outlets')
-    .select('id, name, address, latitude, longitude, is_open')
+    .select('id, name, address, lat, lng, is_active')
     .eq('app_enabled', true)
     .neq('type', 'marketplace')
     .order('name', { ascending: true })

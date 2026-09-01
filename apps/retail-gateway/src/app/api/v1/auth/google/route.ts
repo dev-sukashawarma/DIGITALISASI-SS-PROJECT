@@ -41,13 +41,25 @@ export async function POST(request: Request) {
   const user = data.user
   const retail = createRetailClient()
 
+  // Baca profil lama dulu. Upsert polos akan menimpa `name` dengan null pada
+  // login berikutnya bila Google tidak mengirim `full_name` -- pelanggan
+  // kehilangan namanya diam-diam. Nilai dari Google hanya MENGISI yang kosong,
+  // tidak pernah menghapus yang sudah ada.
+  const { data: lama } = await retail
+    .from('customers')
+    .select('name, email')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  const namaGoogle = (user.user_metadata?.full_name as string | undefined) ?? null
+
   const { data: profil, error: profilError } = await retail
     .from('customers')
     .upsert(
       {
         id: user.id,
-        email: user.email ?? null,
-        name: (user.user_metadata?.full_name as string | undefined) ?? null,
+        email: user.email ?? lama?.email ?? null,
+        name: namaGoogle ?? lama?.name ?? null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function InventarisOutletReportPage({ params }: { params: Promise<{ outletId: string }> }) {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
-  if (staff?.role !== 'admin') redirect('/dashboard')
+  if (!staff || !['admin', 'regional_manager'].includes(staff.role)) redirect('/dashboard')
   const { outletId } = await params
   return <InventarisReportView outletId={outletId} />
 }

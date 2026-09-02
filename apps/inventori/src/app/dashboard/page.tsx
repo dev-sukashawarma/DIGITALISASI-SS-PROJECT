@@ -394,6 +394,7 @@ export default function InventoryDashboardPage() {
   const { outletStaff, loading: authLoading, signOut } = useAuth()
   const userRole = String(outletStaff?.role ?? '').trim().toLowerCase()
   const isAdmin = userRole === 'admin'
+  const isReportViewer = isAdmin || userRole === 'regional_manager'
   const supabase = useMemo(() => createClient(), [])
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [items, setItems] = useState<MasterItem[]>([])
@@ -434,8 +435,8 @@ export default function InventoryDashboardPage() {
   }, [sessionMenuOpen])
 
   useEffect(() => {
-    if (!authLoading && isAdmin) router.replace('/dashboard/reports')
-  }, [authLoading, isAdmin, router])
+    if (!authLoading && isReportViewer) router.replace('/dashboard/reports')
+  }, [authLoading, isReportViewer, router])
 
   useEffect(() => {
     draftReadyRef.current = false
@@ -637,7 +638,7 @@ export default function InventoryDashboardPage() {
     }
   }
 
-  if (authLoading || loading || isAdmin) return <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6 text-slate-500">Membuka dashboard admin...</main>
+  if (authLoading || loading || isReportViewer) return <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6 text-slate-500">Membuka laporan inventori...</main>
   if (!outletStaff || !['area_manager', 'admin', 'owner'].includes(userRole)) {
     return <main className="grid min-h-screen place-items-center p-6 text-center"><div><h1 className="text-xl font-bold text-[#400a07]">Akses tidak tersedia</h1><p className="mt-2 text-sm text-slate-500">Aplikasi ini hanya dapat digunakan oleh Area Manager.</p></div></main>
   }

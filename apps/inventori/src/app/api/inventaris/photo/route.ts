@@ -123,7 +123,7 @@ export async function POST(request: Request) {
   }
 }
 
-/** Foto bukti untuk laporan. Jalur ini sengaja hanya tersedia untuk admin. */
+/** Foto bukti untuk laporan. Jalur ini tersedia untuk admin dan regional manager. */
 export async function GET(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -134,7 +134,7 @@ export async function GET(request: Request) {
     .select('role')
     .eq('id', user.id)
     .maybeSingle()
-  if (staffError || staff?.role !== 'admin') return errorResponse('Akses laporan hanya untuk admin.', 403)
+  if (staffError || !staff || !['admin', 'regional_manager'].includes(staff.role)) return errorResponse('Akses laporan hanya untuk admin atau regional manager.', 403)
 
   const path = new URL(request.url).searchParams.get('path')?.trim() ?? ''
   if (!isSafePhotoPath(path)) return errorResponse('Path foto tidak valid.')

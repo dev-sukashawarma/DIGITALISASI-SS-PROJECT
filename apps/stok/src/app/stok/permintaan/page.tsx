@@ -8,11 +8,9 @@ import { ApprovalList } from '@/components/permintaan/ApprovalList'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { canApprovePermintaan } from '@/lib/stok/approver'
+import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
 
 import { Plus, History, CheckCircle2, X } from 'lucide-react'
-
-const KITCHEN_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
 export default function PermintaanPage() {
   const { outletStaff, loading } = useAuth()
@@ -26,8 +24,7 @@ export default function PermintaanPage() {
   }
   if (!outletStaff) return null
 
-  const isKitchen = selectedOutletId === KITCHEN_OUTLET_ID
-    || ['admin', 'spv', 'regional_manager', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(outletStaff.role)
+  const isKitchen = isApproverRole(outletStaff.role) || canApprovePermintaan(outletStaff.role)
 
   const canApprove = canApprovePermintaan(outletStaff.role)
 

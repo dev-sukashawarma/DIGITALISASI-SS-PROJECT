@@ -104,7 +104,7 @@ export default function SidakReviewView() {
               <div className="absolute -right-12 -top-20 h-56 w-56 rounded-full border border-white/10" />
               <div className="absolute -bottom-24 right-32 h-44 w-44 rounded-full bg-[#f29744]/10" />
               <div className="relative">
-                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-orange-200"><ShieldCheck size={15} /> Admin Inventori</div>
+                <div className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-orange-200"><ShieldCheck size={15} /> Pemantauan Inventori</div>
                 <h1 className="mt-3 text-3xl font-black tracking-tight sm:text-4xl">Hasil sidak lapangan</h1>
                 <p className="mt-3 max-w-2xl text-sm leading-6 text-orange-100">Tinjau keputusan Regional dan Area Manager atas laporan inventaris outlet.</p>
               </div>

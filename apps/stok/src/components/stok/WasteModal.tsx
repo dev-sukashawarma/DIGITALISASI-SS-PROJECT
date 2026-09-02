@@ -1,7 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { Button } from '@suka/design-system/src/components/Button'
-import { Input } from '@suka/design-system/src/components/Input'
+import { Button, Input } from '@suka/design-system'
 import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
 import { toast } from 'sonner'

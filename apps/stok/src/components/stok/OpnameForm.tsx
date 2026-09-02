@@ -7,7 +7,7 @@ import { useStokBalance } from '@/hooks/useStokBalance';
 import { useOpnameActions } from '@/hooks/useOpname';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
-import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
+import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import type { BahanBaku } from '@/types/stok';

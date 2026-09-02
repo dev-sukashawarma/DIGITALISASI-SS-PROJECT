@@ -1,12 +1,26 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { X, CheckCircle, PackageCheck, AlertCircle, Camera, CheckCircle2 } from 'lucide-react'
+import { X, CheckCircle, PackageCheck, AlertCircle, Camera, CheckCircle2, ExternalLink, FileText } from 'lucide-react'
 import { Spinner } from '@suka/design-system'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 const supabase = createSupabaseBrowserClient()
+
+function getInvoiceUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return ''
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+    if (pathOrUrl.includes('/storage/v1/object/public/po-invoices/')) {
+      const parts = pathOrUrl.split('/storage/v1/object/public/po-invoices/')
+      return `${supabaseUrl}/storage/v1/object/public/po-invoices/${parts[1]}`
+    }
+    return pathOrUrl
+  }
+  const { data } = supabase.storage.from('po-invoices').getPublicUrl(pathOrUrl)
+  return data?.publicUrl || ''
+}
 
 type Props = {
   poId: string
@@ -333,6 +347,42 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                     })}
                   </div>
 
+                  {/* Foto Nota Fisik yang sudah ada */}
+                  {poDetail?.po?.invoice_urls && poDetail.po.invoice_urls.length > 0 && (
+                    <div className="p-4 bg-suka-cream/20 border border-suka-brown/10 rounded-2xl space-y-2">
+                      <label className="text-[11px] font-black text-suka-brown uppercase tracking-wider block">
+                        Foto / Dokumen Invoice Tersimpan ({poDetail.po.invoice_urls.length}):
+                      </label>
+                      <div className="flex gap-2.5 overflow-x-auto pb-1">
+                        {poDetail.po.invoice_urls.map((invPath: string, idx: number) => {
+                          const url = getInvoiceUrl(invPath)
+                          const isPdf = invPath.toLowerCase().includes('.pdf')
+                          return (
+                            <a
+                              key={idx}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="relative w-20 h-24 rounded-xl overflow-hidden border border-suka-brown/15 bg-white shrink-0 flex items-center justify-center group hover:border-suka-orange transition-all"
+                            >
+                              {isPdf ? (
+                                <div className="flex flex-col items-center p-1 text-center">
+                                  <FileText className="w-6 h-6 text-rose-500 mb-1" />
+                                  <span className="text-[9px] font-bold text-suka-brown">PDF</span>
+                                </div>
+                              ) : (
+                                <img src={url} alt={`Nota ${idx + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                              )}
+                              <div className="absolute inset-0 bg-suka-ink/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <ExternalLink className="w-4 h-4 text-white" />
+                              </div>
+                            </a>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Upload Foto Nota Fisik (Opsional) */}
                   <div className="p-4 border border-dashed border-suka-brown/20 bg-suka-cream/10 rounded-2xl space-y-2">
                     <label className="text-xs font-black text-suka-brown flex items-center gap-2">
@@ -341,7 +391,7 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                     </label>
                     <input
                       type="file"
-                      accept="image/*"
+                      accept="image/*,application/pdf"
                       onChange={e => setInvoiceFile(e.target.files?.[0] || null)}
                       className="block w-full text-xs text-suka-brown/70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-black file:bg-suka-orange file:text-white hover:file:bg-orange-600 cursor-pointer"
                     />

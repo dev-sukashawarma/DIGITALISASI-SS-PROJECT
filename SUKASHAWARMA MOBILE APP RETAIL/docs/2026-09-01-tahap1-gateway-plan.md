@@ -8,6 +8,28 @@
 
 **Tech Stack:** Next.js 15 (App Router), TypeScript, `@supabase/supabase-js`, `jose` (JWT sesi), Xendit REST API, Vitest.
 
+## ⚠️ Perubahan setelah rencana ini dieksekusi
+
+**Kode ambil 4 digit DIBUANG seluruhnya** (2026-09-01, setelah pemilik menanyakan
+hubungannya dengan nomor pesanan). Pesanan sudah punya kode uniknya sendiri:
+`orders.order_number`, berurutan per outlet, diisi trigger
+`generate_daily_outlet_order_number`, dan sudah dipakai kasir sehari-hari.
+Kode 4 digit adalah nomor kedua untuk pesanan yang sudah punya nomor — dan karena
+dihitung dari hash, ia bertabrakan ±13% hari per outlet.
+
+Yang terhapus: `src/lib/pickupCode.ts` beserta 4 test-nya, kolom `orders.pickup_code`
+dan indeksnya, kolom `retail.order_drafts.pickup_code`, serta seluruh field
+`pickup_code` di balasan API. Pelanggan menyebut `order_number`.
+
+Efek samping yang bagus: tanpa `CREATE INDEX` pada `public.orders`, migration tidak
+lagi mengunci penulisan di tabel transaksi 19 outlet. Syarat "jalankan sebelum jam
+12:00" jadi jauh lebih longgar, walau tetap disarankan.
+
+**Task 6 di bawah sudah tidak berlaku.** Sisa rencana tetap sahih; untuk bentuk API
+yang mutakhir, kode di `apps/retail-gateway/src/app/api/` adalah sumber kebenaran.
+
+---
+
 **Spec:** `SUKASHAWARMA MOBILE APP RETAIL/docs/2026-09-01-sukashawarma-app-design.md`
 
 **Desain layar:** `SUKASHAWARMA MOBILE APP RETAIL/design/` (kanvas 16 layar)
@@ -18,6 +40,7 @@
 - **Pesanan hanya ditulis lewat RPC `atomic_insert_order`.** Jangan `INSERT` langsung ke `orders`/`order_items` — RPC itu yang menjamin atomisitas order+item dan fallback saat `menu_item_id` hilang.
 - **`order_number` tidak pernah dikirim dari kode kita.** Trigger database yang menetapkannya secara atomik.
 - **Idempotensi lewat `orders.client_order_id`** (uuid, berkendala unik). Error Postgres `23505` pada kolom ini bukan kegagalan — itu tanda percobaan kembar, ambil pemenangnya.
+- **`client_order_id` adalah kunci SEKALI PAKAI, bukan id keranjang.** Kontrak untuk aplikasi Android (Tahap 1b): buat UUID baru setiap kali pelanggan menekan bayar. Bila gateway membalas 409 `pesanan_kadaluarsa`, aplikasi **wajib** membuat id baru sebelum mencoba lagi. Bila membalas 409 `pesanan_sedang_diproses`, aplikasi menunggu sebentar lalu mengulang dengan id **yang sama**. Memakai satu id seumur hidup keranjang akan mengunci pelanggan begitu draft pertamanya kedaluwarsa — dan cron menghanguskan draft tak dibayar tiap 15 menit, jadi itu kejadian rutin.
 - **Catatan per item ditulis dengan konvensi yang sudah ada:** `menu_item_name` = `` `${nama}|NOTE|${catatan}` `` bila ada catatan. Jangan menciptakan format baru — struk dapur membacanya begitu.
 - **Pesanan hanya dikirim ke kasir setelah webhook Xendit mengonfirmasi pembayaran.** Klaim dari aplikasi tidak pernah dipercaya.
 - **Total yang dihitung Gateway adalah yang mengikat.** Total dari aplikasi hanya untuk ditampilkan.
@@ -149,6 +172,20 @@ ALTER TABLE retail.order_drafts ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON SCHEMA retail FROM anon, authenticated;
 REVOKE ALL ON ALL TABLES IN SCHEMA retail FROM anon, authenticated;
+
+-- Gateway berbicara ke skema ini lewat PostgREST dengan service_role.
+-- Skema baru TIDAK otomatis memberi hak apa pun: tanpa blok ini, setiap
+-- panggilan ke tabel retail gagal dan seluruh produk mati.
+GRANT USAGE ON SCHEMA retail TO service_role;
+GRANT ALL ON ALL TABLES IN SCHEMA retail TO service_role;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA retail TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail
+  GRANT ALL ON TABLES TO service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA retail
+  GRANT ALL ON SEQUENCES TO service_role;
+
+-- Minta PostgREST memuat ulang cache skemanya.
+NOTIFY pgrst, 'reload schema';
 ```
 
 - [ ] **Step 2: Terapkan ke database dan verifikasi ground-truth**
@@ -1493,7 +1530,13 @@ export async function POST(request: Request) {
 
   // Ketersediaan & harga SELALU dibaca segar di titik ini, tidak dari cache.
   // `true` hanya melewati cache outlet ini -- jangan buang cache outlet lain.
-  const katalog = await ambilKatalog(body.outlet_id, true)
+  let katalog
+  try {
+    katalog = await ambilKatalog(body.outlet_id, true)
+  } catch (e) {
+    console.error('gagal memuat katalog segar', e)
+    return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
+  }
   const masalah = periksaKeranjang(body.items, katalog)
 
   if (masalah.length > 0) {
@@ -1718,6 +1761,11 @@ export const dynamic = 'force-dynamic'
 const DISKON_PILOT_PERSEN = 0
 const BATAS_BAYAR_MS = 15 * 60 * 1000
 
+/** Bentuk nomor HP Indonesia yang wajar: 08xxx, 62xxx, atau +62xxx. */
+function nomorHpWajar(nomor: string): boolean {
+  return /^(\+62|62|0)8\d{7,12}$/.test(nomor.replace(/[\s-]/g, ''))
+}
+
 export async function POST(request: Request) {
   const sesi = await requireCustomer(request)
   if (!sesi) return NextResponse.json({ error: 'Sesi tidak sah' }, { status: 401 })
@@ -1756,6 +1804,33 @@ export async function POST(request: Request) {
     .maybeSingle()
 
   if (sudahAda) {
+    // `client_order_id` adalah kunci sekali-pakai, BUKAN id keranjang.
+    // Draft yang sudah mati tidak boleh dikembalikan sebagai sukses: pelanggan
+    // akan menerima tautan bayar yang tidak berlaku dan terkunci selamanya
+    // pada id itu. Cron menghanguskan draft tak dibayar tiap 15 menit, jadi
+    // ini kejadian rutin, bukan kasus tepi.
+    if (sudahAda.status === 'kadaluarsa' || sudahAda.status === 'gagal') {
+      return NextResponse.json(
+        {
+          error: 'pesanan_kadaluarsa',
+          pesan: 'Pesanan sebelumnya sudah kedaluwarsa. Silakan buat pesanan baru.',
+        },
+        { status: 409 }
+      )
+    }
+
+    // Draft hidup tapi tagihannya belum tercatat: proses mati di tengah, atau
+    // permintaan kembar yang pemenangnya belum selesai membuat tagihan.
+    if (!sudahAda.payment_url) {
+      return NextResponse.json(
+        {
+          error: 'pesanan_sedang_diproses',
+          pesan: 'Pesanan sedang diproses, coba lagi sebentar.',
+        },
+        { status: 409 }
+      )
+    }
+
     return NextResponse.json({
       order_id: sudahAda.id,
       pickup_code: sudahAda.pickup_code,
@@ -1789,15 +1864,95 @@ export async function POST(request: Request) {
   }
 
   // Pemeriksaan terakhir sebelum tagihan dibuat, langsung ke produksi.
-  const katalog = await ambilKatalog(body.outlet_id, true)
+  let katalog
+  try {
+    katalog = await ambilKatalog(body.outlet_id, true)
+  } catch (e) {
+    console.error('gagal memuat katalog segar', e)
+    return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
+  }
   const masalah = periksaKeranjang(body.items, katalog)
   if (masalah.length > 0) {
     return NextResponse.json({ error: 'keranjang_berubah', masalah }, { status: 409 })
   }
 
-  const rincian = hitungTotal(body.items, DISKON_PILOT_PERSEN)
+  // Nama item diambil dari KATALOG, bukan dari klien. `periksaKeranjang`
+  // hanya mencocokkan id, ketersediaan, dan harga — nama tidak pernah
+  // dibandingkan. Nama dari klien berakhir di `nama|NOTE|catatan` yang dibaca
+  // struk dapur, jadi nama karangan (atau yang memuat `|NOTE|` sendiri) bisa
+  // merusak cetakan dapur.
+  const petaMenu = new Map(katalog.map((m) => [m.id, m]))
+  const itemsTepercaya: ItemPesanan[] = body.items.map((it) => ({
+    menu_item_id: it.menu_item_id,
+    name: petaMenu.get(it.menu_item_id)?.name ?? it.name,
+    unit_price: it.unit_price,
+    quantity: it.quantity,
+    note: it.note ? String(it.note).slice(0, 200).replace(/\|NOTE\|/g, ' ') : undefined,
+  }))
+
+  const rincian = hitungTotal(itemsTepercaya, DISKON_PILOT_PERSEN)
   const kodeAmbil = buatKodeAmbil(body.client_order_id)
   const kedaluwarsa = new Date(Date.now() + BATAS_BAYAR_MS)
+
+  // URUTAN INI PENTING. Draft dipesan LEBIH DULU, sebelum tagihan dibuat.
+  // Kendala unik pada `client_order_id` adalah satu-satunya penjaga yang
+  // benar-benar atomik. Kalau tagihan dibuat duluan, dua permintaan yang
+  // benar-benar bersamaan menghasilkan DUA tagihan Xendit sebelum kendala itu
+  // sempat menangkapnya -- dan pelanggan yang tertagih dua kali adalah
+  // kegagalan yang paling merusak kepercayaan.
+  const { data: draft, error: draftError } = await retail
+    .from('order_drafts')
+    .insert({
+      client_order_id: body.client_order_id,
+      customer_id: sesi.customerId,
+      outlet_id: body.outlet_id,
+      items: itemsTepercaya,
+      subtotal: rincian.subtotal,
+      discount_amount: rincian.discountAmount,
+      total_amount: rincian.total,
+      pickup_code: kodeAmbil,
+      expires_at: kedaluwarsa.toISOString(),
+    })
+    .select('id')
+    .maybeSingle()
+
+  if (draftError || !draft) {
+    // 23505 = dua permintaan berlomba untuk client_order_id yang sama.
+    if ((draftError as { code?: string } | null)?.code === '23505') {
+      const { data: pemenang } = await retail
+        .from('order_drafts')
+        .select('id, pickup_code, payment_url, total_amount, expires_at')
+        .eq('client_order_id', body.client_order_id)
+        .maybeSingle()
+
+      // Pemenang mungkin belum selesai membuat tagihannya. Jangan kembalikan
+      // payment_url kosong -- suruh aplikasi mencoba lagi sebentar lagi.
+      if (pemenang && !pemenang.payment_url) {
+        // Bentuk balasan SAMA dengan jalur pemeriksaan awal. Aplikasi Android
+        // mencocokkan kode mesin `error`, bukan kalimatnya.
+        return NextResponse.json(
+          {
+            error: 'pesanan_sedang_diproses',
+            pesan: 'Pesanan sedang diproses, coba lagi sebentar.',
+          },
+          { status: 409 }
+        )
+      }
+
+      if (pemenang) {
+        return NextResponse.json({
+          order_id: pemenang.id,
+          pickup_code: pemenang.pickup_code,
+          payment_url: pemenang.payment_url,
+          total_amount: pemenang.total_amount,
+          expires_at: pemenang.expires_at,
+          duplicate: true,
+        })
+      }
+    }
+    console.error('Gagal menyimpan draft pesanan:', draftError)
+    return NextResponse.json({ error: 'Gagal menyimpan pesanan' }, { status: 500 })
+  }
 
   const { data: pelanggan } = await retail
     .from('customers')
@@ -1815,51 +1970,42 @@ export async function POST(request: Request) {
     })
   } catch (e) {
     console.error('Gagal membuat tagihan Xendit:', e)
+    // Draft sudah terlanjur ada. Tandai gagal supaya tidak menggantung sebagai
+    // `menunggu_bayar` yang tak akan pernah bisa dibayar, dan supaya percobaan
+    // ulang dengan client_order_id yang sama tidak tersandung draft mati ini.
+    const { error: tandaiGagalError } = await retail
+      .from('order_drafts')
+      .update({ status: 'gagal' })
+      .eq('id', draft.id)
+    if (tandaiGagalError) {
+      console.error('GAGAL MENANDAI DRAFT GAGAL', {
+        client_order_id: body.client_order_id,
+        error: tandaiGagalError,
+      })
+    }
     return NextResponse.json({ error: 'Gagal membuat tagihan pembayaran' }, { status: 502 })
   }
 
-  const { data: draft, error: draftError } = await retail
+  const { error: updateError } = await retail
     .from('order_drafts')
-    .insert({
-      client_order_id: body.client_order_id,
-      customer_id: sesi.customerId,
-      outlet_id: body.outlet_id,
-      items: body.items,
-      subtotal: rincian.subtotal,
-      discount_amount: rincian.discountAmount,
-      total_amount: rincian.total,
-      pickup_code: kodeAmbil,
-      payment_ref: tagihan.ref,
-      payment_url: tagihan.url,
-      expires_at: kedaluwarsa.toISOString(),
-    })
-    .select('id')
-    .maybeSingle()
+    .update({ payment_ref: tagihan.ref, payment_url: tagihan.url })
+    .eq('id', draft.id)
 
-  if (draftError || !draft) {
-    // 23505 = dua permintaan berlomba untuk client_order_id yang sama.
-    if ((draftError as { code?: string } | null)?.code === '23505') {
-      const { data: pemenang } = await retail
-        .from('order_drafts')
-        .select('id, pickup_code, payment_url, total_amount, expires_at')
-        .eq('client_order_id', body.client_order_id)
-        .maybeSingle()
-      if (pemenang) {
-        return NextResponse.json({
-          order_id: pemenang.id,
-          pickup_code: pemenang.pickup_code,
-          payment_url: pemenang.payment_url,
-          total_amount: pemenang.total_amount,
-          expires_at: pemenang.expires_at,
-          duplicate: true,
-        })
-      }
-    }
-    console.error('Gagal menyimpan draft pesanan:', draftError)
-    return NextResponse.json({ error: 'Gagal menyimpan pesanan' }, { status: 500 })
+  // Tagihan sudah ada di Xendit tapi tidak tercatat di draft. Pelanggan tetap
+  // menerima tautannya dari balasan ini, tapi percobaan ulang akan melihat
+  // draft tanpa payment_url. Harus terlihat, bukan ditelan.
+  if (updateError) {
+    console.error('GAGAL MENCATAT TAGIHAN KE DRAFT', {
+      client_order_id: body.client_order_id,
+      payment_ref: tagihan.ref,
+      error: updateError,
+    })
   }
 
-  if (body.customer_phone) {
+  // Nomor hanya ditulis bila bentuknya wajar. Tanpa saringan ini, string
+  // sembarang dari klien langsung mendarat di profil pelanggan, dan kasir
+  // yang menelepon saat pesanan bermasalah menghubungi nomor yang tidak ada.
+  if (body.customer_phone && nomorHpWajar(body.customer_phone)) {
     await retail
       .from('customers')
       .update({ phone: body.customer_phone, updated_at: new Date().toISOString() })
@@ -2079,7 +2225,14 @@ export function susunPayloadPos(input: {
     source: 'app',
     channel: 'app',
     sales_source: 'app',
-    external_order_id: input.clientOrderId,
+    // `external_order_id` SENGAJA TIDAK DIISI. Trigger BOM punya penjaga
+    // `IF NEW.external_order_id IS NOT NULL THEN RETURN NEW` (tiga migration:
+    // 20260725000000, 20300103000008, 20300103000010) untuk melewati impor
+    // historis Pawoon. Mengisinya di sini membuat SETIAP pesanan aplikasi
+    // dilewati trigger, sehingga stok bahan baku tidak pernah terpotong —
+    // uang masuk, makanan keluar, sistem tidak tahu. Idempotensi tidak
+    // membutuhkannya: `orders.client_order_id` sudah berkendala UNIQUE dan
+    // itulah yang dipakai jalur 23505 di webhook.
     created_at: sekarang,
     updated_at: sekarang,
   }
@@ -2196,7 +2349,7 @@ export async function POST(request: Request) {
         .eq('client_order_id', draft.client_order_id)
         .maybeSingle()
       if (pemenang) {
-        await retail
+        const { error: sinkronError } = await retail
           .from('order_drafts')
           .update({
             status: 'dibayar',
@@ -2205,6 +2358,18 @@ export async function POST(request: Request) {
             pos_order_number: pemenang.order_number,
           })
           .eq('id', draft.id)
+
+        // Sama seperti jalur utama: kalau draft gagal diselaraskan, balas 500
+        // supaya Xendit mengirim ulang dan percobaan berikutnya mencobanya lagi.
+        if (sinkronError) {
+          console.error('GAGAL MENYELARASKAN DRAFT DENGAN PESANAN PEMENANG', {
+            client_order_id: draft.client_order_id,
+            pos_order_id: pemenang.id,
+            error: sinkronError,
+          })
+          return NextResponse.json({ error: 'Gagal menyelesaikan pesanan' }, { status: 500 })
+        }
+
         return NextResponse.json({ ok: true, duplicate: true })
       }
     }
@@ -2220,12 +2385,23 @@ export async function POST(request: Request) {
 
   const posOrder = hasil as { id: string; order_number: number }
 
-  await db
+  const { error: kodeError } = await db
     .from('orders')
     .update({ pickup_code: draft.pickup_code })
     .eq('id', posOrder.id)
 
-  await retail
+  // Kode ambil gagal tercatat: pesanan tetap masuk dapur, tapi kasir tidak
+  // bisa mencarinya lewat kolom kode. Terdegradasi, bukan fatal — kodenya
+  // masih tertulis di `notes`. Tetap harus terlihat.
+  if (kodeError) {
+    console.error('GAGAL MENCATAT KODE AMBIL', {
+      order_id: posOrder.id,
+      pickup_code: draft.pickup_code,
+      error: kodeError,
+    })
+  }
+
+  const { error: draftUpdateError } = await retail
     .from('order_drafts')
     .update({
       status: 'dibayar',
@@ -2234,6 +2410,20 @@ export async function POST(request: Request) {
       pos_order_number: posOrder.order_number,
     })
     .eq('id', draft.id)
+
+  // Pesanan sudah di dapur dan uang sudah masuk, tapi draft tidak tahu.
+  // Balas 500 supaya Xendit mengirim ulang: percobaan berikutnya menemukan
+  // pesanan lewat jalur 23505 dan menyembuhkan draft ini sendiri. Membalas
+  // 200 di sini akan menghentikan pengiriman ulang dan mengunci draft
+  // selamanya di `menunggu_bayar`.
+  if (draftUpdateError) {
+    console.error('GAGAL MENANDAI DRAFT DIBAYAR', {
+      client_order_id: draft.client_order_id,
+      pos_order_id: posOrder.id,
+      error: draftUpdateError,
+    })
+    return NextResponse.json({ error: 'Gagal menyelesaikan pesanan' }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true, order_number: posOrder.order_number })
 }
@@ -2318,6 +2508,34 @@ git commit -m "feat(retail-gateway): cron penghangusan draft yang tidak dibayar"
 
 **Files:**
 - Modify: konfigurasi Coolify (di panel, bukan di repo)
+
+- [ ] **Step 0: Expose skema `retail` ke PostgREST**
+
+Migration memberi hak ke `service_role`, tapi PostgREST hanya melayani skema yang terdaftar. Di Supabase Dashboard → **Settings → API → Exposed schemas**, tambahkan `retail` di samping `public` dan `graphql_public`, lalu simpan.
+
+Verifikasi bahwa skemanya benar-benar terlayani sebelum melangkah:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" \
+  -H "apikey: <SERVICE_ROLE_KEY>" \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Accept-Profile: retail" \
+  "<SUPABASE_URL>/rest/v1/customers?limit=1"
+```
+Expected: `200`. Kalau `404` atau `406`, skemanya belum ter-expose dan **seluruh gateway akan mati** — jangan lanjut sebelum ini hijau.
+
+- [ ] **Step 0b: Jadwalkan cron penghangusan draft**
+
+Endpoint `/api/cron/expire-drafts` tidak memanggil dirinya sendiri. Tanpa penjadwal, draft tak dibayar tidak pernah hangus, dan seluruh kontrak `pesanan_kadaluarsa` di Global Constraints tidak pernah berlaku.
+
+Buat scheduled task di Coolify (atau cron sistem) yang menjalankan tiap 5 menit:
+
+```bash
+curl -s -X POST https://<domain-gateway>/api/cron/expire-drafts \
+  -H "authorization: Bearer <CRON_SECRET>"
+```
+
+Verifikasi sekali secara manual dan pastikan balasannya `{"dihanguskan":<angka>}`, bukan `401`.
 
 - [ ] **Step 1: Set env var di panel Coolify**
 

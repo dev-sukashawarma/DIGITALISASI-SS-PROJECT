@@ -71,10 +71,23 @@ function emptyDraft(): Draft {
   return { observedQty: '', isPresent: true, condition: 'baik', notes: '', purchaseDate: '', price: '', depreciationRate: '', brand: '', photo: null }
 }
 
+// Draft lokal yang belum pernah disentuh user (semua field kosong, kondisi
+// masih default) tidak boleh menimpa data server. Tanpa ini, draft kosong yang
+// sempat tersimpan otomatis membuat isian tersimpan terlihat hilang saat diedit.
+function draftHasInput(draft?: Draft) {
+  if (!draft) return false
+  const filled = [draft.observedQty, draft.notes, draft.purchaseDate, draft.price, draft.depreciationRate, draft.brand]
+  return filled.some((value) => Boolean(value?.trim()))
+    || Boolean(draft.photo || draft.uploadedPhotoPath)
+    || draft.condition !== 'baik'
+    || draft.isPresent !== true
+}
+
 function draftsForItems(nextItems: MasterItem[], existingDrafts?: Record<string, Draft>, savedDrafts?: Record<string, Draft>) {
   return Object.fromEntries(nextItems.map((item) => {
     const existing = existingDrafts?.[item.id]
-    const saved = savedDrafts?.[item.id]
+    const savedCandidate = savedDrafts?.[item.id]
+    const saved = draftHasInput(savedCandidate) ? savedCandidate : undefined
     const draft = { ...emptyDraft(), ...existing, ...saved }
     // Signed URL dari server bisa kedaluwarsa. Jika belum ada foto baru yang
     // dipilih, selalu pakai path dan URL terbaru dari server.
@@ -386,6 +399,14 @@ function draftsFromSubmission(submission: ExistingSubmission | null) {
   }]))
 }
 
+function scoresOrFallback(savedScores: Record<string, string> | undefined, submission: ExistingSubmission | null) {
+  return savedScores && Object.keys(savedScores).length > 0 ? savedScores : scoresFromSubmission(submission)
+}
+
+function notesOrFallback(savedNotes: string | undefined, submission: ExistingSubmission | null) {
+  return savedNotes?.trim() ? savedNotes : submission?.notes ?? ''
+}
+
 function scoresFromSubmission(submission: ExistingSubmission | null) {
   return Object.fromEntries(Object.entries(submission?.area_scores ?? {}).map(([key, value]) => [key, String(value)]))
 }
@@ -475,8 +496,8 @@ export default function InventoryDashboardPage() {
           setSelectedOutletId(initialOutletId)
           setSavedOutletIds(new Set(reference.savedOutletIds))
           setDrafts(draftsForItems(nextItems, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
-          setScores(savedDraft?.scores ?? scoresFromSubmission(currentSubmission))
-          setNotes(savedDraft?.notes ?? currentSubmission?.notes ?? '')
+          setScores(scoresOrFallback(savedDraft?.scores, currentSubmission))
+          setNotes(notesOrFallback(savedDraft?.notes, currentSubmission))
           setDraftStatus(savedDraft || currentSubmission ? 'saved' : 'idle')
           draftReadyRef.current = true
         }
@@ -495,17 +516,17 @@ export default function InventoryDashboardPage() {
   }, [editOutletId, router, selectedOutletId])
 
   useEffect(() => {
-    if (!staffId || !selectedOutletId || !draftReadyRef.current) return
+    if (!editOutletId || !staffId || !selectedOutletId || !draftReadyRef.current) return
     const timeout = window.setTimeout(() => {
       setDraftStatus('saving')
       void saveInventoryDraft(staffId, todayJakarta(), selectedOutletId, { drafts, scores, notes })
         .then(() => setDraftStatus('saved'))
     }, 350)
     return () => window.clearTimeout(timeout)
-  }, [drafts, scores, notes, selectedOutletId, staffId])
+  }, [drafts, scores, notes, editOutletId, selectedOutletId, staffId])
 
   useEffect(() => {
-    if (!staffId || !selectedOutletId || !draftReadyRef.current) return
+    if (!editOutletId || !staffId || !selectedOutletId || !draftReadyRef.current) return
     const persistImmediately = () => {
       // saveInventoryDraft menulis localStorage secara sinkron sebelum IndexedDB.
       // Ini menjaga draft tetap ada walaupun tab ditutup/di-refresh sebelum debounce selesai.
@@ -520,7 +541,7 @@ export default function InventoryDashboardPage() {
       window.removeEventListener('pagehide', persistImmediately)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [drafts, scores, notes, selectedOutletId, staffId])
+  }, [drafts, scores, notes, editOutletId, selectedOutletId, staffId])
 
   const groups = useMemo(() => groupItems(items), [items])
   const formSteps = Object.entries(groups)
@@ -567,9 +588,6 @@ export default function InventoryDashboardPage() {
     setSwitchingOutlet(true)
     draftReadyRef.current = false
     try {
-      if (selectedOutletId) {
-        await saveInventoryDraft(staffId, todayJakarta(), selectedOutletId, { drafts, scores, notes })
-      }
       const [savedDraft, currentSubmission] = await Promise.all([
         loadInventoryDraft(staffId, todayJakarta(), nextOutletId),
         fetchCurrentSubmission(nextOutletId).catch((error) => {
@@ -578,8 +596,8 @@ export default function InventoryDashboardPage() {
       ])
       setSelectedOutletId(nextOutletId)
       setDrafts(draftsForItems(items, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
-      setScores(savedDraft?.scores ?? scoresFromSubmission(currentSubmission))
-      setNotes(savedDraft?.notes ?? currentSubmission?.notes ?? '')
+      setScores(scoresOrFallback(savedDraft?.scores, currentSubmission))
+      setNotes(notesOrFallback(savedDraft?.notes, currentSubmission))
       setMessage(null)
       draftReadyRef.current = true
       setDraftStatus(savedDraft || currentSubmission ? 'saved' : 'idle')

@@ -88,7 +88,9 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
 
   useEffect(() => {
     let disposed = false
-    const room = new Room({ adaptiveStream: true, dynacast: true, stopLocalTrackOnUnpublish: true })
+    // adaptiveStream/dynacast off: the POS publishes a single layer, so the only
+    // thing they can negotiate is pausing it outright — which shows up as a hitch.
+    const room = new Room({ adaptiveStream: false, dynacast: false, stopLocalTrackOnUnpublish: true })
     roomRef.current = room
 
     const attach = (track: Track) => {

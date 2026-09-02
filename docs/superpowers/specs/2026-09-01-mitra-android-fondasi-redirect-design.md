@@ -132,3 +132,28 @@ Ditemukan oleh review menyeluruh saat sub-proyek 0 dieksekusi. Semuanya **belum 
 | F10 | `feature/mitra` mendeklarasikan 4 dependency tak terpakai (`navigation-compose`, `activity-compose`, `core:network`, Hilt+kapt) | Byte-identik dengan `feature/home` — itu konvensi repo, bukan cacat branch ini | Bersamaan dengan F9. Biayanya satu putaran kapt tiap build modul |
 
 Dua hal lain yang sudah **diverifikasi aman** dan tidak perlu digarap: rute `home`/`absensi` yang tetap terdaftar saat logged out **tidak** punya permukaan deep link (manifest hanya punya intent-filter MAIN/LAUNCHER), dan `NavGraph.equals` bersifat struktural termasuk `startDestinationId` — dikonfirmasi dari bytecode androidx.navigation 2.7.7 — sehingga back stack tidak ter-reset oleh recomposition biasa, sekaligus itulah yang membuat transisi retry-berhasil bekerja.
+
+---
+
+## Utang teknis app-wide: buka app tanpa jaringan menghapus sesi (ditemukan saat smoke test, 2026-09-02)
+
+**Bukan cacat sub-proyek ini.** Diverifikasi: tak satu pun dari 8 commit branch `feat/mitra-fondasi-redirect` menyentuh blok `tryAutoLogin`. Berlaku untuk **semua role**, bukan hanya mitra.
+
+**Gejala.** Buka app saat tidak ada koneksi → langsung ke layar login. Bukan cuma tampilan: refresh token di disk ikut terhapus, jadi setelah jaringan pulih pengguna wajib mengetik password lagi.
+
+**Mekanisme** (dari kode, bukan dugaan):
+
+1. `SessionTokenHolder.accessToken` hanya hidup di memori — hilang begitu proses di-kill. Yang persisten di `AuthPrefs` hanya refresh token.
+2. Cold start memanggil `AppSession.tryAutoLogin()` → `AuthSessionManager.ensureAuthenticated()`. Token memori kosong, jadi `isUsable(null)` = false → masuk `refresh()`.
+3. `refresh()` memanggil `authApi.refreshSession(...)`; tanpa jaringan ia melempar exception, ditangkap `catch (e: Exception) { e.printStackTrace(); false }`.
+4. `tryAutoLogin` menjalankan `if (ok) loadStaffOrSignOut() else signOut()` — dan `AppSession.signOut()` memanggil `AuthSessionManager.signOut()`, yang menjalankan `AuthPrefs.clear()`.
+
+**Akar masalah:** `refresh()` mengembalikan `false` yang sama untuk dua hal yang sangat berbeda — **refresh token ditolak server** (memang harus logout) dan **tidak ada koneksi** (seharusnya sesi dipertahankan). Pemanggil tak punya cara membedakannya, jadi memperlakukan keduanya sebagai logout.
+
+Ini persis penyakit yang sudah diperbaiki satu tingkat di bawahnya untuk mitra (`mitraLoadFailed` memisahkan "tidak punya profil" dari "gagal memuat"), tapi masih hidup di lapisan auth di atasnya.
+
+**Dampak nyata:** crew yang membuka app absensi di area sinyal jelek kehilangan sesinya dan harus login ulang. Mitra pun sama.
+
+**Konsekuensi untuk pengujian:** skenario "cold start tanpa jaringan harus memunculkan layar Gagal Memuat Data Kemitraan" di rencana sub-proyek 0 **tidak mungkin tercapai** — proses tak pernah sampai ke pemuatan profil mitra. Layar `MITRA_LOAD_ERROR` hanya terjangkau bila autentikasi berhasil tetapi khusus query `mitra_profiles` yang gagal. Pembedaan itu sendiri tetap benar dan sudah dipin unit test.
+
+**Arah perbaikan bila digarap:** buat `refresh()` membedakan kegagalan jaringan dari penolakan kredensial (mis. kembalikan sealed result, bukan `Boolean`), lalu `tryAutoLogin` hanya `signOut()` pada penolakan kredensial. Menyentuh jalur auth semua role, jadi layak jadi pekerjaan tersendiri dengan spec dan review sendiri.

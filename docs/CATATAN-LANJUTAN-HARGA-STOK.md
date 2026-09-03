@@ -8,13 +8,25 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ## SUDAH SELESAI
 
-- **Rumus HPP tercatat ke migration** — `get_hpp_periode` &
-  `get_hpp_periode_by_channel` di produksi sudah memakai `kemasan_qty`, tapi
-  perbaikannya tak ada di file mana pun. Sekarang tercatat di
-  `supabase/migrations/20260903100000_hpp_pakai_kemasan_qty.sql`.
 - **FOIL digabung** — FOIL (48) dinonaktifkan, saldo dipindah lewat 42 baris
   ledger berpasangan (jumlah bersih nol), harga disesuaikan ke Rp8.791,2 dengan
   jejak riwayat. Hasil: outlet minus 17 → 1, nilai persediaan foil Rp14,3 juta.
+
+### Sudah dikerjakan orang lain di `main` (jangan diulang)
+
+Diperiksa 3 September setelah merge. Beberapa hal yang semula dicatat sebagai
+pekerjaan tersisa ternyata sudah selesai:
+
+| Migration di `main` | Menyelesaikan |
+|---|---|
+| `20300122000002_hpp_periode_pakai_kemasan_qty` | rumus HPP pakai `kemasan_qty` — migration duplikat buatan sesi ini sudah dibuang |
+| `20300120000001_fix_waste_breakdown_faktor_penuh` | `get_waste_breakdown` kini pakai faktor penuh |
+| `20300122000003_polybag_faktor_dan_harga` | POLYBAG — owner konfirmasi satuannya hanya Pack & Pcs; tingkat "Ikat" tidak ada di lapangan. Terverifikasi di DB: satuan kini Pack, kemasan_qty 9 |
+| `20300120000000_fix_faktor_konversi_14_bahan` | faktor konversi 14 bahan |
+| `20300122000001` + `20300122000004` | normalisasi harga 51 bahan |
+
+**Pelajaran:** ada kerja paralel di repo ini. Sebelum menggarap butir mana pun
+di bawah, cek dulu `main` — bisa jadi sudah dikerjakan.
 
 ---
 
@@ -66,8 +78,15 @@ Hasil >0 → jalankan ulang LANGKAH 2 & 3 di
 `docs/draft-sql/gabung-foil-48-ke-foil.sql`.
 
 **Ritme:** seminggu lagi, lalu bulanan. Aman diulang.
-**Jangan** menunggu 26 surat jalan lama tuntas — 130 dari 199 surat jalan
+**Jangan** menunggu 26 surat jalan lama tuntas — 130 dari 198 surat jalan
 'dikirim' di sistem ini sudah >2 minggu, jadi itu takkan terjadi.
+
+**Status 3 September (setelah 25 SJ diverifikasi owner):** saldo FOIL (48) masih
+**0**, sapuan belum perlu. 25 dokumen yang dituntaskan itu berstatus
+`diterima_lengkap`/`diterima_sebagian` — stoknya sudah mendarat di outlet
+sebelum penyapuan kemarin, jadi ikut tersapu. Yang memuat FOIL (48) dan masih
+menggantung tinggal 21 `dikirim` + 5 `draft`; keduanya belum menaruh stok
+karena barangnya belum diterima outlet.
 
 ### 4. Opname FOIL di Cirendeu
 
@@ -82,33 +101,36 @@ penggabungan. Perlu hitung fisik, bukan penyesuaian di sistem.
 FOIL (48) sudah nonaktif, jadi tak akan muncul di daftar pilihan — tapi kalau
 belum diberi tahu, mereka akan bingung mencari barangnya.
 
-### 6. Dua nota lama salah tingkat kemasan
+### 6. Risiko basis satuan di nota PO berikutnya
 
-| Bahan | Di nota PO | Di master | Beda |
-|---|---|---|---|
-| PLASTIK MERAH | Rp18.000 per Pack | Rp90.000 per Ikat | 5× |
-| POLYBAG | Rp600.000 per Bal | Rp25.000 per Pack | 24× |
+POLYBAG **sudah beres** lewat `main` (lihat bagian Sudah Selesai). Yang tersisa
+tinggal satu risiko, bukan kesalahan data:
 
-Harganya sama, cuma dinyatakan per satuan berbeda. **Bahayanya:** PLASTIK MERAH
-dipakai 18 resep — kalau nota berikutnya diinput dengan cara yang sama, harga
-master jatuh 90.000 → 18.000 dan biaya 18 menu ikut anjlok 80% tanpa peringatan.
-
-POLYBAG punya pertanyaan terbuka sendiri: catatan owner menulis "1 bal = 25 pak"
-sementara data menyimpan 1 Ikat = 5 Pack. Faktor konversinya yang perlu
-diputuskan lebih dulu, bukan harganya.
+PLASTIK MERAH master-nya Rp90.000 per Ikat (isi 100 lembar) — sudah benar. Tapi
+nota PO lama mencatatnya Rp18.000, yaitu harga **per Pack**. Kalau nota
+berikutnya diinput dengan cara yang sama, harga master jatuh 90.000 → 18.000 dan
+biaya **18 resep** ikut anjlok 80% tanpa peringatan apa pun.
 
 **Catatan baik:** form PO di sistem tidak bermasalah — 10 dari 10 baris
 PO/KITCHEN basisnya benar. Penyimpangan hanya di dokumen SPB lama.
 
-### 7. Waste masih pakai faktor yang salah
+**Langkah pertama kalau mau digarap:** tambahkan penjagaan di layar penerimaan
+PO — tampilkan satuan master ("Harga per Ikat, isi 100 Lembar") dan beri
+peringatan kalau harga yang diinput menyimpang jauh dari harga master.
 
-`get_waste_periode` dan `get_waste_breakdown` masih membagi dengan
-`faktor_konversi`, bukan `kemasan_qty` — pola yang sama dengan bug HPP yang sudah
-diperbaiki. Artinya nilai waste kemungkinan salah dengan faktor yang sama
-(sampai 24× untuk bahan tertentu).
+### 7. Waste — sebagian sudah beres, satu belum diperiksa
 
-Belum diperiksa dampaknya. Perbaikannya sejenis: ganti pembagi jadi
-`COALESCE(NULLIF(kemasan_qty,0), faktor_tampilan, faktor_konversi, 1)`.
+`get_waste_breakdown` **sudah diperbaiki** di `main`
+(`20300120000001_fix_waste_breakdown_faktor_penuh`) — terverifikasi memakai
+faktor penuh.
+
+Yang belum jelas: `get_waste_periode` tidak memakai `kemasan_qty` maupun faktor
+apa pun — rumusnya `w.qty * harga_beli` polos. Itu benar HANYA kalau `w.qty`
+tersimpan dalam satuan besar. Belum diverifikasi. Kalau ternyata `w.qty` dalam
+satuan kecil (gram/lembar), nilai waste meleset sebesar faktor kemasan.
+
+**Langkah pertama:** ambil beberapa baris `stok_waste_reports` dan bandingkan
+besaran `qty`-nya dengan satuan bahannya.
 
 ### 8. Laporan nilai persediaan belum ada
 
@@ -132,13 +154,17 @@ tidak ditutup, dan itu membuat angka stok gudang & outlet terus meleset tipis.
 
 ## STATUS BRANCH
 
-Branch `claude/new-session-0f1553`, **10 commit, belum di-push**.
+Branch `claude/new-session-0f1553`, sudah di-merge dengan `main` (tanpa konflik).
 
-Berisi: migration rumus HPP, tiga dokumen (audit teknis, skenario bahasa awam,
-catatan ini), dan naskah SQL penggabungan FOIL.
+Berisi tiga dokumen (audit teknis, skenario bahasa awam, catatan ini) dan satu
+naskah SQL penggabungan FOIL. Migration HPP yang sempat dibuat sudah **dibuang**
+karena `main` ternyata punya versinya.
 
 Perubahan yang sudah **berjalan di produksi** (dijalankan lewat SQL Editor,
-bukan lewat migration): penggabungan FOIL dan penyesuaian harganya.
+bukan lewat migration): penggabungan FOIL dan penyesuaian harganya. Ini artinya
+perubahan itu **tidak ada jejaknya di migration** — kalau database dibangun
+ulang dari nol, penggabungan FOIL tidak ikut. Naskahnya disimpan di
+`docs/draft-sql/` sebagai catatan apa yang dijalankan.
 
 ---
 

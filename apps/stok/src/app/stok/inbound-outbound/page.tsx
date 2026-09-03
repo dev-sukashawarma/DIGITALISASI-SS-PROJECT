@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Calendar,
   X,
-  RotateCcw
+  RotateCcw,
+  ShieldAlert
 } from 'lucide-react';
 import { InboundOutboundTipe } from '@/types/stok';
 import { format, subDays, startOfMonth } from 'date-fns';
@@ -83,6 +84,28 @@ export default function InboundOutboundPage() {
     applyPreset('ALL');
     setPage(0);
   };
+
+  // Menyembunyikan menu di nav saja tidak cukup -- URL-nya tetap bisa dibuka
+  // langsung. Datanya sendiri sudah dibatasi RLS `ledger_read`, guard ini
+  // menegakkan maksudnya: halaman arus barang gudang khusus staff gudang.
+  if (outletStaff && outletStaff.role !== 'kitchen') {
+    return (
+      <AppLayout>
+        <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center px-6">
+          <div className="bg-white border border-suka-brown/10 rounded-2xl shadow-xs p-10 max-w-md text-center">
+            <div className="w-14 h-14 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <ShieldAlert className="w-7 h-7 text-amber-600" />
+            </div>
+            <p className="text-suka-brown font-extrabold text-sm">Halaman khusus staff gudang</p>
+            <p className="text-suka-brown/60 text-xs mt-2 leading-relaxed">
+              Inbound / Outbound mencatat arus barang Gudang Pusat. Untuk riwayat stok
+              outletmu, buka halaman <span className="font-bold">Ledger Stok</span>.
+            </p>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (!outletStaff) {
     return (

@@ -1,5 +1,7 @@
 -- Inbound/Outbound feed: view turunan di atas ledger_stok.
 -- Revisi 2026-09-03: tambah kolom saldo_sesudah (sisa stok setelah transaksi).
+-- Timestamp digeser 20300123000000 -> 20300124000000 karena bentrok dengan
+-- 20300123000000_kategori_aset_perlengkapan.sql milik kerja paralel.
 --
 -- Latar: tabel fisik `inbound_outbound` hanya pernah diisi sekali lewat script
 -- backfill (20300108000009) dan beku sejak 2026-08-21 -- tidak ada trigger

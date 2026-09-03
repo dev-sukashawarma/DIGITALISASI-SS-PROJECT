@@ -151,7 +151,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
   let qOrdersToday = supabaseAdmin
     .from('orders')
-    .select('id, outlet_id, total_amount, discount_amount, promo_subsidy, order_items(quantity)')
+    .select('id, outlet_id, total_amount, order_items(quantity)')
     .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
     .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
     .eq('status', 'completed')
@@ -159,7 +159,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
 
   let qOrdersYesterday = supabaseAdmin
     .from('orders')
-    .select('id, outlet_id, total_amount, discount_amount, promo_subsidy, order_items(quantity)')
+    .select('id, outlet_id, total_amount, order_items(quantity)')
     .gte('created_at', `${prevStartDate}T00:00:00+07:00`)
     .lte('created_at', `${prevEndDate}T23:59:59.999+07:00`)
     .eq('status', 'completed')
@@ -232,10 +232,8 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     qStaffOutlets
   ]);
 
-  // Gross Revenue (Omzet Kotor) adalah total nilai pesanan sebelum potongan:
-  // total_amount (Net) + discount_amount (Diskon) + promo_subsidy (Subsidi Promo).
-  const getOrderGrossRevenue = (o: any) =>
-    (Number(o.total_amount) || 0) + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
+  // Samakan dengan POS Kasir: omzet adalah total_amount pesanan selesai (completed)
+  const getOrderGrossRevenue = (o: any) => Number(o.total_amount) || 0;
 
   const omzetToday = (ordersToday || []).reduce((sum, o) => sum + getOrderGrossRevenue(o), 0);
   const txToday = (ordersToday || []).length;

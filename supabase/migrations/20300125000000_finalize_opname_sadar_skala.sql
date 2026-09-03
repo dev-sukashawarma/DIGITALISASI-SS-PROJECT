@@ -1,6 +1,19 @@
 -- 20300125000000_finalize_opname_sadar_skala.sql
 --
--- BELUM DITERAPKAN. Menunggu persetujuan — ini fungsi inti stok.
+-- DITERAPKAN & TERVERIFIKASI di produksi 3 September 2026 pukul 20:21 WIB
+-- (dijalankan lewat SQL Editor, bukan db push -- tidak tercatat di
+--  supabase_migrations.schema_migrations).
+--
+-- BUKTI UJI SESUDAH PERBAIKAN -- opname KENTANG 8 Dus di outlet tes,
+-- baris saldo 10 (satuan besar), belum gram-scale:
+--   form   : qty_fisik 80.000  qty_system 100.000  selisih -20.000
+--   ledger : opname_selisih +79.990   (re-baseline, BUKAN selisih form)
+--   saldo  : 80.000 = 8 Dus x 10.000 gram   ✓
+--   gram   : true                            ✓
+--
+-- Dengan kode lama, selisih -20.000 akan memberi 10 - 20.000 = -19.990.
+-- Tidak ada bahan lain yang tersentuh. Kemajuan migrasi skala setelahnya:
+-- 983 baris sudah gram (dari 981), 577 belum (dari 579).
 --
 -- ============================================================================
 -- MASALAH — dibuktikan lewat uji langsung di "outlet tes", 3 September 2026

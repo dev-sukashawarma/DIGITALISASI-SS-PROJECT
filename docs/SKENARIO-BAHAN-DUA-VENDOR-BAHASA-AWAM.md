@@ -254,3 +254,93 @@ secara berkala.
 
 *Rincian teknis, angka mentah, dan jejak pemeriksaannya ada di
 `docs/AUDIT-2026-09-02-HARGA-BAHAN-DUA-VENDOR.md`.*
+
+---
+
+## Bagian 7 — Sisi akuntansinya
+
+Bagian 1–6 di atas bicara soal **laba rugi**: berapa biaya bahan tiap menu.
+Di situ, metode sekarang ternyata menghasilkan angka yang benar.
+
+Tapi ada sisi kedua yang belum disentuh: **neraca** — nilai barang yang Anda
+punya. Dan di situ ceritanya berbeda.
+
+### Berapa nilai persediaan Anda
+
+| Lokasi | Nilai |
+|---|---|
+| Gudang Pusat | Rp161,8 juta |
+| 24 outlet | Rp247,1 juta |
+| **Total** | **Rp409 juta** |
+
+**Catatan penting: angka ini tidak dilaporkan di mana pun.** Tidak ada satu
+halaman pun di sistem yang menghitungnya. Padahal ini salah satu aset terbesar
+perusahaan — barang yang sudah dibayar dan sedang menunggu terjual.
+
+### Masalahnya: nilai barang bergerak tanpa ada barang yang bergerak
+
+Waktu harga sapi ditimpa dari Rp100.000 jadi Rp103.000 kemarin:
+
+```
+703 Blok sapi di semua lokasi
+  Nilai sebelum : Rp70,3 juta
+  Nilai sesudah : Rp72,4 juta
+  Bertambah     : Rp2,1 juta
+```
+
+Tidak ada daging yang dibeli. Tidak ada yang terjual. Tidak ada yang rusak.
+**Rp2,1 juta muncul di pembukuan hanya karena satu angka harga ditimpa.**
+
+Dalam pembukuan yang sehat, nilai persediaan hanya boleh berubah kalau barangnya
+benar-benar bergerak — masuk, keluar, atau rusak.
+
+### Seberapa sering ini terjadi
+
+Dalam satu minggu terakhir (28 Agustus – 3 September), penimpaan harga
+menggeser nilai persediaan total **Rp69 juta kotor**.
+
+Tapi sebagian besar itu **koreksi data yang memang perlu** — kentang dan bawang
+yang satuannya salah lalu dibetulkan. Yang benar-benar karena harga vendor
+bergerak wajar: **Rp2,3 juta seminggu** (minyak dan sapi), atau sekitar 0,6% dari
+nilai persediaan.
+
+### Yang justru lebih mengkhawatirkan
+
+Koreksi kentang senilai **Rp26,5 juta** masuk lewat **verifikasi penerimaan
+barang** dari PT Agro Boga Utama. Begitu juga bawang lewat Bapak Marwan.
+
+Artinya jalur terima barang bisa memindahkan aset puluhan juta rupiah, dan
+sistem tidak bisa membedakan mana kenaikan harga wajar dan mana salah ketik
+satuan. Keduanya masuk dengan cara yang sama, tanpa peringatan.
+
+### Soal standar akuntansi
+
+Setahu saya, standar persediaan (PSAK 14) mengakui dua cara menghitung: **FIFO**
+dan **rata-rata tertimbang**. "Harga pembelian terakhir" — yang dipakai sekarang
+— bukan salah satunya.
+
+**Ini bukan nasihat akuntansi.** Kalau pembukuan Anda diperiksa pihak luar,
+sebaiknya dikonfirmasi ke yang memegang pembukuan. Tapi kalau benar, maka metode
+sekarang bukan sekadar kurang akurat — ia memang bukan metode yang diakui.
+
+### Kesimpulan yang berubah
+
+Di Bagian 6 disimpulkan tidak perlu mengubah metode, karena selisih biaya bahan
+nol. Kesimpulan itu **hanya berlaku untuk laba rugi**.
+
+Dilihat dari neraca, alasannya berbeda:
+
+| | Laba rugi | Neraca |
+|---|---|---|
+| Selisih angka | nol | Rp2,3 juta/minggu bergerak tanpa transaksi |
+| Metode diakui standar? | — | tidak |
+| Nilai dilaporkan? | ya | **tidak sama sekali** |
+
+Rata-rata tertimbang menutup masalah "nilai bergerak tanpa transaksi", karena
+nilainya hanya berubah saat barang benar-benar masuk atau keluar.
+
+Dua hal lain perlu dikerjakan terlepas dari metode apa pun yang dipilih:
+1. **Penjagaan satuan saat input penerimaan barang** — supaya salah ketik tidak
+   bisa menggeser aset puluhan juta
+2. **Laporan nilai persediaan** — supaya Rp409 juta itu terlihat, dan
+   pergerakannya bisa dijelaskan

@@ -75,6 +75,7 @@ export type BahanBakuOption = {
   id: string
   nama: string
   satuan: string
+  kategori?: string | null
   harga_beli: number | null
 }
 
@@ -142,13 +143,14 @@ export function useBahanBakuOptions() {
     queryFn: async (): Promise<BahanBakuOption[]> => {
       const { data, error } = await supabase
         .from('bahan_baku')
-        .select('id, nama, satuan, bahan_baku_harga(harga_beli)')
+        .select('id, nama, satuan, kategori, bahan_baku_harga(harga_beli)')
         .order('nama')
       if (error) throw error
       return (data ?? []).map((b: any) => ({
         id: b.id,
         nama: b.nama,
         satuan: b.satuan,
+        kategori: b.kategori,
         harga_beli: b.bahan_baku_harga?.[0]?.harga_beli ?? null,
       }))
     },

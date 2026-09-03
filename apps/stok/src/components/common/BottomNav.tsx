@@ -35,6 +35,9 @@ export function BottomNav() {
   const isApprover = isApproverRole(role)
   const isKitchenOrAdmin = ['kitchen', 'purchasing', 'admin', 'admin_finance', 'owner', 'developer'].includes(role ?? '')
   const isLeaderOrSPV = ['spv', 'regional_manager', 'leader', 'area_manager'].includes(role ?? '')
+  // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
+  // jadi khusus staff gudang. Role lain pakai Ledger Stok untuk riwayat outletnya.
+  const canViewInboundOutbound = role === 'kitchen'
 
   // 1. Pending Approvals
   const { permintaan } = useApprovalList(isApprover)
@@ -104,13 +107,17 @@ export function BottomNav() {
       desc: 'Kartu stok masuk, keluar & saldo',
       badge: 0,
     },
-    {
-      href: '/stok/inbound-outbound',
-      icon: ArrowDownUp,
-      label: 'Inbound / Outbound',
-      desc: 'Catat mutasi manual masuk/keluar',
-      badge: 0,
-    },
+    ...(canViewInboundOutbound
+      ? [
+          {
+            href: '/stok/inbound-outbound',
+            icon: ArrowDownUp,
+            label: 'Inbound / Outbound',
+            desc: 'Barang masuk vendor & keluar ke outlet',
+            badge: 0,
+          },
+        ]
+      : []),
     {
       href: '/stok/mutasi',
       icon: ArrowLeftRight,
@@ -140,13 +147,6 @@ export function BottomNav() {
       icon: BookOpen,
       label: 'Buku Ledger Stok',
       desc: 'Kartu stok masuk, keluar & saldo',
-      badge: 0,
-    },
-    {
-      href: '/stok/inbound-outbound',
-      icon: ArrowDownUp,
-      label: 'Inbound / Outbound',
-      desc: 'Catat mutasi manual masuk/keluar',
       badge: 0,
     },
     {

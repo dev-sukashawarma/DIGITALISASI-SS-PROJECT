@@ -17,6 +17,7 @@ interface FeedRow {
   kategori: string;
   qty: number;
   harga_satuan: number | null;
+  saldo_sesudah: number | null;
   catatan: string | null;
   created_by: string | null;
   created_at: string;
@@ -36,7 +37,7 @@ interface FeedRow {
 }
 
 const FEED_COLUMNS = `
-  id, outlet_id, bahan_baku_id, tipe, sumber, kategori, qty, harga_satuan,
+  id, outlet_id, bahan_baku_id, tipe, sumber, kategori, qty, harga_satuan, saldo_sesudah,
   catatan, created_by, created_at, pencatat_nama,
   bahan_nama, bahan_satuan, satuan_tengah, faktor_tengah, satuan_kecil,
   faktor_tampilan, satuan_distribusi,
@@ -54,6 +55,7 @@ function toInboundOutbound(row: FeedRow): InboundOutbound {
     kategori: row.kategori,
     qty: row.qty,
     harga_satuan: row.harga_satuan,
+    saldo_sesudah: row.saldo_sesudah,
     catatan: row.catatan,
     created_by: row.created_by,
     created_at: row.created_at,

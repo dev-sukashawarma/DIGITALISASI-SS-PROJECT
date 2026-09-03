@@ -134,6 +134,8 @@ export interface InboundOutbound {
   supplier_nama?: string | null;
   qty: number;
   harga_satuan: number | null;
+  /** Sisa stok gudang tepat setelah transaksi ini (ledger_stok.saldo_sesudah). */
+  saldo_sesudah?: number | null;
   catatan: string | null;
   created_by: string | null;
   created_at: string;

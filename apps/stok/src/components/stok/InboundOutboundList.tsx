@@ -106,20 +106,19 @@ function getEffectivePrice(item: InboundOutbound): number | null {
   return null;
 }
 
-function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; unitLabel: string; displayText: string; totalNilai: number | null } {
-  const bahan = item.bahan_baku;
-  const numQty = Number(item.qty);
-  const effectivePrice = getEffectivePrice(item);
+type BahanUnitInfo = NonNullable<InboundOutbound['bahan_baku']>;
 
-  if (!bahan) {
-    return {
-      qtyNumber: numQty,
-      unitLabel: 'satuan',
-      displayText: numQty.toLocaleString('id-ID'),
-      totalNilai: effectivePrice ? Math.round(numQty * effectivePrice) : null
-    };
-  }
-
+/**
+ * Konversi angka dari skala basis penyimpanan (gram / satuan kecil, sama dengan
+ * skala qty di ledger_stok) ke satuan distribusi yang dibaca manusia.
+ *
+ * Dipakai bersama oleh kolom "Jumlah Satuan" dan "Sisa Stok" -- keduanya
+ * bersumber dari skala yang sama, jadi rumusnya tidak boleh bercabang.
+ */
+function convertToDistribusiUnit(
+  bahan: BahanUnitInfo,
+  numQty: number
+): { qtyNumber: number; unitLabel: string } {
   const rawDistUnit = bahan.satuan_distribusi?.trim() || DELIVERY_UNITS_FALLBACK[bahan.nama.toUpperCase()]?.label || bahan.satuan || 'satuan';
   const satuanKecil = bahan.satuan_kecil?.toLowerCase();
   const satuanTengah = bahan.satuan_tengah?.toLowerCase();
@@ -148,14 +147,50 @@ function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; u
     }
   }
 
-  const roundedQty = Math.round(convertedQty * 100) / 100;
-  const totalNilai = effectivePrice ? Math.round(roundedQty * effectivePrice) : null;
+  return {
+    qtyNumber: Math.round(convertedQty * 100) / 100,
+    unitLabel: rawDistUnit,
+  };
+}
+
+function getDistribusiCalculation(item: InboundOutbound): {
+  qtyNumber: number;
+  unitLabel: string;
+  displayText: string;
+  totalNilai: number | null;
+  /** Sisa stok gudang setelah transaksi ini, dalam satuan distribusi. */
+  saldoText: string | null;
+} {
+  const bahan = item.bahan_baku;
+  const numQty = Number(item.qty);
+  const effectivePrice = getEffectivePrice(item);
+
+  if (!bahan) {
+    return {
+      qtyNumber: numQty,
+      unitLabel: 'satuan',
+      displayText: numQty.toLocaleString('id-ID'),
+      totalNilai: effectivePrice ? Math.round(numQty * effectivePrice) : null,
+      saldoText: null,
+    };
+  }
+
+  const { qtyNumber, unitLabel } = convertToDistribusiUnit(bahan, numQty);
+  const totalNilai = effectivePrice ? Math.round(qtyNumber * effectivePrice) : null;
+
+  // Saldo dari ledger_stok berada di skala basis yang sama dengan qty, jadi
+  // lewat konversi yang sama persis -- bukan rumus terpisah.
+  const saldoText =
+    item.saldo_sesudah === null || item.saldo_sesudah === undefined
+      ? null
+      : `${convertToDistribusiUnit(bahan, Number(item.saldo_sesudah)).qtyNumber.toLocaleString('id-ID')} ${unitLabel}`;
 
   return {
-    qtyNumber: roundedQty,
-    unitLabel: rawDistUnit,
-    displayText: `${roundedQty.toLocaleString('id-ID')} ${rawDistUnit}`,
-    totalNilai
+    qtyNumber,
+    unitLabel,
+    displayText: `${qtyNumber.toLocaleString('id-ID')} ${unitLabel}`,
+    totalNilai,
+    saldoText,
   };
 }
 
@@ -305,6 +340,7 @@ export function InboundOutboundList({ items }: Props) {
                       <th className="px-5 py-3">Bahan Baku</th>
                       <th className="px-5 py-3">Tipe & Kategori</th>
                       <th className="px-5 py-3 text-right">Jumlah Satuan</th>
+                      <th className="px-5 py-3 text-right">Sisa Stok</th>
                       <th className="px-5 py-3 text-right">Harga Beli / Satuan</th>
                       <th className="px-5 py-3 text-right">Total Nilai (Rp)</th>
                       <th className="px-5 py-3">Catatan / Tujuan</th>
@@ -352,6 +388,17 @@ export function InboundOutboundList({ items }: Props) {
                               <span className={`font-black text-sm ${isOut ? 'text-red-600' : 'text-green-700'}`}>
                                 {sign} {calc.displayText}
                               </span>
+                            </td>
+                            {/* Posisi stok gudang tepat setelah transaksi ini
+                                (saldo_sesudah dari ledger_stok). */}
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              {calc.saldoText ? (
+                                <span className="text-xs font-bold text-suka-brown/80 bg-[#fcfaf8] border border-suka-brown/10 px-2 py-1 rounded-lg">
+                                  {calc.saldoText}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-suka-brown/30">-</span>
+                              )}
                             </td>
                             <td className="px-5 py-3.5 text-right whitespace-nowrap">
                               {effectivePrice ? (

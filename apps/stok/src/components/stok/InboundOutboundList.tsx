@@ -1,10 +1,37 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { InboundOutbound } from '@/types/stok';
+import { InboundOutbound, InboundOutboundSumber } from '@/types/stok';
 import { format, isToday, isYesterday } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Calendar, ArrowDownCircle, ArrowUpCircle, PackageOpen, Store } from 'lucide-react';
+import { Calendar, ArrowDownCircle, ArrowUpCircle, PackageOpen, Store, FileCheck2, PencilLine } from 'lucide-react';
+
+/**
+ * Badge per sumber arus barang. Sengaja dibedakan visual supaya penerimaan yang
+ * melewati modul PO (`vendor_manual`) kelihatan langsung, bukan tersembunyi
+ * bercampur dengan penerimaan resmi.
+ */
+const SOURCE_BADGE: Record<InboundOutboundSumber, {
+  label: string;
+  className: string;
+  Icon: typeof Store;
+}> = {
+  vendor_po: {
+    label: 'Vendor · PO',
+    className: 'bg-green-50 text-green-700 border-green-200',
+    Icon: FileCheck2,
+  },
+  vendor_manual: {
+    label: 'Vendor · manual',
+    className: 'bg-amber-50 text-amber-700 border-amber-300',
+    Icon: PencilLine,
+  },
+  kirim_outlet: {
+    label: 'Keluar → outlet',
+    className: 'bg-red-50 text-red-600 border-red-200',
+    Icon: Store,
+  },
+};
 
 interface Props {
   items: InboundOutbound[];
@@ -135,9 +162,17 @@ function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; u
 interface BatchGroup {
   batchKey: string;
   catatan: string | null;
+  /** Label tujuan pengiriman, mis. "MITRA PEKAYON · SJ-0012". */
+  tujuanLabel: string | null;
   isShipment: boolean;
   totalNominal: number;
   items: InboundOutbound[];
+}
+
+/** Satu surat jalan = satu batch. Sisanya berdiri sendiri per baris. */
+function buildShipmentLabel(item: InboundOutbound): string {
+  const outlet = item.tujuan_outlet_nama || 'Outlet tidak diketahui';
+  return item.nomor_sj ? `${outlet} · ${item.nomor_sj}` : outlet;
 }
 
 interface DateGroup {
@@ -185,13 +220,14 @@ export function InboundOutboundList({ items }: Props) {
         if (calc.totalNilai) groups[dateKey].outTotalNominal += calc.totalNilai;
       }
 
-      const isShipment = Boolean(item.catatan && item.catatan.startsWith('Kirim ke '));
-      const batchKey = isShipment ? `sj_${item.catatan}` : `item_${item.id}`;
+      const isShipment = Boolean(item.ref_shipment_id);
+      const batchKey = isShipment ? `sj_${item.ref_shipment_id}` : `item_${item.id}`;
 
       if (!groups[dateKey].batchesMap[batchKey]) {
         groups[dateKey].batchesMap[batchKey] = {
           batchKey,
           catatan: item.catatan || null,
+          tujuanLabel: isShipment ? buildShipmentLabel(item) : null,
           isShipment,
           totalNominal: 0,
           items: [],
@@ -283,6 +319,7 @@ export function InboundOutboundList({ items }: Props) {
                         const colorClass = isOut ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-700 bg-green-50 border-green-200';
                         const calc = getDistribusiCalculation(item);
                         const effectivePrice = getEffectivePrice(item);
+                        const badge = SOURCE_BADGE[item.sumber] ?? SOURCE_BADGE.vendor_manual;
                         const isFirstInBatch = itemIdx === 0;
                         const isNewBatch = isFirstInBatch && bIdx > 0;
                         const batchBorderClass = isNewBatch ? 'border-t-2 border-suka-brown/30' : 'border-t border-suka-brown/5';
@@ -303,8 +340,11 @@ export function InboundOutboundList({ items }: Props) {
                                 <span className={`px-2.5 py-0.5 rounded border uppercase text-[10px] font-black ${colorClass}`}>
                                   {item.tipe}
                                 </span>
-                                <span className="text-xs font-semibold text-suka-brown/80">
-                                  {item.kategori}
+                                <span
+                                  className={`px-2 py-0.5 rounded-lg border text-[10px] font-black inline-flex items-center gap-1 ${badge.className}`}
+                                  title={item.kategori}
+                                >
+                                  <badge.Icon className="w-3 h-3" /> {badge.label}
                                 </span>
                               </div>
                             </td>
@@ -359,15 +399,24 @@ export function InboundOutboundList({ items }: Props) {
                                   rowSpan={rowSpan} 
                                   className="px-5 py-3.5 text-xs align-middle border-r border-suka-brown/10 bg-[#fffaf5]"
                                 >
-                                  <div className="flex items-center gap-1.5 font-extrabold text-suka-brown" title={batch.catatan || ''}>
+                                  <div className="flex items-center gap-1.5 font-extrabold text-suka-brown" title={batch.tujuanLabel || batch.catatan || ''}>
                                     <Store className="w-4 h-4 text-suka-orange shrink-0" />
-                                    <span className="text-xs">{batch.catatan}</span>
+                                    <span className="text-xs">{batch.tujuanLabel || batch.catatan}</span>
                                   </div>
                                 </td>
                               )
                             ) : (
                               <td className="px-5 py-3.5 text-xs">
-                                {item.catatan ? (
+                                {item.supplier_nama ? (
+                                  <span className="text-suka-brown/80 block font-bold" title={item.nomor_po || ''}>
+                                    {item.supplier_nama}
+                                    {item.nomor_po && (
+                                      <span className="block text-[10px] font-medium text-suka-brown/50">
+                                        {item.nomor_po}
+                                      </span>
+                                    )}
+                                  </span>
+                                ) : item.catatan ? (
                                   <span className="text-suka-brown/70 block" title={item.catatan}>
                                     {item.catatan}
                                   </span>

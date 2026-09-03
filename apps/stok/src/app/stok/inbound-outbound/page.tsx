@@ -5,12 +5,10 @@ import { useAuth } from '@suka/auth';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { useInboundOutbound } from '@/hooks/useInboundOutbound';
 import { InboundOutboundList } from '@/components/stok/InboundOutboundList';
-import { InboundOutboundDrawer } from '@/components/stok/InboundOutboundDrawer';
 import { OutletSwitcher } from '@/components/common/OutletSwitcher';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { 
-  Plus, 
   Loader2, 
   ArrowDownCircle, 
   ArrowUpCircle, 
@@ -39,15 +37,13 @@ export default function InboundOutboundPage() {
   const [endDate, setEndDate] = useState('');
   const [activePreset, setActivePreset] = useState<DatePreset>('ALL');
 
-  const { data, loading, error, refresh } = useInboundOutbound(
+  const { data, loading, error } = useInboundOutbound(
     selectedOutletId || undefined, 
     page, 
     searchTerm,
     startDate || undefined,
     endDate || undefined
   );
-  
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const applyPreset = (preset: 'ALL' | 'TODAY' | '7DAYS' | 'THIS_MONTH') => {
     setActivePreset(preset);
@@ -112,7 +108,7 @@ export default function InboundOutboundPage() {
               Inbound / Outbound
             </h1>
             <p className="text-[10px] text-suka-brown/60 font-bold uppercase tracking-wider mt-0.5">
-              Catatan Pergerakan Stok Gudang
+              Barang Masuk dari Vendor & Keluar ke Outlet
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -125,13 +121,6 @@ export default function InboundOutboundPage() {
         <main className="w-full px-4 sm:px-6 lg:px-8 xl:px-10 mt-6 space-y-5">
           {/* Top Action & Search Bar */}
           <div className="flex flex-col lg:flex-row gap-3 items-stretch justify-between">
-            <button 
-              onClick={() => setIsDrawerOpen(true)}
-              className="py-3 px-6 bg-suka-brown hover:bg-suka-brown/90 text-white rounded-2xl font-black text-xs sm:text-sm transition-all shadow-xs uppercase tracking-wider active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0"
-            >
-              <Plus className="w-4 h-4 sm:w-5 sm:h-5" /> Catat Mutasi Baru
-            </button>
-            
             <div className="flex flex-col sm:flex-row gap-3 flex-1 justify-end">
               {/* Search Bar */}
               <div className="relative flex-1 max-w-lg">
@@ -308,15 +297,6 @@ export default function InboundOutboundPage() {
           )}
         </main>
       </div>
-
-      {selectedOutletId && (
-        <InboundOutboundDrawer
-          isOpen={isDrawerOpen}
-          onClose={() => setIsDrawerOpen(false)}
-          outletId={selectedOutletId}
-          onSuccess={refresh}
-        />
-      )}
     </AppLayout>
   );
 }

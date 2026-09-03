@@ -111,26 +111,30 @@ WHERE id = 'fb243647-dd20-4ef1-b739-921b0a7307d7';
 -- dijalankan, bukan angka mati.
 -- ----------------------------------------------------------------------------
 
+-- CATATAN: cast ::uuid dan ::text WAJIB di sini. Tanpa UNION ALL, Postgres
+-- mengenali sendiri teks '4804d1fc-...' sebagai uuid. Tapi UNION ALL memaksa
+-- resolusi tipe lebih awal dan menganggapnya text, sehingga muncul
+--   ERROR 42804: column "bahan_baku_id" is of type uuid but expression is of type text
 WITH src AS (
   SELECT outlet_id, saldo
   FROM stok_balance
-  WHERE bahan_baku_id = 'fb243647-dd20-4ef1-b739-921b0a7307d7'
+  WHERE bahan_baku_id = 'fb243647-dd20-4ef1-b739-921b0a7307d7'::uuid
     AND saldo <> 0
 )
 INSERT INTO ledger_stok (outlet_id, bahan_baku_id, tipe, qty, catatan, created_at)
 SELECT outlet_id,
-       'fb243647-dd20-4ef1-b739-921b0a7307d7',
-       'adjustment',
+       'fb243647-dd20-4ef1-b739-921b0a7307d7'::uuid,
+       'adjustment'::text,
        -saldo,
-       'Gabung FOIL (48) ke FOIL — keluar. Barang sama, beda vendor.',
+       'Gabung FOIL (48) ke FOIL — keluar. Barang sama, beda vendor.'::text,
        NOW()
 FROM src
 UNION ALL
 SELECT outlet_id,
-       '4804d1fc-f06c-4306-adfd-a798bda1275a',
-       'adjustment',
+       '4804d1fc-f06c-4306-adfd-a798bda1275a'::uuid,
+       'adjustment'::text,
        saldo,
-       'Gabung FOIL (48) ke FOIL — masuk. Barang sama, beda vendor.',
+       'Gabung FOIL (48) ke FOIL — masuk. Barang sama, beda vendor.'::text,
        NOW()
 FROM src;
 
@@ -217,7 +221,7 @@ ORDER BY sb.saldo;
 
 -- 5a. Catat riwayat DULU, selagi harga lama masih tersimpan.
 INSERT INTO bahan_baku_harga_history (bahan_baku_id, harga_lama, harga_baru, catatan, changed_at)
-SELECT '4804d1fc-f06c-4306-adfd-a798bda1275a',
+SELECT '4804d1fc-f06c-4306-adfd-a798bda1275a'::uuid,
        harga_beli,
        8791.2,
        'Penggabungan FOIL (48) ke FOIL. Menyesuaikan ke harga pembelian terakhir '

@@ -150,10 +150,10 @@ export function PermintaanForm({
     return () => clearTimeout(timer)
   }, [finalCart])
 
-  // Filter bahan baku: kategori BUMBU hanya untuk role kitchen / admin / owner / dev
+  // Filter bahan baku: kategori BUMBU hanya untuk role kitchen / admin / owner / dev (kecuali BAWANG yang digunakan di outlet)
   const allowedBahanBaku = useMemo(() => {
     return bahanBaku.filter(b => {
-      if (!isKitchenRole && b.kategori?.toUpperCase() === 'BUMBU') return false
+      if (!isKitchenRole && b.kategori?.toUpperCase() === 'BUMBU' && b.nama?.toUpperCase() !== 'BAWANG') return false
       return true
     })
   }, [bahanBaku, isKitchenRole])
@@ -190,7 +190,7 @@ export function PermintaanForm({
     const unadded = saran.filter(s => {
       if (manualBahan[s.bahan_baku_id] || pendingItemIds.has(s.bahan_baku_id)) return false
       const b = bahanBaku.find(x => x.id === s.bahan_baku_id)
-      if (!isKitchenRole && b?.kategori?.toUpperCase() === 'BUMBU') return false
+      if (!isKitchenRole && b?.kategori?.toUpperCase() === 'BUMBU' && b?.nama?.toUpperCase() !== 'BAWANG') return false
       return true
     })
     if (unadded.length === 0) return
@@ -210,7 +210,7 @@ export function PermintaanForm({
     return saran.filter(s => {
       if (pendingItemIds.has(s.bahan_baku_id)) return false
       const b = bahanBaku.find(x => x.id === s.bahan_baku_id)
-      if (!isKitchenRole && b?.kategori?.toUpperCase() === 'BUMBU') return false
+      if (!isKitchenRole && b?.kategori?.toUpperCase() === 'BUMBU' && b?.nama?.toUpperCase() !== 'BAWANG') return false
       return true
     })
   }, [saran, pendingItemIds, bahanBaku, isKitchenRole])

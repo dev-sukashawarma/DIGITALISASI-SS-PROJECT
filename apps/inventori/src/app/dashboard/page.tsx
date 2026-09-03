@@ -304,6 +304,49 @@ function PhotoPicker({ itemName, itemId, photo, uploadedPhotoPath, uploadedPhoto
   )
 }
 
+// Proxy di depan aplikasi (413 payload terlalu besar, 502/504 timeout) membalas
+// HTML, bukan JSON milik route. Tanpa membaca status dan potongan body, semua
+// kegagalan itu tampil sebagai "Gagal mengirim inventaris." tanpa petunjuk.
+async function readResponseError(response: Response, fallback: string) {
+  const body = await response.text().catch(() => '')
+  try {
+    const parsed = JSON.parse(body) as { error?: string } | null
+    if (parsed?.error) return parsed.error
+  } catch {}
+  const snippet = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)
+  if (response.status === 413) return 'Foto terlalu besar untuk dikirim sekaligus (HTTP 413).'
+  if (response.status === 504 || response.status === 502) return `Server tidak merespons tepat waktu (HTTP ${response.status}). Coba simpan lagi.`
+  return `${fallback} (HTTP ${response.status}${snippet ? ` · ${snippet}` : ''})`
+}
+
+async function uploadPhotoFile(outletId: string, itemId: string, file: File, previousPath?: string, signal?: AbortSignal) {
+  const compressed = await compressPhoto(file)
+  const formData = new FormData()
+  formData.append('outlet_id', outletId)
+  formData.append('item_id', itemId)
+  if (previousPath) formData.append('previous_path', previousPath)
+  formData.append('photo', compressed, compressed.name)
+  const response = await fetch('/api/inventaris/photo', { method: 'POST', body: formData, signal })
+  if (!response.ok) throw new Error(await readResponseError(response, 'Foto gagal disimpan ke server.'))
+  const result = await response.json().catch(() => null) as { photo_path?: string; photo_url?: string | null } | null
+  if (!result?.photo_path) throw new Error('Server tidak mengembalikan lokasi foto.')
+  return { compressed, path: result.photo_path, url: result.photo_url ?? null }
+}
+
+// Menjalankan pekerjaan beberapa sekaligus, bukan seluruhnya. 87 upload paralel
+// akan saling berebut uplink 4G dan memicu timeout.
+async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number) {
+  const results: T[] = []
+  let cursor = 0
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (cursor < tasks.length) {
+      const index = cursor++
+      results[index] = await tasks[index]()
+    }
+  }))
+  return results
+}
+
 async function fetchCurrentSubmission(outletId: string): Promise<ExistingSubmission | null> {
   const response = await fetch(`/api/inventaris/submit?outlet_id=${encodeURIComponent(outletId)}`, { cache: 'no-store' })
   const result = await response.json().catch(() => null) as { error?: string; submission?: ExistingSubmission | null } | null
@@ -574,22 +617,10 @@ export default function InventoryDashboardPage() {
     const controller = new AbortController()
     uploadControllersRef.current.set(itemId, controller)
     try {
-      // Kompresi sebelum upload. File hasil kompresi ini juga yang disimpan di
-      // draft, sehingga jalur fallback submit ikut ringan.
-      const compressed = await compressPhoto(file)
+      const uploaded = await uploadPhotoFile(outletId, itemId, file, previousPath, controller.signal)
       if (controller.signal.aborted) return
-      if (compressed !== file) updateDraft(itemId, { photo: compressed })
-
-      const formData = new FormData()
-      formData.append('outlet_id', outletId)
-      formData.append('item_id', itemId)
-      if (previousPath) formData.append('previous_path', previousPath)
-      formData.append('photo', compressed, compressed.name)
-      const response = await fetch('/api/inventaris/photo', { method: 'POST', body: formData, signal: controller.signal })
-      const result = await response.json().catch(() => null) as { error?: string; photo_path?: string; photo_url?: string | null } | null
-      if (!response.ok || !result?.photo_path) throw new Error(result?.error ?? 'Foto gagal disimpan ke server.')
-      if (controller.signal.aborted) return
-      updateDraft(itemId, { uploadedPhotoPath: result.photo_path, uploadedPhotoUrl: result.photo_url ?? null })
+      // Simpan versi terkompresi ke draft supaya tidak dikompresi ulang nanti.
+      updateDraft(itemId, { photo: uploaded.compressed, uploadedPhotoPath: uploaded.path, uploadedPhotoUrl: uploaded.url })
       setPhotoUploads((current) => ({ ...current, [itemId]: { uploading: false, error: null } }))
     } catch (error) {
       if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
@@ -634,14 +665,38 @@ export default function InventoryDashboardPage() {
     }
     setSubmitting(true)
     try {
+      // Foto yang belum sempat terunggah (draft lama, upload gagal, atau
+      // browser ditutup di tengah jalan) diunggah satu per satu lewat endpoint
+      // foto SEBELUM submit. Menumpuk 87 file ke dalam satu request submit
+      // membuat proxy menolaknya (413) atau kehabisan waktu (504), dan error
+      // itu balik sebagai HTML sehingga pesannya jadi generik.
+      const pending = items.filter((item) => {
+        const draft = drafts[item.id]
+        return Boolean(draft?.photo) && !draft?.uploadedPhotoPath
+      })
+      const uploadedPaths = new Map<string, string>()
+      if (pending.length > 0) {
+        setMessage({ type: 'success', text: `Mengunggah ${pending.length} foto yang tertunda...` })
+        setPhotoUploads((current) => ({
+          ...current,
+          ...Object.fromEntries(pending.map((item) => [item.id, { uploading: true, error: null }])),
+        }))
+        await runWithConcurrency(pending.map((item) => async () => {
+          const draft = drafts[item.id]
+          const uploaded = await uploadPhotoFile(selectedOutletId, item.id, draft.photo as File)
+          uploadedPaths.set(item.id, uploaded.path)
+          updateDraft(item.id, { photo: uploaded.compressed, uploadedPhotoPath: uploaded.path, uploadedPhotoUrl: uploaded.url })
+          setPhotoUploads((current) => ({ ...current, [item.id]: { uploading: false, error: null } }))
+        }), 3)
+        setMessage(null)
+      }
+
       const formData = new FormData()
       const detailRows: Array<Record<string, string | number | boolean | null>> = []
       for (const item of items) {
         const draft = drafts[item.id] ?? emptyDraft()
-        if (!draft.photo && !draft.uploadedPhotoPath && !draft.existingPhotoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
-        // Fallback: bila respons upload latar belum sempat tersimpan di state,
-        // server menerima File asli ini lalu mengoptimalkannya setelah respons.
-        if (draft.photo && !draft.uploadedPhotoPath) formData.append(`photo_${item.id}`, draft.photo, draft.photo.name)
+        const photoPath = uploadedPaths.get(item.id) ?? draft.uploadedPhotoPath ?? draft.existingPhotoPath ?? null
+        if (!photoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
         detailRows.push({
           master_item_id: item.id,
           observed_qty: item.mode === 'presence' ? null : Number(draft.observedQty),
@@ -652,7 +707,7 @@ export default function InventoryDashboardPage() {
           purchase_price: draft.price.trim() === '' ? null : Number(draft.price),
           depreciation_rate: draft.depreciationRate.trim() === '' ? null : Number(draft.depreciationRate),
           brand: draft.brand.trim() || null,
-          photo_path: draft.uploadedPhotoPath ?? draft.existingPhotoPath ?? null,
+          photo_path: photoPath,
         })
       }
       formData.append('payload', JSON.stringify({
@@ -663,8 +718,8 @@ export default function InventoryDashboardPage() {
         items: detailRows,
       }))
       const response = await fetch('/api/inventaris/submit', { method: 'POST', body: formData })
-      const result = await response.json().catch(() => null) as { error?: string; submission_id?: string; updated?: boolean } | null
-      if (!response.ok) throw new Error(result?.error ?? 'Gagal mengirim inventaris.')
+      if (!response.ok) throw new Error(await readResponseError(response, 'Gagal mengirim inventaris.'))
+      const result = await response.json().catch(() => null) as { submission_id?: string; updated?: boolean } | null
       await removeInventoryDraft(staffId, todayJakarta(), selectedOutletId)
       setSavedOutletIds((current) => new Set([...current, selectedOutletId]))
       markReferenceSaved(staffId, selectedOutletId)
@@ -672,6 +727,7 @@ export default function InventoryDashboardPage() {
       setMessage(null)
       setCompletedSubmission({ outletName: selectedOutlet?.name ?? 'outlet', updated: Boolean(result?.updated) })
     } catch (error) {
+      setPhotoUploads((current) => Object.fromEntries(Object.entries(current).map(([id, state]) => [id, state.uploading ? { uploading: false, error: null } : state])))
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal mengirim inventaris.' })
     } finally {
       setSubmitting(false)

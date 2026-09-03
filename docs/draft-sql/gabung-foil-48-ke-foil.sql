@@ -61,6 +61,17 @@
 -- ID (dikonfirmasi dari DB 2026-09-03):
 --   FOIL       = 4804d1fc-f06c-4306-adfd-a798bda1275a
 --   FOIL (48)  = fb243647-dd20-4ef1-b739-921b0a7307d7
+--
+-- ---------------------------------------------------------------------------
+-- URUTAN MENJALANKAN
+--
+--   SEKARANG :  0  ->  1  ->  2  ->  3  ->  5
+--   NANTI    :  4        (setelah 26 surat jalan berjalan tuntas),
+--                        lalu ulangi 2 dan 3 untuk sisa saldonya
+--
+-- LANGKAH 4 sengaja ditulis sebelum 5 karena berkaitan dengan saldo, tapi
+-- dijalankan paling belakang. Jangan menunggu 4 untuk menjalankan 5.
+-- ---------------------------------------------------------------------------
 
 
 -- ----------------------------------------------------------------------------
@@ -169,39 +180,75 @@ ORDER BY sb.saldo;
 -- ============================================================================
 
 
+-- ----------------------------------------------------------------------------
+-- LANGKAH 5 — Harga FOIL disesuaikan ke Rp8.791,2
+--
+-- KEPUTUSAN OWNER (3 September 2026): opsi (b).
+--
+-- Stok gabungan berasal dari dua pembelian:
+--   Ekadharma  @11.554/Roll   (masuk 2 Sep, mendarat di FOIL)
+--   PT Altindo  @8.791,2/Roll (masuk 3 Sep, mendarat di FOIL (48))
+--
+-- Rp8.791,2 dipilih karena inilah yang OTOMATIS terjadi seandainya FOIL tak
+-- pernah dipecah: aturan sistem sekarang adalah "harga pembelian terakhir
+-- menang", dan Altindo masuk paling akhir. Jadi ini bukan angka baru --
+-- ini memulihkan pembaruan harga yang terhalang oleh pemecahan itu.
+--
+-- Dua angka lain yang dipertimbangkan dan tidak dipilih:
+--   Rp11.554  -> nilai persediaan Rp18,8 jt; abaikan stok Altindo
+--   Rp9.858   -> nilai persediaan Rp16,1 jt; rata-rata tertimbang stok riil,
+--                paling jujur tapi belum jadi metode resmi sistem ini
+--
+-- Dampak: nilai persediaan foil Rp18,8 jt -> Rp14,3 jt.
+--         Biaya foil per porsi turun Rp164-182 di 16 menu, contoh:
+--           Original Mix Jumbo   Rp760 -> Rp578
+--           Original Sapi Jumbo  Rp684 -> Rp521
+--
+-- CATATAN TEKNIS (sudah diperiksa):
+--   - Nilai persisnya 8791.2, BUKAN 8791. Jangan dibulatkan.
+--   - JANGAN set harga_beli_display manual. Trigger trg_sync_harga_beli_display
+--     menghitungnya sendiri: harga_beli * kemasan_qty / v_penuh.
+--     Untuk FOIL: faktor_tengah NULL -> v_penuh = faktor_konversi = 760,
+--     jadi display = 8791,2 * 760/760 = 8791,2. Tidak ada pelipatan.
+--   - TIDAK ADA trigger yang menulis riwayat harga otomatis; hanya po_on_verified
+--     yang melakukannya. Karena itu baris riwayat ditulis manual di bawah,
+--     supaya perubahan ini tidak jadi pergeseran nilai tanpa jejak.
+-- ----------------------------------------------------------------------------
+
+-- 5a. Catat riwayat DULU, selagi harga lama masih tersimpan.
+INSERT INTO bahan_baku_harga_history (bahan_baku_id, harga_lama, harga_baru, catatan, changed_at)
+SELECT '4804d1fc-f06c-4306-adfd-a798bda1275a',
+       harga_beli,
+       8791.2,
+       'Penggabungan FOIL (48) ke FOIL. Menyesuaikan ke harga pembelian terakhir '
+       || '(PT Altindo, PO/KITCHEN/20260902/0001) yang sebelumnya terhalang '
+       || 'karena mendarat di bahan terpisah.',
+       NOW()
+FROM bahan_baku_harga
+WHERE bahan_baku_id = '4804d1fc-f06c-4306-adfd-a798bda1275a';
+
+-- 5b. Baru ubah harganya.
+UPDATE bahan_baku_harga
+SET harga_beli       = 8791.2,
+    harga_updated_at = NOW()
+WHERE bahan_baku_id = '4804d1fc-f06c-4306-adfd-a798bda1275a';
+
+-- 5c. Verifikasi: harga dan display harus sama-sama 8791.2
+SELECT b.nama, h.harga_beli::text, h.harga_beli_display::text, h.harga_updated_at
+FROM bahan_baku b JOIN bahan_baku_harga h ON h.bahan_baku_id = b.id
+WHERE b.nama = 'FOIL';
+
+-- 5d. Verifikasi nilai persediaan foil setelah penyesuaian (perkiraan Rp14,3 jt)
+SELECT round(SUM(sb.saldo)) AS saldo_cm,
+       round(SUM(sb.saldo) * h.harga_beli / h.kemasan_qty) AS nilai_persediaan
+FROM stok_balance sb
+JOIN bahan_baku b       ON b.id = sb.bahan_baku_id
+JOIN bahan_baku_harga h ON h.bahan_baku_id = b.id
+WHERE b.nama = 'FOIL'
+GROUP BY h.harga_beli, h.kemasan_qty;
+
+
 -- ============================================================================
--- KEPUTUSAN TERPISAH — HARGA FOIL SETELAH DIGABUNG
---
--- TIDAK dikerjakan naskah ini. Perlu keputusan sadar karena menggeser HPP 16 menu.
---
--- Stok gabungan 1.238.450 cm (1.629 Roll) berasal dari DUA pembelian:
---   Ekadharma  @11.554/Roll  (masuk 2 Sep)
---   PT Altindo  @8.791/Roll  (masuk 3 Sep)
---
--- Tiga angka yang masuk akal:
---
---   a) Biarkan Rp11.554   -> nilai persediaan Rp18,8 jt
---      Tidak mencerminkan stok Altindo yang jumlahnya sebanding.
---
---   b) Rp8.791            -> nilai persediaan Rp14,3 jt
---      Inilah yang OTOMATIS terjadi kalau FOIL tak pernah dipecah -- aturan
---      sekarang adalah "harga pembelian terakhir menang", dan Altindo masuk
---      paling akhir (3 Sep). Paling konsisten dengan cara sistem berjalan.
---
---   c) Rp9.858            -> nilai persediaan Rp16,1 jt
---      Rata-rata tertimbang stok yang benar-benar ada. Paling jujur, tapi
---      belum menjadi metode resmi sistem ini.
---
--- Dampak ke menu (contoh, opsi b): biaya foil per porsi turun Rp164-182.
---   Original Mix Jumbo   Rp760 -> Rp578
---   Original Sapi Jumbo  Rp684 -> Rp521
---
--- Kalau memilih (b), jalankan:
---
---   -- UPDATE bahan_baku_harga
---   -- SET harga_beli = 8791, harga_beli_display = 8791, harga_updated_at = NOW()
---   -- WHERE bahan_baku_id = '4804d1fc-f06c-4306-adfd-a798bda1275a';
---
 -- ---------------------------------------------------------------------------
 -- TINDAK LANJUT NON-TEKNIS
 --

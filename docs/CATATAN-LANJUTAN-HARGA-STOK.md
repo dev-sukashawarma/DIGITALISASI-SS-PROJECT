@@ -185,3 +185,62 @@ Turunannya:
 4. Harga master mewakili barang yang **ada**, bukan pembelian terakhir
    *(← ini yang belum terpenuhi, isi keputusan butir 1)*
 5. Perbedaan vendor dilaporkan terpisah, bukan diaduk ke HPP
+
+---
+
+## TEMUAN BARU (3 September) — konversi satuan pengiriman tidak konsisten
+
+Ditemukan saat menelusuri sisa surat jalan FOIL. **Lebih luas dari foil.**
+
+### Yang terukur dan bisa dipegang
+
+- **388 baris pengiriman**, **34 bahan**, 22 Juli – 27 Agustus masuk ledger
+  **1:1** padahal seharusnya dikali faktor kemasan.
+- Bahan terdampak termasuk yang bervolume besar: MAYONES, AYAM, SAPI, KENTANG,
+  SAOS TOMAT, PAPER WRAP, MINYAK.
+- Kebocorannya **sporadis, bukan peralihan bersejarah** — konversi sudah jalan
+  sejak awal Agustus, tapi 1–3 baris per hari tetap lolos, sampai 27 Agustus.
+- Baris yang lolos hampir selalu ber-`qty_terima` kecil (1 / 0,5 / 0,05).
+
+### Akar masalahnya di kode, bukan data
+
+1. Logika konversi **disalin di tiga berkas** —
+   `apps/distribusi/src/components/distribusi/SuratJalanForm.tsx`,
+   `VerifikasiForm.tsx`, `SuratJalanDetail.tsx`. Tidak ada sumber kebenaran
+   tunggal, dan **nol fungsi DB** yang memakai `satuan_distribusi`.
+
+2. **Cacat huruf besar-kecil.** Penjaganya:
+   ```js
+   if (b.satuan_distribusi && b.satuan_distribusi !== b.satuan) { ... }
+   ```
+   Untuk FOIL: `satuan_distribusi` = `'roll'`, `satuan` = `'Roll'`. Keduanya
+   dianggap BERBEDA, jadi masuk ke cabang konversi — lalu tak ada syarat di
+   dalamnya yang cocok (`satuan_kecil` = `'cm'`), sehingga faktor tetap 1.
+
+3. **Satuan pilihan tidak disimpan.** `surat_jalan_item` tidak punya kolom
+   satuan — hanya `qty_dikirim` dan `qty_terima`. Konversinya mengambil
+   `bahan_baku.satuan_distribusi` **saat penerimaan diproses**, bukan saat
+   dokumen dibuat. Kalau kolom itu diubah, pengiriman lama tak bisa
+   direkonstruksi. Ini juga yang membuat riwayat foil punya rasio campur aduk
+   (1×, 24×, 48×, 760×, 36.480×).
+
+### Yang TIDAK bisa dipastikan
+
+Dampak rupiahnya. Hitungan kasar memberi Rp222 juta, tapi angka itu **tidak
+layak dipakai**: dihitung dengan harga pasca-normalisasi 3 September untuk
+pengiriman Juli–Agustus, dan tenggelam di antara koreksi stok yang jauh lebih
+besar — periode 22 Juli–31 Agustus mencatat `adjustment` +Rp2,59 miliar dan
+`opname_selisih` −Rp1,61 miliar, terhadap persediaan yang cuma Rp409 juta.
+
+Koreksi senilai enam kali isi gudang dalam enam minggu itu sendiri layak
+dipertanyakan, terpisah dari urusan konversi ini.
+
+### Langkah pertama kalau digarap
+
+1. **Satukan logika konversi** jadi satu fungsi bersama (atau pindahkan ke DB),
+   lalu perbaiki perbandingan huruf besar-kecil dengan `.toLowerCase()` di kedua
+   sisi.
+2. **Simpan satuan di baris surat jalan** — tambah kolom `satuan_kirim` +
+   `faktor_kirim` yang dibekukan saat dokumen dibuat, supaya pengiriman bisa
+   diaudit ulang dan tidak bergantung pada kolom master yang bisa berubah.
+3. Baru sesudah itu, rekonsiliasi historis masuk akal dikerjakan.

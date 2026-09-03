@@ -213,13 +213,16 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
           // itu (titik temu kedua jalur), bukan di sini -- kalau di sini JUGA
           // dikonversi, entri dari form ini akan dikonversi dua kali begitu
           // trigger diperbaiki (2026-08-04 §4).
-          await submitWasteReport({
+          const wasteRes = await submitWasteReport({
             outlet_id: outletId,
             bahan_baku_id: w.bahanBakuId,
             qty: w.finalQty ?? 0,
             reason: w.catatanItem || catatan || 'Waste',
             photo_url: photoUrl
           })
+          if (!wasteRes.success) {
+            throw new Error(wasteRes.error || 'Gagal menyimpan laporan waste')
+          }
         }
       }
 

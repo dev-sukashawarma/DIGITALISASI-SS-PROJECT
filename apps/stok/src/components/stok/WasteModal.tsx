@@ -73,13 +73,17 @@ export function WasteModal({ outletId, bahanBaku, onClose, onSuccess }: Props) {
 
       const photoUrl = supabase.storage.from('waste_evidence').getPublicUrl(uploadData.path).data.publicUrl
 
-      await submitWasteReport({
+      const res = await submitWasteReport({
         outlet_id: outletId,
         bahan_baku_id: bahanBaku.id,
         qty: finalQtyBesar,
         reason,
         photo_url: photoUrl
       })
+
+      if (!res.success) {
+        throw new Error(res.error || 'Gagal menyimpan laporan waste')
+      }
 
       toast.success('Laporan waste berhasil dikirim dan menunggu persetujuan')
       onSuccess()

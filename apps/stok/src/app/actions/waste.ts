@@ -93,21 +93,38 @@ async function requireWasteApproverForList(outletId?: string): Promise<Set<strin
   return allowed
 }
 
-export async function submitWasteReport(data: WasteReportData): Promise<void> {
-  const authedClient = await getAuthedClient()
-  const currentUserId = await getCurrentUserId(authedClient)
-  await assertOutletAccessible(authedClient, data.outlet_id)
+export async function submitWasteReport(data: WasteReportData): Promise<{ success: boolean; error?: string }> {
+  try {
+    const authedClient = await getAuthedClient()
+    const currentUserId = await getCurrentUserId(authedClient)
+    await assertOutletAccessible(authedClient, data.outlet_id)
 
-  const supabase = makeServiceClient()
-  const { error } = await supabase
-    .from('stok_waste_reports')
-    .insert({
-      ...data,
-      reported_by: currentUserId,
-      status: 'PENDING'
-    })
+    const supabase = makeServiceClient()
+    const { error } = await supabase
+      .from('stok_waste_reports')
+      .insert({
+        ...data,
+        reported_by: currentUserId,
+        status: 'PENDING'
+      })
 
-  if (error) throw new Error(error.message)
+    if (error) {
+      console.error('[submitWasteReport] Supabase insert error:', error.message)
+      return { success: false, error: `Gagal menyimpan ke database: ${error.message}` }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('[submitWasteReport] Exception:', err)
+    const rawMsg = err instanceof Error ? err.message : String(err)
+    if (rawMsg.includes('Unauthorized') || rawMsg.includes('session')) {
+      return { success: false, error: 'Sesi login Anda telah berakhir. Silakan muat ulang (refresh) halaman atau login kembali.' }
+    }
+    if (rawMsg.includes('Forbidden')) {
+      return { success: false, error: 'Akses ditolak: akun Anda tidak memiliki akses ke outlet ini.' }
+    }
+    return { success: false, error: rawMsg || 'Terjadi kesalahan saat memproses laporan waste' }
+  }
 }
 
 export async function approveWasteReport(id: string): Promise<void> {

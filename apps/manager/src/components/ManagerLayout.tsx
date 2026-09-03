@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft } from 'lucide-react'
+import { LogOut, User, Loader2, LayoutDashboard, Receipt, CheckSquare, Users, BarChart3, ClipboardCheck, BookOpen, Menu, X, ArrowLeft, Trash2 } from 'lucide-react'
 import { useState, useRef, useEffect, type ReactNode } from 'react'
 import Link from 'next/link'
 import { useApprovals } from '../lib/ApprovalsContext'
@@ -32,6 +32,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/resep', label: 'Resep & HPP', icon: BookOpen, excludedRoles: ['area_manager'] },
       { href: '/approvals', label: 'Persetujuan', icon: CheckSquare },
+      { href: '/waste', label: 'Waste Stok', icon: Trash2 },
       { href: '/team', label: 'Tim / Kru', icon: Users },
       { href: '/petty-cash', label: 'Petty Cash', icon: Receipt },
     ]
@@ -60,7 +61,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const [inventoriUrl, setInventoriUrl] = useState(
     process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com',
   )
-  const { pendingRequests } = useApprovals()
+  const { pendingRequests, pendingWasteCount } = useApprovals()
 
   const brand = "SS"
   const brandAccent = "Manager"
@@ -139,8 +140,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
               <div className="space-y-0.5">
                 {group.items.map(({ href, label, icon: Icon, appKey }) => {
                   const active = currentNavPath === href
-                  const isApproval = href === '/approvals'
-                  const count = isApproval ? pendingRequests.length : 0
+                  const count = href === '/approvals' ? pendingRequests.length : href === '/waste' ? pendingWasteCount : 0
                   const targetHref = appKey === 'inventori' ? inventoriUrl : href
 
                   return (
@@ -358,8 +358,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                     <div className="grid grid-cols-2 gap-2">
                       {group.items.map(({ href, label, icon: Icon, appKey }) => {
                         const active = currentNavPath === href
-                        const isApproval = href === '/approvals'
-                        const count = isApproval ? pendingRequests.length : 0
+                        const count = href === '/approvals' ? pendingRequests.length : href === '/waste' ? pendingWasteCount : 0
                         const targetHref = appKey === 'inventori' ? inventoriUrl : href
 
                         return (

@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import React from 'react';
 import Link from 'next/link';
-import { TrendingUp, TrendingDown, Clock, AlertTriangle, ListChecks, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, AlertTriangle, ListChecks, Calendar, Trash2 } from 'lucide-react';
 import RankingList from './RankingList';
 import { CustomDateFilter } from '../components/CustomDateFilter';
 import ZonePerformanceTable from '../components/ZonePerformanceTable';
@@ -176,6 +176,18 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .select('outlet_id, staff_id, outlet_staff(name, role, is_active)')
     .order('staff_id');
 
+  let qWasteApproved = supabaseAdmin
+    .from('stok_waste_reports')
+    .select('bahan_baku_id, qty')
+    .eq('status', 'APPROVED')
+    .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
+    .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`);
+
+  let qWastePending = supabaseAdmin
+    .from('stok_waste_reports')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'PENDING');
+
   let accessibleOutlets: string[] = [];
   if (staff?.role === 'area_manager') {
     const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id);
@@ -195,12 +207,16 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       qOutlets = qOutlets.eq('id', filterOutletId);
       qAttendance = qAttendance.eq('outlet_id', filterOutletId);
       qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
+      qWasteApproved = qWasteApproved.eq('outlet_id', filterOutletId);
+      qWastePending = qWastePending.eq('outlet_id', filterOutletId);
     } else {
       qOrdersToday = qOrdersToday.in('outlet_id', accessibleOutlets);
       qOrdersYesterday = qOrdersYesterday.in('outlet_id', accessibleOutlets);
       qOutlets = qOutlets.in('id', accessibleOutlets);
       qAttendance = qAttendance.in('outlet_id', accessibleOutlets);
       qStaffOutlets = qStaffOutlets.in('outlet_id', accessibleOutlets);
+      qWasteApproved = qWasteApproved.in('outlet_id', accessibleOutlets);
+      qWastePending = qWastePending.in('outlet_id', accessibleOutlets);
     }
   } else if (!staff || staff.role === 'regional_manager') {
     if (filterOutletId && filterOutletId !== 'all') {
@@ -209,6 +225,8 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       qOutlets = qOutlets.eq('id', filterOutletId);
       qAttendance = qAttendance.eq('outlet_id', filterOutletId);
       qStaffOutlets = qStaffOutlets.eq('outlet_id', filterOutletId);
+      qWasteApproved = qWasteApproved.eq('outlet_id', filterOutletId);
+      qWastePending = qWastePending.eq('outlet_id', filterOutletId);
     }
   } else if (staff?.outlet_id) {
     qOrdersToday = qOrdersToday.eq('outlet_id', staff.outlet_id);
@@ -216,6 +234,8 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     qOutlets = qOutlets.eq('id', staff.outlet_id);
     qAttendance = qAttendance.eq('outlet_id', staff.outlet_id);
     qStaffOutlets = qStaffOutlets.eq('outlet_id', staff.outlet_id);
+    qWasteApproved = qWasteApproved.eq('outlet_id', staff.outlet_id);
+    qWastePending = qWastePending.eq('outlet_id', staff.outlet_id);
   }
 
   const [
@@ -223,13 +243,17 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     ordersYesterday,
     { data: outlets },
     { data: attendanceToday },
-    { data: staffOutlets }
+    { data: staffOutlets },
+    { data: wasteApprovedData },
+    { count: pendingWasteCount }
   ] = await Promise.all([
     fetchAllPages(qOrdersToday),
     fetchAllPages(qOrdersYesterday),
     qOutlets,
     qAttendance,
-    qStaffOutlets
+    qStaffOutlets,
+    qWasteApproved,
+    qWastePending
   ]);
 
   // Samakan dengan POS Kasir: omzet adalah total_amount pesanan selesai (completed)
@@ -257,6 +281,24 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
   } else {
     percentageChange = ((omzetToday - omzetYesterday) / omzetYesterday) * 100;
   }
+
+  let totalWasteLossToday = 0;
+  if (wasteApprovedData && wasteApprovedData.length > 0) {
+    const wasteBahanIds = Array.from(new Set(wasteApprovedData.map((w: any) => w.bahan_baku_id)));
+    const { data: bHarga } = await supabaseAdmin
+      .from('bahan_baku_harga')
+      .select('bahan_baku_id, harga_beli')
+      .in('bahan_baku_id', wasteBahanIds);
+    const hargaMap = new Map<string, number>();
+    for (const bh of bHarga || []) {
+      hargaMap.set(bh.bahan_baku_id, Number(bh.harga_beli) || 0);
+    }
+    for (const w of wasteApprovedData) {
+      const h = hargaMap.get(w.bahan_baku_id) || 0;
+      totalWasteLossToday += Math.round((Number(w.qty) || 0) * h);
+    }
+  }
+  const pendingWasteCountToday = pendingWasteCount || 0;
 
   const isPositive = percentageChange >= 0;
   const absChange = Math.abs(percentageChange).toFixed(1);
@@ -350,7 +392,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       </div>
       
       {/* 📊 Metrics Grid (Bento KPI Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         
         {/* KPI 1: Pendapatan */}
         <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-suka-orange/30 transition-all duration-200 flex flex-col justify-between">
@@ -415,7 +457,41 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
           </div>
         </div>
 
-        {/* KPI 4: Estimasi Bonus & Insentif */}
+        {/* KPI 4: Kerugian Waste */}
+        <div className="bg-white p-6 rounded-3xl shadow-[0_4px_24px_rgba(44,24,16,0.03)] border border-suka-brown/10 relative overflow-hidden group hover:border-red-500/30 transition-all duration-200 flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-suka-gray-400 uppercase tracking-wider">Kerugian Waste</h3>
+              <div className="p-2.5 bg-red-500/10 text-red-600 rounded-2xl group-hover:scale-110 transition-transform">
+                <Trash2 size={20} />
+              </div>
+            </div>
+            <p className="text-2xl sm:text-3xl font-black text-red-600 mt-3 tracking-tight">
+              {formatRupiah(totalWasteLossToday)}
+            </p>
+          </div>
+          <div className="mt-3 pt-2 border-t border-suka-brown/5 flex items-center justify-between">
+            <Link
+              href="/waste"
+              className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full inline-flex items-center gap-1 transition-all ${
+                pendingWasteCountToday > 0
+                  ? 'bg-amber-100 text-amber-900 border border-amber-300 hover:bg-amber-200'
+                  : 'text-suka-brown/60 bg-suka-brown/5 border border-suka-brown/10 hover:bg-suka-brown/10'
+              }`}
+            >
+              {pendingWasteCountToday > 0 ? (
+                <>
+                  <AlertTriangle size={12} className="text-amber-600 shrink-0" />
+                  <span>{pendingWasteCountToday} butuh approval</span>
+                </>
+              ) : (
+                <span>Lihat Detail Waste &rarr;</span>
+              )}
+            </Link>
+          </div>
+        </div>
+
+        {/* KPI 5: Estimasi Bonus & Insentif */}
         <BonusKpiCard
           itemsSoldToday={itemsSoldToday}
           itemsSoldYesterday={itemsSoldYesterday}

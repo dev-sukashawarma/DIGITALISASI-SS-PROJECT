@@ -1,4 +1,4 @@
--- 20300122000000_normalisasi_harga_batch1.sql
+-- 20300122000004_normalisasi_harga_batch1.sql
 --
 -- Batch pertama normalisasi basis harga bahan baku (6 bahan), hasil konfirmasi
 -- owner 2 September 2026 lewat lembar "Konfirmasi Basis Harga".

@@ -1,6 +1,6 @@
 -- 20300122000001_normalisasi_harga_batch2_4.sql
 --
--- Lanjutan 20300122000000. Batch 2-4 normalisasi basis harga (31 bahan), plus
+-- Lanjutan 20300122000004. Batch 2-4 normalisasi basis harga (31 bahan), plus
 -- perbaikan harga_beli_display MINYAK. Dijalankan ke produksi 2 September 2026
 -- lewat SQL Editor; file ini merekam apa yang benar-benar dijalankan.
 --

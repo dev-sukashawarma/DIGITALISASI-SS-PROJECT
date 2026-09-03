@@ -224,8 +224,6 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
         const totalAmt = Number(order.total_amount) || 0
         const disc = Number(order.discount_amount) || 0
         const promo = Number(order.promo_subsidy) || 0
-        const ch = (order.channel || 'pos').toLowerCase()
-        const src = (order.sales_source || ch).toLowerCase()
 
         let itemGross = 0
         let orderCogs = 0
@@ -254,7 +252,7 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
     const opex = (pettyExpenses?.filter(p => p.outlet_id === oid).reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0) +
                  (monthlyExpenses?.filter(m => m.outlet_id === oid).reduce((sum, m) => sum + Number(m.amount || 0), 0) || 0)
 
-    const waste = wasteRows?.filter(w => w.outlet_id === oid).reduce((sum, w) => sum + Number(w.nilai_waste || 0), 0) || 0
+    const waste = wasteRows?.filter((w: any) => w.outlet_id === oid).reduce((sum: number, w: any) => sum + Number(w.nilai_waste || 0), 0) || 0
 
     const managementFee = (grossRevenue * mgmtFeePct) / 100
     const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee

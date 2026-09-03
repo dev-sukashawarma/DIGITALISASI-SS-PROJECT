@@ -450,7 +450,7 @@ export async function getMitraComprehensivePnl(
   const grandTotalOpex = totalPettyCash + totalMonthly
 
   // 7. Waste
-  const totalWaste = (wasteRows || []).reduce((sum, w) => sum + (Number(w.nilai_waste) || 0), 0)
+  const totalWaste = (wasteRows || []).reduce((sum: number, w: any) => sum + (Number(w.nilai_waste) || 0), 0)
 
   // 8. Financial Totals
   const totalGrossRevenue = posGross + faGross + tkGross

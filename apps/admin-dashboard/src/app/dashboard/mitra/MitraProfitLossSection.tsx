@@ -9,14 +9,8 @@ import {
   X, 
   TrendingDown, 
   TrendingUp, 
-  Info,
-  DollarSign, 
   Layers, 
-  Receipt, 
-  Banknote,
-  AlertCircle,
-  CheckCircle,
-  HelpCircle
+  Receipt
 } from 'lucide-react'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import type { ComprehensiveMitraPnl, OpexCategoryDetail } from '@/app/actions/mitraPnl'

@@ -43,7 +43,10 @@ export function useLeaveNotifications() {
         .neq('status', 'pending')
         .gt('updated_at', lastSeen)
         
-      if (error) throw error
+      if (error) {
+        console.warn('useLeaveNotifications query error:', error.message)
+        return 0
+      }
       return count ?? 0
     },
     enabled: !!outletStaff?.id,

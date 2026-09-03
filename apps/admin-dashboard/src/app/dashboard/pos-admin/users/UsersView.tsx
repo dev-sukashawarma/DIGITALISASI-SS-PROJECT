@@ -193,10 +193,10 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
           </div>
           <button 
             onClick={() => openModal()}
-            className="flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-colors"
+            className="flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition-colors shadow-sm active:scale-[0.98]"
           >
             <Plus className="w-5 h-5" />
-            <span className="hidden sm:inline">Tambah Akun Baru</span>
+            <span>Tambah Akun Baru</span>
           </button>
         </div>
       </div>
@@ -204,19 +204,19 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       {/* Modal Tambah User */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) setIsModalOpen(false) }}
         >
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh] animate-scale-in">
+          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg shadow-2xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] my-auto overflow-hidden animate-scale-in">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+            <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-100 shrink-0 bg-white rounded-t-2xl sm:rounded-t-3xl z-10">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 bg-amber-100 rounded-2xl flex items-center justify-center">
+                <div className="w-9 h-9 bg-amber-100 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
                   <Users className="w-5 h-5 text-amber-500" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <h2 className="font-bold text-lg text-gray-900 leading-none">{editingUser ? 'Edit Akun' : 'Tambah Akun'}</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <h2 className="font-bold text-base sm:text-lg text-gray-900 leading-none">{editingUser ? 'Edit Akun' : 'Tambah Akun'}</h2>
+                  <p className="text-xs text-gray-400 mt-1">
                     {editingUser ? `Perbarui akun ${editingUser.username}` : 'Buat akun akses baru'}
                   </p>
                 </div>
@@ -230,7 +230,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
             </div>
 
             {/* Scrollable body */}
-            <form id="user-form" onSubmit={handleSaveUser} className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+            <form id="user-form" onSubmit={handleSaveUser} className="overflow-y-auto flex-1 min-h-0 px-4 sm:px-6 py-4 sm:py-5 space-y-4 overscroll-contain">
               {error && (
                 <div className="p-3 bg-red-50 text-red-700 text-sm rounded-xl font-medium">
                   {error}
@@ -245,12 +245,12 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                 </div>
                 <div 
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-full bg-gray-50 border-2 border-transparent focus-within:border-amber-400 focus-within:bg-white rounded-xl pl-11 pr-4 py-3 outline-none transition-colors font-medium flex items-center justify-between cursor-pointer relative"
+                  className="w-full bg-gray-50 border-2 border-transparent focus-within:border-amber-400 focus-within:bg-white rounded-xl pl-11 pr-4 py-2.5 sm:py-3 outline-none transition-colors font-medium flex items-center justify-between cursor-pointer relative"
                 >
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                     <Store className="h-5 w-5 text-gray-400" />
                   </div>
-                  <span className={outletId || outletIds.length > 0 ? 'text-gray-900 truncate pr-4' : 'text-gray-400 truncate pr-4'}>
+                  <span className={outletId || outletIds.length > 0 ? 'text-gray-900 truncate pr-4 text-sm sm:text-base' : 'text-gray-400 truncate pr-4 text-sm sm:text-base'}>
                     {isMultiOutletRole 
                       ? (outletIds.length === initialOutlets.length ? 'Semua Cabang' : outletIds.length > 0 ? `${outletIds.length} cabang dipilih` : 'Pilih Cabang...')
                       : (initialOutlets.find(o => o.id === outletId)?.name || 'Pilih Cabang...')
@@ -292,7 +292,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                         </div>
                       )}
                     </div>
-                    <div className="max-h-60 overflow-y-auto p-1 relative z-50 bg-white">
+                    <div className="max-h-52 sm:max-h-60 overflow-y-auto p-1 relative z-50 bg-white">
                       {initialOutlets.filter(o => o.name.toLowerCase().includes(dropdownSearch.toLowerCase())).length === 0 ? (
                         <div className="p-3 text-sm text-gray-500 text-center font-medium">Cabang tidak ditemukan</div>
                       ) : (
@@ -342,7 +342,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
               
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Peran (Role)</label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
                   {[
                     { value: 'crew', label: 'Crew' },
                     { value: 'kitchen', label: 'Kitchen' },
@@ -357,21 +357,31 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                     { value: 'admin', label: 'Admin' },
                     { value: 'kiosk', label: 'Mesin Kiosk' }
                   ].map(r => (
-                    <label key={r.value} className="flex items-center justify-center gap-2 p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 text-center">
-                      <input type="radio" name="role" value={r.value} checked={role === r.value} onChange={(e) => {
-                        setRole(e.target.value)
-                        // If switching away from multi-role, reset outletIds to just outletId if valid
-                        if (![
-                          'admin', 'owner', 'regional_manager', 'area_manager', 
-                          'leader', 'admin_hr', 'admin_finance', 
-                          'purchasing', 'mitra'
-                        ].includes(e.target.value)) {
-                          if (outletIds.length > 1 && outletId) {
-                            setOutletIds([outletId])
+                    <label 
+                      key={r.value} 
+                      className="flex items-center gap-2 p-2.5 sm:p-3 border-2 border-gray-100 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-amber-500 has-[:checked]:bg-amber-50 text-left"
+                    >
+                      <input 
+                        type="radio" 
+                        name="role" 
+                        value={r.value} 
+                        checked={role === r.value} 
+                        onChange={(e) => {
+                          setRole(e.target.value)
+                          // If switching away from multi-role, reset outletIds to just outletId if valid
+                          if (![
+                            'admin', 'owner', 'regional_manager', 'area_manager', 
+                            'leader', 'admin_hr', 'admin_finance', 
+                            'purchasing', 'mitra'
+                          ].includes(e.target.value)) {
+                            if (outletIds.length > 1 && outletId) {
+                              setOutletIds([outletId])
+                            }
                           }
-                        }
-                      }} className="w-4 h-4 accent-amber-600 shrink-0" />
-                      <span className="font-bold text-gray-700 text-sm">{r.label}</span>
+                        }} 
+                        className="w-4 h-4 accent-amber-600 shrink-0" 
+                      />
+                      <span className="font-bold text-gray-700 text-xs sm:text-sm truncate">{r.label}</span>
                     </label>
                   ))}
                 </div>
@@ -385,7 +395,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                   </div>
                   <input 
                     type="text" required value={username} onChange={(e) => setUsername(e.target.value)}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-4 py-3 outline-none transition-colors font-medium"
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-4 py-2.5 sm:py-3 outline-none transition-colors font-medium text-sm sm:text-base"
                     placeholder={"Misal: kiosk_sudirman1"}
                   />
                 </div>
@@ -399,7 +409,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                   </div>
                   <input 
                     type={showPassword ? "text" : "password"} required={!editingUser} value={password} onChange={(e) => setPassword(e.target.value)} minLength={6}
-                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-12 py-3 outline-none transition-colors font-medium"
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-12 py-2.5 sm:py-3 outline-none transition-colors font-medium text-sm sm:text-base"
                     placeholder={editingUser ? "Kosongkan jika tidak ingin mengubah" : "Minimal 6 karakter"}
                   />
                   <button 
@@ -413,9 +423,9 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
               </div>
               
               {editingUser && (
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div 
-                    className="bg-gray-50 p-4 rounded-xl border border-gray-100 flex items-center justify-between cursor-pointer transition-colors hover:bg-gray-100/80" 
+                    className="bg-gray-50 p-3.5 sm:p-4 rounded-xl border border-gray-100 flex items-center justify-between cursor-pointer transition-colors hover:bg-gray-100/80" 
                     onClick={() => setIsActive(!isActive)}
                   >
                     <div>
@@ -428,11 +438,11 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                   </div>
                   
                   {!isActive && (
-                    <div className="animate-fade-in p-4 bg-red-50/50 rounded-xl border border-red-100">
-                      <label className="block text-sm font-bold text-red-900 mb-2">Alasan Penonaktifan</label>
+                    <div className="animate-fade-in p-3.5 sm:p-4 bg-red-50/50 rounded-xl border border-red-100">
+                      <label className="block text-sm font-bold text-red-900 mb-1.5 sm:mb-2">Alasan Penonaktifan</label>
                       <textarea 
                         required value={inactiveReason} onChange={(e) => setInactiveReason(e.target.value)}
-                        className="w-full bg-white border-2 border-red-100 focus:border-red-400 rounded-xl px-4 py-3 outline-none transition-colors font-medium text-red-900 placeholder-red-300"
+                        className="w-full bg-white border-2 border-red-100 focus:border-red-400 rounded-xl px-3.5 sm:px-4 py-2.5 sm:py-3 outline-none transition-colors font-medium text-sm sm:text-base text-red-900 placeholder-red-300"
                         placeholder="Contoh: Karyawan resign, Cuti panjang, dll..." rows={2}
                       />
                     </div>
@@ -443,16 +453,16 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
             </form>
 
             {/* Footer */}
-            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 shrink-0 bg-gray-50/50 rounded-b-2xl">
+            <div className="flex gap-2.5 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 shrink-0 bg-gray-50/95 backdrop-blur-sm rounded-b-2xl sm:rounded-b-3xl z-10">
               <button
                 type="button" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}
-                className="flex-1 py-3 font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50"
+                className="flex-1 py-2.5 sm:py-3 px-3 sm:px-4 font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 text-sm sm:text-base active:scale-[0.98]"
               >
                 Batal
               </button>
               <button
                 type="submit" form="user-form" disabled={isSubmitting || !outletId}
-                className="flex-[2] bg-gray-900 text-white rounded-xl py-3 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-[2] bg-gray-900 text-white rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base shadow-sm active:scale-[0.98]"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : editingUser ? 'Simpan Perubahan' : 'Buat Akun'}
               </button>
@@ -461,11 +471,11 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
         </div>
       )}
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-6">
-        <div className="flex border-b border-gray-200 mb-6 gap-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-4 sm:p-6">
+        <div className="flex border-b border-gray-200 mb-6 gap-4 sm:gap-6 overflow-x-auto">
           <button
             onClick={() => setActiveTab('users')}
-            className={`pb-4 font-bold text-sm transition-colors relative ${activeTab === 'users' ? 'text-amber-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`pb-4 font-bold text-sm transition-colors relative whitespace-nowrap ${activeTab === 'users' ? 'text-amber-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Pengguna Biasa
             {activeTab === 'users' && (
@@ -474,7 +484,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
           </button>
           <button
             onClick={() => setActiveTab('kiosk')}
-            className={`pb-4 font-bold text-sm transition-colors relative ${activeTab === 'kiosk' ? 'text-amber-600' : 'text-gray-500 hover:text-gray-700'}`}
+            className={`pb-4 font-bold text-sm transition-colors relative whitespace-nowrap ${activeTab === 'kiosk' ? 'text-amber-600' : 'text-gray-500 hover:text-gray-700'}`}
           >
             Mesin Kiosk
             {activeTab === 'kiosk' && (
@@ -489,12 +499,12 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-gray-100 text-gray-400 font-bold text-sm">
-                  <th className="py-3 px-4 min-w-[200px]">Username</th>
+                <tr className="border-b border-gray-100 text-gray-400 font-bold text-xs sm:text-sm">
+                  <th className="py-3 px-3 sm:px-4 min-w-[150px] sm:min-w-[200px]">Username</th>
                   
-                  <th className="py-3 px-4 min-w-[200px]">Cabang Terhubung</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Aksi</th>
+                  <th className="py-3 px-3 sm:px-4 min-w-[150px] sm:min-w-[200px]">Cabang Terhubung</th>
+                  <th className="py-3 px-3 sm:px-4">Status</th>
+                  <th className="py-3 px-3 sm:px-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -505,48 +515,48 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                 ) : (
                   filteredUsers.map((u) => (
                   <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-4">
-                      <div className="font-bold text-gray-900 flex items-center gap-3">
+                    <td className="py-3.5 sm:py-4 px-3 sm:px-4">
+                      <div className="font-bold text-gray-900 flex items-center gap-2.5 sm:gap-3 text-sm sm:text-base">
                         <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
                           <Users className="w-4 h-4 text-blue-500" />
                         </div>
-                        {u.username || 'Tidak ada'}
+                        <span className="truncate">{u.username || 'Tidak ada'}</span>
                       </div>
                     </td>
                     
-                    <td className="py-4 px-4">
-                      <div className="text-gray-600 font-medium text-sm flex items-center gap-2">
+                    <td className="py-3.5 sm:py-4 px-3 sm:px-4">
+                      <div className="text-gray-600 font-medium text-xs sm:text-sm flex items-center gap-2">
                         {u.role === 'admin' || u.role === 'owner' ? (
                           <span className="text-gray-400 italic">Semua Cabang</span>
                         ) : (
                           <>
-                            <Store className="w-4 h-4 text-gray-400" />
-                            {u.outlets?.name || <span className="text-red-400 italic">Cabang tidak ditemukan</span>}
+                            <Store className="w-4 h-4 text-gray-400 shrink-0" />
+                            <span className="truncate">{u.outlets?.name || <span className="text-red-400 italic">Cabang tidak ditemukan</span>}</span>
                           </>
                         )}
                       </div>
                     </td>
-                    <td className="py-4 px-4">
+                    <td className="py-3.5 sm:py-4 px-3 sm:px-4">
                       {u.role === 'admin' || u.role === 'owner' ? (
-                        <span className="text-gray-400">-</span>
+                        <span className="text-gray-400 text-xs sm:text-sm">-</span>
                       ) : u.is_active !== false ? (
-                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Aktif</span>
+                        <span className="bg-green-100 text-green-700 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Aktif</span>
                       ) : (
-                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Nonaktif</span>
+                        <span className="bg-red-100 text-red-700 px-2.5 sm:px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap">Nonaktif</span>
                       )}
                     </td>
-                    <td className="py-4 px-4 text-right">
+                    <td className="py-3.5 sm:py-4 px-3 sm:px-4 text-right">
                       {u.role !== 'admin' && (
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5 sm:gap-2">
                           <button 
                             onClick={() => openModal(u)}
-                            className="text-sm font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3 py-1.5 rounded-lg transition-colors"
+                            className="text-xs sm:text-sm font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors active:scale-95"
                           >
                             Edit
                           </button>
                           <button 
                             onClick={() => handleDeleteUser(u.id)}
-                            className="text-sm font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors"
+                            className="text-xs sm:text-sm font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 sm:px-3 py-1.5 rounded-lg transition-colors active:scale-95"
                           >
                             Hapus
                           </button>

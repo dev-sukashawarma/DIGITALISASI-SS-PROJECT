@@ -37,7 +37,33 @@ export async function saveGlobalConfig(formData: FormData) {
   const is_active = formData.get("is_active") === "true";
   const overwrite_all = formData.get("overwrite_all") === "on";
 
-  const globalValue = { jam_masuk, jam_keluar, toleransi_menit, absen_window_mode };
+  // Kolom `value` di-replace utuh, sementara form ini tidak punya field radius sama
+  // sekali. Tanpa membaca nilai lama, menyimpan aturan pusat dari web akan menghapus
+  // `radius_m` — dan geofence (di route submit-attendance maupun di app native) diam-diam
+  // melebar ke default 100 m. Jadi pertahankan field yang tidak dimiliki form ini.
+  const { data: existingRow } = await supabaseAdmin
+    .from("global_settings")
+    .select("value")
+    .eq("key", "global_attendance_config")
+    .maybeSingle();
+
+  let existingValue = existingRow?.value as Record<string, unknown> | string | null;
+  if (typeof existingValue === "string") {
+    try {
+      existingValue = JSON.parse(existingValue);
+    } catch {
+      existingValue = null;
+    }
+  }
+  const existingRadius = (existingValue as { radius_m?: number } | null)?.radius_m;
+
+  const globalValue = {
+    jam_masuk,
+    jam_keluar,
+    toleransi_menit,
+    absen_window_mode,
+    ...(existingRadius != null ? { radius_m: existingRadius } : {}),
+  };
 
   const { error: errGlobal } = await supabaseAdmin
     .from("global_settings")

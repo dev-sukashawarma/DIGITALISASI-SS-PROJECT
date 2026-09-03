@@ -168,19 +168,39 @@ ORDER BY sb.saldo;
 
 
 -- ============================================================================
--- LANGKAH 4 — SAPUAN KEDUA. Jalankan SETELAH 26 surat jalan tuntas.
+-- LANGKAH 4 — SAPUAN BERKALA.
 --
--- Cek dulu apakah masih ada yang menggantung:
+-- KOREKSI: versi awal naskah ini menulis "jalankan setelah 26 surat jalan
+-- tuntas". Syarat itu KELIRU dan tidak realistis. Diperiksa 2026-09-03:
+-- dari 199 surat jalan berstatus 'dikirim' di seluruh sistem, 130 di antaranya
+-- sudah LEBIH DARI DUA MINGGU (rata-rata normal selesai 5 hari). Status
+-- 'dikirim' memang menumpuk dan sering tak pernah difinalkan.
 --
---   SELECT sj.status, count(*)
---   FROM surat_jalan_item sji
---   JOIN surat_jalan sj ON sj.id = sji.surat_jalan_id
---   WHERE sji.bahan_baku_id = 'fb243647-dd20-4ef1-b739-921b0a7307d7'
---     AND sj.status IN ('draft','dikirim')
---   GROUP BY sj.status;
+-- Menunggu angka 26 itu jadi nol berarti menunggu selamanya.
 --
--- Kalau sudah nol, jalankan ulang LANGKAH 2 dan LANGKAH 3 untuk memindahkan
--- sisa saldo yang mendarat dari dokumen-dokumen itu.
+-- GANTINYA: pemicunya bukan "dokumen tuntas", melainkan "saldo muncul lagi".
+-- Karena FOIL (48) sudah nonaktif, tidak ada dokumen BARU yang bisa memilihnya.
+-- Satu-satunya sumber saldo baru adalah 26 dokumen lama itu, dan jumlahnya
+-- kecil (total qty 446 dari stok 1,2 juta cm).
+--
+-- CARA PAKAI — cek kapan saja dengan satu query:
+--
+--   SELECT count(*) AS outlet, round(COALESCE(sum(saldo),0)) AS total
+--   FROM stok_balance
+--   WHERE bahan_baku_id = 'fb243647-dd20-4ef1-b739-921b0a7307d7'::uuid
+--     AND saldo <> 0;
+--
+--   Hasil 0  -> tidak ada yang perlu dikerjakan.
+--   Hasil >0 -> jalankan ulang LANGKAH 2 lalu LANGKAH 3.
+--
+-- RITME YANG DISARANKAN: cek seminggu lagi (setelah dokumen 2-3 September
+-- selesai diterima), lalu cukup sebulan sekali. Aman dijalankan berulang --
+-- kalau saldo sudah nol, LANGKAH 2 tidak menulis baris apa pun.
+--
+-- CATATAN TERPISAH: 130 surat jalan menggantung >2 minggu itu masalah
+-- tersendiri di luar urusan foil. Nilainya Rp1,2 juta -- barang sudah keluar
+-- dari catatan gudang tapi belum masuk catatan outlet. Perlu dirapikan, tapi
+-- tidak mendesak.
 -- ============================================================================
 
 

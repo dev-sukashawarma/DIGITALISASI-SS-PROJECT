@@ -344,3 +344,92 @@ mengalikannya dengan faktor salah. Urutan kerja yang benar:
   mengubah `faktor_konversi` bisa merusak penulis ledger yang sudah scale-aware.
 - Isi fisik sebenarnya untuk PLASTIK MERAH (ikat = 20 atau 100 pcs?) dan
   PAPER WRAP (ikat = 500 atau 5.000 lembar?).
+
+---
+
+# BAGIAN IV — Evaluasi Metode Basis Harga (2026-09-03)
+
+Menjawab: bahan dengan dua vendor sebaiknya dihitung pakai metode apa?
+Semua angka di bawah dari database produksi.
+
+## Metode yang dipertimbangkan
+
+| Metode | Cara kerja | Beban lapangan |
+|---|---|---|
+| Harga kiriman terakhir | **berjalan sekarang** | nihil |
+| Rata-rata tertimbang | harga = campuran sesuai stok | nihil |
+| Harga standar | patokan ditetapkan owner, selisih jadi pos laba rugi | tinjauan bulanan |
+| FIFO per batch | tiap kedatangan punya harga sendiri | stokis pilih batch tiap kirim, 19 outlet |
+
+## Pengukuran — dan koreksi penting di dalamnya
+
+**Percobaan pertama (KELIRU):** rata-rata tertimbang dihitung dari *seluruh*
+penerimaan PO sejak 15 Agustus. Hasilnya HPP Agustus turun Rp47,4 juta (−5,4%).
+Setelah dipecah per bahan, 73% dari angka itu ternyata berasal dari **satu baris
+PO PLASTIK MERAH yang salah basis satuan** — error, bukan manfaat metode.
+Sisa yang benar-benar karena dua vendor: Rp9,8 juta/bulan (sapi + foil).
+
+**Percobaan kedua (BENAR):** rata-rata dihitung dari **stok yang benar-benar ada
+di gudang**, dengan asumsi barang lama terpakai duluan.
+
+| Bahan | Stok gudang | Master sekarang | Rata-rata stok riil | Selisih |
+|---|---|---|---|---|
+| SAPI | 134 Blok | 103.000 | 103.000 | **0** |
+| FOIL | — | 11.554 | 11.554 | **0** |
+| AYAM | 604 Kg | 53.500 | 53.500 | **0** |
+| MINYAK | 13 kompan | 376.000 | 376.000 | **0** |
+| POLYBAG | 11,7 | 25.000 | 600.000 | error satuan |
+| PLASTIK MERAH | 2,8 | 90.000 | 18.000 | error satuan |
+
+**Untuk semua bahan multi-vendor, selisihnya nol.** Sebabnya perputaran barang
+cepat: sapi Bapak Aziz habis sebelum Djafafood datang, jadi stok sisa memang
+seluruhnya dari kiriman terakhir. "Harga vendor terakhir" kebetulan benar.
+
+## Kesimpulan
+
+**Jangan ganti metode sekarang.** Manfaatnya nol hari ini, dan menggantinya berarti
+menambah mekanisme baru ke sistem yang sedang distabilkan demi memperbaiki sesuatu
+yang belum rusak.
+
+Dua bahan yang menyimpang (POLYBAG, PLASTIK MERAH) **bukan** kasus dua vendor —
+keduanya satu vendor, menyimpang karena PO lama diinput pada tingkat kemasan
+berbeda dari master. Metode apa pun tak akan menyentuh itu.
+
+## Batas kepercayaan angka ini
+
+Angka "nol" bersandar pada asumsi stok sisa berasal dari kiriman terbaru. Untuk
+barang segar itu wajar, tapi tanpa pencatatan batch tak bisa dibuktikan mutlak.
+Kebenarannya ada di antara **Rp0** (barang lama habis duluan) dan
+**Rp9,8 juta/bulan** (stok benar-benar bercampur). Mengukur persisnya menuntut
+pencatatan batch — pekerjaan besar yang justru sedang dipertimbangkan. Tidak
+sepadan demi selisih yang batas atasnya 1,1%.
+
+## Kapan keputusan ini harus ditinjau ulang
+
+Begitu ada bahan berperputaran lambat yang stok dua vendornya menumpuk bersamaan
+di gudang. Tidak perlu membangun apa pun untuk memantaunya — cukup jalankan ulang
+perbandingan "master vs rata-rata stok riil" secara berkala.
+
+## Kondisi form PO (menghilangkan kekhawatiran sebelumnya)
+
+| Asal PO | Baris | Basis cocok | Menyimpang |
+|---|---|---|---|
+| PO/KITCHEN (lewat sistem) | 10 | **10** | 0 |
+| SPB (impor/dokumen lama) | 31 | 28 | 3 |
+
+Form PO di sistem **tidak** menghasilkan kesalahan basis. Yang menyimpang hanya
+dokumen lama, dan hanya 2 yang benar-benar error (yang ketiga, FOIL, adalah beda
+vendor sungguhan). Kekhawatiran "normalisasi harga akan luntur lewat jalur PO"
+lebih kecil dari dugaan awal.
+
+## Pekerjaan yang tersisa, terlepas dari metode
+
+1. **Koreksi 2 baris PO salah satuan** — PLASTIK MERAH (per Pack vs per Ikat),
+   POLYBAG (per Bal vs per Pack).
+2. **Gabungkan FOIL (48) ke FOIL** — pemisahan per vendor membuat resep memotong
+   FOIL sementara kiriman masuk sebagai FOIL (48); 12 outlet bersaldo minus,
+   ditambal opname ±700.000. Digabung, 21 dari 23 baris langsung wajar; tersisa
+   Cirendeu (−4.522) yang perlu opname.
+3. **Pantau berkala** perbandingan harga master vs rata-rata stok riil.
+
+**Status: menunggu keputusan owner.** Belum disepakati, belum ada kode ditulis.

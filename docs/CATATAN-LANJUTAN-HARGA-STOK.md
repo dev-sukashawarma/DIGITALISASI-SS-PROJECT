@@ -188,88 +188,76 @@ Turunannya:
 
 ---
 
-## TEMUAN BARU (3 September) — konversi satuan pengiriman tidak konsisten
 
-Ditemukan saat menelusuri sisa surat jalan FOIL. **Lebih luas dari foil.**
+---
 
-### Yang terukur dan bisa dipegang
+## CATATAN: migrasi skala satuan yang belum selesai
 
-**Data Juli DIKECUALIKAN** — itu data injeksi, bukan transaksi nyata (konfirmasi
-owner 3 September). Angka di bawah dihitung ulang dari 1 Agustus.
+Ditemukan 3 September lewat uji langsung di "outlet tes". Awalnya dikira bug
+konversi satuan; setelah diuji, **ternyata bukan bug**. Dicatat di sini supaya
+tidak ada yang mengejar hantu yang sama.
 
-- **162 baris pengiriman**, **32 bahan**, 1–27 Agustus masuk ledger **1:1**
-  padahal seharusnya dikali faktor kemasan.
-- **Tapi 151 di antaranya terjadi 1–7 Agustus saja.** Konversi mulai bekerja
-  sekitar 8–9 Agustus.
-- **Setelah 10 Agustus hanya 11 baris yang bocor**, di 4 bahan:
+### Apa yang terlihat seperti bug
 
-  | Bahan | Baris | Periode | Sebab |
-  |---|---|---|---|
-  | FOIL (48) | 6 | 14–27 Agu | `satuan` `Roll` vs `satuan_distribusi` `roll` — beda huruf besar |
-  | PLASTIK SUKA DRINK | 3 | 16–27 Agu | `satuan_distribusi` `pack` bukan tingkat yang ada (rantainya Ikat→Lembar) |
-  | BAWANG | 1 | 13 Agu | sebelum aturan kg→gram ditambahkan |
-  | SAOS TOMAT KOMPAN | 1 | 14 Agu | idem |
+Uji: kirim FOIL 1 Roll dari Gudang Pusat ke outlet tes.
 
-Jadi skalanya jauh lebih kecil dari dugaan awal, dan dua sebab terakhir sudah
-tertutup sendiri. Yang **belum diperbaiki** tinggal dua pola pertama.
+```
+16:45:59  GUDANG PUSAT   transfer_keluar   −760
+16:46:52  outlet tes     terima_kiriman      +1
+```
 
-### Akar masalahnya di kode, bukan data
+Terlihat seperti 759 unit menguap. **Tidak.** Keduanya mewakili barang yang
+sama — 1 Roll. Gudang menyimpan FOIL dalam cm, outlet tes menyimpan dalam Roll.
 
-1. Logika konversi **disalin di tiga berkas** —
-   `apps/distribusi/src/components/distribusi/SuratJalanForm.tsx`,
-   `VerifikasiForm.tsx`, `SuratJalanDetail.tsx`. Tidak ada sumber kebenaran
-   tunggal, dan **nol fungsi DB** yang memakai `satuan_distribusi`.
+### Mekanismenya
 
-2. **Cacat huruf besar-kecil.** Penjaganya:
-   ```js
-   if (b.satuan_distribusi && b.satuan_distribusi !== b.satuan) { ... }
-   ```
-   Untuk FOIL: `satuan_distribusi` = `'roll'`, `satuan` = `'Roll'`. Keduanya
-   dianggap BERBEDA, jadi masuk ke cabang konversi — lalu tak ada syarat di
-   dalamnya yang cocok (`satuan_kecil` = `'cm'`), sehingga faktor tetap 1.
+`to_ledger_scale(outlet, bahan, qty_besar)` mengubah qty ke skala penyimpanan
+**baris itu sendiri**, ditentukan oleh:
 
-3. **Satuan pilihan tidak disimpan.** `surat_jalan_item` tidak punya kolom
-   satuan — hanya `qty_dikirim` dan `qty_terima`. Konversinya mengambil
-   `bahan_baku.satuan_distribusi` **saat penerimaan diproses**, bukan saat
-   dokumen dibuat. Kalau kolom itu diubah, pengiriman lama tak bisa
-   direkonstruksi. Ini juga yang membuat riwayat foil punya rasio campur aduk
-   (1×, 24×, 48×, 760×, 36.480×).
+```sql
+saldo_is_gram(sb) = EXISTS(opname_selisih untuk (outlet,bahan) sejak
+                           2026-08-01 20:32)
+```
 
-### Yang TIDAK bisa dipastikan
+Jadi sebuah baris stok "pindah" ke skala satuan kecil begitu outlet melakukan
+opname atasnya. Ini penanda **migrasi bertahap** — dan migrasinya rampung
+sendiri seiring outlet melakukan opname.
 
-**Dampak rupiahnya.** Hitungan kasar sempat memberi Rp222 juta, tapi angka itu
-**tidak layak dipakai** — dihitung dengan harga pasca-normalisasi untuk
-pengiriman lama, termasuk data Juli yang ternyata injeksi, dan tenggelam di
-antara koreksi stok yang jauh lebih besar (`adjustment` +Rp2,59 miliar,
-`opname_selisih` −Rp1,61 miliar dalam 6 minggu, terhadap persediaan Rp409 juta).
+**Status 3 September: 981 baris sudah skala kecil, 579 belum** (dari 1.560).
 
-**Jalur kodenya.** Data menunjukkan konfigurasi yang SAMA PERSIS (FOIL,
-`satuan_distribusi='roll'`) kadang menghasilkan faktor 760, kadang 1, dalam
-periode yang sama. Berarti ada jalur kode lain yang belum ditemukan, atau kodenya
-sempat berubah. Menelusuri log lebih jauh tidak akan menyelesaikan ini — perlu
-uji langsung: buat satu surat jalan percobaan, terima, lalu periksa baris ledger
-yang dihasilkan.
+Bukti konsistensinya ada di pemakaian: outlet skala-kecil memakai ~50 per porsi
+(cm), outlet skala-besar memakai 0,019 (Roll). Tiap baris konsisten dengan
+satuannya sendiri.
 
-**Koreksi stok senilai enam kali isi gudang dalam enam minggu** itu sendiri
-janggal dan layak ditelusuri terpisah dari urusan konversi ini.
+### Yang benar-benar perlu diperhatikan
 
-### 14 bahan aktif yang masih berisiko
+Tidak semua penulis ledger sadar skala:
 
-Semuanya pola sama: `satuan_distribusi` adalah versi huruf kecil dari `satuan`.
+| Fungsi | Sadar skala? |
+|---|---|
+| `finalize_surat_jalan` (terima kiriman) | ✅ `to_ledger_scale` |
+| `sj_on_dikirim_kurangi_kitchen` (kirim) | ✅ `to_ledger_scale` |
+| `process_waterfall_deduction` (BOM) | ✅ `saldo_is_gram` |
+| **`finalize_opname`** | ❌ tidak |
+| **`process_waste_report_approval`** | ❌ tidak |
 
-AYAM, ES BATU, FOIL, KULIT 25/28/32, PLASTIK VACUUM JUMBO, POLYBAG,
-POWDER JERUK, POWDER TEH, SAPI, STIKER, TEPUNG, TUM.
+Dua yang terakhir menulis angka mentah. Diperiksa empiris: besaran waste
+konsisten dengan pemakaian (sapi ~100 gram/porsi vs waste 2.000–8.000 gram),
+jadi **belum terlihat kerusakan nyata** — tapi keduanya rawan, dan
+`finalize_opname` khususnya ironis karena opname-lah yang menentukan skala
+sebuah baris.
 
-Penjaganya `satuan_distribusi !== satuan` bersifat peka huruf besar-kecil, jadi
-`'roll'` dan `'Roll'` dianggap berbeda → masuk cabang konversi → tak ada syarat
-di dalamnya yang cocok → faktor jatuh ke 1 **secara diam-diam**.
+**Langkah pertama kalau digarap:** buat keduanya memakai `to_ledger_scale`
+seperti penulis lain, lalu uji ulang dengan pola yang sama (satu transaksi
+percobaan di outlet tes, periksa baris ledger yang keluar).
 
-### Langkah pertama kalau digarap
+### Pelajaran metodologis
 
-1. **Satukan logika konversi** jadi satu fungsi bersama (atau pindahkan ke DB),
-   lalu perbaiki perbandingan huruf besar-kecil dengan `.toLowerCase()` di kedua
-   sisi.
-2. **Simpan satuan di baris surat jalan** — tambah kolom `satuan_kirim` +
-   `faktor_kirim` yang dibekukan saat dokumen dibuat, supaya pengiriman bisa
-   diaudit ulang dan tidak bergantung pada kolom master yang bisa berubah.
-3. Baru sesudah itu, rekonsiliasi historis masuk akal dikerjakan.
+Tiga kali dalam sesi ini angka besar yang mengkhawatirkan menyusut atau hilang
+setelah diverifikasi: Rp47 juta → Rp9,8 juta → nol (dampak dua-vendor), dan
+"162 baris kurang kredit" → bukan bug sama sekali. Pola penyebabnya sama:
+**menyimpulkan dari perbandingan angka tanpa memeriksa apakah kedua angka itu
+memakai satuan yang sama.**
+
+Untuk temuan stok di sistem ini, uji langsung satu transaksi jauh lebih murah
+dan lebih meyakinkan daripada arkeologi data historis.

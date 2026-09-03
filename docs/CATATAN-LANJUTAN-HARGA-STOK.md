@@ -261,3 +261,83 @@ memakai satuan yang sama.**
 
 Untuk temuan stok di sistem ini, uji langsung satu transaksi jauh lebih murah
 dan lebih meyakinkan daripada arkeologi data historis.
+
+---
+
+## BUG TERKONFIRMASI (3 September) — finalize_opname tidak sadar skala
+
+Dibuktikan lewat **dua uji langsung** di outlet tes, bukan dugaan.
+
+### Uji 1 — fisik pas, tanpa selisih
+
+AYAM outlet tes, saldo tersimpan 10 (satuan besar = 10 Kg), belum gram-scale.
+
+```
+qty_fisik 10.000   qty_system 10.000   selisih 0
+-> tidak ada baris ledger ditulis
+-> baris TIDAK pernah terkonversi, tetap 10
+```
+
+### Uji 2 — fisik 9 Kg
+
+```
+qty_fisik 9.000   qty_system 10.000   selisih -1.000
+-> ledger opname_selisih -1.000
+-> saldo = 10 + (-1.000) = -990
+-> baris jadi gram-scale, -990 dibaca sebagai -990 GRAM
+```
+
+Stok yang seharusnya 9.000 gram tercatat **−990**. Terlihat juga di layar
+pengguna: "STOK AKTUAL −990 Gram".
+
+### Akarnya
+
+Form opname **membaca saldo dalam satuan besar** (menampilkan "Sistem: 10 Kg" —
+benar) tapi **menyimpan dalam satuan kecil** (`qty_fisik` 9.000 gram, `selisih`
+−1.000 gram). Lalu `finalize_opname` menambahkan selisih gram itu ke saldo yang
+masih tersimpan dalam satuan besar.
+
+Ini juga menjelaskan kenapa migrasi skala **mandek di 579 baris**: opname tanpa
+selisih tidak membalik skala (tak ada baris ledger), opname dengan selisih
+merusak angkanya. Barisnya terjebak di antara keduanya.
+
+### Perbaikan
+
+`supabase/migrations/20300125000000_finalize_opname_sadar_skala.sql`
+— **belum diterapkan**, menunggu persetujuan.
+
+```
+delta = qty_fisik - saldo_tersimpan     (untuk baris belum gram-scale)
+delta = selisih                          (untuk baris sudah gram-scale, tak berubah)
+```
+
+Pemulihan baris uji: `docs/draft-sql/pulihkan-ayam-outlet-tes.sql`.
+
+---
+
+## BUTIR BARU — layar salah melabeli satuan untuk baris belum terkonversi
+
+Terungkap dari tangkapan layar saat uji di atas.
+
+Layar **selalu melabeli angka ledger dengan satuan kecil**, tanpa memeriksa
+apakah baris itu sudah terkonversi:
+
+```
+Adjustment  +21,16 Gram        <- terjadi saat baris masih satuan besar,
+                                  aslinya 21,16 Kg
+Terpakai Penjualan (BOM): 0,6 Gram   <- aslinya 0,6 Kg
+```
+
+Untuk **579 baris** yang masih berskala satuan besar, seluruh angka riwayatnya
+tampil dengan satuan yang salah — 1.000× lebih kecil dari kenyataan (atau
+sebesar faktor kemasan masing-masing).
+
+Ini **tidak merusak data**, tapi membuat orang salah baca. Dan lebih buruk lagi:
+ia **menyembunyikan** bug opname di atas, karena angka yang salah tetap terlihat
+wajar.
+
+**Langkah pertama kalau digarap:** komponen tampilan stok perlu memeriksa
+`saldo_is_gram` sebelum memilih label satuan — sama seperti form opname yang
+sudah melakukannya dengan benar.
+
+Butir ini otomatis hilang begitu 579 baris itu terkonversi semua.

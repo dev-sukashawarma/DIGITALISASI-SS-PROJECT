@@ -204,10 +204,10 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       {/* Modal Tambah User */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) setIsModalOpen(false) }}
         >
-          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg shadow-2xl flex flex-col max-h-[calc(100dvh-1.5rem)] sm:max-h-[90vh] my-auto overflow-hidden animate-scale-in">
+          <div className="relative bg-white rounded-2xl sm:rounded-3xl w-full max-w-md sm:max-w-lg shadow-2xl flex flex-col h-[calc(100dvh-1rem)] max-h-[calc(100dvh-1rem)] sm:h-auto sm:max-h-[90vh] my-auto overflow-hidden animate-scale-in">
             {/* Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-100 shrink-0 bg-white rounded-t-2xl sm:rounded-t-3xl z-10">
               <div className="flex items-center gap-3">
@@ -453,16 +453,16 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
             </form>
 
             {/* Footer */}
-            <div className="flex gap-2.5 sm:gap-3 px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 shrink-0 bg-gray-50/95 backdrop-blur-sm rounded-b-2xl sm:rounded-b-3xl z-10">
+            <div className="flex gap-2.5 sm:gap-3 px-4 sm:px-6 pt-3 sm:py-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:pb-4 border-t border-gray-100 shrink-0 bg-gray-50/95 backdrop-blur-sm rounded-b-2xl sm:rounded-b-3xl z-10">
               <button
                 type="button" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}
-                className="flex-1 py-2.5 sm:py-3 px-3 sm:px-4 font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 text-sm sm:text-base active:scale-[0.98]"
+                className="flex-1 min-h-12 py-2.5 sm:py-3 px-3 sm:px-4 font-bold text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors disabled:opacity-50 text-sm sm:text-base whitespace-nowrap active:scale-[0.98]"
               >
                 Batal
               </button>
               <button
                 type="submit" form="user-form" disabled={isSubmitting || !outletId}
-                className="flex-[2] bg-gray-900 text-white rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base shadow-sm active:scale-[0.98]"
+                className="flex-[2] min-h-12 bg-gray-900 text-white rounded-xl py-2.5 sm:py-3 px-3 sm:px-4 font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 text-sm sm:text-base whitespace-nowrap shadow-sm active:scale-[0.98]"
               >
                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : editingUser ? 'Simpan Perubahan' : 'Buat Akun'}
               </button>

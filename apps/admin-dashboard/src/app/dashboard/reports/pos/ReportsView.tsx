@@ -226,6 +226,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const branchFilterValue = selectedOutlets
   const isSSOnlineSelected = selectedOutlets.length === 1 && selectedOutlets[0] === 'ss-online'
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
+  const isPosKasirOnly = !selectedChannels.includes('all') && selectedChannels.length > 0 && selectedChannels.every(c => c === 'pos_kasir' || c === 'pos_pawoon')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
@@ -1662,12 +1663,18 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                  {isSSOnlineSelected ? 'Beban Biaya Platform (P&L)' : 'Admin Platform & Promo'}
+                  {isSSOnlineSelected
+                    ? 'Beban Biaya Platform (P&L)'
+                    : isPosKasirOnly
+                    ? 'Potongan Diskon & Promo'
+                    : 'Admin Platform & Promo'}
                 </p>
                 <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalDeductions)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
+                    : isPosKasirOnly
+                    ? 'Potongan voucher diskon & promo kasir'
                     : 'Potongan diskon promo & subsidi food apps'}
                 </p>
               </div>
@@ -1680,7 +1687,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
                 <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossProfit)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  Gross Revenue - (COGS + Admin Platform)
+                  Gross Revenue - (COGS + {isSSOnlineSelected ? 'Beban Platform' : isPosKasirOnly ? 'Diskon Kasir' : 'Admin Platform'})
                 </p>
               </div>
             </div>

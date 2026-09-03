@@ -9,7 +9,6 @@ const dasar = {
   subtotal: 65000,
   discountAmount: 0,
   total: 65000,
-  pickupCode: '4821',
   items: [
     { menu_item_id: 'm1', name: 'Shawarma Ayam Original', unit_price: 25000, quantity: 2 },
     { menu_item_id: 'm2', name: 'Es Kopi Susu', unit_price: 15000, quantity: 1, note: 'Kurangi gula' },
@@ -52,8 +51,8 @@ describe('susunPayloadPos', () => {
     expect(p_items[1].subtotal).toBe(15000)
   })
 
-  it('menyertakan kode ambil di catatan pesanan', () => {
+  it('menandai pesanan berasal dari aplikasi lewat catatan', () => {
     const { p_order } = susunPayloadPos(dasar)
-    expect(String(p_order.notes)).toContain('4821')
+    expect(String(p_order.notes)).toContain('aplikasi')
   })
 })

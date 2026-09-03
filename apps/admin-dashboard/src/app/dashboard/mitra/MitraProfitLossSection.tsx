@@ -9,14 +9,8 @@ import {
   X, 
   TrendingDown, 
   TrendingUp, 
-  Info,
-  DollarSign, 
   Layers, 
-  Receipt, 
-  Banknote,
-  AlertCircle,
-  CheckCircle,
-  HelpCircle
+  Receipt
 } from 'lucide-react'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import type { ComprehensiveMitraPnl, OpexCategoryDetail } from '@/app/actions/mitraPnl'
@@ -328,7 +322,7 @@ export function MitraProfitLossSection({
                 </div>
               </div>
 
-              {/* Channel 3: TikTok Shop / Go */}
+              {/* Channel 3: TikTok GO */}
               <div
                 onClick={() => setActiveDrilldown('tiktok')}
                 className="group cursor-pointer bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl hover:shadow-sm hover:border-slate-300 transition-all flex flex-col justify-between"
@@ -338,7 +332,7 @@ export function MitraProfitLossSection({
                     <ShoppingBag className="w-5 h-5" />
                   </div>
                   <div>
-                    <h4 className="font-bold text-[#2A1D16] text-sm">TikTok Shop / Go</h4>
+                    <h4 className="font-bold text-[#2A1D16] text-sm">TikTok GO</h4>
                     <p className="text-xs text-[#6E5A4E] font-normal">
                       Omzet: {formatRp(channels.tiktok.revenue)} ({channels.tiktok.orderCount} Order)
                     </p>
@@ -487,11 +481,11 @@ export function MitraProfitLossSection({
             {/* Drilldown: TikTok */}
             {activeDrilldown === 'tiktok' && (
               <>
-                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail TikTok Shop / Go</h3>
-                <p className="text-xs text-[#6E5A4E] mb-5 font-normal">Penjualan voucher dan order TikTok Live</p>
+                <h3 className="text-lg font-bold text-[#2A1D16] mb-1">Detail TikTok GO</h3>
+                <p className="text-xs text-[#6E5A4E] mb-5 font-normal">Penjualan voucher dan order TikTok Live / Go</p>
                 <div className="space-y-2.5 text-xs">
                   <div className="flex justify-between p-3.5 bg-gray-50 rounded-xl font-semibold">
-                    <span className="text-[#6E5A4E]">Omzet Kotor TikTok</span>
+                    <span className="text-[#6E5A4E]">Omzet Kotor TikTok GO</span>
                     <span className="text-[#2A1D16] font-bold text-sm">{formatRp(channels.tiktok.revenue)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
@@ -503,7 +497,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.tiktok.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-slate-100 rounded-xl border border-slate-200 font-bold">
-                    <span className="text-slate-900">Gross Profit TikTok</span>
+                    <span className="text-slate-900">Gross Profit TikTok GO</span>
                     <span className="text-slate-800 text-sm">{formatRp(channels.tiktok.grossProfit)}</span>
                   </div>
                 </div>
@@ -596,7 +590,7 @@ export function MitraProfitLossSection({
                         <span className="font-bold text-[#2A1D16]">{formatRp(channels.foodApps.grossProfit)}</span>
                       </div>
                       <div className="bg-white/90 p-2 rounded-xl border border-amber-200/50 text-center">
-                        <span className="text-[#8C7566] block font-medium">TikTok Shop</span>
+                        <span className="text-[#8C7566] block font-medium">TikTok GO</span>
                         <span className="font-bold text-[#2A1D16]">{formatRp(channels.tiktok.grossProfit)}</span>
                       </div>
                     </div>

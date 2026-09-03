@@ -344,13 +344,23 @@ export function useDeleteSupplier() {
   })
 }
 
-export async function getSignedInvoiceUrl(path: string): Promise<string> {
+export function getInvoiceUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return ''
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+    if (pathOrUrl.includes('/storage/v1/object/public/po-invoices/')) {
+      const parts = pathOrUrl.split('/storage/v1/object/public/po-invoices/')
+      return `${supabaseUrl}/storage/v1/object/public/po-invoices/${parts[1]}`
+    }
+    return pathOrUrl
+  }
   const supabase = createSupabaseBrowserClient()
-  const { data, error } = await supabase.storage
-    .from('po-invoices')
-    .createSignedUrl(path, 3600)
-  if (error) throw error
-  return data.signedUrl
+  const { data } = supabase.storage.from('po-invoices').getPublicUrl(pathOrUrl)
+  return data?.publicUrl || ''
+}
+
+export async function getSignedInvoiceUrl(path: string): Promise<string> {
+  return getInvoiceUrl(path)
 }
 
 export function useVerifikasiTerimaPO() {

@@ -1,10 +1,37 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { InboundOutbound } from '@/types/stok';
+import { InboundOutbound, InboundOutboundSumber } from '@/types/stok';
 import { format, isToday, isYesterday } from 'date-fns';
 import { id } from 'date-fns/locale';
-import { Calendar, ArrowDownCircle, ArrowUpCircle, PackageOpen, Store } from 'lucide-react';
+import { Calendar, ArrowDownCircle, ArrowUpCircle, PackageOpen, Store, FileCheck2, PencilLine } from 'lucide-react';
+
+/**
+ * Badge per sumber arus barang. Sengaja dibedakan visual supaya penerimaan yang
+ * melewati modul PO (`vendor_manual`) kelihatan langsung, bukan tersembunyi
+ * bercampur dengan penerimaan resmi.
+ */
+const SOURCE_BADGE: Record<InboundOutboundSumber, {
+  label: string;
+  className: string;
+  Icon: typeof Store;
+}> = {
+  vendor_po: {
+    label: 'Vendor · PO',
+    className: 'bg-green-50 text-green-700 border-green-200',
+    Icon: FileCheck2,
+  },
+  vendor_manual: {
+    label: 'Vendor · manual',
+    className: 'bg-amber-50 text-amber-700 border-amber-300',
+    Icon: PencilLine,
+  },
+  kirim_outlet: {
+    label: 'Keluar → outlet',
+    className: 'bg-red-50 text-red-600 border-red-200',
+    Icon: Store,
+  },
+};
 
 interface Props {
   items: InboundOutbound[];
@@ -79,20 +106,19 @@ function getEffectivePrice(item: InboundOutbound): number | null {
   return null;
 }
 
-function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; unitLabel: string; displayText: string; totalNilai: number | null } {
-  const bahan = item.bahan_baku;
-  const numQty = Number(item.qty);
-  const effectivePrice = getEffectivePrice(item);
+type BahanUnitInfo = NonNullable<InboundOutbound['bahan_baku']>;
 
-  if (!bahan) {
-    return {
-      qtyNumber: numQty,
-      unitLabel: 'satuan',
-      displayText: numQty.toLocaleString('id-ID'),
-      totalNilai: effectivePrice ? Math.round(numQty * effectivePrice) : null
-    };
-  }
-
+/**
+ * Konversi angka dari skala basis penyimpanan (gram / satuan kecil, sama dengan
+ * skala qty di ledger_stok) ke satuan distribusi yang dibaca manusia.
+ *
+ * Dipakai bersama oleh kolom "Jumlah Satuan" dan "Sisa Stok" -- keduanya
+ * bersumber dari skala yang sama, jadi rumusnya tidak boleh bercabang.
+ */
+function convertToDistribusiUnit(
+  bahan: BahanUnitInfo,
+  numQty: number
+): { qtyNumber: number; unitLabel: string } {
   const rawDistUnit = bahan.satuan_distribusi?.trim() || DELIVERY_UNITS_FALLBACK[bahan.nama.toUpperCase()]?.label || bahan.satuan || 'satuan';
   const satuanKecil = bahan.satuan_kecil?.toLowerCase();
   const satuanTengah = bahan.satuan_tengah?.toLowerCase();
@@ -121,23 +147,67 @@ function getDistribusiCalculation(item: InboundOutbound): { qtyNumber: number; u
     }
   }
 
-  const roundedQty = Math.round(convertedQty * 100) / 100;
-  const totalNilai = effectivePrice ? Math.round(roundedQty * effectivePrice) : null;
+  return {
+    qtyNumber: Math.round(convertedQty * 100) / 100,
+    unitLabel: rawDistUnit,
+  };
+}
+
+function getDistribusiCalculation(item: InboundOutbound): {
+  qtyNumber: number;
+  unitLabel: string;
+  displayText: string;
+  totalNilai: number | null;
+  /** Sisa stok gudang setelah transaksi ini, dalam satuan distribusi. */
+  saldoText: string | null;
+} {
+  const bahan = item.bahan_baku;
+  const numQty = Number(item.qty);
+  const effectivePrice = getEffectivePrice(item);
+
+  if (!bahan) {
+    return {
+      qtyNumber: numQty,
+      unitLabel: 'satuan',
+      displayText: numQty.toLocaleString('id-ID'),
+      totalNilai: effectivePrice ? Math.round(numQty * effectivePrice) : null,
+      saldoText: null,
+    };
+  }
+
+  const { qtyNumber, unitLabel } = convertToDistribusiUnit(bahan, numQty);
+  const totalNilai = effectivePrice ? Math.round(qtyNumber * effectivePrice) : null;
+
+  // Saldo dari ledger_stok berada di skala basis yang sama dengan qty, jadi
+  // lewat konversi yang sama persis -- bukan rumus terpisah.
+  const saldoText =
+    item.saldo_sesudah === null || item.saldo_sesudah === undefined
+      ? null
+      : `${convertToDistribusiUnit(bahan, Number(item.saldo_sesudah)).qtyNumber.toLocaleString('id-ID')} ${unitLabel}`;
 
   return {
-    qtyNumber: roundedQty,
-    unitLabel: rawDistUnit,
-    displayText: `${roundedQty.toLocaleString('id-ID')} ${rawDistUnit}`,
-    totalNilai
+    qtyNumber,
+    unitLabel,
+    displayText: `${qtyNumber.toLocaleString('id-ID')} ${unitLabel}`,
+    totalNilai,
+    saldoText,
   };
 }
 
 interface BatchGroup {
   batchKey: string;
   catatan: string | null;
+  /** Label tujuan pengiriman, mis. "MITRA PEKAYON · SJ-0012". */
+  tujuanLabel: string | null;
   isShipment: boolean;
   totalNominal: number;
   items: InboundOutbound[];
+}
+
+/** Satu surat jalan = satu batch. Sisanya berdiri sendiri per baris. */
+function buildShipmentLabel(item: InboundOutbound): string {
+  const outlet = item.tujuan_outlet_nama || 'Outlet tidak diketahui';
+  return item.nomor_sj ? `${outlet} · ${item.nomor_sj}` : outlet;
 }
 
 interface DateGroup {
@@ -185,13 +255,14 @@ export function InboundOutboundList({ items }: Props) {
         if (calc.totalNilai) groups[dateKey].outTotalNominal += calc.totalNilai;
       }
 
-      const isShipment = Boolean(item.catatan && item.catatan.startsWith('Kirim ke '));
-      const batchKey = isShipment ? `sj_${item.catatan}` : `item_${item.id}`;
+      const isShipment = Boolean(item.ref_shipment_id);
+      const batchKey = isShipment ? `sj_${item.ref_shipment_id}` : `item_${item.id}`;
 
       if (!groups[dateKey].batchesMap[batchKey]) {
         groups[dateKey].batchesMap[batchKey] = {
           batchKey,
           catatan: item.catatan || null,
+          tujuanLabel: isShipment ? buildShipmentLabel(item) : null,
           isShipment,
           totalNominal: 0,
           items: [],
@@ -269,8 +340,10 @@ export function InboundOutboundList({ items }: Props) {
                       <th className="px-5 py-3">Bahan Baku</th>
                       <th className="px-5 py-3">Tipe & Kategori</th>
                       <th className="px-5 py-3 text-right">Jumlah Satuan</th>
+                      <th className="px-5 py-3 text-right">Sisa Stok</th>
                       <th className="px-5 py-3 text-right">Harga Beli / Satuan</th>
-                      <th className="px-5 py-3 text-right">Total Nilai (Rp)</th>
+                      <th className="px-5 py-3 text-right">Total Harga (Rp)</th>
+                      <th className="px-5 py-3 text-right">Total Pengiriman (Rp)</th>
                       <th className="px-5 py-3">Catatan / Tujuan</th>
                       <th className="px-5 py-3">Pencatat</th>
                     </tr>
@@ -283,6 +356,7 @@ export function InboundOutboundList({ items }: Props) {
                         const colorClass = isOut ? 'text-red-600 bg-red-50 border-red-200' : 'text-green-700 bg-green-50 border-green-200';
                         const calc = getDistribusiCalculation(item);
                         const effectivePrice = getEffectivePrice(item);
+                        const badge = SOURCE_BADGE[item.sumber] ?? SOURCE_BADGE.vendor_manual;
                         const isFirstInBatch = itemIdx === 0;
                         const isNewBatch = isFirstInBatch && bIdx > 0;
                         const batchBorderClass = isNewBatch ? 'border-t-2 border-suka-brown/30' : 'border-t border-suka-brown/5';
@@ -303,8 +377,11 @@ export function InboundOutboundList({ items }: Props) {
                                 <span className={`px-2.5 py-0.5 rounded border uppercase text-[10px] font-black ${colorClass}`}>
                                   {item.tipe}
                                 </span>
-                                <span className="text-xs font-semibold text-suka-brown/80">
-                                  {item.kategori}
+                                <span
+                                  className={`px-2 py-0.5 rounded-lg border text-[10px] font-black inline-flex items-center gap-1 ${badge.className}`}
+                                  title={item.kategori}
+                                >
+                                  <badge.Icon className="w-3 h-3" /> {badge.label}
                                 </span>
                               </div>
                             </td>
@@ -313,10 +390,34 @@ export function InboundOutboundList({ items }: Props) {
                                 {sign} {calc.displayText}
                               </span>
                             </td>
+                            {/* Posisi stok gudang tepat setelah transaksi ini
+                                (saldo_sesudah dari ledger_stok). */}
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              {calc.saldoText ? (
+                                <span className="text-xs font-bold text-suka-brown/80 bg-[#fcfaf8] border border-suka-brown/10 px-2 py-1 rounded-lg">
+                                  {calc.saldoText}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-suka-brown/30">-</span>
+                              )}
+                            </td>
                             <td className="px-5 py-3.5 text-right whitespace-nowrap">
                               {effectivePrice ? (
                                 <span className="text-xs font-bold text-suka-brown">
                                   Rp {effectivePrice.toLocaleString('id-ID')} <span className="text-[11px] font-medium text-suka-brown/60">/ {calc.unitLabel.toLowerCase()}</span>
+                                </span>
+                              ) : (
+                                <span className="text-xs text-suka-brown/30">-</span>
+                              )}
+                            </td>
+
+                            {/* TOTAL HARGA PER BARIS -- selalu tampil, termasuk untuk
+                                baris yang tergabung dalam satu surat jalan, supaya
+                                nilai tiap barang tetap terbaca. */}
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              {calc.totalNilai !== null ? (
+                                <span className={`text-xs font-extrabold ${isOut ? 'text-red-700' : 'text-green-800'}`}>
+                                  Rp {calc.totalNilai.toLocaleString('id-ID')}
                                 </span>
                               ) : (
                                 <span className="text-xs text-suka-brown/30">-</span>
@@ -342,13 +443,7 @@ export function InboundOutboundList({ items }: Props) {
                               )
                             ) : (
                               <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                                {calc.totalNilai !== null ? (
-                                  <span className={`text-xs font-extrabold ${isOut ? 'text-red-700' : 'text-green-800'}`}>
-                                    Rp {calc.totalNilai.toLocaleString('id-ID')}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-suka-brown/30">-</span>
-                                )}
+                                <span className="text-xs text-suka-brown/30">-</span>
                               </td>
                             )}
 
@@ -359,15 +454,24 @@ export function InboundOutboundList({ items }: Props) {
                                   rowSpan={rowSpan} 
                                   className="px-5 py-3.5 text-xs align-middle border-r border-suka-brown/10 bg-[#fffaf5]"
                                 >
-                                  <div className="flex items-center gap-1.5 font-extrabold text-suka-brown" title={batch.catatan || ''}>
+                                  <div className="flex items-center gap-1.5 font-extrabold text-suka-brown" title={batch.tujuanLabel || batch.catatan || ''}>
                                     <Store className="w-4 h-4 text-suka-orange shrink-0" />
-                                    <span className="text-xs">{batch.catatan}</span>
+                                    <span className="text-xs">{batch.tujuanLabel || batch.catatan}</span>
                                   </div>
                                 </td>
                               )
                             ) : (
                               <td className="px-5 py-3.5 text-xs">
-                                {item.catatan ? (
+                                {item.supplier_nama ? (
+                                  <span className="text-suka-brown/80 block font-bold" title={item.nomor_po || ''}>
+                                    {item.supplier_nama}
+                                    {item.nomor_po && (
+                                      <span className="block text-[10px] font-medium text-suka-brown/50">
+                                        {item.nomor_po}
+                                      </span>
+                                    )}
+                                  </span>
+                                ) : item.catatan ? (
                                   <span className="text-suka-brown/70 block" title={item.catatan}>
                                     {item.catatan}
                                   </span>

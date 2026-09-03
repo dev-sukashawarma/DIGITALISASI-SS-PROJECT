@@ -2,7 +2,7 @@
 
 import { type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, ClipboardList, ExternalLink, LogOut, Store } from 'lucide-react'
+import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, ClipboardList, ExternalLink, LogOut, Search, Store } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import { loadInventoryDraft, removeInventoryDraft, saveInventoryDraft, type StoredDraft } from '@/lib/inventory-draft-store'
@@ -71,10 +71,23 @@ function emptyDraft(): Draft {
   return { observedQty: '', isPresent: true, condition: 'baik', notes: '', purchaseDate: '', price: '', depreciationRate: '', brand: '', photo: null }
 }
 
+// Draft lokal yang belum pernah disentuh user (semua field kosong, kondisi
+// masih default) tidak boleh menimpa data server. Tanpa ini, draft kosong yang
+// sempat tersimpan otomatis membuat isian tersimpan terlihat hilang saat diedit.
+function draftHasInput(draft?: Draft) {
+  if (!draft) return false
+  const filled = [draft.observedQty, draft.notes, draft.purchaseDate, draft.price, draft.depreciationRate, draft.brand]
+  return filled.some((value) => Boolean(value?.trim()))
+    || Boolean(draft.photo || draft.uploadedPhotoPath)
+    || draft.condition !== 'baik'
+    || draft.isPresent !== true
+}
+
 function draftsForItems(nextItems: MasterItem[], existingDrafts?: Record<string, Draft>, savedDrafts?: Record<string, Draft>) {
   return Object.fromEntries(nextItems.map((item) => {
     const existing = existingDrafts?.[item.id]
-    const saved = savedDrafts?.[item.id]
+    const savedCandidate = savedDrafts?.[item.id]
+    const saved = draftHasInput(savedCandidate) ? savedCandidate : undefined
     const draft = { ...emptyDraft(), ...existing, ...saved }
     // Signed URL dari server bisa kedaluwarsa. Jika belum ada foto baru yang
     // dipilih, selalu pakai path dan URL terbaru dari server.
@@ -386,6 +399,14 @@ function draftsFromSubmission(submission: ExistingSubmission | null) {
   }]))
 }
 
+function scoresOrFallback(savedScores: Record<string, string> | undefined, submission: ExistingSubmission | null) {
+  return savedScores && Object.keys(savedScores).length > 0 ? savedScores : scoresFromSubmission(submission)
+}
+
+function notesOrFallback(savedNotes: string | undefined, submission: ExistingSubmission | null) {
+  return savedNotes?.trim() ? savedNotes : submission?.notes ?? ''
+}
+
 function scoresFromSubmission(submission: ExistingSubmission | null) {
   return Object.fromEntries(Object.entries(submission?.area_scores ?? {}).map(([key, value]) => [key, String(value)]))
 }
@@ -394,6 +415,7 @@ export default function InventoryDashboardPage() {
   const { outletStaff, loading: authLoading, signOut } = useAuth()
   const userRole = String(outletStaff?.role ?? '').trim().toLowerCase()
   const isAdmin = userRole === 'admin'
+  const isReportViewer = isAdmin || userRole === 'regional_manager'
   const supabase = useMemo(() => createClient(), [])
   const [outlets, setOutlets] = useState<Outlet[]>([])
   const [items, setItems] = useState<MasterItem[]>([])
@@ -409,6 +431,7 @@ export default function InventoryDashboardPage() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
   const [completedSubmission, setCompletedSubmission] = useState<{ outletName: string; updated: boolean } | null>(null)
   const [activeStep, setActiveStep] = useState(0)
+  const [itemQuery, setItemQuery] = useState('')
   const [sessionMenuOpen, setSessionMenuOpen] = useState(false)
   const routeParams = useParams<{ outletId?: string }>()
   const editOutletId = typeof routeParams?.outletId === 'string' ? routeParams.outletId : null
@@ -434,8 +457,8 @@ export default function InventoryDashboardPage() {
   }, [sessionMenuOpen])
 
   useEffect(() => {
-    if (!authLoading && isAdmin) router.replace('/dashboard/reports')
-  }, [authLoading, isAdmin, router])
+    if (!authLoading && isReportViewer) router.replace('/dashboard/reports')
+  }, [authLoading, isReportViewer, router])
 
   useEffect(() => {
     draftReadyRef.current = false
@@ -473,8 +496,8 @@ export default function InventoryDashboardPage() {
           setSelectedOutletId(initialOutletId)
           setSavedOutletIds(new Set(reference.savedOutletIds))
           setDrafts(draftsForItems(nextItems, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
-          setScores(savedDraft?.scores ?? scoresFromSubmission(currentSubmission))
-          setNotes(savedDraft?.notes ?? currentSubmission?.notes ?? '')
+          setScores(scoresOrFallback(savedDraft?.scores, currentSubmission))
+          setNotes(notesOrFallback(savedDraft?.notes, currentSubmission))
           setDraftStatus(savedDraft || currentSubmission ? 'saved' : 'idle')
           draftReadyRef.current = true
         }
@@ -493,17 +516,17 @@ export default function InventoryDashboardPage() {
   }, [editOutletId, router, selectedOutletId])
 
   useEffect(() => {
-    if (!staffId || !selectedOutletId || !draftReadyRef.current) return
+    if (!editOutletId || !staffId || !selectedOutletId || !draftReadyRef.current) return
     const timeout = window.setTimeout(() => {
       setDraftStatus('saving')
       void saveInventoryDraft(staffId, todayJakarta(), selectedOutletId, { drafts, scores, notes })
         .then(() => setDraftStatus('saved'))
     }, 350)
     return () => window.clearTimeout(timeout)
-  }, [drafts, scores, notes, selectedOutletId, staffId])
+  }, [drafts, scores, notes, editOutletId, selectedOutletId, staffId])
 
   useEffect(() => {
-    if (!staffId || !selectedOutletId || !draftReadyRef.current) return
+    if (!editOutletId || !staffId || !selectedOutletId || !draftReadyRef.current) return
     const persistImmediately = () => {
       // saveInventoryDraft menulis localStorage secara sinkron sebelum IndexedDB.
       // Ini menjaga draft tetap ada walaupun tab ditutup/di-refresh sebelum debounce selesai.
@@ -518,11 +541,15 @@ export default function InventoryDashboardPage() {
       window.removeEventListener('pagehide', persistImmediately)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [drafts, scores, notes, selectedOutletId, staffId])
+  }, [drafts, scores, notes, editOutletId, selectedOutletId, staffId])
 
   const groups = useMemo(() => groupItems(items), [items])
   const formSteps = Object.entries(groups)
-  const visibleSteps = formSteps.slice(activeStep, activeStep + 1)
+  const itemSearchQuery = itemQuery.trim().toLowerCase()
+  const visibleSteps = (itemSearchQuery
+    ? formSteps.map(([subsection, group]) => [subsection, group.filter((item) => `${item.name} ${item.subsection}`.toLowerCase().includes(itemSearchQuery))] as [string, MasterItem[]]).filter(([, group]) => group.length > 0)
+    : formSteps.slice(activeStep, activeStep + 1))
+  const visibleItemCount = visibleSteps.reduce((total, [, group]) => total + group.length, 0)
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId)
   const completedOutlets = outlets.filter((outlet) => savedOutletIds.has(outlet.id))
   const allPhotos = items.length > 0 && items.every((item) => {
@@ -561,9 +588,6 @@ export default function InventoryDashboardPage() {
     setSwitchingOutlet(true)
     draftReadyRef.current = false
     try {
-      if (selectedOutletId) {
-        await saveInventoryDraft(staffId, todayJakarta(), selectedOutletId, { drafts, scores, notes })
-      }
       const [savedDraft, currentSubmission] = await Promise.all([
         loadInventoryDraft(staffId, todayJakarta(), nextOutletId),
         fetchCurrentSubmission(nextOutletId).catch((error) => {
@@ -572,8 +596,8 @@ export default function InventoryDashboardPage() {
       ])
       setSelectedOutletId(nextOutletId)
       setDrafts(draftsForItems(items, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
-      setScores(savedDraft?.scores ?? scoresFromSubmission(currentSubmission))
-      setNotes(savedDraft?.notes ?? currentSubmission?.notes ?? '')
+      setScores(scoresOrFallback(savedDraft?.scores, currentSubmission))
+      setNotes(notesOrFallback(savedDraft?.notes, currentSubmission))
       setMessage(null)
       draftReadyRef.current = true
       setDraftStatus(savedDraft || currentSubmission ? 'saved' : 'idle')
@@ -637,7 +661,7 @@ export default function InventoryDashboardPage() {
     }
   }
 
-  if (authLoading || loading || isAdmin) return <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6 text-slate-500">Membuka dashboard admin...</main>
+  if (authLoading || loading || isReportViewer) return <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6 text-slate-500">Membuka laporan inventori...</main>
   if (!outletStaff || !['area_manager', 'admin', 'owner'].includes(userRole)) {
     return <main className="grid min-h-screen place-items-center p-6 text-center"><div><h1 className="text-xl font-bold text-[#400a07]">Akses tidak tersedia</h1><p className="mt-2 text-sm text-slate-500">Aplikasi ini hanya dapat digunakan oleh Area Manager.</p></div></main>
   }
@@ -666,6 +690,7 @@ export default function InventoryDashboardPage() {
         {message && <div className={`rounded-2xl border p-4 text-sm font-semibold ${message.type === 'success' ? 'border-green-200 bg-green-50 text-green-700' : 'border-red-200 bg-red-50 text-red-700'}`}>{message.text}</div>}
         {editOutletId && <>
           <FormStepper steps={formSteps.map(([name]) => name)} activeStep={activeStep} drafts={drafts} groups={formSteps.map(([, group]) => group)} onStepChange={setActiveStep} />
+          <div className="rounded-2xl border border-orange-200 bg-white p-3 shadow-sm sm:p-4"><label className="flex items-center gap-3"><Search className="h-5 w-5 shrink-0 text-[#f29744]" /><span className="sr-only">Cari item inventaris</span><input value={itemQuery} onChange={(event) => setItemQuery(event.target.value)} placeholder="Cari dari semua item inventaris..." className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#400a07] outline-none placeholder:text-slate-400" />{itemQuery && <button type="button" onClick={() => setItemQuery('')} className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[#701604] transition hover:bg-orange-50">Hapus</button>}</label><p className="mt-2 pl-8 text-[11px] font-medium text-slate-500">{itemSearchQuery ? `${visibleItemCount} item ditemukan dari semua area.` : 'Cari nama item atau subbagian untuk menampilkan hasil dari seluruh area.'}</p></div>
           {visibleSteps.map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-200 bg-white shadow-lg shadow-orange-950/5"><div className="border-b border-[#e8b56f]/45 bg-[#f5d6a0] px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); const freezer = isFreezerItem(item); return <article key={item.id} className="border-l-4 border-l-[#f29744] p-5 transition hover:bg-[#fffaf5]"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span>{freezer && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-700">Catatan wajib</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{freezer ? 'Catat total unit dan ukuran freezer yang tersedia (400L, 600L, atau 750L).' : targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm outline-none focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold text-slate-600">Tanggal pembelian<input type="date" value={draft.purchaseDate} onChange={(event) => updateDraft(item.id, { purchaseDate: event.target.value })} className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Merek<input value={draft.brand} onChange={(event) => updateDraft(item.id, { brand: event.target.value })} placeholder="Contoh: Modena, Maspion, Samsung" className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Harga<input type="number" min="0" step="1" value={draft.price} onChange={(event) => updateDraft(item.id, { price: event.target.value })} placeholder="Contoh: 2500000" className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Depresiasi (%/tahun)<div className="relative mt-1"><input type="number" min="0" max="100" step="0.01" value={draft.depreciationRate} onChange={(event) => updateDraft(item.id, { depreciationRate: event.target.value })} placeholder="Contoh: 10" className="w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 pr-10 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /><span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs text-slate-400">%</span></div></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder={freezer ? 'Wajib: contoh “400L 1 unit, 600L 1 unit, 750L tidak ada; kondisi baik”' : 'Catatan item (opsional)'} className={`mt-3 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#f29744] ${freezer && !draft.notes.trim() ? 'border-red-200 bg-red-50/30' : 'border-[#d9a06b]/45 bg-[#fffaf5]'}`} />{freezer && <p className="mt-1 text-xs text-red-600">Tuliskan ukuran freezer dan kondisinya agar data aset lengkap.</p>}</div><PhotoPicker outletId={selectedOutletId} itemName={item.name} itemId={item.id} photo={draft.photo} uploadedPhotoPath={draft.uploadedPhotoPath} uploadedPhotoUrl={draft.uploadedPhotoUrl} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} onPhotoUploaded={(path, url) => updateDraft(item.id, { uploadedPhotoPath: path ?? undefined, uploadedPhotoUrl: url ?? null })} /></div></article> })}</div></section>)}
       <FormStepNavigation activeStep={activeStep} totalSteps={formSteps.length} onStepChange={setActiveStep} />
       <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Menyimpan data inventaris...' : photoUploadsPending ? 'Simpan inventaris · foto siap dikirim' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>

@@ -1,6 +1,6 @@
 export type Satuan = 'kg'|'gram'|'liter'|'ml'|'pcs'|'box'|'pack'|'ikat'|'botol'|'crt'|'kompan'|'blok'
 export type SatuanKecil = 'liter'|'ml'|'gram'|'cm'|'lembar'
-export type Kategori = 'FOOD & BEVERAGE'|'PACKAGING'|'OPERASIONAL'|'BUMBU'
+export type Kategori = 'FOOD & BEVERAGE'|'PACKAGING'|'OPERASIONAL'|'BUMBU'|'ASET'|'PERLENGKAPAN'
 export type LedgerTipe =
   | 'terima_kiriman' | 'pemakaian' | 'waste' | 'adjustment'
   | 'opname_selisih' | 'transfer_keluar' | 'transfer_masuk' | 'waste_pending'
@@ -112,14 +112,30 @@ export interface WasteReport {
 
 export type InboundOutboundTipe = 'IN' | 'OUT';
 
+/**
+ * Sumber arus barang, dipakai untuk badge di tab Inbound/Outbound.
+ * - vendor_po     : penerimaan lewat modul PO (jalur resmi sejak 28 Agt 2026)
+ * - vendor_manual : adjustment positif -- barang masuk yang melewati PO
+ * - kirim_outlet  : transfer keluar gudang lewat surat jalan
+ */
+export type InboundOutboundSumber = 'vendor_po' | 'vendor_manual' | 'kirim_outlet';
+
 export interface InboundOutbound {
   id: string;
   outlet_id: string;
   bahan_baku_id: string;
   tipe: InboundOutboundTipe;
+  sumber: InboundOutboundSumber;
   kategori: string;
+  ref_shipment_id?: string | null;
+  tujuan_outlet_nama?: string | null;
+  nomor_sj?: string | null;
+  nomor_po?: string | null;
+  supplier_nama?: string | null;
   qty: number;
   harga_satuan: number | null;
+  /** Sisa stok gudang tepat setelah transaksi ini (ledger_stok.saldo_sesudah). */
+  saldo_sesudah?: number | null;
   catatan: string | null;
   created_by: string | null;
   created_at: string;

@@ -92,6 +92,16 @@ export async function getEffectiveTodayWIB(outletId: string, supabase: any): Pro
       .eq('status', 'finalized')
     if ((count ?? 0) < 1) return '2026-08-29'
   }
+  
+  if (outletId === 'd9a2ef93-c298-4501-a471-1c5e2b3dff08' && (today === '2026-09-03' || today === '2026-09-09')) {
+    // Cicurug exception: check if there is a finalized opname for Sep 2
+    const { count } = await supabase.from('opname')
+      .select('id', { count: 'exact', head: true })
+      .eq('outlet_id', outletId)
+      .eq('tanggal', '2026-09-02')
+      .eq('status', 'finalized')
+    if ((count ?? 0) < 1) return '2026-09-02'
+  }
   return today
 }
 
@@ -193,8 +203,9 @@ export function useOpnameActions() {
     const isTodayException = todayWIB === TODAY_EXCEPTION_DATE && ALLOWED_OUTLETS.includes(outletId)
     const isEmpangException = todayWIB === '2026-08-23' && outletId === '550e8400-e29b-41d4-a716-446655440002'
     const isJatiwaringinException = (todayWIB === '2026-08-30' || todayWIB === '2026-08-29') && outletId === '550e8400-e29b-41d4-a716-446655440010'
+    const isCicurugException = (todayWIB === '2026-09-03' || todayWIB === '2026-09-02') && outletId === 'd9a2ef93-c298-4501-a471-1c5e2b3dff08'
 
-    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException || isTodayException || isEmpangException || isJatiwaringinException)) {
+    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException || isTodayException || isEmpangException || isJatiwaringinException || isCicurugException)) {
       const { count } = await supabase.from('opname')
         .select('id', { count: 'exact', head: true })
         .eq('outlet_id', outletId)

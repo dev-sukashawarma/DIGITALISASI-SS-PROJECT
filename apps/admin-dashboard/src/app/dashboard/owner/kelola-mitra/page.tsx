@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { KelolaMitraView } from './KelolaMitraView'
-import { presetRange, previousRange, monthRange } from '@/lib/period'
+import { presetRange } from '@/lib/period'
 import { getMitraComprehensivePnl } from '@/app/actions/mitraPnl'
 import { getMitraRealtimeBepBreakdown } from '@/app/actions/mitraRoi'
 import type { PeriodFilterValue } from '@/lib/types'

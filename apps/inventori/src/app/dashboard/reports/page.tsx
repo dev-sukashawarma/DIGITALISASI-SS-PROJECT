@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function InventarisReportsPage() {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
-  // Guard server-side: URL ini tidak dapat dibuka oleh AM, owner, atau role lain.
-  if (staff?.role !== 'admin') redirect('/dashboard')
+  // Laporan inventori dapat dilihat admin dan regional manager.
+  if (!staff || !['admin', 'regional_manager'].includes(staff.role)) redirect('/dashboard')
   return <InventarisReportView />
 }

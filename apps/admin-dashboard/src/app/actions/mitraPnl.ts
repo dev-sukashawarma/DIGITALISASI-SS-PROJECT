@@ -319,19 +319,43 @@ export async function getMitraComprehensivePnl(
 
       outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
 
-      if (src.includes('grab') || src.includes('gofood') || src.includes('shopee') || src === 'food_delivery' || ch.includes('grab') || ch.includes('go') || ch.includes('shopee')) {
-        faGross += grossRev
-        faDeductions += deductions
-        faCogs += orderCogs
-        faCount++
-        if (src.includes('grab') || ch.includes('grab')) grabRev += totalAmt
-        else if (src.includes('gofood') || src.includes('go_food') || ch.includes('go')) gofoodRev += totalAmt
-        else if (src.includes('shopee') || ch.includes('shopee')) shopeeRev += totalAmt
-      } else if (src.includes('tiktok') || ch.includes('tiktok')) {
+      if (
+        src.includes('tiktok') ||
+        ch.includes('tiktok') ||
+        ch === 'c9b01c9f-0e5b-462f-bba8-9a9b6525c5c8' ||
+        ch === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5'
+      ) {
         tkGross += grossRev
         tkDeductions += deductions
         tkCogs += orderCogs
         tkCount++
+      } else if (
+        src.includes('grab') ||
+        src.includes('gofood') ||
+        src.includes('go_food') ||
+        src.includes('gojek') ||
+        src.includes('shopee') ||
+        src === 'food_delivery' ||
+        src === 'food_apps' ||
+        src === 'foodapps' ||
+        ch.includes('grab') ||
+        ch.includes('gofood') ||
+        ch.includes('go_food') ||
+        ch.includes('gojek') ||
+        ch.includes('shopee') ||
+        ch === 'food_apps' ||
+        ch === 'foodapps' ||
+        ch === '1284ac2a-e753-4380-9f32-59219a322459' ||
+        ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a' ||
+        ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2'
+      ) {
+        faGross += grossRev
+        faDeductions += deductions
+        faCogs += orderCogs
+        faCount++
+        if (src.includes('grab') || ch.includes('grab') || ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a') grabRev += totalAmt
+        else if (src.includes('gofood') || src.includes('go_food') || src.includes('gojek') || ch.includes('gofood') || ch.includes('go_food') || ch.includes('gojek') || ch === '1284ac2a-e753-4380-9f32-59219a322459') gofoodRev += totalAmt
+        else if (src.includes('shopee') || ch.includes('shopee') || ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2') shopeeRev += totalAmt
       } else {
         // Default to POS (Dine-in, Takeaway, QRIS, Kasir)
         posGross += grossRev
@@ -450,7 +474,7 @@ export async function getMitraComprehensivePnl(
   const grandTotalOpex = totalPettyCash + totalMonthly
 
   // 7. Waste
-  const totalWaste = (wasteRows || []).reduce((sum, w) => sum + (Number(w.nilai_waste) || 0), 0)
+  const totalWaste = (wasteRows || []).reduce((sum: number, w: any) => sum + (Number(w.nilai_waste) || 0), 0)
 
   // 8. Financial Totals
   const totalGrossRevenue = posGross + faGross + tkGross

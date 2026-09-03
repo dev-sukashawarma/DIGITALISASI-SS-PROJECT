@@ -209,7 +209,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
             <p className="text-xs font-bold text-white/80 uppercase tracking-wider">Omzet Kotor</p>
             <p className="text-2xl sm:text-3xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
           </div>
-          <p className="text-[10px] text-white/70 mt-3 font-medium">*Sebelum potongan promo/diskon</p>
+          <p className="text-[10px] text-white/70 mt-3 font-medium">*Total penerimaan pesanan lunas</p>
         </div>
 
         {/* Total Orders */}

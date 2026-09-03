@@ -1,4 +1,4 @@
-import { Card } from '@suka/design-system/src/components/Card'
+import { Card } from '@suka/design-system'
 import { PackageSearch, Loader2 } from 'lucide-react'
 
 export default function StokDashboardLoading() {

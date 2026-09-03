@@ -2,7 +2,8 @@
 
 import dynamic from 'next/dynamic'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Camera, LogOut, MonitorDot, Radio, Search, ShieldCheck, Video } from 'lucide-react'
+import Link from 'next/link'
+import { Camera, LogOut, MapPin, MonitorDot, Radio, Search, ShieldCheck, Video } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
 const CameraViewer = dynamic(() => import('./CameraViewer'), { ssr: false })
@@ -70,6 +71,7 @@ export default function MonitoringDashboard() {
           </div>
           <div className="flex items-center gap-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2.5"><p className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Sedang ditonton</p><p className="mt-0.5 text-xl font-extrabold text-slate-900">{activeCount}<span className="ml-1 text-xs font-semibold text-slate-400">/ 4</span></p></div>
+            <Link href="/lokasi" className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors duration-200 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300"><MapPin size={16} />Peta staff</Link>
             <button onClick={logout} className="grid h-11 w-11 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors duration-200 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-orange-300" aria-label="Keluar"><LogOut size={18} /></button>
           </div>
         </header>

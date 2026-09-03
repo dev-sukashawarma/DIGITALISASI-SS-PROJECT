@@ -191,8 +191,8 @@ export default async function ReportsPage({
     return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
   }, 0);
 
-  // Omzet Kotor = net + deduksi yang tercatat (batas atas terbaik dari data yang tersedia).
-  const totalRevenue = netRevenue + totalDeductions;
+  // Samakan dengan POS Kasir: omzet adalah netRevenue (SUM(total_amount) pesanan completed)
+  const totalRevenue = netRevenue;
   const totalOrders = completedOrders.length;
   const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length;
   const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length;

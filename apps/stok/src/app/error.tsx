@@ -1,6 +1,6 @@
 'use client'
 
-import { ServerError } from '@suka/design-system/src/components/ServerError'
+import { ServerError } from '@suka/design-system'
 
 export default function Error({
   error,

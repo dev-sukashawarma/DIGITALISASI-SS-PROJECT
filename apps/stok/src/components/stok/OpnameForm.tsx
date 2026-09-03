@@ -7,7 +7,7 @@ import { useStokBalance } from '@/hooks/useStokBalance';
 import { useOpnameActions } from '@/hooks/useOpname';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
-import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
+import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import type { BahanBaku } from '@/types/stok';
@@ -211,6 +211,12 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
   const relevantBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
+      const kat = b.kategori?.toUpperCase();
+      const nama = b.nama?.toUpperCase();
+      // Aset hardware & atribut perlengkapan tidak di-opname pada opname bahan baku harian
+      if (kat === 'ASET' || kat === 'PERLENGKAPAN') return false;
+      if (nama === 'PRINTER THERMAL' || nama === 'ID CARD') return false;
+
       const source = getBahanBakuSource(b.nama);
       if (source === 'GUDANG_PUSAT' && !isGudang) return false;
       return true;

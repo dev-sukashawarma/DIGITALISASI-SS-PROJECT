@@ -1,4 +1,4 @@
-import { Card } from '@suka/design-system/src/components/Card'
+import { Card } from '@suka/design-system'
 
 export function DetailSkeleton() {
   return (

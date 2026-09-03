@@ -135,7 +135,9 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   // 4. Calculate per outlet
   const resultMap: Record<string, MitraRealtimeBepItem> = {}
 
-function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+// HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
+// komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
+function getItemHppBase(menuItem: any, channel?: string | null): number {
   if (!menuItem) return 0
   let baseHpp = 0
   const normCh = channel ? channel.toLowerCase() : null
@@ -162,15 +164,21 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
     baseHpp = Number(menuItem.hpp_override)
   } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
     baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component ? getItemHpp(pkg.component, outletType, channel) : (Number(pkg.component?.hpp_override) || 0)
+      const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
       const qty = Number(pkg.quantity) || 1
       return sum + (compHpp * qty)
     }, 0)
   }
+  return baseHpp
+}
+
+// Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
+function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+  const baseHpp = getItemHppBase(menuItem, channel)
   if (outletType === 'mitra' && baseHpp > 0) {
     return Math.round(baseHpp * 1.10)
   }
-  return baseHpp
+  return Math.round(baseHpp)
 }
 
   // Try using the optimized PostgreSQL RPC first
@@ -225,23 +233,19 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
         const disc = Number(order.discount_amount) || 0
         const promo = Number(order.promo_subsidy) || 0
 
-        let itemGross = 0
         let orderCogs = 0
 
         if (Array.isArray(order.order_items)) {
           for (const item of order.order_items) {
             const qty = Number(item.quantity) || 1
-            itemGross += Number(item.subtotal) || (qty * Number(item.unit_price || 0)) || 0
-
             const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
             orderCogs += (hpp * qty)
           }
         }
 
-        const itemDiff = itemGross > totalAmt ? itemGross - totalAmt : 0
-        const extraDiff = Math.max(0, itemDiff - (disc + promo))
-        const deductions = disc + promo + extraDiff
-        const grossRev = itemGross > 0 ? itemGross : (totalAmt + disc + promo)
+        // Acuan omzet kanonik, sama dengan sales_daily_spv & dashboard Owner.
+        const deductions = disc + promo
+        const grossRev = totalAmt + disc + promo
 
         grossRevenue += grossRev
         totalDeductions += deductions

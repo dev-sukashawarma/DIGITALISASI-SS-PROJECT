@@ -194,13 +194,24 @@ Ditemukan saat menelusuri sisa surat jalan FOIL. **Lebih luas dari foil.**
 
 ### Yang terukur dan bisa dipegang
 
-- **388 baris pengiriman**, **34 bahan**, 22 Juli – 27 Agustus masuk ledger
-  **1:1** padahal seharusnya dikali faktor kemasan.
-- Bahan terdampak termasuk yang bervolume besar: MAYONES, AYAM, SAPI, KENTANG,
-  SAOS TOMAT, PAPER WRAP, MINYAK.
-- Kebocorannya **sporadis, bukan peralihan bersejarah** — konversi sudah jalan
-  sejak awal Agustus, tapi 1–3 baris per hari tetap lolos, sampai 27 Agustus.
-- Baris yang lolos hampir selalu ber-`qty_terima` kecil (1 / 0,5 / 0,05).
+**Data Juli DIKECUALIKAN** — itu data injeksi, bukan transaksi nyata (konfirmasi
+owner 3 September). Angka di bawah dihitung ulang dari 1 Agustus.
+
+- **162 baris pengiriman**, **32 bahan**, 1–27 Agustus masuk ledger **1:1**
+  padahal seharusnya dikali faktor kemasan.
+- **Tapi 151 di antaranya terjadi 1–7 Agustus saja.** Konversi mulai bekerja
+  sekitar 8–9 Agustus.
+- **Setelah 10 Agustus hanya 11 baris yang bocor**, di 4 bahan:
+
+  | Bahan | Baris | Periode | Sebab |
+  |---|---|---|---|
+  | FOIL (48) | 6 | 14–27 Agu | `satuan` `Roll` vs `satuan_distribusi` `roll` — beda huruf besar |
+  | PLASTIK SUKA DRINK | 3 | 16–27 Agu | `satuan_distribusi` `pack` bukan tingkat yang ada (rantainya Ikat→Lembar) |
+  | BAWANG | 1 | 13 Agu | sebelum aturan kg→gram ditambahkan |
+  | SAOS TOMAT KOMPAN | 1 | 14 Agu | idem |
+
+Jadi skalanya jauh lebih kecil dari dugaan awal, dan dua sebab terakhir sudah
+tertutup sendiri. Yang **belum diperbaiki** tinggal dua pola pertama.
 
 ### Akar masalahnya di kode, bukan data
 
@@ -226,14 +237,32 @@ Ditemukan saat menelusuri sisa surat jalan FOIL. **Lebih luas dari foil.**
 
 ### Yang TIDAK bisa dipastikan
 
-Dampak rupiahnya. Hitungan kasar memberi Rp222 juta, tapi angka itu **tidak
-layak dipakai**: dihitung dengan harga pasca-normalisasi 3 September untuk
-pengiriman Juli–Agustus, dan tenggelam di antara koreksi stok yang jauh lebih
-besar — periode 22 Juli–31 Agustus mencatat `adjustment` +Rp2,59 miliar dan
-`opname_selisih` −Rp1,61 miliar, terhadap persediaan yang cuma Rp409 juta.
+**Dampak rupiahnya.** Hitungan kasar sempat memberi Rp222 juta, tapi angka itu
+**tidak layak dipakai** — dihitung dengan harga pasca-normalisasi untuk
+pengiriman lama, termasuk data Juli yang ternyata injeksi, dan tenggelam di
+antara koreksi stok yang jauh lebih besar (`adjustment` +Rp2,59 miliar,
+`opname_selisih` −Rp1,61 miliar dalam 6 minggu, terhadap persediaan Rp409 juta).
 
-Koreksi senilai enam kali isi gudang dalam enam minggu itu sendiri layak
-dipertanyakan, terpisah dari urusan konversi ini.
+**Jalur kodenya.** Data menunjukkan konfigurasi yang SAMA PERSIS (FOIL,
+`satuan_distribusi='roll'`) kadang menghasilkan faktor 760, kadang 1, dalam
+periode yang sama. Berarti ada jalur kode lain yang belum ditemukan, atau kodenya
+sempat berubah. Menelusuri log lebih jauh tidak akan menyelesaikan ini — perlu
+uji langsung: buat satu surat jalan percobaan, terima, lalu periksa baris ledger
+yang dihasilkan.
+
+**Koreksi stok senilai enam kali isi gudang dalam enam minggu** itu sendiri
+janggal dan layak ditelusuri terpisah dari urusan konversi ini.
+
+### 14 bahan aktif yang masih berisiko
+
+Semuanya pola sama: `satuan_distribusi` adalah versi huruf kecil dari `satuan`.
+
+AYAM, ES BATU, FOIL, KULIT 25/28/32, PLASTIK VACUUM JUMBO, POLYBAG,
+POWDER JERUK, POWDER TEH, SAPI, STIKER, TEPUNG, TUM.
+
+Penjaganya `satuan_distribusi !== satuan` bersifat peka huruf besar-kecil, jadi
+`'roll'` dan `'Roll'` dianggap berbeda → masuk cabang konversi → tak ada syarat
+di dalamnya yang cocok → faktor jatuh ke 1 **secara diam-diam**.
 
 ### Langkah pertama kalau digarap
 

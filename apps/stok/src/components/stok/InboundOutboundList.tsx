@@ -306,7 +306,8 @@ export function InboundOutboundList({ items }: Props) {
                       <th className="px-5 py-3">Tipe & Kategori</th>
                       <th className="px-5 py-3 text-right">Jumlah Satuan</th>
                       <th className="px-5 py-3 text-right">Harga Beli / Satuan</th>
-                      <th className="px-5 py-3 text-right">Total Nilai (Rp)</th>
+                      <th className="px-5 py-3 text-right">Total Harga (Rp)</th>
+                      <th className="px-5 py-3 text-right">Total Pengiriman (Rp)</th>
                       <th className="px-5 py-3">Catatan / Tujuan</th>
                       <th className="px-5 py-3">Pencatat</th>
                     </tr>
@@ -363,6 +364,19 @@ export function InboundOutboundList({ items }: Props) {
                               )}
                             </td>
 
+                            {/* TOTAL HARGA PER BARIS -- selalu tampil, termasuk untuk
+                                baris yang tergabung dalam satu surat jalan, supaya
+                                nilai tiap barang tetap terbaca. */}
+                            <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                              {calc.totalNilai !== null ? (
+                                <span className={`text-xs font-extrabold ${isOut ? 'text-red-700' : 'text-green-800'}`}>
+                                  Rp {calc.totalNilai.toLocaleString('id-ID')}
+                                </span>
+                              ) : (
+                                <span className="text-xs text-suka-brown/30">-</span>
+                              )}
+                            </td>
+
                             {/* MERGED TOTAL NILAI (DIJUMLAHKAN LANGSUNG PER PENGIRIMAN) */}
                             {batch.isShipment ? (
                               isFirstInBatch && (
@@ -382,13 +396,7 @@ export function InboundOutboundList({ items }: Props) {
                               )
                             ) : (
                               <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                                {calc.totalNilai !== null ? (
-                                  <span className={`text-xs font-extrabold ${isOut ? 'text-red-700' : 'text-green-800'}`}>
-                                    Rp {calc.totalNilai.toLocaleString('id-ID')}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-suka-brown/30">-</span>
-                                )}
+                                <span className="text-xs text-suka-brown/30">-</span>
                               </td>
                             )}
 

@@ -1,4 +1,4 @@
--- 20300125000000_finalize_opname_sadar_skala.sql
+-- 20300128000000_finalize_opname_sadar_skala.sql
 --
 -- DITERAPKAN & TERVERIFIKASI di produksi 3 September 2026 pukul 20:21 WIB
 -- (dijalankan lewat SQL Editor, bukan db push -- tidak tercatat di

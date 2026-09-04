@@ -1,4 +1,4 @@
--- 20300126000000_nilai_persediaan_view.sql
+-- 20300129000000_nilai_persediaan_view.sql
 --
 -- View nilai persediaan per (outlet, bahan) untuk halaman /stok/nilai-persediaan.
 --
@@ -21,7 +21,7 @@
 --    `saldo_is_gram(sb)` = ada opname_selisih sejak 2026-08-01 20:32. Untuk baris
 --    yang belum pernah di-opname, isinya bisa satuan besar (Kg/Roll/Dus) atau
 --    satuan kecil (gram/cm/lembar) -- bedanya sebesar faktor kemasan.
---    Lihat 20300125000000_finalize_opname_sadar_skala.sql.
+--    Lihat 20300128000000_finalize_opname_sadar_skala.sql.
 --
 -- 2. MASTER DATA BELUM LENGKAP. Per 3 September, dari 787 baris stok aktif:
 --    13 belum punya harga beli, 32 belum punya kemasan_qty. Tanpa keduanya,

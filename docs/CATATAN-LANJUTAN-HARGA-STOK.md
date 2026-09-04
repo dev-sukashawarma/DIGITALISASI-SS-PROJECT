@@ -303,7 +303,7 @@ merusak angkanya. Barisnya terjebak di antara keduanya.
 
 ### Perbaikan
 
-`supabase/migrations/20300125000000_finalize_opname_sadar_skala.sql`
+`supabase/migrations/20300128000000_finalize_opname_sadar_skala.sql`
 — **belum diterapkan**, menunggu persetujuan.
 
 ```

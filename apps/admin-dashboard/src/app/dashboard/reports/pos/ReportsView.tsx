@@ -899,6 +899,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           return s + Math.max(0, itemValue - total)
         }, 0)
 
+    // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom
+    // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak
+    // ikut omzet maupun potongan, ditampilkan sebagai kartu informasi.
+    // Baris SS Online dikecualikan: jalurnya sendiri, promo_subsidy-nya 0.
+    const totalPlatformSubsidy = completed.reduce((s, o) => {
+      if ((o as any).outlet_id === 'ss-online') return s
+      return s + (Number((o as any).promo_subsidy) || 0)
+    }, 0)
+
     const netRevenue = actualNetRevenue
 
     // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
@@ -959,6 +968,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       cancelledCount: cancelled,
       grossRevenue,
       totalDeductions,
+      totalPlatformSubsidy,
       netRevenue,
       totalHPP,
       grossProfit,
@@ -1654,7 +1664,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       ) : (
         <>
           {/* â”€â”€ KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) â”€â”€ */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 xl:gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-4 xl:gap-5">
             {/* 1. Gross Revenue â€” omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
@@ -1690,20 +1700,32 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
                   {isSSOnlineSelected
                     ? 'Beban Biaya Platform (P&L)'
-                    : isPosKasirOnly
-                    ? 'Potongan Diskon & Promo'
-                    : 'Admin Platform & Promo'}
+                    : 'Potongan Merchant'}
                 </p>
                 <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalDeductions)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
-                    : isPosKasirOnly
-                    ? 'Potongan voucher diskon & promo kasir'
-                    : 'Potongan diskon promo & subsidi food apps'}
+                    : 'Diskon yang ditanggung outlet. Subsidi aplikasi TIDAK termasuk.'}
                 </p>
               </div>
             </div>
+
+            {/* 4. Subsidi Platform -- INFORMASI, bukan biaya outlet.
+                Ditanggung Grab/Gojek/Shopee; tidak memotong omzet maupun laba.
+                Disembunyikan pada mode SS Online karena jalurnya berbeda. */}
+            {!isSSOnlineSelected && (
+              <div className="bg-gradient-to-br from-orange-400 to-orange-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-orange-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
+                <div className="relative z-10">
+                  <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Subsidi Platform</p>
+                  <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalPlatformSubsidy)}</p>
+                  <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
+                    Promo yang ditanggung aplikasi (info) — tidak mengurangi omzet maupun laba
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* 4. Gross Profit */}
             <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">

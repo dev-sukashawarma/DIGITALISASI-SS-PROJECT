@@ -200,6 +200,13 @@ export default async function ReportsPage({
     return s + Math.max(0, itemValue - total);
   }, 0);
 
+  // Subsidi platform (Grab/Gojek/Shopee) yang diketik kasir di kolom
+  // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak ikut
+  // omzet maupun potongan, ditampilkan sebagai kartu informasi.
+  const totalPlatformSubsidy = completedOrders.reduce((s: number, o: any) => {
+    return s + (Number(o.promo_subsidy) || 0);
+  }, 0);
+
   // Samakan dengan POS Kasir & dashboard pusat.
   const totalRevenue = netRevenue + totalDeductions;
   const totalOrders = completedOrders.length;
@@ -269,6 +276,7 @@ export default async function ReportsPage({
   const analytics = {
     totalRevenue,
     totalDeductions,
+    totalPlatformSubsidy,
     netRevenue,
     totalOrders,
     totalItemsSold,

@@ -5,7 +5,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import {
   BarChart3, TrendingUp, TrendingDown, ShoppingBag, Banknote,
   Calendar, ChevronDown, Clock, CreditCard, QrCode,
-  Package, Minus, CheckCircle2, XCircle
+  Package, Minus, CheckCircle2, XCircle, Tag, Gift
 } from 'lucide-react'
 import {
   PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar
@@ -198,7 +198,7 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {/* Total Revenue (Omzet Kotor) */}
         <div className="bg-suka-orange p-5 rounded-2xl text-white relative overflow-hidden flex flex-col justify-between min-w-0 shadow-[0_4px_20px_rgba(249,115,22,0.2)]">
           <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
@@ -210,6 +210,31 @@ export default function ReportsClient({ analytics, outlets, initialFilters, isLo
             <p className="text-2xl sm:text-3xl font-black mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalRevenue)}</p>
           </div>
           <p className="text-[10px] text-white/70 mt-3 font-medium">*Total penerimaan pesanan lunas</p>
+        </div>
+
+        {/* Potongan Merchant -- diskon yang benar-benar ditanggung outlet */}
+        <div className="bg-white border border-suka-brown/10 p-5 rounded-2xl flex flex-col justify-between min-w-0 shadow-sm">
+          <div className="min-w-0">
+            <div className="w-10 h-10 bg-rose-50 rounded-xl flex items-center justify-center mb-3">
+              <Tag className="w-5 h-5 text-rose-500" strokeWidth={2} />
+            </div>
+            <p className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider">Potongan Merchant</p>
+            <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalDeductions)}</p>
+          </div>
+          <p className="text-[10px] text-suka-gray-400 mt-3 font-medium">Diskon yang ditanggung outlet</p>
+        </div>
+
+        {/* Subsidi Platform -- INFORMASI. Ditanggung Grab/Gojek/Shopee,
+            tidak memotong omzet maupun laba. */}
+        <div className="bg-white border border-suka-brown/10 p-5 rounded-2xl flex flex-col justify-between min-w-0 shadow-sm">
+          <div className="min-w-0">
+            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center mb-3">
+              <Gift className="w-5 h-5 text-orange-500" strokeWidth={2} />
+            </div>
+            <p className="text-xs font-bold text-suka-gray-400 uppercase tracking-wider">Subsidi Platform</p>
+            <p className="text-2xl sm:text-3xl font-black text-suka-brown mt-1 leading-tight whitespace-nowrap">{formatRupiah(analytics.totalPlatformSubsidy)}</p>
+          </div>
+          <p className="text-[10px] text-suka-gray-400 mt-3 font-medium">Info — ditanggung aplikasi, bukan potongan outlet</p>
         </div>
 
         {/* Total Orders */}

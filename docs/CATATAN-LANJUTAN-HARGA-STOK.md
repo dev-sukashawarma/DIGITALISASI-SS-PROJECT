@@ -341,3 +341,72 @@ wajar.
 sudah melakukannya dengan benar.
 
 Butir ini otomatis hilang begitu 579 baris itu terkonversi semua.
+
+---
+
+## VERIFIKASI 4 SEPTEMBER — opname malam pertama setelah perbaikan
+
+Opname rutin 3 September malam: **21 opname, 18 outlet, 720 item dihitung.**
+
+**Perbaikan `finalize_opname` bertahan.** Tidak ada kerusakan; saldo minus justru
+turun **63 → 57**. Ini malam pertama fungsi baru itu dipakai massal.
+
+### Migrasi skala satuan: praktis selesai
+
+Angka "577 baris belum terkonversi" **menyesatkan**. Rinciannya:
+
+```
+577 baris belum terkonversi
+├─ 437  saldonya NOL              → tak ada yang perlu dikonversi
+├─  59  bahan sudah dinonaktifkan → sisa stok bahan mati
+└─  81  aktif & bersaldo          ← pekerjaan sebenarnya
+```
+
+Dari 81 itu:
+
+| Lokasi | Baris | Perlu digarap? |
+|---|---|---|
+| **SUKA SHAWARMA BNR** | **41** | ✅ ya |
+| outlet tes | 22 | tidak (outlet uji) |
+| KANTOR PUSAT | 17 | tidak (outlet dummy) |
+| GUDANG SS ONLINE | 1 | tidak (marketplace) |
+
+---
+
+## 🔴 BNR HARUS OPNAME — ditunda atas keputusan owner 4 September
+
+**Keadaan (diverifikasi 4 September):**
+
+| Outlet | Opname 30 hari | Order 30 hari |
+|---|---|---|
+| **SUKA SHAWARMA BNR** | **0** | 606 |
+| Outlet lain (18) | 20–25 | 900–2.500 |
+
+BNR **tidak pernah opname sama sekali** dalam 30 hari, padahal beroperasi normal.
+
+**Akibatnya, dan ini bukan sekadar soal laporan:**
+
+Karena tak pernah di-opname, 41 baris stoknya masih berskala satuan besar.
+Pemotongan BOM tiap penjualan memakai skala itu, sehingga stok **hampir tidak
+pernah berkurang di sistem**. Contoh terukur:
+
+```
+FOIL di BNR        : saldo 34.466 (isi cm), dipotong 0,060 per order
+FOIL di outlet lain: saldo serupa,          dipotong ~50 per order
+```
+
+Dengan 0,06 per order, stok foil BNR baru habis setelah 574.000 order.
+
+Konsekuensi praktis:
+- Angka stok BNR tidak bisa dipercaya
+- Peringatan stok menipis tidak akan pernah menyala di BNR
+- Permintaan bahan BNR kemungkinan tidak mencerminkan kebutuhan asli
+- BNR ikut mengotori laporan Nilai Persediaan (masuk kategori
+  "skala belum pasti", 41 dari 79 baris)
+
+**Tindakannya sederhana:** minta BNR melakukan **opname penuh** — hitung
+41 bahan sekaligus, bukan sebagian. Sekali jalan semuanya terkoreksi, lalu BNR
+ikut ritme normal seperti 18 outlet lain.
+
+**Ini juga prasyarat keputusan metode basis harga** (butir 1 di atas). Syarat
+"tunggu satuannya seragam" tinggal menunggu BNR.

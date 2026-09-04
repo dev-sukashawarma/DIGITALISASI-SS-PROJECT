@@ -5,7 +5,7 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { BudgetStatus, PeriodType } from '@/lib/stok/budget'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
-import { convertToDistribusiUnit } from '@/lib/format/compositeUnit'
+import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
 import type {
   OutletBudgetSummaryItem,
   OutletSpendingTransaction,
@@ -458,7 +458,12 @@ export async function estimateCartValue(
 
   const [{ data: hg, error: errHg }, { data: bb, error: errBb }] = await Promise.all([
     supabase.from('bahan_baku_harga').select('bahan_baku_id, harga_beli').in('bahan_baku_id', ids),
-    supabase.from('bahan_baku').select('id, kategori').in('id', ids),
+    supabase
+      .from('bahan_baku')
+      .select(
+        'id, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, satuan_distribusi'
+      )
+      .in('id', ids),
   ])
 
   if (errHg) throw new Error(errHg.message)
@@ -472,8 +477,14 @@ export async function estimateCartValue(
   })
 
   const kategoriMap = new Map<string, string>()
+  // Konversi satuan pesan (distribusi) -> satuan besar. harga_beli SELALU per
+  // satuan besar (lihat memory "basis-harga-kanonik-satuan-besar"), sedangkan
+  // semua pemanggil action ini mengirim qty dalam satuan distribusi. Tanpa
+  // konversi, BAWANG (Bal = 20 kg) diestimasi Rp 650.000 untuk 1 kg.
+  const bahanMap = new Map<string, any>()
   bb?.forEach((b) => {
     kategoriMap.set(b.id, b.kategori || 'LAIN-LAIN')
+    bahanMap.set(b.id, b)
   })
 
   let totalNilai = 0
@@ -486,7 +497,9 @@ export async function estimateCartValue(
     if (harga === undefined) {
       itemTanpaHarga.push(it.bahan_baku_id)
     } else {
-      const subtotal = it.qty * harga
+      const bahan = bahanMap.get(it.bahan_baku_id)
+      const qtyBesar = bahan ? convertToBaseUnit(it.qty, bahan) : it.qty
+      const subtotal = qtyBesar * harga
       totalNilai += subtotal
       kategoriNilai[kat] = (kategoriNilai[kat] || 0) + subtotal
     }

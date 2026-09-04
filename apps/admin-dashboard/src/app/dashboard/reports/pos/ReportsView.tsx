@@ -879,6 +879,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       : completed.reduce((s, o) => {
           const items = (o as any).order_items || []
           const total = Number(o.total_amount) || 0
+          // Baris SS Online adalah baris SINTETIS dari `ecommerce_sales`:
+          // `total_amount` sudah net dan `discount_amount` sudah memuat beban
+          // platform yang benar, sementara item-nya tidak selalu rekonsiliasi
+          // dengan total order. Memakai selisih item di sini menggeser beban
+          // platform Agustus 2026 dari Rp 12,48 jt jadi Rp 20,24 jt (998 dari
+          // 1.377 baris berubah). Jadi baris ini tetap memakai discount_amount.
+          if ((o as any).outlet_id === 'ss-online') {
+            return s + (Number((o as any).discount_amount) || 0)
+          }
           if (items.length === 0) {
             // Tanpa baris item tak ada nilai menu untuk dibandingkan.
             return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)

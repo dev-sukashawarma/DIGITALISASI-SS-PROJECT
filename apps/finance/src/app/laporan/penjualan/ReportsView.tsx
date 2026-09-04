@@ -757,6 +757,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           // per-order; disamakan supaya kelima dashboard identik.
           const items = o.order_items || []
           const total = Number(o.total_amount) || 0
+          // Baris SS Online sintetis: discount_amount sudah memuat beban
+          // platform yang benar, item-nya tidak selalu rekonsiliasi dgn total.
+          if ((o as any).outlet_id === 'ss-online') {
+            return s + (Number((o as any).discount_amount) || 0)
+          }
           if (items.length === 0) {
             return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
           }
@@ -774,6 +779,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           // total_amount supaya Net Revenue = total_amount secara aljabar.
           const items = o.order_items || []
           const total = Number(o.total_amount) || 0
+          if ((o as any).outlet_id === 'ss-online') {
+            return sum + total + (Number((o as any).discount_amount) || 0)
+          }
           if (items.length === 0) {
             return sum + total + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
           }

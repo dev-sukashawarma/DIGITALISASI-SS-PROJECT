@@ -180,7 +180,7 @@ export function MitraProfitLossSection({
                   -{formatRp(summary.totalCogs + summary.totalDeductions)}
                 </h3>
                 <p className="text-xs text-[#8C7566] font-normal mt-1">
-                  Food Cost & Fee Platform
+                  Food Cost & Potongan Merchant
                 </p>
               </div>
             </div>
@@ -445,7 +445,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.pos.cogs)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
-                    <span className="text-red-500 font-medium">Diskon / Promo Kasir</span>
+                    <span className="text-red-500 font-medium">Potongan Merchant</span>
                     <span className="text-red-500 font-semibold">-{formatRp(channels.pos.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-amber-50 rounded-xl border border-amber-200/80 font-bold">
@@ -471,7 +471,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.foodApps.cogs)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
-                    <span className="text-red-500 font-medium">Fee Platform & Diskon Aplikasi</span>
+                    <span className="text-red-500 font-medium">Potongan Merchant</span>
                     <span className="text-red-500 font-semibold">-{formatRp(channels.foodApps.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 font-bold">
@@ -497,7 +497,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.tiktok.cogs)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
-                    <span className="text-red-500 font-medium">Fee Platform & Merchant Discount</span>
+                    <span className="text-red-500 font-medium">Potongan Merchant</span>
                     <span className="text-red-500 font-semibold">-{formatRp(channels.tiktok.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-slate-100 rounded-xl border border-slate-200 font-bold">
@@ -565,7 +565,7 @@ export function MitraProfitLossSection({
                     </div>
 
                     <div className="flex justify-between items-center text-red-500 pl-5 text-[11px]">
-                      <span>2. Diskon, Promo & Fee Platform</span>
+                      <span>2. Potongan Merchant</span>
                       <span className="font-semibold">-{formatRp(summary.totalDeductions)}</span>
                     </div>
 

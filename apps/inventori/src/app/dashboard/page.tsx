@@ -6,6 +6,7 @@ import { ArrowLeft, Camera, Check, ChevronDown, ClipboardCheck, ClipboardList, E
 import { useAuth } from '@suka/auth'
 import { createClient } from '@/lib/supabase'
 import { loadInventoryDraft, removeInventoryDraft, saveInventoryDraft, type StoredDraft } from '@/lib/inventory-draft-store'
+import { compressPhoto } from '@/lib/compress-image'
 
 type ItemMode = 'quantity' | 'presence' | 'range'
 type Condition = 'baik' | 'perlu_perbaikan' | 'rusak' | 'tidak_ada'
@@ -244,21 +245,18 @@ function SubmissionSuccessScreen({ outletName, updated, onContinue }: {
   )
 }
 
-function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, uploadedPhotoUrl, existingPhotoUrl, onPhotoChange, onPhotoUploaded }: {
-  outletId: string
+function PhotoPicker({ itemName, itemId, photo, uploadedPhotoPath, uploadedPhotoUrl, existingPhotoUrl, uploading, uploadError, onPick }: {
   itemName: string
   itemId: string
   photo: File | null
   uploadedPhotoPath?: string
   uploadedPhotoUrl?: string | null
   existingPhotoUrl?: string | null
-  onPhotoChange: (photo: File | null) => void
-  onPhotoUploaded: (path: string | null, url?: string | null) => void
+  uploading: boolean
+  uploadError: string | null
+  onPick: (photo: File | null) => void
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const uploadControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     if (!photo) {
@@ -270,40 +268,13 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
     return () => URL.revokeObjectURL(objectUrl)
   }, [photo])
 
-  async function handleChange(event: ChangeEvent<HTMLInputElement>) {
+  function handleChange(event: ChangeEvent<HTMLInputElement>) {
     const input = event.currentTarget
     const nextPhoto = input.files?.[0] ?? null
-    // Reset before awaiting the network request so React cannot release
-    // currentTarget and cause a null access after the async boundary.
+    // Reset sebelum menyerahkan file ke parent supaya memilih file yang sama
+    // dua kali tetap memicu onChange.
     input.value = ''
-    uploadControllerRef.current?.abort()
-    onPhotoChange(nextPhoto)
-    onPhotoUploaded(null)
-    setUploadError(null)
-    if (nextPhoto) {
-      setUploading(true)
-      const controller = new AbortController()
-      uploadControllerRef.current = controller
-      const formData = new FormData()
-      formData.append('outlet_id', outletId)
-      formData.append('item_id', itemId)
-      if (uploadedPhotoPath) formData.append('previous_path', uploadedPhotoPath)
-      formData.append('photo', nextPhoto, nextPhoto.name)
-      try {
-        const response = await fetch('/api/inventaris/photo', { method: 'POST', body: formData, signal: controller.signal })
-        const result = await response.json().catch(() => null) as { error?: string; photo_path?: string; photo_url?: string | null } | null
-        if (!response.ok || !result?.photo_path) throw new Error(result?.error ?? 'Foto gagal disimpan ke server.')
-        onPhotoUploaded(result.photo_path, result.photo_url)
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return
-        setUploadError(error instanceof Error ? error.message : 'Foto gagal disimpan ke server.')
-      } finally {
-        if (uploadControllerRef.current === controller) {
-          uploadControllerRef.current = null
-          setUploading(false)
-        }
-      }
-    }
+    onPick(nextPhoto)
   }
 
   const inputId = `photo-${itemId}`
@@ -312,13 +283,13 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
       <label htmlFor={inputId} className="relative flex aspect-square w-full cursor-pointer flex-col items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-orange-200 bg-orange-50/40 text-center hover:border-[#f29744]">
         {photo && previewUrl ? <>
           <img src={previewUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
-          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : uploadedPhotoPath ? 'text-green-700' : 'text-slate-600'}`}>{uploading ? 'Mengunggah foto…' : uploadError ? 'Gagal · tekan untuk coba lagi' : uploadedPhotoPath ? 'Foto tersimpan · server mengoptimalkan' : 'Foto siap dikirim'}</span>
+          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : uploadError ? 'text-red-600' : uploadedPhotoPath ? 'text-green-700' : 'text-slate-600'}`}>{uploading ? 'Mengunggah foto…' : uploadError ? 'Gagal · tekan untuk coba lagi' : uploadedPhotoPath ? 'Foto tersimpan' : 'Foto siap dikirim'}</span>
         </> : existingPhotoUrl ? <>
           <img src={existingPhotoUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
           <span className="absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold text-green-700 backdrop-blur-sm">Foto tersimpan · tekan untuk ganti</span>
         </> : uploadedPhotoUrl ? <>
           <img src={uploadedPhotoUrl} alt={`Foto ${itemName}`} className="h-full w-full object-cover" />
-          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : 'text-green-700'}`}>{uploading ? 'Mengunggah foto…' : 'Foto tersimpan · server mengoptimalkan'}</span>
+          <span className={`absolute inset-x-0 bottom-0 bg-white/90 px-2 py-2 text-[11px] font-bold backdrop-blur-sm ${uploading ? 'text-orange-600' : 'text-green-700'}`}>{uploading ? 'Mengunggah foto…' : 'Foto tersimpan'}</span>
         </> : <>
           <Camera className="text-[#f29744]" size={28} />
           <span className="mt-2 text-xs font-bold text-[#701604]">Ambil foto barang</span>
@@ -327,10 +298,53 @@ function PhotoPicker({ outletId, itemName, itemId, photo, uploadedPhotoPath, upl
       </label>
       <input id={inputId} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" className="sr-only" onChange={handleChange} />
       <p className="mt-2 truncate text-[10px] text-slate-500" title={photo?.name}>
-        {uploadError ? uploadError : uploading ? 'Mengunggah foto asli…' : photo && uploadedPhotoPath ? `${photo.name} · tersimpan, server mengoptimalkan` : photo ? `${photo.name} · siap dikirim saat disimpan` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto tersimpan, server mengoptimalkan' : 'Belum ada foto'}
+        {uploadError ? uploadError : uploading ? 'Mengecilkan dan mengunggah foto…' : photo && uploadedPhotoPath ? `${photo.name} · tersimpan di server` : photo ? `${photo.name} · siap dikirim saat disimpan` : existingPhotoUrl ? 'Foto database tetap digunakan' : uploadedPhotoPath ? 'Foto tersimpan di server' : 'Belum ada foto'}
       </p>
     </div>
   )
+}
+
+// Proxy di depan aplikasi (413 payload terlalu besar, 502/504 timeout) membalas
+// HTML, bukan JSON milik route. Tanpa membaca status dan potongan body, semua
+// kegagalan itu tampil sebagai "Gagal mengirim inventaris." tanpa petunjuk.
+async function readResponseError(response: Response, fallback: string) {
+  const body = await response.text().catch(() => '')
+  try {
+    const parsed = JSON.parse(body) as { error?: string } | null
+    if (parsed?.error) return parsed.error
+  } catch {}
+  const snippet = body.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120)
+  if (response.status === 413) return 'Foto terlalu besar untuk dikirim sekaligus (HTTP 413).'
+  if (response.status === 504 || response.status === 502) return `Server tidak merespons tepat waktu (HTTP ${response.status}). Coba simpan lagi.`
+  return `${fallback} (HTTP ${response.status}${snippet ? ` · ${snippet}` : ''})`
+}
+
+async function uploadPhotoFile(outletId: string, itemId: string, file: File, previousPath?: string, signal?: AbortSignal) {
+  const compressed = await compressPhoto(file)
+  const formData = new FormData()
+  formData.append('outlet_id', outletId)
+  formData.append('item_id', itemId)
+  if (previousPath) formData.append('previous_path', previousPath)
+  formData.append('photo', compressed, compressed.name)
+  const response = await fetch('/api/inventaris/photo', { method: 'POST', body: formData, signal })
+  if (!response.ok) throw new Error(await readResponseError(response, 'Foto gagal disimpan ke server.'))
+  const result = await response.json().catch(() => null) as { photo_path?: string; photo_url?: string | null } | null
+  if (!result?.photo_path) throw new Error('Server tidak mengembalikan lokasi foto.')
+  return { compressed, path: result.photo_path, url: result.photo_url ?? null }
+}
+
+// Menjalankan pekerjaan beberapa sekaligus, bukan seluruhnya. 87 upload paralel
+// akan saling berebut uplink 4G dan memicu timeout.
+async function runWithConcurrency<T>(tasks: Array<() => Promise<T>>, limit: number) {
+  const results: T[] = []
+  let cursor = 0
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (cursor < tasks.length) {
+      const index = cursor++
+      results[index] = await tasks[index]()
+    }
+  }))
+  return results
 }
 
 async function fetchCurrentSubmission(outletId: string): Promise<ExistingSubmission | null> {
@@ -426,6 +440,7 @@ export default function InventoryDashboardPage() {
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [photoUploads, setPhotoUploads] = useState<Record<string, { uploading: boolean; error: string | null }>>({})
   const [switchingOutlet, setSwitchingOutlet] = useState(false)
   const [draftStatus, setDraftStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null)
@@ -437,6 +452,7 @@ export default function InventoryDashboardPage() {
   const editOutletId = typeof routeParams?.outletId === 'string' ? routeParams.outletId : null
   const router = useRouter()
   const staffId = outletStaff?.id ?? null
+  const uploadControllersRef = useRef(new Map<string, AbortController>())
   const draftReadyRef = useRef(false)
   const sessionMenuRef = useRef<HTMLDivElement>(null)
 
@@ -495,6 +511,7 @@ export default function InventoryDashboardPage() {
           setItems(nextItems)
           setSelectedOutletId(initialOutletId)
           setSavedOutletIds(new Set(reference.savedOutletIds))
+          setPhotoUploads({})
           setDrafts(draftsForItems(nextItems, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
           setScores(scoresOrFallback(savedDraft?.scores, currentSubmission))
           setNotes(notesOrFallback(savedDraft?.notes, currentSubmission))
@@ -557,6 +574,7 @@ export default function InventoryDashboardPage() {
     return Boolean(draft?.photo || draft?.uploadedPhotoPath || draft?.existingPhotoPath)
   })
   const photoUploadsPending = items.some((item) => Boolean(drafts[item.id]?.photo && !drafts[item.id]?.uploadedPhotoPath))
+  const photoUploadsInFlight = items.some((item) => Boolean(photoUploads[item.id]?.uploading))
   const allFieldsValid = items.length > 0 && items.every((item) => {
     const draft = drafts[item.id]
     const quantityValid = item.mode === 'presence' || (draft?.observedQty.trim() !== '' && Number.isFinite(Number(draft?.observedQty)))
@@ -583,6 +601,35 @@ export default function InventoryDashboardPage() {
     setDrafts((current) => ({ ...current, [itemId]: { ...emptyDraft(), ...current[itemId], ...patch } }))
   }
 
+  // Upload foto dijalankan di parent, bukan di PhotoPicker. Hanya satu area
+  // yang di-render pada satu waktu, jadi state di dalam picker akan hilang
+  // begitu user pindah area — dulu itu membuat indikator "mengunggah" dan
+  // pesan gagal lenyap padahal request masih berjalan atau sudah gagal.
+  async function handlePhotoPick(itemId: string, file: File | null) {
+    uploadControllersRef.current.get(itemId)?.abort()
+    uploadControllersRef.current.delete(itemId)
+    const previousPath = drafts[itemId]?.uploadedPhotoPath
+    const outletId = selectedOutletId
+    updateDraft(itemId, { photo: file, uploadedPhotoPath: undefined, uploadedPhotoUrl: null })
+    setPhotoUploads((current) => ({ ...current, [itemId]: { uploading: Boolean(file), error: null } }))
+    if (!file || !outletId) return
+
+    const controller = new AbortController()
+    uploadControllersRef.current.set(itemId, controller)
+    try {
+      const uploaded = await uploadPhotoFile(outletId, itemId, file, previousPath, controller.signal)
+      if (controller.signal.aborted) return
+      // Simpan versi terkompresi ke draft supaya tidak dikompresi ulang nanti.
+      updateDraft(itemId, { photo: uploaded.compressed, uploadedPhotoPath: uploaded.path, uploadedPhotoUrl: uploaded.url })
+      setPhotoUploads((current) => ({ ...current, [itemId]: { uploading: false, error: null } }))
+    } catch (error) {
+      if (controller.signal.aborted || (error instanceof DOMException && error.name === 'AbortError')) return
+      setPhotoUploads((current) => ({ ...current, [itemId]: { uploading: false, error: error instanceof Error ? error.message : 'Foto gagal disimpan ke server.' } }))
+    } finally {
+      if (uploadControllersRef.current.get(itemId) === controller) uploadControllersRef.current.delete(itemId)
+    }
+  }
+
   async function handleOutletChange(nextOutletId: string) {
     if (editOutletId || !nextOutletId || nextOutletId === selectedOutletId || !staffId || switchingOutlet) return
     setSwitchingOutlet(true)
@@ -595,6 +642,7 @@ export default function InventoryDashboardPage() {
         }),
       ])
       setSelectedOutletId(nextOutletId)
+      setPhotoUploads({})
       setDrafts(draftsForItems(items, draftsFromSubmission(currentSubmission), savedDraft?.drafts))
       setScores(scoresOrFallback(savedDraft?.scores, currentSubmission))
       setNotes(notesOrFallback(savedDraft?.notes, currentSubmission))
@@ -617,14 +665,38 @@ export default function InventoryDashboardPage() {
     }
     setSubmitting(true)
     try {
+      // Foto yang belum sempat terunggah (draft lama, upload gagal, atau
+      // browser ditutup di tengah jalan) diunggah satu per satu lewat endpoint
+      // foto SEBELUM submit. Menumpuk 87 file ke dalam satu request submit
+      // membuat proxy menolaknya (413) atau kehabisan waktu (504), dan error
+      // itu balik sebagai HTML sehingga pesannya jadi generik.
+      const pending = items.filter((item) => {
+        const draft = drafts[item.id]
+        return Boolean(draft?.photo) && !draft?.uploadedPhotoPath
+      })
+      const uploadedPaths = new Map<string, string>()
+      if (pending.length > 0) {
+        setMessage({ type: 'success', text: `Mengunggah ${pending.length} foto yang tertunda...` })
+        setPhotoUploads((current) => ({
+          ...current,
+          ...Object.fromEntries(pending.map((item) => [item.id, { uploading: true, error: null }])),
+        }))
+        await runWithConcurrency(pending.map((item) => async () => {
+          const draft = drafts[item.id]
+          const uploaded = await uploadPhotoFile(selectedOutletId, item.id, draft.photo as File)
+          uploadedPaths.set(item.id, uploaded.path)
+          updateDraft(item.id, { photo: uploaded.compressed, uploadedPhotoPath: uploaded.path, uploadedPhotoUrl: uploaded.url })
+          setPhotoUploads((current) => ({ ...current, [item.id]: { uploading: false, error: null } }))
+        }), 3)
+        setMessage(null)
+      }
+
       const formData = new FormData()
       const detailRows: Array<Record<string, string | number | boolean | null>> = []
       for (const item of items) {
         const draft = drafts[item.id] ?? emptyDraft()
-        if (!draft.photo && !draft.uploadedPhotoPath && !draft.existingPhotoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
-        // Fallback: bila respons upload latar belum sempat tersimpan di state,
-        // server menerima File asli ini lalu mengoptimalkannya setelah respons.
-        if (draft.photo && !draft.uploadedPhotoPath) formData.append(`photo_${item.id}`, draft.photo, draft.photo.name)
+        const photoPath = uploadedPaths.get(item.id) ?? draft.uploadedPhotoPath ?? draft.existingPhotoPath ?? null
+        if (!photoPath) throw new Error(`Foto ${item.name} belum dipilih.`)
         detailRows.push({
           master_item_id: item.id,
           observed_qty: item.mode === 'presence' ? null : Number(draft.observedQty),
@@ -635,7 +707,7 @@ export default function InventoryDashboardPage() {
           purchase_price: draft.price.trim() === '' ? null : Number(draft.price),
           depreciation_rate: draft.depreciationRate.trim() === '' ? null : Number(draft.depreciationRate),
           brand: draft.brand.trim() || null,
-          photo_path: draft.uploadedPhotoPath ?? draft.existingPhotoPath ?? null,
+          photo_path: photoPath,
         })
       }
       formData.append('payload', JSON.stringify({
@@ -646,8 +718,8 @@ export default function InventoryDashboardPage() {
         items: detailRows,
       }))
       const response = await fetch('/api/inventaris/submit', { method: 'POST', body: formData })
-      const result = await response.json().catch(() => null) as { error?: string; submission_id?: string; updated?: boolean } | null
-      if (!response.ok) throw new Error(result?.error ?? 'Gagal mengirim inventaris.')
+      if (!response.ok) throw new Error(await readResponseError(response, 'Gagal mengirim inventaris.'))
+      const result = await response.json().catch(() => null) as { submission_id?: string; updated?: boolean } | null
       await removeInventoryDraft(staffId, todayJakarta(), selectedOutletId)
       setSavedOutletIds((current) => new Set([...current, selectedOutletId]))
       markReferenceSaved(staffId, selectedOutletId)
@@ -655,6 +727,7 @@ export default function InventoryDashboardPage() {
       setMessage(null)
       setCompletedSubmission({ outletName: selectedOutlet?.name ?? 'outlet', updated: Boolean(result?.updated) })
     } catch (error) {
+      setPhotoUploads((current) => Object.fromEntries(Object.entries(current).map(([id, state]) => [id, state.uploading ? { uploading: false, error: null } : state])))
       setMessage({ type: 'error', text: error instanceof Error ? error.message : 'Gagal mengirim inventaris.' })
     } finally {
       setSubmitting(false)
@@ -691,9 +764,9 @@ export default function InventoryDashboardPage() {
         {editOutletId && <>
           <FormStepper steps={formSteps.map(([name]) => name)} activeStep={activeStep} drafts={drafts} groups={formSteps.map(([, group]) => group)} onStepChange={setActiveStep} />
           <div className="rounded-2xl border border-orange-200 bg-white p-3 shadow-sm sm:p-4"><label className="flex items-center gap-3"><Search className="h-5 w-5 shrink-0 text-[#f29744]" /><span className="sr-only">Cari item inventaris</span><input value={itemQuery} onChange={(event) => setItemQuery(event.target.value)} placeholder="Cari dari semua item inventaris..." className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#400a07] outline-none placeholder:text-slate-400" />{itemQuery && <button type="button" onClick={() => setItemQuery('')} className="shrink-0 rounded-lg px-2 py-1 text-xs font-bold text-[#701604] transition hover:bg-orange-50">Hapus</button>}</label><p className="mt-2 pl-8 text-[11px] font-medium text-slate-500">{itemSearchQuery ? `${visibleItemCount} item ditemukan dari semua area.` : 'Cari nama item atau subbagian untuk menampilkan hasil dari seluruh area.'}</p></div>
-          {visibleSteps.map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-200 bg-white shadow-lg shadow-orange-950/5"><div className="border-b border-[#e8b56f]/45 bg-[#f5d6a0] px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); const freezer = isFreezerItem(item); return <article key={item.id} className="border-l-4 border-l-[#f29744] p-5 transition hover:bg-[#fffaf5]"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span>{freezer && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-700">Catatan wajib</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{freezer ? 'Catat total unit dan ukuran freezer yang tersedia (400L, 600L, atau 750L).' : targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm outline-none focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold text-slate-600">Tanggal pembelian<input type="date" value={draft.purchaseDate} onChange={(event) => updateDraft(item.id, { purchaseDate: event.target.value })} className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Merek<input value={draft.brand} onChange={(event) => updateDraft(item.id, { brand: event.target.value })} placeholder="Contoh: Modena, Maspion, Samsung" className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Harga<input type="number" min="0" step="1" value={draft.price} onChange={(event) => updateDraft(item.id, { price: event.target.value })} placeholder="Contoh: 2500000" className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Depresiasi (%/tahun)<div className="relative mt-1"><input type="number" min="0" max="100" step="0.01" value={draft.depreciationRate} onChange={(event) => updateDraft(item.id, { depreciationRate: event.target.value })} placeholder="Contoh: 10" className="w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 pr-10 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /><span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs text-slate-400">%</span></div></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder={freezer ? 'Wajib: contoh “400L 1 unit, 600L 1 unit, 750L tidak ada; kondisi baik”' : 'Catatan item (opsional)'} className={`mt-3 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#f29744] ${freezer && !draft.notes.trim() ? 'border-red-200 bg-red-50/30' : 'border-[#d9a06b]/45 bg-[#fffaf5]'}`} />{freezer && <p className="mt-1 text-xs text-red-600">Tuliskan ukuran freezer dan kondisinya agar data aset lengkap.</p>}</div><PhotoPicker outletId={selectedOutletId} itemName={item.name} itemId={item.id} photo={draft.photo} uploadedPhotoPath={draft.uploadedPhotoPath} uploadedPhotoUrl={draft.uploadedPhotoUrl} existingPhotoUrl={draft.existingPhotoUrl} onPhotoChange={(photo) => updateDraft(item.id, { photo })} onPhotoUploaded={(path, url) => updateDraft(item.id, { uploadedPhotoPath: path ?? undefined, uploadedPhotoUrl: url ?? null })} /></div></article> })}</div></section>)}
+          {visibleSteps.map(([subsection, group]) => <section key={subsection} className="overflow-hidden rounded-3xl border border-orange-200 bg-white shadow-lg shadow-orange-950/5"><div className="border-b border-[#e8b56f]/45 bg-[#f5d6a0] px-5 py-4"><h2 className="font-extrabold text-[#400a07]">{subsection}</h2><p className="mt-1 text-xs text-slate-500">{group.length} item · foto wajib per item</p></div><div className="divide-y divide-slate-100">{group.map((item) => { const draft = drafts[item.id] ?? emptyDraft(); const result = evaluation(item, draft); const freezer = isFreezerItem(item); return <article key={item.id} className="border-l-4 border-l-[#f29744] p-5 transition hover:bg-[#fffaf5]"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-bold text-slate-800">{item.name}</h3><span className={`rounded-full px-2 py-1 text-[10px] font-bold uppercase ${result === 'sesuai' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>{result.replace('_', ' ')}</span>{freezer && <span className="rounded-full bg-red-50 px-2 py-1 text-[10px] font-bold uppercase text-red-700">Catatan wajib</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{freezer ? 'Catat total unit dan ukuran freezer yang tersedia (400L, 600L, atau 750L).' : targetLabel(item)}</p><div className="mt-4 flex flex-wrap items-center gap-3">{item.mode === 'presence' ? <label className="flex items-center gap-2 text-sm font-semibold"><input type="checkbox" checked={draft.isPresent} onChange={(event) => updateDraft(item.id, { isPresent: event.target.checked, condition: event.target.checked ? draft.condition : 'tidak_ada' })} className="h-5 w-5 accent-[#701604]" /> Barang tersedia</label> : <label className="flex items-center gap-2 text-sm font-semibold text-slate-600">Jumlah<input type="number" min="0" step="0.01" value={draft.observedQty} onChange={(event) => updateDraft(item.id, { observedQty: event.target.value })} className="w-28 rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm outline-none focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" />{item.unit}</label>}<label className="flex items-center gap-2 text-sm text-slate-600">Kondisi<CustomSelect value={draft.condition} ariaLabel={`Kondisi ${item.name}`} options={[{ value: 'baik', label: 'Baik' }, { value: 'perlu_perbaikan', label: 'Perlu perbaikan' }, { value: 'rusak', label: 'Rusak' }, { value: 'tidak_ada', label: 'Tidak ada' }]} onChange={(value) => updateDraft(item.id, { condition: value as Condition })} /></label></div><div className="mt-3 grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold text-slate-600">Tanggal pembelian<input type="date" value={draft.purchaseDate} onChange={(event) => updateDraft(item.id, { purchaseDate: event.target.value })} className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Merek<input value={draft.brand} onChange={(event) => updateDraft(item.id, { brand: event.target.value })} placeholder="Contoh: Modena, Maspion, Samsung" className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Harga<input type="number" min="0" step="1" value={draft.price} onChange={(event) => updateDraft(item.id, { price: event.target.value })} placeholder="Contoh: 2500000" className="mt-1 w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /></label><label className="text-xs font-bold text-slate-600">Depresiasi (%/tahun)<div className="relative mt-1"><input type="number" min="0" max="100" step="0.01" value={draft.depreciationRate} onChange={(event) => updateDraft(item.id, { depreciationRate: event.target.value })} placeholder="Contoh: 10" className="w-full rounded-xl border border-[#d9a06b]/45 bg-[#fffaf5] px-3 py-2 pr-10 text-sm font-normal outline-none transition focus:border-[#f29744] focus:ring-2 focus:ring-orange-100" /><span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-xs text-slate-400">%</span></div></label></div><input value={draft.notes} onChange={(event) => updateDraft(item.id, { notes: event.target.value })} placeholder={freezer ? 'Wajib: contoh “400L 1 unit, 600L 1 unit, 750L tidak ada; kondisi baik”' : 'Catatan item (opsional)'} className={`mt-3 w-full rounded-xl border px-3 py-2 text-sm outline-none focus:border-[#f29744] ${freezer && !draft.notes.trim() ? 'border-red-200 bg-red-50/30' : 'border-[#d9a06b]/45 bg-[#fffaf5]'}`} />{freezer && <p className="mt-1 text-xs text-red-600">Tuliskan ukuran freezer dan kondisinya agar data aset lengkap.</p>}</div><PhotoPicker itemName={item.name} itemId={item.id} photo={draft.photo} uploadedPhotoPath={draft.uploadedPhotoPath} uploadedPhotoUrl={draft.uploadedPhotoUrl} existingPhotoUrl={draft.existingPhotoUrl} uploading={Boolean(photoUploads[item.id]?.uploading)} uploadError={photoUploads[item.id]?.error ?? null} onPick={(photo) => { void handlePhotoPick(item.id, photo) }} /></div></article> })}</div></section>)}
       <FormStepNavigation activeStep={activeStep} totalSteps={formSteps.length} onStepChange={setActiveStep} />
-      <button disabled={submitting || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Menyimpan data inventaris...' : photoUploadsPending ? 'Simpan inventaris · foto siap dikirim' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
+      <button disabled={submitting || photoUploadsInFlight || !allPhotos || !allFieldsValid || !items.length} onClick={() => void submit()} className="w-full rounded-2xl bg-[#f29744] px-5 py-4 text-sm font-extrabold text-white shadow-lg shadow-orange-200 transition hover:bg-[#e6842f] disabled:cursor-not-allowed disabled:opacity-50">{submitting ? 'Menyimpan data inventaris...' : photoUploadsInFlight ? 'Menunggu foto selesai diunggah...' : photoUploadsPending ? 'Simpan inventaris · foto siap dikirim' : savedOutletIds.has(selectedOutletId) ? `Simpan perubahan ${selectedOutlet?.name ?? ''}` : `Simpan inventaris ${selectedOutlet?.name ?? ''}`}</button>
         </>}
       </div>
     </main>

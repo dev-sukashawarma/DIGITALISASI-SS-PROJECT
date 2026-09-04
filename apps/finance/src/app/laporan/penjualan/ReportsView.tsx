@@ -750,13 +750,18 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const totalDeductions = isSSOnlineSelected
       ? completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0), 0)
       : completed.reduce((s, o) => {
-          const disc = Number((o as any).discount_amount) || 0
-          const promo = Number((o as any).promo_subsidy) || 0
-          const itemSubtotal = o.order_items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-          const itemDiff = itemSubtotal > Number(o.total_amount) ? itemSubtotal - Number(o.total_amount) : 0
-          // Jika diskon/promo explicit sudah mencakup itemDiff, jangan double count
-          const extraDiff = Math.max(0, itemDiff - (disc + promo))
-          return s + disc + promo + extraDiff
+          // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000).
+          // Potongan = selisih nilai menu vs uang yang tercatat. Rumus lama
+          // (disc + promo + extraDiff) memberi hasil yang benar untuk gross,
+          // tapi angka potongannya meleset Rp 5 dari acuan karena pembulatan
+          // per-order; disamakan supaya kelima dashboard identik.
+          const items = o.order_items || []
+          const total = Number(o.total_amount) || 0
+          if (items.length === 0) {
+            return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+          }
+          const itemValue = items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
+          return s + Math.max(0, itemValue - total)
         }, 0)
 
     const netRevenue = actualNetRevenue
@@ -765,9 +770,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const grossRevenue = isSSOnlineSelected
       ? completed.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
       : completed.reduce((sum, o) => {
-          const itemSubtotal = o.order_items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-          const diff = itemSubtotal > 0 && Number(o.total_amount) > itemSubtotal ? (Number(o.total_amount) - itemSubtotal) : 0
-          return sum + (itemSubtotal > 0 ? (itemSubtotal + diff) : (Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)))
+          // Omzet Kotor = total_amount + Potongan. Ditulis berjangkar pada
+          // total_amount supaya Net Revenue = total_amount secara aljabar.
+          const items = o.order_items || []
+          const total = Number(o.total_amount) || 0
+          if (items.length === 0) {
+            return sum + total + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+          }
+          const itemValue = items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
+          return sum + total + Math.max(0, itemValue - total)
         }, 0)
     const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 

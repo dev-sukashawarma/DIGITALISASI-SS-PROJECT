@@ -286,9 +286,18 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
           }
         }
 
-        // Acuan omzet kanonik, sama dengan sales_daily_spv & dashboard Owner.
-        const deductions = disc + promo
-        const grossRev = totalAmt + disc + promo
+        // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000):
+        //   Potongan = MAX(0, nilai item - total_amount); Omzet = total_amount + Potongan.
+        // Tidak memakai promo_subsidy: arti `total_amount` sempat berubah
+        // (19 Agu 2026, b41efc7a) sehingga promo bisa terhitung dua kali.
+        const itemValue = (order.order_items || []).reduce(
+          (s: number, i: any) => s + (Number(i.subtotal) || 0),
+          0
+        )
+        const deductions = (order.order_items || []).length > 0
+          ? Math.max(0, itemValue - totalAmt)
+          : disc + promo
+        const grossRev = totalAmt + deductions
 
         grossRevenue += grossRev
         totalDeductions += deductions

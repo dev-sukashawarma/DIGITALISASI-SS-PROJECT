@@ -68,6 +68,11 @@ FROM stok_balance sb JOIN bahan_baku b ON b.id = sb.bahan_baku_id;
 
 Kalau `belum_perlu_digarap` masih puluhan, BNR belum opname — selesaikan itu dulu.
 
+**Dijalankan 4 September (sesi lanjutan): `belum_perlu_digarap` = 79, dengan 39
+di BNR. Masih terhalang.** Catatan praktis: `exec_sql` mengembalikan `void`,
+jadi tidak bisa dipakai membaca. Untuk kueri baca pakai
+`supabase db query "<sql>" --linked` — terbukti jalan dari mesin ini.
+
 **Butir 2 (konfirmasi PSAK) tidak butuh sesi coding.** Jawabannya menentukan
 seberapa mendesak butir 1: kalau metode sekarang memang tidak diakui standar,
 itu alasan mengubahnya yang berdiri sendiri, terlepas dari selisih angkanya
@@ -180,14 +185,20 @@ satuan kecil (gram/lembar), nilai waste meleset sebesar faktor kemasan.
 **Langkah pertama:** ambil beberapa baris `stok_waste_reports` dan bandingkan
 besaran `qty`-nya dengan satuan bahannya.
 
-### 8. Laporan nilai persediaan belum ada
+### 8. ~~Laporan nilai persediaan belum ada~~ — SUDAH DIBUAT
 
-Persediaan bernilai **Rp409 juta** (gudang Rp161,8 jt + 24 outlet Rp247,1 jt),
-dan **tidak ada satu halaman pun** yang menghitungnya. Diverifikasi: nol kode
-aplikasi yang menyentuhnya.
+Persediaan bernilai **Rp409 juta** (gudang Rp161,8 jt + 24 outlet Rp247,1 jt)
+dulu tidak terhitung di halaman mana pun. Sekarang sudah ada, dan sudah di
+`main`:
 
-Ini aset besar yang tidak terlihat di laporan mana pun. Perlu dibuat, terlepas
-dari metode harga mana yang dipilih.
+- `supabase/migrations/20300129000000_nilai_persediaan_view.sql`
+- `apps/stok/src/app/stok/nilai-persediaan/page.tsx`
+- `apps/stok/src/components/nilai-persediaan/NilaiPersediaanBoard.tsx`
+- `apps/stok/src/hooks/useNilaiPersediaan.ts`
+
+Halaman ini sengaja **jujur soal yang belum pasti** — memisahkan nilai yang
+pasti dari baris yang skalanya belum tentu. Selama BNR belum opname, bagian
+"belum pasti" itu tidak akan kosong.
 
 ### 9. Surat jalan menggantung
 
@@ -202,17 +213,21 @@ tidak ditutup, dan itu membuat angka stok gudang & outlet terus meleset tipis.
 
 ## STATUS BRANCH
 
-Branch `claude/new-session-0f1553`, sudah di-merge dengan `main` (tanpa konflik).
+**Seluruh isi branch `claude/new-session-0f1553` sudah ada di `main`** (dicek 4
+September setelah `git fetch`) — migration `20300127`–`20300130`, halaman Nilai
+Persediaan, koreksi satuan, dan ketiga dokumen. Tidak ada lagi yang menggantung
+di branch.
 
-Berisi tiga dokumen (audit teknis, skenario bahasa awam, catatan ini) dan satu
-naskah SQL penggabungan FOIL. Migration HPP yang sempat dibuat sudah **dibuang**
-karena `main` ternyata punya versinya.
+⚠️ **Hati-hati membandingkan ke `main` lokal yang belum di-fetch.** Sesi 4
+September sempat menyimpulkan "empat migration tidak punya jejak di riwayat"
+— salah, karena `main` lokal tertinggal 50-an commit dari `origin/main`.
+`git fetch` dulu sebelum menyimpulkan apa pun soal apa yang sudah/belum masuk.
 
-Perubahan yang sudah **berjalan di produksi** (dijalankan lewat SQL Editor,
-bukan lewat migration): penggabungan FOIL dan penyesuaian harganya. Ini artinya
-perubahan itu **tidak ada jejaknya di migration** — kalau database dibangun
-ulang dari nol, penggabungan FOIL tidak ikut. Naskahnya disimpan di
-`docs/draft-sql/` sebagai catatan apa yang dijalankan.
+Yang **memang tidak punya jejak di migration**: penggabungan FOIL dan
+penyesuaian harganya, karena dijalankan lewat SQL Editor. Kalau database
+dibangun ulang dari nol, penggabungan FOIL tidak ikut. Naskahnya disimpan di
+`docs/draft-sql/gabung-foil-48-ke-foil.sql` sebagai catatan apa yang
+dijalankan.
 
 ---
 
@@ -352,7 +367,9 @@ merusak angkanya. Barisnya terjebak di antara keduanya.
 ### Perbaikan
 
 `supabase/migrations/20300128000000_finalize_opname_sadar_skala.sql`
-— **belum diterapkan**, menunggu persetujuan.
+— **sudah diterapkan & sudah masuk `main`.** Diverifikasi ulang 4 September
+lewat `pg_get_functiondef('finalize_opname')`: badan fungsi di produksi memang
+sudah memakai `saldo_is_gram`.
 
 ```
 delta = qty_fisik - saldo_tersimpan     (untuk baris belum gram-scale)
@@ -419,6 +436,10 @@ Dari 81 itu:
 | KANTOR PUSAT | 17 | tidak (outlet dummy) |
 | GUDANG SS ONLINE | 1 | tidak (marketplace) |
 
+**Dihitung ulang 4 September (sesi lanjutan):** 1.561 baris total — 984 sudah
+skala kecil, 577 belum, dari situ **79 aktif & bersaldo**. Sebarannya sama,
+BNR turun tipis 41 → **39**. Praktis tidak bergerak.
+
 ---
 
 ## 🔴 BNR HARUS OPNAME — ditunda atas keputusan owner 4 September
@@ -431,6 +452,12 @@ Dari 81 itu:
 | Outlet lain (18) | 20–25 | 900–2.500 |
 
 BNR **tidak pernah opname sama sekali** dalam 30 hari, padahal beroperasi normal.
+
+**Temuan tambahan 4 September:** sepanjang riwayat BNR cuma punya **6 opname**,
+dan satu-satunya dalam 30 hari terakhir adalah **draft 13 Agustus yang tidak
+pernah difinalisasi**. Jadi bukan sekadar telat — prosesnya berhenti di tengah.
+Sebelum meminta BNR opname ulang, ada baiknya dicek dulu apakah ada hambatan
+teknis yang membuat draft itu mandek, bukan sekadar kelalaian.
 
 **Akibatnya, dan ini bukan sekadar soal laporan:**
 

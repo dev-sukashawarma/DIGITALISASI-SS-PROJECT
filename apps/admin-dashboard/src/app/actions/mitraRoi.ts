@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
+import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { cleanItemName } from '@/lib/order-item-name'
 
 export async function getMitraRoiStats(outletId: string | 'all', allowedOutletIds: string[]) {
@@ -74,47 +75,21 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   
   if (mitraOutletIds.length === 0) return {}
 
-  // 1. Fetch investments, profiles, and transfers
-  const [invRes, profRes, transfersRes] = await Promise.all([
-    supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
-    supabase.from('mitra_profiles').select('*'),
-    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds)
-  ])
-  
-  const invMap: Record<string, any> = {}
-  ;(invRes.data || []).forEach(inv => {
-    invMap[inv.outlet_id] = inv
-  })
-  
-  const profiles = profRes.data || []
-  const transfersData = transfersRes.data || []
-
-  // 2. Fetch all completed orders strictly from 1 August 2026
   const SYSTEM_START_DATE = '2026-07-31T17:00:00.000Z' // 2026-08-01 00:00:00 WIB
 
-  let allOrders: any[] = []
-  let offset = 0
-  while (true) {
-    const { data: page, error } = await supabase
-      .from('orders')
-      .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-      .in('outlet_id', mitraOutletIds)
-      .eq('status', 'completed')
-      .gte('created_at', SYSTEM_START_DATE)
-      .range(offset, offset + 999)
-      
-    if (error || !page || page.length === 0) break
-    allOrders.push(...page)
-    if (page.length < 1000) break
-    offset += 1000
-  }
-  
-  // 3. Fetch all expenses & waste strictly from 1 August 2026
+  // 1. Fetch investments, profiles, transfers, expenses, waste, and pre-aggregated order RPC in parallel
   const [
-    { data: pettyExpenses },
-    { data: monthlyExpenses },
-    { data: wasteRows }
+    invRes,
+    profRes,
+    transfersRes,
+    pettyRes,
+    monthlyRes,
+    wasteRes,
+    rpcRes
   ] = await Promise.all([
+    supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
+    supabase.from('mitra_profiles').select('*'),
+    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds),
     supabase
       .from('petty_cash_expenses')
       .select('amount, expense_date, outlet_id')
@@ -135,81 +110,100 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     supabase.rpc('get_waste_periode', {
       p_from: '2026-08-01',
       p_to: new Date().toISOString().slice(0, 10)
-    }).then(res => ({ data: res.data || [] }))
+    }).then(res => ({ data: res.data || [] })),
+    supabase.rpc('get_mitra_orders_summary', {
+      p_outlet_ids: mitraOutletIds,
+      p_from: SYSTEM_START_DATE,
+      p_to: new Date().toISOString()
+    })
   ])
 
-  // 4. Calculate per outlet
+  const invMap: Record<string, any> = {}
+  ;(invRes.data || []).forEach(inv => {
+    invMap[inv.outlet_id] = inv
+  })
+  const profiles = profRes.data || []
+  const transfersData = transfersRes.data || []
+  const pettyExpenses = pettyRes.data || []
+  const monthlyExpenses = monthlyRes.data || []
+  const wasteRows = wasteRes.data || []
+
+  // Deklarasi ini sempat hilang saat refactor performa di main (3e0b1e5c):
+  // `resultMap` masih dipakai di bawah, tapi tidak pernah dideklarasikan lagi,
+  // sehingga fungsi ini SELALU melempar ReferenceError saat dipanggil.
   const resultMap: Record<string, MitraRealtimeBepItem> = {}
 
-// HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
-// komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
-function getItemHppBase(menuItem: any, channel?: string | null): number {
-  if (!menuItem) return 0
-  let baseHpp = 0
-  const normCh = channel ? channel.toLowerCase() : null
-  let channelHppVal: number | null = null
+  // 2. Process pre-aggregated RPC data (or fallback to order pagination if RPC failed)
+  let rpcDataByOutlet: Record<string, { grossRevenue: number; totalDeductions: number; totalCogs: number }> = {}
+  const { data: rpcData, error: rpcError } = rpcRes
 
-  if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-    if (
-      normCh === 'ss-online' ||
-      normCh === 'ss_online' ||
-      normCh.includes('tiktok') ||
-      normCh.includes('shopee') ||
-      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-    ) {
-      channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
-    } else {
-      channelHppVal = menuItem.channel_hpp[normCh] ?? null
+  // Fallback orders array, populated ONLY if RPC is not available
+  let allOrders: any[] = []
+
+  // HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
+  // komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
+  function getItemHppBase(menuItem: any, channel?: string | null): number {
+    if (!menuItem) return 0
+    let baseHpp = 0
+    const normCh = channel ? channel.toLowerCase() : null
+    let channelHppVal: number | null = null
+
+    if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
+      if (
+        normCh === 'ss-online' ||
+        normCh === 'ss_online' ||
+        normCh.includes('tiktok') ||
+        normCh.includes('shopee') ||
+        normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+        normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
+      ) {
+        channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
+      } else {
+        channelHppVal = menuItem.channel_hpp[normCh] ?? null
+      }
     }
+
+    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+      baseHpp = Number(channelHppVal)
+    } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
+      baseHpp = Number(menuItem.hpp_override)
+    } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
+      baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
+        const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
+        const qty = Number(pkg.quantity) || 1
+        return sum + (compHpp * qty)
+      }, 0)
+    }
+    return baseHpp
   }
 
-  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-    baseHpp = Number(channelHppVal)
-  } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
-    baseHpp = Number(menuItem.hpp_override)
-  } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
-    baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
-      const qty = Number(pkg.quantity) || 1
-      return sum + (compHpp * qty)
-    }, 0)
+  // Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
+  function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+    const baseHpp = getItemHppBase(menuItem, channel)
+    if (outletType === 'mitra' && baseHpp > 0) {
+      return Math.round(baseHpp * 1.10)
+    }
+    return Math.round(baseHpp)
   }
-  return baseHpp
-}
-
-// Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
-function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
-  const baseHpp = getItemHppBase(menuItem, channel)
-  if (outletType === 'mitra' && baseHpp > 0) {
-    return Math.round(baseHpp * 1.10)
-  }
-  return Math.round(baseHpp)
-}
 
   // Cadangan HPP lewat NAMA menu: jalur pemesanan web menyimpan order_items
   // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya
-  // bahannya hilang. Dipakai HANYA saat lookup id gagal.
-  const { data: menuList } = await supabase
-    .from('menu_items')
-    .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
-  const menuByName = new Map<string, any>()
-  for (const m of menuList ?? []) {
-    if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
-  }
-  const hppByName = (rawName?: string | null, channel?: string | null): number => {
+  // bahannya hilang. Peta ini dimuat hanya saat jalur fallback dipakai.
+  let menuByName: Map<string, any> | null = null
+  const hppByName = async (rawName?: string | null, channel?: string | null): Promise<number> => {
     if (!rawName) return 0
+    if (!menuByName) {
+      const { data: menuList } = await supabase
+        .from('menu_items')
+        .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+      menuByName = new Map<string, any>()
+      for (const m of menuList ?? []) {
+        if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
+      }
+    }
     const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
     return m ? getItemHpp(m, 'mitra', channel) : 0
   }
-
-  // Try using the optimized PostgreSQL RPC first
-  let rpcDataByOutlet: Record<string, { grossRevenue: number, totalDeductions: number, totalCogs: number }> = {}
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
-    p_outlet_ids: mitraOutletIds,
-    p_from: SYSTEM_START_DATE,
-    p_to: new Date().toISOString()
-  })
 
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
     for (const row of rpcData) {
@@ -221,22 +215,46 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
       rpcDataByOutlet[oid].totalDeductions += Number(row.deductions) || 0
       rpcDataByOutlet[oid].totalCogs += Number(row.cogs) || 0
     }
+  } else {
+    // Graceful fallback: only paginates if RPC failed
+    let offset = 0
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('orders')
+        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .in('outlet_id', mitraOutletIds)
+        .eq('status', 'completed')
+        .gte('created_at', SYSTEM_START_DATE)
+        .range(offset, offset + 999)
+        
+      if (error || !page || page.length === 0) break
+      allOrders.push(...page)
+      if (page.length < 1000) break
+      offset += 1000
+    }
   }
 
   for (const oid of mitraOutletIds) {
     const inv = invMap[oid]
     const profile = profiles.find(p => (p.outlet_ids || []).includes(oid))
-    let pct = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
     const modalInvestasi = Number(inv?.nilai_investasi) || 0
     const omzetHistoris = Number(inv?.omzet_historis) || 0
     const transferHistoris = Number(inv?.transfer_historis) || 0
-    const mgmtFeePct = Number(inv?.management_fee) || 0
     const systemTransfers = transfersData.filter(t => t.outlet_id === oid).reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
 
-    // JIKA SUDAH BEP 100%, maka keuntungan antara mitra dan pusat jadi 50:50
-    if (modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi) {
-      pct = 50
-    }
+    const isBepAlready = modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi
+    const legacyShare = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
+    const legacyFee = Number(inv?.management_fee) || 0
+
+    const policy = resolveMitraPolicy({
+      periodFrom: new Date().toISOString(),
+      isBep: isBepAlready,
+      legacyProfitSharingPct: legacyShare,
+      legacyManagementFee: legacyFee
+    })
+
+    const pct = policy.profitSharingPct
+    const mgmtFeePct = policy.managementFeePct
 
     let grossRevenue = 0
     let totalDeductions = 0
@@ -250,7 +268,9 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
       }
     } else {
       const outletOrders = allOrders.filter(o => o.outlet_id === oid)
-      outletOrders.forEach(order => {
+      // for..of, bukan forEach: cadangan HPP lewat nama menu bersifat async
+      // (peta menu dimuat sekali saat pertama dibutuhkan).
+      for (const order of outletOrders) {
         const totalAmt = Number(order.total_amount) || 0
         const disc = Number(order.discount_amount) || 0
         const promo = Number(order.promo_subsidy) || 0
@@ -261,7 +281,7 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
           for (const item of order.order_items) {
             const qty = Number(item.quantity) || 1
             const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
-              || hppByName(item.menu_item_name, order.channel)
+              || await hppByName(item.menu_item_name, order.channel)
             orderCogs += (hpp * qty)
           }
         }
@@ -273,7 +293,7 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
         grossRevenue += grossRev
         totalDeductions += deductions
         totalCogs += orderCogs
-      })
+      }
     }
 
     const opex = (pettyExpenses?.filter(p => p.outlet_id === oid).reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0) +
@@ -281,9 +301,9 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
 
     const waste = wasteRows?.filter((w: any) => w.outlet_id === oid).reduce((sum: number, w: any) => sum + Number(w.nilai_waste || 0), 0) || 0
 
-    const managementFee = (grossRevenue * mgmtFeePct) / 100
+    const managementFee = Math.round((grossRevenue * mgmtFeePct) / 100)
     const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee
-    const mitraShare = netProfit > 0 ? (netProfit * pct) / 100 : 0
+    const mitraShare = netProfit > 0 ? Math.round((netProfit * pct) / 100) : 0
 
     const totalDanaKembali = omzetHistoris + transferHistoris + mitraShare
     const roiPct = modalInvestasi > 0 ? (totalDanaKembali / modalInvestasi) * 100 : 0

@@ -74,47 +74,21 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   
   if (mitraOutletIds.length === 0) return {}
 
-  // 1. Fetch investments, profiles, and transfers
-  const [invRes, profRes, transfersRes] = await Promise.all([
-    supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
-    supabase.from('mitra_profiles').select('*'),
-    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds)
-  ])
-  
-  const invMap: Record<string, any> = {}
-  ;(invRes.data || []).forEach(inv => {
-    invMap[inv.outlet_id] = inv
-  })
-  
-  const profiles = profRes.data || []
-  const transfersData = transfersRes.data || []
-
-  // 2. Fetch all completed orders strictly from 1 August 2026
   const SYSTEM_START_DATE = '2026-07-31T17:00:00.000Z' // 2026-08-01 00:00:00 WIB
 
-  let allOrders: any[] = []
-  let offset = 0
-  while (true) {
-    const { data: page, error } = await supabase
-      .from('orders')
-      .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-      .in('outlet_id', mitraOutletIds)
-      .eq('status', 'completed')
-      .gte('created_at', SYSTEM_START_DATE)
-      .range(offset, offset + 999)
-      
-    if (error || !page || page.length === 0) break
-    allOrders.push(...page)
-    if (page.length < 1000) break
-    offset += 1000
-  }
-  
-  // 3. Fetch all expenses & waste strictly from 1 August 2026
+  // 1. Fetch investments, profiles, transfers, expenses, waste, and pre-aggregated order RPC in parallel
   const [
-    { data: pettyExpenses },
-    { data: monthlyExpenses },
-    { data: wasteRows }
+    invRes,
+    profRes,
+    transfersRes,
+    pettyRes,
+    monthlyRes,
+    wasteRes,
+    rpcRes
   ] = await Promise.all([
+    supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
+    supabase.from('mitra_profiles').select('*'),
+    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds),
     supabase
       .from('petty_cash_expenses')
       .select('amount, expense_date, outlet_id')
@@ -130,65 +104,76 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     supabase.rpc('get_waste_periode', {
       p_from: '2026-08-01',
       p_to: new Date().toISOString().slice(0, 10)
-    }).then(res => ({ data: res.data || [] }))
+    }).then(res => ({ data: res.data || [] })),
+    supabase.rpc('get_mitra_orders_summary', {
+      p_outlet_ids: mitraOutletIds,
+      p_from: SYSTEM_START_DATE,
+      p_to: new Date().toISOString()
+    })
   ])
 
-  // 4. Calculate per outlet
-  const resultMap: Record<string, MitraRealtimeBepItem> = {}
-
-// HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
-// komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
-function getItemHppBase(menuItem: any, channel?: string | null): number {
-  if (!menuItem) return 0
-  let baseHpp = 0
-  const normCh = channel ? channel.toLowerCase() : null
-  let channelHppVal: number | null = null
-
-  if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-    if (
-      normCh === 'ss-online' ||
-      normCh === 'ss_online' ||
-      normCh.includes('tiktok') ||
-      normCh.includes('shopee') ||
-      normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-      normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-    ) {
-      channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
-    } else {
-      channelHppVal = menuItem.channel_hpp[normCh] ?? null
-    }
-  }
-
-  if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-    baseHpp = Number(channelHppVal)
-  } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
-    baseHpp = Number(menuItem.hpp_override)
-  } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
-    baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
-      const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
-      const qty = Number(pkg.quantity) || 1
-      return sum + (compHpp * qty)
-    }, 0)
-  }
-  return baseHpp
-}
-
-// Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
-function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
-  const baseHpp = getItemHppBase(menuItem, channel)
-  if (outletType === 'mitra' && baseHpp > 0) {
-    return Math.round(baseHpp * 1.10)
-  }
-  return Math.round(baseHpp)
-}
-
-  // Try using the optimized PostgreSQL RPC first
-  let rpcDataByOutlet: Record<string, { grossRevenue: number, totalDeductions: number, totalCogs: number }> = {}
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
-    p_outlet_ids: mitraOutletIds,
-    p_from: SYSTEM_START_DATE,
-    p_to: new Date().toISOString()
+  const invMap: Record<string, any> = {}
+  ;(invRes.data || []).forEach(inv => {
+    invMap[inv.outlet_id] = inv
   })
+  const profiles = profRes.data || []
+  const transfersData = transfersRes.data || []
+  const pettyExpenses = pettyRes.data || []
+  const monthlyExpenses = monthlyRes.data || []
+  const wasteRows = wasteRes.data || []
+
+  // 2. Process pre-aggregated RPC data (or fallback to order pagination if RPC failed)
+  let rpcDataByOutlet: Record<string, { grossRevenue: number; totalDeductions: number; totalCogs: number }> = {}
+  const { data: rpcData, error: rpcError } = rpcRes
+
+  // Fallback orders array, populated ONLY if RPC is not available
+  let allOrders: any[] = []
+
+  // HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
+  // komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
+  function getItemHppBase(menuItem: any, channel?: string | null): number {
+    if (!menuItem) return 0
+    let baseHpp = 0
+    const normCh = channel ? channel.toLowerCase() : null
+    let channelHppVal: number | null = null
+
+    if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
+      if (
+        normCh === 'ss-online' ||
+        normCh === 'ss_online' ||
+        normCh.includes('tiktok') ||
+        normCh.includes('shopee') ||
+        normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
+        normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
+      ) {
+        channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
+      } else {
+        channelHppVal = menuItem.channel_hpp[normCh] ?? null
+      }
+    }
+
+    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
+      baseHpp = Number(channelHppVal)
+    } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
+      baseHpp = Number(menuItem.hpp_override)
+    } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
+      baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
+        const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
+        const qty = Number(pkg.quantity) || 1
+        return sum + (compHpp * qty)
+      }, 0)
+    }
+    return baseHpp
+  }
+
+  // Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
+  function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+    const baseHpp = getItemHppBase(menuItem, channel)
+    if (outletType === 'mitra' && baseHpp > 0) {
+      return Math.round(baseHpp * 1.10)
+    }
+    return Math.round(baseHpp)
+  }
 
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
     for (const row of rpcData) {
@@ -199,6 +184,23 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
       rpcDataByOutlet[oid].grossRevenue += Number(row.gross_revenue) || 0
       rpcDataByOutlet[oid].totalDeductions += Number(row.deductions) || 0
       rpcDataByOutlet[oid].totalCogs += Number(row.cogs) || 0
+    }
+  } else {
+    // Graceful fallback: only paginates if RPC failed
+    let offset = 0
+    while (true) {
+      const { data: page, error } = await supabase
+        .from('orders')
+        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .in('outlet_id', mitraOutletIds)
+        .eq('status', 'completed')
+        .gte('created_at', SYSTEM_START_DATE)
+        .range(offset, offset + 999)
+        
+      if (error || !page || page.length === 0) break
+      allOrders.push(...page)
+      if (page.length < 1000) break
+      offset += 1000
     }
   }
 

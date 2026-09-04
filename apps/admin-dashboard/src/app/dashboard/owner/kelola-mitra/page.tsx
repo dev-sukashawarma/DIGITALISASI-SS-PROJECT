@@ -17,42 +17,41 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
   
   const sp = await searchParams
 
-  // 1. Ambil profil mitra lengkap
-  const { data: mitraProfiles } = await supabase
-    .from('mitra_profiles')
-    .select('*')
-    .order('created_at', { ascending: false })
-    
-  // 2. Ambil semua outlet (untuk pilihan & filter)
-  const { data: allOutlets } = await supabase
-    .from('outlets')
-    .select('id, name, type, is_active')
-    .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
-    .order('name', { ascending: true })
-    
-  // 3. Ambil data investasi per outlet
-  const { data: investments } = await supabase
-    .from('mitra_investments')
-    .select('*')
-
-  // 4. Ambil semua saran masuk
-  const { data: suggestions } = await supabase
-    .from('mitra_suggestions')
-    .select('*, outlets(name)')
-    .order('created_at', { ascending: false })
-
-  // 5. Ambil user list dari outlet_staff (khusus role MITRA / mitra)
-  const { data: staffList } = await supabase
-    .from('outlet_staff')
-    .select('id, name, role, username')
-    .in('role', ['mitra', 'MITRA'])
-    .order('name', { ascending: true })
-    
-  // 6. Ambil daftar transfer bagi hasil
-  const { data: transfers } = await supabase
-    .from('mitra_transfers')
-    .select('*, outlets(name)')
-    .order('bulan', { ascending: false })
+  // 1-6. Ambil profil mitra, outlet, investasi, saran, staff, dan transfer secara paralel
+  const [
+    { data: mitraProfiles },
+    { data: allOutlets },
+    { data: investments },
+    { data: suggestions },
+    { data: staffList },
+    { data: transfers }
+  ] = await Promise.all([
+    supabase
+      .from('mitra_profiles')
+      .select('*')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('outlets')
+      .select('id, name, type, is_active')
+      .neq('id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+      .order('name', { ascending: true }),
+    supabase
+      .from('mitra_investments')
+      .select('*'),
+    supabase
+      .from('mitra_suggestions')
+      .select('*, outlets(name)')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('outlet_staff')
+      .select('id, name, role, username')
+      .in('role', ['mitra', 'MITRA'])
+      .order('name', { ascending: true }),
+    supabase
+      .from('mitra_transfers')
+      .select('*, outlets(name)')
+      .order('bulan', { ascending: false })
+  ])
     
   // Format user list for dropdown
   const allUsers = (staffList || []).map(s => ({

@@ -111,20 +111,62 @@ export async function getMitraComprehensivePnl(
     }
   }
 
-  // 1. Fetch Profile & Outlet Info
+  // 1. Date ranges
+  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
+  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
+
+  // 2. Fetch all Profile, Outlets, Investments, Transfers, Expenses, Waste, and RPC Orders Summary in parallel
   const [
-    { data: profile },
-    { data: outletList },
-    { data: investments },
-    { data: transfers }
+    profileRes,
+    outletListRes,
+    investmentsRes,
+    transfersRes,
+    pettyExpensesRes,
+    monthlyExpensesRes,
+    wasteRowsRes,
+    rpcRes
   ] = await Promise.all([
     supabase.from('mitra_profiles').select('*').eq('user_id', user.id).single(),
     supabase.from('outlets').select('id, name').in('id', targetOutletIds),
     supabase.from('mitra_investments').select('*').in('outlet_id', targetOutletIds),
-    supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds)
+    supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds),
+    supabase
+      .from('petty_cash_expenses')
+      .select('id, amount, expense_date, category, description, outlet_id')
+      .in('outlet_id', targetOutletIds)
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .is('deleted_at', null)
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to),
+    supabase
+      .from('expenses')
+      .select('id, amount, expense_date, category, description, outlet_id, type')
+      .in('outlet_id', targetOutletIds)
+      .neq('outlet_id', TEST_OUTLET_ID)
+      .eq('type', 'expense')
+      .gte('expense_date', filter.from)
+      .lte('expense_date', filter.to),
+    supabase.rpc('get_waste_periode', {
+      p_from: filter.from,
+      p_to: filter.to,
+    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) })),
+    supabase.rpc('get_mitra_orders_summary', {
+      p_outlet_ids: targetOutletIds,
+      p_from: fromStart.toISOString(),
+      p_to: toEnd.toISOString()
+    })
   ])
 
-  // 1b. Determine profit sharing pct (prefer outlet investment setting, then profile setting, fallback 50%)
+  const profile = profileRes.data
+  const outletList = outletListRes.data
+  const investments = investmentsRes.data
+  const transfers = transfersRes.data
+  const pettyExpenses = pettyExpensesRes.data
+  const monthlyExpenses = monthlyExpensesRes.data
+  const wasteRows = wasteRowsRes.data
+  const { data: rpcData, error: rpcError } = rpcRes
+
+  // 3. Determine profit sharing pct (prefer outlet investment setting, then profile setting, fallback 50%)
   let profitSharingPct = 50
   if (targetOutletIds.length === 1) {
     const singleInv = investments?.find(i => i.outlet_id === targetOutletIds[0])
@@ -141,15 +183,7 @@ export async function getMitraComprehensivePnl(
     ? (targetOutletIds.length > 1 ? `Semua Outlet (${targetOutletIds.length})` : (outletList?.[0]?.name || 'Semua Outlet'))
     : (outletList?.find(o => o.id === selectedOutletId)?.name || 'Outlet')
 
-  // 2. Date ranges
-  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
-  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
-
-  // 3. Fetch Orders (Paginated)
-  // Query dibangun ulang tiap halaman lewat fungsi ini — builder Supabase
-  // bersifat mutable, memakai ulang instance yang sama untuk beberapa `.range()`
-  // rapuh. `.order('id')` WAJIB: tanpa urutan deterministik, paginasi bisa
-  // melewatkan atau menggandakan baris antar-halaman.
+  // Fallback query builder (used ONLY if RPC fails)
   const buildOrdersQuery = () => supabase
     .from('orders')
     .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
@@ -160,39 +194,7 @@ export async function getMitraComprehensivePnl(
     .lte('created_at', toEnd.toISOString())
     .order('id', { ascending: true })
 
-  // 4. Fetch Petty Cash & Monthly Expenses & Waste in parallel
-  const [
-    { data: pettyExpenses },
-    { data: monthlyExpenses },
-    { data: wasteRows }
-  ] = await Promise.all([
-    supabase
-      .from('petty_cash_expenses')
-      .select('id, amount, expense_date, category, description, outlet_id')
-      .in('outlet_id', targetOutletIds)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      .is('deleted_at', null)
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to),
-    supabase
-      .from('expenses')
-      .select('id, amount, expense_date, category, description, outlet_id, type')
-      .in('outlet_id', targetOutletIds)
-      .neq('outlet_id', TEST_OUTLET_ID)
-      // Sebelumnya `.eq('type','out')` — tipe yang tidak pernah dipakai
-      // pengeluaran sungguhan (hanya 13 baris tes yang kini sudah dihapus).
-      // Akibatnya pengeluaran bulanan mitra tidak pernah ikut terhitung.
-      // Pengeluaran nyata bertipe 'expense'.
-      .eq('type', 'expense')
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to),
-    supabase.rpc('get_waste_periode', {
-      p_from: filter.from,
-      p_to: filter.to,
-    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) }))
-  ])
-
-  // 5. Process Channel Breakdown & COGS
+  // 4. Process Channel Breakdown & COGS
   let posGross = 0
   let posDeductions = 0
   let posCogs = 0
@@ -213,13 +215,6 @@ export async function getMitraComprehensivePnl(
 
   const outletGrossRevMap = new Map<string, number>()
   const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
-
-  // Try using the optimized PostgreSQL RPC first
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
-    p_outlet_ids: targetOutletIds,
-    p_from: fromStart.toISOString(),
-    p_to: toEnd.toISOString()
-  })
 
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
     // We successfully retrieved the pre-aggregated data from the database

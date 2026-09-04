@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 
 export interface ChannelPnlDetail {
@@ -166,18 +167,9 @@ export async function getMitraComprehensivePnl(
   const wasteRows = wasteRowsRes.data
   const { data: rpcData, error: rpcError } = rpcRes
 
-  // 3. Determine profit sharing pct (prefer outlet investment setting, then profile setting, fallback 50%)
-  let profitSharingPct = 50
-  if (targetOutletIds.length === 1) {
-    const singleInv = investments?.find(i => i.outlet_id === targetOutletIds[0])
-    if (singleInv?.persentase_bagi_hasil) {
-      profitSharingPct = Number(singleInv.persentase_bagi_hasil)
-    } else if (profile?.profit_sharing_pct) {
-      profitSharingPct = Number(profile.profit_sharing_pct)
-    }
-  } else if (profile?.profit_sharing_pct) {
-    profitSharingPct = Number(profile.profit_sharing_pct)
-  }
+  // Penentuan persentase bagi hasil kini lewat resolveMitraPolicy() di bawah
+  // (per-outlet, sadar BEP & cutoff September 2026). Blok lama yang menghitung
+  // `profitSharingPct` di sini sudah tidak dibaca siapa pun sejak 407749ad.
 
   const outletName = selectedOutletId === 'all'
     ? (targetOutletIds.length > 1 ? `Semua Outlet (${targetOutletIds.length})` : (outletList?.[0]?.name || 'Semua Outlet'))
@@ -186,7 +178,7 @@ export async function getMitraComprehensivePnl(
   // Fallback query builder (used ONLY if RPC fails)
   const buildOrdersQuery = () => supabase
     .from('orders')
-    .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+    .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
     .in('outlet_id', targetOutletIds)
     .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'completed')
@@ -307,6 +299,23 @@ export async function getMitraComprehensivePnl(
     // dilaporkan terlalu kecil tanpa gejala apa pun.
     const allOrders = await fetchAllPages<any>(buildOrdersQuery)
 
+    // Cadangan HPP lewat NAMA menu: jalur pemesanan web menyimpan order_items
+    // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya
+    // bahannya hilang dari laba mitra. Pola sama dengan useHpp.ts di dashboard
+    // Owner. Dipakai HANYA saat lookup id gagal.
+    const { data: menuList } = await supabase
+      .from('menu_items')
+      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+    const menuByName = new Map<string, any>()
+    for (const m of menuList ?? []) {
+      if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
+    }
+    const hppByName = (rawName?: string | null, channel?: string | null): number => {
+      if (!rawName) return 0
+      const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
+      return m ? getItemHpp(m, 'mitra', channel) : 0
+    }
+
     for (const ord of allOrders) {
       const totalAmt = Number(ord.total_amount) || 0
       const disc = Number(ord.discount_amount) || 0
@@ -320,6 +329,7 @@ export async function getMitraComprehensivePnl(
         for (const item of ord.order_items) {
           const qty = Number(item.quantity) || 1
           const hpp = getItemHpp(item.menu_items, 'mitra', ord.channel)
+            || hppByName(item.menu_item_name, ord.channel)
           orderCogs += (hpp * qty)
         }
       }

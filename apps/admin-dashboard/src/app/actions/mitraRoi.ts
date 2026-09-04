@@ -3,6 +3,7 @@
 import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
+import { cleanItemName } from '@/lib/order-item-name'
 
 export async function getMitraRoiStats(outletId: string | 'all', allowedOutletIds: string[]) {
   const targetOutlets = outletId === 'all' ? allowedOutletIds : [outletId]
@@ -99,7 +100,12 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       .from('expenses')
       .select('amount, expense_date, outlet_id')
       .in('outlet_id', mitraOutletIds)
-      .eq('type', 'out')
+      // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
+      // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
+      // perhitungan ROI/BEP, sehingga laba & BEP terlihat lebih cepat tercapai.
+      // Bug yang sama sudah diperbaiki di mitraPnl.ts; salinannya di sini
+      // terlewat. Pengeluaran nyata bertipe 'expense'.
+      .eq('type', 'expense')
       .gte('expense_date', '2026-08-01'),
     supabase.rpc('get_waste_periode', {
       p_from: '2026-08-01',
@@ -121,6 +127,11 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   const pettyExpenses = pettyRes.data || []
   const monthlyExpenses = monthlyRes.data || []
   const wasteRows = wasteRes.data || []
+
+  // Deklarasi ini sempat hilang saat refactor performa di main (3e0b1e5c):
+  // `resultMap` masih dipakai di bawah, tapi tidak pernah dideklarasikan lagi,
+  // sehingga fungsi ini SELALU melempar ReferenceError saat dipanggil.
+  const resultMap: Record<string, MitraRealtimeBepItem> = {}
 
   // 2. Process pre-aggregated RPC data (or fallback to order pagination if RPC failed)
   let rpcDataByOutlet: Record<string, { grossRevenue: number; totalDeductions: number; totalCogs: number }> = {}
@@ -175,6 +186,25 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     return Math.round(baseHpp)
   }
 
+  // Cadangan HPP lewat NAMA menu: jalur pemesanan web menyimpan order_items
+  // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya
+  // bahannya hilang. Peta ini dimuat hanya saat jalur fallback dipakai.
+  let menuByName: Map<string, any> | null = null
+  const hppByName = async (rawName?: string | null, channel?: string | null): Promise<number> => {
+    if (!rawName) return 0
+    if (!menuByName) {
+      const { data: menuList } = await supabase
+        .from('menu_items')
+        .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+      menuByName = new Map<string, any>()
+      for (const m of menuList ?? []) {
+        if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
+      }
+    }
+    const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
+    return m ? getItemHpp(m, 'mitra', channel) : 0
+  }
+
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
     for (const row of rpcData) {
       const oid = row.outlet_id
@@ -191,7 +221,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     while (true) {
       const { data: page, error } = await supabase
         .from('orders')
-        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .in('outlet_id', mitraOutletIds)
         .eq('status', 'completed')
         .gte('created_at', SYSTEM_START_DATE)
@@ -238,7 +268,9 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       }
     } else {
       const outletOrders = allOrders.filter(o => o.outlet_id === oid)
-      outletOrders.forEach(order => {
+      // for..of, bukan forEach: cadangan HPP lewat nama menu bersifat async
+      // (peta menu dimuat sekali saat pertama dibutuhkan).
+      for (const order of outletOrders) {
         const totalAmt = Number(order.total_amount) || 0
         const disc = Number(order.discount_amount) || 0
         const promo = Number(order.promo_subsidy) || 0
@@ -249,6 +281,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
           for (const item of order.order_items) {
             const qty = Number(item.quantity) || 1
             const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
+              || await hppByName(item.menu_item_name, order.channel)
             orderCogs += (hpp * qty)
           }
         }
@@ -260,7 +293,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         grossRevenue += grossRev
         totalDeductions += deductions
         totalCogs += orderCogs
-      })
+      }
     }
 
     const opex = (pettyExpenses?.filter(p => p.outlet_id === oid).reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0) +

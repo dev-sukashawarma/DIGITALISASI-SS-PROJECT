@@ -866,12 +866,28 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     //
     // Dengan tebakan dihilangkan, Gross Revenue di halaman ini cocok sampai
     // rupiah terakhir dengan Ringkasan Bisnis dan Untung Rugi.
+    // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000).
+    // Potongan = selisih nilai menu vs uang yang tercatat -- BUKAN
+    // discount_amount + promo_subsidy. `orders.total_amount` berubah arti sejak
+    // 19 Agustus 2026 (commit b41efc7a: Food Apps menyimpan harga UTUH),
+    // sementara `promo_subsidy` tetap diisi. Menjumlahkannya ke total_amount
+    // menghitung subsidi platform dua kali -- Rp 95 juta se-perusahaan pada
+    // Agustus 2026. Selisih nilai menu vs total_amount selalu benar, apa pun
+    // konvensi yang berlaku saat order dibuat.
     const totalDeductions = isSSOnlineSelected
       ? completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0), 0)
       : completed.reduce((s, o) => {
-          const disc = Number((o as any).discount_amount) || 0
-          const promo = Number((o as any).promo_subsidy) || 0
-          return s + disc + promo
+          const items = (o as any).order_items || []
+          const total = Number(o.total_amount) || 0
+          if (items.length === 0) {
+            // Tanpa baris item tak ada nilai menu untuk dibandingkan.
+            return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+          }
+          const itemValue = items.reduce(
+            (sum: number, i: any) => sum + (Number(i.subtotal) || (Number(i.quantity) * Number(i.unit_price)) || 0),
+            0
+          )
+          return s + Math.max(0, itemValue - total)
         }, 0)
 
     const netRevenue = actualNetRevenue

@@ -321,8 +321,10 @@ export default function ReportsPage() {
     let totalDeductions = base.totalDeductions || 0
     let totalPromoSubsidy = base.totalPromoSubsidy || 0
     let netRevenue = base.netRevenue || 0
-    // Omzet = total_amount apa adanya. Diskon offline sudah terpotong di dalamnya,
-    // subsidi food apps tidak pernah memotongnya. Jangan tambahkan totalDeductions.
+    // Omzet Kotor mengikuti acuan tunggal (migration 20300128000000):
+    // total_amount + MAX(0, SUM(order_items.subtotal) - total_amount).
+    // Sudah dihitung di actions.ts; fallback ke netRevenue hanya bila API gagal
+    // dan kita jatuh ke cache Dexie lama.
     let totalRevenue = base.totalRevenue || netRevenue
     let totalOrders = base.totalOrders || 0
     let totalItemsSold = base.totalItemsSold || 0
@@ -546,7 +548,7 @@ export default function ReportsPage() {
         <>
           {/* ── KPI Cards (4 Spacious Cards) ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Net Revenue (Omzet Bersih) -> Changed to Gross Revenue (Omzet Kotor) per user request */}
+            {/* Omzet Kotor -- acuan tunggal, sama dengan dashboard pusat */}
             <div className="card p-5 bg-amber-500 text-white relative overflow-hidden flex flex-col justify-between min-w-0">
               <div className="absolute -top-4 -right-4 w-16 h-16 bg-white/10 rounded-full" />
               <div className="min-w-0">

@@ -334,13 +334,18 @@ export async function getMitraComprehensivePnl(
         }
       }
 
-      // Acuan omzet kanonik, sama dengan sales_daily_spv & dashboard Owner.
-      // Baris order_items TIDAK dipakai sebagai omzet: untuk order food-apps,
-      // `promo_subsidy` tak pernah tercermin di sana (SUM(subtotal) justru sama
-      // persis dengan total_amount), sehingga tambalan `extraDiff` yang dulu ada
-      // hanya menciptakan potongan palsu.
-      const deductions = disc + promo
-      const grossRev = totalAmt + disc + promo
+      // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000):
+      //   Potongan = MAX(0, nilai item - total_amount); Omzet = total_amount + Potongan.
+      // Tidak memakai promo_subsidy: arti `total_amount` sempat berubah
+      // (19 Agu 2026, b41efc7a) sehingga promo bisa terhitung dua kali.
+      const itemValue = (ord.order_items || []).reduce(
+        (s: number, i: any) => s + (Number(i.subtotal) || 0),
+        0
+      )
+      const deductions = (ord.order_items || []).length > 0
+        ? Math.max(0, itemValue - totalAmt)
+        : disc + promo
+      const grossRev = totalAmt + deductions
 
       outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
 

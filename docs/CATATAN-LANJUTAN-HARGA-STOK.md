@@ -30,6 +30,54 @@ di bawah, cek dulu `main` — bisa jadi sudah dikerjakan.
 
 ---
 
+## MULAI DARI SINI (untuk sesi berikutnya)
+
+**Tugasnya:** memutuskan metode basis harga bahan baku (butir 1 di bawah).
+
+**Baca dulu, jangan mulai dari nol:**
+
+1. Bagian "MENUNGGU KEPUTUSAN" tepat di bawah ini — tiga pilihan beserta angkanya
+2. `docs/AUDIT-2026-09-02-HARGA-BAHAN-DUA-VENDOR.md` Bagian IV — pengukuran lengkap
+3. `docs/SKENARIO-BAHAN-DUA-VENDOR-BAHASA-AWAM.md` Bagian 7 — sisi akuntansi
+
+**Yang sudah ditolak — jangan diusulkan ulang:**
+
+| Pernah diusulkan | Kenapa tidak jadi |
+|---|---|
+| FIFO per batch | Menuntut stokis memilih batch tiap kirim di 19 outlet, demi selisih yang terukur nol |
+| Pisahkan bahan per vendor | Sudah dicoba pada FOIL dan terbukti merusak — 17 outlet bersaldo minus |
+| Harga standar | Butuh ritual tinjauan bulanan yang belum ada pemiliknya |
+
+**Angka terakhir (4 September):**
+
+- Dampak dua-vendor ke HPP: **nol** — perputaran cepat, stok sisa selalu dari kiriman terakhir
+- Nilai persediaan: pasti Rp348,2 jt · belum pasti 79 baris (seluruhnya BNR)
+- Nilai persediaan bergeser ~Rp2,3 juta/minggu **tanpa transaksi** — ini alasan
+  utama mempertimbangkan perubahan, bukan selisih HPP-nya
+
+**PRASYARAT yang belum terpenuhi: BNR belum opname.** Selama 79 baris itu skalanya
+belum pasti, rata-rata tertimbang akan menghitung dari satuan campuran — kelas
+kesalahan yang sudah tiga kali menyesatkan di sesi sebelumnya. Periksa dulu:
+
+```sql
+SELECT count(*) FILTER (WHERE saldo_is_gram(sb)) AS sudah,
+       count(*) FILTER (WHERE NOT saldo_is_gram(sb)
+                        AND sb.saldo <> 0 AND b.is_active) AS belum_perlu_digarap
+FROM stok_balance sb JOIN bahan_baku b ON b.id = sb.bahan_baku_id;
+```
+
+Kalau `belum_perlu_digarap` masih puluhan, BNR belum opname — selesaikan itu dulu.
+
+**Butir 2 (konfirmasi PSAK) tidak butuh sesi coding.** Jawabannya menentukan
+seberapa mendesak butir 1: kalau metode sekarang memang tidak diakui standar,
+itu alasan mengubahnya yang berdiri sendiri, terlepas dari selisih angkanya
+yang nol.
+
+**Prinsip yang sudah disepakati** ada di bagian paling bawah dokumen ini —
+vendor tidak boleh naik jadi identitas barang.
+
+---
+
 ## MENUNGGU KEPUTUSAN
 
 ### 1. Metode basis harga bahan baku

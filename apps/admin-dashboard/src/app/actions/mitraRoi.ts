@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
+import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 
 export async function getMitraRoiStats(outletId: string | 'all', allowedOutletIds: string[]) {
   const targetOutlets = outletId === 'all' ? allowedOutletIds : [outletId]
@@ -204,17 +205,24 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
   for (const oid of mitraOutletIds) {
     const inv = invMap[oid]
     const profile = profiles.find(p => (p.outlet_ids || []).includes(oid))
-    let pct = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
     const modalInvestasi = Number(inv?.nilai_investasi) || 0
     const omzetHistoris = Number(inv?.omzet_historis) || 0
     const transferHistoris = Number(inv?.transfer_historis) || 0
-    const mgmtFeePct = Number(inv?.management_fee) || 0
     const systemTransfers = transfersData.filter(t => t.outlet_id === oid).reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
 
-    // JIKA SUDAH BEP 100%, maka keuntungan antara mitra dan pusat jadi 50:50
-    if (modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi) {
-      pct = 50
-    }
+    const isBepAlready = modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi
+    const legacyShare = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
+    const legacyFee = Number(inv?.management_fee) || 0
+
+    const policy = resolveMitraPolicy({
+      periodFrom: new Date().toISOString(),
+      isBep: isBepAlready,
+      legacyProfitSharingPct: legacyShare,
+      legacyManagementFee: legacyFee
+    })
+
+    const pct = policy.profitSharingPct
+    const mgmtFeePct = policy.managementFeePct
 
     let grossRevenue = 0
     let totalDeductions = 0
@@ -258,9 +266,9 @@ function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: strin
 
     const waste = wasteRows?.filter((w: any) => w.outlet_id === oid).reduce((sum: number, w: any) => sum + Number(w.nilai_waste || 0), 0) || 0
 
-    const managementFee = (grossRevenue * mgmtFeePct) / 100
+    const managementFee = Math.round((grossRevenue * mgmtFeePct) / 100)
     const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee
-    const mitraShare = netProfit > 0 ? (netProfit * pct) / 100 : 0
+    const mitraShare = netProfit > 0 ? Math.round((netProfit * pct) / 100) : 0
 
     const totalDanaKembali = omzetHistoris + transferHistoris + mitraShare
     const roiPct = modalInvestasi > 0 ? (totalDanaKembali / modalInvestasi) * 100 : 0

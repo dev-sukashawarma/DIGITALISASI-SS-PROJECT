@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -40,6 +41,8 @@ export interface ComprehensiveMitraPnl {
     netProfit: number
     mitraShare: number
     profitMarginPct: number
+    policyStatus?: string
+    isBep?: boolean
   }
   channels: {
     pos: ChannelPnlDetail
@@ -209,6 +212,7 @@ export async function getMitraComprehensivePnl(
   let tkCount = 0
 
   const outletGrossRevMap = new Map<string, number>()
+  const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
 
   // Try using the optimized PostgreSQL RPC first
   const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
@@ -226,6 +230,12 @@ export async function getMitraComprehensivePnl(
       const count = Number(row.order_count) || 0
 
       outletGrossRevMap.set(row.outlet_id, (outletGrossRevMap.get(row.outlet_id) || 0) + gross)
+
+      const curFin = outletFinancialsMap.get(row.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.gross += gross
+      curFin.deductions += ded
+      curFin.cogs += cogs
+      outletFinancialsMap.set(row.outlet_id, curFin)
 
       if (row.channel_group === 'foodApps') {
         faGross += gross
@@ -328,6 +338,12 @@ export async function getMitraComprehensivePnl(
       const grossRev = totalAmt + disc + promo
 
       outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
+
+      const curFin = outletFinancialsMap.get(ord.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.gross += grossRev
+      curFin.deductions += deductions
+      curFin.cogs += orderCogs
+      outletFinancialsMap.set(ord.outlet_id, curFin)
 
       if (
         src.includes('tiktok') ||
@@ -437,11 +453,15 @@ export async function getMitraComprehensivePnl(
     return rawCat ? toTitleCase(rawCat) : 'Biaya Operasional Lainnya'
   }
 
+  const outletOpexMap = new Map<string, number>()
   let totalPettyCash = 0
   if (pettyExpenses) {
     for (const p of pettyExpenses) {
       const amt = Number(p.amount) || 0
       totalPettyCash += amt
+      if (p.outlet_id) {
+        outletOpexMap.set(p.outlet_id, (outletOpexMap.get(p.outlet_id) || 0) + amt)
+      }
       const cat = mapToStandardCategory(p.category, p.description)
       const existing = categoryMap.get(cat) || { amount: 0, items: [] }
       existing.amount += amt
@@ -460,6 +480,9 @@ export async function getMitraComprehensivePnl(
     for (const m of monthlyExpenses) {
       const amt = Number(m.amount) || 0
       totalMonthly += amt
+      if (m.outlet_id) {
+        outletOpexMap.set(m.outlet_id, (outletOpexMap.get(m.outlet_id) || 0) + amt)
+      }
       const cat = mapToStandardCategory(m.category, m.description)
       const existing = categoryMap.get(cat) || { amount: 0, items: [] }
       existing.amount += amt
@@ -484,7 +507,17 @@ export async function getMitraComprehensivePnl(
   const grandTotalOpex = totalPettyCash + totalMonthly
 
   // 7. Waste
-  const totalWaste = (wasteRows || []).reduce((sum: number, w: any) => sum + (Number(w.nilai_waste) || 0), 0)
+  const outletWasteMap = new Map<string, number>()
+  let totalWaste = 0
+  if (wasteRows) {
+    for (const w of wasteRows) {
+      const amt = Number(w.nilai_waste) || 0
+      totalWaste += amt
+      if (w.outlet_id) {
+        outletWasteMap.set(w.outlet_id, (outletWasteMap.get(w.outlet_id) || 0) + amt)
+      }
+    }
+  }
 
   // 8. Financial Totals
   const totalGrossRevenue = posGross + faGross + tkGross
@@ -493,32 +526,63 @@ export async function getMitraComprehensivePnl(
   const totalCogs = posCogs + faCogs + tkCogs
   const grossProfit = netRevenue - totalCogs
 
-  // 8b. Management Fee Pusat (calculated accurately per-outlet based on each outlet's investment fee setting)
+  // 8b. Per-Outlet Policy Evaluation, Management Fee & Profit Sharing (Adaptive BEP Scheme)
   const invMap = new Map((investments || []).map(i => [i.outlet_id, i]))
   let totalManagementFeeAmount = 0
-  let singleFeePct = 0
-  let feeOutletCount = 0
+  let totalMitraShare = 0
+  let singlePolicyStatus = ''
+  let singleIsBep = false
+  let singleManagementFeePct = 0
+  let singleProfitSharingPct = 50
 
-  for (const [outletId, grossRev] of outletGrossRevMap.entries()) {
-    const inv = invMap.get(outletId)
-    const feeRate = Number(inv?.management_fee) || 0
-    if (feeRate > 0) {
-      feeOutletCount++
-      singleFeePct = feeRate
-      if (feeRate <= 100) {
-        totalManagementFeeAmount += (grossRev * feeRate) / 100
-      } else {
-        totalManagementFeeAmount += feeRate
-      }
+  for (const oid of targetOutletIds) {
+    const inv = invMap.get(oid)
+    const modalInvestasi = Number(inv?.nilai_investasi) || 0
+    const omzetHistoris = Number(inv?.omzet_historis) || 0
+    const transferHistoris = Number(inv?.transfer_historis) || 0
+    const outletTransfers = (transfers || []).filter(t => t.outlet_id === oid).reduce((s, t) => s + (Number(t.nominal) || 0), 0)
+    const totalDanaKembali = omzetHistoris + transferHistoris + outletTransfers
+    const isOutletBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
+
+    const legacyShare = Number(inv?.persentase_bagi_hasil) || Number(profile?.profit_sharing_pct) || 50
+    const legacyFee = Number(inv?.management_fee) || 0
+
+    const policy = resolveMitraPolicy({
+      periodFrom: filter.from,
+      isBep: isOutletBep,
+      legacyProfitSharingPct: legacyShare,
+      legacyManagementFee: legacyFee
+    })
+
+    const fin = outletFinancialsMap.get(oid) || { gross: 0, deductions: 0, cogs: 0 }
+    const opex = outletOpexMap.get(oid) || 0
+    const waste = outletWasteMap.get(oid) || 0
+
+    let mgmtFee = 0
+    if (policy.managementFeePct > 0) {
+      mgmtFee = Math.round((fin.gross * policy.managementFeePct) / 100)
+    }
+
+    const outletNetProfit = fin.gross - fin.deductions - fin.cogs - opex - waste - mgmtFee
+    const outletMitraShare = outletNetProfit > 0 ? Math.round((outletNetProfit * policy.profitSharingPct) / 100) : 0
+
+    totalManagementFeeAmount += mgmtFee
+    totalMitraShare += outletMitraShare
+
+    if (targetOutletIds.length === 1) {
+      singlePolicyStatus = policy.statusLabel
+      singleIsBep = policy.isBep
+      singleManagementFeePct = policy.managementFeePct
+      singleProfitSharingPct = policy.profitSharingPct
     }
   }
 
   const managementFeeAmount = Math.round(totalManagementFeeAmount)
-  const managementFeePct = targetOutletIds.length === 1 ? singleFeePct : (feeOutletCount > 0 ? 3 : 0)
-
   const netProfit = grossProfit - grandTotalOpex - totalWaste - managementFeeAmount
+  const mitraShare = totalMitraShare
+  const profitMarginPct = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0
 
-  // 9. Investment & Historical BEP (Calculated first to determine profit sharing)
+  // 9. Investment & Historical BEP Stats (Konsolidasi Jaringan)
   let totalModal = 0
   let totalOmzetHistoris = 0
   let totalTransferHistoris = 0
@@ -536,15 +600,23 @@ export async function getMitraComprehensivePnl(
   const totalProfitDistributed = totalOmzetHistoris + totalTransferHistoris + totalTransfers
   const roi = totalModal > 0 ? (totalProfitDistributed / totalModal) * 100 : 0
   const bepPercentage = Math.min(roi, 100)
+  const isGlobalBep = totalModal > 0 && totalProfitDistributed >= totalModal
 
-  // JIKA SUDAH BEP 100%, maka keuntungan antara mitra dan pusat jadi 50:50
-  if (totalModal > 0 && totalProfitDistributed >= totalModal) {
-    profitSharingPct = 50
-  }
+  const finalProfitSharingPct = targetOutletIds.length === 1
+    ? singleProfitSharingPct
+    : (netProfit > 0 ? Math.round((mitraShare / netProfit) * 100) : 50)
 
-  // Mitra profit share is only distributed when net profit is positive
-  const mitraShare = netProfit > 0 ? (netProfit * (profitSharingPct / 100)) : 0
-  const profitMarginPct = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0
+  const finalManagementFeePct = targetOutletIds.length === 1
+    ? singleManagementFeePct
+    : (totalGrossRevenue > 0 ? Math.round((managementFeeAmount / totalGrossRevenue) * 100 * 10) / 10 : 3)
+
+  const finalPolicyStatus = targetOutletIds.length === 1
+    ? singlePolicyStatus
+    : 'Agregasi Jaringan Kemitraan'
+
+  const finalIsBep = targetOutletIds.length === 1
+    ? singleIsBep
+    : isGlobalBep
 
   return {
     period: {
@@ -552,7 +624,7 @@ export async function getMitraComprehensivePnl(
       to: filter.to || ''
     },
     outletName,
-    profitSharingPct,
+    profitSharingPct: finalProfitSharingPct,
     summary: {
       grossRevenue: totalGrossRevenue,
       totalDeductions,
@@ -561,11 +633,13 @@ export async function getMitraComprehensivePnl(
       grossProfit,
       totalOpex: grandTotalOpex,
       totalWaste,
-      managementFeePct,
+      managementFeePct: finalManagementFeePct,
       managementFeeAmount,
       netProfit,
       mitraShare,
-      profitMarginPct
+      profitMarginPct,
+      policyStatus: finalPolicyStatus,
+      isBep: finalIsBep
     },
     channels: {
       pos: {

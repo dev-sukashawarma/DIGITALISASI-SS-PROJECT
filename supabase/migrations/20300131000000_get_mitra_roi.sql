@@ -40,10 +40,15 @@ security invoker
 set search_path = public
 as $$
 with
--- Cutoff kebijakan diputuskan dari p_from, bukan p_to dan bukan tanggal hari ini,
--- supaya sepakat dengan resolveMitraPolicy() di apps/admin-dashboard/src/lib/mitraPolicy.ts
 kebijakan as (
-  select (p_from::date >= date '2026-09-01') as pakai_aturan_baru
+  -- Cutoff dibaca dari p_to, BUKAN p_from. Terlihat janggal, tapi inilah yang
+  -- dilakukan produksi: mitraRoi.ts:250 mengirim `new Date().toISOString()`
+  -- (tanggal hari ini) sebagai periodFrom ke resolveMitraPolicy, sementara
+  -- jendela omzetnya selalu mulai 2026-08-01. Fungsi ini wajib menghasilkan
+  -- angka yang identik dengan produksi, jadi ia mengikuti acuan yang sama.
+  -- Konsekuensi yang diwarisi: laporan periode lampau memakai tarif hari ini,
+  -- bukan tarif periode itu. Ditinjau terpisah, bukan diubah di sini.
+  select (p_to::date >= date '2026-09-01') as pakai_aturan_baru
 ),
 ord as (
   select s.outlet_id,
@@ -58,7 +63,12 @@ petty as (
   from petty_cash_expenses e
   where e.outlet_id = any(p_outlet_ids)
     and e.deleted_at is null
-    and e.expense_date >= p_from::date
+    -- Batas tanggal dikonversi dulu ke Asia/Jakarta sebelum di-cast ke date.
+    -- mitraRoi.ts memakai literal tanggal tetap '2026-08-01'; p_from::date polos
+    -- bergantung timezone sesi koneksi (UTC vs Asia/Jakarta bisa beda 1 hari),
+    -- sehingga web dan Android bisa menghasilkan angka berbeda. Jangan
+    -- disederhanakan kembali ke p_from::date.
+    and e.expense_date >= (p_from at time zone 'Asia/Jakarta')::date
   group by e.outlet_id
 ),
 bulanan as (
@@ -68,12 +78,17 @@ bulanan as (
   from expenses e
   where e.outlet_id = any(p_outlet_ids)
     and e.type = 'expense'
-    and e.expense_date >= p_from::date
+    -- Lihat komentar di CTE petty di atas: konversi ke Asia/Jakarta dulu agar
+    -- batas tanggal tidak bergantung timezone sesi koneksi.
+    and e.expense_date >= (p_from at time zone 'Asia/Jakarta')::date
   group by e.outlet_id
 ),
 waste_per_outlet as (
   select w.outlet_id, coalesce(sum(w.nilai_waste), 0) as total
-  from get_waste_periode(p_from::date, p_to::date) w
+  from get_waste_periode(
+    (p_from at time zone 'Asia/Jakarta')::date,
+    (p_to at time zone 'Asia/Jakarta')::date
+  ) w
   where w.outlet_id = any(p_outlet_ids)
   group by w.outlet_id
 ),
@@ -99,7 +114,20 @@ dasar as (
     coalesce(w.total, 0)                 as waste
   from unnest(p_outlet_ids) as o(id)
   left join mitra_investments inv on inv.outlet_id = o.id
-  left join mitra_profiles mp on o.id = any(mp.outlet_ids)
+  -- Lookup deterministik satu baris per outlet, meniru profiles.find(...) di
+  -- mitraRoi.ts:239 (ambil profil pertama yang cocok). Sebuah left join biasa
+  -- ke mitra_profiles via `any(outlet_ids)` bisa menggandakan baris outlet
+  -- kalau suatu outlet pernah muncul di lebih dari satu profil (tak ada
+  -- constraint yang mencegahnya) — penjumlahan di caller jadi dobel-hitung.
+  -- Subquery correlated + order stabil (id) + limit 1 (setara distinct on
+  -- outlet_id) membuat baris terpilih tak berubah antar run.
+  left join lateral (
+    select mp.profit_sharing_pct
+    from mitra_profiles mp
+    where o.id = any(mp.outlet_ids)
+    order by mp.id
+    limit 1
+  ) mp on true
   left join ord on ord.outlet_id = o.id
   left join petty p on p.outlet_id = o.id
   left join bulanan b on b.outlet_id = o.id
@@ -130,10 +158,15 @@ hitung as (
   from tarif t cross join kebijakan k
 ),
 hasil as (
+  -- management_fee dibulatkan SEKALI di sini dan dipakai di dua tempat (kolom
+  -- output & pengurang laba), meniru Math.round(...) tunggal di mitraRoi.ts:313.
+  -- Menghitungnya dua kali (sekali dibulatkan, sekali mentah) membuat keduanya
+  -- bisa selisih, dan sisa pecahan itu ikut menggeser bagi_hasil_mitra yang
+  -- juga dibulatkan.
   select
     h.*,
-    (h.omzet * h.fee_pct / 100) as mgmt_fee,
-    (h.omzet - h.deduksi - h.cogs - h.opex - h.waste - (h.omzet * h.fee_pct / 100)) as laba
+    round(h.omzet * h.fee_pct / 100) as mgmt_fee,
+    (h.omzet - h.deduksi - h.cogs - h.opex - h.waste - round(h.omzet * h.fee_pct / 100)) as laba
   from hitung h
 ),
 akhir as (

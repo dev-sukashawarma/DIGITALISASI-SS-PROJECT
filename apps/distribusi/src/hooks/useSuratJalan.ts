@@ -152,5 +152,14 @@ export function useSuratJalanActions() {
     return data as SuratJalan
   }, [])
 
-  return { create, send, verify, finalize }
+  const batalkanDraft = useCallback(async (surat_jalan_id: string, alasan?: string) => {
+    const { data, error } = await supabase.rpc('batalkan_surat_jalan_draft', {
+      p_surat_jalan_id: surat_jalan_id,
+      p_alasan: alasan || null
+    })
+    if (error) throw error
+    return data
+  }, [])
+
+  return { create, send, verify, finalize, batalkanDraft }
 }

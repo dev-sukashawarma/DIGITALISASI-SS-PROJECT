@@ -1072,12 +1072,12 @@ export default function ProfitPage() {
                       <span className="font-medium text-suka-gray-600">Omzet Kotor Penjualan (Gross Sales)</span>
                       <span className="font-bold text-suka-brown">{rupiah(actualGrossRevenue)}</span>
                     </div>
-                    {totalDeductions > 0 && (
-                      <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300">
-                        <span>Potongan Diskon & Estimasi Biaya Aplikasi</span>
-                        <span className="font-semibold">-{rupiah(totalDeductions)}</span>
-                      </div>
-                    )}
+                    {/* Selalu tampil, termasuk saat Rp 0 -- baris yang
+                        muncul-hilang bikin pembaca mengira datanya tidak ada. */}
+                    <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300">
+                      <span>Potongan Merchant</span>
+                      <span className="font-semibold">-{rupiah(totalDeductions)}</span>
+                    </div>
                     <div className="pt-2 border-t border-suka-gray-200 flex justify-between items-center font-bold">
                       <span className="text-suka-brown">Pendapatan Bersih (Net Revenue)</span>
                       <span className="text-emerald-700 font-black text-base">{rupiah(netRevenue)}</span>
@@ -1300,7 +1300,7 @@ export default function ProfitPage() {
                       <th className="py-3.5 px-4 w-12 text-center">#</th>
                       <th className="py-3.5 px-4">Nama Outlet</th>
                       <th className="py-3.5 px-4 text-right">Gross Omzet</th>
-                      <th className="py-3.5 px-4 text-right">Admin Platform</th>
+                      <th className="py-3.5 px-4 text-right">Potongan Merchant</th>
                       <th className="py-3.5 px-4 text-right">HPP</th>
                       <th className="py-3.5 px-4 text-right">Waste</th>
                       <th className="py-3.5 px-4 text-right">OPEX</th>

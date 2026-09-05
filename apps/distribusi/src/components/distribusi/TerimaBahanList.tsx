@@ -1,7 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { usePOPending, usePODetailKitchen, useVerifikasiPO, uploadInvoiceKitchen, type POItemVerif } from '@/hooks/usePOKitchen'
+import { usePOPending, usePODetailKitchen, useVerifikasiPO, uploadInvoiceKitchen, getInvoiceUrl, type POItemVerif } from '@/hooks/usePOKitchen'
 import { BottomNav } from '@/components/distribusi/BottomNav'
 import { Package, ChevronRight, ArrowLeft, Camera, CheckCircle2, AlertCircle, Clock, FileText } from 'lucide-react'
 import { toast } from 'sonner'
@@ -194,10 +194,18 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
           ) : (
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
               {po.invoice_urls.map((_url, idx) => {
-                const publicUrl = `https://kefgwwpsltsgdbnaxehj.supabase.co/storage/v1/object/public/po-invoices/${_url}`
+                const publicUrl = getInvoiceUrl(_url)
+                const isPdf = _url.toLowerCase().includes('.pdf')
                 return (
                   <a href={publicUrl} target="_blank" rel="noreferrer" key={idx} className="w-24 h-32 shrink-0 rounded-2xl overflow-hidden border border-gray-200/50 bg-gray-50 flex items-center justify-center shadow-sm relative group cursor-pointer hover:shadow-md transition-all">
-                    <img src={publicUrl} alt="Invoice" className="w-full h-full object-cover" />
+                    {isPdf ? (
+                      <div className="flex flex-col items-center justify-center p-2 text-center">
+                        <FileText size={24} className="text-red-500 mb-1" />
+                        <span className="text-[10px] font-bold text-gray-700">PDF</span>
+                      </div>
+                    ) : (
+                      <img src={publicUrl} alt="Invoice" className="w-full h-full object-cover" loading="lazy" />
+                    )}
                     <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors" />
                     <div className="absolute bottom-2 right-2 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center shadow-md">
                       <CheckCircle2 size={12} className="text-white" />

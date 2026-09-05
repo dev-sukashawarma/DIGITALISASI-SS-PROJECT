@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, TrendingUp, TrendingDown, RefreshCw, FileText, Printer } from 'lucide-react'
-import { usePODetail, useUpdatePOStatus, useUploadInvoice, getSignedInvoiceUrl, useUpdatePOPayment, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
+import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, useUpdatePOPayment, type POStatus, type POWithItems, type POItem } from '@/hooks/usePurchaseOrder'
 import { useBahanBakuOptions } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
@@ -180,10 +180,12 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   }, [po])
 
   useEffect(() => {
-    if (!po?.invoice_urls?.length) return
-    Promise.all(po.invoice_urls.map(path => getSignedInvoiceUrl(path)))
-      .then(setInvoiceUrls)
-      .catch(console.error)
+    if (!po?.invoice_urls?.length) {
+      setInvoiceUrls([])
+      return
+    }
+    const urls = po.invoice_urls.map(path => getInvoiceUrl(path)).filter(Boolean)
+    setInvoiceUrls(urls)
   }, [po?.invoice_urls])
 
   if (isLoading && !po) return <div className="flex justify-center py-16"><Spinner className="w-8 h-8 text-suka-orange" /></div>
@@ -457,18 +459,34 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {invoiceUrls.map((url, idx) => (
-              <a key={idx} href={url} target="_blank" rel="noopener noreferrer"
-                className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-suka-brown/10 hover:border-suka-orange hover:shadow-md transition-all group">
-                <img src={url} alt={`Invoice ${idx + 1}`} className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-suka-ink/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <ExternalLink className="w-5 h-5 text-white" />
-                </div>
-                <div className="absolute bottom-2 right-2 bg-suka-ink/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
-                  Doc {idx + 1}
-                </div>
-              </a>
-            ))}
+            {invoiceUrls.map((url, idx) => {
+              const isPdf = url.toLowerCase().includes('.pdf')
+              return (
+                <a key={idx} href={url} target="_blank" rel="noopener noreferrer"
+                  className="relative aspect-[3/4] rounded-2xl overflow-hidden border border-suka-brown/10 bg-suka-cream/30 hover:border-suka-orange hover:shadow-md transition-all group flex flex-col items-center justify-center">
+                  {isPdf ? (
+                    <div className="flex flex-col items-center justify-center p-4 text-center">
+                      <FileText className="w-12 h-12 text-rose-500 mb-2 group-hover:scale-110 transition-transform" />
+                      <span className="text-xs font-bold text-suka-brown line-clamp-1">Dokumen PDF</span>
+                      <span className="text-[10px] text-suka-brown/50 mt-0.5">Klik untuk melihat</span>
+                    </div>
+                  ) : (
+                    <img 
+                      src={url} 
+                      alt={`Invoice ${idx + 1}`} 
+                      className="w-full h-full object-cover" 
+                      loading="lazy"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-suka-ink/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <ExternalLink className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="absolute bottom-2 right-2 bg-suka-ink/80 text-white text-[9px] font-bold px-2 py-0.5 rounded-md">
+                    Doc {idx + 1}
+                  </div>
+                </a>
+              )
+            })}
           </div>
         )}
       </div>

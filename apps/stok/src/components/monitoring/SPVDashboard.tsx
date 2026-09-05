@@ -17,7 +17,7 @@ import type { MonitoringItem } from '@/lib/types/monitoring';
 import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
-import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
+import { Skeleton } from '@suka/design-system';
 import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { fetchPendingWasteReports } from '@/app/actions/waste';

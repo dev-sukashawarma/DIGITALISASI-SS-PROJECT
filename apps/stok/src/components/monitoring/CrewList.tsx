@@ -2,9 +2,8 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
+import { Skeleton, getBahanBakuSource } from '@suka/design-system';
 import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
-import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
 import { Search, X, MapPin } from 'lucide-react';
 
 interface CrewListProps {

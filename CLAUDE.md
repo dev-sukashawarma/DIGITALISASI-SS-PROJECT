@@ -1193,5 +1193,26 @@ Dicek `resep_item` (BOM aktif): **19/19 resep global pakai MINYAK SAYUR**, nol p
 
 ---
 
-**Last updated:** 2026-08-13  
+## Session 2026-09-05: Konsolidasi Navigasi ADMIN (apps/admin-dashboard)
+
+**Status:** ✅ Kode selesai, test hijau, build sukses. ⚠️ Perlu **redeploy `admin-dashboard`**; smoke test browser sebagai ADMIN belum dijalankan (butuh sesi login).
+
+Nav role ADMIN dipangkas dari 10 pintu / 51 entri jadi **7 pintu / 48 entri, nol route hilang**. Grup `Pengadaan` dibuang (duplikat persis `Pembelian & PO`), entri `reports/pembelian` yang kembar dihapus satu, `Kemitraan` dan `Migrasi Data` jadi OWNER-only dengan ADMIN mendapat isinya lewat `Bisnis` dan `Sistem`, dan "Rekap Absensi (Stealth)" pindah ke pintu `Karyawan`. Rename: `Pembelian & PO` → `Pembelian`, `Manajemen POS` → `POS`.
+
+### ⚠️ Gotcha: grup nav dipakai bersama antar role
+Memindahkan item antar grup akan **diam-diam mengubah nav OWNER**. Mekanismenya harus penyempitan `roles` per item (entri kembar dengan `roles` berbeda), bukan pemindahan. Karena alasan yang sama, rename `Pusat Laporan` → `Laporan` dan `Sistem` → `Sistem & Data` **dibatalkan**: keduanya milik OWNER juga, dan "Sistem & Data" justru menyesatkan buat OWNER yang tak melihat item Data-nya.
+
+### Bottom-nav mobile
+`BottomNav.tsx` dulu memakai `accessibleItems(role).slice(0, 4)`, jadi tab mobile ADMIN berisi "Petty Cash (Khusus)" dan "Rekap Absensi (Stealth)" murni karena kebetulan urutan array. Sekarang lewat penanda `primary?: Role[]` + helper `primaryItems()`; role tanpa penandaan berperilaku persis seperti sebelumnya (dijaga test). Tab ADMIN: Ringkasan · Penjualan · PO · HR.
+
+### Test
+`apps/admin-dashboard/src/components/layout/navConfig.test.ts` (baru, 44 test) — snapshot himpunan route **per role** (bukan sekadar jumlah), larangan `href` kembar, dan cek setiap `href` punya `page.tsx`. Baseline suite sebelum & sesudah sama persis: 42 file gagal / 10 test gagal (pre-existing; sebagian besar dari `.claude/worktrees/` yang ikut ter-scan vitest karena tak ada exclude). Nol regresi.
+
+**Spec/plan:** `docs/SPEC-2026-09-05-ADMIN-DASHBOARD-NAV-CONSOLIDATION.md`, `docs/PLAN-2026-09-05-ADMIN-DASHBOARD-NAV-CONSOLIDATION.md`
+
+**📝 Next:** redeploy `admin-dashboard`; smoke test sidebar sebagai ADMIN & OWNER; putuskan nasib 11 route yatim yang didaftar di §8 spec.
+
+---
+
+**Last updated:** 2026-09-05  
 **Owner:** Dev Suka Shawarma

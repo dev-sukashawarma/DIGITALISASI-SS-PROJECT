@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import { calculateReleaseTime, calculateTotalPrepTime, parsePickupTime } from '@/lib/prepTime'
+import { buildMenuNameIndex, resolveMenuItemId } from '@/lib/resolve-menu-id'
 
 export async function POST(request: Request) {
   let body: { external_order_id: string }
@@ -175,10 +176,17 @@ export async function POST(request: Request) {
   // 4. Masukkan items
   const items = order.order_items || []
   if (items.length > 0) {
+    // Cocokkan nama menu -> menu_items.id milik pos-kasir. Aplikasi web memakai
+    // database terpisah dengan id sendiri, jadi id-nya tak bisa dipakai
+    // langsung. Tanpa ini `menu_item_id` NULL, dan trigger BOM melewati item
+    // ber-id NULL sehingga bahan baku pesanan web tak pernah dipotong dari stok.
+    const { data: menuRows } = await posDb.from('menu_items').select('id, name')
+    const menuIndex = buildMenuNameIndex(menuRows)
+
     const { error: itemsErr } = await posDb.from('order_items').insert(
       items.map((i: any) => ({
         order_id: newOrder.id,
-        menu_item_id: null,
+        menu_item_id: resolveMenuItemId(menuIndex, i.item_name),
         menu_item_name: i.note ? `${i.item_name}|NOTE|${i.note}` : i.item_name,
         quantity: i.quantity,
         unit_price: i.unit_price,

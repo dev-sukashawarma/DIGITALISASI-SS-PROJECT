@@ -1,9 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Card } from '@suka/design-system/src/components/Card'
-import { Button } from '@suka/design-system/src/components/Button'
-import { Input } from '@suka/design-system/src/components/Input'
+import { Card, Button, Input } from '@suka/design-system'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useLedgerActions } from '@/hooks/useLedger'
 import { useStokBalance } from '@/hooks/useStokBalance'
@@ -215,13 +213,16 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
           // itu (titik temu kedua jalur), bukan di sini -- kalau di sini JUGA
           // dikonversi, entri dari form ini akan dikonversi dua kali begitu
           // trigger diperbaiki (2026-08-04 §4).
-          await submitWasteReport({
+          const wasteRes = await submitWasteReport({
             outlet_id: outletId,
             bahan_baku_id: w.bahanBakuId,
             qty: w.finalQty ?? 0,
             reason: w.catatanItem || catatan || 'Waste',
             photo_url: photoUrl
           })
+          if (!wasteRes.success) {
+            throw new Error(wasteRes.error || 'Gagal menyimpan laporan waste')
+          }
         }
       }
 

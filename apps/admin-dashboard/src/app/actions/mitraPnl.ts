@@ -5,6 +5,8 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue } from '@/lib/types'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { cleanItemName } from '@/lib/order-item-name'
+import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -40,6 +42,8 @@ export interface ComprehensiveMitraPnl {
     netProfit: number
     mitraShare: number
     profitMarginPct: number
+    policyStatus?: string
+    isBep?: boolean
   }
   channels: {
     pos: ChannelPnlDetail
@@ -108,61 +112,25 @@ export async function getMitraComprehensivePnl(
     }
   }
 
-  // 1. Fetch Profile & Outlet Info
+  // 1. Date ranges
+  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
+  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
+
+  // 2. Fetch all Profile, Outlets, Investments, Transfers, Expenses, Waste, and RPC Orders Summary in parallel
   const [
-    { data: profile },
-    { data: outletList },
-    { data: investments },
-    { data: transfers }
+    profileRes,
+    outletListRes,
+    investmentsRes,
+    transfersRes,
+    pettyExpensesRes,
+    monthlyExpensesRes,
+    wasteRowsRes,
+    rpcRes
   ] = await Promise.all([
     supabase.from('mitra_profiles').select('*').eq('user_id', user.id).single(),
     supabase.from('outlets').select('id, name').in('id', targetOutletIds),
     supabase.from('mitra_investments').select('*').in('outlet_id', targetOutletIds),
-    supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds)
-  ])
-
-  // 1b. Determine profit sharing pct (prefer outlet investment setting, then profile setting, fallback 50%)
-  let profitSharingPct = 50
-  if (targetOutletIds.length === 1) {
-    const singleInv = investments?.find(i => i.outlet_id === targetOutletIds[0])
-    if (singleInv?.persentase_bagi_hasil) {
-      profitSharingPct = Number(singleInv.persentase_bagi_hasil)
-    } else if (profile?.profit_sharing_pct) {
-      profitSharingPct = Number(profile.profit_sharing_pct)
-    }
-  } else if (profile?.profit_sharing_pct) {
-    profitSharingPct = Number(profile.profit_sharing_pct)
-  }
-
-  const outletName = selectedOutletId === 'all'
-    ? (targetOutletIds.length > 1 ? `Semua Outlet (${targetOutletIds.length})` : (outletList?.[0]?.name || 'Semua Outlet'))
-    : (outletList?.find(o => o.id === selectedOutletId)?.name || 'Outlet')
-
-  // 2. Date ranges
-  const fromStart = new Date(`${filter.from}T00:00:00.000+07:00`)
-  const toEnd = new Date(`${filter.to}T23:59:59.999+07:00`)
-
-  // 3. Fetch Orders (Paginated)
-  // Query dibangun ulang tiap halaman lewat fungsi ini — builder Supabase
-  // bersifat mutable, memakai ulang instance yang sama untuk beberapa `.range()`
-  // rapuh. `.order('id')` WAJIB: tanpa urutan deterministik, paginasi bisa
-  // melewatkan atau menggandakan baris antar-halaman.
-  const buildOrdersQuery = () => supabase
-    .from('orders')
-    .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-    .in('outlet_id', targetOutletIds)
-    .neq('outlet_id', TEST_OUTLET_ID)
-    .eq('status', 'completed')
-    .gte('created_at', fromStart.toISOString())
-    .lte('created_at', toEnd.toISOString())
-    .order('id', { ascending: true })
-
-  // 4. Fetch Petty Cash & Monthly Expenses & Waste in parallel
-  const [
-    { data: pettyExpenses },
-    { data: monthlyExpenses },
-    { data: wasteRows }
-  ] = await Promise.all([
+    supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds),
     supabase
       .from('petty_cash_expenses')
       .select('id, amount, expense_date, category, description, outlet_id')
@@ -176,20 +144,49 @@ export async function getMitraComprehensivePnl(
       .select('id, amount, expense_date, category, description, outlet_id, type')
       .in('outlet_id', targetOutletIds)
       .neq('outlet_id', TEST_OUTLET_ID)
-      // Sebelumnya `.eq('type','out')` — tipe yang tidak pernah dipakai
-      // pengeluaran sungguhan (hanya 13 baris tes yang kini sudah dihapus).
-      // Akibatnya pengeluaran bulanan mitra tidak pernah ikut terhitung.
-      // Pengeluaran nyata bertipe 'expense'.
       .eq('type', 'expense')
       .gte('expense_date', filter.from)
       .lte('expense_date', filter.to),
     supabase.rpc('get_waste_periode', {
       p_from: filter.from,
       p_to: filter.to,
-    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) }))
+    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) })),
+    supabase.rpc('get_mitra_orders_summary', {
+      p_outlet_ids: targetOutletIds,
+      p_from: fromStart.toISOString(),
+      p_to: toEnd.toISOString()
+    })
   ])
 
-  // 5. Process Channel Breakdown & COGS
+  const profile = profileRes.data
+  const outletList = outletListRes.data
+  const investments = investmentsRes.data
+  const transfers = transfersRes.data
+  const pettyExpenses = pettyExpensesRes.data
+  const monthlyExpenses = monthlyExpensesRes.data
+  const wasteRows = wasteRowsRes.data
+  const { data: rpcData, error: rpcError } = rpcRes
+
+  // Penentuan persentase bagi hasil kini lewat resolveMitraPolicy() di bawah
+  // (per-outlet, sadar BEP & cutoff September 2026). Blok lama yang menghitung
+  // `profitSharingPct` di sini sudah tidak dibaca siapa pun sejak 407749ad.
+
+  const outletName = selectedOutletId === 'all'
+    ? (targetOutletIds.length > 1 ? `Semua Outlet (${targetOutletIds.length})` : (outletList?.[0]?.name || 'Semua Outlet'))
+    : (outletList?.find(o => o.id === selectedOutletId)?.name || 'Outlet')
+
+  // Fallback query builder (used ONLY if RPC fails)
+  const buildOrdersQuery = () => supabase
+    .from('orders')
+    .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+    .in('outlet_id', targetOutletIds)
+    .neq('outlet_id', TEST_OUTLET_ID)
+    .eq('status', 'completed')
+    .gte('created_at', fromStart.toISOString())
+    .lte('created_at', toEnd.toISOString())
+    .order('id', { ascending: true })
+
+  // 4. Process Channel Breakdown & COGS
   let posGross = 0
   let posDeductions = 0
   let posCogs = 0
@@ -209,13 +206,7 @@ export async function getMitraComprehensivePnl(
   let tkCount = 0
 
   const outletGrossRevMap = new Map<string, number>()
-
-  // Try using the optimized PostgreSQL RPC first
-  const { data: rpcData, error: rpcError } = await supabase.rpc('get_mitra_orders_summary', {
-    p_outlet_ids: targetOutletIds,
-    p_from: fromStart.toISOString(),
-    p_to: toEnd.toISOString()
-  })
+  const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
 
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
     // We successfully retrieved the pre-aggregated data from the database
@@ -226,6 +217,12 @@ export async function getMitraComprehensivePnl(
       const count = Number(row.order_count) || 0
 
       outletGrossRevMap.set(row.outlet_id, (outletGrossRevMap.get(row.outlet_id) || 0) + gross)
+
+      const curFin = outletFinancialsMap.get(row.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.gross += gross
+      curFin.deductions += ded
+      curFin.cogs += cogs
+      outletFinancialsMap.set(row.outlet_id, curFin)
 
       if (row.channel_group === 'foodApps') {
         faGross += gross
@@ -249,7 +246,11 @@ export async function getMitraComprehensivePnl(
     }
   } else {
     // Fallback to memory-heavy JavaScript processing if RPC doesn't exist yet
-    function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+
+    // HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga,
+    // supaya komponen tidak ter-markup lebih dulu lalu ter-markup lagi di
+    // lapisan paket (dulu paket kena 1,21 alih-alih 1,10).
+    function getItemHppBase(menuItem: any, channel?: string | null): number {
       if (!menuItem) return 0
       let baseHpp = 0
       const normCh = channel ? channel.toLowerCase() : null
@@ -276,21 +277,44 @@ export async function getMitraComprehensivePnl(
         baseHpp = Number(menuItem.hpp_override)
       } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
         baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
-          const compHpp = pkg.component ? getItemHpp(pkg.component, outletType, channel) : (Number(pkg.component?.hpp_override) || 0)
+          const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
           const qty = Number(pkg.quantity) || 1
           return sum + (compHpp * qty)
         }, 0)
       }
+      return baseHpp
+    }
+
+    // Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
+    function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
+      const baseHpp = getItemHppBase(menuItem, channel)
       if (outletType === 'mitra' && baseHpp > 0) {
         return Math.round(baseHpp * 1.10)
       }
-      return baseHpp
+      return Math.round(baseHpp)
     }
 
     // Error saat paginasi TIDAK boleh ditelan: sebelumnya `break` diam-diam
     // membuat data separuh dipakai seolah lengkap, sehingga laba mitra
     // dilaporkan terlalu kecil tanpa gejala apa pun.
     const allOrders = await fetchAllPages<any>(buildOrdersQuery)
+
+    // Cadangan HPP lewat NAMA menu: jalur pemesanan web menyimpan order_items
+    // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya
+    // bahannya hilang dari laba mitra. Pola sama dengan useHpp.ts di dashboard
+    // Owner. Dipakai HANYA saat lookup id gagal.
+    const { data: menuList } = await supabase
+      .from('menu_items')
+      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+    const menuByName = new Map<string, any>()
+    for (const m of menuList ?? []) {
+      if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
+    }
+    const hppByName = (rawName?: string | null, channel?: string | null): number => {
+      if (!rawName) return 0
+      const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
+      return m ? getItemHpp(m, 'mitra', channel) : 0
+    }
 
     for (const ord of allOrders) {
       const totalAmt = Number(ord.total_amount) || 0
@@ -299,39 +323,75 @@ export async function getMitraComprehensivePnl(
       const ch = (ord.channel || 'pos').toLowerCase()
       const src = (ord.sales_source || ch).toLowerCase()
 
-      let itemGross = 0
       let orderCogs = 0
 
       if (Array.isArray(ord.order_items)) {
         for (const item of ord.order_items) {
           const qty = Number(item.quantity) || 1
-          itemGross += Number(item.subtotal) || (qty * Number(item.unit_price || 0)) || 0
-
           const hpp = getItemHpp(item.menu_items, 'mitra', ord.channel)
+            || hppByName(item.menu_item_name, ord.channel)
           orderCogs += (hpp * qty)
         }
       }
 
-      const itemDiff = itemGross > totalAmt ? itemGross - totalAmt : 0
-      const extraDiff = Math.max(0, itemDiff - (disc + promo))
-      const deductions = disc + promo + extraDiff
-      const grossRev = itemGross > 0 ? itemGross : (totalAmt + disc + promo)
+      // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000):
+      //   Potongan = MAX(0, nilai item - total_amount); Omzet = total_amount + Potongan.
+      // Tidak memakai promo_subsidy: arti `total_amount` sempat berubah
+      // (19 Agu 2026, b41efc7a) sehingga promo bisa terhitung dua kali.
+      const itemValue = (ord.order_items || []).reduce(
+        (s: number, i: any) => s + (Number(i.subtotal) || 0),
+        0
+      )
+      const deductions = (ord.order_items || []).length > 0
+        ? Math.max(0, itemValue - totalAmt)
+        : disc + promo
+      const grossRev = totalAmt + deductions
 
       outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
 
-      if (src.includes('grab') || src.includes('gofood') || src.includes('shopee') || src === 'food_delivery' || ch.includes('grab') || ch.includes('go') || ch.includes('shopee')) {
-        faGross += grossRev
-        faDeductions += deductions
-        faCogs += orderCogs
-        faCount++
-        if (src.includes('grab') || ch.includes('grab')) grabRev += totalAmt
-        else if (src.includes('gofood') || src.includes('go_food') || ch.includes('go')) gofoodRev += totalAmt
-        else if (src.includes('shopee') || ch.includes('shopee')) shopeeRev += totalAmt
-      } else if (src.includes('tiktok') || ch.includes('tiktok')) {
+      const curFin = outletFinancialsMap.get(ord.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
+      curFin.gross += grossRev
+      curFin.deductions += deductions
+      curFin.cogs += orderCogs
+      outletFinancialsMap.set(ord.outlet_id, curFin)
+
+      if (
+        src.includes('tiktok') ||
+        ch.includes('tiktok') ||
+        ch === 'c9b01c9f-0e5b-462f-bba8-9a9b6525c5c8' ||
+        ch === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5'
+      ) {
         tkGross += grossRev
         tkDeductions += deductions
         tkCogs += orderCogs
         tkCount++
+      } else if (
+        src.includes('grab') ||
+        src.includes('gofood') ||
+        src.includes('go_food') ||
+        src.includes('gojek') ||
+        src.includes('shopee') ||
+        src === 'food_delivery' ||
+        src === 'food_apps' ||
+        src === 'foodapps' ||
+        ch.includes('grab') ||
+        ch.includes('gofood') ||
+        ch.includes('go_food') ||
+        ch.includes('gojek') ||
+        ch.includes('shopee') ||
+        ch === 'food_apps' ||
+        ch === 'foodapps' ||
+        ch === '1284ac2a-e753-4380-9f32-59219a322459' ||
+        ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a' ||
+        ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2'
+      ) {
+        faGross += grossRev
+        faDeductions += deductions
+        faCogs += orderCogs
+        faCount++
+        if (src.includes('grab') || ch.includes('grab') || ch === '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a') grabRev += totalAmt
+        else if (src.includes('gofood') || src.includes('go_food') || src.includes('gojek') || ch.includes('gofood') || ch.includes('go_food') || ch.includes('gojek') || ch === '1284ac2a-e753-4380-9f32-59219a322459') gofoodRev += totalAmt
+        else if (src.includes('shopee') || ch.includes('shopee') || ch === '0eaf2746-da9f-492c-a9b4-f091307c98c2') shopeeRev += totalAmt
       } else {
         // Default to POS (Dine-in, Takeaway, QRIS, Kasir)
         posGross += grossRev
@@ -403,11 +463,15 @@ export async function getMitraComprehensivePnl(
     return rawCat ? toTitleCase(rawCat) : 'Biaya Operasional Lainnya'
   }
 
+  const outletOpexMap = new Map<string, number>()
   let totalPettyCash = 0
   if (pettyExpenses) {
     for (const p of pettyExpenses) {
       const amt = Number(p.amount) || 0
       totalPettyCash += amt
+      if (p.outlet_id) {
+        outletOpexMap.set(p.outlet_id, (outletOpexMap.get(p.outlet_id) || 0) + amt)
+      }
       const cat = mapToStandardCategory(p.category, p.description)
       const existing = categoryMap.get(cat) || { amount: 0, items: [] }
       existing.amount += amt
@@ -426,6 +490,9 @@ export async function getMitraComprehensivePnl(
     for (const m of monthlyExpenses) {
       const amt = Number(m.amount) || 0
       totalMonthly += amt
+      if (m.outlet_id) {
+        outletOpexMap.set(m.outlet_id, (outletOpexMap.get(m.outlet_id) || 0) + amt)
+      }
       const cat = mapToStandardCategory(m.category, m.description)
       const existing = categoryMap.get(cat) || { amount: 0, items: [] }
       existing.amount += amt
@@ -450,7 +517,17 @@ export async function getMitraComprehensivePnl(
   const grandTotalOpex = totalPettyCash + totalMonthly
 
   // 7. Waste
-  const totalWaste = (wasteRows || []).reduce((sum, w) => sum + (Number(w.nilai_waste) || 0), 0)
+  const outletWasteMap = new Map<string, number>()
+  let totalWaste = 0
+  if (wasteRows) {
+    for (const w of wasteRows) {
+      const amt = Number(w.nilai_waste) || 0
+      totalWaste += amt
+      if (w.outlet_id) {
+        outletWasteMap.set(w.outlet_id, (outletWasteMap.get(w.outlet_id) || 0) + amt)
+      }
+    }
+  }
 
   // 8. Financial Totals
   const totalGrossRevenue = posGross + faGross + tkGross
@@ -459,32 +536,63 @@ export async function getMitraComprehensivePnl(
   const totalCogs = posCogs + faCogs + tkCogs
   const grossProfit = netRevenue - totalCogs
 
-  // 8b. Management Fee Pusat (calculated accurately per-outlet based on each outlet's investment fee setting)
+  // 8b. Per-Outlet Policy Evaluation, Management Fee & Profit Sharing (Adaptive BEP Scheme)
   const invMap = new Map((investments || []).map(i => [i.outlet_id, i]))
   let totalManagementFeeAmount = 0
-  let singleFeePct = 0
-  let feeOutletCount = 0
+  let totalMitraShare = 0
+  let singlePolicyStatus = ''
+  let singleIsBep = false
+  let singleManagementFeePct = 0
+  let singleProfitSharingPct = 50
 
-  for (const [outletId, grossRev] of outletGrossRevMap.entries()) {
-    const inv = invMap.get(outletId)
-    const feeRate = Number(inv?.management_fee) || 0
-    if (feeRate > 0) {
-      feeOutletCount++
-      singleFeePct = feeRate
-      if (feeRate <= 100) {
-        totalManagementFeeAmount += (grossRev * feeRate) / 100
-      } else {
-        totalManagementFeeAmount += feeRate
-      }
+  for (const oid of targetOutletIds) {
+    const inv = invMap.get(oid)
+    const modalInvestasi = Number(inv?.nilai_investasi) || 0
+    const omzetHistoris = Number(inv?.omzet_historis) || 0
+    const transferHistoris = Number(inv?.transfer_historis) || 0
+    const outletTransfers = (transfers || []).filter(t => t.outlet_id === oid).reduce((s, t) => s + (Number(t.nominal) || 0), 0)
+    const totalDanaKembali = omzetHistoris + transferHistoris + outletTransfers
+    const isOutletBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
+
+    const legacyShare = Number(inv?.persentase_bagi_hasil) || Number(profile?.profit_sharing_pct) || 50
+    const legacyFee = Number(inv?.management_fee) || 0
+
+    const policy = resolveMitraPolicy({
+      periodFrom: filter.from,
+      isBep: isOutletBep,
+      legacyProfitSharingPct: legacyShare,
+      legacyManagementFee: legacyFee
+    })
+
+    const fin = outletFinancialsMap.get(oid) || { gross: 0, deductions: 0, cogs: 0 }
+    const opex = outletOpexMap.get(oid) || 0
+    const waste = outletWasteMap.get(oid) || 0
+
+    let mgmtFee = 0
+    if (policy.managementFeePct > 0) {
+      mgmtFee = Math.round((fin.gross * policy.managementFeePct) / 100)
+    }
+
+    const outletNetProfit = fin.gross - fin.deductions - fin.cogs - opex - waste - mgmtFee
+    const outletMitraShare = outletNetProfit > 0 ? Math.round((outletNetProfit * policy.profitSharingPct) / 100) : 0
+
+    totalManagementFeeAmount += mgmtFee
+    totalMitraShare += outletMitraShare
+
+    if (targetOutletIds.length === 1) {
+      singlePolicyStatus = policy.statusLabel
+      singleIsBep = policy.isBep
+      singleManagementFeePct = policy.managementFeePct
+      singleProfitSharingPct = policy.profitSharingPct
     }
   }
 
   const managementFeeAmount = Math.round(totalManagementFeeAmount)
-  const managementFeePct = targetOutletIds.length === 1 ? singleFeePct : (feeOutletCount > 0 ? 3 : 0)
-
   const netProfit = grossProfit - grandTotalOpex - totalWaste - managementFeeAmount
+  const mitraShare = totalMitraShare
+  const profitMarginPct = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0
 
-  // 9. Investment & Historical BEP (Calculated first to determine profit sharing)
+  // 9. Investment & Historical BEP Stats (Konsolidasi Jaringan)
   let totalModal = 0
   let totalOmzetHistoris = 0
   let totalTransferHistoris = 0
@@ -502,15 +610,23 @@ export async function getMitraComprehensivePnl(
   const totalProfitDistributed = totalOmzetHistoris + totalTransferHistoris + totalTransfers
   const roi = totalModal > 0 ? (totalProfitDistributed / totalModal) * 100 : 0
   const bepPercentage = Math.min(roi, 100)
+  const isGlobalBep = totalModal > 0 && totalProfitDistributed >= totalModal
 
-  // JIKA SUDAH BEP 100%, maka keuntungan antara mitra dan pusat jadi 50:50
-  if (totalModal > 0 && totalProfitDistributed >= totalModal) {
-    profitSharingPct = 50
-  }
+  const finalProfitSharingPct = targetOutletIds.length === 1
+    ? singleProfitSharingPct
+    : (netProfit > 0 ? Math.round((mitraShare / netProfit) * 100) : 50)
 
-  // Mitra profit share is only distributed when net profit is positive
-  const mitraShare = netProfit > 0 ? (netProfit * (profitSharingPct / 100)) : 0
-  const profitMarginPct = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0
+  const finalManagementFeePct = targetOutletIds.length === 1
+    ? singleManagementFeePct
+    : (totalGrossRevenue > 0 ? Math.round((managementFeeAmount / totalGrossRevenue) * 100 * 10) / 10 : 3)
+
+  const finalPolicyStatus = targetOutletIds.length === 1
+    ? singlePolicyStatus
+    : 'Agregasi Jaringan Kemitraan'
+
+  const finalIsBep = targetOutletIds.length === 1
+    ? singleIsBep
+    : isGlobalBep
 
   return {
     period: {
@@ -518,7 +634,7 @@ export async function getMitraComprehensivePnl(
       to: filter.to || ''
     },
     outletName,
-    profitSharingPct,
+    profitSharingPct: finalProfitSharingPct,
     summary: {
       grossRevenue: totalGrossRevenue,
       totalDeductions,
@@ -527,11 +643,13 @@ export async function getMitraComprehensivePnl(
       grossProfit,
       totalOpex: grandTotalOpex,
       totalWaste,
-      managementFeePct,
+      managementFeePct: finalManagementFeePct,
       managementFeeAmount,
       netProfit,
       mitraShare,
-      profitMarginPct
+      profitMarginPct,
+      policyStatus: finalPolicyStatus,
+      isBep: finalIsBep
     },
     channels: {
       pos: {

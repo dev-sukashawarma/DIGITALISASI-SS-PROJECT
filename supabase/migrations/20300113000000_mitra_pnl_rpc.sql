@@ -138,13 +138,15 @@ BEGIN
             discount_amount + promo_subsidy + GREATEST(0, GREATEST(0, item_gross - total_amount) - (discount_amount + promo_subsidy)) as deductions,
             CASE WHEN item_gross > 0 THEN item_gross ELSE (total_amount + discount_amount + promo_subsidy) END as gross_rev,
             CASE 
-                WHEN src LIKE '%grab%' OR src LIKE '%gofood%' OR src LIKE '%shopee%' OR src = 'food_delivery' OR channel LIKE '%grab%' OR channel LIKE '%go%' OR channel LIKE '%shopee%' THEN 'foodApps'
-                WHEN src LIKE '%tiktok%' OR channel LIKE '%tiktok%' THEN 'tiktok'
+                WHEN src LIKE '%tiktok%' OR channel LIKE '%tiktok%' OR channel = 'c9b01c9f-0e5b-462f-bba8-9a9b6525c5c8' OR channel = 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' THEN 'tiktok'
+                WHEN src LIKE '%grab%' OR src LIKE '%gofood%' OR src LIKE '%go_food%' OR src LIKE '%gojek%' OR src LIKE '%shopee%' OR src IN ('food_delivery', 'food_apps', 'foodapps')
+                     OR channel LIKE '%grab%' OR channel LIKE '%gofood%' OR channel LIKE '%go_food%' OR channel LIKE '%gojek%' OR channel LIKE '%shopee%' OR channel IN ('food_delivery', 'food_apps', 'foodapps')
+                     OR channel IN ('1284ac2a-e753-4380-9f32-59219a322459', '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a', '0eaf2746-da9f-492c-a9b4-f091307c98c2') THEN 'foodApps'
                 ELSE 'pos'
             END as channel_group,
-            CASE WHEN src LIKE '%grab%' OR channel LIKE '%grab%' THEN total_amount ELSE 0 END as grab_rev_val,
-            CASE WHEN src LIKE '%gofood%' OR src LIKE '%go_food%' OR channel LIKE '%go%' THEN total_amount ELSE 0 END as gofood_rev_val,
-            CASE WHEN src LIKE '%shopee%' OR channel LIKE '%shopee%' THEN total_amount ELSE 0 END as shopee_rev_val
+            CASE WHEN (src LIKE '%grab%' OR channel LIKE '%grab%' OR channel = '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a') AND src NOT LIKE '%tiktok%' AND channel NOT LIKE '%tiktok%' THEN total_amount ELSE 0 END as grab_rev_val,
+            CASE WHEN (src LIKE '%gofood%' OR src LIKE '%go_food%' OR src LIKE '%gojek%' OR channel LIKE '%gofood%' OR channel LIKE '%go_food%' OR channel LIKE '%gojek%' OR channel = '1284ac2a-e753-4380-9f32-59219a322459') AND src NOT LIKE '%tiktok%' AND channel NOT LIKE '%tiktok%' THEN total_amount ELSE 0 END as gofood_rev_val,
+            CASE WHEN (src LIKE '%shopee%' OR channel LIKE '%shopee%' OR channel = '0eaf2746-da9f-492c-a9b4-f091307c98c2') AND src NOT LIKE '%tiktok%' AND channel NOT LIKE '%tiktok%' THEN total_amount ELSE 0 END as shopee_rev_val
         FROM order_details
     )
     SELECT 

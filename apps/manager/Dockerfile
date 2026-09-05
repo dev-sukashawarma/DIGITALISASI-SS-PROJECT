@@ -23,25 +23,17 @@ COPY packages packages
 COPY apps/manager apps/manager
 
 # NEXT_PUBLIC_* variables inlined at build time
-ARG FIREBASE_SERVICE_ACCOUNT
 ARG NEXT_PUBLIC_COOKIE_DOMAIN
 ARG NEXT_PUBLIC_PORTAL_URL
 ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_SUPABASE_URL
-ARG SUPABASE_ACCESS_TOKEN
-ARG SUPABASE_PROJECT_ID
 ARG SUPABASE_SERVICE_ROLE_KEY
-ARG SUPABASE_URL
 
-ENV FIREBASE_SERVICE_ACCOUNT=$FIREBASE_SERVICE_ACCOUNT
 ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
 ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
-ENV SUPABASE_PROJECT_ID=$SUPABASE_PROJECT_ID
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-ENV SUPABASE_URL=$SUPABASE_URL
 
 # Prevent build process from OOM on low vCPU hosts
 ENV RAYON_NUM_THREADS=1
@@ -49,42 +41,36 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 WORKDIR /repo
-RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace manager build
+RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace manager build && mkdir -p apps/manager/public
 
-# --- Stage 3: Ultra-lightweight Production Runner ---
+# --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
-WORKDIR /repo
+WORKDIR /repo/apps/manager
 
 ENV NODE_ENV=production
 ENV PORT=3000
-# server.js standalone membaca HOSTNAME; tanpa 0.0.0.0 ia bisa bind ke
-# localhost saja dan tak terjangkau dari luar container.
-ENV HOSTNAME=0.0.0.0
 
 # Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
-# (fresh FROM), termasuk untuk build output:'standalone'. server.js baca
-# process.env di RUNTIME, jadi harus di-re-declare di sini juga.
+# (fresh FROM). Server Actions/Route Handlers baca process.env di RUNTIME,
+# jadi harus di-re-declare di sini juga, bukan cuma di builder.
 ARG SUPABASE_SERVICE_ROLE_KEY
-ARG SUPABASE_ACCESS_TOKEN
-ARG SUPABASE_PROJECT_ID
-ARG SUPABASE_URL
-ARG FIREBASE_SERVICE_ACCOUNT
-ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
-ENV SUPABASE_ACCESS_TOKEN=$SUPABASE_ACCESS_TOKEN
-ENV SUPABASE_PROJECT_ID=$SUPABASE_PROJECT_ID
-ENV SUPABASE_URL=$SUPABASE_URL
-ENV FIREBASE_SERVICE_ACCOUNT=$FIREBASE_SERVICE_ACCOUNT
+ARG NEXT_PUBLIC_SUPABASE_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_COOKIE_DOMAIN
+ARG NEXT_PUBLIC_PORTAL_URL
 
-# next.config.ts memakai output:'standalone' — Next sudah men-trace modul yang
-# benar-benar dipakai runtime ke .next/standalone (termasuk node_modules-nya
-# sendiri). Menyalin /repo/node_modules utuh seperti sebelumnya menggandakannya
-# DAN ikut membawa devDependencies (typescript, eslint, @types, tailwind) yang
-# nol gunanya saat runtime.
-# Layout standalone mengikuti struktur monorepo: server.js ada di apps/manager/.
-COPY --from=builder /repo/apps/manager/.next/standalone ./
-COPY --from=builder /repo/apps/manager/.next/static ./apps/manager/.next/static
-COPY --from=builder /repo/apps/manager/public ./apps/manager/public
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
+ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+
+COPY --from=builder /repo/node_modules /repo/node_modules
+COPY --from=builder /repo/apps/manager/node_module[s] /repo/apps/manager/node_modules/
+COPY --from=builder /repo/apps/manager/package.json ./package.json
+COPY --from=builder /repo/apps/manager/.next ./.next
+COPY --from=builder /repo/apps/manager/public ./public
 
 EXPOSE 3000
 
-CMD ["node", "apps/manager/server.js"]
+CMD ["npx", "next", "start", "-p", "3000"]

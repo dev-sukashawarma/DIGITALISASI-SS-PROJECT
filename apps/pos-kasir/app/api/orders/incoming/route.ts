@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
+import { buildMenuNameIndex, resolveMenuItemId } from '@/lib/resolve-menu-id'
 
 // Perbandingan constant-time untuk cegah timing attack pada token comparison
 function timingSafeEqual(a: string, b: string): boolean {
@@ -126,6 +127,13 @@ export async function POST(request: Request) {
   }
 
   // Buat order dan items secara atomic
+  // Cocokkan nama menu -> menu_items.id milik pos-kasir. order-system memakai
+  // database terpisah dengan id sendiri, jadi id-nya tak bisa dipakai langsung.
+  // Tanpa ini `menu_item_id` NULL, dan trigger BOM melewati item ber-id NULL
+  // sehingga bahan baku pesanan web tak pernah dipotong dari stok.
+  const { data: menuRows } = await supabaseService.from('menu_items').select('id, name')
+  const menuIndex = buildMenuNameIndex(menuRows)
+
   const { data: order, error: orderError } = await supabaseService.rpc('atomic_insert_order', {
     p_order: {
       outlet_id: pos_outlet_id,
@@ -140,7 +148,7 @@ export async function POST(request: Request) {
       external_order_id,
     },
     p_items: items.map((item) => ({
-      menu_item_id: null,
+      menu_item_id: resolveMenuItemId(menuIndex, item.menu_item_name),
       menu_item_name: item.menu_item_name,
       quantity: item.quantity,
       unit_price: item.unit_price,

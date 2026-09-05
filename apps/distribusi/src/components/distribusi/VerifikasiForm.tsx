@@ -14,9 +14,7 @@ import {
   Camera,
   Lock,
   QrCode,
-  Sparkles,
   RefreshCw,
-  FileCheck,
   Check
 } from 'lucide-react'
 import { toast } from 'sonner'

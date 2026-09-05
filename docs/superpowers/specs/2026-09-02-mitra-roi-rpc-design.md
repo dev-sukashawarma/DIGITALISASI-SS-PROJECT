@@ -132,6 +132,8 @@ Satu kolom tambahan yang wajib ada dan mudah terlewat: **`is_bep_kebijakan`** �
 
 **Mesin kebijakan ikut pindah ke fungsi ini** (temuan 6). Untuk periode yang mulai pada atau sesudah `2026-09-01`, `persentase` dan `management_fee` **tidak** dibaca dari `mitra_investments` melainkan diturunkan dari `is_bep_kebijakan` (basis kas, bukan `is_bep`): belum BEP → 100% dan fee 3%; sudah BEP → 50% dan fee 0%. Untuk periode sebelumnya, keduanya tetap dari kolom historis per outlet. Tanggal cutoff jadi konstanta bernama di dalam fungsi, sejajar dengan `MITRA_POLICY_SEPTEMBER_2026_CUTOFF` di `mitraPolicy.ts`.
 
+**Koreksi 2026-09-05 (ditemukan saat eksekusi):** cutoff dibaca dari **`p_to`**, bukan `p_from` seperti tertulis di revisi sebelumnya. Spec keliru — kesimpulan itu ditarik dari nama parameter `periodFrom` tanpa memeriksa apa yang dikirim pemanggilnya. Diverifikasi di `mitraRoi.ts:250`: produksi mengirim `new Date().toISOString()`, yaitu **tanggal hari ini**, sementara jendela omzetnya selalu mulai 1 Agustus. Karena gerbang sub-proyek ini menuntut angka identik dengan produksi, fungsi mengikuti acuan yang sama. Konsekuensi yang diwarisi: laporan periode lampau memakai tarif hari ini, bukan tarif periode itu. Ditinjau bersama penyatuan dua basis BEP, bukan diubah di sini.
+
 Menaruh kebijakan di sini adalah inti tujuan sub-proyek: begitu Android ikut memanggil fungsi ini, aturan cutoff dan tarif fee tidak perlu ditulis ulang di Kotlin. `mitraPolicy.ts` boleh tetap ada untuk keperluan label UI (`statusLabel`), tetapi angka yang menentukan uang berasal dari satu tempat.
 
 Tiga hal yang mudah tertukar, ditegaskan di sini:
@@ -218,7 +220,7 @@ Ditambah setelah temuan 6 — kebijakan cutoff wajib dipin, karena inilah aturan
 7. Periode yang mulai **pada atau sesudah** 2026-09-01, outlet belum BEP menurut `is_bep_kebijakan` (basis kas) → persentase 100 dan management fee 3.
 8. Periode yang sama, outlet sudah BEP menurut `is_bep_kebijakan` → persentase 50 dan management fee 0.
 10. Outlet yang `is_bep_kebijakan` dan `is_bep` berbeda tetap menghasilkan tarif dari yang basis kas — pin perilaku ini agar tidak ada yang "merapikannya" jadi satu.
-9. Periode yang melintasi tanggal cutoff diperlakukan konsisten dengan `mitraPolicy.ts` (ia memutuskan berdasarkan `periodFrom`, jadi fungsi database harus memakai `p_from` juga — bukan `p_to`, dan bukan tanggal hari ini).
+9. Cutoff dibaca dari `p_to` — meniru produksi, yang mengirim tanggal hari ini ke `resolveMitraPolicy`. Pin perilaku ini; memakai `p_from` justru membuat angka berbeda dari produksi.
 
 ## Di luar cakupan
 

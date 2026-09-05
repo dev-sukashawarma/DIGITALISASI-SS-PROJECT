@@ -15,7 +15,7 @@
 - **Fungsi wajib `SECURITY INVOKER`.** Setiap tabel yang dibaca sudah punya RLS yang benar; berjalan sebagai pemanggil membuat mitra otomatis hanya menerima outletnya sendiri. Menulis pemeriksaan hak akses sendiri di dalam fungsi adalah pola yang sudah pernah kebobolan di proyek ini (memori `server-action-authz-gap`).
 - **`expenses` disaring `type = 'expense'`, BUKAN `'out'`.** Nol baris memakai `'out'`; seluruh 302 baris sejak 1 Agustus bertipe `'expense'` (Rp 345 juta). Menyalin filter lama membuat gaji, listrik, dan sewa hilang dari OPEX sehingga laba mitra menggelembung.
 - **Dua basis BEP sengaja berbeda dan tidak boleh disatukan.** `is_bep_kebijakan` (basis kas) menyetir tarif; `is_bep` (basis hak) ditampilkan. Menyatukannya membuat rumus melingkar dan mengubah perilaku.
-- **Cutoff kebijakan `2026-09-01`** diputuskan dari `p_from`, bukan `p_to` dan bukan tanggal hari ini — agar sepakat dengan `mitraPolicy.ts`.
+- **Cutoff kebijakan `2026-09-01`** dibaca dari `p_to` (yang defaultnya `now()`). Terlihat janggal, tapi inilah yang dilakukan produksi: `mitraRoi.ts:250` mengirim `new Date().toISOString()` ke `resolveMitraPolicy` sementara jendela omzetnya mulai 1 Agustus. Memakai `p_from` membuat angka berbeda dari produksi dan gerbang verifikasi mustahil dipenuhi.
 - Tanggal mulai sistem: `2026-08-01 00:00 WIB` = `2026-07-31T17:00:00Z`.
 - Bahasa komentar kode dan UI: Indonesia.
 - Jangan sentuh `mitraPnl.ts`, `mitraPolicy.ts`, atau fungsi HPP di database.

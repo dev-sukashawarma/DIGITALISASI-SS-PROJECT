@@ -82,7 +82,7 @@ Dua konsekuensi untuk sub-proyek ini:
 
 Ini definisi yang **sudah dipakai kartu ROI hari ini**. Yang berubah hanyalah aturan 50:50 ikut memakainya — sebelumnya aturan itu memakai basis kas.
 
-Konsekuensinya besar dan menguntungkan: **tidak ada satu angka pun yang berubah di mata mitra.** Diverifikasi ulang terhadap data **2026-09-05**: status BEP kesembilan outlet tetap sama di kedua basis — Cibinong melewati modal di keduanya (173,1% hak, 162,9% kas), delapan lainnya tertinggi 46,7%, jauh dari ambang. Baik aturan 50:50 **maupun pembebasan management fee 3%** (temuan 6) tidak berpindah untuk siapa pun.
+Konsekuensinya besar dan menguntungkan: **tidak ada satu angka pun yang berubah di mata mitra.** Diverifikasi ulang terhadap data **2026-09-05**: status BEP kesembilan outlet tetap sama di kedua basis — Cibinong melewati modal di keduanya (169,0% hak, 162,9% kas), delapan lainnya tertinggi 34,9%, jauh dari ambang. Baik aturan 50:50 **maupun pembebasan management fee 3%** (temuan 6) tidak berpindah untuk siapa pun.
 
 Perlu dicatat bahwa sejak temuan 6, keputusan basis ini menentukan lebih banyak daripada saat pertama diambil: ia kini juga menentukan apakah seorang mitra dikenai management fee 3% atau dibebaskan. Kesimpulan "tidak ada yang berubah" tetap berlaku hari ini, tetapi jarak ke ambang wajib diperiksa ulang tepat sebelum implementasi — outlet yang mendekati 100% akan membuat pilihan basis ini punya konsekuensi rupiah langsung.
 
@@ -122,7 +122,7 @@ Menaruh kebijakan di sini adalah inti tujuan sub-proyek: begitu Android ikut mem
 Tiga hal yang mudah tertukar, ditegaskan di sini:
 
 - `persentase` adalah persentase bagi hasil **setelah** aturan 50:50 diterapkan, bukan nilai mentah dari `mitra_investments`.
-- `bep_pct` adalah `roi_pct` yang dibatasi maksimum 100 dan dibulatkan satu desimal, untuk bilah kemajuan. `roi_pct` sendiri tidak dibatasi, sehingga Cibinong tetap tampil 173,1% (angka per 2026-09-05), bukan terpotong jadi 100%.
+- `bep_pct` adalah `roi_pct` yang dibatasi maksimum 100 dan dibulatkan satu desimal, untuk bilah kemajuan. `roi_pct` sendiri tidak dibatasi, sehingga Cibinong tetap tampil 169,0% (angka per 2026-09-05), bukan terpotong jadi 100%.
 - `is_bep` bernilai benar hanya bila `modal_investasi > 0` **dan** `dana_kembali >= modal_investasi`. Outlet tanpa nilai investasi tidak pernah dianggap sudah balik modal.
 
 **Berjalan sebagai pemanggil (`SECURITY INVOKER`), bukan sebagai pemilik database.** Keputusan sengaja: karena setiap tabel sudah punya aturan akses yang benar (temuan 4), mitra yang memanggil fungsi ini otomatis hanya mendapat outlet miliknya — walau ia mengirim daftar outlet orang lain sebagai parameter. Alternatifnya mengharuskan kita menulis sendiri pemeriksaan hak akses di dalam fungsi, dan proyek ini sudah pernah kebobolan persis di pola itu (empat Server Action `apps/stok` memakai service-role tanpa memeriksa role sama sekali; lihat memori `server-action-authz-gap`).
@@ -161,25 +161,31 @@ Satu-satunya tambahan yang tidak punya pembanding adalah angka pendamping "sudah
 
 Diambil ulang **2026-09-05** dengan service role, jadi angka waste kosong dan laba bersih di sini **terlalu besar** (temuan 5). Persentase pada kolom masih persentase historis per outlet, belum melewati mesin kebijakan. Dipakai sebagai indikasi arah, bukan patokan final — patokan final diambil dari layar produksi.
 
-| Outlet | Omzet | Laba bersih* | ROI (hak) | Sudah diterima | Selisih |
+| Outlet | Omzet | Opex | ROI (hak) | Sudah diterima | Selisih |
 |---|---:|---:|---:|---:|---:|
-| Cibinong | 151,2 jt | 50,4 jt | 173,1% | 162,9% | 10,2 |
-| Cibubur | 110,6 jt | 34,0 jt | 43,7% | 28,3% | 15,4 |
-| Cicurug | 159,4 jt | 47,1 jt | 36,7% | 12,6% | 24,0 |
-| Cileungsi | 217,1 jt | 61,0 jt | 40,7% | 0,0% | 40,7 |
-| Ciseeng | 53,9 jt | 17,6 jt | 29,1% | 24,0% | 5,1 |
-| Kalisari | 48,1 jt | 15,2 jt | 26,6% | 22,0% | 4,7 |
-| Paledang | 79,6 jt | 23,7 jt | 29,9% | 22,3% | 7,6 |
-| Pekayon | 68,1 jt | 22,6 jt | 37,7% | 32,8% | 5,0 |
-| Sentul | 85,1 jt | 25,8 jt | 46,7% | 46,3% | 0,4 |
+| Cibinong | 151,2 jt | 16,0 jt | 169,0% | 162,9% | 6,2 |
+| Cibubur | 110,6 jt | — | 33,4% | 28,3% | 5,1 |
+| Cicurug | 159,4 jt | 18,8 jt | 27,1% | 12,6% | 14,5 |
+| Cileungsi | 217,1 jt | 18,9 jt | 31,5% | 0,0% | 31,5 |
+| Ciseeng | 53,9 jt | 9,9 jt | 26,7% | 24,0% | 2,7 |
+| Kalisari | 48,1 jt | 7,8 jt | 24,2% | 22,0% | 2,2 |
+| Paledang | 79,6 jt | 11,6 jt | 26,4% | 22,3% | 4,1 |
+| Pekayon | 68,1 jt | 13,2 jt | 34,9% | 32,8% | 2,2 |
+| Sentul | 85,1 jt | 14,1 jt | 41,0% | 46,3% | **−5,3** |
 
-Kolom selisih adalah bagi hasil yang sudah jadi hak tetapi belum ditransfer.
+Kolom selisih adalah bagi hasil yang sudah jadi hak tetapi belum ditransfer. Sentul bertanda negatif: transfer yang sudah dibayarkan melampaui bagi hasil periode berjalan — akibat periode tak setara (bagi hasil dihitung sejak 1 Agustus, transfer mencakup seluruh riwayat). Angka pendamping ini karena itu bukan "sisa utang" yang presisi.
+
+### ⚠️ Jebakan `expenses.type` — wajib dibaca sebelum menulis SQL
+
+Pengambilan patokan pertama memakai filter `type = 'out'`, menyalin `mitraRoi.ts` versi lama. Ternyata **tidak ada satu pun** baris pengeluaran bertipe `out`: seluruh 302 baris sejak 1 Agustus bertipe **`expense`**, bernilai total Rp 345 juta. Akibatnya seluruh pengeluaran bulanan — gaji, listrik, sewa — tak pernah masuk OPEX, laba terlihat lebih besar, dan BEP terlihat lebih cepat tercapai. ROI di tabel ini turun 2–10 poin setelah dikoreksi.
+
+`mitraRoi.ts` di `main` **sudah** memakai `type = 'expense'` (komentar di berkasnya mencatat bug ini pernah diperbaiki lebih dulu di `mitraPnl.ts` lalu salinannya di ROI terlewat). Fungsi database yang baru **wajib** memakai `'expense'`. Menyalin dari kode lama mana pun akan menghidupkan kembali bug yang menggelembungkan laba mitra.
 
 **Perhatikan: omzet TURUN dibanding pengambilan 2 September** meski periodenya tiga hari lebih panjang — Pekayon 86,4 → 68,1 jt, Sentul 115,1 → 85,1 jt, dan deduksi anjlok jauh lebih tajam (Sentul 40,0 → 3,3 jt). Ini efek PR #49/#50 yang menyeragamkan acuan omzet kotor lintas dashboard, bukan penjualan yang merosot. Laba bersih justru naik di semua outlet. Angka lama sengaja tidak disimpan di sini agar tidak ada yang keliru memakainya sebagai patokan.
 
-**Tetap tidak ada outlet yang berubah status BEP-nya.** Diperiksa ulang pada data 2026-09-05: hanya Cibinong yang melewati modal, dan lewat di kedua basis (173,1% hak, 162,9% kas). Delapan sisanya tertinggi 46,7% — jauh di bawah 100%, sehingga tidak ada yang berada di ambang. Baik aturan 50:50 maupun pembebasan management fee tidak menyala atau padam untuk siapa pun akibat keputusan basis di spec ini.
+**Tetap tidak ada outlet yang berubah status BEP-nya.** Diperiksa ulang pada data 2026-09-05: hanya Cibinong yang melewati modal, dan lewat di kedua basis (169,0% hak, 162,9% kas). Delapan sisanya tertinggi 34,9% — jauh di bawah 100%, sehingga tidak ada yang berada di ambang. Baik aturan 50:50 maupun pembebasan management fee tidak menyala atau padam untuk siapa pun akibat keputusan basis di spec ini.
 
-**Cileungsi bukan data yang bermasalah.** Order pertamanya 8 Agustus 2026, tanggal mulai investasi 10 Agustus — memang tidak ada riwayat sebelum sistem berjalan, dan nol transfer berarti mitranya belum pernah menerima pembayaran. Outlet ini beromzet paling besar di antara semua mitra. Inilah kasus yang paling menunjukkan gunanya angka pendamping: berhak atas 40,7%, diterima 0%.
+**Cileungsi bukan data yang bermasalah.** Order pertamanya 8 Agustus 2026, tanggal mulai investasi 10 Agustus — memang tidak ada riwayat sebelum sistem berjalan, dan nol transfer berarti mitranya belum pernah menerima pembayaran. Outlet ini beromzet paling besar di antara semua mitra. Inilah kasus yang paling menunjukkan gunanya angka pendamping: berhak atas 31,5%, diterima 0%.
 
 ## Pengujian
 

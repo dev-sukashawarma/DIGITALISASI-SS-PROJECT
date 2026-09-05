@@ -2,6 +2,7 @@ package com.sukashawarma.customer
 
 import android.content.Context
 import com.sukashawarma.customer.data.CartStore
+import com.sukashawarma.customer.data.OrderAttemptStore
 import com.sukashawarma.customer.data.OutletStore
 import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.SessionStore
@@ -18,6 +19,7 @@ class AppContainer(context: Context) {
     val sessionStore: SessionStore by lazy { SessionStore(appContext) }
     val outletStore: OutletStore by lazy { OutletStore(appContext) }
     val cartStore: CartStore by lazy { CartStore.persisten(appContext) }
+    val orderAttemptStore: OrderAttemptStore by lazy { OrderAttemptStore(appContext) }
     private val gateway: GatewayClient by lazy { GatewayClient(sessionStore) }
     val repository: Repository by lazy { Repository(gateway) }
 }

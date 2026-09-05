@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
@@ -26,7 +27,15 @@ import com.sukashawarma.customer.ui.screens.detail.ItemDetailScreen
 import com.sukashawarma.customer.ui.screens.detail.ItemDetailViewModel
 import com.sukashawarma.customer.ui.screens.login.LoginScreen
 import com.sukashawarma.customer.ui.screens.login.LoginViewModel
+import com.sukashawarma.customer.ui.screens.history.HistoryScreen
+import com.sukashawarma.customer.ui.screens.history.HistoryViewModel
 import com.sukashawarma.customer.ui.screens.onboarding.OnboardingScreen
+import com.sukashawarma.customer.ui.screens.payment.PaymentViewModel
+import com.sukashawarma.customer.ui.screens.payment.PaymentWaitScreen
+import com.sukashawarma.customer.ui.screens.profile.ProfileScreen
+import com.sukashawarma.customer.ui.screens.status.OrderStatusScreen
+import com.sukashawarma.customer.ui.screens.status.OrderStatusViewModel
+import com.sukashawarma.customer.ui.screens.success.SuccessScreen
 import com.sukashawarma.customer.ui.screens.outlet.OutletPickerScreen
 import com.sukashawarma.customer.ui.screens.outlet.OutletPickerViewModel
 import com.sukashawarma.customer.ui.theme.SukaTheme
@@ -67,6 +76,14 @@ private object Rute {
     const val CHECKOUT = "checkout"
     const val DETAIL = "detail/{menuItemId}"
     fun detail(menuItemId: String) = "detail/$menuItemId"
+
+    const val BAYAR = "bayar"
+    const val SUKSES = "sukses/{orderId}?nomor={nomor}"
+    fun sukses(orderId: String, nomor: Int?) = "sukses/$orderId?nomor=${nomor ?: -1}"
+    const val STATUS = "status/{orderId}"
+    fun status(orderId: String) = "status/$orderId"
+    const val RIWAYAT = "riwayat"
+    const val PROFIL = "profil"
 }
 
 /**
@@ -152,7 +169,9 @@ fun CustomerAppRoot(container: AppContainer) {
                 subtotalKeranjang = cartState.subtotal,
                 onGantiOutlet = { navController.navigate(Rute.PILIH_OUTLET) },
                 onPilihItem = { navController.navigate(Rute.detail(it.id)) },
-                onBukaKeranjang = { navController.navigate(Rute.KERANJANG) }
+                onBukaKeranjang = { navController.navigate(Rute.KERANJANG) },
+                onBukaRiwayat = { navController.navigate(Rute.RIWAYAT) },
+                onBukaProfil = { navController.navigate(Rute.PROFIL) }
             )
         }
 
@@ -247,8 +266,104 @@ fun CustomerAppRoot(container: AppContainer) {
                     cartViewModel.segarkan()
                     navController.popBackStack()
                 },
-                // Pembayaran menyusul di Task 9 (butuh sesi login).
-                onBayar = {}
+                onBayar = { navController.navigate(Rute.BAYAR) }
+            )
+        }
+
+        composable(Rute.BAYAR) {
+            val paymentViewModel: PaymentViewModel = viewModel(
+                factory = pabrik {
+                    PaymentViewModel(
+                        container.repository,
+                        container.cartStore,
+                        container.orderAttemptStore
+                    )
+                }
+            )
+
+            // Percobaan yang tertinggal (aplikasi sempat dimatikan Android
+            // selama pelanggan berada di halaman pembayaran) DILANJUTKAN,
+            // bukan dimulai ulang. Memulai ulang berarti tagihan kedua.
+            LaunchedEffect(Unit) {
+                if (!paymentViewModel.lanjutkanJikaAda()) paymentViewModel.bayar()
+            }
+
+            PaymentWaitScreen(
+                viewModel = paymentViewModel,
+                onSelesai = { nomor ->
+                    val orderId = paymentViewModel.state.value.orderId
+                    cartViewModel.segarkan()
+                    if (orderId != null) {
+                        navController.navigate(Rute.sukses(orderId, nomor)) {
+                            popUpTo(Rute.KATALOG)
+                        }
+                    } else {
+                        navController.popBackStack(Rute.KATALOG, inclusive = false)
+                    }
+                },
+                onKembaliKeRingkasan = { navController.popBackStack() },
+                onLihatRiwayat = { navController.navigate(Rute.RIWAYAT) }
+            )
+        }
+
+        composable(
+            Rute.SUKSES,
+            arguments = listOf(
+                navArgument("orderId") { type = NavType.StringType },
+                navArgument("nomor") {
+                    type = NavType.IntType
+                    defaultValue = -1
+                }
+            )
+        ) { entri ->
+            val orderId = entri.arguments?.getString("orderId").orEmpty()
+            val nomor = entri.arguments?.getInt("nomor")?.takeIf { it > 0 }
+            SuccessScreen(
+                nomorPesanan = nomor,
+                namaOutlet = catalogState.outlet?.name,
+                onLihatStatus = { navController.navigate(Rute.status(orderId)) },
+                onKembaliKeKatalog = {
+                    navController.popBackStack(Rute.KATALOG, inclusive = false)
+                }
+            )
+        }
+
+        composable(
+            Rute.STATUS,
+            arguments = listOf(navArgument("orderId") { type = NavType.StringType })
+        ) { entri ->
+            val orderId = entri.arguments?.getString("orderId").orEmpty()
+            val statusViewModel: OrderStatusViewModel = viewModel(
+                factory = pabrik { OrderStatusViewModel(container.repository, orderId) }
+            )
+            OrderStatusScreen(
+                viewModel = statusViewModel,
+                onKembali = { navController.popBackStack() }
+            )
+        }
+
+        composable(Rute.RIWAYAT) {
+            val historyViewModel: HistoryViewModel = viewModel(
+                factory = pabrik { HistoryViewModel(container.repository) }
+            )
+            HistoryScreen(
+                viewModel = historyViewModel,
+                onBukaPesanan = { navController.navigate(Rute.status(it)) },
+                onKembali = { navController.popBackStack() }
+            )
+        }
+
+        composable(Rute.PROFIL) {
+            ProfileScreen(
+                sesi = container.sessionStore.baca(),
+                onKeluar = {
+                    container.sessionStore.hapus()
+                    navController.navigate(Rute.ONBOARDING) {
+                        popUpTo(Rute.KATALOG) { inclusive = true }
+                    }
+                },
+                onLihatRiwayat = { navController.navigate(Rute.RIWAYAT) },
+                onKembali = { navController.popBackStack() }
             )
         }
     }

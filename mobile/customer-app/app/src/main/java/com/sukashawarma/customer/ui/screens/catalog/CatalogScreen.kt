@@ -43,6 +43,8 @@ fun CatalogScreen(
     onGantiOutlet: () -> Unit,
     onPilihItem: (MenuItemDto) -> Unit,
     onBukaKeranjang: () -> Unit,
+    onBukaRiwayat: () -> Unit,
+    onBukaProfil: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -70,6 +72,14 @@ fun CatalogScreen(
                     buka = it.isActive,
                     onGantiOutlet = onGantiOutlet
                 )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                TextButton(onClick = onBukaRiwayat) { Text("Riwayat") }
+                TextButton(onClick = onBukaProfil) { Text("Profil") }
             }
 
             if (state.keranjangDikosongkan) {

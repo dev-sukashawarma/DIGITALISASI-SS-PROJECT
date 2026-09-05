@@ -15,7 +15,9 @@ import java.util.TimeZone
 data class SessionData(
     val token: String,
     val expiresAt: String,
-    val nama: String? = null
+    val nama: String? = null,
+    val email: String? = null,
+    val telepon: String? = null
 )
 
 class SessionStore(context: Context) {
@@ -34,18 +36,32 @@ class SessionStore(context: Context) {
         )
     }
 
-    fun simpan(token: String, expiresAt: String, nama: String? = null) {
+    fun simpan(
+        token: String,
+        expiresAt: String,
+        nama: String? = null,
+        email: String? = null,
+        telepon: String? = null
+    ) {
         prefs.edit()
             .putString(KEY_TOKEN, token)
             .putString(KEY_EXPIRES_AT, expiresAt)
             .putString(KEY_NAMA, nama)
+            .putString(KEY_EMAIL, email)
+            .putString(KEY_TELEPON, telepon)
             .apply()
     }
 
     fun baca(): SessionData? {
         val token = prefs.getString(KEY_TOKEN, null) ?: return null
         val expiresAt = prefs.getString(KEY_EXPIRES_AT, null) ?: return null
-        return SessionData(token, expiresAt, prefs.getString(KEY_NAMA, null))
+        return SessionData(
+            token = token,
+            expiresAt = expiresAt,
+            nama = prefs.getString(KEY_NAMA, null),
+            email = prefs.getString(KEY_EMAIL, null),
+            telepon = prefs.getString(KEY_TELEPON, null)
+        )
     }
 
     /** Apakah masih ada sesi yang layak dipakai. Lihat [sesiMasihBerlaku]. */
@@ -57,6 +73,8 @@ class SessionStore(context: Context) {
             .remove(KEY_TOKEN)
             .remove(KEY_EXPIRES_AT)
             .remove(KEY_NAMA)
+            .remove(KEY_EMAIL)
+            .remove(KEY_TELEPON)
             .apply()
     }
 
@@ -65,6 +83,8 @@ class SessionStore(context: Context) {
         const val KEY_TOKEN = "token"
         const val KEY_EXPIRES_AT = "expires_at"
         const val KEY_NAMA = "nama"
+        const val KEY_EMAIL = "email"
+        const val KEY_TELEPON = "telepon"
     }
 }
 

@@ -80,7 +80,9 @@ class LoginViewModel(
                 sessionStore.simpan(
                     token = auth.token,
                     expiresAt = auth.expiresAt,
-                    nama = auth.customer.name
+                    nama = auth.customer.name,
+                    email = auth.customer.email,
+                    telepon = auth.customer.phone
                 )
                 _state.value = LoginState(berhasil = true)
             }

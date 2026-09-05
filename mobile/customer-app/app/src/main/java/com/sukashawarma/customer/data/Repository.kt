@@ -4,7 +4,10 @@ import com.sukashawarma.customer.data.api.AuthResponse
 import com.sukashawarma.customer.data.api.CartItemPayload
 import com.sukashawarma.customer.data.api.CheckoutValidateRequest
 import com.sukashawarma.customer.data.api.CheckoutValidateResponse
+import com.sukashawarma.customer.data.api.CreateOrderRequest
+import com.sukashawarma.customer.data.api.CreateOrderResponse
 import com.sukashawarma.customer.data.api.GatewayClient
+import com.sukashawarma.customer.data.api.OrderDetailDto
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
@@ -55,4 +58,35 @@ class Repository(private val gateway: GatewayClient) {
         items: List<CartItemPayload>
     ): GatewayResult<CheckoutValidateResponse> =
         gateway.checkoutValidate(CheckoutValidateRequest(outletId = outletId, items = items))
+
+    /**
+     * Membuat pesanan dan tagihannya.
+     *
+     * `clientOrderId` adalah kunci idempotensi sekali pakai. Pemanggil WAJIB
+     * memakai ulang id yang sama untuk percobaan ulang -- lihat `idBerikutnya`
+     * di layar pembayaran untuk satu-satunya kondisi yang boleh menggantinya.
+     */
+    suspend fun buatPesanan(
+        clientOrderId: String,
+        outletId: String,
+        items: List<CartItemPayload>,
+        telepon: String? = null
+    ): GatewayResult<CreateOrderResponse> =
+        gateway.createOrder(
+            CreateOrderRequest(
+                clientOrderId = clientOrderId,
+                outletId = outletId,
+                items = items,
+                customerPhone = telepon
+            )
+        )
+
+    suspend fun statusPesanan(orderId: String): GatewayResult<OrderDetailDto> =
+        gateway.orderDetail(orderId)
+
+    suspend fun riwayat(): GatewayResult<List<OrderDetailDto>> =
+        when (val hasil = gateway.ordersList()) {
+            is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.orders)
+            is GatewayResult.Gagal -> hasil
+        }
 }

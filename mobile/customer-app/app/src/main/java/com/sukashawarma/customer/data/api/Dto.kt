@@ -127,7 +127,13 @@ data class OrderDetailDto(
     val status: String,
     @SerialName("status_dapur") val statusDapur: String? = null,
     @SerialName("total_amount") val totalAmount: Double,
-    @SerialName("pos_order_number") val posOrderNumber: String? = null,
+    // `Int`, bukan `String`. Kolomnya `pos_order_number int` di
+    // retail.order_drafts, dan gateway meneruskannya apa adanya sebagai angka
+    // JSON. Dideklarasikan String, kotlinx-serialization melempar saat
+    // menguraikannya -- dan karena pengurai dipanggil di dalam try/catch klien,
+    // kegagalannya menyamar jadi "galat jaringan". Layar status dan riwayat
+    // akan SELALU gagal, dengan pesan yang menuduh koneksi pelanggan.
+    @SerialName("pos_order_number") val posOrderNumber: Int? = null,
     @SerialName("outlet_name") val outletName: String? = null,
     @SerialName("created_at") val createdAt: String
 )

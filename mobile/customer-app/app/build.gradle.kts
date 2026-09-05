@@ -97,6 +97,8 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.coil.compose)
+    // Custom Tabs untuk halaman pembayaran Xendit -- BUKAN WebView sendiri.
+    implementation("androidx.browser:browser:1.8.0")
 
     // HTTP client — talks ONLY to the Retail Gateway. No Supabase SDK, no DB credentials.
     implementation(libs.ktor.client.android)

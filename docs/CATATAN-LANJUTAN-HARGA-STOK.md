@@ -1,0 +1,487 @@
+# Catatan Lanjutan — Harga & Stok Bahan Baku
+
+**Dibuat:** 3 September 2026
+**Dipakai untuk:** melanjutkan pekerjaan sepotong-sepotong tanpa harus membaca
+ulang seluruh pembahasan. Tiap butir berdiri sendiri.
+
+---
+
+## SUDAH SELESAI
+
+- **FOIL digabung** — FOIL (48) dinonaktifkan, saldo dipindah lewat 42 baris
+  ledger berpasangan (jumlah bersih nol), harga disesuaikan ke Rp8.791,2 dengan
+  jejak riwayat. Hasil: outlet minus 17 → 1, nilai persediaan foil Rp14,3 juta.
+
+### Sudah dikerjakan orang lain di `main` (jangan diulang)
+
+Diperiksa 3 September setelah merge. Beberapa hal yang semula dicatat sebagai
+pekerjaan tersisa ternyata sudah selesai:
+
+| Migration di `main` | Menyelesaikan |
+|---|---|
+| `20300122000002_hpp_periode_pakai_kemasan_qty` | rumus HPP pakai `kemasan_qty` — migration duplikat buatan sesi ini sudah dibuang |
+| `20300120000001_fix_waste_breakdown_faktor_penuh` | `get_waste_breakdown` kini pakai faktor penuh |
+| `20300122000003_polybag_faktor_dan_harga` | POLYBAG — owner konfirmasi satuannya hanya Pack & Pcs; tingkat "Ikat" tidak ada di lapangan. Terverifikasi di DB: satuan kini Pack, kemasan_qty 9 |
+| `20300120000000_fix_faktor_konversi_14_bahan` | faktor konversi 14 bahan |
+| `20300122000001` + `20300122000004` | normalisasi harga 51 bahan |
+
+**Pelajaran:** ada kerja paralel di repo ini. Sebelum menggarap butir mana pun
+di bawah, cek dulu `main` — bisa jadi sudah dikerjakan.
+
+---
+
+## MULAI DARI SINI (untuk sesi berikutnya)
+
+**Tugasnya:** memutuskan metode basis harga bahan baku (butir 1 di bawah).
+
+**Baca dulu, jangan mulai dari nol:**
+
+1. Bagian "MENUNGGU KEPUTUSAN" tepat di bawah ini — tiga pilihan beserta angkanya
+2. `docs/AUDIT-2026-09-02-HARGA-BAHAN-DUA-VENDOR.md` Bagian IV — pengukuran lengkap
+3. `docs/SKENARIO-BAHAN-DUA-VENDOR-BAHASA-AWAM.md` Bagian 7 — sisi akuntansi
+
+**Yang sudah ditolak — jangan diusulkan ulang:**
+
+| Pernah diusulkan | Kenapa tidak jadi |
+|---|---|
+| FIFO per batch | Menuntut stokis memilih batch tiap kirim di 19 outlet, demi selisih yang terukur nol |
+| Pisahkan bahan per vendor | Sudah dicoba pada FOIL dan terbukti merusak — 17 outlet bersaldo minus |
+| Harga standar | Butuh ritual tinjauan bulanan yang belum ada pemiliknya |
+
+**Angka terakhir (4 September):**
+
+- Dampak dua-vendor ke HPP: **nol** — perputaran cepat, stok sisa selalu dari kiriman terakhir
+- Nilai persediaan: pasti Rp348,2 jt · belum pasti 79 baris (seluruhnya BNR)
+- Nilai persediaan bergeser ~Rp2,3 juta/minggu **tanpa transaksi** — ini alasan
+  utama mempertimbangkan perubahan, bukan selisih HPP-nya
+
+**PRASYARAT yang belum terpenuhi: BNR belum opname.** Selama 79 baris itu skalanya
+belum pasti, rata-rata tertimbang akan menghitung dari satuan campuran — kelas
+kesalahan yang sudah tiga kali menyesatkan di sesi sebelumnya. Periksa dulu:
+
+```sql
+SELECT count(*) FILTER (WHERE saldo_is_gram(sb)) AS sudah,
+       count(*) FILTER (WHERE NOT saldo_is_gram(sb)
+                        AND sb.saldo <> 0 AND b.is_active) AS belum_perlu_digarap
+FROM stok_balance sb JOIN bahan_baku b ON b.id = sb.bahan_baku_id;
+```
+
+Kalau `belum_perlu_digarap` masih puluhan, BNR belum opname — selesaikan itu dulu.
+
+**Dijalankan 4 September (sesi lanjutan): `belum_perlu_digarap` = 79, dengan 39
+di BNR. Masih terhalang.** Catatan praktis: `exec_sql` mengembalikan `void`,
+jadi tidak bisa dipakai membaca. Untuk kueri baca pakai
+`supabase db query "<sql>" --linked` — terbukti jalan dari mesin ini.
+
+**Butir 2 (konfirmasi PSAK) tidak butuh sesi coding.** Jawabannya menentukan
+seberapa mendesak butir 1: kalau metode sekarang memang tidak diakui standar,
+itu alasan mengubahnya yang berdiri sendiri, terlepas dari selisih angkanya
+yang nol.
+
+**Prinsip yang sudah disepakati** ada di bagian paling bawah dokumen ini —
+vendor tidak boleh naik jadi identitas barang.
+
+---
+
+## MENUNGGU KEPUTUSAN
+
+### 1. Metode basis harga bahan baku
+
+**Tiga pilihan, belum diputuskan:**
+
+| | Artinya | Konsekuensi |
+|---|---|---|
+| Terima temuan | Tidak mengubah cara hitung | Paling cepat; tinjau lagi kalau ada bahan berputar lambat |
+| Rata-rata tertimbang | Harga = campuran sesuai stok | Menutup "nilai bergerak tanpa transaksi" |
+| Tunda | Ukur ulang beberapa minggu lagi | Tidak ada yang dikerjakan sekarang |
+
+**Yang sudah diukur:** dampak dua-vendor ke HPP = **nol** (perputaran barang
+cepat, stok sisa selalu dari kiriman terakhir). Tapi dari sisi **neraca**, metode
+sekarang membuat nilai persediaan bergerak tanpa transaksi — Rp2,3 juta/minggu
+dari pergerakan harga wajar.
+
+**Rincian:** `docs/AUDIT-2026-09-02-HARGA-BAHAN-DUA-VENDOR.md` Bagian IV,
+dan `docs/SKENARIO-BAHAN-DUA-VENDOR-BAHASA-AWAM.md` Bagian 7.
+
+### 2. Konfirmasi ke pemegang pembukuan
+
+Setahu saya PSAK 14 hanya mengakui **FIFO** dan **rata-rata tertimbang** sebagai
+cara menghitung biaya persediaan. Metode berjalan sekarang adalah "harga
+pembelian terakhir", yang bukan salah satunya.
+
+**Ini bukan nasihat akuntansi** — perlu dikonfirmasi ke yang memegang pembukuan.
+Kalau benar, keputusan butir 1 jadi lebih mendesak.
+
+---
+
+## PEKERJAAN KECIL, BISA DICICIL
+
+### 3. Sapuan berkala FOIL (48)
+
+Cek kapan saja:
+
+```sql
+SELECT count(*) AS outlet, round(COALESCE(sum(saldo),0)) AS total
+FROM stok_balance
+WHERE bahan_baku_id = 'fb243647-dd20-4ef1-b739-921b0a7307d7'::uuid
+  AND saldo <> 0;
+```
+
+Hasil >0 → jalankan ulang LANGKAH 2 & 3 di
+`docs/draft-sql/gabung-foil-48-ke-foil.sql`.
+
+**Ritme:** seminggu lagi, lalu bulanan. Aman diulang.
+**Jangan** menunggu 26 surat jalan lama tuntas — 130 dari 198 surat jalan
+'dikirim' di sistem ini sudah >2 minggu, jadi itu takkan terjadi.
+
+**Status 3 September (setelah 25 SJ diverifikasi owner):** saldo FOIL (48) masih
+**0**, sapuan belum perlu. 25 dokumen yang dituntaskan itu berstatus
+`diterima_lengkap`/`diterima_sebagian` — stoknya sudah mendarat di outlet
+sebelum penyapuan kemarin, jadi ikut tersapu. Yang memuat FOIL (48) dan masih
+menggantung tinggal 21 `dikirim` + 5 `draft`; keduanya belum menaruh stok
+karena barangnya belum diterima outlet.
+
+### 4. Opname FOIL di Cirendeu
+
+Saldo −4.622 cm (±6 Roll). Ini selisih fisik nyata, sudah ada sejak sebelum
+penggabungan. Perlu hitung fisik, bukan penyesuaian di sistem.
+
+### 5. Beri tahu tim
+
+- **Purchasing:** pesan foil ke bahan **"FOIL"**, bukan "FOIL (48)".
+- **Distribusi:** kirim **"FOIL"** ke outlet.
+
+FOIL (48) sudah nonaktif, jadi tak akan muncul di daftar pilihan — tapi kalau
+belum diberi tahu, mereka akan bingung mencari barangnya.
+
+### 6. Risiko basis satuan di nota PO berikutnya
+
+POLYBAG **sudah beres** lewat `main` (lihat bagian Sudah Selesai). Yang tersisa
+tinggal satu risiko, bukan kesalahan data:
+
+PLASTIK MERAH master-nya Rp90.000 per Ikat (isi 100 lembar) — sudah benar. Tapi
+nota PO lama mencatatnya Rp18.000, yaitu harga **per Pack**. Kalau nota
+berikutnya diinput dengan cara yang sama, harga master jatuh 90.000 → 18.000 dan
+biaya **18 resep** ikut anjlok 80% tanpa peringatan apa pun.
+
+**Catatan baik:** form PO di sistem tidak bermasalah — 10 dari 10 baris
+PO/KITCHEN basisnya benar. Penyimpangan hanya di dokumen SPB lama.
+
+**Langkah pertama kalau mau digarap:** tambahkan penjagaan di layar penerimaan
+PO — tampilkan satuan master ("Harga per Ikat, isi 100 Lembar") dan beri
+peringatan kalau harga yang diinput menyimpang jauh dari harga master.
+
+### 7. Waste — sebagian sudah beres, satu belum diperiksa
+
+`get_waste_breakdown` **sudah diperbaiki** di `main`
+(`20300120000001_fix_waste_breakdown_faktor_penuh`) — terverifikasi memakai
+faktor penuh.
+
+Yang belum jelas: `get_waste_periode` tidak memakai `kemasan_qty` maupun faktor
+apa pun — rumusnya `w.qty * harga_beli` polos. Itu benar HANYA kalau `w.qty`
+tersimpan dalam satuan besar. Belum diverifikasi. Kalau ternyata `w.qty` dalam
+satuan kecil (gram/lembar), nilai waste meleset sebesar faktor kemasan.
+
+**Langkah pertama:** ambil beberapa baris `stok_waste_reports` dan bandingkan
+besaran `qty`-nya dengan satuan bahannya.
+
+### 8. ~~Laporan nilai persediaan belum ada~~ — SUDAH DIBUAT
+
+Persediaan bernilai **Rp409 juta** (gudang Rp161,8 jt + 24 outlet Rp247,1 jt)
+dulu tidak terhitung di halaman mana pun. Sekarang sudah ada, dan sudah di
+`main`:
+
+- `supabase/migrations/20300129000000_nilai_persediaan_view.sql`
+- `apps/stok/src/app/stok/nilai-persediaan/page.tsx`
+- `apps/stok/src/components/nilai-persediaan/NilaiPersediaanBoard.tsx`
+- `apps/stok/src/hooks/useNilaiPersediaan.ts`
+
+Halaman ini sengaja **jujur soal yang belum pasti** — memisahkan nilai yang
+pasti dari baris yang skalanya belum tentu. Selama BNR belum opname, bagian
+"belum pasti" itu tidak akan kosong.
+
+### 9. Surat jalan menggantung
+
+130 surat jalan berstatus 'dikirim' berumur >2 minggu, menahan barang senilai
+**Rp1,2 juta** — sudah keluar dari catatan gudang, belum masuk catatan outlet.
+Ditambah 37 draft berumur >2 minggu.
+
+Bukan urusan foil, dan nilainya kecil. Tapi artinya ada kebiasaan surat jalan
+tidak ditutup, dan itu membuat angka stok gudang & outlet terus meleset tipis.
+
+---
+
+## STATUS BRANCH
+
+**Seluruh isi branch `claude/new-session-0f1553` sudah ada di `main`** (dicek 4
+September setelah `git fetch`) — migration `20300127`–`20300130`, halaman Nilai
+Persediaan, koreksi satuan, dan ketiga dokumen. Tidak ada lagi yang menggantung
+di branch.
+
+⚠️ **Hati-hati membandingkan ke `main` lokal yang belum di-fetch.** Sesi 4
+September sempat menyimpulkan "empat migration tidak punya jejak di riwayat"
+— salah, karena `main` lokal tertinggal 50-an commit dari `origin/main`.
+`git fetch` dulu sebelum menyimpulkan apa pun soal apa yang sudah/belum masuk.
+
+Yang **memang tidak punya jejak di migration**: penggabungan FOIL dan
+penyesuaian harganya, karena dijalankan lewat SQL Editor. Kalau database
+dibangun ulang dari nol, penggabungan FOIL tidak ikut. Naskahnya disimpan di
+`docs/draft-sql/gabung-foil-48-ke-foil.sql` sebagai catatan apa yang
+dijalankan.
+
+---
+
+## PRINSIP YANG SUDAH DISEPAKATI
+
+Untuk bahan dengan lebih dari satu vendor:
+
+> **Vendor adalah urusan dokumen pembelian. Ia tidak pernah naik ke identitas
+> barang, ke resep, atau ke outlet.**
+
+Turunannya:
+
+1. Satu barang = satu bahan baku, berapa pun vendornya — pemisahan hanya sah
+   kalau spesifikasi barangnya memang berbeda *(FOIL membuktikan pelanggarannya
+   merusak)*
+2. Basis satuan dikunci di master, vendor yang menyesuaikan
+3. Harga tiap pembelian disimpan utuh per vendor, selamanya — jangan diratakan
+4. Harga master mewakili barang yang **ada**, bukan pembelian terakhir
+   *(← ini yang belum terpenuhi, isi keputusan butir 1)*
+5. Perbedaan vendor dilaporkan terpisah, bukan diaduk ke HPP
+
+---
+
+
+---
+
+## CATATAN: migrasi skala satuan yang belum selesai
+
+Ditemukan 3 September lewat uji langsung di "outlet tes". Awalnya dikira bug
+konversi satuan; setelah diuji, **ternyata bukan bug**. Dicatat di sini supaya
+tidak ada yang mengejar hantu yang sama.
+
+### Apa yang terlihat seperti bug
+
+Uji: kirim FOIL 1 Roll dari Gudang Pusat ke outlet tes.
+
+```
+16:45:59  GUDANG PUSAT   transfer_keluar   −760
+16:46:52  outlet tes     terima_kiriman      +1
+```
+
+Terlihat seperti 759 unit menguap. **Tidak.** Keduanya mewakili barang yang
+sama — 1 Roll. Gudang menyimpan FOIL dalam cm, outlet tes menyimpan dalam Roll.
+
+### Mekanismenya
+
+`to_ledger_scale(outlet, bahan, qty_besar)` mengubah qty ke skala penyimpanan
+**baris itu sendiri**, ditentukan oleh:
+
+```sql
+saldo_is_gram(sb) = EXISTS(opname_selisih untuk (outlet,bahan) sejak
+                           2026-08-01 20:32)
+```
+
+Jadi sebuah baris stok "pindah" ke skala satuan kecil begitu outlet melakukan
+opname atasnya. Ini penanda **migrasi bertahap** — dan migrasinya rampung
+sendiri seiring outlet melakukan opname.
+
+**Status 3 September: 981 baris sudah skala kecil, 579 belum** (dari 1.560).
+
+Bukti konsistensinya ada di pemakaian: outlet skala-kecil memakai ~50 per porsi
+(cm), outlet skala-besar memakai 0,019 (Roll). Tiap baris konsisten dengan
+satuannya sendiri.
+
+### Yang benar-benar perlu diperhatikan
+
+Tidak semua penulis ledger sadar skala:
+
+| Fungsi | Sadar skala? |
+|---|---|
+| `finalize_surat_jalan` (terima kiriman) | ✅ `to_ledger_scale` |
+| `sj_on_dikirim_kurangi_kitchen` (kirim) | ✅ `to_ledger_scale` |
+| `process_waterfall_deduction` (BOM) | ✅ `saldo_is_gram` |
+| **`finalize_opname`** | ❌ tidak |
+| **`process_waste_report_approval`** | ❌ tidak |
+
+Dua yang terakhir menulis angka mentah. Diperiksa empiris: besaran waste
+konsisten dengan pemakaian (sapi ~100 gram/porsi vs waste 2.000–8.000 gram),
+jadi **belum terlihat kerusakan nyata** — tapi keduanya rawan, dan
+`finalize_opname` khususnya ironis karena opname-lah yang menentukan skala
+sebuah baris.
+
+**Langkah pertama kalau digarap:** buat keduanya memakai `to_ledger_scale`
+seperti penulis lain, lalu uji ulang dengan pola yang sama (satu transaksi
+percobaan di outlet tes, periksa baris ledger yang keluar).
+
+### Pelajaran metodologis
+
+Tiga kali dalam sesi ini angka besar yang mengkhawatirkan menyusut atau hilang
+setelah diverifikasi: Rp47 juta → Rp9,8 juta → nol (dampak dua-vendor), dan
+"162 baris kurang kredit" → bukan bug sama sekali. Pola penyebabnya sama:
+**menyimpulkan dari perbandingan angka tanpa memeriksa apakah kedua angka itu
+memakai satuan yang sama.**
+
+Untuk temuan stok di sistem ini, uji langsung satu transaksi jauh lebih murah
+dan lebih meyakinkan daripada arkeologi data historis.
+
+---
+
+## BUG TERKONFIRMASI (3 September) — finalize_opname tidak sadar skala
+
+Dibuktikan lewat **dua uji langsung** di outlet tes, bukan dugaan.
+
+### Uji 1 — fisik pas, tanpa selisih
+
+AYAM outlet tes, saldo tersimpan 10 (satuan besar = 10 Kg), belum gram-scale.
+
+```
+qty_fisik 10.000   qty_system 10.000   selisih 0
+-> tidak ada baris ledger ditulis
+-> baris TIDAK pernah terkonversi, tetap 10
+```
+
+### Uji 2 — fisik 9 Kg
+
+```
+qty_fisik 9.000   qty_system 10.000   selisih -1.000
+-> ledger opname_selisih -1.000
+-> saldo = 10 + (-1.000) = -990
+-> baris jadi gram-scale, -990 dibaca sebagai -990 GRAM
+```
+
+Stok yang seharusnya 9.000 gram tercatat **−990**. Terlihat juga di layar
+pengguna: "STOK AKTUAL −990 Gram".
+
+### Akarnya
+
+Form opname **membaca saldo dalam satuan besar** (menampilkan "Sistem: 10 Kg" —
+benar) tapi **menyimpan dalam satuan kecil** (`qty_fisik` 9.000 gram, `selisih`
+−1.000 gram). Lalu `finalize_opname` menambahkan selisih gram itu ke saldo yang
+masih tersimpan dalam satuan besar.
+
+Ini juga menjelaskan kenapa migrasi skala **mandek di 579 baris**: opname tanpa
+selisih tidak membalik skala (tak ada baris ledger), opname dengan selisih
+merusak angkanya. Barisnya terjebak di antara keduanya.
+
+### Perbaikan
+
+`supabase/migrations/20300128000000_finalize_opname_sadar_skala.sql`
+— **sudah diterapkan & sudah masuk `main`.** Diverifikasi ulang 4 September
+lewat `pg_get_functiondef('finalize_opname')`: badan fungsi di produksi memang
+sudah memakai `saldo_is_gram`.
+
+```
+delta = qty_fisik - saldo_tersimpan     (untuk baris belum gram-scale)
+delta = selisih                          (untuk baris sudah gram-scale, tak berubah)
+```
+
+Pemulihan baris uji: `docs/draft-sql/pulihkan-ayam-outlet-tes.sql`.
+
+---
+
+## BUTIR BARU — layar salah melabeli satuan untuk baris belum terkonversi
+
+Terungkap dari tangkapan layar saat uji di atas.
+
+Layar **selalu melabeli angka ledger dengan satuan kecil**, tanpa memeriksa
+apakah baris itu sudah terkonversi:
+
+```
+Adjustment  +21,16 Gram        <- terjadi saat baris masih satuan besar,
+                                  aslinya 21,16 Kg
+Terpakai Penjualan (BOM): 0,6 Gram   <- aslinya 0,6 Kg
+```
+
+Untuk **579 baris** yang masih berskala satuan besar, seluruh angka riwayatnya
+tampil dengan satuan yang salah — 1.000× lebih kecil dari kenyataan (atau
+sebesar faktor kemasan masing-masing).
+
+Ini **tidak merusak data**, tapi membuat orang salah baca. Dan lebih buruk lagi:
+ia **menyembunyikan** bug opname di atas, karena angka yang salah tetap terlihat
+wajar.
+
+**Langkah pertama kalau digarap:** komponen tampilan stok perlu memeriksa
+`saldo_is_gram` sebelum memilih label satuan — sama seperti form opname yang
+sudah melakukannya dengan benar.
+
+Butir ini otomatis hilang begitu 579 baris itu terkonversi semua.
+
+---
+
+## VERIFIKASI 4 SEPTEMBER — opname malam pertama setelah perbaikan
+
+Opname rutin 3 September malam: **21 opname, 18 outlet, 720 item dihitung.**
+
+**Perbaikan `finalize_opname` bertahan.** Tidak ada kerusakan; saldo minus justru
+turun **63 → 57**. Ini malam pertama fungsi baru itu dipakai massal.
+
+### Migrasi skala satuan: praktis selesai
+
+Angka "577 baris belum terkonversi" **menyesatkan**. Rinciannya:
+
+```
+577 baris belum terkonversi
+├─ 437  saldonya NOL              → tak ada yang perlu dikonversi
+├─  59  bahan sudah dinonaktifkan → sisa stok bahan mati
+└─  81  aktif & bersaldo          ← pekerjaan sebenarnya
+```
+
+Dari 81 itu:
+
+| Lokasi | Baris | Perlu digarap? |
+|---|---|---|
+| **SUKA SHAWARMA BNR** | **41** | ✅ ya |
+| outlet tes | 22 | tidak (outlet uji) |
+| KANTOR PUSAT | 17 | tidak (outlet dummy) |
+| GUDANG SS ONLINE | 1 | tidak (marketplace) |
+
+**Dihitung ulang 4 September (sesi lanjutan):** 1.561 baris total — 984 sudah
+skala kecil, 577 belum, dari situ **79 aktif & bersaldo**. Sebarannya sama,
+BNR turun tipis 41 → **39**. Praktis tidak bergerak.
+
+---
+
+## 🔴 BNR HARUS OPNAME — ditunda atas keputusan owner 4 September
+
+**Keadaan (diverifikasi 4 September):**
+
+| Outlet | Opname 30 hari | Order 30 hari |
+|---|---|---|
+| **SUKA SHAWARMA BNR** | **0** | 606 |
+| Outlet lain (18) | 20–25 | 900–2.500 |
+
+BNR **tidak pernah opname sama sekali** dalam 30 hari, padahal beroperasi normal.
+
+**Temuan tambahan 4 September:** sepanjang riwayat BNR cuma punya **6 opname**,
+dan satu-satunya dalam 30 hari terakhir adalah **draft 13 Agustus yang tidak
+pernah difinalisasi**. Jadi bukan sekadar telat — prosesnya berhenti di tengah.
+Sebelum meminta BNR opname ulang, ada baiknya dicek dulu apakah ada hambatan
+teknis yang membuat draft itu mandek, bukan sekadar kelalaian.
+
+**Akibatnya, dan ini bukan sekadar soal laporan:**
+
+Karena tak pernah di-opname, 41 baris stoknya masih berskala satuan besar.
+Pemotongan BOM tiap penjualan memakai skala itu, sehingga stok **hampir tidak
+pernah berkurang di sistem**. Contoh terukur:
+
+```
+FOIL di BNR        : saldo 34.466 (isi cm), dipotong 0,060 per order
+FOIL di outlet lain: saldo serupa,          dipotong ~50 per order
+```
+
+Dengan 0,06 per order, stok foil BNR baru habis setelah 574.000 order.
+
+Konsekuensi praktis:
+- Angka stok BNR tidak bisa dipercaya
+- Peringatan stok menipis tidak akan pernah menyala di BNR
+- Permintaan bahan BNR kemungkinan tidak mencerminkan kebutuhan asli
+- BNR ikut mengotori laporan Nilai Persediaan (masuk kategori
+  "skala belum pasti", 41 dari 79 baris)
+
+**Tindakannya sederhana:** minta BNR melakukan **opname penuh** — hitung
+41 bahan sekaligus, bukan sebagian. Sekali jalan semuanya terkoreksi, lalu BNR
+ikut ritme normal seperti 18 outlet lain.
+
+**Ini juga prasyarat keputusan metode basis harga** (butir 1 di atas). Syarat
+"tunggu satuannya seragam" tinggal menunggu BNR.

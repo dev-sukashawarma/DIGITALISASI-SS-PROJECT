@@ -180,7 +180,7 @@ export function MitraProfitLossSection({
                   -{formatRp(summary.totalCogs + summary.totalDeductions)}
                 </h3>
                 <p className="text-xs text-[#8C7566] font-normal mt-1">
-                  Food Cost & Fee Platform
+                  Food Cost & Potongan Merchant
                 </p>
               </div>
             </div>
@@ -241,9 +241,13 @@ export function MitraProfitLossSection({
                     {formatRp(summary.netProfit)}
                   </span>
                 </div>
-                {(summary.managementFeeAmount || 0) > 0 && (
+                {(summary.managementFeeAmount || 0) > 0 ? (
                   <div className="text-[10px] text-amber-300 font-normal mt-0.5">
-                    *Telah dipotong Mgmt Fee {summary.managementFeePct}%
+                    *Telah dipotong Mgmt Fee {summary.managementFeePct}% ({formatRp(summary.managementFeeAmount || 0)})
+                  </div>
+                ) : (
+                  <div className="text-[10px] text-emerald-300 font-normal mt-0.5">
+                    *Bebas Fee Manajemen (0%) - Sudah BEP 100%
                   </div>
                 )}
               </div>
@@ -441,7 +445,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.pos.cogs)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
-                    <span className="text-red-500 font-medium">Diskon / Promo Kasir</span>
+                    <span className="text-red-500 font-medium">Potongan Merchant</span>
                     <span className="text-red-500 font-semibold">-{formatRp(channels.pos.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-amber-50 rounded-xl border border-amber-200/80 font-bold">
@@ -467,7 +471,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.foodApps.cogs)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
-                    <span className="text-red-500 font-medium">Fee Platform & Diskon Aplikasi</span>
+                    <span className="text-red-500 font-medium">Potongan Merchant</span>
                     <span className="text-red-500 font-semibold">-{formatRp(channels.foodApps.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-emerald-50 rounded-xl border border-emerald-200 font-bold">
@@ -493,7 +497,7 @@ export function MitraProfitLossSection({
                     <span className="text-red-500 font-semibold">-{formatRp(channels.tiktok.cogs)}</span>
                   </div>
                   <div className="flex justify-between py-2.5 px-2 border-b border-dashed border-gray-200">
-                    <span className="text-red-500 font-medium">Fee Platform & Merchant Discount</span>
+                    <span className="text-red-500 font-medium">Potongan Merchant</span>
                     <span className="text-red-500 font-semibold">-{formatRp(channels.tiktok.deductions)}</span>
                   </div>
                   <div className="flex justify-between p-3.5 bg-slate-100 rounded-xl border border-slate-200 font-bold">
@@ -561,7 +565,7 @@ export function MitraProfitLossSection({
                     </div>
 
                     <div className="flex justify-between items-center text-red-500 pl-5 text-[11px]">
-                      <span>2. Diskon, Promo & Fee Platform</span>
+                      <span>2. Potongan Merchant</span>
                       <span className="font-semibold">-{formatRp(summary.totalDeductions)}</span>
                     </div>
 
@@ -608,12 +612,19 @@ export function MitraProfitLossSection({
                       <span className="text-red-500 font-semibold">-{formatRp(summary.totalWaste)}</span>
                     </div>
 
-                    {(summary.managementFeeAmount || 0) > 0 && (
+                    {(summary.managementFeeAmount || 0) > 0 ? (
                       <div className="flex justify-between py-1.5 px-2 border-b border-dashed border-amber-200 bg-amber-50/50 rounded-lg">
                         <span className="text-amber-800 font-medium">
-                          6. Management Fee Pusat {outletName.includes('Semua') ? '(3% untuk 5 Outlet Mitra)' : `(${summary.managementFeePct || 3}%)`}
+                          6. Management Fee Pusat {outletName.includes('Semua') ? `(${summary.managementFeePct}% Gabungan)` : `(${summary.managementFeePct}%)`}
                         </span>
                         <span className="text-amber-700 font-semibold">-{formatRp(summary.managementFeeAmount || 0)}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between py-1.5 px-2 border-b border-dashed border-emerald-200 bg-emerald-50/50 rounded-lg">
+                        <span className="text-emerald-800 font-medium">
+                          6. Management Fee Pusat (0% - Bebas Fee BEP 100%)
+                        </span>
+                        <span className="text-emerald-700 font-semibold">Rp 0</span>
                       </div>
                     )}
                   </div>
@@ -634,7 +645,13 @@ export function MitraProfitLossSection({
                     </div>
                     <p className="text-[11px] text-[#6E5A4E] font-normal leading-relaxed">
                       {summary.netProfit > 0 
-                        ? `Mitra berhak menerima ${profitSharingPct}% dari laba bersih outlet periode ini.`
+                        ? (profitSharingPct === 100 
+                            ? 'Outlet belum BEP: Keuntungan 100% dialokasikan untuk mitra demi percepatan pengembalian modal investasi.'
+                            : (profitSharingPct === 50 
+                                ? 'Outlet telah mencapai 100% BEP: Pembagian hasil proporsional 50% Mitra dan 50% Pusat.'
+                                : `Mitra berhak menerima ${profitSharingPct}% dari laba bersih outlet periode ini.`
+                              )
+                          )
                         : 'Outlet dalam posisi defisit pada periode ini, tidak ada kewajiban transfer bagi hasil.'
                       }
                     </p>

@@ -184,15 +184,31 @@ export default async function ReportsPage({
   // discount_amount & promo_subsidy sebelum insert) — jangan dikurangi lagi di sini.
   const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0);
 
-  // Total Potongan: hanya deduksi yang benar-benar tercatat di order (diskon order-level
-  // & subsidi promo Food Apps). Diskon per-item yang dibakar langsung ke unit_price saat
-  // checkout tidak tercatat di kolom manapun, jadi tidak bisa direkonstruksi di sini.
+  // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000):
+  //   Potongan    = MAX(0, SUM(order_items.subtotal) - total_amount)
+  //   Omzet Kotor = total_amount + Potongan
+  // Bertumpu pada nilai menu, bukan discount_amount/promo_subsidy, karena arti
+  // `total_amount` sempat berubah (19 Agustus 2026, commit b41efc7a) sehingga
+  // menjumlahkan promo ke total_amount menghitungnya dua kali.
   const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-    return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
+    const items = Array.isArray(o.order_items) ? o.order_items : [];
+    const total = Number(o.total_amount) || 0;
+    if (items.length === 0) {
+      return s + (Number(o.discount_amount) || 0) + (Number(o.promo_subsidy) || 0);
+    }
+    const itemValue = items.reduce((sum: number, i: any) => sum + (Number(i.subtotal) || 0), 0);
+    return s + Math.max(0, itemValue - total);
   }, 0);
 
-  // Samakan dengan POS Kasir: omzet adalah netRevenue (SUM(total_amount) pesanan completed)
-  const totalRevenue = netRevenue;
+  // Subsidi platform (Grab/Gojek/Shopee) yang diketik kasir di kolom
+  // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak ikut
+  // omzet maupun potongan, ditampilkan sebagai kartu informasi.
+  const totalPlatformSubsidy = completedOrders.reduce((s: number, o: any) => {
+    return s + (Number(o.promo_subsidy) || 0);
+  }, 0);
+
+  // Samakan dengan POS Kasir & dashboard pusat.
+  const totalRevenue = netRevenue + totalDeductions;
   const totalOrders = completedOrders.length;
   const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length;
   const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled').length;
@@ -260,6 +276,7 @@ export default async function ReportsPage({
   const analytics = {
     totalRevenue,
     totalDeductions,
+    totalPlatformSubsidy,
     netRevenue,
     totalOrders,
     totalItemsSold,

@@ -29,7 +29,7 @@ Beban per role hari ini:
 | Role | Grup | Entri |
 |---|---|---|
 | ADMIN | 10 | 51 (48 route unik) |
-| OWNER | 6 | 24 |
+| OWNER | 5 | 22 |
 | ADMIN_HR | 1 | 5 |
 | PURCHASING | 1 | 6 |
 | LEADER | 1 | 4 |
@@ -56,7 +56,7 @@ Beban praktis hanya ada di ADMIN. Karena itu scope sengaja dibatasi ke role ters
 ```
 Bisnis            Ringkasan Bisnis · Untung Rugi · Pengeluaran · Budget Outlet
                   · Target & Pesan · Petty Cash (Khusus) · Dashboard Kemitraan
-Laporan           Rangkuman Penjualan · Rekap Bulanan · Buku Kas (OPEX)
+Pusat Laporan     Rangkuman Penjualan · Rekap Bulanan · Buku Kas (OPEX)
                   · Selisih Stok · Kerugian Waste · Target Harian · Bonus Crew
 Produk & Stok     Master Bahan Baku · Manajemen Resep · Detail Opname Outlet · Manajemen Outlet
 Pembelian         Perlu Dibeli · Purchase Order · Permintaan Pembelian · Master Supplier
@@ -65,25 +65,42 @@ POS               Ringkasan POS · Daftar Menu · Kategori Menu · Manajemen Pro
                   · Pengguna POS · Pengaturan POS · Bukti QRIS
 Karyawan          Ringkasan HR · Database Karyawan · Absensi & Shift · Cuti & Izin
                   · Payroll & Kasbon · Rekap Absensi (Stealth)
-Sistem & Data     Monitoring Aktivitas · Panduan Sistem · Pusat Notifikasi
+Sistem            Monitoring Aktivitas · Panduan Sistem · Pusat Notifikasi
                   · Penyesuaian Petty Cash · Kesehatan Sistem · Pengaturan Printer
                   · Migrasi Pawoon · Data Tersinkron · Mapping Menu Pawoon
                   · Settlement Food Apps · Data Validate
 ```
 
+### Mekanisme: per-item `roles`, bukan pemindahan grup
+
+Grup dipakai bersama antar role — `Bisnis` milik OWNER+ADMIN, `Sistem` milik OWNER+ADMIN,
+`Kemitraan` dan `Migrasi Data` milik OWNER+ADMIN. Karena itu **memindahkan item antar grup
+akan ikut mengubah nav OWNER**, yang dilarang batasan #3.
+
+Solusinya: jangan memindahkan item, melainkan mengubah `roles` per item dan per grup.
+Contoh untuk "Rekap Absensi (Stealth)" — entri di `Bisnis` dipersempit ke `['OWNER']`, dan
+entri baru dengan route yang sama ditambahkan ke `Karyawan` dengan `['ADMIN']`. Hasilnya: OWNER
+tetap melihatnya di `Bisnis` seperti hari ini, ADMIN melihatnya di `Karyawan`, dan tidak ada
+role yang melihat route itu dua kali.
+
 ### Daftar perubahan dan alasannya
 
 | Perubahan | Alasan |
 |---|---|
-| Hapus grup `Pengadaan` | Kedua itemnya sudah ada di `Pembelian & PO` — duplikat murni |
-| Hapus entri "Pembelian" dari `Pusat Laporan` | Route yang sama tetap tersedia sebagai "Laporan Pembelian" di pintu Pembelian |
-| Lebur grup `Kemitraan` jadi satu item di `Bisnis` | Grup satu item adalah overhead visual |
-| Lebur grup `Migrasi Data` ke `Sistem & Data` | Isinya bukan semuanya migrasi; keduanya sama-sama pintu jarang-pakai |
-| Pindahkan "Rekap Absensi (Stealth)" ke `Karyawan` | Labelnya sendiri menandakan domain kepegawaian, bukan bisnis |
-| Ganti nama `Pusat Laporan` → `Laporan` | Kata "Pusat" tidak membedakan apa pun |
-| Ganti nama `Manajemen POS` → `POS` | Idem "Manajemen" |
-| Ganti nama `Pembelian & PO` → `Pembelian` | "& PO" redundan setelah grup Pengadaan hilang |
-| Ganti nama `Sistem` → `Sistem & Data` | Mencerminkan isi barunya |
+| Hapus grup `Pengadaan` | Kedua itemnya sudah ada di `Pembelian & PO` — duplikat murni, dan grupnya ADMIN-only jadi tak berdampak ke role lain |
+| Hapus entri "Pembelian" dari `Pusat Laporan` | Entri itu ADMIN-only; route yang sama tetap tersedia sebagai "Laporan Pembelian" di pintu Pembelian |
+| `Kemitraan`: `roles` grup jadi `['OWNER']`; item `kelola-mitra` ditambahkan ke `Bisnis` dengan `['ADMIN']` | Untuk ADMIN, grup satu item adalah overhead visual. OWNER tak berubah |
+| `Migrasi Data`: `roles` grup jadi `['OWNER']`; kelima itemnya ditambahkan ke `Sistem` dengan `['ADMIN']` | Untuk ADMIN, dua pintu jarang-pakai jadi satu. OWNER tak berubah |
+| "Rekap Absensi (Stealth)": di `Bisnis` dipersempit ke `['OWNER']`, ditambahkan ke `Karyawan` dengan `['ADMIN']` | Labelnya menandakan domain kepegawaian, bukan bisnis |
+| Ganti nama `Manajemen POS` → `POS` | Kata "Manajemen" tidak membedakan apa pun. Grup ini ADMIN-only, jadi aman |
+| Ganti nama `Pembelian & PO` → `Pembelian` | "& PO" redundan setelah grup Pengadaan hilang. Ikut terlihat oleh PURCHASING — perubahan judul, isi tetap |
+
+### Rename yang dibatalkan
+
+`Pusat Laporan` → `Laporan` dan `Sistem` → `Sistem & Data` **tidak jadi dilakukan**. Kedua grup
+itu dipakai bersama OWNER, sehingga renamenya akan mengubah nav OWNER tanpa memberi OWNER
+manfaat apa pun — bahkan menyesatkan, karena OWNER tidak melihat item "Data" yang membuat
+judul `Sistem & Data` masuk akal. Nilai renamenya kecil; biayanya tidak.
 
 ### Yang sengaja TIDAK dilakukan
 
@@ -175,7 +192,7 @@ hijau setelah restrukturisasi — itulah bukti duplikatnya benar-benar hilang.
 | 4 | `primaryItems(role)` mengembalikan ≤4 item, semuanya anggota `accessibleItems(role)` | |
 | 5 | `accessibleGroups('ADMIN')` menghasilkan tepat 7 grup | |
 | 6 | Himpunan route unik ADMIN sesudah = himpunan sebelum | Snapshot 48 route ditulis eksplisit di test — inilah penegak "nol item hilang" |
-| 7 | `accessibleGroups(role)` untuk keenam role non-ADMIN tidak berubah | Snapshot; penegak batasan #3 |
+| 7 | Untuk keenam role non-ADMIN: himpunan route dan jumlah grup tidak berubah | Snapshot; penegak batasan #3. Judul grup **tidak** ikut di-snapshot karena `Pembelian & PO` → `Pembelian` memang terlihat oleh PURCHASING |
 
 Verifikasi manual setelah test hijau:
 
@@ -194,7 +211,7 @@ Verifikasi manual setelah test hijau:
 |---|---|
 | ADMIN kehilangan akses ke suatu halaman karena salah pindah | Invarian test #6 membandingkan himpunan route, bukan sekadar jumlah |
 | Role lain ikut berubah tanpa disadari | Invarian test #7 (snapshot per role) |
-| Hafalan otot ADMIN terganggu | Lima dari tujuh nama pintu bertahan; tak ada URL yang berubah, jadi bookmark tetap hidup |
+| Hafalan otot ADMIN terganggu | Enam dari tujuh nama pintu bertahan; tak ada URL yang berubah, jadi bookmark tetap hidup |
 | `primaryItems()` salah untuk role tanpa penandaan | Fallback dirancang identik dengan `slice(0, 4)`, dan diuji |
 
 ---

@@ -1,5 +1,8 @@
 package com.sukashawarma.customer.data
 
+import com.sukashawarma.customer.data.api.CartItemPayload
+import com.sukashawarma.customer.data.api.CheckoutValidateRequest
+import com.sukashawarma.customer.data.api.CheckoutValidateResponse
 import com.sukashawarma.customer.data.api.GatewayClient
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
@@ -26,4 +29,19 @@ class Repository(private val gateway: GatewayClient) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.items)
             is GatewayResult.Gagal -> hasil
         }
+
+    /**
+     * Validasi pra-bayar.
+     *
+     * PENTING: penolakan bisnis datang sebagai HTTP **200** dengan
+     * `ok: false` -- bukan sebagai galat. Jadi `GatewayResult.Sukses` di sini
+     * TIDAK berarti pesanan boleh lanjut; pemanggil wajib memeriksa
+     * `response.ok`. Memperlakukan 200 sebagai lampu hijau adalah cara paling
+     * mudah mengirim pelanggan ke pembayaran untuk pesanan yang sudah ditolak.
+     */
+    suspend fun validasiCheckout(
+        outletId: String,
+        items: List<CartItemPayload>
+    ): GatewayResult<CheckoutValidateResponse> =
+        gateway.checkoutValidate(CheckoutValidateRequest(outletId = outletId, items = items))
 }

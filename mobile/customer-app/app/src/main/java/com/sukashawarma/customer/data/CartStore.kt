@@ -154,6 +154,35 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
         tulis()
     }
 
+    /**
+     * Membuang semua baris untuk satu menu.
+     *
+     * Dipakai saat gateway melaporkan item habis atau sudah tidak ada. Satu
+     * menu bisa menempati beberapa baris (catatan berbeda), jadi menghapus
+     * berdasarkan indeks akan menyisakan sebagian -- dan checkout gagal lagi
+     * dengan keluhan yang sama persis.
+     */
+    fun hapusMenuItem(menuItemId: String) {
+        isi = isi.copy(baris = isi.baris.filterNot { it.menuItemId == menuItemId })
+        tulis()
+    }
+
+    /**
+     * Menyetel harga satu menu ke harga terbaru dari gateway.
+     *
+     * Menerima harga baru adalah keputusan pelanggan, bukan sesuatu yang boleh
+     * terjadi diam-diam: aplikasi memanggil ini hanya setelah harga barunya
+     * ditampilkan dan pelanggan menekan tombolnya sendiri.
+     */
+    fun perbaruiHarga(menuItemId: String, hargaBaru: Long) {
+        isi = isi.copy(
+            baris = isi.baris.map {
+                if (it.menuItemId == menuItemId) it.copy(hargaSatuan = hargaBaru) else it
+            }
+        )
+        tulis()
+    }
+
     fun isi(): List<CartLine> = isi.baris
 
     fun kosongkan() {

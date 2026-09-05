@@ -138,6 +138,53 @@ class CartStoreTest {
         assertEquals(0, CartStore(simpanan).isi().size)
     }
 
+    @Test
+    fun `menghapus menu membuang SEMUA barisnya, bukan hanya yang pertama`() {
+        // Satu menu bisa menempati beberapa baris karena catatannya berbeda.
+        // Menyisakan salah satunya membuat checkout gagal lagi dengan keluhan
+        // yang sama persis -- pelanggan menekan "Hapus" dan tidak terjadi apa-apa.
+        val k = keranjang()
+        k.tambah("m1", "Shawarma", 25000, 1, null)
+        k.tambah("m1", "Shawarma", 25000, 1, "Jangan pedas")
+        k.tambah("m2", "Es Teh", 8000, 1, null)
+
+        k.hapusMenuItem("m1")
+
+        assertEquals(1, k.isi().size)
+        assertEquals("m2", k.isi()[0].menuItemId)
+    }
+
+    @Test
+    fun `memperbarui harga mengenai semua baris menu itu`() {
+        val k = keranjang()
+        k.tambah("m1", "Shawarma", 25000, 1, null)
+        k.tambah("m1", "Shawarma", 25000, 2, "Jangan pedas")
+
+        k.perbaruiHarga("m1", 28000)
+
+        assertTrue(k.isi().all { it.hargaSatuan == 28000L })
+        assertEquals(84000L, k.subtotal())
+    }
+
+    @Test
+    fun `memperbarui harga tidak menyentuh menu lain`() {
+        val k = keranjang()
+        k.tambah("m1", "Shawarma", 25000, 1, null)
+        k.tambah("m2", "Es Teh", 8000, 1, null)
+
+        k.perbaruiHarga("m1", 28000)
+
+        assertEquals(8000L, k.isi().first { it.menuItemId == "m2" }.hargaSatuan)
+    }
+
+    @Test
+    fun `menghapus menu yang tidak ada tidak mengubah apa pun`() {
+        val k = keranjang()
+        k.tambah("m1", "Shawarma", 25000, 1, null)
+        k.hapusMenuItem("entah")
+        assertEquals(1, k.isi().size)
+    }
+
     private class PenyimpanPalsu : CartPersistence {
         var isi: String? = null
         override fun muat(): String? = isi

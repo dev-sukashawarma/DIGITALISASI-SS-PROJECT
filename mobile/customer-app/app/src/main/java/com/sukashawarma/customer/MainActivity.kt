@@ -19,6 +19,8 @@ import com.sukashawarma.customer.ui.screens.cart.CartScreen
 import com.sukashawarma.customer.ui.screens.cart.CartViewModel
 import com.sukashawarma.customer.ui.screens.catalog.CatalogScreen
 import com.sukashawarma.customer.ui.screens.catalog.CatalogViewModel
+import com.sukashawarma.customer.ui.screens.checkout.CheckoutScreen
+import com.sukashawarma.customer.ui.screens.checkout.CheckoutViewModel
 import com.sukashawarma.customer.ui.screens.detail.ItemDetailScreen
 import com.sukashawarma.customer.ui.screens.detail.ItemDetailViewModel
 import com.sukashawarma.customer.ui.screens.outlet.OutletPickerScreen
@@ -48,6 +50,7 @@ private object Rute {
     const val KATALOG = "katalog"
     const val PILIH_OUTLET = "pilih-outlet"
     const val KERANJANG = "keranjang"
+    const val CHECKOUT = "checkout"
     const val DETAIL = "detail/{menuItemId}"
     fun detail(menuItemId: String) = "detail/$menuItemId"
 }
@@ -148,8 +151,28 @@ fun CustomerAppRoot(container: AppContainer) {
             CartScreen(
                 viewModel = cartViewModel,
                 onKembali = { navController.popBackStack() },
-                // Checkout dan pembayaran menyusul di Task 8 dan 9.
-                onLanjutBayar = {}
+                onLanjutBayar = { navController.navigate(Rute.CHECKOUT) }
+            )
+        }
+
+        composable(Rute.CHECKOUT) {
+            // Dibuat di dalam `composable` supaya validasi dijalankan ulang
+            // setiap kali layar ini dibuka. Harga dan ketersediaan bisa
+            // berubah di antara dua kunjungan, dan validasi basi di titik
+            // pembayaran justru hal yang paling berbahaya.
+            val checkoutViewModel: CheckoutViewModel = viewModel(
+                factory = pabrik { CheckoutViewModel(container.repository, container.cartStore) }
+            )
+            CheckoutScreen(
+                viewModel = checkoutViewModel,
+                onKembali = {
+                    // Pemulihan di layar checkout mengubah keranjang.
+                    // Tampilan keranjang harus ikut menyusul.
+                    cartViewModel.segarkan()
+                    navController.popBackStack()
+                },
+                // Pembayaran menyusul di Task 9 (butuh sesi login).
+                onBayar = {}
             )
         }
     }

@@ -10,17 +10,16 @@ plugins {
 // Base URL Retail Gateway — override via `gatewayBaseUrl=...` di local.properties
 // (tak di-commit) untuk dev lokal.
 //
-// BELUM DIKONFIRMASI. Domain Retail Gateway belum di-deploy saat baris ini
-// ditulis; nilai default di bawah adalah TEBAKAN berdasarkan pola penamaan
-// app lain di monorepo ini (bukan domain nyata — sudah dicek, string ini
-// tidak muncul di tempat lain di repo). Timpa lewat local.properties, dan
-// perbaiki nilai default ini begitu domain sebenarnya diketahui.
+// Domain Retail Gateway produksi. Diverifikasi hidup 2026-09-05: /api/health,
+// /api/v1/outlets, dan /api/cron/expire-drafts semuanya menjawab 200 lewat
+// HTTPS dengan sertifikat Let's Encrypt yang sah.
+// Timpa lewat local.properties saat menguji ke gateway lokal atau staging.
 val localProperties = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val gatewayBaseUrl: String =
-    (localProperties.getProperty("gatewayBaseUrl") ?: "https://retail-gateway.sukashawarma.com")
+    (localProperties.getProperty("gatewayBaseUrl") ?: "https://retail.sukashawarma.com")
 
 android {
     namespace = "com.sukashawarma.customer"

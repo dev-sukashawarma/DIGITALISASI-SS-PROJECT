@@ -3,7 +3,7 @@
 **Tanggal:** 2026-09-02 · **Direvisi:** 2026-09-05
 **Status:** Disetujui untuk dilanjutkan ke rencana implementasi
 
-> **Revisi 2026-09-05.** Antara penulisan dan revisi ini, PR #45/#49/#50 mendarat di `main` dan mengubah dasar spec: mesin kebijakan bagi hasil baru dengan cutoff 1 September (temuan 6), definisi omzet kotor yang diseragamkan lintas dashboard, signature `get_mitra_orders_summary` berubah ke `timestamptz`, dan tiga helper HPP pindah ke database. Arah dan keputusan tidak berubah — yang diperbarui dasarnya. Masalah inti (dua definisi "modal sudah kembali" yang bertentangan) **masih ada dan taruhannya membesar**.
+> **Revisi 2026-09-05.** Antara penulisan dan revisi ini, PR #45/#49/#50 mendarat di `main` dan mengubah dasar spec: mesin kebijakan bagi hasil baru dengan cutoff 1 September (temuan 6), definisi omzet kotor yang diseragamkan lintas dashboard, signature `get_mitra_orders_summary` berubah ke `timestamptz`, dan tiga helper HPP pindah ke database. Arah tidak berubah, tetapi **satu keputusan dibalik**: penyatuan dua definisi "modal sudah kembali" ditunda menjadi sub-proyek tersendiri, karena mesin kebijakan baru membuat penyatuan itu melingkar dan mengubah perilaku — bertabrakan dengan gerbang "semua angka sama persis" yang menjadi seluruh nilai sub-proyek ini. Alasan lengkapnya di bagian Keputusan.
 **Menyentuh:** `supabase/migrations` (fungsi baru), `apps/admin-dashboard` (satu berkas)
 **Memblokir:** sub-proyek 1 (layar "Dashboard Saya" mitra di Android)
 
@@ -78,13 +78,26 @@ Dua konsekuensi untuk sub-proyek ini:
 
 ## Keputusan
 
-**Basis "modal sudah kembali" adalah bagian mitra dari laba** — omzet historis + transfer historis + (laba bersih × persentase bagi hasil). Dipakai untuk kartu ROI **dan** untuk aturan 50:50, sehingga dua definisi yang selama ini bertentangan (temuan 3) menyatu menjadi satu.
+**Fungsi database mereproduksi perilaku web apa adanya — termasuk kedua basisnya yang berbeda.**
 
-Ini definisi yang **sudah dipakai kartu ROI hari ini**. Yang berubah hanyalah aturan 50:50 ikut memakainya — sebelumnya aturan itu memakai basis kas.
+| Dipakai untuk | Basis | Sumber di kode web |
+|---|---|---|
+| Menentukan tarif (persentase & management fee) | **kas** — historis + transfer nyata | `mitraRoi.ts:245` → `resolveMitraPolicy` |
+| Ditampilkan sebagai ROI & status BEP di kartu | **hak** — historis + bagi hasil | `mitraRoi.ts:317-320` |
 
-Konsekuensinya besar dan menguntungkan: **tidak ada satu angka pun yang berubah di mata mitra.** Diverifikasi ulang terhadap data **2026-09-05**: status BEP kesembilan outlet tetap sama di kedua basis — Cibinong melewati modal di keduanya (169,0% hak, 162,9% kas), delapan lainnya tertinggi 34,9%, jauh dari ambang. Baik aturan 50:50 **maupun pembebasan management fee 3%** (temuan 6) tidak berpindah untuk siapa pun.
+**Keputusan ini merevisi keputusan awal spec**, yang semula menyatukan keduanya ke basis "bagian mitra dari laba". Alasan pembalikannya ditemukan saat menyusun rencana: sejak mesin kebijakan hadir (temuan 6), persentase bagi hasil ditentukan status BEP — sehingga menyatukan basis ke "hak" membuat rumusnya **melingkar**:
 
-Perlu dicatat bahwa sejak temuan 6, keputusan basis ini menentukan lebih banyak daripada saat pertama diambil: ia kini juga menentukan apakah seorang mitra dikenai management fee 3% atau dibebaskan. Kesimpulan "tidak ada yang berubah" tetap berlaku hari ini, tetapi jarak ke ambang wajib diperiksa ulang tepat sebelum implementasi — outlet yang mendekati 100% akan membuat pilihan basis ini punya konsekuensi rupiah langsung.
+> persentase ← status BEP ← dana kembali ← bagi hasil ← persentase
+
+Web tidak melingkar justru karena memakai dua basis berbeda: tarif disetir kas (nilai transfer sudah pasti, tak bergantung tarif), tampilan memakai hak.
+
+Memecah lingkaran itu menuntut aturan baru — misalnya hitung dua tahap dengan "sekali lewat tetap lewat" — dan aturan semacam itu **mengubah perilaku**. Itu bertabrakan dengan gerbang verifikasi sub-proyek ini, yang seluruh nilainya bergantung pada "semua angka wajib sama persis". Kehilangan gerbang itu berarti kehilangan satu-satunya alat yang membuktikan pemindahannya benar.
+
+Karena itu: **menyatukan dua definisi adalah keputusan produk tersendiri, bukan bagian dari memindahkan tempat hitung.** Dikerjakan setelah pemindahan terbukti benar, saat hanya ada satu fungsi untuk diubah alih-alih tiga tempat, dan perubahannya bisa diuji dengan perbandingan sebelum-sesudah yang bersih.
+
+Konsekuensi langsung: **tidak ada satu angka pun yang berubah di mata mitra** — bukan karena kebetulan angkanya kebetulan sama, melainkan karena fungsi ini memang dirancang menghasilkan keluaran identik.
+
+Untuk konteks bila nanti penyatuan itu dikerjakan: diverifikasi terhadap data 2026-09-05, tidak ada outlet yang status BEP-nya berbeda antara kedua basis. Cibinong melewati modal di keduanya (169,0% hak, 162,9% kas); delapan lainnya tertinggi 34,9%, jauh dari ambang. Jarak ini wajib diperiksa ulang saat penyatuan dikerjakan — outlet yang mendekati 100% membuat pilihan basis punya konsekuensi rupiah langsung, termasuk management fee 3% atau nol.
 
 Alternatif yang ditolak: **basis kas** (historis + transfer nyata). Lebih konservatif — mitra baru dianggap balik modal setelah uangnya benar-benar diterima — tetapi mengubah angka yang dilihat 9 mitra, paling tajam di Cileungsi (33,3% → 0,0%). Ditolak karena manfaatnya tidak sepadan dengan mengubah angka yang sudah berjalan. Konsekuensi yang diterima secara sadar: seorang mitra bisa dinyatakan balik modal, dan bagi hasilnya turun jadi 50:50, sebelum seluruh uangnya benar-benar dia terima.
 
@@ -110,12 +123,14 @@ Mengembalikan satu baris per outlet:
 | Investasi | `modal_investasi`, `omzet_historis`, `transfer_historis`, `transfer_sistem` |
 | Komponen laba | `omzet`, `deduksi`, `cogs`, `opex`, `waste`, `management_fee`, `laba_bersih` |
 | Bagi hasil | `persentase`, `bagi_hasil_mitra` |
-| Hasil — utama | `dana_kembali`, `roi_pct`, `bep_pct`, `is_bep`, `sisa_modal` |
-| Hasil — pendamping | `sudah_diterima`, `roi_diterima_pct` |
+| Hasil — utama (basis hak) | `dana_kembali`, `roi_pct`, `bep_pct`, `is_bep`, `sisa_modal` |
+| Hasil — pendamping (basis kas) | `sudah_diterima`, `roi_diterima_pct`, `is_bep_kebijakan` |
 
-Kolom utama memakai basis "bagian mitra dari laba" dan **inilah yang menentukan aturan 50:50** serta yang tampil sebagai angka besar di kartu. Kolom pendamping memakai basis transfer nyata; ia hanya ditampilkan, tidak memengaruhi perhitungan apa pun.
+Kolom utama memakai basis **hak** (historis + bagi hasil) dan tampil sebagai angka besar di kartu. Kolom pendamping memakai basis **kas** (transfer nyata).
 
-**Mesin kebijakan ikut pindah ke fungsi ini** (temuan 6). Untuk periode yang mulai pada atau sesudah `2026-09-01`, `persentase` dan `management_fee` **tidak** dibaca dari `mitra_investments` melainkan diturunkan dari `is_bep`: belum BEP → 100% dan fee 3%; sudah BEP → 50% dan fee 0%. Untuk periode sebelumnya, keduanya tetap dari kolom historis per outlet. Tanggal cutoff jadi konstanta bernama di dalam fungsi, sejajar dengan `MITRA_POLICY_SEPTEMBER_2026_CUTOFF` di `mitraPolicy.ts`.
+Satu kolom tambahan yang wajib ada dan mudah terlewat: **`is_bep_kebijakan`** — status BEP basis **kas**, yang menyetir `persentase` dan `management_fee`. Ia berbeda dari `is_bep` yang ditampilkan (basis hak). Keduanya sengaja dipisah karena web memang memisahkannya; menyamakannya akan membuat rumus melingkar dan mengubah perilaku. Beri komentar di dalam fungsi yang menjelaskan ini, atau orang berikutnya akan mengira salah satunya bug lalu "memperbaikinya".
+
+**Mesin kebijakan ikut pindah ke fungsi ini** (temuan 6). Untuk periode yang mulai pada atau sesudah `2026-09-01`, `persentase` dan `management_fee` **tidak** dibaca dari `mitra_investments` melainkan diturunkan dari `is_bep_kebijakan` (basis kas, bukan `is_bep`): belum BEP → 100% dan fee 3%; sudah BEP → 50% dan fee 0%. Untuk periode sebelumnya, keduanya tetap dari kolom historis per outlet. Tanggal cutoff jadi konstanta bernama di dalam fungsi, sejajar dengan `MITRA_POLICY_SEPTEMBER_2026_CUTOFF` di `mitraPolicy.ts`.
 
 Menaruh kebijakan di sini adalah inti tujuan sub-proyek: begitu Android ikut memanggil fungsi ini, aturan cutoff dan tarif fee tidak perlu ditulis ulang di Kotlin. `mitraPolicy.ts` boleh tetap ada untuk keperluan label UI (`statusLabel`), tetapi angka yang menentukan uang berasal dari satu tempat.
 
@@ -200,8 +215,9 @@ Aturan bisnis berada di SQL, jadi diuji lewat perbandingan terhadap patokan prod
 Ditambah setelah temuan 6 — kebijakan cutoff wajib dipin, karena inilah aturan yang paling mudah salah dan paling mahal akibatnya:
 
 6. Periode yang mulai **sebelum** 2026-09-01 memakai persentase & fee historis dari `mitra_investments`, bukan aturan baru.
-7. Periode yang mulai **pada atau sesudah** 2026-09-01, outlet belum BEP → persentase 100 dan management fee 3.
-8. Periode yang sama, outlet sudah BEP → persentase 50 dan management fee 0.
+7. Periode yang mulai **pada atau sesudah** 2026-09-01, outlet belum BEP menurut `is_bep_kebijakan` (basis kas) → persentase 100 dan management fee 3.
+8. Periode yang sama, outlet sudah BEP menurut `is_bep_kebijakan` → persentase 50 dan management fee 0.
+10. Outlet yang `is_bep_kebijakan` dan `is_bep` berbeda tetap menghasilkan tarif dari yang basis kas — pin perilaku ini agar tidak ada yang "merapikannya" jadi satu.
 9. Periode yang melintasi tanggal cutoff diperlakukan konsisten dengan `mitraPolicy.ts` (ia memutuskan berdasarkan `periodFrom`, jadi fungsi database harus memakai `p_from` juga — bukan `p_to`, dan bukan tanggal hari ini).
 
 ## Di luar cakupan

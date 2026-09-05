@@ -52,7 +52,12 @@ data class MenuItemDto(
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("is_available") val isAvailable: Boolean,
     @SerialName("category_id") val categoryId: String? = null,
-    @SerialName("sort_order") val sortOrder: Int? = null
+    @SerialName("sort_order") val sortOrder: Int? = null,
+    // Nama kategori dikirim gateway sejak commit "kirim nama kategori bersama
+    // katalog". Default null supaya aplikasi versi ini tetap jalan melawan
+    // gateway yang belum di-redeploy: judul kelompok hilang, menu tetap tampil.
+    @SerialName("category_name") val categoryName: String? = null,
+    @SerialName("category_sort_order") val categorySortOrder: Int? = null
 )
 
 @Serializable

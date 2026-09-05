@@ -1,0 +1,31 @@
+{
+  "name": "@suka/sales-board",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3040",
+    "build": "next build",
+    "start": "next start -p 3040",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.7",
+    "lucide-react": "^0.300.0",
+    "next": "^16.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.0.0",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.0"
+  }
+}

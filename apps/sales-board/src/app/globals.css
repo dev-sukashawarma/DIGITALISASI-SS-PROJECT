@@ -1,0 +1,199 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+/* Theme: Dark Command Center (Default TV Display) */
+.theme-dark {
+  --bg-page: #0c0605;
+  --bg-surface: #140c0b;
+  --card-bg: #180f0e;
+  --card-bg-hover: #221514;
+  --border-subtle: rgba(242, 151, 68, 0.12);
+  --border-card: rgba(255, 255, 255, 0.07);
+  --border-highlight: rgba(242, 151, 68, 0.35);
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --text-brand: #f29744;
+  --bar-fill-start: rgba(242, 151, 68, 0.35);
+  --bar-fill-end: rgba(242, 151, 68, 0.04);
+  --row-stripe: rgba(255, 255, 255, 0.015);
+  --row-hover: rgba(255, 255, 255, 0.04);
+  --glow-accent: rgba(242, 151, 68, 0.25);
+  --gold-accent: #f59e0b;
+  --gold-text: #fbbf24;
+  --gold-bg: rgba(245, 158, 11, 0.18);
+  --gold-border: rgba(245, 158, 11, 0.35);
+  color-scheme: dark;
+}
+
+/* Theme: Warm Studio Light (Suka Shawarma Brand Cream) */
+.theme-light {
+  --bg-page: #fbf8f4;
+  --bg-surface: #f4ecdf;
+  --card-bg: #ffffff;
+  --card-bg-hover: #faf6f0;
+  --border-subtle: #ede3d8;
+  --border-card: #e4d7c8;
+  --border-highlight: #d1b8a5;
+  --text-primary: #400a07;
+  --text-secondary: #701604;
+  --text-muted: #78716c;
+  --text-brand: #701604;
+  --bar-fill-start: rgba(242, 151, 68, 0.25);
+  --bar-fill-end: rgba(242, 151, 68, 0.03);
+  --row-stripe: rgba(112, 22, 4, 0.015);
+  --row-hover: rgba(112, 22, 4, 0.035);
+  --glow-accent: rgba(242, 151, 68, 0.15);
+  --gold-accent: #b45309;
+  --gold-text: #9a3412;
+  --gold-bg: rgba(242, 151, 68, 0.2);
+  --gold-border: rgba(180, 83, 9, 0.35);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  /* Batas minimal 1280px agar TV/laptop display tetap proporsional */
+  min-width: 1280px;
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Angka besar wajib rata lebar supaya tidak "goyang" tiap refresh data */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle Cyber / Dot Grid Pattern */
+.bg-cyber-grid {
+  background-image: radial-gradient(rgba(242, 151, 68, 0.09) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.theme-light .bg-cyber-grid {
+  background-image: radial-gradient(rgba(112, 22, 4, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Ambient Radial Flare at Top */
+.bg-ambient-flare {
+  background: radial-gradient(75% 50% at 50% 0%, rgba(242, 151, 68, 0.12) 0%, transparent 100%);
+}
+
+.theme-light .bg-ambient-flare {
+  background: radial-gradient(75% 50% at 50% 0%, rgba(242, 151, 68, 0.07) 0%, transparent 100%);
+}
+
+/* Pulse breathing indicator untuk telemetry live status */
+@keyframes pulse-live {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.92);
+  }
+}
+
+.animate-pulse-live {
+  animation: pulse-live 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Shimmer animation for skeleton loader */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 37%,
+    rgba(255, 255, 255, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.theme-light .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.03) 25%,
+    rgba(0, 0, 0, 0.07) 37%,
+    rgba(0, 0, 0, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Leaderboard Rank Shift Animations */
+@keyframes rank-shift-up {
+  0% {
+    background-color: rgba(16, 185, 129, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.6);
+  }
+  60% {
+    background-color: rgba(16, 185, 129, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.25);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+@keyframes rank-shift-down {
+  0% {
+    background-color: rgba(244, 63, 94, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.4);
+  }
+  60% {
+    background-color: rgba(244, 63, 94, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.18);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+.animate-rank-up {
+  animation: rank-shift-up 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-rank-down {
+  animation: rank-shift-down 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Magic UI Border Beam Animation */
+@keyframes border-beam-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-border-beam {
+  animation: border-beam-spin 8s linear infinite;
+}

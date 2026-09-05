@@ -10,6 +10,7 @@ interface SuratJalan {
   created_at: string
   document_number?: string
   has_problem?: boolean
+  surat_jalan_item?: any[]
 }
 
 interface SuratJalanWithOutlet extends SuratJalan {

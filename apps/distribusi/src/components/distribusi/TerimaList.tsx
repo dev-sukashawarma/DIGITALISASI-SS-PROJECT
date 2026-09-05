@@ -7,7 +7,7 @@ import { useTerimaList } from '@/hooks/useTerimaList'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { useDistribusiRealtime } from '@/hooks/useDistribusiRealtime'
 import { BottomNav } from './BottomNav'
-import { ArrowLeft, QrCode, Calendar, Truck, Store, Inbox, ChevronRight, CheckCircle2, Clock } from 'lucide-react'
+import { ArrowLeft, QrCode, Calendar, Truck, Inbox, ChevronRight, CheckCircle2 } from 'lucide-react'
 
 function FormattedDate({ iso }: { iso: string | null | undefined }) {
   const text = useFormattedDate(iso, {

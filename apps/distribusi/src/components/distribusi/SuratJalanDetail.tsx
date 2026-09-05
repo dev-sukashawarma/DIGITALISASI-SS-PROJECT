@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { useFormattedDate } from '@/hooks/useFormattedDate'
 import { SignatureFlow } from './SignatureFlow'
@@ -20,21 +19,18 @@ import {
   Eye,
   X,
   ShieldCheck,
-  Truck,
   Store,
   Calendar,
   Copy,
   Check,
-  Package,
   Clock,
   QrCode,
-  Layers,
-  ArrowRight,
   Info,
   Building2,
-  Phone,
   FileCheck,
-  HelpCircle
+  HelpCircle,
+  Ban,
+  RefreshCw
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -126,8 +122,35 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const [showPdfModal, setShowPdfModal] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showLx310Guide, setShowLx310Guide] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
   const [copiedDoc, setCopiedDoc] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
+
+  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
+
+  const handleCancelPO = async () => {
+    setCancelling(true)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const { data: res, error } = await supabase.rpc('batalkan_surat_jalan_draft', {
+        p_surat_jalan_id: id,
+        p_alasan: cancelReason.trim() || null,
+      })
+      if (error) throw error
+      if (res && !res.success) {
+        throw new Error(res.message || 'Gagal membatalkan PO')
+      }
+      toast.success(res?.message || 'PO draft berhasil dibatalkan')
+      setShowCancelModal(false)
+      router.push('/distribusi/surat-jalan')
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal membatalkan PO')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   useEffect(() => {
     if (data?.signatures) {
@@ -397,6 +420,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   // 4-Step Pipeline Status
   const getStepStatus = () => {
+    if (data.status === 'dibatalkan') return 0
     if (data.status === 'draft') return 1
     if (data.status === 'dikirim' || data.status === 'dikirim_lengkap') return 2
     if (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian') return 3
@@ -412,6 +436,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
     diterima_sebagian: { label: 'Tiba (Ada Selisih)', style: 'bg-orange-500/10 text-orange-700 border-orange-500/20', dot: 'bg-orange-500' },
     diterima_lengkap: { label: 'Tiba di Outlet', style: 'bg-purple-500/10 text-purple-700 border-purple-500/20', dot: 'bg-purple-500' },
     selesai: { label: 'Selesai & Valid', style: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20', dot: 'bg-emerald-500' },
+    dibatalkan: { label: 'Dibatalkan', style: 'bg-rose-500/10 text-rose-700 border-rose-500/20', dot: 'bg-rose-500' },
   }
 
   const currentStatus = statusBadge[data.status] || {
@@ -478,6 +503,25 @@ export function SuratJalanDetail({ id }: { id: string }) {
             <Download size={14} /> PDF
           </button>
 
+          <button
+            onClick={handleDownloadExcel}
+            className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+            title="Unduh Manifes Excel"
+          >
+            <Download size={14} /> Excel
+          </button>
+
+          {data.status === 'draft' && canCancelPO && (
+            <button
+              onClick={() => setShowCancelModal(true)}
+              className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95"
+              title="Batalkan Dokumen PO Draft"
+            >
+              <Ban size={14} className="text-rose-600" />
+              <span className="hidden sm:inline">Batal</span> PO
+            </button>
+          )}
+
           {!isPusatSender && (data.status === 'dikirim' || data.status === 'dikirim_lengkap') && (
             <button
               onClick={() => router.push(`/distribusi/terima/${id}`)}
@@ -530,42 +574,58 @@ export function SuratJalanDetail({ id }: { id: string }) {
               </div>
             </div>
 
-            {/* 4-Step Interactive Logistics Pipeline Tracker */}
-            <div className="py-2">
-              <p className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest mb-3 pl-0.5">
-                Status Alur Logistik:
-              </p>
-              <div className="grid grid-cols-4 gap-2 sm:gap-4 relative">
-                {[
-                  { step: 1, label: '1. Draft & TTD', desc: 'Gudang & Supir' },
-                  { step: 2, label: '2. Transit', desc: 'Armada Jalan' },
-                  { step: 3, label: '3. Tiba Outlet', desc: 'Pengecekan Fisik' },
-                  { step: 4, label: '4. Selesai', desc: 'Validasi Stok' },
-                ].map((s) => {
-                  const isDone = currentStep >= s.step
-                  const isCurrent = currentStep === s.step
-                  return (
-                    <div key={s.step} className="flex flex-col items-center text-center space-y-1">
-                      <div
-                        className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs transition-all duration-300 shadow-xs ${
-                          isDone
-                            ? 'bg-suka-orange text-white ring-4 ring-suka-orange/20 scale-105'
-                            : 'bg-gray-100 text-gray-400 border border-gray-200'
-                        }`}
-                      >
-                        {isDone && currentStep > s.step ? <Check size={16} /> : s.step}
-                      </div>
-                      <p className={`text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'text-suka-orange' : isDone ? 'text-suka-brown' : 'text-gray-400'}`}>
-                        {s.label}
-                      </p>
-                      <p className="text-[8px] text-suka-gray-400 font-bold hidden sm:block">
-                        {s.desc}
-                      </p>
-                    </div>
-                  )
-                })}
+            {/* 4-Step Interactive Logistics Pipeline Tracker or Cancelled Banner */}
+            {data.status === 'dibatalkan' ? (
+              <div className="py-3 px-4 bg-rose-50 rounded-2xl border border-rose-200 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200">
+                  <Ban size={20} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-rose-800 uppercase tracking-wide">
+                    Pengiriman Dibatalkan Pada Status Draft
+                  </p>
+                  <p className="text-[10px] text-rose-600 font-semibold">
+                    Alur logistik dihentikan. Tidak ada pemotongan stok gudang pusat maupun penambahan stok outlet.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="py-2">
+                <p className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest mb-3 pl-0.5">
+                  Status Alur Logistik:
+                </p>
+                <div className="grid grid-cols-4 gap-2 sm:gap-4 relative">
+                  {[
+                    { step: 1, label: '1. Draft & TTD', desc: 'Gudang & Supir' },
+                    { step: 2, label: '2. Transit', desc: 'Armada Jalan' },
+                    { step: 3, label: '3. Tiba Outlet', desc: 'Pengecekan Fisik' },
+                    { step: 4, label: '4. Selesai', desc: 'Validasi Stok' },
+                  ].map((s) => {
+                    const isDone = currentStep >= s.step
+                    const isCurrent = currentStep === s.step
+                    return (
+                      <div key={s.step} className="flex flex-col items-center text-center space-y-1">
+                        <div
+                          className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs transition-all duration-300 shadow-xs ${
+                            isDone
+                              ? 'bg-suka-orange text-white ring-4 ring-suka-orange/20 scale-105'
+                              : 'bg-gray-100 text-gray-400 border border-gray-200'
+                          }`}
+                        >
+                          {isDone && currentStep > s.step ? <Check size={16} /> : s.step}
+                        </div>
+                        <p className={`text-[10px] font-black uppercase tracking-wider ${isCurrent ? 'text-suka-orange' : isDone ? 'text-suka-brown' : 'text-gray-400'}`}>
+                          {s.label}
+                        </p>
+                        <p className="text-[8px] text-suka-gray-400 font-bold hidden sm:block">
+                          {s.desc}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Origin & Destination Route Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-suka-brown/10">
@@ -613,7 +673,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-black text-suka-brown bg-white border border-suka-brown/10 px-3 py-1 rounded-xl shadow-2xs">
-                  {totalItemCount} Jenis Bahan
+                  {totalItemCount} Jenis Bahan ({totalQtyDikirim} Total Qty)
                 </span>
               </div>
             </div>
@@ -822,14 +882,56 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </div>
           </div>
 
-          {/* 2. Signature Center (Draft Flow or Verified Signatures) */}
-          {data.status === 'draft' && isPusatSender ? (
-            <SignatureFlow
-              suratJalanId={id}
-              signatures={signatures}
-              onSignatureAdded={handleSignatureAdded}
-              onSent={handleSent}
-            />
+          {/* 2. Signature Center (Draft Flow, Dibatalkan, or Verified Signatures) */}
+          {data.status === 'draft' ? (
+            <div className="space-y-4">
+              {isPusatSender && (
+                <SignatureFlow
+                  suratJalanId={id}
+                  signatures={signatures}
+                  onSignatureAdded={handleSignatureAdded}
+                  onSent={handleSent}
+                />
+              )}
+
+              {canCancelPO && (
+                <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-rose-200 p-5 shadow-xs space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Ban size={16} className="text-rose-600" />
+                    <h4 className="font-black text-xs text-rose-700 uppercase tracking-wider font-display">
+                      Batalkan Pengiriman PO
+                    </h4>
+                  </div>
+                  <p className="text-xs text-suka-gray-600 font-medium leading-relaxed">
+                    Surat jalan ini masih berstatus draft. Jika terdapat revisi atau pembatalan pesanan, Anda dapat membatalkan dokumen ini sebelum dikirim.
+                  </p>
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    className="w-full py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-2xl font-black text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
+                  >
+                    <Ban size={14} /> Batalkan Dokumen PO
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : data.status === 'dibatalkan' ? (
+            <div className="bg-rose-50/70 backdrop-blur-md rounded-3xl border border-rose-200 p-5 shadow-xs space-y-3">
+              <div className="flex items-center gap-2 text-rose-700">
+                <Ban size={18} />
+                <h4 className="font-black text-xs uppercase tracking-wider font-display">
+                  Status Dokumen: Dibatalkan
+                </h4>
+              </div>
+              <p className="text-xs text-rose-800 font-medium leading-relaxed">
+                Dokumen pengiriman ini telah dibatalkan pada status draft. Seluruh alur serah terima dan tanda tangan dihentikan.
+              </p>
+              {data.notes && (
+                <div className="p-3 bg-white/80 rounded-2xl border border-rose-200 text-xs text-rose-950 space-y-1">
+                  <p className="text-[10px] font-black uppercase text-rose-700 tracking-wider">Catatan Dokumen:</p>
+                  <p className="font-medium whitespace-pre-line">{data.notes}</p>
+                </div>
+              )}
+            </div>
           ) : (
             <div className="space-y-4">
               <SignatureBlock title="Tanda Tangan Pengirim (Pusat)" sigs={data.signatures || []} />
@@ -1062,6 +1164,72 @@ export function SuratJalanDetail({ id }: { id: string }) {
                   Memuat dokumen PDF 3-Ply...
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Batalkan PO Draft */}
+      {showCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-suka-brown/10 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                <Ban size={24} />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-suka-ink font-display uppercase tracking-wide">
+                  Batalkan Dokumen PO
+                </h3>
+                <p className="text-xs text-suka-gray-500 font-medium">
+                  {docNumber} &bull; {data.outlets?.name || 'Outlet'}
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-suka-gray-600 leading-relaxed">
+              Tindakan ini akan membatalkan Surat Jalan draft dan mengembalikan status permintaan bahan terkait ke status dibatalkan. Stok gudang tidak akan terpotong.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-suka-ink uppercase tracking-wider">
+                Alasan Pembatalan (Opsional)
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Contoh: Salah pilih item / jumlah pesanan direvisi / batal pesan..."
+                className="w-full text-xs p-3 rounded-xl border border-suka-brown/15 focus:outline-hidden focus:border-rose-500 min-h-[80px] text-suka-ink"
+                disabled={cancelling}
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                onClick={() => {
+                  setShowCancelModal(false)
+                  setCancelReason('')
+                }}
+                disabled={cancelling}
+                className="px-4 py-2.5 text-xs font-bold text-suka-gray-600 hover:bg-suka-sand rounded-xl transition-colors cursor-pointer"
+              >
+                Kembali
+              </button>
+              <button
+                onClick={handleCancelPO}
+                disabled={cancelling}
+                className="px-4 py-2.5 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-md shadow-rose-600/20 active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {cancelling ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" /> Membatalkan...
+                  </>
+                ) : (
+                  <>
+                    <Ban size={14} /> Ya, Batalkan PO
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

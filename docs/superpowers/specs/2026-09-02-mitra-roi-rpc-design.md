@@ -1,7 +1,9 @@
 # Sub-proyek 0,5 — Perhitungan ROI/BEP Mitra Pindah ke Database
 
-**Tanggal:** 2026-09-02
+**Tanggal:** 2026-09-02 · **Direvisi:** 2026-09-05
 **Status:** Disetujui untuk dilanjutkan ke rencana implementasi
+
+> **Revisi 2026-09-05.** Antara penulisan dan revisi ini, PR #45/#49/#50 mendarat di `main` dan mengubah dasar spec: mesin kebijakan bagi hasil baru dengan cutoff 1 September (temuan 6), definisi omzet kotor yang diseragamkan lintas dashboard, signature `get_mitra_orders_summary` berubah ke `timestamptz`, dan tiga helper HPP pindah ke database. Arah dan keputusan tidak berubah — yang diperbarui dasarnya. Masalah inti (dua definisi "modal sudah kembali" yang bertentangan) **masih ada dan taruhannya membesar**.
 **Menyentuh:** `supabase/migrations` (fungsi baru), `apps/admin-dashboard` (satu berkas)
 **Memblokir:** sub-proyek 1 (layar "Dashboard Saya" mitra di Android)
 
@@ -19,9 +21,11 @@ Semua diverifikasi langsung ke DB produksi (`khpkoreaaucvyqfhynfq`).
 
 ### 1. Bagian terberat sudah ada di database
 
-`get_mitra_orders_summary(p_outlet_ids uuid[], p_from timestamp, p_to timestamp)` sudah ada dan mengembalikan `gross_revenue`, `deductions`, `cogs` per outlet. Jalur TypeScript yang menarik seluruh order sejak 1 Agustus lalu menghitung ulang HPP dari nol hanyalah **fallback** bila RPC itu gagal.
+`get_mitra_orders_summary(p_outlet_ids uuid[], p_from timestamptz, p_to timestamptz)` sudah ada dan mengembalikan `gross_revenue`, `deductions`, `cogs` per outlet. Jalur TypeScript yang menarik seluruh order sejak 1 Agustus lalu menghitung ulang HPP dari nol hanyalah **fallback** bila RPC itu gagal.
 
 Artinya perhitungan terberat — HPP per channel, penguraian menu paket, pengali 1,10 khusus outlet mitra — tidak perlu disentuh sama sekali.
+
+**Diperbarui 2026-09-05:** perhitungan HPP kini juga sudah pindah ke database sebagai tiga fungsi — `get_mitra_item_hpp`, `get_mitra_item_hpp_base`, dan `get_mitra_item_hpp_by_name`. Fungsi `getItemHpp` TypeScript di `mitraRoi.ts` karena itu bukan lagi sekadar jalur cadangan, melainkan **duplikat dari fungsi database yang sudah ada** — alasan menghapusnya jadi lebih kuat, bukan lebih lemah.
 
 ### 2. Web sudah punya dua implementasi di dalam dirinya sendiri
 
@@ -57,13 +61,30 @@ Fungsi itu memakai `accessible_outlet_ids()` di dalamnya. Dipanggil tanpa kontek
 
 Ini menetapkan satu batasan metodologis: **patokan verifikasi tidak boleh diambil dari skrip service-role.** Konsekuensi lebih luas, di luar cakupan sub-proyek ini: puluhan skrip `check_*.js` di root repo berpola sama dan akan diam-diam mendapat hasil kosong dari fungsi ber-scope mana pun.
 
+### 6. Mesin kebijakan baru dengan cutoff 1 September 2026 (ditemukan 2026-09-05)
+
+`apps/admin-dashboard/src/lib/mitraPolicy.ts` (berkas baru) memindahkan penentuan persentase dari kolom per-outlet ke aturan berbasis status BEP:
+
+| Periode | Belum BEP | Sudah BEP |
+|---|---|---|
+| Sejak 2026-09-01 | bagi hasil **100%**, management fee **3%** | bagi hasil **50:50**, management fee **0%** |
+| Sebelum 2026-09-01 | persentase & fee historis per outlet | persentase & fee historis per outlet |
+
+Dua konsekuensi untuk sub-proyek ini:
+
+**Fungsi database wajib mereproduksi aturan ini, termasuk cutoff tanggalnya.** Kalau tidak, ia akan menghitung periode September ke atas dengan persentase historis dan hasilnya salah untuk semua mitra.
+
+**Taruhan pertentangan dua definisi BEP (temuan 3) membesar.** Sekarang `isBepAlready` (basis kas, `mitraRoi.ts:245`) yang menyetir mesin kebijakan, sementara `isBep` (basis hak, `mitraRoi.ts:320`) yang tampil di kartu. Dulu ketidaksepakatan keduanya hanya menggeser persentase bagi hasil; kini ia juga menentukan mitra dikenai management fee 3% atau dibebaskan. Seorang mitra bisa melihat kartunya menyatakan sudah balik modal sambil tetap dipotong fee 3%, atau sebaliknya.
+
 ## Keputusan
 
 **Basis "modal sudah kembali" adalah bagian mitra dari laba** — omzet historis + transfer historis + (laba bersih × persentase bagi hasil). Dipakai untuk kartu ROI **dan** untuk aturan 50:50, sehingga dua definisi yang selama ini bertentangan (temuan 3) menyatu menjadi satu.
 
 Ini definisi yang **sudah dipakai kartu ROI hari ini**. Yang berubah hanyalah aturan 50:50 ikut memakainya — sebelumnya aturan itu memakai basis kas.
 
-Konsekuensinya besar dan menguntungkan: **tidak ada satu angka pun yang berubah di mata mitra.** Diverifikasi terhadap data 2026-09-02, status BEP kesembilan outlet juga tetap sama — Cibinong tetap melewati modal (211,0 jt terhadap modal 125 jt), delapan lainnya tetap belum, dengan jarak yang lebar. Aturan 50:50 tidak berpindah untuk siapa pun.
+Konsekuensinya besar dan menguntungkan: **tidak ada satu angka pun yang berubah di mata mitra.** Diverifikasi ulang terhadap data **2026-09-05**: status BEP kesembilan outlet tetap sama di kedua basis — Cibinong melewati modal di keduanya (173,1% hak, 162,9% kas), delapan lainnya tertinggi 46,7%, jauh dari ambang. Baik aturan 50:50 **maupun pembebasan management fee 3%** (temuan 6) tidak berpindah untuk siapa pun.
+
+Perlu dicatat bahwa sejak temuan 6, keputusan basis ini menentukan lebih banyak daripada saat pertama diambil: ia kini juga menentukan apakah seorang mitra dikenai management fee 3% atau dibebaskan. Kesimpulan "tidak ada yang berubah" tetap berlaku hari ini, tetapi jarak ke ambang wajib diperiksa ulang tepat sebelum implementasi — outlet yang mendekati 100% akan membuat pilihan basis ini punya konsekuensi rupiah langsung.
 
 Alternatif yang ditolak: **basis kas** (historis + transfer nyata). Lebih konservatif — mitra baru dianggap balik modal setelah uangnya benar-benar diterima — tetapi mengubah angka yang dilihat 9 mitra, paling tajam di Cileungsi (33,3% → 0,0%). Ditolak karena manfaatnya tidak sepadan dengan mengubah angka yang sudah berjalan. Konsekuensi yang diterima secara sadar: seorang mitra bisa dinyatakan balik modal, dan bagi hasilnya turun jadi 50:50, sebelum seluruh uangnya benar-benar dia terima.
 
@@ -94,10 +115,14 @@ Mengembalikan satu baris per outlet:
 
 Kolom utama memakai basis "bagian mitra dari laba" dan **inilah yang menentukan aturan 50:50** serta yang tampil sebagai angka besar di kartu. Kolom pendamping memakai basis transfer nyata; ia hanya ditampilkan, tidak memengaruhi perhitungan apa pun.
 
+**Mesin kebijakan ikut pindah ke fungsi ini** (temuan 6). Untuk periode yang mulai pada atau sesudah `2026-09-01`, `persentase` dan `management_fee` **tidak** dibaca dari `mitra_investments` melainkan diturunkan dari `is_bep`: belum BEP → 100% dan fee 3%; sudah BEP → 50% dan fee 0%. Untuk periode sebelumnya, keduanya tetap dari kolom historis per outlet. Tanggal cutoff jadi konstanta bernama di dalam fungsi, sejajar dengan `MITRA_POLICY_SEPTEMBER_2026_CUTOFF` di `mitraPolicy.ts`.
+
+Menaruh kebijakan di sini adalah inti tujuan sub-proyek: begitu Android ikut memanggil fungsi ini, aturan cutoff dan tarif fee tidak perlu ditulis ulang di Kotlin. `mitraPolicy.ts` boleh tetap ada untuk keperluan label UI (`statusLabel`), tetapi angka yang menentukan uang berasal dari satu tempat.
+
 Tiga hal yang mudah tertukar, ditegaskan di sini:
 
 - `persentase` adalah persentase bagi hasil **setelah** aturan 50:50 diterapkan, bukan nilai mentah dari `mitra_investments`.
-- `bep_pct` adalah `roi_pct` yang dibatasi maksimum 100 dan dibulatkan satu desimal, untuk bilah kemajuan. `roi_pct` sendiri tidak dibatasi, sehingga Cibinong tetap tampil 168,8%.
+- `bep_pct` adalah `roi_pct` yang dibatasi maksimum 100 dan dibulatkan satu desimal, untuk bilah kemajuan. `roi_pct` sendiri tidak dibatasi, sehingga Cibinong tetap tampil 173,1% (angka per 2026-09-05), bukan terpotong jadi 100%.
 - `is_bep` bernilai benar hanya bila `modal_investasi > 0` **dan** `dana_kembali >= modal_investasi`. Outlet tanpa nilai investasi tidak pernah dianggap sudah balik modal.
 
 **Berjalan sebagai pemanggil (`SECURITY INVOKER`), bukan sebagai pemilik database.** Keputusan sengaja: karena setiap tabel sudah punya aturan akses yang benar (temuan 4), mitra yang memanggil fungsi ini otomatis hanya mendapat outlet miliknya — walau ia mengirim daftar outlet orang lain sebagai parameter. Alternatifnya mengharuskan kita menulis sendiri pemeriksaan hak akses di dalam fungsi, dan proyek ini sudah pernah kebobolan persis di pola itu (empat Server Action `apps/stok` memakai service-role tanpa memeriksa role sama sekali; lihat memori `server-action-authz-gap`).
@@ -134,27 +159,27 @@ Satu-satunya tambahan yang tidak punya pembanding adalah angka pendamping "sudah
 
 ### Patokan awal (waste BELUM termasuk)
 
-Diambil 2026-09-02 dengan service role, jadi angka waste kosong dan laba bersih di sini **terlalu besar** (temuan 5). Dipakai sebagai indikasi arah, bukan patokan final — patokan final diambil dari layar produksi.
-
-Kolom "ROI (hak)" adalah nilai yang dipakai fungsi baru **dan** yang berjalan di produksi hari ini; keduanya harus cocok. Kolom "sudah diterima" adalah angka pendamping baru.
+Diambil ulang **2026-09-05** dengan service role, jadi angka waste kosong dan laba bersih di sini **terlalu besar** (temuan 5). Persentase pada kolom masih persentase historis per outlet, belum melewati mesin kebijakan. Dipakai sebagai indikasi arah, bukan patokan final — patokan final diambil dari layar produksi.
 
 | Outlet | Omzet | Laba bersih* | ROI (hak) | Sudah diterima | Selisih |
 |---|---:|---:|---:|---:|---:|
-| Cibinong | 215,0 jt | 39,6 jt | 168,8% | 162,9% | 5,9 |
-| Cibubur | 248,9 jt | 28,2 jt | 39,1% | 28,3% | 10,8 |
-| Cicurug | 233,8 jt | 40,2 jt | 32,2% | 12,6% | 19,6 |
-| Cileungsi | 395,9 jt | 49,9 jt | 33,3% | 0,0% | 33,3 |
-| Ciseeng | 86,9 jt | 14,5 jt | 28,1% | 24,0% | 4,1 |
-| Kalisari | 69,3 jt | 12,1 jt | 25,4% | 22,0% | 3,4 |
-| Paledang | 123,9 jt | 16,5 jt | 27,0% | 22,3% | 4,8 |
-| Pekayon | 86,4 jt | 17,2 jt | 36,3% | 32,8% | 4,8 |
-| Sentul | 115,1 jt | 21,0 jt | 44,4% | 46,3% | **−1,9** |
+| Cibinong | 151,2 jt | 50,4 jt | 173,1% | 162,9% | 10,2 |
+| Cibubur | 110,6 jt | 34,0 jt | 43,7% | 28,3% | 15,4 |
+| Cicurug | 159,4 jt | 47,1 jt | 36,7% | 12,6% | 24,0 |
+| Cileungsi | 217,1 jt | 61,0 jt | 40,7% | 0,0% | 40,7 |
+| Ciseeng | 53,9 jt | 17,6 jt | 29,1% | 24,0% | 5,1 |
+| Kalisari | 48,1 jt | 15,2 jt | 26,6% | 22,0% | 4,7 |
+| Paledang | 79,6 jt | 23,7 jt | 29,9% | 22,3% | 7,6 |
+| Pekayon | 68,1 jt | 22,6 jt | 37,7% | 32,8% | 5,0 |
+| Sentul | 85,1 jt | 25,8 jt | 46,7% | 46,3% | 0,4 |
 
-Kolom selisih adalah bagi hasil yang sudah jadi hak tetapi belum ditransfer. Sentul bertanda negatif karena transfer yang sudah dibayarkan (24,9 jt) melebihi bagi hasil periode berjalan (21,0 jt) — bukan kejanggalan, melainkan akibat periode yang tak setara: bagi hasil dihitung sejak 1 Agustus saja, sementara transfer mencakup seluruh riwayat. Perlu diingat saat membaca angka pendamping ini: ia bukan "sisa utang" yang presisi.
+Kolom selisih adalah bagi hasil yang sudah jadi hak tetapi belum ditransfer.
 
-**Tidak ada outlet yang berubah status BEP-nya.** Hanya Cibinong yang melewati modal, dan jaraknya lebar (211,0 jt terhadap modal 125,0 jt). Delapan sisanya masih jauh di bawah. Aturan 50:50 tidak menyala atau padam untuk siapa pun.
+**Perhatikan: omzet TURUN dibanding pengambilan 2 September** meski periodenya tiga hari lebih panjang — Pekayon 86,4 → 68,1 jt, Sentul 115,1 → 85,1 jt, dan deduksi anjlok jauh lebih tajam (Sentul 40,0 → 3,3 jt). Ini efek PR #49/#50 yang menyeragamkan acuan omzet kotor lintas dashboard, bukan penjualan yang merosot. Laba bersih justru naik di semua outlet. Angka lama sengaja tidak disimpan di sini agar tidak ada yang keliru memakainya sebagai patokan.
 
-**Cileungsi bukan data yang bermasalah.** Order pertamanya 8 Agustus 2026, tanggal mulai investasi 10 Agustus — memang tidak ada riwayat sebelum sistem berjalan, dan nol transfer berarti mitranya belum pernah menerima pembayaran. Dalam 3,5 minggu outlet ini beromzet paling besar di antara semua mitra. Inilah kasus yang paling menunjukkan gunanya angka pendamping: berhak atas 33,3%, diterima 0%.
+**Tetap tidak ada outlet yang berubah status BEP-nya.** Diperiksa ulang pada data 2026-09-05: hanya Cibinong yang melewati modal, dan lewat di kedua basis (173,1% hak, 162,9% kas). Delapan sisanya tertinggi 46,7% — jauh di bawah 100%, sehingga tidak ada yang berada di ambang. Baik aturan 50:50 maupun pembebasan management fee tidak menyala atau padam untuk siapa pun akibat keputusan basis di spec ini.
+
+**Cileungsi bukan data yang bermasalah.** Order pertamanya 8 Agustus 2026, tanggal mulai investasi 10 Agustus — memang tidak ada riwayat sebelum sistem berjalan, dan nol transfer berarti mitranya belum pernah menerima pembayaran. Outlet ini beromzet paling besar di antara semua mitra. Inilah kasus yang paling menunjukkan gunanya angka pendamping: berhak atas 40,7%, diterima 0%.
 
 ## Pengujian
 
@@ -165,6 +190,13 @@ Aturan bisnis berada di SQL, jadi diuji lewat perbandingan terhadap patokan prod
 3. Outlet tanpa baris `mitra_investments` tidak membuat fungsi gagal.
 4. Modal investasi bernilai nol tidak menghasilkan pembagian dengan nol.
 5. Laba bersih negatif menghasilkan bagi hasil nol, bukan angka negatif.
+
+Ditambah setelah temuan 6 — kebijakan cutoff wajib dipin, karena inilah aturan yang paling mudah salah dan paling mahal akibatnya:
+
+6. Periode yang mulai **sebelum** 2026-09-01 memakai persentase & fee historis dari `mitra_investments`, bukan aturan baru.
+7. Periode yang mulai **pada atau sesudah** 2026-09-01, outlet belum BEP → persentase 100 dan management fee 3.
+8. Periode yang sama, outlet sudah BEP → persentase 50 dan management fee 0.
+9. Periode yang melintasi tanggal cutoff diperlakukan konsisten dengan `mitraPolicy.ts` (ia memutuskan berdasarkan `periodFrom`, jadi fungsi database harus memakai `p_from` juga — bukan `p_to`, dan bukan tanggal hari ini).
 
 ## Di luar cakupan
 

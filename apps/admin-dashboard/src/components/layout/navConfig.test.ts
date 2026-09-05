@@ -5,6 +5,7 @@ import {
   NAV_GROUPS,
   accessibleGroups,
   accessibleItems,
+  primaryItems,
   type Role,
 } from './navConfig'
 
@@ -182,4 +183,31 @@ describe('navConfig — invarian', () => {
       'Sistem',
     ])
   })
+})
+
+describe('primaryItems — bottom nav', () => {
+  it.each(ROLES)('%s: maksimal 4 item, semuanya bisa diakses role itu', (role) => {
+    const primary = primaryItems(role)
+    const all = accessibleItems(role)
+    expect(primary.length).toBeLessThanOrEqual(4)
+    for (const item of primary) {
+      expect(all).toContain(item)
+    }
+  })
+
+  it('ADMIN mendapat empat tab yang dipilih sengaja', () => {
+    expect(primaryItems('ADMIN').map((i) => i.href)).toEqual([
+      '/dashboard/owner',
+      '/dashboard/reports/pos',
+      '/dashboard/pembelian',
+      '/dashboard/hr',
+    ])
+  })
+
+  it.each(['OWNER', 'ADMIN_HR', 'PURCHASING', 'LEADER', 'AREA_MANAGER', 'MITRA'] as Role[])(
+    '%s tanpa penandaan tetap dapat empat item pertama seperti sebelumnya',
+    (role) => {
+      expect(primaryItems(role)).toEqual(accessibleItems(role).slice(0, 4))
+    },
+  )
 })

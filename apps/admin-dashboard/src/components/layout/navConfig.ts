@@ -7,7 +7,15 @@ import {
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
 
-export type NavItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; roles: Role[] }
+export type NavItem = {
+  href: string
+  label: string
+  shortLabel?: string
+  icon: LucideIcon
+  roles: Role[]
+  /** Role yang menampilkan item ini di tab bar mobile. Maksimal 4 item per role. */
+  primary?: Role[]
+}
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
 export type NavGroup = { title: string; icon: LucideIcon; items: NavItem[]; roles: Role[] }
 
@@ -49,7 +57,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Wallet,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
       { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER'] },
       { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
@@ -64,7 +72,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: FileText,
     roles: ['OWNER', 'ADMIN'],
     items: [
-      { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
       { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Package, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
@@ -90,7 +98,7 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['ADMIN', 'PURCHASING'],
     items: [
       { href: '/dashboard/pembelian/perlu-dibeli', label: 'Perlu Dibeli', shortLabel: 'Perlu Dibeli', icon: BellRing, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN', 'PURCHASING'], primary: ['ADMIN'] },
       { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['ADMIN', 'PURCHASING'] },
@@ -124,7 +132,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Users,
     roles: ['ADMIN_HR', 'ADMIN'],
     items: [
-      { href: '/dashboard/hr', label: 'Ringkasan HR', shortLabel: 'HR', icon: LayoutDashboard, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/hr', label: 'Ringkasan HR', shortLabel: 'HR', icon: LayoutDashboard, roles: ['ADMIN_HR', 'ADMIN'], primary: ['ADMIN'] },
       { href: '/dashboard/hr/staff', label: 'Database Karyawan', shortLabel: 'Karyawan', icon: Users, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', shortLabel: 'Absensi', icon: CalendarClock, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/leave', label: 'Cuti & Izin', shortLabel: 'Cuti', icon: CalendarHeart, roles: ['ADMIN_HR', 'ADMIN'] },
@@ -169,6 +177,18 @@ export function accessibleItems(role: Role): NavItem[] {
   return NAV_GROUPS.filter((g) => g.roles.includes(role)).flatMap((g) =>
     g.items.filter((i) => i.roles.includes(role))
   )
+}
+
+/**
+ * Empat item untuk tab bar mobile. Item bertanda `primary` untuk role tsb
+ * didahulukan; sisanya diisi menurut urutan `accessibleItems(role)`, sehingga
+ * role tanpa penandaan berperilaku persis seperti `slice(0, 4)` sebelumnya.
+ */
+export function primaryItems(role: Role): NavItem[] {
+  const items = accessibleItems(role)
+  const marked = items.filter((i) => i.primary?.includes(role))
+  const rest = items.filter((i) => !i.primary?.includes(role))
+  return [...marked, ...rest].slice(0, 4)
 }
 
 /** Pintu (group) yang bisa diakses role, beserta item yang sudah difilter. */

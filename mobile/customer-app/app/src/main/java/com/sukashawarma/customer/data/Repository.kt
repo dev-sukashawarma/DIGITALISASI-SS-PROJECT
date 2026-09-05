@@ -1,5 +1,6 @@
 package com.sukashawarma.customer.data
 
+import com.sukashawarma.customer.data.api.AuthResponse
 import com.sukashawarma.customer.data.api.CartItemPayload
 import com.sukashawarma.customer.data.api.CheckoutValidateRequest
 import com.sukashawarma.customer.data.api.CheckoutValidateResponse
@@ -17,6 +18,16 @@ import com.sukashawarma.customer.data.api.OutletDto
  * memuat menu", karena tindakan pelanggan untuk keduanya berbeda.
  */
 class Repository(private val gateway: GatewayClient) {
+
+    /**
+     * Menukar ID token Google dengan sesi gateway.
+     *
+     * Aplikasi tidak pernah memvalidasi token itu sendiri dan tidak pernah
+     * menyentuh Supabase: gateway yang memverifikasinya ke Google, lalu
+     * menerbitkan token sesinya sendiri.
+     */
+    suspend fun loginGoogle(idToken: String): GatewayResult<AuthResponse> =
+        gateway.loginGoogle(idToken)
 
     suspend fun outlets(): GatewayResult<List<OutletDto>> =
         when (val hasil = gateway.outlets()) {

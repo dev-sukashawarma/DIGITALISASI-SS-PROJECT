@@ -21,6 +21,22 @@ val localProperties = Properties().apply {
 val gatewayBaseUrl: String =
     (localProperties.getProperty("gatewayBaseUrl") ?: "https://retail.sukashawarma.com")
 
+// Web client ID Google, project 401597244561 -- project yang sama dengan
+// provider Google di Supabase `khpkoreaaucvyqfhynfq` (diverifikasi 2026-09-05
+// lewat Callback URL di panel Supabase).
+//
+// WAJIB bertipe **Web application**, bukan Android. Android client ID yang
+// dipakai di sini membuat penukaran token ditolak 401 "Login Google gagal"
+// dengan pesan yang sama sekali tidak menunjuk penyebabnya.
+//
+// Ini BUKAN rahasia: client ID tertanam di dalam setiap APK dan memang
+// dirancang untuk publik. Yang rahasia adalah client SECRET, dan itu tidak
+// pernah menyentuh aplikasi ini -- hanya panel Supabase yang memegangnya.
+val googleWebClientId: String = (
+    localProperties.getProperty("googleWebClientId")
+        ?: "401597244561-54akuvpbb8rampkbo4ll0neamne1gcqt.apps.googleusercontent.com"
+    )
+
 android {
     namespace = "com.sukashawarma.customer"
     compileSdk = 36
@@ -34,6 +50,7 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GATEWAY_BASE_URL", "\"$gatewayBaseUrl\"")
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleWebClientId\"")
     }
 
     buildTypes {

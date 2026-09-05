@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -23,6 +24,9 @@ import com.sukashawarma.customer.ui.screens.checkout.CheckoutScreen
 import com.sukashawarma.customer.ui.screens.checkout.CheckoutViewModel
 import com.sukashawarma.customer.ui.screens.detail.ItemDetailScreen
 import com.sukashawarma.customer.ui.screens.detail.ItemDetailViewModel
+import com.sukashawarma.customer.ui.screens.login.LoginScreen
+import com.sukashawarma.customer.ui.screens.login.LoginViewModel
+import com.sukashawarma.customer.ui.screens.onboarding.OnboardingScreen
 import com.sukashawarma.customer.ui.screens.outlet.OutletPickerScreen
 import com.sukashawarma.customer.ui.screens.outlet.OutletPickerViewModel
 import com.sukashawarma.customer.ui.theme.SukaTheme
@@ -47,6 +51,16 @@ class MainActivity : ComponentActivity() {
 }
 
 private object Rute {
+    const val ONBOARDING = "onboarding"
+
+    /**
+     * `tujuan` menentukan ke mana pelanggan dibawa setelah berhasil masuk.
+     * Tanpa ini, masuk dari titik bayar akan melempar pelanggan kembali ke
+     * katalog dan memaksanya menyusuri keranjang lagi dari awal.
+     */
+    const val MASUK = "masuk?tujuan={tujuan}"
+    fun masuk(tujuan: String = "katalog") = "masuk?tujuan=$tujuan"
+
     const val KATALOG = "katalog"
     const val PILIH_OUTLET = "pilih-outlet"
     const val KERANJANG = "keranjang"
@@ -77,7 +91,60 @@ fun CustomerAppRoot(container: AppContainer) {
     val catalogState by catalogViewModel.state.collectAsStateWithLifecycle()
     val cartState by cartViewModel.state.collectAsStateWithLifecycle()
 
-    NavHost(navController = navController, startDestination = Rute.KATALOG) {
+    // Sesi yang masih berlaku melewati perkenalan. Pemeriksaan ini hanya
+    // kemudahan -- gateway tetap penentu sah atau tidaknya sesi, dan akan
+    // menolak dengan 401 kalau ternyata sudah tidak berlaku.
+    val mulaiDari = remember {
+        if (container.sessionStore.adaSesiBerlaku()) Rute.KATALOG else Rute.ONBOARDING
+    }
+
+    NavHost(navController = navController, startDestination = mulaiDari) {
+
+        composable(Rute.ONBOARDING) {
+            OnboardingScreen(
+                onMasuk = { navController.navigate(Rute.masuk()) },
+                onLihatMenu = {
+                    navController.navigate(Rute.KATALOG) {
+                        popUpTo(Rute.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        composable(
+            Rute.MASUK,
+            arguments = listOf(
+                navArgument("tujuan") {
+                    type = NavType.StringType
+                    defaultValue = "katalog"
+                }
+            )
+        ) { entri ->
+            val tujuan = entri.arguments?.getString("tujuan") ?: "katalog"
+            val loginViewModel: LoginViewModel = viewModel(
+                factory = pabrik { LoginViewModel(container.repository, container.sessionStore) }
+            )
+            LoginScreen(
+                viewModel = loginViewModel,
+                onBerhasil = {
+                    if (tujuan == "checkout") {
+                        navController.navigate(Rute.CHECKOUT) {
+                            popUpTo(Rute.MASUK) { inclusive = true }
+                        }
+                    } else {
+                        navController.navigate(Rute.KATALOG) {
+                            popUpTo(Rute.ONBOARDING) { inclusive = true }
+                        }
+                    }
+                },
+                onLihatMenu = {
+                    navController.navigate(Rute.KATALOG) {
+                        popUpTo(Rute.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(Rute.KATALOG) {
             CatalogScreen(
                 viewModel = catalogViewModel,
@@ -151,7 +218,16 @@ fun CustomerAppRoot(container: AppContainer) {
             CartScreen(
                 viewModel = cartViewModel,
                 onKembali = { navController.popBackStack() },
-                onLanjutBayar = { navController.navigate(Rute.CHECKOUT) }
+                // Login diminta DI SINI, di titik bayar -- bukan di pintu
+                // masuk aplikasi. Pelanggan boleh menjelajah menu dan menyusun
+                // keranjang tanpa akun; `/checkout/validate` yang menuntut sesi.
+                onLanjutBayar = {
+                    if (container.sessionStore.adaSesiBerlaku()) {
+                        navController.navigate(Rute.CHECKOUT)
+                    } else {
+                        navController.navigate(Rute.masuk("checkout"))
+                    }
+                }
             )
         }
 

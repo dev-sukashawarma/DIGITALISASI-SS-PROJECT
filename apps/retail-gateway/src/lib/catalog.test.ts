@@ -135,4 +135,25 @@ describe('bersihkanKatalog', () => {
     expect(hasil[0].category_name).toBeNull()
     expect(hasil[0].category_sort_order).toBeNull()
   })
+
+  it('tidak menyaring apa pun berdasar outlet -- menu di sistem ini global', () => {
+    // Seluruh 50 baris `menu_items` di produksi punya `outlet_id = NULL`, dan
+    // pos-kasir tidak pernah menyaring menu per outlet. Penyaring per outlet
+    // di gateway membuat katalog SELALU kosong -- untuk setiap outlet.
+    //
+    // Test ini menjaga `bersihkanKatalog` tetap meloloskan baris ber-outlet_id
+    // null; penyaringnya sendiri ada di query, dan komentarnya di sana
+    // menjelaskan kenapa ia tidak boleh dihidupkan lagi tanpa tabel
+    // penghubung menu-outlet.
+    const hasil = bersihkanKatalog([
+      {
+        id: 'a', name: 'Shawarma Ayam Original', price: 25000, description: null,
+        deskripsi_app: null, image_url: null, foto_app: null, is_available: true,
+        category_id: 'c1', sort_order: 1, outlet_id: null,
+        categories: { name: 'Makanan', sort_order: 1 },
+      },
+    ])
+    expect(hasil).toHaveLength(1)
+    expect(hasil[0].id).toBe('a')
+  })
 })

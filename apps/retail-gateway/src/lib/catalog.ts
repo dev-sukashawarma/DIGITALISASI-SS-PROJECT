@@ -91,6 +91,11 @@ export function kosongkanCacheKatalog(): void {
 /**
  * Ambil katalog menu untuk satu outlet, dengan cache 5 menit per outlet.
  *
+ * Cache tetap dikunci per outlet walau menunya global. Entri kembar untuk 19
+ * outlet berbiaya satu pembacaan tiap 5 menit per outlet -- dapat diabaikan
+ * pada skala pilot -- dan menjaga agar ketersediaan per-outlet, kalau kelak
+ * ada, tidak perlu mengubah satu pun pemanggil.
+ *
  * `paksaSegar` melewati cache HANYA untuk outlet yang diminta -- bukan
  * `kosongkanCacheKatalog()` (yang membuang cache semua outlet sekaligus).
  * Rencana awal memakai kosongkanCacheKatalog() sebelum ambil data segar,
@@ -113,7 +118,20 @@ export async function ambilKatalog(
     .select(
       'id, name, description, deskripsi_app, price, image_url, foto_app, is_available, category_id, sort_order, categories(name, sort_order)'
     )
-    .eq('outlet_id', outletId)
+    // TIDAK ADA `.eq('outlet_id', outletId)`. Menu di sistem ini BERSIFAT
+    // GLOBAL: seluruh 50 baris `menu_items` di produksi punya
+    // `outlet_id = NULL`, nol baris yang terisi, dan `apps/pos-kasir` tidak
+    // pernah menyaring menu per outlet di satu pun jalur pemesanannya.
+    //
+    // Menyaring per outlet di sini membuat katalog SELALU kosong untuk setiap
+    // outlet -- dan gejalanya ("Menu belum terbit") menyerupai kesalahan
+    // pengisian data, bukan kesalahan kode, sehingga bisa dikejar berjam-jam
+    // ke arah yang salah.
+    //
+    // Konsekuensi yang perlu diketahui: `is_available` juga global. Item yang
+    // ditandai habis, habis di SEMUA outlet. Kalau kelak ketersediaan
+    // per-outlet dibutuhkan, ia perlu tabel penghubungnya sendiri -- yang
+    // sampai sekarang tidak ada di skema.
     .eq('tampil_di_app', true)
     .order('sort_order', { ascending: true })
 

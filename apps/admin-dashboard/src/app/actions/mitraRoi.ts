@@ -2,8 +2,6 @@
 
 import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
-import { resolveMitraPolicy } from '@/lib/mitraPolicy'
-import { cleanItemName } from '@/lib/order-item-name'
 
 export async function getMitraRoiStats(outletId: string | 'all', allowedOutletIds: string[]) {
   const targetOutlets = outletId === 'all' ? allowedOutletIds : [outletId]
@@ -14,16 +12,19 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
       nilaiInvestasi: 0,
       totalProfitKumulatif: 0,
       roi: 0,
-      bepPercentage: 0
+      bepPercentage: 0,
+      sudahDiterima: 0,
+      roiDiterima: 0
     }
   }
 
   const bepMap = await getMitraRealtimeBepBreakdown(targetOutlets)
-  
+
   let nilaiInvestasi = 0
   let historisProfitMitra = 0
   let systemProfitMitra = 0
   let totalDanaKembali = 0
+  let sudahDiterima = 0
 
   for (const oid of targetOutlets) {
     const item = bepMap[oid]
@@ -32,6 +33,7 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
       historisProfitMitra += (item.omzetHistoris + item.transferHistoris)
       systemProfitMitra += item.mitraShare
       totalDanaKembali += item.totalDanaKembali
+      sudahDiterima += item.sudahDiterima
     }
   }
 
@@ -44,7 +46,9 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
     nilaiInvestasi,
     totalProfitKumulatif: totalDanaKembali,
     roi: Math.round(roi * 10) / 10,
-    bepPercentage
+    bepPercentage,
+    sudahDiterima,
+    roiDiterima: nilaiInvestasi > 0 ? Math.round((sudahDiterima / nilaiInvestasi) * 1000) / 10 : 0
   }
 }
 
@@ -64,281 +68,53 @@ export interface MitraRealtimeBepItem {
   roiPct: number
   bepPercentage: number
   isBep: boolean
+  sudahDiterima: number
+  roiDiterimaPct: number
 }
 
 export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Promise<Record<string, MitraRealtimeBepItem>> {
+  if (mitraOutletIds.length === 0) return {}
+
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
     getAll: () => cookieStore.getAll(),
     setAll: () => {},
   })
-  
-  if (mitraOutletIds.length === 0) return {}
 
-  const SYSTEM_START_DATE = '2026-07-31T17:00:00.000Z' // 2026-08-01 00:00:00 WIB
-
-  // 1. Fetch investments, profiles, transfers, expenses, waste, and pre-aggregated order RPC in parallel
-  const [
-    invRes,
-    profRes,
-    transfersRes,
-    pettyRes,
-    monthlyRes,
-    wasteRes,
-    rpcRes
-  ] = await Promise.all([
-    supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
-    supabase.from('mitra_profiles').select('*'),
-    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds),
-    supabase
-      .from('petty_cash_expenses')
-      .select('amount, expense_date, outlet_id')
-      .in('outlet_id', mitraOutletIds)
-      .is('deleted_at', null)
-      .gte('expense_date', '2026-08-01'),
-    supabase
-      .from('expenses')
-      .select('amount, expense_date, outlet_id')
-      .in('outlet_id', mitraOutletIds)
-      // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
-      // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
-      // perhitungan ROI/BEP, sehingga laba & BEP terlihat lebih cepat tercapai.
-      // Bug yang sama sudah diperbaiki di mitraPnl.ts; salinannya di sini
-      // terlewat. Pengeluaran nyata bertipe 'expense'.
-      .eq('type', 'expense')
-      .gte('expense_date', '2026-08-01'),
-    supabase.rpc('get_waste_periode', {
-      p_from: '2026-08-01',
-      p_to: new Date().toISOString().slice(0, 10)
-    }).then(res => ({ data: res.data || [] })),
-    supabase.rpc('get_mitra_orders_summary', {
-      p_outlet_ids: mitraOutletIds,
-      p_from: SYSTEM_START_DATE,
-      p_to: new Date().toISOString()
-    })
-  ])
-
-  const invMap: Record<string, any> = {}
-  ;(invRes.data || []).forEach(inv => {
-    invMap[inv.outlet_id] = inv
+  // Seluruh aturan bagi hasil kini hidup di fungsi database get_mitra_roi,
+  // supaya web dan aplikasi Android memakai perhitungan yang sama persis.
+  // Jalur cadangan yang dulu menarik seluruh order ke server lalu menghitung
+  // ulang HPP sengaja dihapus: ia bisa menghasilkan angka berbeda dari jalur
+  // utama tanpa ada yang tahu. Kegagalan kini tampil sebagai galat jujur.
+  const { data, error } = await supabase.rpc('get_mitra_roi', {
+    p_outlet_ids: mitraOutletIds,
+    p_from: '2026-07-31T17:00:00.000Z',
+    p_to: new Date().toISOString(),
   })
-  const profiles = profRes.data || []
-  const transfersData = transfersRes.data || []
-  const pettyExpenses = pettyRes.data || []
-  const monthlyExpenses = monthlyRes.data || []
-  const wasteRows = wasteRes.data || []
 
-  // Deklarasi ini sempat hilang saat refactor performa di main (3e0b1e5c):
-  // `resultMap` masih dipakai di bawah, tapi tidak pernah dideklarasikan lagi,
-  // sehingga fungsi ini SELALU melempar ReferenceError saat dipanggil.
+  if (error) throw new Error(`get_mitra_roi gagal: ${error.message}`)
+
   const resultMap: Record<string, MitraRealtimeBepItem> = {}
-
-  // 2. Process pre-aggregated RPC data (or fallback to order pagination if RPC failed)
-  let rpcDataByOutlet: Record<string, { grossRevenue: number; totalDeductions: number; totalCogs: number }> = {}
-  const { data: rpcData, error: rpcError } = rpcRes
-
-  // Fallback orders array, populated ONLY if RPC is not available
-  let allOrders: any[] = []
-
-  // HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
-  // komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
-  function getItemHppBase(menuItem: any, channel?: string | null): number {
-    if (!menuItem) return 0
-    let baseHpp = 0
-    const normCh = channel ? channel.toLowerCase() : null
-    let channelHppVal: number | null = null
-
-    if (menuItem.channel_hpp && typeof menuItem.channel_hpp === 'object' && normCh) {
-      if (
-        normCh === 'ss-online' ||
-        normCh === 'ss_online' ||
-        normCh.includes('tiktok') ||
-        normCh.includes('shopee') ||
-        normCh === 'f3305089-b9e4-4b92-95da-14bf6e7fb6d5' ||
-        normCh === 'd68eb5ec-d6bb-4d0a-8758-a2600c8f1584'
-      ) {
-        channelHppVal = menuItem.channel_hpp.ss_online ?? menuItem.channel_hpp.tiktok_shop ?? menuItem.channel_hpp.shopee_shop ?? menuItem.channel_hpp[normCh] ?? null
-      } else {
-        channelHppVal = menuItem.channel_hpp[normCh] ?? null
-      }
-    }
-
-    if (channelHppVal !== null && channelHppVal !== undefined && Number(channelHppVal) > 0) {
-      baseHpp = Number(channelHppVal)
-    } else if (menuItem.hpp_override !== null && menuItem.hpp_override !== undefined && Number(menuItem.hpp_override) > 0) {
-      baseHpp = Number(menuItem.hpp_override)
-    } else if (menuItem.is_package && Array.isArray(menuItem.package_items)) {
-      baseHpp = menuItem.package_items.reduce((sum: number, pkg: any) => {
-        const compHpp = pkg.component ? getItemHppBase(pkg.component, channel) : 0
-        const qty = Number(pkg.quantity) || 1
-        return sum + (compHpp * qty)
-      }, 0)
-    }
-    return baseHpp
-  }
-
-  // Markup mitra 10% diterapkan SEKALI, di lapisan terluar.
-  function getItemHpp(menuItem: any, outletType: string = 'mitra', channel?: string | null): number {
-    const baseHpp = getItemHppBase(menuItem, channel)
-    if (outletType === 'mitra' && baseHpp > 0) {
-      return Math.round(baseHpp * 1.10)
-    }
-    return Math.round(baseHpp)
-  }
-
-  // Cadangan HPP lewat NAMA menu: jalur pemesanan web menyimpan order_items
-  // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya
-  // bahannya hilang. Peta ini dimuat hanya saat jalur fallback dipakai.
-  let menuByName: Map<string, any> | null = null
-  const hppByName = async (rawName?: string | null, channel?: string | null): Promise<number> => {
-    if (!rawName) return 0
-    if (!menuByName) {
-      const { data: menuList } = await supabase
-        .from('menu_items')
-        .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
-      menuByName = new Map<string, any>()
-      for (const m of menuList ?? []) {
-        if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
-      }
-    }
-    const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
-    return m ? getItemHpp(m, 'mitra', channel) : 0
-  }
-
-  if (!rpcError && rpcData && Array.isArray(rpcData)) {
-    for (const row of rpcData) {
-      const oid = row.outlet_id
-      if (!rpcDataByOutlet[oid]) {
-        rpcDataByOutlet[oid] = { grossRevenue: 0, totalDeductions: 0, totalCogs: 0 }
-      }
-      rpcDataByOutlet[oid].grossRevenue += Number(row.gross_revenue) || 0
-      rpcDataByOutlet[oid].totalDeductions += Number(row.deductions) || 0
-      rpcDataByOutlet[oid].totalCogs += Number(row.cogs) || 0
-    }
-  } else {
-    // Graceful fallback: only paginates if RPC failed
-    let offset = 0
-    while (true) {
-      const { data: page, error } = await supabase
-        .from('orders')
-        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
-        .in('outlet_id', mitraOutletIds)
-        .eq('status', 'completed')
-        .gte('created_at', SYSTEM_START_DATE)
-        .range(offset, offset + 999)
-        
-      if (error || !page || page.length === 0) break
-      allOrders.push(...page)
-      if (page.length < 1000) break
-      offset += 1000
+  for (const row of data || []) {
+    resultMap[row.outlet_id] = {
+      outletId: row.outlet_id,
+      modalInvestasi: Number(row.modal_investasi) || 0,
+      omzetHistoris: Number(row.omzet_historis) || 0,
+      transferHistoris: Number(row.transfer_historis) || 0,
+      revenue: Number(row.omzet) || 0,
+      cogs: Number(row.cogs) || 0,
+      opex: (Number(row.opex) || 0) + (Number(row.waste) || 0),
+      managementFee: Number(row.management_fee) || 0,
+      netProfit: Number(row.laba_bersih) || 0,
+      mitraShare: Number(row.bagi_hasil_mitra) || 0,
+      totalDanaKembali: Number(row.dana_kembali) || 0,
+      sisaModal: Number(row.sisa_modal) || 0,
+      roiPct: Number(row.roi_pct) || 0,
+      bepPercentage: Number(row.bep_pct) || 0,
+      isBep: Boolean(row.is_bep),
+      sudahDiterima: Number(row.sudah_diterima) || 0,
+      roiDiterimaPct: Number(row.roi_diterima_pct) || 0,
     }
   }
-
-  for (const oid of mitraOutletIds) {
-    const inv = invMap[oid]
-    const profile = profiles.find(p => (p.outlet_ids || []).includes(oid))
-    const modalInvestasi = Number(inv?.nilai_investasi) || 0
-    const omzetHistoris = Number(inv?.omzet_historis) || 0
-    const transferHistoris = Number(inv?.transfer_historis) || 0
-    const systemTransfers = transfersData.filter(t => t.outlet_id === oid).reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
-
-    const isBepAlready = modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi
-    const legacyShare = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
-    const legacyFee = Number(inv?.management_fee) || 0
-
-    const policy = resolveMitraPolicy({
-      periodFrom: new Date().toISOString(),
-      isBep: isBepAlready,
-      legacyProfitSharingPct: legacyShare,
-      legacyManagementFee: legacyFee
-    })
-
-    const pct = policy.profitSharingPct
-    const mgmtFeePct = policy.managementFeePct
-
-    let grossRevenue = 0
-    let totalDeductions = 0
-    let totalCogs = 0
-
-    if (!rpcError && rpcData && Array.isArray(rpcData)) {
-      if (rpcDataByOutlet[oid]) {
-        grossRevenue = rpcDataByOutlet[oid].grossRevenue
-        totalDeductions = rpcDataByOutlet[oid].totalDeductions
-        totalCogs = rpcDataByOutlet[oid].totalCogs
-      }
-    } else {
-      const outletOrders = allOrders.filter(o => o.outlet_id === oid)
-      // for..of, bukan forEach: cadangan HPP lewat nama menu bersifat async
-      // (peta menu dimuat sekali saat pertama dibutuhkan).
-      for (const order of outletOrders) {
-        const totalAmt = Number(order.total_amount) || 0
-        const disc = Number(order.discount_amount) || 0
-        const promo = Number(order.promo_subsidy) || 0
-
-        let orderCogs = 0
-
-        if (Array.isArray(order.order_items)) {
-          for (const item of order.order_items) {
-            const qty = Number(item.quantity) || 1
-            const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
-              || await hppByName(item.menu_item_name, order.channel)
-            orderCogs += (hpp * qty)
-          }
-        }
-
-        // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000):
-        //   Potongan = MAX(0, nilai item - total_amount); Omzet = total_amount + Potongan.
-        // Tidak memakai promo_subsidy: arti `total_amount` sempat berubah
-        // (19 Agu 2026, b41efc7a) sehingga promo bisa terhitung dua kali.
-        const itemValue = (order.order_items || []).reduce(
-          (s: number, i: any) => s + (Number(i.subtotal) || 0),
-          0
-        )
-        const deductions = (order.order_items || []).length > 0
-          ? Math.max(0, itemValue - totalAmt)
-          : disc + promo
-        const grossRev = totalAmt + deductions
-
-        grossRevenue += grossRev
-        totalDeductions += deductions
-        totalCogs += orderCogs
-      }
-    }
-
-    const opex = (pettyExpenses?.filter(p => p.outlet_id === oid).reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0) +
-                 (monthlyExpenses?.filter(m => m.outlet_id === oid).reduce((sum, m) => sum + Number(m.amount || 0), 0) || 0)
-
-    const waste = wasteRows?.filter((w: any) => w.outlet_id === oid).reduce((sum: number, w: any) => sum + Number(w.nilai_waste || 0), 0) || 0
-
-    const managementFee = Math.round((grossRevenue * mgmtFeePct) / 100)
-    const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee
-    const mitraShare = netProfit > 0 ? Math.round((netProfit * pct) / 100) : 0
-
-    const totalDanaKembali = omzetHistoris + transferHistoris + mitraShare
-    const roiPct = modalInvestasi > 0 ? (totalDanaKembali / modalInvestasi) * 100 : 0
-    const bepPercentage = Math.min(Math.round(roiPct * 10) / 10, 100)
-    const isBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
-    const sisaModal = Math.max(0, modalInvestasi - totalDanaKembali)
-
-    resultMap[oid] = {
-      outletId: oid,
-      modalInvestasi,
-      omzetHistoris,
-      transferHistoris,
-      revenue: grossRevenue,
-      cogs: totalCogs,
-      opex: opex + waste,
-      managementFee,
-      netProfit,
-      mitraShare,
-      totalDanaKembali,
-      sisaModal,
-      roiPct,
-      bepPercentage,
-      isBep
-    }
-  }
-
   return resultMap
 }
-

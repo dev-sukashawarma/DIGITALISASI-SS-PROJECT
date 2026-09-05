@@ -14,9 +14,31 @@ export type MenuApp = {
   is_available: boolean
   category_id: string | null
   sort_order: number | null
+  // Nama kategori ikut dikirim supaya aplikasi tidak perlu memanggil endpoint
+  // kedua hanya untuk menerjemahkan UUID jadi judul yang bisa dibaca manusia.
+  category_name: string | null
+  category_sort_order: number | null
 }
 
 type Baris = Record<string, unknown>
+
+/**
+ * Membaca hasil embed PostgREST `categories(name, sort_order)`.
+ *
+ * PostgREST mengembalikan objek untuk relasi many-to-one, tapi mengembalikan
+ * ARRAY ketika ia tidak bisa memastikan kardinalitasnya. Kategori yang hilang
+ * tidak boleh menjatuhkan seluruh katalog, jadi kedua bentuk diterima dan
+ * apa pun selain itu berakhir sebagai null.
+ */
+function bacaKategori(mentah: unknown): { nama: string | null; urut: number | null } {
+  const obj = Array.isArray(mentah) ? mentah[0] : mentah
+  if (typeof obj !== 'object' || obj === null) return { nama: null, urut: null }
+  const c = obj as Baris
+  return {
+    nama: typeof c.name === 'string' ? c.name : null,
+    urut: typeof c.sort_order === 'number' ? c.sort_order : null,
+  }
+}
 
 /**
  * Menurunkan baris mentah menjadi bentuk yang dikonsumsi aplikasi.
@@ -35,6 +57,8 @@ export function bersihkanKatalog(rows: unknown[]): MenuApp[] {
     const harga = Number(r.price)
     if (!Number.isFinite(harga) || harga < 0) continue
 
+    const kategori = bacaKategori(r.categories)
+
     hasil.push({
       id: r.id,
       name: r.name,
@@ -50,6 +74,8 @@ export function bersihkanKatalog(rows: unknown[]): MenuApp[] {
       is_available: r.is_available === true,
       category_id: (r.category_id as string | null) ?? null,
       sort_order: (r.sort_order as number | null) ?? null,
+      category_name: kategori.nama,
+      category_sort_order: kategori.urut,
     })
   }
 
@@ -64,6 +90,11 @@ export function kosongkanCacheKatalog(): void {
 
 /**
  * Ambil katalog menu untuk satu outlet, dengan cache 5 menit per outlet.
+ *
+ * Cache tetap dikunci per outlet walau menunya global. Entri kembar untuk 19
+ * outlet berbiaya satu pembacaan tiap 5 menit per outlet -- dapat diabaikan
+ * pada skala pilot -- dan menjaga agar ketersediaan per-outlet, kalau kelak
+ * ada, tidak perlu mengubah satu pun pemanggil.
  *
  * `paksaSegar` melewati cache HANYA untuk outlet yang diminta -- bukan
  * `kosongkanCacheKatalog()` (yang membuang cache semua outlet sekaligus).
@@ -85,9 +116,22 @@ export async function ambilKatalog(
   const { data, error } = await db
     .from('menu_items')
     .select(
-      'id, name, description, deskripsi_app, price, image_url, foto_app, is_available, category_id, sort_order'
+      'id, name, description, deskripsi_app, price, image_url, foto_app, is_available, category_id, sort_order, categories(name, sort_order)'
     )
-    .eq('outlet_id', outletId)
+    // TIDAK ADA `.eq('outlet_id', outletId)`. Menu di sistem ini BERSIFAT
+    // GLOBAL: seluruh 50 baris `menu_items` di produksi punya
+    // `outlet_id = NULL`, nol baris yang terisi, dan `apps/pos-kasir` tidak
+    // pernah menyaring menu per outlet di satu pun jalur pemesanannya.
+    //
+    // Menyaring per outlet di sini membuat katalog SELALU kosong untuk setiap
+    // outlet -- dan gejalanya ("Menu belum terbit") menyerupai kesalahan
+    // pengisian data, bukan kesalahan kode, sehingga bisa dikejar berjam-jam
+    // ke arah yang salah.
+    //
+    // Konsekuensi yang perlu diketahui: `is_available` juga global. Item yang
+    // ditandai habis, habis di SEMUA outlet. Kalau kelak ketersediaan
+    // per-outlet dibutuhkan, ia perlu tabel penghubungnya sendiri -- yang
+    // sampai sekarang tidak ada di skema.
     .eq('tampil_di_app', true)
     .order('sort_order', { ascending: true })
 

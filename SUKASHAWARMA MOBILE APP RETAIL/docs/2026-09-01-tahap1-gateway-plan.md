@@ -2659,3 +2659,59 @@ Cakupan terhadap spesifikasi Tahap 1:
 | §10 Kriteria pilot | 13 |
 
 **Belum tercakup di rencana ini, sengaja:** verifikasi WhatsApp (menunggu akun Meta), poin & tier (Tahap 2), bundle & referral (Tahap 3), notifikasi push (Tahap 1b, sisi aplikasi), papan pesanan kasir (Tahap 1c).
+
+---
+
+## Catatan Pasca-Pilot: `payment_method` masih hardcode `'qris'`
+
+`susunPayloadPos` (`apps/retail-gateway/src/lib/orderPayload.ts`) selalu menulis
+`payment_method: 'qris'`, apa pun kanal yang benar-benar dipakai pelanggan di
+Xendit. Pembayaran lewat OVO, DANA, atau Virtual Account tercatat sebagai QRIS.
+
+**Ini disengaja untuk pilot, bukan kelalaian.** Rencana memperbaikinya dengan
+menulis nilai asli dari Xendit dibatalkan setelah constraint di database live
+diperiksa:
+
+```
+orders_payment_method_check:
+  payment_method IS NULL
+  OR payment_method IN ('cash','qris','card')
+  OR (payment_method = 'va' AND lower(btrim(channel)) = 'website')
+```
+
+Menulis `'BANK_TRANSFER'`/`'OVO'`/`'PERMATA'` melanggar constraint ini, sehingga
+`atomic_insert_order` gagal **setelah uang pelanggan diterima** — pesanan tidak
+pernah sampai ke dapur. Itu jauh lebih buruk daripada label yang kurang presisi.
+
+Dampak label sekarang: **nol pada uang.** `apps/finance` merekonsiliasi laci kas
+dengan filter `.eq('payment_method', 'cash')` (`src/hooks/useExpectedCash.ts`),
+dan seluruh pembayaran aplikasi memang non-tunai, jadi tidak ada yang salah
+hitung.
+
+**Kalau nanti presisi dibutuhkan,** polanya sudah ada preseden: klausa
+`'va' AND channel='website'` di atas. Longgarkan secara aditif dan dipagari per
+channel, jangan sebagai daftar datar:
+
+```sql
+ALTER TABLE public.orders DROP CONSTRAINT orders_payment_method_check;
+ALTER TABLE public.orders ADD CONSTRAINT orders_payment_method_check CHECK (
+  payment_method IS NULL
+  OR payment_method IN ('cash','qris','card')
+  OR (payment_method = 'va' AND lower(btrim(channel)) = 'website')
+  OR (payment_method IN (...nilai app...) AND lower(btrim(channel)) = 'app')
+);
+```
+
+⚠️ **Verifikasi ulang bentuk constraint di database live sebelum menulis DDL di
+atas.** Bentuk yang berlaku hari ini **berbeda** dari file migration
+`20260612000001_merge_pos_schema.sql:56` (file itu tidak menyebut `NULL` maupun
+`'va'`) — artinya constraint ini pernah diubah lewat SQL Editor tanpa file
+migration, dan bisa berubah lagi:
+
+```sql
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'public.orders'::regclass AND contype = 'c';
+```
+
+Ini menyentuh tabel transaksi 19 outlet — butuh persetujuan manusia eksplisit.

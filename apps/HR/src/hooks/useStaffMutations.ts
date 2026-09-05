@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@suka/auth'
 import { adminApi } from '@/lib/adminApi'
 import type { StaffFormValues } from '@/lib/types'
-import { createStaffSync, toggleStaffBonusEligibility } from '@/app/actions/users'
+import { createStaffSync, toggleStaffBonusEligibility, deleteStaffSync } from '@/app/actions/users'
 
 export function useStaffMutations() {
   const { session } = useAuth()
@@ -41,7 +41,7 @@ export function useStaffMutations() {
     onSuccess: invalidate,
   })
   const remove = useMutation({
-    mutationFn: (staff_id: string) => adminApi.deleteStaff(token(), staff_id),
+    mutationFn: (staff_id: string) => deleteStaffSync(staff_id),
     onSuccess: invalidate,
   })
 

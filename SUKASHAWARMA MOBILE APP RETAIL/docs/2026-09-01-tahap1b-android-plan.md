@@ -76,7 +76,7 @@ Aplikasi ditempatkan di `mobile/customer-app/` — sejajar dengan `mobile/native
 **Interfaces:**
 - Produces: proyek Gradle yang bisa `assembleDebug` dan `testDebugUnitTest`
 
-- [ ] **Step 1: Salin kerangka Gradle dari native-superapp**
+- [x] **Step 1: Salin kerangka Gradle dari native-superapp**
 
 Baca `mobile/native-superapp/app/build.gradle.kts`, `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`, dan `gradle/libs.versions.toml`. Tiru strukturnya, **bukan isinya secara buta**: ambil versi plugin, compileSdk 36, minSdk 24, targetSdk 36, jvmTarget 17, dan pola version catalog.
 
@@ -85,7 +85,7 @@ Yang **berbeda** dari native-superapp:
 - **JANGAN** menyertakan dependensi Supabase (`supabase.bom`, `supabase.postgrest`, `supabase.auth`, `supabase.realtime`, `supabase.storage`) maupun TensorFlow. Aplikasi pelanggan tidak menyentuh database dan tidak melakukan pengenalan wajah.
 - **Tambahkan** ke version catalog dan modul: Ktor client (`ktor-client-android`, `ktor-client-content-negotiation`, `ktor-serialization-kotlinx-json`), `androidx.datastore:datastore-preferences`, `androidx.security:security-crypto`, `androidx.credentials:credentials` + `credentials-play-services-auth` + `googleid`.
 
-- [ ] **Step 2: Tulis test asap yang gagal**
+- [x] **Step 2: Tulis test asap yang gagal**
 
 ```kotlin
 // app/src/test/java/com/sukashawarma/customer/SmokeTest.kt
@@ -102,21 +102,21 @@ class SmokeTest {
 }
 ```
 
-- [ ] **Step 3: Jalankan test**
+- [x] **Step 3: Jalankan test**
 
 Run: `cd mobile/customer-app && ./gradlew testDebugUnitTest`
 Expected: PASS
 
 > **Gotcha lingkungan (dari CLAUDE.md, terbukti di mesin ini):** JBR bawaan rusak. Set `JAVA_HOME=C:\Program Files\Android\Android Studio1\jbr`. Gradle juga butuh `TEMP`/`TMP=C:\t` karena loopback NIO gagal di path panjang. Kalau build gagal dengan galat path atau JVM, periksa keduanya sebelum menduga kode.
 
-- [ ] **Step 4: Verifikasi tidak ada Supabase di dependensi**
+- [x] **Step 4: Verifikasi tidak ada Supabase di dependensi**
 
 ```bash
 cd mobile/customer-app && ./gradlew :app:dependencies --configuration releaseRuntimeClasspath | grep -i supabase && echo "GAGAL: Supabase ikut terbawa" || echo "OK: nol Supabase"
 ```
 Expected: `OK: nol Supabase`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile/customer-app
@@ -135,7 +135,7 @@ git commit -m "feat(customer-app): scaffold aplikasi Android pelanggan"
 **Interfaces:**
 - Produces: `SukaTheme { }`, dan token `SukaBrown`, `SukaOrange`, `SukaInk`, `SukaCream`, `SukaGreen`
 
-- [ ] **Step 1: Tulis test kontras yang gagal**
+- [x] **Step 1: Tulis test kontras yang gagal**
 
 Warna adalah aturan keamanan di aplikasi ini, bukan selera — jadi dikunci test.
 
@@ -196,12 +196,12 @@ class ColorContrastTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `./gradlew testDebugUnitTest --tests "*ColorContrastTest*"`
 Expected: FAIL — kelas belum ada
 
-- [ ] **Step 3: Implementasi token warna**
+- [x] **Step 3: Implementasi token warna**
 
 ```kotlin
 // app/src/main/java/com/sukashawarma/customer/ui/theme/Color.kt
@@ -233,12 +233,12 @@ Lalu `Type.kt` (Lilita One untuk angka & judul pendek, Plus Jakarta Sans untuk b
 
 Unduh kedua font dari Google Fonts sebagai `.ttf` ke `app/src/main/res/font/`. Kalau tidak bisa mengunduh di lingkungan ini, laporkan sebagai NEEDS_CONTEXT — **jangan** mengganti dengan font sistem diam-diam, karena Lilita One adalah bagian identitas yang sudah disetujui.
 
-- [ ] **Step 4: Jalankan test, pastikan lulus**
+- [x] **Step 4: Jalankan test, pastikan lulus**
 
 Run: `./gradlew testDebugUnitTest --tests "*ColorContrastTest*"`
 Expected: PASS 4/4
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile/customer-app/app/src
@@ -259,7 +259,7 @@ git commit -m "feat(customer-app): sistem desain dengan kontras warna terkunci t
 
 > **Catatan rute:** ditempatkan di `/orders/list`, bukan `GET /orders`, karena `src/app/api/v1/orders/route.ts` sudah ada dan hanya mengekspor `POST`. Menambahkan `GET` di file itu juga sah — pilih salah satu, tapi **verifikasi dulu** file mana yang ada sebelum menulis.
 
-- [ ] **Step 1: Implementasi**
+- [x] **Step 1: Implementasi**
 
 ```typescript
 // apps/retail-gateway/src/app/api/v1/orders/list/route.ts
@@ -324,12 +324,12 @@ export async function GET(request: Request) {
 }
 ```
 
-- [ ] **Step 2: Type-check dan build**
+- [x] **Step 2: Type-check dan build**
 
 Run: `cd apps/retail-gateway && ../../node_modules/.bin/tsc --noEmit && yarn build`
 Expected: 0 error, route `/api/v1/orders/list` muncul di keluaran
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/retail-gateway/src/app/api/v1/orders/list
@@ -353,7 +353,7 @@ git commit -m "feat(retail-gateway): endpoint daftar riwayat pesanan untuk layar
   - `GatewayClient` dengan fungsi per endpoint
   - `SessionStore.simpan(token, expiresAt)`, `.baca()`, `.hapus()`
 
-- [ ] **Step 1: Tulis test pemetaan galat yang gagal**
+- [x] **Step 1: Tulis test pemetaan galat yang gagal**
 
 Pemetaan galat ini yang menentukan apakah aplikasi berperilaku benar saat gateway menolak. Kode mesinnya sudah pasti — diambil dari kode gateway nyata.
 
@@ -405,12 +405,12 @@ class GatewayErrorTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `./gradlew testDebugUnitTest --tests "*GatewayErrorTest*"`
 Expected: FAIL — kelas belum ada
 
-- [ ] **Step 3: Implementasi amplop galat**
+- [x] **Step 3: Implementasi amplop galat**
 
 ```kotlin
 // app/src/main/java/com/sukashawarma/customer/data/api/GatewayError.kt
@@ -452,12 +452,12 @@ fun petakanGalat(status: Int, body: String?): GatewayError {
 
 > Impor `contentOrNull` dari `kotlinx.serialization.json`. Kalau nama itu tidak ada di versi yang terpasang, pakai `.content` dengan `runCatching` — laporkan penyesuaiannya, jangan diam-diam.
 
-- [ ] **Step 4: Jalankan test, pastikan lulus**
+- [x] **Step 4: Jalankan test, pastikan lulus**
 
 Run: `./gradlew testDebugUnitTest --tests "*GatewayErrorTest*"`
 Expected: PASS 6/6
 
-- [ ] **Step 5: Implementasi DTO dan klien**
+- [x] **Step 5: Implementasi DTO dan klien**
 
 `Dto.kt` mencerminkan balasan gateway **persis**. Baca `apps/retail-gateway/src/app/api/**/route.ts` dan salin bentuknya; jangan mengarang nama field. Yang wajib ada:
 
@@ -477,7 +477,7 @@ Expected: PASS 6/6
 
 `SessionStore` menyimpan token di `EncryptedSharedPreferences`. **Jangan** menyimpannya di `SharedPreferences` biasa atau DataStore tanpa enkripsi — token itu setara identitas pelanggan.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile/customer-app/app/src
@@ -567,7 +567,7 @@ git commit -m "feat(customer-app): login Google lewat Credential Manager"
 - Consumes: `Repository.outlets()`, `Repository.katalog(outletId)`
 - Produces: `kelompokkanPerKategori(items): List<KategoriMenu>`
 
-- [ ] **Step 1: Tulis test pengelompokan yang gagal**
+- [x] **Step 1: Tulis test pengelompokan yang gagal**
 
 ```kotlin
 // app/src/test/java/com/sukashawarma/customer/ui/screens/catalog/KatalogFilterTest.kt
@@ -621,12 +621,12 @@ class KatalogFilterTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `./gradlew testDebugUnitTest --tests "*KatalogFilterTest*"`
 Expected: FAIL
 
-- [ ] **Step 3: Implementasi**
+- [x] **Step 3: Implementasi**
 
 Item habis **ditampilkan tapi diredupkan dan tidak bisa ditambahkan** — menyembunyikannya membuat pelanggan mengira menu itu tidak pernah ada dan bertanya-tanya. Gateway sudah gagal-tertutup untuk ketersediaan yang tidak diketahui, jadi apa pun yang bertanda tersedia memang benar-benar tersedia saat katalog diambil.
 
@@ -634,7 +634,7 @@ Layar Outlet Belum Buka (16) muncul ketika outlet terpilih `is_active` bernilai 
 
 > **Keterbatasan yang diketahui:** gateway tidak menyimpan jam buka-tutup harian; `is_active` hanya berarti "outlet beroperasi". Jam 14:00 di layar ini adalah nilai tetap dari sisi aplikasi sampai sumber data jam buka tersedia. Jangan berpura-pura server yang menentukannya.
 
-- [ ] **Step 4: Jalankan test dan commit**
+- [x] **Step 4: Jalankan test dan commit**
 
 ```bash
 ./gradlew testDebugUnitTest --tests "*KatalogFilterTest*"
@@ -1007,3 +1007,50 @@ Tanpa keempatnya, setiap panggilan API dari aplikasi akan gagal.
 | Layar 14 (Riwayat) | 3 (addendum gateway), 10 |
 
 **Sengaja tidak tercakup:** layar 3 & 4 (OTP WhatsApp, menunggu akun Meta), poin & tier (Tahap 2), bundle & referral (Tahap 3), iOS.
+
+---
+
+## Status Eksekusi (per 2026-09-05)
+
+| Task | Status | Catatan |
+|---|---|---|
+| 1 Scaffold | ✅ | Nol dependensi Supabase, diverifikasi lewat `debugRuntimeClasspath` |
+| 2 Sistem desain | ✅ | Kontras dikunci `ColorContrastTest` |
+| 3 Addendum gateway (riwayat) | ✅ | `/api/v1/orders/list`, ter-scope ke `customer_id` |
+| 4 Klien API & sesi | ✅ | `SessionStore` terenkripsi, `petakanGalat` ber-test |
+| 5 Login Google | ⏸️ **DIBLOKIR** | Butuh **Web client ID** dari Google Cloud project yang sama dengan provider Google di Supabase, plus perangkat nyata untuk mengujinya |
+| 6 Katalog & pilih outlet | ✅ | 31 test lulus, `assembleDebug` sukses |
+| 7–12 | ⏳ | Belum dimulai |
+
+### Yang sengaja TIDAK dibuat di Task 6
+
+Artboard menampilkan tiga hal yang gateway tidak punya datanya. Semuanya
+dihilangkan, bukan diisi angka perkiraan:
+
+| Di artboard | Kenapa tidak dibuat |
+|---|---|
+| Jarak outlet ("0,8 km") | Aplikasi belum meminta izin lokasi dan gateway tidak menghitung jarak |
+| Perkiraan waktu siap ("siap 15 menit") | Tidak ada sumber datanya di mana pun |
+| Status "Ramai" | Tidak ada sumber datanya di mana pun |
+
+Jam buka **14:00** di layar Outlet Belum Buka adalah konstanta sisi aplikasi
+(`JAM_BUKA_OPERASIONAL`), diberi komentar tegas bahwa itu kesepakatan
+operasional, bukan data server. `outlets.is_active` hanya berarti "outlet
+beroperasi", bukan "sedang buka jam ini".
+
+Tombol **"Ingatkan saya saat buka"** ditampilkan dalam keadaan mati dengan
+keterangan "Pengingat belum aktif di versi ini", karena notifikasi baru
+dipasang di Task 11.
+
+### Perubahan gateway yang menyertai Task 6
+
+Katalog kini mengirim `category_name` dan `category_sort_order` (embed
+PostgREST ke tabel `categories`). Tanpa itu aplikasi hanya menerima UUID dan
+tidak punya cara menampilkan judul kelompok yang bisa dibaca pelanggan.
+
+Perubahan bersifat aditif dan aman dijalankan berdampingan: `MenuItemDto`
+memberi **default null** pada kedua field, jadi aplikasi ini tetap berfungsi
+melawan gateway yang belum di-redeploy — judul kelompok hilang, menu tetap
+tampil.
+
+⚠️ **Gateway perlu di-redeploy** agar judul kategori muncul di aplikasi.

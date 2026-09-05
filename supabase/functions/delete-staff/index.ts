@@ -49,15 +49,88 @@ serve(async (req) => {
       throw new Error("Unauthorized: Cannot delete staff from another outlet");
     }
 
-    // 1. Delete from outlet_staff
+    // Check if staff has operational records (shifts / attendance)
+    const { count: shiftCount } = await admin
+      .from("shifts")
+      .select("*", { count: "exact", head: true })
+      .or(`staff_id.eq.${staff_id},closed_by.eq.${staff_id}`);
+
+    const { count: attendanceCount } = await admin
+      .from("attendance")
+      .select("*", { count: "exact", head: true })
+      .eq("outlet_staff_id", staff_id);
+
+    const hasOperationalData = (shiftCount ?? 0) > 0 || (attendanceCount ?? 0) > 0;
+
+    if (hasOperationalData) {
+      const today = new Date().toISOString().split('T')[0];
+      await admin
+        .from("outlet_staff")
+        .update({
+          status: "inactive",
+          is_active: false,
+          inactive_reason: "Diarsipkan (memiliki riwayat operasional shift/absensi)",
+          resign_date: (targetStaff as any).resign_date || today,
+        })
+        .eq("id", staff_id);
+
+      await admin.from("staff_outlets").delete().eq("staff_id", staff_id);
+
+      try {
+        await admin.auth.admin.deleteUser(staff_id);
+      } catch (_) {}
+
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          archived: true,
+          message: "Karyawan memiliki riwayat operasional. Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut.",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Try hard delete
+    await admin.from("staff_outlets").delete().eq("staff_id", staff_id);
+    await admin.from("staff_financials").delete().eq("staff_id", staff_id);
+
     const { error: deleteError } = await admin.from("outlet_staff").delete().eq("id", staff_id);
-    if (deleteError) throw deleteError;
+    if (deleteError) {
+      // Fallback on foreign key constraint violation
+      if (deleteError.code === "23503" || deleteError.message.includes("foreign key constraint")) {
+        const today = new Date().toISOString().split('T')[0];
+        await admin
+          .from("outlet_staff")
+          .update({
+            status: "inactive",
+            is_active: false,
+            inactive_reason: "Diarsipkan (terkait data historis)",
+            resign_date: today,
+          })
+          .eq("id", staff_id);
 
-    // 2. Delete from auth.users (Cascades to other tables if there are foreign keys)
-    const { error: authDeleteError } = await admin.auth.admin.deleteUser(staff_id);
-    if (authDeleteError) throw authDeleteError;
+        try {
+          await admin.auth.admin.deleteUser(staff_id);
+        } catch (_) {}
 
-    return new Response(JSON.stringify({ ok: true }), {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            archived: true,
+            message: "Karyawan terkait dengan data sistem. Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      throw deleteError;
+    }
+
+    // Delete from auth.users
+    try {
+      await admin.auth.admin.deleteUser(staff_id);
+    } catch (_) {}
+
+    return new Response(JSON.stringify({ ok: true, archived: false, message: "Karyawan berhasil dihapus permanen." }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 

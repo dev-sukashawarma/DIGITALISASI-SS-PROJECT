@@ -85,9 +85,16 @@ export default function StaffPage() {
   }
 
   const handleDelete = (s: StaffRow) => {
-    if (!window.confirm(`Hapus permanen karyawan "${s.name}"? Tindakan ini tidak dapat dibatalkan.`)) return
+    const confirmMsg = `Hapus karyawan "${s.name}"?\n\nCatatan: Jika karyawan memiliki riwayat operasional (shift kasir / absensi), data akan otomatis diarsipkan (status Nonaktif) dan akses login dicabut demi menjaga integritas data keuangan.`
+    if (!window.confirm(confirmMsg)) return
     remove.mutate(s.id, {
-      onSuccess: () => toast.success(`Karyawan ${s.name} berhasil dihapus`),
+      onSuccess: (res: any) => {
+        if (res?.archived) {
+          toast.success(res.message || `Karyawan ${s.name} berhasil diarsipkan (Nonaktif) & akses login dicabut`)
+        } else {
+          toast.success(res?.message || `Karyawan ${s.name} berhasil dihapus permanen`)
+        }
+      },
       onError: (err: any) => toast.error(err.message || 'Gagal menghapus staf'),
     })
   }

@@ -51,11 +51,12 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER'] },
       { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/budget-outlet', label: 'Budget Outlet', shortLabel: 'Budget', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['ADMIN'] },
     ],
   },
   {
@@ -70,7 +71,6 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/pembelian', label: 'Pembelian', shortLabel: 'Pembelian', icon: ShoppingCart, roles: ['ADMIN'] },
     ],
   },
   {
@@ -85,16 +85,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Pengadaan',
-    icon: ShoppingCart,
-    roles: ['ADMIN'],
-    items: [
-      { href: '/dashboard/pembelian', label: 'Purchase Order', shortLabel: 'PO', icon: ShoppingCart, roles: ['ADMIN'] },
-      { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN'] },
-    ],
-  },
-  {
-    title: 'Pembelian & PO',
+    title: 'Pembelian',
     icon: ShoppingCart,
     roles: ['ADMIN', 'PURCHASING'],
     items: [
@@ -109,13 +100,13 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     title: 'Kemitraan',
     icon: HeartHandshake,
-    roles: ['OWNER', 'ADMIN'],
+    roles: ['OWNER'],
     items: [
-      { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['OWNER'] },
     ],
   },
   {
-    title: 'Manajemen POS',
+    title: 'POS',
     icon: Store,
     roles: ['ADMIN'],
     items: [
@@ -138,6 +129,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', shortLabel: 'Absensi', icon: CalendarClock, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/leave', label: 'Cuti & Izin', shortLabel: 'Cuti', icon: CalendarHeart, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/payroll', label: 'Payroll & Kasbon', shortLabel: 'Payroll', icon: Banknote, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['ADMIN'] },
     ],
   },
   {
@@ -151,18 +143,23 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/petty-cash-balance', label: 'Penyesuaian Petty Cash', shortLabel: 'Petty Cash', icon: Banknote, roles: ['ADMIN'] },
       { href: '/dashboard/system-health', label: 'Kesehatan Sistem', shortLabel: 'Sistem', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/printer', label: 'Pengaturan Printer', shortLabel: 'Printer', icon: Printer, roles: ['ADMIN'] },
+      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['ADMIN'] },
+      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN'] },
+      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN'] },
+      { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['ADMIN'] },
+      { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['ADMIN'] },
     ],
   },
   {
     title: 'Migrasi Data',
     icon: UploadCloud,
-    roles: ['OWNER', 'ADMIN'],
+    roles: ['OWNER'],
     items: [
-      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['ADMIN', 'OWNER'] },
-      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['ADMIN', 'OWNER'] },
-      { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['ADMIN', 'OWNER'] },
-      { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['ADMIN', 'OWNER'] },
+      { href: '/dashboard/pawoon-import', label: 'Migrasi Pawoon', shortLabel: 'Pawoon', icon: UploadCloud, roles: ['OWNER'] },
+      { href: '/dashboard/pawoon-import/synced', label: 'Data Tersinkron', shortLabel: 'Tersinkron', icon: Activity, roles: ['OWNER'] },
+      { href: '/dashboard/pawoon-import/mapping', label: 'Mapping Menu Pawoon', shortLabel: 'Mapping', icon: ArrowRightLeft, roles: ['OWNER'] },
+      { href: '/dashboard/platform-settlement', label: 'Settlement Food Apps', shortLabel: 'Food Apps', icon: Percent, roles: ['OWNER'] },
+      { href: '/dashboard/data-validate', label: 'Data Validate', shortLabel: 'Data Validate', icon: ClipboardList, roles: ['OWNER'] },
     ],
   },
 ]

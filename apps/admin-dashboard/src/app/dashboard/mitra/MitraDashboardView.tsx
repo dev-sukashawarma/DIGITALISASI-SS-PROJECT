@@ -78,7 +78,7 @@ export function MitraDashboardView({
   initialTransfers = [],
   initialStaff = [],
   initialSuggestions = [],
-  initialRoiStats = { roi: 0, bepPercentage: 0 },
+  initialRoiStats = { roi: 0, bepPercentage: 0, roiDiterima: 0 },
   isAdminMode = false,
   allMitraProfiles = [],
   lastUpdated,
@@ -100,9 +100,10 @@ export function MitraDashboardView({
   const [isSubmittingSaran, setIsSubmittingSaran] = useState(false)
 
   // ROI Stats
-  const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; loading: boolean }>({
+  const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; roiDiterima: number; loading: boolean }>({
     roi: initialRoiStats?.roi || 0,
     bepPercentage: initialRoiStats?.bepPercentage || 0,
+    roiDiterima: initialRoiStats?.roiDiterima || 0,
     loading: false
   })
 
@@ -124,7 +125,7 @@ export function MitraDashboardView({
       try {
         const stats = await getMitraRoiStats(selectedOutletId || 'all', allowedOutletIds)
         if (active) {
-          setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, loading: false })
+          setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, roiDiterima: stats.roiDiterima, loading: false })
         }
       } catch (e) {
         console.error('Error loading ROI stats:', e)
@@ -507,6 +508,9 @@ export function MitraDashboardView({
                       <><CountUp end={roiStats.roi} duration={1.5} separator="." decimals={1} decimal="," />%</>
                     )}
                   </h3>
+                  <p className="text-[11px] text-suka-gray-400 font-semibold mt-1">
+                    Sudah diterima: <strong className="text-suka-brown">{roiStats.roiDiterima.toFixed(1)}%</strong>
+                  </p>
                   <div className="mt-1">
                     <span className="inline-flex items-center text-xs font-bold text-suka-orange">
                       <TrendingUp className="w-3 h-3 mr-1" />

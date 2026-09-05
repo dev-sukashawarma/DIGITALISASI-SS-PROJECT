@@ -62,6 +62,8 @@ Patokan **tidak boleh** diambil dari skrip service-role. `get_waste_periode` men
 
 ### Task 1: Fungsi `get_mitra_roi` di database
 
+> **Sudah dikerjakan 2026-09-05** (commit `daac00ca`). Blok SQL di bawah adalah naskah awal; yang benar-benar terpasang berbeda di empat hal yang ditemukan review: cutoff dibaca dari `p_to` (bukan `p_from`), `management_fee` dibulatkan seperti `Math.round` di TypeScript, join ke `mitra_profiles` memakai `left join lateral … limit 1` agar tak bisa menggandakan baris, dan batas tanggal opex/waste memakai `(… at time zone 'Asia/Jakarta')::date` agar tak bergantung zona waktu sesi. Berkasnya bernama `20300131000000_get_mitra_roi.sql` karena `20300130000000` sudah dipakai migration lain. **Baca berkas migration yang terpasang, bukan blok di bawah ini.**
+
 **Files:**
 - Create: `supabase/migrations/20300130000000_get_mitra_roi.sql`
 

@@ -2,6 +2,7 @@ package com.sukashawarma.customer.ui.screens.catalog
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sukashawarma.customer.data.CartStore
 import com.sukashawarma.customer.data.OutletStore
 import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.api.GatewayError
@@ -23,12 +24,15 @@ data class CatalogState(
     /** Tidak ada outlet tersimpan dan tidak bisa ditentukan sendiri. */
     val perluPilihOutlet: Boolean = false,
     /** Tidak ada satu pun outlet yang ikut serta di aplikasi. */
-    val tidakAdaOutlet: Boolean = false
+    val tidakAdaOutlet: Boolean = false,
+    /** Keranjang terhapus karena pelanggan berpindah outlet. */
+    val keranjangDikosongkan: Boolean = false
 )
 
 class CatalogViewModel(
     private val repository: Repository,
-    private val outletStore: OutletStore
+    private val outletStore: OutletStore,
+    private val cart: CartStore
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CatalogState())
@@ -71,6 +75,7 @@ class CatalogViewModel(
                     }
 
                     outletStore.simpan(terpilih.id, terpilih.name)
+                    pasangOutletKeKeranjang(terpilih.id)
                     muatKatalog(terpilih)
                 }
             }
@@ -79,6 +84,7 @@ class CatalogViewModel(
 
     fun pilihOutlet(outlet: OutletDto) {
         outletStore.simpan(outlet.id, outlet.name)
+        pasangOutletKeKeranjang(outlet.id)
         _state.value = _state.value.copy(
             memuat = true,
             galat = null,
@@ -88,6 +94,22 @@ class CatalogViewModel(
             kategori = emptyList()
         )
         viewModelScope.launch { muatKatalog(outlet) }
+    }
+
+    fun akuiKeranjangDikosongkan() {
+        _state.value = _state.value.copy(keranjangDikosongkan = false)
+    }
+
+    /**
+     * `menu_item_id` bersifat per-outlet, jadi keranjang milik outlet lain
+     * pasti ditolak gateway saat checkout. Mengosongkannya di sini -- saat
+     * pelanggan masih di katalog dan bisa memesan ulang -- jauh lebih baik
+     * daripada membiarkannya gagal di titik pembayaran.
+     */
+    private fun pasangOutletKeKeranjang(outletId: String) {
+        if (cart.pakaiOutlet(outletId)) {
+            _state.value = _state.value.copy(keranjangDikosongkan = true)
+        }
     }
 
     fun ubahKueri(kueri: String) {

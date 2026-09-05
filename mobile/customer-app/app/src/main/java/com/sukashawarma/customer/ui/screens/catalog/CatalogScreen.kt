@@ -3,6 +3,7 @@ package com.sukashawarma.customer.ui.screens.catalog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -10,11 +11,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -27,20 +31,36 @@ import com.sukashawarma.customer.ui.components.ErrorState
 import com.sukashawarma.customer.ui.components.MemuatState
 import com.sukashawarma.customer.ui.components.MenuCard
 import com.sukashawarma.customer.ui.components.OutletHeader
+import com.sukashawarma.customer.ui.format.rupiah
 import com.sukashawarma.customer.ui.screens.closed.OutletClosedScreen
+import com.sukashawarma.customer.ui.theme.SukaTint
 
 @Composable
 fun CatalogScreen(
     viewModel: CatalogViewModel,
+    porsiKeranjang: Int,
+    subtotalKeranjang: Long,
     onGantiOutlet: () -> Unit,
     onPilihItem: (MenuItemDto) -> Unit,
+    onBukaKeranjang: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        bottomBar = {
+            // Bilah keranjang hanya muncul kalau ada isinya. Bilah kosong yang
+            // selalu nongkrong memakan ruang layar tanpa menawarkan apa pun.
+            if (porsiKeranjang > 0) {
+                BilahKeranjang(
+                    porsi = porsiKeranjang,
+                    subtotal = subtotalKeranjang,
+                    onKlik = onBukaKeranjang
+                )
+            }
+        }
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
 
@@ -50,6 +70,10 @@ fun CatalogScreen(
                     buka = it.isActive,
                     onGantiOutlet = onGantiOutlet
                 )
+            }
+
+            if (state.keranjangDikosongkan) {
+                SpandukKeranjangDikosongkan(onTutup = viewModel::akuiKeranjangDikosongkan)
             }
 
             when {
@@ -76,6 +100,46 @@ fun CatalogScreen(
                     onUbahKueri = viewModel::ubahKueri,
                     onPilihItem = onPilihItem
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SpandukKeranjangDikosongkan(onTutup: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+        shape = MaterialTheme.shapes.small,
+        color = SukaTint
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Keranjang dikosongkan karena kamu berpindah outlet. " +
+                    "Menu tiap outlet berbeda.",
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f)
+            )
+            TextButton(onClick = onTutup) { Text("Mengerti") }
+        }
+    }
+}
+
+@Composable
+private fun BilahKeranjang(porsi: Int, subtotal: Long, onKlik: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Button(
+            onClick = onKlik,
+            modifier = Modifier.fillMaxWidth().padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text("$porsi porsi")
+                Text(rupiah(subtotal))
             }
         }
     }

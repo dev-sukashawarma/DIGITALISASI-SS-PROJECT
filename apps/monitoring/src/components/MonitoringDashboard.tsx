@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Camera, LogOut, MapPin, MonitorDot, Radio, Search, ShieldCheck, Video } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { portalUrl } from '@/lib/portal'
 
 const CameraViewer = dynamic(() => import('./CameraViewer'), { ssr: false })
 
@@ -58,7 +59,7 @@ export default function MonitoringDashboard() {
 
   async function logout() {
     await supabase.auth.signOut()
-    window.location.href = process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com'
+    window.location.href = portalUrl()
   }
 
   return (

@@ -5,7 +5,15 @@ import { createClient } from '@/lib/supabase'
 import { useOfflineQueue } from '@suka/offline-queue'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useRealtimeInvalidate } from '@suka/realtime'
-import { upsertOpnameItems } from '@/app/actions/opname'
+import {
+  upsertOpnameItems,
+  createOrReuseOpnameDraftAction,
+  fetchTodayOpnameDraftAction,
+  finalizeOpnameClientAction
+} from '@/app/actions/opname'
+import { getTodayWIB, getEffectiveTodayWIB } from '@/lib/stok/opnameDate'
+
+export { getTodayWIB, getEffectiveTodayWIB }
 
 export function useOpnameList(outletId: string | null | undefined) {
   const { data, isLoading } = useQuery({
@@ -42,195 +50,30 @@ interface FinalizePayload { opnameId: string }
 // Tanggal hari ini dalam WIB (UTC+7) format "YYYY-MM-DD", timezone-safe.
 // Dipakai konsisten oleh createOrReuseDraft dan fetchTodayDraft agar keduanya
 // selalu merujuk hari yang sama.
-export function getTodayWIB(): string {
-  const now = new Date()
-  const wibOffset = 7 * 60 // menit
-  const wibNow = new Date(now.getTime() + wibOffset * 60 * 1000)
-  return wibNow.toISOString().slice(0, 10)
-}
-
-export async function getEffectiveTodayWIB(outletId: string, supabase: any): Promise<string> {
-  const today = getTodayWIB()
-  if (outletId === '62a56103-2085-4dd5-9d25-a3c0cffc88ff' && today === '2026-08-21') {
-    // Cileungsi exception: check if there's a finalized opname for Aug 20
-    const { data } = await supabase.from('opname')
-      .select('id')
-      .eq('outlet_id', outletId)
-      .eq('tanggal', '2026-08-20')
-      .eq('status', 'finalized')
-      .limit(1)
-      .maybeSingle()
-    if (!data) return '2026-08-20'
-  }
-  
-  if (outletId === '550e8400-e29b-41d4-a716-446655440002' && today === '2026-08-24') {
-    // Empang exception: check if there are 2 finalized opnames for Aug 23
-    const { count } = await supabase.from('opname')
-      .select('id', { count: 'exact', head: true })
-      .eq('outlet_id', outletId)
-      .eq('tanggal', '2026-08-23')
-      .eq('status', 'finalized')
-    if ((count ?? 0) < 2) return '2026-08-23'
-  }
-  
-  if (outletId === '550e8400-e29b-41d4-a716-446655440003' && today === '2026-08-26') {
-    // Paledang exception: check if there is a finalized opname for Aug 25
-    const { count } = await supabase.from('opname')
-      .select('id', { count: 'exact', head: true })
-      .eq('outlet_id', outletId)
-      .eq('tanggal', '2026-08-25')
-      .eq('status', 'finalized')
-    if ((count ?? 0) < 1) return '2026-08-25'
-  }
-  
-  if (outletId === '550e8400-e29b-41d4-a716-446655440010' && today === '2026-08-30') {
-    // Jatiwaringin exception: check if there is a finalized opname for Aug 29
-    const { count } = await supabase.from('opname')
-      .select('id', { count: 'exact', head: true })
-      .eq('outlet_id', outletId)
-      .eq('tanggal', '2026-08-29')
-      .eq('status', 'finalized')
-    if ((count ?? 0) < 1) return '2026-08-29'
-  }
-  
-  if (outletId === 'd9a2ef93-c298-4501-a471-1c5e2b3dff08' && (today === '2026-09-03' || today === '2026-09-09')) {
-    // Cicurug exception: check if there is a finalized opname for Sep 2
-    const { count } = await supabase.from('opname')
-      .select('id', { count: 'exact', head: true })
-      .eq('outlet_id', outletId)
-      .eq('tanggal', '2026-09-02')
-      .eq('status', 'finalized')
-    if ((count ?? 0) < 1) return '2026-09-02'
-  }
-  return today
-}
 
 export function useOpnameActions() {
   const supabase = createClient()
   const { add, flush, isOnline } = useOfflineQueue<FinalizePayload>('stok-opname-finalize')
 
   const createDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
-    const todayWIB = await getEffectiveTodayWIB(outletId, supabase)
-    const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
-    if (error) throw error
-    return data as Opname
+    const res = await createOrReuseOpnameDraftAction(outletId, tipe, notes)
+    if (res.error) throw new Error(res.error)
+    return res.data!
   }, [])
 
   // Ambil draft opname yang sedang berjalan (status='draft') hari ini untuk
   // outlet ini, beserta item-item yang sudah tersimpan — dipakai OpnameForm
   // untuk resume saat crew buka lagi form setelah "Simpan Draft".
   const fetchTodayDraft = useCallback(async (outletId: string) => {
-    const todayWIB = await getEffectiveTodayWIB(outletId, supabase)
-    const { data, error } = await supabase.from('opname')
-      .select('*, opname_item(*)')
-      .eq('outlet_id', outletId)
-      .eq('tanggal', todayWIB)
-      .eq('status', 'draft')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    if (error) throw error
-    return data as (Opname & { opname_item: OpnameItem[] }) | null
+    const res = await fetchTodayOpnameDraftAction(outletId)
+    if (res.error) throw new Error(res.error)
+    return res.data
   }, [])
 
   const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
-    // Cek apakah sudah ada opname hari ini untuk outlet ini (semua status kecuali rejected)
-    // Gunakan range tanggal hari ini (WIB = UTC+7) agar timezone-safe
-    const todayWIB = await getEffectiveTodayWIB(outletId, supabase)
-
-    // Urutan khusus 13 Agustus 2026 (permintaan owner, hari yang sama dgn fix
-    // bug finalize opname supabaseKey): SEMUA outlet boleh opname maksimal 2x
-    // hari ini, opname pertama bertipe 'ad_hoc', opname kedua bertipe 'harian'
-    // (dibalik dari urutan normal) agar tak bentrok unique index
-    // uniq_opname_harian_per_day (hanya berlaku utk tipe='harian'). Opname
-    // kedua baru dibuat setelah yang pertama finalized. Hari-hari lain
-    // otomatis kembali normal (1x/hari) karena gate ini per-tanggal.
-    // HAPUS blok ini setelah 13/08/2026.
-    const EXTRA_OPNAME_DATE = '2026-08-13'
-    if (todayWIB === EXTRA_OPNAME_DATE) {
-      const { data: todaysOpnames } = await supabase.from('opname')
-        .select('*')
-        .eq('outlet_id', outletId)
-        .eq('tanggal', todayWIB)
-        .not('status', 'eq', 'rejected')
-        .order('created_at', { ascending: true })
-
-      const list = (todaysOpnames ?? []) as Opname[]
-
-      if (list.length === 0) {
-        const { data, error } = await supabase.from('opname')
-          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
-        if (error) throw error
-        return data as Opname
-      }
-
-      if (list.length === 1) {
-        if (list[0].status !== 'finalized') return list[0]
-        const { data, error } = await supabase.from('opname')
-          .insert({ outlet_id: outletId, tipe: 'harian', status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
-        if (error) throw error
-        return data as Opname
-      }
-
-      // Sudah 2x hari ini → kembalikan yang terakhir apa adanya.
-      return list[list.length - 1]
-    }
-
-    const { data: existing } = await supabase.from('opname')
-      .select('*')
-      .eq('outlet_id', outletId)
-      .eq('tipe', tipe)
-      .eq('tanggal', todayWIB)
-      .not('status', 'eq', 'rejected')
-      .maybeSingle()
-
-    // Kompensasi 1-hari (29 Juli 2026): outlet yang kena bug opname pagi itu
-    // (RLS/kolom generated/pesan error salah) boleh opname ulang hari ini
-    // kalau opname 'harian' hari ini sudah finalized — dibuat sebagai opname
-    // kedua bertipe 'ad_hoc' (bukan reuse row lama) supaya tidak bentrok unique
-    // index uniq_opname_harian_per_day (hanya berlaku utk tipe='harian').
-    // Dibatasi maksimal 2 opname/hari/outlet. HAPUS blok ini setelah 29/07/2026.
-    const COMPENSATION_DATE = '2026-07-29'
-    const JATIASIH_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440012'
-    const JATIASIH_DATES = ['2026-07-30', '2026-08-01', '2026-08-02', '2026-08-07']
-
-    const TODAY_EXCEPTION_DATE = '2026-08-20'
-    const ALLOWED_OUTLETS = ['550e8400-e29b-41d4-a716-446655440017', '550e8400-e29b-41d4-a716-446655440006']
-
-    const isCompensation = todayWIB === COMPENSATION_DATE
-    const isJatiasihException = outletId === JATIASIH_OUTLET_ID && JATIASIH_DATES.includes(todayWIB)
-    const isTodayException = todayWIB === TODAY_EXCEPTION_DATE && ALLOWED_OUTLETS.includes(outletId)
-    const isEmpangException = todayWIB === '2026-08-23' && outletId === '550e8400-e29b-41d4-a716-446655440002'
-    const isJatiwaringinException = (todayWIB === '2026-08-30' || todayWIB === '2026-08-29') && outletId === '550e8400-e29b-41d4-a716-446655440010'
-    const isCicurugException = (todayWIB === '2026-09-03' || todayWIB === '2026-09-02') && outletId === 'd9a2ef93-c298-4501-a471-1c5e2b3dff08'
-    const isOutletTes = outletId === 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a'
-
-    if (existing && existing.status === 'finalized' && (isCompensation || isJatiasihException || isTodayException || isEmpangException || isJatiwaringinException || isCicurugException || isOutletTes)) {
-      const { count } = await supabase.from('opname')
-        .select('id', { count: 'exact', head: true })
-        .eq('outlet_id', outletId)
-        .eq('tanggal', todayWIB)
-        .not('status', 'eq', 'rejected')
-
-      // Untuk 7 Agustus 2026, batas maksimal opname Jatiasih adalah 2. Sebelumnya 3.
-      const maxOpname = (isJatiasihException && todayWIB === '2026-08-07') ? 2 : (isJatiasihException ? 3 : (isOutletTes ? 999 : 2));
-
-      if ((count ?? 0) < maxOpname) {
-        const { data, error } = await supabase.from('opname')
-          .insert({ outlet_id: outletId, tipe: 'ad_hoc', status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
-        if (error) throw error
-        return data as Opname
-      }
-    }
-
-    if (existing) return existing as Opname
-
-    // Tidak ada opname hari ini → buat baru
-    const { data, error } = await supabase.from('opname')
-      .insert({ outlet_id: outletId, tipe, status: 'draft', created_by: createdBy, notes: notes || null, tanggal: todayWIB }).select().single()
-    if (error) throw error
-    return data as Opname
+    const res = await createOrReuseOpnameDraftAction(outletId, tipe, notes)
+    if (res.error) throw new Error(res.error)
+    return res.data!
   }, [])
 
   const upsertItems = useCallback(async (items: Partial<OpnameItem>[]) => {
@@ -247,8 +90,8 @@ export function useOpnameActions() {
 
   const finalize = useCallback(async (opnameId: string) => {
     try {
-      const { error } = await supabase.rpc('finalize_opname', { p_opname_id: opnameId })
-      if (error) throw error
+      const res = await finalizeOpnameClientAction(opnameId)
+      if (res.error) throw new Error(res.error)
       return { queued: false }
     } catch (e) {
       add({ opnameId })
@@ -259,8 +102,8 @@ export function useOpnameActions() {
   const flushFinalize = useCallback(async () => {
     return flush(async (data: FinalizePayload) => {
       // A thrown error is treated as 'retry' by flush; a clean resolve is 'done'.
-      const { error } = await supabase.rpc('finalize_opname', { p_opname_id: data.opnameId })
-      if (error) throw error
+      const res = await finalizeOpnameClientAction(data.opnameId)
+      if (res.error) throw new Error(res.error)
     })
   }, [flush])
 

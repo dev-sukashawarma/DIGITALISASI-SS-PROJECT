@@ -42,3 +42,40 @@ export async function assertOutletAccessible(supabase: AuthedClientLike, outletI
     throw new Error('Forbidden: outlet di luar scope akses Anda')
   }
 }
+
+/**
+ * Validasi otorisasi outlet menggunakan service-role client secara langsung.
+ * Mencakup role-role khusus (regional_manager, area_manager, purchasing, developer)
+ * yang mungkin belum ter-cover oleh fungsi SQL RPC yang lama.
+ */
+export async function assertStaffCanAccessOutlet(serviceClient: any, staffId: string, outletId: string): Promise<void> {
+  const { data: staff, error: staffErr } = await serviceClient
+    .from('outlet_staff')
+    .select('id, role, outlet_id, status')
+    .eq('id', staffId)
+    .maybeSingle()
+
+  if (staffErr) throw new Error(`DB error: ${staffErr.message}`)
+  if (!staff || staff.status !== 'active') throw new Error('Staff tidak aktif atau tidak ditemukan')
+
+  const isPrivileged = [
+    'admin', 'admin_hr', 'owner', 'spv', 'kitchen',
+    'admin_finance', 'finance', 'purchasing', 'developer', 'regional_manager', 'area_manager'
+  ].includes(staff.role)
+
+  if (isPrivileged) return
+
+  if (staff.outlet_id === outletId) return
+
+  // Check staff_outlets untuk leader / korlap / area_manager
+  const { data: so } = await serviceClient
+    .from('staff_outlets')
+    .select('outlet_id')
+    .eq('staff_id', staffId)
+    .eq('outlet_id', outletId)
+    .maybeSingle()
+
+  if (so) return
+
+  throw new Error('Forbidden: outlet di luar scope akses Anda')
+}

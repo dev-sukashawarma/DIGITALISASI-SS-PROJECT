@@ -3,7 +3,9 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { canApproveOpname } from '@/lib/stok/approver'
-import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
+import { assertOutletAccessible, getAccessibleOutletIds, assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
+import { getEffectiveTodayWIB } from '@/lib/stok/opnameDate'
+import type { Opname, OpnameItem } from '@/types/stok'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -256,4 +258,155 @@ export async function countPendingOpnameApprovals(outletId?: string): Promise<nu
   const { count, error } = await query
   if (error) throw new Error(error.message)
   return count || 0
+}
+
+/**
+ * Buat atau ambil draft opname yang ada hari ini untuk outlet tertentu.
+ * Menggunakan service-role client agar tidak terbentrok oleh batasan RLS client-side,
+ * namun tetap memverifikasi otorisasi user secara aman.
+ */
+export async function createOrReuseOpnameDraftAction(
+  outletId: string,
+  tipe: string = 'harian',
+  notes?: string | null
+): Promise<{ data: Opname | null; error: string | null }> {
+  try {
+    const authedClient = await getAuthedClient()
+    const staffId = await getCurrentStaffId(authedClient)
+    const serviceClient = makeServiceClient()
+
+    await assertStaffCanAccessOutlet(serviceClient, staffId, outletId)
+
+    const todayWIB = await getEffectiveTodayWIB(outletId, serviceClient)
+
+    // Cek opname yang sudah ada hari ini (semua status kecuali rejected)
+    const { data: existing, error: existErr } = await serviceClient
+      .from('opname')
+      .select('*')
+      .eq('outlet_id', outletId)
+      .eq('tipe', tipe)
+      .eq('tanggal', todayWIB)
+      .not('status', 'eq', 'rejected')
+      .maybeSingle()
+
+    if (existErr) return { data: null, error: `DB error: ${existErr.message}` }
+
+    // Exception handling untuk opname > 1x sehari
+    const isOutletTes = outletId === 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a'
+    const isEmpangException = todayWIB === '2026-08-23' && outletId === '550e8400-e29b-41d4-a716-446655440002'
+    const isJatiwaringinException = (todayWIB === '2026-08-30' || todayWIB === '2026-08-29') && outletId === '550e8400-e29b-41d4-a716-446655440010'
+    const isCicurugException = (todayWIB === '2026-09-03' || todayWIB === '2026-09-02') && outletId === 'd9a2ef93-c298-4501-a471-1c5e2b3dff08'
+
+    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException)) {
+      const { count } = await serviceClient.from('opname')
+        .select('id', { count: 'exact', head: true })
+        .eq('outlet_id', outletId)
+        .eq('tanggal', todayWIB)
+        .not('status', 'eq', 'rejected')
+
+      const maxOpname = isOutletTes ? 999 : 2
+
+      if ((count ?? 0) < maxOpname) {
+        const { data, error } = await serviceClient.from('opname')
+          .insert({
+            outlet_id: outletId,
+            tipe: 'ad_hoc',
+            status: 'draft',
+            created_by: staffId,
+            notes: notes || null,
+            tanggal: todayWIB,
+          })
+          .select()
+          .single()
+
+        if (error) return { data: null, error: error.message }
+        return { data: data as Opname, error: null }
+      }
+    }
+
+    if (existing) {
+      return { data: existing as Opname, error: null }
+    }
+
+    // Buat draft baru
+    const { data, error } = await serviceClient.from('opname')
+      .insert({
+        outlet_id: outletId,
+        tipe,
+        status: 'draft',
+        created_by: staffId,
+        notes: notes || null,
+        tanggal: todayWIB,
+      })
+      .select()
+      .single()
+
+    if (error) return { data: null, error: error.message }
+    return { data: data as Opname, error: null }
+  } catch (e: any) {
+    return { data: null, error: e?.message ?? String(e) }
+  }
+}
+
+/**
+ * Ambil draft opname hari ini beserta item-item yang sudah diinput.
+ */
+export async function fetchTodayOpnameDraftAction(
+  outletId: string
+): Promise<{ data: (Opname & { opname_item: OpnameItem[] }) | null; error: string | null }> {
+  try {
+    const authedClient = await getAuthedClient()
+    const staffId = await getCurrentStaffId(authedClient)
+    const serviceClient = makeServiceClient()
+
+    await assertStaffCanAccessOutlet(serviceClient, staffId, outletId)
+
+    const todayWIB = await getEffectiveTodayWIB(outletId, serviceClient)
+
+    const { data, error } = await serviceClient.from('opname')
+      .select('*, opname_item(*)')
+      .eq('outlet_id', outletId)
+      .eq('tanggal', todayWIB)
+      .eq('status', 'draft')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) return { data: null, error: error.message }
+    return { data: data as (Opname & { opname_item: OpnameItem[] }) | null, error: null }
+  } catch (e: any) {
+    return { data: null, error: e?.message ?? String(e) }
+  }
+}
+
+/**
+ * Finalisasi opname lewat server-side service role client.
+ */
+export async function finalizeOpnameClientAction(
+  opnameId: string
+): Promise<{ error: string | null }> {
+  try {
+    const authedClient = await getAuthedClient()
+    const staffId = await getCurrentStaffId(authedClient)
+    const serviceClient = makeServiceClient()
+
+    const { data: opname, error: opErr } = await serviceClient
+      .from('opname')
+      .select('id, outlet_id, status')
+      .eq('id', opnameId)
+      .maybeSingle()
+
+    if (opErr) return { error: `DB error: ${opErr.message}` }
+    if (!opname) return { error: 'Opname tidak ditemukan' }
+    if (opname.status === 'finalized') return { error: null }
+
+    await assertStaffCanAccessOutlet(serviceClient, staffId, opname.outlet_id)
+
+    const { error: rpcErr } = await serviceClient.rpc('finalize_opname', { p_opname_id: opnameId })
+    if (rpcErr) return { error: `Finalisasi gagal: ${rpcErr.message}` }
+
+    return { error: null }
+  } catch (e: any) {
+    return { error: e?.message ?? String(e) }
+  }
 }

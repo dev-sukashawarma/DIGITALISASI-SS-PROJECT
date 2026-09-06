@@ -216,14 +216,13 @@ export async function upsertOpnameItems(
     if (opnameErr) return { error: `DB error: ${opnameErr.message}` }
     if (!opname) return { error: 'Opname tidak ditemukan' }
 
-    // Guard: hanya pembuat opname yang boleh upsert item, dan status harus editable
-    const isOwner = opname.created_by === staffId
+    // Verifikasi staff berhak mengakses outlet dari opname ini (crew outlet bersangkutan, leader, SPV, RM, admin, dsb.)
+    await assertStaffCanAccessOutlet(serviceClient, staffId, opname.outlet_id)
+
+    // Guard: status opname harus editable
     const isEditable = ['draft', 'pending_approval'].includes(opname.status)
     if (!isEditable) {
       return { error: 'Anda telah melakukan opname hari ini. Opname harian hanya bisa dilakukan satu kali per outlet.' }
-    }
-    if (!isOwner) {
-      return { error: 'Forbidden: hanya pembuat opname yang bisa mengisi item ini' }
     }
 
     const { error } = await serviceClient
@@ -325,6 +324,9 @@ export async function createOrReuseOpnameDraftAction(
     }
 
     if (existing) {
+      if (notes && notes !== existing.notes && existing.status === 'draft') {
+        await serviceClient.from('opname').update({ notes }).eq('id', existing.id)
+      }
       return { data: existing as Opname, error: null }
     }
 

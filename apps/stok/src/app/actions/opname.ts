@@ -295,8 +295,16 @@ export async function createOrReuseOpnameDraftAction(
     const isEmpangException = todayWIB === '2026-08-23' && outletId === '550e8400-e29b-41d4-a716-446655440002'
     const isJatiwaringinException = (todayWIB === '2026-08-30' || todayWIB === '2026-08-29') && outletId === '550e8400-e29b-41d4-a716-446655440010'
     const isCicurugException = (todayWIB === '2026-09-03' || todayWIB === '2026-09-02') && outletId === 'd9a2ef93-c298-4501-a471-1c5e2b3dff08'
+    const CATCHUP_OUTLETS_SEP5 = [
+      '550e8400-e29b-41d4-a716-446655440014', // MITRA CIBINONG
+      '550e8400-e29b-41d4-a716-446655440018', // MITRA PEKAYON
+      '550e8400-e29b-41d4-a716-446655440001', // SUKA SHAWARMA BNR
+      '550e8400-e29b-41d4-a716-446655440013', // SUKA SHAWARMA DRAMAGA
+      '550e8400-e29b-41d4-a716-446655440010', // SUKA SHAWARMA JATIWARINGIN
+    ]
+    const isCatchupException = CATCHUP_OUTLETS_SEP5.includes(outletId) && (todayWIB === '2026-09-05' || todayWIB === '2026-09-06')
 
-    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException)) {
+    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException || isCatchupException)) {
       const { count } = await serviceClient.from('opname')
         .select('id', { count: 'exact', head: true })
         .eq('outlet_id', outletId)

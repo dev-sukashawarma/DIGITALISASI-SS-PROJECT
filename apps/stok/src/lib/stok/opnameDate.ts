@@ -1,4 +1,4 @@
-﻿// Tanggal hari ini dalam WIB (UTC+7) format "YYYY-MM-DD", timezone-safe.
+// Tanggal hari ini dalam WIB (UTC+7) format "YYYY-MM-DD", timezone-safe.
 export function getTodayWIB(): string {
   const now = new Date()
   const wibOffset = 7 * 60 // menit
@@ -59,5 +59,25 @@ export async function getEffectiveTodayWIB(outletId: string, supabase: any): Pro
       .eq('status', 'finalized')
     if ((count ?? 0) < 1) return '2026-09-02'
   }
+
+  // 6 September 2026 catch-up: Cibinong, Pekayon, BNR, Dramaga, Jatiwaringin
+  // Jika belum opname finalized untuk 5 September, input pertama masuk ke 5 September.
+  // Setelah itu, opname kedua otomatis masuk ke 6 September.
+  const CATCHUP_OUTLETS_SEP5 = [
+    '550e8400-e29b-41d4-a716-446655440014', // MITRA CIBINONG
+    '550e8400-e29b-41d4-a716-446655440018', // MITRA PEKAYON
+    '550e8400-e29b-41d4-a716-446655440001', // SUKA SHAWARMA BNR
+    '550e8400-e29b-41d4-a716-446655440013', // SUKA SHAWARMA DRAMAGA
+    '550e8400-e29b-41d4-a716-446655440010', // SUKA SHAWARMA JATIWARINGIN
+  ]
+  if (CATCHUP_OUTLETS_SEP5.includes(outletId) && today === '2026-09-06') {
+    const { count } = await supabase.from('opname')
+      .select('id', { count: 'exact', head: true })
+      .eq('outlet_id', outletId)
+      .eq('tanggal', '2026-09-05')
+      .eq('status', 'finalized')
+    if ((count ?? 0) < 1) return '2026-09-05'
+  }
+
   return today
 }

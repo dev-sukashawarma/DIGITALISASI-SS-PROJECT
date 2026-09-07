@@ -1031,9 +1031,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <span className="text-base font-semibold text-amber-800">-Rp </span>
                   <CountUp end={totalHpp + totalWaste} duration={1} separator="." />
                 </h3>
-                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
+                <div className="flex items-center gap-3 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
                   <span>HPP: {rupiah(totalHpp)}</span>
-                  <span>ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢</span>
                   <span>Waste: {rupiah(totalWaste)}</span>
                 </div>
               </div>

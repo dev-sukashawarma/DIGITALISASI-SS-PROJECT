@@ -38,7 +38,13 @@ ARG GOOGLE_ANDROID_CLIENT_ID
 ARG XENDIT_SECRET_KEY
 ARG XENDIT_WEBHOOK_TOKEN
 ARG CRON_SECRET
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
+# Penanda versi build. Coolify mengisi SOURCE_COMMIT sendiri; kalau tidak,
+# nilainya "tidak diketahui" dan /api/health mengatakannya apa adanya.
+# Tanpa penanda ini, satu-satunya cara tahu versi mana yang hidup adalah
+# menyimpulkan dari perilaku -- yang sudah tiga kali menyesatkan di sini.
+ARG SOURCE_COMMIT
+ENV SOURCE_COMMIT=$SOURCE_COMMIT \
+    NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL \
     NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY \
     SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY \
     SESSION_SECRET=$SESSION_SECRET \

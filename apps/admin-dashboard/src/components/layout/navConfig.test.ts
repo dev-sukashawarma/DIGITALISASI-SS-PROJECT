@@ -233,7 +233,7 @@ describe('navConfig — invarian', () => {
   it('ADMIN melihat tujuh pintu dengan urutan yang ditentukan', () => {
     expect(accessibleGroups('ADMIN').map((g) => g.title)).toEqual([
       'Laporan Internal',
-      'Pusat Laporan',
+      'Penjualan & Kinerja',
       'Produk & Stok',
       'Pembelian',
       'POS',

@@ -90,7 +90,7 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Pusat Laporan',
+    title: 'Penjualan & Kinerja',
     icon: FileText,
     roles: ['OWNER', 'ADMIN'],
     items: [

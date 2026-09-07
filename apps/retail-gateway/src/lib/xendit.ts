@@ -51,7 +51,25 @@ export async function buatTagihan(input: {
       customer: { given_names: input.customerName },
       invoice_duration: BATAS_BAYAR_DETIK,
       currency: 'IDR',
-      payment_methods: ['QRIS', 'OVO', 'DANA', 'SHOPEEPAY', 'LINKAJA', 'BCA', 'BNI', 'BRI', 'MANDIRI'],
+      // QRIS SAJA. Keputusan owner 2026-09-07.
+      //
+      // Alasannya bukan sekadar penyederhanaan: satu kode QRIS bisa dipindai
+      // oleh SEMUA aplikasi bank dan e-wallet di Indonesia, jadi membatasi ke
+      // QRIS tidak mengurangi siapa pun yang bisa membayar -- ia hanya
+      // menghapus langkah memilih. Transfer VA justru menyulitkan untuk
+      // pesanan ambil-sendiri: pelanggan harus membuka mobile banking dan
+      // menunggu, sementara makanannya sudah dibuat.
+      //
+      // Efek samping yang membereskan utang lama: `orders.payment_method`
+      // dipatok `'qris'` di `orderPayload.ts` karena constraint produksi hanya
+      // mengizinkan cash|qris|card. Dulu itu label yang bisa keliru (pelanggan
+      // bayar OVO, tercatat QRIS). Dengan kanal dibatasi QRIS, label itu kini
+      // SELALU BENAR -- bukan lagi kompromi.
+      //
+      // Kalau kelak kanal lain dibuka kembali, catatan Pasca-Pilot di
+      // docs/2026-09-01-tahap1-gateway-plan.md berlaku lagi dan harus dibaca
+      // sebelum menambah nilai ke daftar ini.
+      payment_methods: ['QRIS'],
     }),
   })
 

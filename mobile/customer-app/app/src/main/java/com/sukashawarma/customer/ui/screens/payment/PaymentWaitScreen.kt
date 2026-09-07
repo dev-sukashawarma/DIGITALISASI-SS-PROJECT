@@ -1,7 +1,9 @@
 package com.sukashawarma.customer.ui.screens.payment
 
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sukashawarma.customer.ui.components.KartuQris
+import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaTint
 
 /**
@@ -59,11 +63,13 @@ fun PaymentWaitScreen(
     // penggambaran ulang membuka tab baru dan pelanggan tertimbun jendela.
     var urlTerbuka by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(state.paymentUrl) {
+    // Peramban HANYA dibuka bila tidak ada QR. Selama QR ada, pembayaran
+    // tidak pernah meninggalkan aplikasi.
+    LaunchedEffect(state.paymentUrl, state.qrString) {
         val url = state.paymentUrl
-        if (url != null && url != urlTerbuka) {
+        if (state.qrString == null && url != null && url != urlTerbuka) {
             urlTerbuka = url
-            CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+            bukaHalamanBayar(context, url)
         }
     }
 
@@ -82,12 +88,35 @@ fun PaymentWaitScreen(
         ) {
             when {
                 state.memuat || state.menungguKonfirmasi -> {
+                    // QR ditampilkan LEBIH DULU, sebelum teks menunggu.
+                    // Pelanggan datang ke layar ini untuk membayar, bukan
+                    // untuk membaca status.
+                    state.qrString?.let { qr ->
+                        Text(
+                            "Pindai untuk membayar",
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
+                        KartuQris(qrString = qr)
+                        Text(
+                            "Buka aplikasi bank atau e-wallet mana pun, pilih menu " +
+                                "pindai QRIS, lalu arahkan ke kode di atas.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
                     CircularProgressIndicator(
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(if (state.qrString != null) 24.dp else 36.dp),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        if (state.memuat) "Menyiapkan pembayaran" else "Menunggu konfirmasi pembayaran",
+                        when {
+                            state.memuat -> "Menyiapkan pembayaran"
+                            state.qrString != null -> "Menunggu pembayaranmu"
+                            else -> "Menunggu konfirmasi pembayaran"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center
                     )
@@ -98,6 +127,30 @@ fun PaymentWaitScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+
+                    // Percobaan yang DILANJUTKAN tidak membuka halaman
+                    // pembayaran sendiri -- membukanya otomatis akan melempar
+                    // pelanggan kembali ke Chrome tepat setelah ia menutupnya.
+                    // Tapi ia tetap harus punya jalan ke sana, kalau tidak
+                    // pesanannya tidak bisa dibayar sama sekali: tagihan lama
+                    // masih berlaku, dan pesanan kedua ditolak demi mencegah
+                    // tagihan ganda.
+                    if (state.qrString == null) state.urlBayarTersimpan?.let { url ->
+                        Button(
+                            onClick = { bukaHalamanBayar(context, url) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Buka halaman pembayaran")
+                        }
+                        Text(
+                            "Pesanan ini sudah punya tagihan yang masih berlaku. " +
+                                "Selesaikan dulu, atau tunggu batas waktunya habis " +
+                                "untuk memesan ulang.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 state.gagalBayar -> {
@@ -174,4 +227,34 @@ fun PaymentWaitScreen(
             }
         }
     }
+}
+
+/**
+ * Membuka halaman tagihan Xendit di Custom Tab bergaya merek.
+ *
+ * Custom Tab berjalan di TASK YANG SAMA dengan aplikasi -- tombol Back
+ * mengembalikan pelanggan ke sini, dan Recents tetap menampilkan satu kartu.
+ * Bilah Chrome tetap terlihat dan memang TIDAK bisa dihilangkan; itu justru
+ * jaminan bagi pelanggan bahwa halaman pembayaran benar-benar berasal dari
+ * domain Xendit, bukan tiruan yang digambar aplikasi.
+ *
+ * Yang bisa dilakukan hanyalah menyelaraskan warnanya supaya terasa bagian
+ * dari aplikasi, bukan jendela asing.
+ *
+ * **Jangan menggantinya dengan WebView sendiri.** Halaman ini memuat 3-D
+ * Secure dan melompat ke aplikasi e-wallet; WebView buatan sendiri sering
+ * memblokir keduanya, dan gagalnya senyap -- pelanggan hanya melihat layar
+ * putih di tengah pembayaran.
+ */
+private fun bukaHalamanBayar(context: android.content.Context, url: String) {
+    val warna = CustomTabColorSchemeParams.Builder()
+        .setToolbarColor(SukaBrown.toArgb())
+        .build()
+
+    CustomTabsIntent.Builder()
+        .setDefaultColorSchemeParams(warna)
+        .setShowTitle(true)
+        .setUrlBarHidingEnabled(false)
+        .build()
+        .launchUrl(context, Uri.parse(url))
 }

@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
 import { deriveScope, type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchAllPagesParallel } from '@/lib/queryPaging'
+import { periodCacheOptions, withPeriodCache } from '@/lib/periodCache'
 
 export interface ExpenseRow {
   id: string
@@ -24,16 +26,20 @@ const EMPTY_ROWS: ExpenseRow[] = []
 
 export function useExpenses(filter: PeriodFilterValue) {
   const supabase = createClient()
+  const queryKey = ['expenses', filter.from, filter.to, filter.outletId] as const
   const query = useQuery<ExpenseRow[]>({
-    queryKey: ['expenses', filter.from, filter.to, filter.outletId],
-    staleTime: 2 * 60_000,
-    queryFn: async () => {
+    queryKey: [...queryKey],
+    ...periodCacheOptions(filter),
+    queryFn: withPeriodCache(queryKey, filter, async () => {
       const PAGE_SIZE = 1000
 
-      const buildExpensesQuery = () => {
+      const buildExpensesQuery = (withCount: boolean) => {
         let b = supabase
           .from('expenses')
-          .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, outlets(name)')
+          .select(
+            'id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, outlets(name)',
+            withCount ? { count: 'exact' } : undefined,
+          )
           // `outlet_id <> X` bernilai NULL (bukan true) untuk baris ber-outlet_id NULL,
           // sehingga filter .neq() polos membuang SELURUH pengeluaran Pusat — yang
           // memang disimpan dengan outlet_id NULL. Kartu "Outlet + Pusat" karenanya
@@ -51,10 +57,13 @@ export function useExpenses(filter: PeriodFilterValue) {
         return b
       }
 
-      const buildPettyCashQuery = () => {
+      const buildPettyCashQuery = (withCount: boolean) => {
         let b = supabase
           .from('petty_cash_expenses')
-          .select('id, outlet_id, category, amount, description, expense_date, receipt_url, outlets(name)')
+          .select(
+            'id, outlet_id, category, amount, description, expense_date, receipt_url, outlets(name)',
+            withCount ? { count: 'exact' } : undefined,
+          )
           .neq('outlet_id', TEST_OUTLET_ID)
           .in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities'])
           .gte('expense_date', filter.from)
@@ -69,17 +78,8 @@ export function useExpenses(filter: PeriodFilterValue) {
       // PostgREST memotong hasil di 1.000 baris tanpa error. `petty_cash_expenses`
       // sendiri sudah >1.400 baris per bulan, jadi tanpa paginasi biaya operasional
       // yang tampil hanya sebagian — dan tanpa ORDER BY, bagian mana pun tak menentu.
-      const fetchAllPages = async (build: () => any) => {
-        const all: any[] = []
-        for (let offset = 0; ; offset += PAGE_SIZE) {
-          const { data, error } = await build().range(offset, offset + PAGE_SIZE - 1)
-          if (error) throw error
-          const page = data ?? []
-          all.push(...page)
-          if (page.length < PAGE_SIZE) break
-        }
-        return all
-      }
+      const fetchAllPages = (build: (withCount: boolean) => any) =>
+        fetchAllPagesParallel<any>((from, to, withCount) => build(withCount).range(from, to), PAGE_SIZE)
 
       const [expenseData, pettyCashData] = await Promise.all([
         fetchAllPages(buildExpensesQuery),
@@ -126,7 +126,7 @@ export function useExpenses(filter: PeriodFilterValue) {
       })
 
       return [...monthlyRows, ...pettyCashRows] as ExpenseRow[]
-    },
+    }),
   })
   return { rows: query.data ?? EMPTY_ROWS, loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
 }

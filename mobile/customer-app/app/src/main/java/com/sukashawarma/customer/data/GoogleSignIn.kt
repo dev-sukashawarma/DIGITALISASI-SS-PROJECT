@@ -1,6 +1,7 @@
 package com.sukashawarma.customer.data
 
 import android.content.Context
+import android.util.Log
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import androidx.credentials.exceptions.GetCredentialCancellationException
@@ -46,6 +47,8 @@ sealed class HasilIdToken {
  *   Credential Manager perlu menempelkan lembar akun ke jendela yang sedang
  *   tampil.
  */
+private const val TAG = "SukaLogin"
+
 suspend fun ambilIdTokenGoogle(context: Context, serverClientId: String): HasilIdToken {
     val opsi = GetGoogleIdOption.Builder()
         .setServerClientId(serverClientId)
@@ -65,8 +68,18 @@ suspend fun ambilIdTokenGoogle(context: Context, serverClientId: String): HasilI
     } catch (e: GetCredentialCancellationException) {
         HasilIdToken.Dibatalkan
     } catch (e: NoCredentialException) {
+        // Bukan sekadar "belum ada akun". Credential Manager juga melempar ini
+        // ketika Google MENOLAK menerbitkan kredensial -- misalnya karena
+        // OAuth client Android untuk paket + SHA-1 ini belum terdaftar.
+        // Pesan aslinya yang membedakan keduanya, jadi ia harus tercatat.
+        Log.w(TAG, "Google tidak memberi kredensial: ${e.type} -- ${e.message}", e)
         HasilIdToken.TidakAdaAkun
     } catch (e: Exception) {
+        // WAJIB dicatat. Tanpa ini kegagalan login menjadi kalimat umum di
+        // layar tanpa satu pun jejak penyebabnya -- dan penyebab paling umum
+        // (client ID salah jenis, SHA-1 belum didaftarkan) hanya terlihat di
+        // pesan asli pengecualiannya.
+        Log.e(TAG, "Gagal mengambil ID token Google: ${e.javaClass.simpleName} -- ${e.message}", e)
         HasilIdToken.Gagal(e)
     }
 }

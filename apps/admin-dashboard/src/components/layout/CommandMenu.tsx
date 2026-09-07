@@ -67,7 +67,11 @@ export function CommandMenu() {
                   className="px-2 py-3 text-xs font-bold text-gray-400 uppercase tracking-wider"
                 >
                   <div className="mt-2 space-y-1">
-                    {group.items.map((item) => {
+                    {group.items
+                      // Sub-menu ikut bisa dicari — labelnya sudah lengkap
+                      // ("Laba Rugi Mitra"), jadi tak perlu ditandai khusus.
+                      .flatMap((i) => [i, ...(i.children ?? [])])
+                      .map((item) => {
                       if (!item.roles.includes(role)) return null
                       const Icon = item.icon
                       return (

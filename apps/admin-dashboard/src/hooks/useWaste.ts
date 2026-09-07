@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { periodCacheOptions, withPeriodCache } from '@/lib/periodCache'
 
 export interface WasteRow {
   outlet_id: string
@@ -15,10 +16,11 @@ export interface WasteRow {
 // (scoped ke outlet yang boleh diakses pemanggil, sama pola dgn useHpp).
 export function useWaste(filter: PeriodFilterValue) {
   const supabase = createClient()
+  const queryKey = ['waste', filter.from, filter.to, filter.outletId] as const
   const query = useQuery<WasteRow[]>({
-    queryKey: ['waste', filter.from, filter.to, filter.outletId],
-    staleTime: 2 * 60_000,
-    queryFn: async () => {
+    queryKey: [...queryKey],
+    ...periodCacheOptions(filter),
+    queryFn: withPeriodCache(queryKey, filter, async () => {
       const { data, error } = await supabase.rpc('get_waste_periode', {
         p_from: filter.from,
         p_to: filter.to,
@@ -32,7 +34,7 @@ export function useWaste(filter: PeriodFilterValue) {
         }))
       if (filter.outletId !== 'all') rows = rows.filter((r: WasteRow) => r.outlet_id === filter.outletId)
       return rows
-    },
+    }),
   })
   return { rows: query.data ?? [], loading: query.isLoading, error: query.error ? (query.error as Error).message : null }
 }

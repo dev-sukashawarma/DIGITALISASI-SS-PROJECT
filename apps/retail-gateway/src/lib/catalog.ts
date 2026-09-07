@@ -91,10 +91,9 @@ export function kosongkanCacheKatalog(): void {
 /**
  * Ambil katalog menu untuk satu outlet, dengan cache 5 menit per outlet.
  *
- * Cache tetap dikunci per outlet walau menunya global. Entri kembar untuk 19
- * outlet berbiaya satu pembacaan tiap 5 menit per outlet -- dapat diabaikan
- * pada skala pilot -- dan menjaga agar ketersediaan per-outlet, kalau kelak
- * ada, tidak perlu mengubah satu pun pemanggil.
+ * Cache dikunci per outlet, dan itu memang perlu: hasilnya BERBEDA antar
+ * outlet sejak menu milik satu outlet ikut terbit (lihat `.or(...)` di bawah).
+ * Satu cache bersama akan menyajikan menu outlet A kepada outlet B.
  *
  * `paksaSegar` melewati cache HANYA untuk outlet yang diminta -- bukan
  * `kosongkanCacheKatalog()` (yang membuang cache semua outlet sekaligus).
@@ -118,20 +117,25 @@ export async function ambilKatalog(
     .select(
       'id, name, description, deskripsi_app, price, image_url, foto_app, is_available, category_id, sort_order, categories(name, sort_order)'
     )
-    // TIDAK ADA `.eq('outlet_id', outletId)`. Menu di sistem ini BERSIFAT
-    // GLOBAL: seluruh 50 baris `menu_items` di produksi punya
-    // `outlet_id = NULL`, nol baris yang terisi, dan `apps/pos-kasir` tidak
-    // pernah menyaring menu per outlet di satu pun jalur pemesanannya.
+    // `menu_items` di sistem ini CAMPURAN, dan keduanya harus terbit:
     //
-    // Menyaring per outlet di sini membuat katalog SELALU kosong untuk setiap
-    // outlet -- dan gejalanya ("Menu belum terbit") menyerupai kesalahan
-    // pengisian data, bukan kesalahan kode, sehingga bisa dikejar berjam-jam
-    // ke arah yang salah.
+    //   - `outlet_id IS NULL`  -> menu bersama, berlaku di semua outlet.
+    //     Ini bentuk seluruh 50 menu warisan, dan `apps/pos-kasir` memang
+    //     tidak pernah menyaring menu per outlet di jalur pemesanan mana pun.
+    //   - `outlet_id = <outlet>` -> menu milik satu outlet saja. Bentuk ini
+    //     muncul dari menu yang dibuat lewat dashboard admin.
     //
-    // Konsekuensi yang perlu diketahui: `is_available` juga global. Item yang
-    // ditandai habis, habis di SEMUA outlet. Kalau kelak ketersediaan
-    // per-outlet dibutuhkan, ia perlu tabel penghubungnya sendiri -- yang
-    // sampai sekarang tidak ada di skema.
+    // Menyaring HANYA `.eq('outlet_id', outletId)` membuat katalog selalu
+    // kosong (50 menu warisan tersaring habis). Membuang penyaringnya sama
+    // sekali membuat menu milik satu outlet bocor ke SEMUA outlet -- dan
+    // pesanannya akan ditolak `periksaKeranjang` dengan `tidak_ada` tepat di
+    // titik pembayaran, karena katalog segar outlet itu tak memuatnya.
+    //
+    // Keduanya pernah terjadi. `.or(...)` di bawah adalah bentuk yang benar.
+    //
+    // Konsekuensi yang tetap berlaku: `is_available` global untuk menu
+    // bersama. Item yang ditandai habis, habis di semua outlet.
+    .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
     .eq('tampil_di_app', true)
     .order('sort_order', { ascending: true })
 

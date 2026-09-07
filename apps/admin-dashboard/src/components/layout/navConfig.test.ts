@@ -5,9 +5,16 @@ import {
   NAV_GROUPS,
   accessibleGroups,
   accessibleItems,
+  labelForPath,
   primaryItems,
+  type NavItem,
   type Role,
 } from './navConfig'
+
+/** Semua item nav, induk maupun sub-menu, tanpa memandang role. */
+const ALL_ITEMS: NavItem[] = NAV_GROUPS.flatMap((g) =>
+  g.items.flatMap((i) => [i, ...(i.children ?? [])]),
+)
 
 const ROLES: Role[] = [
   'ADMIN',
@@ -43,6 +50,8 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/owner/kelola-mitra',
     '/dashboard/owner/petty-cash',
     '/dashboard/owner/profit',
+    '/dashboard/owner/profit/internal',
+    '/dashboard/owner/profit/mitra',
     '/dashboard/owner/rekap-absensi',
     '/dashboard/owner/rekap-bulanan',
     '/dashboard/owner/targets',
@@ -70,7 +79,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/input-pengeluaran',
     '/dashboard/reports/pembelian',
     '/dashboard/reports/pos',
-    '/dashboard/reports/shrinkage',
     '/dashboard/reports/target-harian',
     '/dashboard/resep',
     '/dashboard/system-health',
@@ -84,6 +92,8 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/owner/kelola-mitra',
     '/dashboard/owner/petty-cash',
     '/dashboard/owner/profit',
+    '/dashboard/owner/profit/internal',
+    '/dashboard/owner/profit/mitra',
     '/dashboard/owner/rekap-absensi',
     '/dashboard/owner/rekap-bulanan',
     '/dashboard/owner/targets',
@@ -96,7 +106,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/crew-bonus',
     '/dashboard/reports/input-pengeluaran',
     '/dashboard/reports/pos',
-    '/dashboard/reports/shrinkage',
     '/dashboard/reports/target-harian',
   ],
   ADMIN_HR: [
@@ -156,11 +165,60 @@ describe('navConfig — invarian', () => {
   })
 
   it('setiap href di nav punya page.tsx yang benar-benar ada', () => {
-    const hrefs = [...new Set(NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href)))]
+    const hrefs = [...new Set(ALL_ITEMS.map((i) => i.href))]
     const missing = hrefs.filter(
       (href) => !existsSync(join(process.cwd(), 'src/app', href, 'page.tsx')),
     )
     expect(missing).toEqual([])
+  })
+
+  it('sub-menu hanya satu tingkat — anak tidak boleh punya anak lagi', () => {
+    const grandchildren = NAV_GROUPS.flatMap((g) =>
+      g.items.flatMap((i) => (i.children ?? []).filter((c) => c.children?.length)),
+    )
+    expect(grandchildren).toEqual([])
+  })
+
+  it('role anak selalu himpunan bagian dari role induknya', () => {
+    const bocor = NAV_GROUPS.flatMap((g) =>
+      g.items.flatMap((i) =>
+        (i.children ?? [])
+          .filter((c) => c.roles.some((r) => !i.roles.includes(r)))
+          .map((c) => `${i.href} → ${c.href}`),
+      ),
+    )
+    expect(bocor).toEqual([])
+  })
+
+  it('klaster beban berurutan sepintu: catat → analisis → dalami waste', () => {
+    const door = NAV_GROUPS.find((g) =>
+      g.items.some((i) => i.href === '/dashboard/reports/input-pengeluaran'),
+    )
+    const hrefs = door?.items.map((i) => i.href) ?? []
+    const start = hrefs.indexOf('/dashboard/reports/input-pengeluaran')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(hrefs.slice(start, start + 3)).toEqual([
+      '/dashboard/reports/input-pengeluaran',
+      '/dashboard/owner/expenses',
+      '/dashboard/owner/waste',
+    ])
+  })
+
+  it('Selisih Stok sengaja tak ada di nav, tapi halamannya tetap ada', () => {
+    // Dilepas dari nav atas permintaan owner, BUKAN dihapus. Test ini menjaga
+    // dua-duanya: tak muncul di nav, dan file halamannya tidak ikut terhapus
+    // supaya bisa dikembalikan kapan saja.
+    expect(ALL_ITEMS.some((i) => i.href === '/dashboard/reports/shrinkage')).toBe(false)
+    expect(existsSync(join(process.cwd(), 'src/app/dashboard/reports/shrinkage/page.tsx'))).toBe(true)
+  })
+
+  it('Laba Rugi punya sub-menu Internal & Mitra', () => {
+    const labaRugi = ALL_ITEMS.find((i) => i.href === '/dashboard/owner/profit')
+    expect(labaRugi?.label).toBe('Laba Rugi')
+    expect(labaRugi?.children?.map((c) => c.href)).toEqual([
+      '/dashboard/owner/profit/internal',
+      '/dashboard/owner/profit/mitra',
+    ])
   })
 
   it.each(ROLES)('%s: himpunan route tidak berubah dari baseline', (role) => {
@@ -174,7 +232,7 @@ describe('navConfig — invarian', () => {
 
   it('ADMIN melihat tujuh pintu dengan urutan yang ditentukan', () => {
     expect(accessibleGroups('ADMIN').map((g) => g.title)).toEqual([
-      'Bisnis',
+      'Laporan Internal',
       'Pusat Laporan',
       'Produk & Stok',
       'Pembelian',
@@ -182,6 +240,14 @@ describe('navConfig — invarian', () => {
       'Karyawan',
       'Sistem',
     ])
+  })
+})
+
+describe('labelForPath — judul header', () => {
+  it('mengenali sub-menu, bukan cuma induknya', () => {
+    expect(labelForPath('/dashboard/owner/profit')).toBe('Laba Rugi')
+    expect(labelForPath('/dashboard/owner/profit/internal')).toBe('Laba Rugi Internal')
+    expect(labelForPath('/dashboard/owner/profit/mitra')).toBe('Laba Rugi Mitra')
   })
 })
 

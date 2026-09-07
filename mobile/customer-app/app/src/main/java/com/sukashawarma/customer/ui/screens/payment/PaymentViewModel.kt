@@ -24,7 +24,17 @@ private const val BATAS_TUNGGU_MS = 5 * 60 * 1000L
 data class PaymentState(
     val memuat: Boolean = false,
     val pesanGalat: String? = null,
-    /** URL halaman pembayaran Xendit; dibuka dengan Custom Tabs. */
+    /**
+     * Teks QRIS yang digambar aplikasi sendiri. Ini jalur utama.
+     */
+    val qrString: String? = null,
+    /**
+     * URL halaman pembayaran Xendit; dibuka dengan Custom Tabs.
+     *
+     * CADANGAN, dipakai hanya ketika `qrString` kosong -- yaitu ketika QR Code
+     * API menolak dan gateway jatuh ke Invoice. Selama masih ada QR, pelanggan
+     * tidak pernah dilempar ke peramban.
+     */
     val paymentUrl: String? = null,
     val orderId: String? = null,
     val menungguKonfirmasi: Boolean = false,
@@ -32,7 +42,16 @@ data class PaymentState(
     val gagalBayar: Boolean = false,
     val kadaluarsa: Boolean = false,
     val nomorPesanan: Int? = null,
-    val waktuHabis: Boolean = false
+    val waktuHabis: Boolean = false,
+    /**
+     * URL pembayaran percobaan yang DILANJUTKAN.
+     *
+     * Dipisah dari [paymentUrl] dengan sengaja: `paymentUrl` memicu pembukaan
+     * otomatis, sedangkan yang ini hanya menyalakan tombol. Membuka otomatis
+     * saat melanjutkan akan melempar pelanggan kembali ke Chrome tepat setelah
+     * ia menutupnya -- lingkaran yang tak bisa diputus.
+     */
+    val urlBayarTersimpan: String? = null
 )
 
 class PaymentViewModel(
@@ -71,12 +90,17 @@ class PaymentViewModel(
                 is GatewayResult.Sukses -> {
                     val r = hasil.data
                     percobaan.simpanOrderId(r.orderId)
+                    r.paymentUrl?.let { percobaan.simpanPaymentUrl(it) }
                     _state.value = _state.value.copy(
                         memuat = false,
                         orderId = r.orderId,
-                        // `payment_url` bisa null kalau ini balasan duplikat
-                        // untuk pesanan yang tagihannya sudah dibuat. Bukan
-                        // galat: lanjut menanyakan status saja.
+                        qrString = r.qrString,
+                        // Keduanya bisa null kalau ini balasan duplikat untuk
+                        // pesanan yang tagihannya sudah dibuat. Bukan galat:
+                        // lanjut menanyakan status saja.
+                        //
+                        // Custom Tab HANYA dibuka bila tidak ada QR -- lihat
+                        // penjaga di PaymentWaitScreen.
                         paymentUrl = r.paymentUrl
                     )
                     tanyaSampaiPasti(r.orderId)
@@ -161,12 +185,82 @@ class PaymentViewModel(
         }
     }
 
-    /** Melanjutkan percobaan yang tertinggal setelah aplikasi sempat mati. */
-    fun lanjutkanJikaAda(): Boolean {
-        val orderId = percobaan.orderId() ?: return false
-        _state.value = _state.value.copy(orderId = orderId)
-        tanyaSampaiPasti(orderId)
-        return true
+    /**
+     * Titik masuk layar pembayaran.
+     *
+     * Kalau ada percobaan tertinggal, statusnya DIPERIKSA dulu -- tidak
+     * langsung dipantau. Versi sebelumnya memantau apa pun yang tersimpan,
+     * termasuk draft yang batas waktunya sudah lewat: pelanggan menonton
+     * pemuat lima menit penuh untuk pesanan yang tidak akan pernah berubah,
+     * lalu diberi pesan "belum ada kabar" yang keliru.
+     *
+     * Galat jaringan saat memeriksa TIDAK memulai pesanan baru. Pesanan lama
+     * mungkin masih hidup, dan membuat yang baru berarti tagihan kedua.
+     */
+    fun mulai() {
+        val orderId = percobaan.orderId()
+        if (orderId == null) {
+            bayar()
+            return
+        }
+
+        _state.value = _state.value.copy(memuat = true, orderId = orderId)
+
+        viewModelScope.launch {
+            when (val hasil = repository.statusPesanan(orderId)) {
+                is GatewayResult.Gagal -> {
+                    // Tidak tahu nasibnya. Arah aman: pantau, jangan menagih ulang.
+                    _state.value = _state.value.copy(memuat = false)
+                    tanyaSampaiPasti(orderId)
+                }
+
+                is GatewayResult.Sukses -> {
+                    val d = hasil.data
+                    when (nasibPercobaan(d.status, d.expiresAt, System.currentTimeMillis())) {
+                        NasibPercobaan.DIBAYAR -> {
+                            cart.kosongkan()
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(
+                                memuat = false,
+                                dibayar = true,
+                                nomorPesanan = d.posOrderNumber
+                            )
+                        }
+
+                        NasibPercobaan.GAGAL -> {
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(memuat = false, gagalBayar = true)
+                        }
+
+                        NasibPercobaan.MULAI_BARU -> {
+                            // Percobaan lama mati. Dibuang, lalu pesanan baru
+                            // dibuat dengan client_order_id baru -- id lama
+                            // sudah terpakai dan akan ditolak 409 selamanya.
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(memuat = false, orderId = null)
+                            bayar()
+                        }
+
+                        NasibPercobaan.LANJUTKAN -> {
+                            // Tagihannya masih berlaku. Pelanggan HARUS punya
+                            // jalan membukanya lagi -- kalau tidak, ia terjebak
+                            // menatap pemuat sementara pesanan kedua ditolak
+                            // demi mencegah tagihan ganda.
+                            _state.value = _state.value.copy(
+                                memuat = false,
+                                // QR yang sama ditampilkan lagi, bukan tagihan
+                                // kedua. Server didahulukan untuk URL cadangan:
+                                // salinan lokal hilang saat aplikasi dipasang
+                                // ulang atau pelanggan ganti perangkat.
+                                qrString = d.qrString,
+                                urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl()
+                            )
+                            tanyaSampaiPasti(orderId)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun batalkanPercobaan() {

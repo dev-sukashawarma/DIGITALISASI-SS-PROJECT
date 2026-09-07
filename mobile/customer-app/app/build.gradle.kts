@@ -25,16 +25,26 @@ val gatewayBaseUrl: String =
 // provider Google di Supabase `khpkoreaaucvyqfhynfq` (diverifikasi 2026-09-05
 // lewat Callback URL di panel Supabase).
 //
-// WAJIB bertipe **Web application**, bukan Android. Android client ID yang
-// dipakai di sini membuat penukaran token ditolak 401 "Login Google gagal"
-// dengan pesan yang sama sekali tidak menunjuk penyebabnya.
+// WAJIB bertipe **Web application**, bukan Android.
+//
+// Ini bukan peringatan teoretis: nilai sebelumnya
+// (`...54akuvpbb8rampkbo4ll0neamne1gcqt...`) ternyata client **Android**, dan
+// Credential Manager menolaknya dengan
+//
+//     [28444] Developer console is not set up correctly.
+//
+// Lembar akun Google TETAP MUNCUL saat itu -- jadi "lembarnya muncul" bukan
+// bukti konfigurasinya benar. Yang membuktikan hanya token yang benar-benar
+// terbit. Client Android tetap harus ADA di project yang sama (paket
+// com.sukashawarma.customer + SHA-1 keystore), tapi ID-nya tidak dipakai di
+// kode mana pun.
 //
 // Ini BUKAN rahasia: client ID tertanam di dalam setiap APK dan memang
 // dirancang untuk publik. Yang rahasia adalah client SECRET, dan itu tidak
 // pernah menyentuh aplikasi ini -- hanya panel Supabase yang memegangnya.
 val googleWebClientId: String = (
     localProperties.getProperty("googleWebClientId")
-        ?: "401597244561-54akuvpbb8rampkbo4ll0neamne1gcqt.apps.googleusercontent.com"
+        ?: "401597244561-qegnpf2mgcgs43u9hlqvklmmripd1s0m.apps.googleusercontent.com"
     )
 
 android {
@@ -98,7 +108,13 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.coil.compose)
     // Custom Tabs untuk halaman pembayaran Xendit -- BUKAN WebView sendiri.
+    // Masih dipakai sebagai cadangan ketika gateway mengembalikan
+    // `payment_url` alih-alih `qr_string`.
     implementation("androidx.browser:browser:1.8.0")
+
+    // Penggambar QRIS. `core` saja: Java murni, tanpa Activity pemindai
+    // bawaan ZXing yang tidak kita butuhkan (kita menggambar, bukan memindai).
+    implementation("com.google.zxing:core:3.5.3")
 
     // HTTP client — talks ONLY to the Retail Gateway. No Supabase SDK, no DB credentials.
     implementation(libs.ktor.client.android)

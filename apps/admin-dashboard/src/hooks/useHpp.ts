@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase";
 import type { PeriodFilterValue } from "@/lib/types";
 import { cleanItemName } from "@/lib/order-item-name";
 import { isTestOutlet, TEST_OUTLET_ID } from "@/lib/outletFilters";
+import { fetchAllPagesParallel } from "@/lib/queryPaging";
+import { periodCacheOptions, withPeriodCache } from "@/lib/periodCache";
 
 export interface HppRow {
   outlet_id: string;
@@ -71,18 +73,27 @@ function getItemHpp(
   return baseHpp;
 }
 
+const PAGE_SIZE = 1000;
+
+// Kolom HPP yang dipakai getItemHpp. Ditarik SEKALI dari `menu_items` (50 baris)
+// lalu dipetakan per id, bukan ikut di-join ke tiap order_item.
+const MENU_HPP_SELECT =
+  "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))";
+
 export function useHpp(filter: PeriodFilterValue) {
   const supabase = createClient();
+  const queryKey = [
+    "hpp-client-calculated",
+    filter.from,
+    filter.to,
+    filter.outletId,
+  ] as const;
+
   const query = useQuery<HppRow[]>({
-    queryKey: [
-      "hpp-client-calculated",
-      filter.from,
-      filter.to,
-      filter.outletId,
-    ],
-    staleTime: 2 * 60_000,
+    queryKey: [...queryKey],
+    ...periodCacheOptions(filter),
     enabled: Boolean(filter.from && filter.to),
-    queryFn: async () => {
+    queryFn: withPeriodCache(queryKey, filter, async () => {
       const start = new Date(filter.from);
       start.setHours(0, 0, 0, 0);
       const end = new Date(filter.to);
@@ -91,91 +102,84 @@ export function useHpp(filter: PeriodFilterValue) {
       const ordersGte = start.toISOString();
       const ordersLte = end.toISOString();
 
-      const { data: outlets } = await supabase
-        .from("outlets")
-        .select("id, type, name, slug")
-        .neq("id", TEST_OUTLET_ID);
+      // Dua tabel master, kecil dan tak saling bergantung — ambil bersamaan.
+      const [outletsRes, menuItemsRes] = await Promise.all([
+        supabase.from("outlets").select("id, type, name, slug").neq("id", TEST_OUTLET_ID),
+        supabase.from("menu_items").select(MENU_HPP_SELECT),
+      ]);
+
       const outletTypeMap = new Map<string, string>();
-      outlets?.forEach((o: any) => {
+      outletsRes.data?.forEach((o: any) => {
         if (!isTestOutlet(o)) outletTypeMap.set(o.id, o.type || "outlet");
       });
 
-      const { data: menuItemsData } = await supabase
-        .from("menu_items")
-        .select(
-          "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))",
-        );
-
+      const menuItemsData = menuItemsRes.data;
       const menuItemByNameMap = new Map<string, any>();
+      const menuItemByIdMap = new Map<string, any>();
       menuItemsData?.forEach((mi: any) => {
-        if (mi.name) {
-          menuItemByNameMap.set(cleanItemName(mi.name), mi);
-        }
+        if (mi.name) menuItemByNameMap.set(cleanItemName(mi.name), mi);
+        if (mi.id) menuItemByIdMap.set(mi.id, mi);
       });
 
-      let queryOrders = supabase
-        .from("orders")
-        .select(
-          "outlet_id, channel, sales_source, status, order_items(menu_item_name, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))",
-        )
-        .neq("outlet_id", TEST_OUTLET_ID)
-        .gte("created_at", ordersGte)
-        .lte("created_at", ordersLte);
+      // `order_items` di-select TANPA join bersarang ke menu_items. Join itu
+      // mengirim ulang tabel `menu_items` yang cuma 50 baris untuk tiap satu
+      // dari ~90.000 order_item: 16,7 MB dan 26 detik untuk satu bulan, hanya
+      // untuk menghasilkan 19 baris agregat. `menu_item_id` cukup — objek yang
+      // dulu ikut di-join persis baris yang sama dengan yang sudah ada di
+      // menuItemByIdMap di atas.
+      //
+      // `status` disaring di server (dulu tiap baris ditarik lalu dibuang di
+      // klien), dan `.order('id')` membuat urutan halaman deterministik —
+      // syarat mutlak sebelum halaman boleh diambil paralel.
+      const buildOrdersPage = (from: number, to: number, withCount: boolean) => {
+        let b = supabase
+          .from("orders")
+          .select(
+            "outlet_id, channel, sales_source, order_items(menu_item_id, menu_item_name, quantity)",
+            withCount ? { count: "exact" } : undefined,
+          )
+          .neq("outlet_id", TEST_OUTLET_ID)
+          .in("status", ["completed", "settled"])
+          .gte("created_at", ordersGte)
+          .lte("created_at", ordersLte)
+          .order("id", { ascending: true });
 
-      if (filter.outletId !== "all") {
-        queryOrders = queryOrders.eq("outlet_id", filter.outletId);
-      }
+        if (filter.outletId !== "all") b = b.eq("outlet_id", filter.outletId);
+        return b.range(from, to);
+      };
 
-      const PAGE_SIZE = 1000;
-      const allOrders: any[] = [];
-      let offset = 0;
-      while (true) {
-        const { data, error } = await queryOrders.range(
-          offset,
-          offset + PAGE_SIZE - 1,
-        );
-        if (error) throw error;
-        const page = data ?? [];
-        allOrders.push(...page);
-        if (page.length < PAGE_SIZE) break;
-        offset += PAGE_SIZE;
-      }
+      const wantsEcommerce =
+        filter.outletId === "all" || filter.outletId === "ss-online";
 
-      const ecommerceSalesList: any[] = [];
-      if (filter.outletId === "all" || filter.outletId === "ss-online") {
-        let queryEcommerce = supabase
+      const buildEcommercePage = (from: number, to: number, withCount: boolean) =>
+        supabase
           .from("ecommerce_sales")
           .select(
-            "channel_id, ecommerce_sale_items(menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))), quantity)",
+            "channel_id, ecommerce_sale_items(menu_id, quantity)",
+            withCount ? { count: "exact" } : undefined,
           )
           .gte("order_date", ordersGte)
-          .lte("order_date", ordersLte);
+          .lte("order_date", ordersLte)
+          .order("id", { ascending: true })
+          .range(from, to);
 
-        offset = 0;
-        while (true) {
-          const { data, error } = await queryEcommerce.range(
-            offset,
-            offset + PAGE_SIZE - 1,
-          );
-          if (error) throw error;
-          const page = data ?? [];
-          ecommerceSalesList.push(...page);
-          if (page.length < PAGE_SIZE) break;
-          offset += PAGE_SIZE;
-        }
-      }
+      const [allOrders, ecommerceSalesList] = await Promise.all([
+        fetchAllPagesParallel<any>(buildOrdersPage, PAGE_SIZE),
+        wantsEcommerce
+          ? fetchAllPagesParallel<any>(buildEcommercePage, PAGE_SIZE)
+          : Promise.resolve([] as any[]),
+      ]);
 
       const hppMap = new Map<string, number>();
 
       allOrders.forEach((o: any) => {
-        if (o.status !== "completed" && o.status !== "settled") return;
         if (isTestOutlet(o.outlet_id)) return;
         const outletType = outletTypeMap.get(o.outlet_id);
         const orderChannel = o.channel || o.sales_source;
 
         o.order_items?.forEach((item: any) => {
           const hpp = getItemHpp(
-            item.menu_items,
+            item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null,
             outletType,
             item.menu_item_name,
             menuItemByNameMap,
@@ -193,9 +197,12 @@ export function useHpp(filter: PeriodFilterValue) {
         const ecommerceChannel = saleRecord.channel_id || "ss_online";
 
         saleRecord.ecommerce_sale_items?.forEach((item: any) => {
-          const fallbackName = item.menu_items?.name || "Unknown";
+          const menuItem = item.menu_id
+            ? menuItemByIdMap.get(item.menu_id)
+            : null;
+          const fallbackName = menuItem?.name || "Unknown";
           const hpp = getItemHpp(
-            item.menu_items,
+            menuItem,
             outletType,
             fallbackName,
             menuItemByNameMap,
@@ -211,7 +218,7 @@ export function useHpp(filter: PeriodFilterValue) {
         outlet_id,
         hpp,
       }));
-    },
+    }),
   });
   return {
     rows: query.data ?? [],

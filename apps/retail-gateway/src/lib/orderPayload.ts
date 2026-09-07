@@ -27,7 +27,14 @@ export function susunPayloadPos(input: {
     customer_phone: input.customerPhone,
     cashier_name: null,
     notes: 'Pesanan aplikasi',
-    // Sengaja dipatok, BUKAN kanal Xendit yang sebenarnya. Constraint
+    // Dipatok `'qris'`, dan sejak 2026-09-07 ini AKURAT -- bukan lagi
+    // kompromi: `buatTagihan` membatasi kanal Xendit ke `['QRIS']` saja, jadi
+    // tidak ada pembayaran aplikasi yang bisa datang lewat kanal lain.
+    //
+    // KALAU KANAL LAIN DIBUKA LAGI, baris ini kembali menjadi label yang bisa
+    // keliru, dan peringatan di bawah berlaku penuh lagi.
+    //
+    // Constraint
     // `orders_payment_method_check` di database live hanya mengizinkan
     // 'cash' | 'qris' | 'card' | NULL untuk channel selain 'website'.
     // Menulis 'OVO'/'BANK_TRANSFER' membuat `atomic_insert_order` gagal

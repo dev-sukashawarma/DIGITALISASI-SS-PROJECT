@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 
 import { useState, useEffect } from 'react'
@@ -8,18 +7,12 @@ import {
   DollarSign, 
   Store, 
   Activity, 
-  ShoppingBag, 
   Clock, 
-  CheckCircle,
   CreditCard,
   FileText,
-  User,
   Users,
   UserCircle,
   ShieldCheck,
-  Building,
-  Sparkles,
-  ExternalLink,
   ChevronRight,
   Download,
   ArrowRightLeft,
@@ -37,6 +30,7 @@ import type { PeriodFilterValue } from '@/lib/types'
 import { useMitraOutlet } from './MitraOutletContext'
 import { getMitraRoiStats } from '@/app/actions/mitraRoi'
 import { getMitraComprehensivePnl, type ComprehensiveMitraPnl } from '@/app/actions/mitraPnl'
+import { getAggregatedMenuSales } from '@/app/actions/menuSales'
 import { MitraBiodataModal } from './MitraBiodataModal'
 import { MitraProfitLossSection } from './MitraProfitLossSection'
 import { createClient } from '@/lib/supabase'
@@ -71,7 +65,6 @@ export function MitraDashboardView({
   curKpiRows = [],
   prevKpiRows = [],
   trendKpiRows = [],
-  trendFilter,
   currentFilter,
   topMenus = [],
   recentOrders = [],
@@ -86,13 +79,18 @@ export function MitraDashboardView({
 }: any) {
   const router = useRouter()
   const supabase = createClient()
-  const { selectedOutlet, selectedOutletId, setSelectedOutletId } = useMitraOutlet()
+  const { selectedOutletId, setSelectedOutletId } = useMitraOutlet()
   
   const allowedOutletIds = (outlets || []).map((o: any) => o.id)
 
   const [isBiodataOpen, setIsBiodataOpen] = useState(false)
   const [pnlData, setPnlData] = useState<ComprehensiveMitraPnl | null>(null)
   const [isPnlLoading, setIsPnlLoading] = useState(true)
+
+  // Top Menu ikut outlet yang dipilih. Nilai awal dari server ('all' = seluruh
+  // outlet mitra ini); begitu dropdown diganti, daftar ditarik ulang khusus
+  // outlet itu. Sebelumnya daftar terkunci ke outlet pertama selamanya.
+  const [topMenuRows, setTopMenuRows] = useState<any[]>(topMenus)
 
   // Saran State
   const [saranList, setSaranList] = useState<any[]>(initialSuggestions)
@@ -157,6 +155,25 @@ export function MitraDashboardView({
       }
     }
     loadPnl()
+    return () => { active = false }
+  }, [selectedOutletId, currentFilter, outlets])
+
+  // Load Top Menu untuk outlet yang sedang dipilih
+  useEffect(() => {
+    let active = true
+    async function loadTopMenus() {
+      if (allowedOutletIds.length === 0) return
+      try {
+        const rows = await getAggregatedMenuSales({
+          ...currentFilter,
+          outletId: selectedOutletId || 'all',
+        })
+        if (active) setTopMenuRows(rows || [])
+      } catch (e) {
+        console.error('Error loading top menus:', e)
+      }
+    }
+    loadTopMenus()
     return () => { active = false }
   }, [selectedOutletId, currentFilter, outlets])
 
@@ -571,7 +588,7 @@ export function MitraDashboardView({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredTransfers.map((t) => (
+                  {filteredTransfers.map((t: any) => (
                     <div 
                       key={t.id} 
                       className="p-5 bg-white rounded-2xl border border-suka-gray-100 shadow-sm flex flex-col justify-between hover:shadow-md transition-all group"
@@ -635,7 +652,7 @@ export function MitraDashboardView({
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {filteredStaff.map((s) => (
+                  {filteredStaff.map((s: any) => (
                     <div 
                       key={s.id} 
                       className="p-4 bg-white rounded-2xl border border-suka-gray-100 shadow-sm flex flex-col items-center text-center hover:shadow-md transition-all group"
@@ -681,7 +698,7 @@ export function MitraDashboardView({
                   </div>
 
                   <div className="divide-y divide-suka-gray-100 space-y-2">
-                    {filteredOrders.slice(0, 7).map((ord) => (
+                    {filteredOrders.slice(0, 7).map((ord: any) => (
                       <div key={ord.id} className="pt-2 flex items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded-xl bg-suka-gray-50 flex items-center justify-center font-mono font-bold text-[10px] text-suka-gray-500 shrink-0">
@@ -698,7 +715,7 @@ export function MitraDashboardView({
                         </div>
 
                         <div className="text-right shrink-0 flex items-center gap-3">
-                          <OrderSourceBadge source={ord.sales_source || 'pos'} />
+                          <OrderSourceBadge salesSource={ord.sales_source || 'pos'} customerName={ord.customer_name} />
                           <span className="font-black text-suka-brown text-sm">
                             {formatRupiah(ord.total_amount)}
                           </span>
@@ -728,7 +745,7 @@ export function MitraDashboardView({
                 </div>
 
                 <div className="space-y-3">
-                  {(topMenus || []).slice(0, 5).map((m: any, i: number) => (
+                  {(topMenuRows || []).slice(0, 5).map((m: any, i: number) => (
                     <div key={i} className="p-3 bg-white rounded-xl border border-suka-gray-100 flex items-center justify-between text-xs">
                       <div className="flex items-center gap-2 min-w-0 pr-2">
                         <span className="w-5 h-5 rounded-full bg-suka-orange/10 text-suka-orange font-black text-[10px] flex items-center justify-center shrink-0">
@@ -742,7 +759,7 @@ export function MitraDashboardView({
                     </div>
                   ))}
 
-                  {(!topMenus || topMenus.length === 0) && (
+                  {(!topMenuRows || topMenuRows.length === 0) && (
                     <div className="p-8 text-center text-xs text-suka-gray-400">
                       Belum ada data penjualan menu.
                     </div>

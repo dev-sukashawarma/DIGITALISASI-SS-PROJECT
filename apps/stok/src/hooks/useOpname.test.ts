@@ -95,4 +95,38 @@ describe('getEffectiveTodayWIB', () => {
     const effectiveDate = await getEffectiveTodayWIB(CICURUG_ID, mockSupabase)
     expect(effectiveDate).toBe('2026-09-03')
   })
+
+  it('returns 2026-09-05 for catchup outlet (e.g. Cibinong) on 2026-09-06 when Sep 5 opname is not finalized yet', async () => {
+    vi.setSystemTime(new Date('2026-09-06T04:00:00.000Z')) // 11:00 WIB
+    const CIBINONG_ID = '550e8400-e29b-41d4-a716-446655440014'
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnThis(),
+          then: (resolve: any) => resolve({ count: 0, error: null }),
+        }),
+      }),
+    }
+
+    const effectiveDate = await getEffectiveTodayWIB(CIBINONG_ID, mockSupabase)
+    expect(effectiveDate).toBe('2026-09-05')
+  })
+
+  it('returns 2026-09-06 for catchup outlet on 2026-09-06 when Sep 5 opname is already finalized', async () => {
+    vi.setSystemTime(new Date('2026-09-06T04:00:00.000Z')) // 11:00 WIB
+    const CIBINONG_ID = '550e8400-e29b-41d4-a716-446655440014'
+
+    const mockSupabase = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          eq: vi.fn().mockReturnThis(),
+          then: (resolve: any) => resolve({ count: 1, error: null }),
+        }),
+      }),
+    }
+
+    const effectiveDate = await getEffectiveTodayWIB(CIBINONG_ID, mockSupabase)
+    expect(effectiveDate).toBe('2026-09-06')
+  })
 })

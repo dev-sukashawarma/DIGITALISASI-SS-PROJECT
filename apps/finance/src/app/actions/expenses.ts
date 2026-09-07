@@ -123,7 +123,7 @@ export async function getExpensesAction(filter: { from: string; to: string; outl
 
     if (filter.outletId && filter.outletId !== 'all') {
       if (filter.outletId === 'PUSAT') {
-        q = q.is('outlet_id', null)
+        q = q.or('outlet_id.is.null,outlet_id.eq.ffffffff-ffff-ffff-ffff-ffffffffffff')
       } else {
         q = q.eq('outlet_id', filter.outletId)
       }

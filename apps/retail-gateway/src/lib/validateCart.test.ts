@@ -12,6 +12,8 @@ const menu = (over: Partial<MenuApp> = {}): MenuApp => ({
   is_available: true,
   category_id: null,
   sort_order: null,
+  category_name: null,
+  category_sort_order: null,
   ...over,
 })
 

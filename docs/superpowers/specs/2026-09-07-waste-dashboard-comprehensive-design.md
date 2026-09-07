@@ -59,19 +59,29 @@ Rumus sekarang membagi dengan `faktor_konversi`. Sejak normalisasi 2026-09-03 ko
 
 Pembagi diperbaiki mengikuti pola `get_hpp_periode` (`20300122000002`):
 
+Faktor penuh memakai ekspresi kanonik yang **sudah ada** di repo — persis sama dengan `20300120000001`, `trg_process_bom_stok` (`20300108000005`), dan `to_ledger_scale()`:
+
 ```sql
-COALESCE(bh.harga_beli, 0)
-  / COALESCE(
-      NULLIF(bh.kemasan_qty, 0),
-      CASE WHEN COALESCE(b.faktor_tengah, 0) > 0
-           THEN NULLIF(b.faktor_tampilan, 0)
-           ELSE NULLIF(b.faktor_konversi, 0)
-      END,
-      1
-    )
+-- faktor_penuh (kecil per besar)
+GREATEST(
+  COALESCE(
+    CASE WHEN b.faktor_tengah IS NOT NULL AND b.faktor_tampilan IS NOT NULL
+         THEN b.faktor_tampilan
+         ELSE b.faktor_konversi
+    END,
+    1
+  ),
+  1
+)
 ```
 
-Yaitu: pakai `kemasan_qty`; bila kosong, jatuh ke faktor penuh — `faktor_tampilan` ketika `faktor_tengah` terisi, selain itu `faktor_konversi`; bila keduanya kosong, `1` sebagai penjaga terakhir agar tidak pernah membagi dengan nol.
+Pembagi `hpp_kecil` menjadi:
+
+```sql
+COALESCE(bh.harga_beli, 0) / COALESCE(NULLIF(bh.kemasan_qty, 0), <faktor_penuh>)
+```
+
+Yaitu: pakai `kemasan_qty`; bila kosong atau nol, jatuh ke faktor penuh. Karena faktor penuh dibungkus `GREATEST(..., 1)`, pembagi tidak pernah nol.
 
 **Perbaikan ini tidak menggeser satu rupiah pun di total mana pun.** `nilai = qty × harga_beli` sudah benar di bawah basis kanonik dan tidak disentuh. Yang berubah hanya kolom tampilan per-satuan.
 

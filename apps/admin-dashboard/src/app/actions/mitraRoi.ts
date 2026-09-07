@@ -2,54 +2,16 @@
 
 import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
+import { aggregateMitraRoiStats } from '@/lib/mitraRoiAggregate'
 
 export async function getMitraRoiStats(outletId: string | 'all', allowedOutletIds: string[]) {
   const targetOutlets = outletId === 'all' ? allowedOutletIds : [outletId]
   if (targetOutlets.length === 0) {
-    return {
-      systemProfitMitra: 0,
-      historisProfitMitra: 0,
-      nilaiInvestasi: 0,
-      totalProfitKumulatif: 0,
-      roi: 0,
-      bepPercentage: 0,
-      sudahDiterima: 0,
-      roiDiterima: 0
-    }
+    return aggregateMitraRoiStats({}, targetOutlets)
   }
 
   const bepMap = await getMitraRealtimeBepBreakdown(targetOutlets)
-
-  let nilaiInvestasi = 0
-  let historisProfitMitra = 0
-  let systemProfitMitra = 0
-  let totalDanaKembali = 0
-  let sudahDiterima = 0
-
-  for (const oid of targetOutlets) {
-    const item = bepMap[oid]
-    if (item) {
-      nilaiInvestasi += item.modalInvestasi
-      historisProfitMitra += (item.omzetHistoris + item.transferHistoris)
-      systemProfitMitra += item.mitraShare
-      totalDanaKembali += item.totalDanaKembali
-      sudahDiterima += item.sudahDiterima
-    }
-  }
-
-  const roi = nilaiInvestasi > 0 ? (totalDanaKembali / nilaiInvestasi) * 100 : 0
-  const bepPercentage = Math.min(Math.round(roi * 10) / 10, 100)
-
-  return {
-    systemProfitMitra,
-    historisProfitMitra,
-    nilaiInvestasi,
-    totalProfitKumulatif: totalDanaKembali,
-    roi: Math.round(roi * 10) / 10,
-    bepPercentage,
-    sudahDiterima,
-    roiDiterima: nilaiInvestasi > 0 ? Math.round((sudahDiterima / nilaiInvestasi) * 1000) / 10 : 0
-  }
+  return aggregateMitraRoiStats(bepMap, targetOutlets)
 }
 
 export interface MitraRealtimeBepItem {

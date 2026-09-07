@@ -147,9 +147,9 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     getOwnerDashboardData(prevFilter, outlets),
     getOwnerDashboardData(trendFilter, outlets),
     getAggregatedMenuSales({ ...curFilter, outletId: outletIds.length > 0 ? outletIds[0] : 'all' }),
-    outletIds.length > 0 
-      ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => ({ roi: 0, bepPercentage: 0 }))
-      : Promise.resolve({ roi: 0, bepPercentage: 0 })
+    outletIds.length > 0
+      ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => null)
+      : Promise.resolve(null)
   ])
   
   // 5. Fetch Recent Orders for Mitra

@@ -78,7 +78,7 @@ export function MitraDashboardView({
   initialTransfers = [],
   initialStaff = [],
   initialSuggestions = [],
-  initialRoiStats = { roi: 0, bepPercentage: 0, roiDiterima: 0 },
+  initialRoiStats = null,
   isAdminMode = false,
   allMitraProfiles = [],
   lastUpdated,
@@ -99,13 +99,12 @@ export function MitraDashboardView({
   const [isiSaran, setIsiSaran] = useState('')
   const [isSubmittingSaran, setIsSubmittingSaran] = useState(false)
 
-  // ROI Stats
-  const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; roiDiterima: number; loading: boolean }>({
-    roi: initialRoiStats?.roi || 0,
-    bepPercentage: initialRoiStats?.bepPercentage || 0,
-    roiDiterima: initialRoiStats?.roiDiterima || 0,
-    loading: false
-  })
+  // ROI Stats — null berarti data belum/gagal dimuat: render "—", bukan angka
+  // nol yang seolah-olah fakta (lihat catatan review final soal roiDiterima).
+  const [roiStats, setRoiStats] = useState<{ roi: number; bepPercentage: number; roiDiterima: number } | null>(
+    initialRoiStats
+  )
+  const [isRoiLoading, setIsRoiLoading] = useState(false)
 
   const handleFilterChange = (newFilter: PeriodFilterValue) => {
     if (newFilter.outletId && newFilter.outletId !== selectedOutletId) {
@@ -122,14 +121,21 @@ export function MitraDashboardView({
     let active = true
     async function loadStats() {
       if (allowedOutletIds.length === 0) return
+      setIsRoiLoading(true)
       try {
         const stats = await getMitraRoiStats(selectedOutletId || 'all', allowedOutletIds)
         if (active) {
-          setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, roiDiterima: stats.roiDiterima, loading: false })
+          setRoiStats({ roi: stats.roi, bepPercentage: stats.bepPercentage, roiDiterima: stats.roiDiterima })
+          setIsRoiLoading(false)
         }
       } catch (e) {
         console.error('Error loading ROI stats:', e)
-        if (active) setRoiStats(prev => ({ ...prev, loading: false }))
+        // Gagal ambil data = tak ada data. Jangan pertahankan angka lama/nol
+        // seolah itu masih berlaku — render "—" (lihat bagian JSX di bawah).
+        if (active) {
+          setRoiStats(null)
+          setIsRoiLoading(false)
+        }
       }
     }
     loadStats()
@@ -469,17 +475,17 @@ export function MitraDashboardView({
                   <div className="w-full relative group/bep">
                     <div className="flex justify-between items-end text-[10px] font-extrabold text-suka-gray-500 mb-2 uppercase tracking-wider">
                       <span>Progres Balik Modal (BEP)</span>
-                      <span className="text-suka-orange font-black">{roiStats.bepPercentage.toFixed(1)}%</span>
+                      <span className="text-suka-orange font-black">{roiStats ? `${roiStats.bepPercentage.toFixed(1)}%` : '—'}</span>
                     </div>
                     <div className="w-full bg-suka-gray-100/80 rounded-full h-2.5 overflow-hidden shadow-inner backdrop-blur-sm relative">
                       <div className="absolute inset-0 bg-white/20" />
-                      <div 
+                      <div
                         className={`h-full rounded-full transition-all duration-[2000ms] ease-out shadow-sm ${
-                          roiStats.bepPercentage >= 100 
-                            ? 'bg-gradient-to-r from-suka-green/80 to-suka-green' 
+                          (roiStats?.bepPercentage ?? 0) >= 100
+                            ? 'bg-gradient-to-r from-suka-green/80 to-suka-green'
                             : 'bg-gradient-to-r from-suka-orange/80 to-suka-orange'
                         }`}
-                        style={{ width: `${Math.min(roiStats.bepPercentage, 100)}%` }}
+                        style={{ width: `${Math.min(roiStats?.bepPercentage ?? 0, 100)}%` }}
                       >
                         <div className="w-full h-full bg-white/20 animate-pulse" />
                       </div>
@@ -502,14 +508,16 @@ export function MitraDashboardView({
                 </div>
                 <div className="mt-auto flex flex-col gap-3">
                   <h3 className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black text-suka-brown tracking-tight tabular-nums drop-shadow-sm leading-tight whitespace-nowrap">
-                    {roiStats.loading ? (
+                    {isRoiLoading ? (
                       <span className="text-suka-gray-300">...</span>
-                    ) : (
+                    ) : roiStats ? (
                       <><CountUp end={roiStats.roi} duration={1.5} separator="." decimals={1} decimal="," />%</>
+                    ) : (
+                      <span className="text-suka-gray-300">—</span>
                     )}
                   </h3>
                   <p className="text-[11px] text-suka-gray-400 font-semibold mt-1">
-                    Sudah diterima: <strong className="text-suka-brown">{roiStats.roiDiterima.toFixed(1)}%</strong>
+                    Sudah diterima: <strong className="text-suka-brown">{roiStats ? `${roiStats.roiDiterima.toFixed(1)}%` : '—'}</strong>
                   </p>
                   <div className="mt-1">
                     <span className="inline-flex items-center text-xs font-bold text-suka-orange">

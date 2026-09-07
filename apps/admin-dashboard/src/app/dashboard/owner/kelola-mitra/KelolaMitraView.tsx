@@ -100,7 +100,8 @@ export function KelolaMitraView({
   initialPnlData = null,
   currentFilter = { from: '', to: '', outletId: 'all', source: 'all' },
   mitraOutletIds = [],
-  realtimeBepMap = {}
+  realtimeBepMap = {},
+  realtimeBepFailed = false
 }: any) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'pnl' | 'daftar' | 'investasi' | 'transfer' | 'saran'>('pnl')
@@ -823,6 +824,11 @@ export function KelolaMitraView({
               <p className="text-xs text-[#6E5A4E] font-normal mt-0.5">
                 Pantau progres pengembalian investasi (BEP) tiap outlet berdasarkan akumulasi transfer bagi hasil riil.
               </p>
+              {realtimeBepFailed && (
+                <p className="text-xs text-red-600 font-semibold mt-1">
+                  Data realtime BEP gagal dimuat — angka di bawah ini fallback ke data historis, bukan angka terkini.
+                </p>
+              )}
             </div>
 
             <div className="flex items-center gap-4 bg-[#FAF7F2] p-3 rounded-2xl border border-amber-200/60 shrink-0 flex-wrap sm:flex-nowrap">

@@ -7,6 +7,16 @@
 -- jadi mitra yang memanggil fungsi ini otomatis hanya menerima outletnya sendiri
 -- walau ia mengirim daftar outlet orang lain sebagai parameter. Menulis
 -- pemeriksaan hak akses sendiri di sini justru pola yang pernah kebobolan.
+--
+-- Catatan urutan: fungsi ini memanggil `get_mitra_orders_summary` dan
+-- `get_waste_periode`, yang dibuat oleh migration bertimestamp 2030
+-- (`20300128000000` dan `20260714100000`). Karena migration dieksekusi
+-- berurutan nama, replay dari nol akan menjalankan berkas ini SEBELUM
+-- `20300128000000`, dan pembuatan fungsi akan gagal karena dependensinya
+-- belum ada. Timestamp 2026 dipilih karena guard CI menolak timestamp masa
+-- depan dan tak punya mekanisme pengecualian. Repo ini tidak melakukan
+-- replay dari nol (riwayat migration sudah diverged, penerapan dilakukan
+-- manual), jadi kegagalannya hipotetis dan akan terlihat jelas bila terjadi.
 create or replace function get_mitra_roi(
   p_outlet_ids uuid[],
   p_from timestamptz default '2026-07-31T17:00:00Z',
@@ -40,6 +50,12 @@ security invoker
 set search_path = public
 as $$
 with
+konstanta as (
+  -- Nilai bernama tunggal untuk cutoff kebijakan bagi hasil, mencerminkan
+  -- MITRA_POLICY_SEPTEMBER_2026_CUTOFF di mitraPolicy.ts. `language sql` tak
+  -- bisa mendeklarasikan variabel, jadi CTE inilah satu-satunya definisi.
+  select date '2026-09-01' as cutoff_kebijakan
+),
 kebijakan as (
   -- Cutoff dibaca dari p_to, BUKAN p_from. Terlihat janggal, tapi inilah yang
   -- dilakukan produksi: mitraRoi.ts:250 mengirim `new Date().toISOString()`
@@ -48,7 +64,13 @@ kebijakan as (
   -- angka yang identik dengan produksi, jadi ia mengikuti acuan yang sama.
   -- Konsekuensi yang diwarisi: laporan periode lampau memakai tarif hari ini,
   -- bukan tarif periode itu. Ditinjau terpisah, bukan diubah di sini.
-  select (p_to::date >= date '2026-09-01') as pakai_aturan_baru
+  --
+  -- Cast dikonversi dulu ke Asia/Jakarta (bukan bare p_to::date) agar
+  -- konsisten dengan CTE petty/bulanan/waste_per_outlet di bawah — bare cast
+  -- bergantung timezone sesi koneksi, dan p_to yang jatuh persis di malam
+  -- cutoff bisa resolve ke tanggal berbeda antara sesi UTC dan Jakarta.
+  select ((p_to at time zone 'Asia/Jakarta')::date >= k.cutoff_kebijakan) as pakai_aturan_baru
+  from konstanta k
 ),
 ord as (
   select s.outlet_id,
@@ -58,6 +80,13 @@ ord as (
   from get_mitra_orders_summary(p_outlet_ids, p_from, p_to) s
   group by s.outlet_id
 ),
+-- OPEX (petty + bulanan) SENGAJA TIDAK DIBATASI p_to, meniru perilaku
+-- TypeScript yang digantikan (yang juga tidak membatasinya). Siapa pun yang
+-- memanggil fungsi ini dengan jendela sempit (mis. bulan Agustus saja) HARUS
+-- tahu bahwa p_to TIDAK BERLAKU untuk opex — omzet-nya ter-scope ke jendela,
+-- tapi opex-nya sampai HARI INI. Membatasinya dengan upper bound akan
+-- memutus paritas dengan produksi dan menuntut verifikasi ulang penuh
+-- terhadap 9 outlet. JANGAN "diperbaiki" tanpa keputusan eksplisit.
 petty as (
   select e.outlet_id, coalesce(sum(e.amount), 0) as total
   from petty_cash_expenses e
@@ -210,4 +239,14 @@ select
 from akhir a;
 $$;
 
+-- Postgres memberi EXECUTE ke PUBLIC secara default untuk fungsi baru, jadi
+-- grant di bawah tidak benar-benar membatasi apa pun tanpa revoke ini dulu —
+-- anon bisa memanggilnya juga. RLS membuat pemanggil tak terautentikasi tak
+-- dapat apa-apa, tapi ini pertahanan berlapis untuk fungsi yang mengembalikan
+-- posisi modal mitra.
+revoke execute on function get_mitra_roi(uuid[], timestamptz, timestamptz) from public;
+
 grant execute on function get_mitra_roi(uuid[], timestamptz, timestamptz) to authenticated;
+
+comment on function get_mitra_roi(uuid[], timestamptz, timestamptz) is
+  'Satu-satunya sumber aturan bagi hasil mitra: persentase, management fee, BEP, dan ROI. Dipakai admin-dashboard dan aplikasi Android. Angkanya diverifikasi identik dengan perhitungan TypeScript yang digantikan (9 outlet, 2026-09-05). Dua basis BEP sengaja berbeda: is_bep_kebijakan (kas) menyetir tarif, is_bep (hak) ditampilkan.';

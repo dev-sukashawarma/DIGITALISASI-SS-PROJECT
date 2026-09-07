@@ -85,6 +85,7 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
   // 9. Ambil Comprehensive P&L untuk jaringan mitra & Realtime BEP
   let pnlData = null
   let realtimeBepMap: any = {}
+  let realtimeBepFailed = false
   try {
     if (mitraOutletIds.length > 0) {
       const [pnlRes, bepRes] = await Promise.all([
@@ -100,6 +101,10 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
     }
   } catch (err) {
     console.error('Error fetching internal mitra PnL / BEP:', err)
+    // Peta kosong di bawah ini membuat total & status BEP diam-diam jatuh ke
+    // basis historis (lihat KelolaMitraView) — beri tahu pengguna lewat flag
+    // ini, jangan biarkan angka fallback dibaca seolah itu data realtime.
+    realtimeBepFailed = true
   }
 
   return (
@@ -114,6 +119,7 @@ export default async function KelolaMitraPage({ searchParams }: { searchParams: 
       currentFilter={curFilter}
       mitraOutletIds={mitraOutletIds}
       realtimeBepMap={realtimeBepMap}
+      realtimeBepFailed={realtimeBepFailed}
     />
   )
 }

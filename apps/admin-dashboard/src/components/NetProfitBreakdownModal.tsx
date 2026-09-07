@@ -1,6 +1,7 @@
 'use client'
 import { useEffect } from 'react'
-import { X, Calculator } from 'lucide-react'
+import Link from 'next/link'
+import { X, Calculator, ArrowUpRight } from 'lucide-react'
 import { rupiah } from '@/lib/format'
 import { buildProfitWaterfall, type WaterfallInput } from '@/lib/profitWaterfall'
 
@@ -11,10 +12,15 @@ interface NetProfitBreakdownModalProps {
   periodLabel: string
   scopeLabel: string
   input: WaterfallInput
+  /**
+   * Tautan "Lihat detail" per baris, dikunci pada `key` langkahnya. Modal ini
+   * tidak tahu-menahu soal filter; penyusun tautannya yang tahu.
+   */
+  detailHref?: Partial<Record<string, string>>
 }
 
 export function NetProfitBreakdownModal({
-  isOpen, onClose, periodLabel, scopeLabel, input,
+  isOpen, onClose, periodLabel, scopeLabel, input, detailHref,
 }: NetProfitBreakdownModalProps) {
   useEffect(() => {
     if (!isOpen) return
@@ -110,6 +116,15 @@ export function NetProfitBreakdownModal({
                     <span className="block text-sm font-semibold text-suka-gray-700">{step.label}</span>
                     {step.hint && !step.breakdown && (
                       <span className="block text-[11px] text-suka-gray-400 leading-snug">{step.hint}</span>
+                    )}
+                    {detailHref?.[step.key] && (
+                      <Link
+                        href={detailHref[step.key]!}
+                        onClick={onClose}
+                        className="mt-1 inline-flex items-center gap-1 text-[11px] font-bold text-suka-orange hover:text-suka-brown transition-colors"
+                      >
+                        Lihat detail <ArrowUpRight className="w-3 h-3" />
+                      </Link>
                     )}
                   </span>
                   <span className="text-right shrink-0">

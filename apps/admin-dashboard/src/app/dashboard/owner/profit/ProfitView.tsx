@@ -39,6 +39,7 @@ import { isTestOutlet } from '@/lib/outletFilters'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
+import { bukuKasHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 
 function formatLastUpdated(dateIso?: string) {
@@ -1132,6 +1133,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             periodLabel={`${filter.from} s/d ${filter.to}`}
             scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
             input={waterfallInput}
+            detailHref={{ opex_petty_cash: bukuKasHref(filter) }}
           />
 
           {/* 2. CORE DUAL SECTION: P&L Statement (2/3) + Financial Health & Cost Structure (1/3) */}

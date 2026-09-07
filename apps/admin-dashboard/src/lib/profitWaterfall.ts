@@ -118,7 +118,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     },
     {
       key: 'opex_petty_cash',
-      label: 'Kas Kecil Operasional',
+      label: 'Pengeluaran Petty Cash',
       hint: 'Pengeluaran harian outlet lewat petty cash',
       amount: -opexPettyCash,
       kind: 'deduction',

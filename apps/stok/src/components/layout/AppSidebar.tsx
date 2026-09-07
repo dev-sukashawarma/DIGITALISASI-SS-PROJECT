@@ -64,7 +64,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const isApprover = isApproverRole(role)
   const canReceivePO = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
   const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
-  const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer', 'purchasing'].includes(role ?? '')
+  const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')
   const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer', 'purchasing'].includes(role ?? '')
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
   // jadi khusus staff gudang. Role lain pakai Ledger Stok untuk riwayat outletnya.
@@ -185,17 +185,28 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
           href: '/stok/opname',
           icon: FileSpreadsheet,
         },
-        ...(canApproveWaste
-          ? [
-              {
-                label: 'Persetujuan Waste',
-                href: '/stok/waste-approval',
-                icon: Trash2,
-                badge: pendingWasteCount > 0 ? `${pendingWasteCount}` : undefined,
-                badgeColor: 'bg-orange-500 text-white',
-              },
-            ]
-          : []),
+        {
+          label: 'Waste',
+          icon: Trash2,
+          badge: pendingWasteCount > 0 ? `${pendingWasteCount}` : undefined,
+          badgeColor: 'bg-orange-500 text-white',
+          children: [
+            ...(canApproveWaste
+              ? [
+                  {
+                    label: 'Persetujuan Waste',
+                    href: '/stok/waste/approval',
+                    badge: pendingWasteCount > 0 ? `${pendingWasteCount}` : undefined,
+                    badgeColor: 'bg-orange-500 text-white',
+                  },
+                ]
+              : []),
+            {
+              label: 'Riwayat Waste',
+              href: '/stok/waste/history',
+            },
+          ],
+        },
       ],
     },
     {
@@ -376,7 +387,75 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 {group.title}
               </div>
               <div className="space-y-0.5 mt-1">
-                {group.items.map((item) => {
+                {group.items.map((item: any) => {
+                  if (item.children && item.children.length > 0) {
+                    const isParentActive = item.children.some((c: any) => pathname.startsWith(c.href))
+                    const Icon = item.icon
+
+                    return (
+                      <div key={item.label} className="space-y-0.5">
+                        <div
+                          className={`flex items-center justify-between px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                            isParentActive
+                              ? 'text-[#701604] font-black'
+                              : 'text-suka-brown/80'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 truncate">
+                            <Icon
+                              className={`w-4 h-4 shrink-0 transition-colors ${
+                                isParentActive
+                                  ? 'text-suka-orange'
+                                  : 'text-suka-brown/50'
+                              }`}
+                            />
+                            <span className="truncate">{item.label}</span>
+                          </div>
+
+                          {item.badge && (
+                            <span
+                              className={`text-[9px] font-black px-1.5 py-0.5 rounded-full ${
+                                isParentActive ? 'bg-suka-orange text-white' : item.badgeColor
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Indented child items */}
+                        <div className="pl-3.5 pr-1 space-y-0.5 ml-3.5 border-l-2 border-suka-orange/20">
+                          {item.children.map((child: any) => {
+                            const childActive = pathname.startsWith(child.href)
+                            return (
+                              <Link
+                                key={child.href}
+                                href={child.href}
+                                onClick={onCloseMobile}
+                                className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all group cursor-pointer ${
+                                  childActive
+                                    ? 'bg-suka-orange text-white shadow-xs font-extrabold'
+                                    : 'text-suka-brown/70 hover:bg-suka-cream/60 hover:text-suka-orange'
+                                }`}
+                              >
+                                <span className="truncate">{child.label}</span>
+                                {child.badge && (
+                                  <span
+                                    className={`text-[9px] font-black px-1.5 py-0.2 rounded-full ${
+                                      childActive ? 'bg-white text-suka-orange' : child.badgeColor || 'bg-red-500 text-white'
+                                    }`}
+                                  >
+                                    {child.badge}
+                                  </span>
+                                )}
+                              </Link>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  }
+
                   const active = isActive(item.href)
                   const Icon = item.icon
 

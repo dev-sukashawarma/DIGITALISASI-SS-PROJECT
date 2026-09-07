@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check } from 'lucide-react'
+import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check, Store } from 'lucide-react'
 import { toast } from 'sonner'
 import { CurrencyInput } from '@suka/design-system'
 import { savePromosAction } from './actions'
+import PromoDailyScheduleEditor from './PromoDailyScheduleEditor'
 import { toWibInputValue, fromWibInputValue, formatWib, WIB_LABEL } from '@/lib/timezone'
-import { getPromoStatus, validateSchedule, STATUS_LABEL, type PromoStatus } from '@/lib/promoSchedule'
+import { getPromoStatus, validateSchedule, STATUS_LABEL, type PromoDaySchedule, type PromoStatus } from '@/lib/promoSchedule'
+import { resolvePromoOutletIds } from '@/lib/promoOutlets'
 
 type MenuItem = {
   id: string
@@ -31,12 +33,15 @@ type OutletPromo = {
   end_date?: string | null
   daily_start_time?: string | null
   daily_end_time?: string | null
+  daily_schedule?: PromoDaySchedule[] | null
   apply_to_food_apps?: boolean
   sync_to_order_online?: boolean
   promo_name?: string | null
   buy_quantity?: number
   get_quantity?: number
   reward_menu_item_id?: string | null
+  /** Outlet yang dituju promo ini. Tidak diisi = semua outlet aktif (perilaku lama). */
+  outlet_ids?: string[]
 }
 
 type Outlet = {
@@ -68,6 +73,14 @@ function StatusBadge({ status }: { status: PromoStatus }) {
 
 /** Ringkasan jadwal untuk dibaca sekilas, selalu dalam WIB. */
 function ScheduleSummary({ promo }: { promo: OutletPromo }) {
+  if (promo.daily_schedule && promo.daily_schedule.length > 0) {
+    return (
+      <p className="text-xs text-gray-500">
+        Jadwal per tanggal: {promo.daily_schedule.length} tanggal terdaftar
+        {promo.start_date || promo.end_date ? ' · batas promo tetap mengikuti tanggal mulai/selesai di atas' : ''}.
+      </p>
+    )
+  }
   if (!promo.start_date && !promo.end_date) {
     return <p className="text-xs text-gray-500">Tanpa jadwal — berlaku selama promo dinyalakan.</p>
   }
@@ -77,6 +90,170 @@ function ScheduleSummary({ promo }: { promo: OutletPromo }) {
       {' · '}
       {promo.end_date ? `Selesai ${formatWib(promo.end_date)}` : 'Tanpa batas akhir'}
     </p>
+  )
+}
+
+/** Penanda ringkas saat promo tidak menyentuh seluruh outlet aktif. */
+function OutletScopeBadge({ outlets, selectedIds }: { outlets: Outlet[]; selectedIds: string[] }) {
+  const total = outlets.length
+  const count = selectedIds.length
+  if (total === 0 || count === 0 || count >= total) return null
+  const names = outlets.filter(o => selectedIds.includes(o.id)).map(o => o.name).join(', ')
+  return (
+    <span
+      title={names}
+      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold bg-sky-50 text-sky-700 border-sky-200"
+    >
+      <Store className="w-3.5 h-3.5" />
+      {count} dari {total} outlet
+    </span>
+  )
+}
+
+const OUTLET_PICKER_STYLE = {
+  amber: {
+    box: 'border-amber-100 bg-amber-50/50',
+    icon: 'text-amber-600',
+    on: 'bg-amber-500 text-white',
+    link: 'text-amber-700 hover:text-amber-900',
+    accent: 'accent-amber-500',
+  },
+  blue: {
+    box: 'border-blue-100 bg-blue-50/40',
+    icon: 'text-blue-500',
+    on: 'bg-blue-500 text-white',
+    link: 'text-blue-700 hover:text-blue-900',
+    accent: 'accent-blue-500',
+  },
+} as const
+
+/**
+ * Pemilih outlet untuk satu promo.
+ *
+ * Sebagian besar promo berlaku di semua cabang, jadi mode itulah yang tampil
+ * lebih dulu dan daftar outletnya disembunyikan — menampilkan puluhan cabang
+ * sekaligus hanya membuat kartu promo sesak dan sulit dibaca. Daftar lengkap
+ * (dengan pencarian) baru muncul saat admin memang ingin memilih sendiri.
+ */
+function OutletScopePicker({
+  outlets,
+  selectedIds,
+  onChange,
+  accent,
+}: {
+  outlets: Outlet[]
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+  accent: keyof typeof OUTLET_PICKER_STYLE
+}) {
+  const style = OUTLET_PICKER_STYLE[accent]
+  const allIds = outlets.map(o => o.id)
+  const isAll = allIds.length > 0 && allIds.every(id => selectedIds.includes(id))
+  const [mode, setMode] = useState<'all' | 'some'>(isAll ? 'all' : 'some')
+  const [query, setQuery] = useState('')
+
+  const keyword = query.trim().toLowerCase()
+  const visibleOutlets = keyword
+    ? outlets.filter(o => o.name.toLowerCase().includes(keyword))
+    : outlets
+
+  const toggle = (id: string) => {
+    const next = selectedIds.includes(id)
+      ? selectedIds.filter(x => x !== id)
+      : [...selectedIds, id]
+    // Urutan disamakan dengan daftar outlet supaya hasil simpan stabil.
+    onChange(allIds.filter(x => next.includes(x)))
+  }
+
+  const selectMode = (next: 'all' | 'some') => {
+    setMode(next)
+    // Pindah ke "Pilih outlet" tidak mengubah pilihan yang sudah ada — admin
+    // tinggal mencoret yang tidak perlu dari daftar yang muncul.
+    if (next === 'all') onChange(allIds)
+  }
+
+  return (
+    <div className={`rounded-xl border p-4 space-y-3 ${style.box}`}>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Store className={`w-4 h-4 shrink-0 ${style.icon}`} />
+          <h3 className="text-sm font-bold text-gray-800">Outlet yang Mendapat Promo</h3>
+        </div>
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5">
+          {([['all', 'Semua outlet'], ['some', 'Pilih outlet']] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => selectMode(value)}
+              aria-pressed={mode === value}
+              className={`rounded-md px-3 py-1.5 text-xs font-bold transition-colors ${
+                mode === value ? style.on : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {mode === 'all' ? (
+        <p className="text-xs font-semibold text-gray-500">
+          Promo berlaku di seluruh {allIds.length} outlet aktif.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="relative flex-1 min-w-[11rem]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="Cari outlet..."
+                className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm font-medium text-gray-900 outline-none transition-colors focus:border-gray-400"
+              />
+            </div>
+            <button type="button" onClick={() => onChange(allIds)} className={`text-xs font-bold ${style.link}`}>
+              Pilih semua
+            </button>
+            <button type="button" onClick={() => onChange([])} className="text-xs font-bold text-gray-500 hover:text-gray-800">
+              Kosongkan
+            </button>
+          </div>
+
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+            {visibleOutlets.length === 0 ? (
+              <p className="px-3 py-4 text-xs font-medium text-gray-500">Outlet tidak ditemukan.</p>
+            ) : (
+              visibleOutlets.map(outlet => {
+                const active = selectedIds.includes(outlet.id)
+                return (
+                  <label
+                    key={outlet.id}
+                    className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-gray-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={active}
+                      onChange={() => toggle(outlet.id)}
+                      className={`h-4 w-4 shrink-0 rounded border-gray-300 ${style.accent}`}
+                    />
+                    <span className={`text-sm font-semibold ${active ? 'text-gray-900' : 'text-gray-500'}`}>
+                      {outlet.name}
+                    </span>
+                  </label>
+                )
+              })
+            )}
+          </div>
+
+          <p className={`text-xs font-semibold ${selectedIds.length === 0 ? 'text-rose-600' : 'text-gray-500'}`}>
+            {selectedIds.length === 0
+              ? 'Pilih minimal satu outlet agar promo bisa disimpan.'
+              : `${selectedIds.length} dari ${allIds.length} outlet terpilih.`}
+          </p>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -96,6 +273,10 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     return () => clearInterval(timer)
   }, [])
 
+  const allOutletIds = outlets.map(o => o.id)
+  /** Outlet promo yang tersimpan; promo baru default ke seluruh outlet aktif. */
+  const outletIdsOf = (promo: OutletPromo) => resolvePromoOutletIds(promo, allOutletIds)
+
   const globalPromo = promos.find(p => p.scope === 'global') || {
     scope: 'global',
     menu_item_id: null,
@@ -108,11 +289,13 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     quota_scope: 'per_outlet',
     start_date: null,
     end_date: null,
+    daily_schedule: [],
     apply_to_food_apps: false,
     sync_to_order_online: false
     ,promo_name: '',
     buy_quantity: 1,
-    get_quantity: 1
+    get_quantity: 1,
+    outlet_ids: allOutletIds
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -160,11 +343,13 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           quota_scope: 'per_outlet',
           start_date: null,
           end_date: null,
+          daily_schedule: [],
           apply_to_food_apps: false,
           sync_to_order_online: false,
           promo_name: '',
           buy_quantity: 1,
-          get_quantity: 1
+          get_quantity: 1,
+          outlet_ids: allOutletIds
         }
         updated.push({ ...defaultGlobal, [field]: value })
       }
@@ -192,10 +377,12 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           quota_scope: 'per_outlet',
           start_date: null,
           end_date: null,
+          daily_schedule: [],
           apply_to_food_apps: false,
           sync_to_order_online: false,
           buy_quantity: 1,
           get_quantity: 1,
+          outlet_ids: allOutletIds,
           [field]: value
         })
       }
@@ -216,11 +403,18 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       // tak boleh memblokir penyimpanan promo lain yang sedang diedit.
       for (const p of promos) {
         if (!p.is_active) continue
+        const label = p.scope === 'global'
+          ? 'Promo Semua Menu'
+          : menuItems.find(m => m.id === p.menu_item_id)?.name || 'Promo menu'
+
+        // Promo aktif harus punya tujuan. Server memeriksa hal yang sama, tapi
+        // pesan di sini menyebut nama promonya sehingga admin tahu kartu mana.
+        if (outletIdsOf(p).length === 0) {
+          throw new Error(`${label}: pilih minimal satu outlet yang masih aktif.`)
+        }
+
         const scheduleError = validateSchedule(p)
         if (scheduleError) {
-          const label = p.scope === 'global'
-            ? 'Promo Semua Menu'
-            : menuItems.find(m => m.id === p.menu_item_id)?.name || 'Promo menu'
           throw new Error(`${label}: ${scheduleError}`)
         }
       }
@@ -231,7 +425,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         throw new Error(result.error || 'Gagal menyimpan promo')
       }
 
-      toast.success('Pengaturan promo berhasil diterapkan ke semua outlet!')
+      toast.success('Pengaturan promo berhasil disimpan untuk outlet yang dipilih!')
     } catch (err: any) {
       console.error(err)
       toast.error(err.message || 'Gagal menyimpan promo')
@@ -250,11 +444,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       <div className="space-y-6 pb-40">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Pengaturan Promo</h1>
-          <p className="text-gray-500 text-sm sm:text-base mt-1 font-medium">Kelola diskon Global (Seluruh Transaksi) atau diskon Per Menu.</p>
+          <p className="text-gray-500 text-sm sm:text-base mt-1 font-medium">Kelola diskon Global (Seluruh Transaksi) atau diskon Per Menu, per outlet yang dipilih.</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center px-3 py-1.5 bg-amber-50 text-amber-700 text-xs sm:text-sm font-semibold rounded-full border border-amber-200/60">
               <AlertCircle className="w-4 h-4 mr-1.5" />
-              Berlaku untuk semua cabang outlet
+              Tiap promo bisa dibatasi ke outlet tertentu
             </span>
             <span className="inline-flex items-center px-3 py-1.5 bg-gray-50 text-gray-600 text-xs sm:text-sm font-semibold rounded-full border border-gray-200">
               <CalendarClock className="w-4 h-4 mr-1.5" />
@@ -279,6 +473,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
               <p className="text-sm text-gray-500 mt-1 font-medium">Berlaku untuk total harga semua pesanan tanpa terkecuali saat promo diaktifkan.</p>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {mounted && <StatusBadge status={getPromoStatus(globalPromo, now)} />}
+                <OutletScopeBadge outlets={outlets} selectedIds={outletIdsOf(globalPromo)} />
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
@@ -369,6 +564,14 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 )}
               </div>
 
+              {/* Outlet tujuan promo */}
+              <OutletScopePicker
+                outlets={outlets}
+                selectedIds={outletIdsOf(globalPromo)}
+                onChange={ids => handleGlobalPromoChange('outlet_ids', ids)}
+                accent="amber"
+              />
+
               {/* Jadwal promo */}
               <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 sm:p-5 space-y-4">
                 <div className="flex items-center gap-2">
@@ -457,6 +660,15 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                     </div>
                   )}
                 </div>
+
+                <PromoDailyScheduleEditor
+                  value={globalPromo.daily_schedule}
+                  startDate={globalPromo.start_date}
+                  dailyStartTime={globalPromo.daily_start_time}
+                  dailyEndTime={globalPromo.daily_end_time}
+                  onChange={value => handleGlobalPromoChange('daily_schedule', value)}
+                  accent="amber"
+                />
 
                 {mounted && <ScheduleSummary promo={globalPromo} />}
               </div>
@@ -591,9 +803,11 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                   min_purchase: null,
                   start_date: null,
                   end_date: null,
+                  daily_schedule: [],
                   sync_to_order_online: false,
                   buy_quantity: 1,
-                  get_quantity: 1
+                  get_quantity: 1,
+                  outlet_ids: allOutletIds
                 } as OutletPromo
 
                 const status = getPromoStatus(promo, now)
@@ -627,6 +841,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                             <span className="text-base font-bold text-gray-600">Rp {(menu.price || 0).toLocaleString('id-ID')}</span>
                           )}
                           {mounted && promo.is_active && <StatusBadge status={status} />}
+                          {promo.is_active && <OutletScopeBadge outlets={outlets} selectedIds={outletIdsOf(promo)} />}
                         </div>
                       </div>
 
@@ -754,6 +969,12 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                           <label className="block text-sm font-bold text-blue-900">Nama Promo</label>
                           <input value={promo.promo_name || ''} onChange={e => handleItemPromoChange(menu.id, 'promo_name', e.target.value)} placeholder={`Contoh: Promo ${menu.name}`} className="w-full bg-white border-2 border-blue-200 focus:border-blue-400 rounded-xl px-3 py-2 text-sm font-semibold text-blue-900 outline-none transition-colors" />
                         </div>
+                        <OutletScopePicker
+                          outlets={outlets}
+                          selectedIds={outletIdsOf(promo)}
+                          onChange={ids => handleItemPromoChange(menu.id, 'outlet_ids', ids)}
+                          accent="blue"
+                        />
                         <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-4 space-y-3">
                           <div className="flex items-center gap-2">
                             <CalendarClock className="w-4 h-4 text-blue-500 shrink-0" />
@@ -833,6 +1054,15 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                             )}
                           </div>
 
+                          <PromoDailyScheduleEditor
+                            value={promo.daily_schedule}
+                            startDate={promo.start_date}
+                            dailyStartTime={promo.daily_start_time}
+                            dailyEndTime={promo.daily_end_time}
+                            onChange={value => handleItemPromoChange(menu.id, 'daily_schedule', value)}
+                            accent="blue"
+                          />
+
                           {mounted && <ScheduleSummary promo={promo} />}
                         </div>
 
@@ -899,7 +1129,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
       <div className="sticky bottom-4 z-40 flex justify-end">
         <div className="w-full rounded-2xl bg-white/95 backdrop-blur-md border border-gray-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <p className="text-xs text-gray-500 font-medium sm:pl-2">
-            Perubahan berlaku untuk {outlets.length} outlet aktif. Jam promo mengikuti {WIB_LABEL}.
+            Tiap promo disimpan hanya ke outlet yang dipilih di kartunya, dari {outlets.length} outlet aktif. Jam promo mengikuti {WIB_LABEL}.
           </p>
           <button
             className="btn-primary px-6 sm:px-8 py-3 rounded-xl shadow-lg shadow-amber-500/30 flex items-center gap-2 text-sm font-bold sm:text-base w-full sm:w-auto justify-center transition-transform active:scale-95 disabled:opacity-60"
@@ -907,7 +1137,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
             disabled={saving}
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            Terapkan ke Semua Cabang
+            Simpan Pengaturan Promo
           </button>
         </div>
       </div>

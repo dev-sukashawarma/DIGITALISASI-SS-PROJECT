@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { createOrderOnlineAdminClient } from '@/lib/supabase/order-online-client'
+import { groupPromoRows } from '@/lib/promoOutlets'
 import PromoView from './PromoView'
 
 export const dynamic = 'force-dynamic'
@@ -22,7 +23,7 @@ export default async function AdminPromoPage() {
   // Fetch data in parallel
   const [menuRes, outletsRes, ooPromosRes] = await Promise.all([
     supabase.from('menu_items').select('id, name, price').eq('is_available', true).order('sort_order'),
-    supabase.from('outlets').select('id, name').eq('is_active', true),
+    supabase.from('outlets').select('id, name').eq('is_active', true).order('name'),
     orderOnline 
       ? (async () => {
           try {
@@ -41,23 +42,19 @@ export default async function AdminPromoPage() {
   
   let initialPromos: any[] = []
   if (initialOutlets.length > 0) {
+    const outletIds = initialOutlets.map(outlet => outlet.id)
     const promoRes = await supabase
       .from('outlet_promos')
       .select('*')
-      .in('outlet_id', initialOutlets.map(outlet => outlet.id))
+      .in('outlet_id', outletIds)
 
-    const usageByPool = new Map<string, number>()
-    for (const promo of promoRes.data || []) {
-      if (!promo.quota_pool_id) continue
-      usageByPool.set(
-        promo.quota_pool_id,
-        Math.max(usageByPool.get(promo.quota_pool_id) || 0, Number(promo.current_usage) || 0),
-      )
-    }
+    // Satu promo yang dilihat admin = kumpulan baris per outlet. Sebelumnya
+    // halaman ini hanya membaca baris outlet pertama karena promo selalu
+    // diterapkan ke semua cabang; sekarang promo bisa dibatasi ke sebagian
+    // outlet, jadi promo yang tidak menyentuh outlet pertama pun harus terbaca.
+    initialPromos = groupPromoRows(promoRes.data || [], outletIds).map(group => {
+      const p: any = group.representative
 
-    initialPromos = promoRes.data
-      ?.filter(p => p.outlet_id === initialOutlets[0].id)
-      .map(p => {
       // Determine if it exists in Order Online
       let isSynced = false
       if (ooPromos && ooPromos.length > 0) {
@@ -70,11 +67,12 @@ export default async function AdminPromoPage() {
 
       return {
         ...p,
-        current_usage: p.quota_pool_id ? usageByPool.get(p.quota_pool_id) || 0 : p.current_usage,
+        outlet_ids: group.outletIds,
+        current_usage: group.currentUsage,
         discount_value: p.discount_value === 0.01 ? 0 : p.discount_value,
         sync_to_order_online: isSynced
       }
-    }) || []
+    })
   }
 
   return (

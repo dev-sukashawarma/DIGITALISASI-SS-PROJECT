@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getPromoStatus, validateSchedule } from './promoSchedule'
+import { getPromoStatus, isPromoScheduleRunning, validateSchedule } from './promoSchedule'
 
 const NOW = Date.parse('2026-08-14T10:00:00.000Z') // 17:00 WIB
 
@@ -38,6 +38,21 @@ describe('getPromoStatus', () => {
   it('tepat di detik mulai sudah dianggap berjalan', () => {
     expect(getPromoStatus({ is_active: true, start_date: '2026-08-14T10:00:00.000Z' }, NOW)).toBe('berjalan')
   })
+
+  it('memakai jam yang berbeda untuk setiap tanggal', () => {
+    const promo = {
+      is_active: true,
+      daily_schedule: [
+        { date: '2026-08-14', start_time: '17:00:00', end_time: '18:00:00' },
+        { date: '2026-08-15', start_time: '12:00:00', end_time: '13:00:00' },
+      ],
+    }
+
+    expect(isPromoScheduleRunning(promo, NOW)).toBe(true)
+    expect(isPromoScheduleRunning(promo, Date.parse('2026-08-15T12:30:00+07:00'))).toBe(true)
+    expect(isPromoScheduleRunning(promo, Date.parse('2026-08-15T13:00:00+07:00'))).toBe(false)
+    expect(isPromoScheduleRunning(promo, Date.parse('2026-08-16T12:30:00+07:00'))).toBe(false)
+  })
 })
 
 describe('validateSchedule', () => {
@@ -67,5 +82,20 @@ describe('validateSchedule', () => {
       start_date: '2026-08-15T00:00:00.000Z',
       end_date: '2026-08-15T00:00:00.000Z',
     })).toMatch(/lebih akhir/)
+  })
+
+  it('memvalidasi jadwal per tanggal dan menolak tanggal duplikat', () => {
+    expect(validateSchedule({
+      daily_schedule: [
+        { date: '2026-08-14', start_time: '10:00:00', end_time: '12:00:00' },
+        { date: '2026-08-14', start_time: '15:00:00', end_time: '17:00:00' },
+      ],
+    })).toMatch(/ditulis lebih dari sekali/)
+
+    expect(validateSchedule({
+      daily_schedule: [
+        { date: '2026-08-14', start_time: '10:00:00', end_time: '10:00:00' },
+      ],
+    })).toMatch(/tidak boleh sama/)
   })
 })

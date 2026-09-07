@@ -32,7 +32,16 @@ data class PaymentState(
     val gagalBayar: Boolean = false,
     val kadaluarsa: Boolean = false,
     val nomorPesanan: Int? = null,
-    val waktuHabis: Boolean = false
+    val waktuHabis: Boolean = false,
+    /**
+     * URL pembayaran percobaan yang DILANJUTKAN.
+     *
+     * Dipisah dari [paymentUrl] dengan sengaja: `paymentUrl` memicu pembukaan
+     * otomatis, sedangkan yang ini hanya menyalakan tombol. Membuka otomatis
+     * saat melanjutkan akan melempar pelanggan kembali ke Chrome tepat setelah
+     * ia menutupnya -- lingkaran yang tak bisa diputus.
+     */
+    val urlBayarTersimpan: String? = null
 )
 
 class PaymentViewModel(
@@ -71,6 +80,7 @@ class PaymentViewModel(
                 is GatewayResult.Sukses -> {
                     val r = hasil.data
                     percobaan.simpanOrderId(r.orderId)
+                    r.paymentUrl?.let { percobaan.simpanPaymentUrl(it) }
                     _state.value = _state.value.copy(
                         memuat = false,
                         orderId = r.orderId,
@@ -218,7 +228,17 @@ class PaymentViewModel(
                         }
 
                         NasibPercobaan.LANJUTKAN -> {
-                            _state.value = _state.value.copy(memuat = false)
+                            // Tagihannya masih berlaku. Pelanggan HARUS punya
+                            // jalan membukanya lagi -- kalau tidak, ia terjebak
+                            // menatap pemuat sementara pesanan kedua ditolak
+                            // demi mencegah tagihan ganda.
+                            _state.value = _state.value.copy(
+                                memuat = false,
+                                // Server didahulukan: salinan lokal hilang
+                                // saat aplikasi dipasang ulang atau pelanggan
+                                // ganti perangkat.
+                                urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl()
+                            )
                             tanyaSampaiPasti(orderId)
                         }
                     }

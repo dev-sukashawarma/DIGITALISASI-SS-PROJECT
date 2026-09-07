@@ -101,6 +101,30 @@ fun PaymentWaitScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center
                     )
+
+                    // Percobaan yang DILANJUTKAN tidak membuka halaman
+                    // pembayaran sendiri -- membukanya otomatis akan melempar
+                    // pelanggan kembali ke Chrome tepat setelah ia menutupnya.
+                    // Tapi ia tetap harus punya jalan ke sana, kalau tidak
+                    // pesanannya tidak bisa dibayar sama sekali: tagihan lama
+                    // masih berlaku, dan pesanan kedua ditolak demi mencegah
+                    // tagihan ganda.
+                    state.urlBayarTersimpan?.let { url ->
+                        Button(
+                            onClick = { bukaHalamanBayar(context, url) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Buka halaman pembayaran")
+                        }
+                        Text(
+                            "Pesanan ini sudah punya tagihan yang masih berlaku. " +
+                                "Selesaikan dulu, atau tunggu batas waktunya habis " +
+                                "untuk memesan ulang.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                 }
 
                 state.gagalBayar -> {

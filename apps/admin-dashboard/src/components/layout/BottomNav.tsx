@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Menu, X, ArrowLeft, LogOut } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { useRole } from './RoleContext'
-import { NAV_GROUPS, accessibleItems, isItemActive, resolvePortalUrl } from './navConfig'
+import { NAV_GROUPS, isItemActive, primaryItems, resolvePortalUrl } from './navConfig'
 import { useLeaveNotifications } from '@/hooks/useLeaveNotifications'
 import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 
@@ -17,9 +17,9 @@ export const BottomNav = () => {
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
   const { pendingCount } = useLeaveNotifications()
 
-  const items = accessibleItems(role)
-  // Show up to 4 primary items inline; the rest live in the "Menu" sheet.
-  const inline = items.slice(0, 4)
+  // Empat tab utama ditentukan lewat penanda `primary` di navConfig, bukan
+  // kebetulan urutan array; sisanya tetap hidup di sheet "Menu".
+  const inline = primaryItems(role)
   const resolvedPortalUrl = resolvePortalUrl()
   const { signOut } = useAuth()
 

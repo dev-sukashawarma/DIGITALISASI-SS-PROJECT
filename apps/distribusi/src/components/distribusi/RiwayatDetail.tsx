@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
 import { useAuth } from '@suka/auth'
-import { ArrowLeft, CheckCircle2, AlertTriangle, Check, FileText, Calendar, Store, Truck } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Check, FileText } from 'lucide-react'
 
 function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
   return (

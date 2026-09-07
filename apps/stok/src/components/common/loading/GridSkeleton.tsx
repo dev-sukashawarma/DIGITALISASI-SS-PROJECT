@@ -1,4 +1,4 @@
-import { Card } from '@suka/design-system/src/components/Card'
+import { Card } from '@suka/design-system'
 
 export function GridSkeleton({ cards = 18 }: { cards?: number }) {
   return (

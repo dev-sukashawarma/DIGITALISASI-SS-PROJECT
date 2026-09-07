@@ -76,7 +76,7 @@ Aplikasi ditempatkan di `mobile/customer-app/` — sejajar dengan `mobile/native
 **Interfaces:**
 - Produces: proyek Gradle yang bisa `assembleDebug` dan `testDebugUnitTest`
 
-- [ ] **Step 1: Salin kerangka Gradle dari native-superapp**
+- [x] **Step 1: Salin kerangka Gradle dari native-superapp**
 
 Baca `mobile/native-superapp/app/build.gradle.kts`, `build.gradle.kts`, `settings.gradle.kts`, `gradle.properties`, dan `gradle/libs.versions.toml`. Tiru strukturnya, **bukan isinya secara buta**: ambil versi plugin, compileSdk 36, minSdk 24, targetSdk 36, jvmTarget 17, dan pola version catalog.
 
@@ -85,7 +85,7 @@ Yang **berbeda** dari native-superapp:
 - **JANGAN** menyertakan dependensi Supabase (`supabase.bom`, `supabase.postgrest`, `supabase.auth`, `supabase.realtime`, `supabase.storage`) maupun TensorFlow. Aplikasi pelanggan tidak menyentuh database dan tidak melakukan pengenalan wajah.
 - **Tambahkan** ke version catalog dan modul: Ktor client (`ktor-client-android`, `ktor-client-content-negotiation`, `ktor-serialization-kotlinx-json`), `androidx.datastore:datastore-preferences`, `androidx.security:security-crypto`, `androidx.credentials:credentials` + `credentials-play-services-auth` + `googleid`.
 
-- [ ] **Step 2: Tulis test asap yang gagal**
+- [x] **Step 2: Tulis test asap yang gagal**
 
 ```kotlin
 // app/src/test/java/com/sukashawarma/customer/SmokeTest.kt
@@ -102,21 +102,21 @@ class SmokeTest {
 }
 ```
 
-- [ ] **Step 3: Jalankan test**
+- [x] **Step 3: Jalankan test**
 
 Run: `cd mobile/customer-app && ./gradlew testDebugUnitTest`
 Expected: PASS
 
 > **Gotcha lingkungan (dari CLAUDE.md, terbukti di mesin ini):** JBR bawaan rusak. Set `JAVA_HOME=C:\Program Files\Android\Android Studio1\jbr`. Gradle juga butuh `TEMP`/`TMP=C:\t` karena loopback NIO gagal di path panjang. Kalau build gagal dengan galat path atau JVM, periksa keduanya sebelum menduga kode.
 
-- [ ] **Step 4: Verifikasi tidak ada Supabase di dependensi**
+- [x] **Step 4: Verifikasi tidak ada Supabase di dependensi**
 
 ```bash
 cd mobile/customer-app && ./gradlew :app:dependencies --configuration releaseRuntimeClasspath | grep -i supabase && echo "GAGAL: Supabase ikut terbawa" || echo "OK: nol Supabase"
 ```
 Expected: `OK: nol Supabase`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile/customer-app
@@ -135,7 +135,7 @@ git commit -m "feat(customer-app): scaffold aplikasi Android pelanggan"
 **Interfaces:**
 - Produces: `SukaTheme { }`, dan token `SukaBrown`, `SukaOrange`, `SukaInk`, `SukaCream`, `SukaGreen`
 
-- [ ] **Step 1: Tulis test kontras yang gagal**
+- [x] **Step 1: Tulis test kontras yang gagal**
 
 Warna adalah aturan keamanan di aplikasi ini, bukan selera — jadi dikunci test.
 
@@ -196,12 +196,12 @@ class ColorContrastTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `./gradlew testDebugUnitTest --tests "*ColorContrastTest*"`
 Expected: FAIL — kelas belum ada
 
-- [ ] **Step 3: Implementasi token warna**
+- [x] **Step 3: Implementasi token warna**
 
 ```kotlin
 // app/src/main/java/com/sukashawarma/customer/ui/theme/Color.kt
@@ -233,12 +233,12 @@ Lalu `Type.kt` (Lilita One untuk angka & judul pendek, Plus Jakarta Sans untuk b
 
 Unduh kedua font dari Google Fonts sebagai `.ttf` ke `app/src/main/res/font/`. Kalau tidak bisa mengunduh di lingkungan ini, laporkan sebagai NEEDS_CONTEXT — **jangan** mengganti dengan font sistem diam-diam, karena Lilita One adalah bagian identitas yang sudah disetujui.
 
-- [ ] **Step 4: Jalankan test, pastikan lulus**
+- [x] **Step 4: Jalankan test, pastikan lulus**
 
 Run: `./gradlew testDebugUnitTest --tests "*ColorContrastTest*"`
 Expected: PASS 4/4
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add mobile/customer-app/app/src
@@ -259,7 +259,7 @@ git commit -m "feat(customer-app): sistem desain dengan kontras warna terkunci t
 
 > **Catatan rute:** ditempatkan di `/orders/list`, bukan `GET /orders`, karena `src/app/api/v1/orders/route.ts` sudah ada dan hanya mengekspor `POST`. Menambahkan `GET` di file itu juga sah — pilih salah satu, tapi **verifikasi dulu** file mana yang ada sebelum menulis.
 
-- [ ] **Step 1: Implementasi**
+- [x] **Step 1: Implementasi**
 
 ```typescript
 // apps/retail-gateway/src/app/api/v1/orders/list/route.ts
@@ -324,12 +324,12 @@ export async function GET(request: Request) {
 }
 ```
 
-- [ ] **Step 2: Type-check dan build**
+- [x] **Step 2: Type-check dan build**
 
 Run: `cd apps/retail-gateway && ../../node_modules/.bin/tsc --noEmit && yarn build`
 Expected: 0 error, route `/api/v1/orders/list` muncul di keluaran
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/retail-gateway/src/app/api/v1/orders/list
@@ -353,7 +353,7 @@ git commit -m "feat(retail-gateway): endpoint daftar riwayat pesanan untuk layar
   - `GatewayClient` dengan fungsi per endpoint
   - `SessionStore.simpan(token, expiresAt)`, `.baca()`, `.hapus()`
 
-- [ ] **Step 1: Tulis test pemetaan galat yang gagal**
+- [x] **Step 1: Tulis test pemetaan galat yang gagal**
 
 Pemetaan galat ini yang menentukan apakah aplikasi berperilaku benar saat gateway menolak. Kode mesinnya sudah pasti — diambil dari kode gateway nyata.
 
@@ -405,12 +405,12 @@ class GatewayErrorTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `./gradlew testDebugUnitTest --tests "*GatewayErrorTest*"`
 Expected: FAIL — kelas belum ada
 
-- [ ] **Step 3: Implementasi amplop galat**
+- [x] **Step 3: Implementasi amplop galat**
 
 ```kotlin
 // app/src/main/java/com/sukashawarma/customer/data/api/GatewayError.kt
@@ -452,12 +452,12 @@ fun petakanGalat(status: Int, body: String?): GatewayError {
 
 > Impor `contentOrNull` dari `kotlinx.serialization.json`. Kalau nama itu tidak ada di versi yang terpasang, pakai `.content` dengan `runCatching` — laporkan penyesuaiannya, jangan diam-diam.
 
-- [ ] **Step 4: Jalankan test, pastikan lulus**
+- [x] **Step 4: Jalankan test, pastikan lulus**
 
 Run: `./gradlew testDebugUnitTest --tests "*GatewayErrorTest*"`
 Expected: PASS 6/6
 
-- [ ] **Step 5: Implementasi DTO dan klien**
+- [x] **Step 5: Implementasi DTO dan klien**
 
 `Dto.kt` mencerminkan balasan gateway **persis**. Baca `apps/retail-gateway/src/app/api/**/route.ts` dan salin bentuknya; jangan mengarang nama field. Yang wajib ada:
 
@@ -477,7 +477,7 @@ Expected: PASS 6/6
 
 `SessionStore` menyimpan token di `EncryptedSharedPreferences`. **Jangan** menyimpannya di `SharedPreferences` biasa atau DataStore tanpa enkripsi — token itu setara identitas pelanggan.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add mobile/customer-app/app/src
@@ -497,7 +497,7 @@ git commit -m "feat(customer-app): klien gateway, pemetaan galat, penyimpanan se
 - Consumes: `GatewayClient.loginGoogle(idToken)`, `SessionStore`
 - Produces: `LoginViewModel.state: StateFlow<LoginState>`
 
-- [ ] **Step 1: Implementasi pengambilan ID token**
+- [x] **Step 1: Implementasi pengambilan ID token**
 
 Pakai **Credential Manager**, bukan `GoogleSignInClient` yang sudah usang, dan bukan alur redirect browser. Yang benar: bottom sheet muncul di dalam aplikasi, pelanggan menekan sekali, aplikasi menerima ID token.
 
@@ -533,19 +533,19 @@ suspend fun ambilIdTokenGoogle(context: Context, serverClientId: String): String
 
 `serverClientId` adalah **Web client ID** dari Google Cloud project yang sama dengan yang dikonfigurasi di provider Google Supabase — bukan Android client ID. Salah satu di antaranya membuat pertukaran token ditolak dengan pesan yang membingungkan. Simpan sebagai `BuildConfig` field dari `local.properties`, jangan di-hardcode.
 
-- [ ] **Step 2: Layar Onboarding dan Login**
+- [x] **Step 2: Layar Onboarding dan Login**
 
 Ikuti artboard `Onboarding.dc.html` dan `Login.dc.html` di `SUKASHAWARMA MOBILE APP RETAIL/design/`. Yang wajib ada di Login: tombol Google (putih, border), dan **ruang untuk tombol WhatsApp yang belum aktif** — jangan menghapus tempatnya dari tata letak, karena akan dipasang saat akun Meta disetujui.
 
 Tombol "Lihat menu dulu" harus benar-benar bekerja: pelanggan boleh masuk ke katalog tanpa login. Login baru diminta di titik bayar.
 
-- [ ] **Step 3: Verifikasi manual di perangkat**
+- [x] **Step 3: Verifikasi manual di perangkat**
 
 Belum ada test otomatis untuk alur ini (butuh perangkat dan akun Google nyata). Jalankan di HP dan pastikan: bottom sheet muncul **di dalam aplikasi** (bukan membuka Chrome), dan setelah memilih akun, aplikasi menerima token sesi dari gateway.
 
 Kalau gateway membalas 401 "Login Google gagal", penyebab paling umum adalah `serverClientId` salah jenis — periksa itu sebelum menduga hal lain.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add mobile/customer-app/app/src
@@ -567,7 +567,7 @@ git commit -m "feat(customer-app): login Google lewat Credential Manager"
 - Consumes: `Repository.outlets()`, `Repository.katalog(outletId)`
 - Produces: `kelompokkanPerKategori(items): List<KategoriMenu>`
 
-- [ ] **Step 1: Tulis test pengelompokan yang gagal**
+- [x] **Step 1: Tulis test pengelompokan yang gagal**
 
 ```kotlin
 // app/src/test/java/com/sukashawarma/customer/ui/screens/catalog/KatalogFilterTest.kt
@@ -621,12 +621,12 @@ class KatalogFilterTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
 Run: `./gradlew testDebugUnitTest --tests "*KatalogFilterTest*"`
 Expected: FAIL
 
-- [ ] **Step 3: Implementasi**
+- [x] **Step 3: Implementasi**
 
 Item habis **ditampilkan tapi diredupkan dan tidak bisa ditambahkan** — menyembunyikannya membuat pelanggan mengira menu itu tidak pernah ada dan bertanya-tanya. Gateway sudah gagal-tertutup untuk ketersediaan yang tidak diketahui, jadi apa pun yang bertanda tersedia memang benar-benar tersedia saat katalog diambil.
 
@@ -634,7 +634,7 @@ Layar Outlet Belum Buka (16) muncul ketika outlet terpilih `is_active` bernilai 
 
 > **Keterbatasan yang diketahui:** gateway tidak menyimpan jam buka-tutup harian; `is_active` hanya berarti "outlet beroperasi". Jam 14:00 di layar ini adalah nilai tetap dari sisi aplikasi sampai sumber data jam buka tersedia. Jangan berpura-pura server yang menentukannya.
 
-- [ ] **Step 4: Jalankan test dan commit**
+- [x] **Step 4: Jalankan test dan commit**
 
 ```bash
 ./gradlew testDebugUnitTest --tests "*KatalogFilterTest*"
@@ -655,7 +655,7 @@ git commit -m "feat(customer-app): katalog, pilih outlet, dan keadaan outlet bel
 **Interfaces:**
 - Produces: `CartStore.tambah(item, qty, catatan)`, `.ubahJumlah(index, delta)`, `.isi(): List<CartLine>`, `.kosongkan()`, `.subtotal(): Long`
 
-- [ ] **Step 1: Tulis test keranjang yang gagal**
+- [x] **Step 1: Tulis test keranjang yang gagal**
 
 ```kotlin
 // app/src/test/java/com/sukashawarma/customer/data/CartStoreTest.kt
@@ -713,13 +713,13 @@ class CartStoreTest {
 
 Batas 99 bukan angka sembarangan: `jumlahWajar()` di gateway menolak jumlah di luar 1..99. Menahannya di aplikasi berarti pelanggan tidak pernah melihat galat yang tidak bisa dipahaminya.
 
-- [ ] **Step 2-4: Jalankan gagal → implementasi → jalankan lulus**
+- [x] **Step 2-4: Jalankan gagal → implementasi → jalankan lulus**
 
 `CartStore` bertahan lintas proses (DataStore) supaya keranjang tidak hilang saat aplikasi ditutup — spesifikasi §5.4 menjanjikan keranjang tersimpan saat outlet belum buka.
 
 Layar detail memuat tambahan (Extra Keju, Extra Kentang), catatan, dan stepper jumlah, sesuai artboard. **Catatan dipotong 200 karakter di aplikasi** — gateway juga memotongnya, tapi memotong lebih awal berarti pelanggan melihat batasnya, bukan diam-diam kehilangan teks.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(customer-app): detail item dan keranjang yang bertahan lintas proses"
@@ -737,7 +737,7 @@ git commit -m "feat(customer-app): detail item dan keranjang yang bertahan linta
 - Consumes: `Repository.validasiCheckout(outletId, items)`
 - Produces: `pesanUntukMasalah(masalah): String`
 
-- [ ] **Step 1: Tulis test pesan yang gagal**
+- [x] **Step 1: Tulis test pesan yang gagal**
 
 Balasan `ok: false` dari gateway datang dengan HTTP **200**, bukan galat. Aplikasi harus memperlakukannya sebagai hasil bisnis yang perlu ditampilkan, bukan kegagalan jaringan.
 
@@ -779,13 +779,13 @@ class ValidasiPesanTest {
 }
 ```
 
-- [ ] **Step 2-4: Jalankan gagal → implementasi → jalankan lulus**
+- [x] **Step 2-4: Jalankan gagal → implementasi → jalankan lulus**
 
 Saat validasi mengembalikan masalah, layar checkout menampilkan setiap item bermasalah dengan tombol tindakan (hapus / perbarui harga), lalu memvalidasi ulang. **Jangan** langsung membuang keranjang.
 
 Total yang ditampilkan adalah yang dikembalikan gateway (`total`), bukan hitungan aplikasi.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(customer-app): checkout dengan validasi pra-bayar dan pemulihan keranjang"
@@ -804,7 +804,7 @@ git commit -m "feat(customer-app): checkout dengan validasi pra-bayar dan pemuli
 - Consumes: `Repository.buatPesanan(clientOrderId, outletId, items, phone)`
 - Produces: `PaymentViewModel` yang menegakkan kontrak `client_order_id`
 
-- [ ] **Step 1: Tulis test kontrak idempotensi yang gagal**
+- [x] **Step 1: Tulis test kontrak idempotensi yang gagal**
 
 Ini bagian paling mudah salah di seluruh aplikasi. Kontraknya ditegakkan test.
 
@@ -847,9 +847,9 @@ class IdempotensiTest {
 }
 ```
 
-- [ ] **Step 2: Jalankan test, pastikan gagal**
+- [x] **Step 2: Jalankan test, pastikan gagal**
 
-- [ ] **Step 3: Implementasi**
+- [x] **Step 3: Implementasi**
 
 ```kotlin
 /**
@@ -869,7 +869,7 @@ fun idBerikutnya(idSekarang: String, galat: GatewayError): String =
     }
 ```
 
-- [ ] **Step 4: Layar pembayaran**
+- [x] **Step 4: Layar pembayaran**
 
 Gateway mengembalikan `payment_url` dari Xendit. Buka dengan **Custom Tabs**, bukan WebView sendiri — halaman pembayaran memuat 3-D Secure dan aplikasi e-wallet, dan WebView buatan sendiri sering memblokirnya.
 
@@ -877,7 +877,7 @@ Setelah pelanggan kembali, aplikasi **tidak boleh menganggap pembayaran berhasil
 
 Layar 10 (Pilih Metode) menampilkan pilihan yang tersedia; karena Xendit Invoice sudah menyajikan pemilih metodenya sendiri, layar ini boleh langsung meneruskan ke `payment_url`. **Verifikasi dulu** perilaku nyata Xendit sebelum memutuskan menghapus layar itu.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(customer-app): pembayaran Xendit dengan kontrak idempotensi ditegakkan test"
@@ -896,7 +896,7 @@ git commit -m "feat(customer-app): pembayaran Xendit dengan kontrak idempotensi 
 **Interfaces:**
 - Consumes: `Repository.statusPesanan(id)`, `Repository.riwayat()`
 
-- [ ] **Step 1: Layar Sukses**
+- [x] **Step 1: Layar Sukses**
 
 Nomor pesanan (`pos_order_number`) ditampilkan **sebesar mungkin** — itu satu-satunya hal yang dibutuhkan pelanggan di depan kasir. Plus QR yang memuat nomor yang sama.
 
@@ -904,19 +904,19 @@ Nomor ini berasal dari `orders.order_number`: berurutan per outlet, diisi trigge
 
 > **Jangan menghardcode panjang nomor di tata letak.** `order_number` tumbuh seiring waktu — outlet ramai bisa mencapai lima digit. Tata letaknya harus menampung itu.
 
-- [ ] **Step 2: Status pesanan**
+- [x] **Step 2: Status pesanan**
 
 Timeline tiga tahap: Diterima → Sedang dibuat → Siap diambil, dipetakan dari `status_dapur` yang dikembalikan gateway (nilai dari POS: `preparing`, dst). **Verifikasi nilai nyatanya** di `apps/pos-kasir` sebelum memetakan — jangan menebak nama status.
 
-- [ ] **Step 3: Riwayat**
+- [x] **Step 3: Riwayat**
 
 Memakai `GET /api/v1/orders/list` dari Task 3. Tombol "Pesan Lagi" mengisi ulang keranjang dari pesanan lama, lalu **memvalidasi ulang** — harga dan ketersediaan bisa sudah berubah.
 
-- [ ] **Step 4: Profil**
+- [x] **Step 4: Profil**
 
 Nama, email, dan nomor HP. Nomor bersifat opsional dan divalidasi bentuknya di gateway (`08xxx`/`+62xxx`); tampilkan galat kalau ditolak. Sertakan spanduk halus "nomormu belum ditambahkan" sesuai artboard — tapi **jangan** menghalangi apa pun karenanya.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git commit -m "feat(customer-app): sukses, status pesanan, riwayat, dan profil"
@@ -1007,3 +1007,154 @@ Tanpa keempatnya, setiap panggilan API dari aplikasi akan gagal.
 | Layar 14 (Riwayat) | 3 (addendum gateway), 10 |
 
 **Sengaja tidak tercakup:** layar 3 & 4 (OTP WhatsApp, menunggu akun Meta), poin & tier (Tahap 2), bundle & referral (Tahap 3), iOS.
+
+---
+
+## Status Eksekusi (per 2026-09-05)
+
+| Task | Status | Catatan |
+|---|---|---|
+| 1 Scaffold | ✅ | Nol dependensi Supabase, diverifikasi lewat `debugRuntimeClasspath` |
+| 2 Sistem desain | ✅ | Kontras dikunci `ColorContrastTest` |
+| 3 Addendum gateway (riwayat) | ✅ | `/api/v1/orders/list`, ter-scope ke `customer_id` |
+| 4 Klien API & sesi | ✅ | `SessionStore` terenkripsi, `petakanGalat` ber-test |
+| 5 Login Google | ✅ | Web client ID terpasang (project 401597244561); **belum diuji di perangkat** |
+| 6 Katalog & pilih outlet | ✅ | 31 test lulus, `assembleDebug` sukses |
+| 7 Detail item & keranjang | ✅ | 46 test lulus; **tanpa fitur Tambahan**, lihat di bawah |
+| 8 Checkout & validasi pra-bayar | ✅ | 59 test lulus; **tak bisa diuji ujung-ke-ujung sampai login ada** |
+| 9 Pembayaran | ✅ | Idempotensi bertahan lintas proses; 8 test mengunci kontraknya |
+| 10 Sukses, status, riwayat, profil | ✅ | Profil read-only — gateway tak punya endpoint profil |
+| 11 Notifikasi | ⏳ | Butuh keputusan sumber pemicu |
+| 12 Rilis | ⏳ | Butuh keystore rilis + SHA-1-nya |
+
+### Yang sengaja TIDAK dibuat di Task 6
+
+Artboard menampilkan tiga hal yang gateway tidak punya datanya. Semuanya
+dihilangkan, bukan diisi angka perkiraan:
+
+| Di artboard | Kenapa tidak dibuat |
+|---|---|
+| Jarak outlet ("0,8 km") | Aplikasi belum meminta izin lokasi dan gateway tidak menghitung jarak |
+| Perkiraan waktu siap ("siap 15 menit") | Tidak ada sumber datanya di mana pun |
+| Status "Ramai" | Tidak ada sumber datanya di mana pun |
+
+Jam buka **14:00** di layar Outlet Belum Buka adalah konstanta sisi aplikasi
+(`JAM_BUKA_OPERASIONAL`), diberi komentar tegas bahwa itu kesepakatan
+operasional, bukan data server. `outlets.is_active` hanya berarti "outlet
+beroperasi", bukan "sedang buka jam ini".
+
+Tombol **"Ingatkan saya saat buka"** ditampilkan dalam keadaan mati dengan
+keterangan "Pengingat belum aktif di versi ini", karena notifikasi baru
+dipasang di Task 11.
+
+### Perubahan gateway yang menyertai Task 6
+
+Katalog kini mengirim `category_name` dan `category_sort_order` (embed
+PostgREST ke tabel `categories`). Tanpa itu aplikasi hanya menerima UUID dan
+tidak punya cara menampilkan judul kelompok yang bisa dibaca pelanggan.
+
+Perubahan bersifat aditif dan aman dijalankan berdampingan: `MenuItemDto`
+memberi **default null** pada kedua field, jadi aplikasi ini tetap berfungsi
+melawan gateway yang belum di-redeploy — judul kelompok hilang, menu tetap
+tampil.
+
+⚠️ **Gateway perlu di-redeploy** agar judul kategori muncul di aplikasi.
+
+### Fitur "Tambahan" dibatalkan di Task 7 — alasan teknis, bukan kelupaan
+
+Artboard `Main.dc.html` memuat bagian **Tambahan** (Extra Keju +Rp5.000,
+Extra Kentang +Rp7.000). Fitur itu **tidak dibangun**, dan tidak boleh
+dibangun dengan cara mana pun yang tersedia sekarang:
+
+| Cara | Kenapa gagal |
+|---|---|
+| Menaikkan `unit_price` | `validateCart.ts` membandingkan `menu.price !== it.unit_price` dengan kesamaan **persis**. Pesanan ditolak `harga_berubah` (HTTP 409) tepat di titik pembayaran. |
+| Menulis tambahan di `note` saja | Dapur membuatkan Extra Keju, kasir tidak pernah menagihnya. Makanan diberikan gratis, diam-diam, setiap kali. |
+| `package_choices` | Gateway mengirimnya sebagai `null`; dukungan varian POS belum ada di Tahap 1. |
+
+**Jalan yang benar bila owner menginginkannya:** terbitkan "Extra Keju" sebagai
+**baris menu tersendiri** di katalog (`menu_items` dengan `tampil_di_app`),
+sehingga ia punya harga resmi yang lolos validasi dan tercatat di POS. Itu
+keputusan produk, bukan pekerjaan aplikasi.
+
+### Keranjang dikosongkan saat berpindah outlet
+
+`menu_item_id` bersifat **per-outlet** — katalog disaring `.eq('outlet_id', …)`.
+Keranjang milik outlet A yang dibawa ke outlet B pasti ditolak gateway dengan
+`tidak_ada`, **di titik pembayaran**. Karena itu `CartStore.pakaiOutlet()`
+mengosongkan keranjang saat outlet berganti, dan katalog menampilkan spanduk
+penjelasan. Gagal di katalog, tempat pelanggan masih bisa memesan ulang, jauh
+lebih murah daripada gagal setelah pelanggan mengira ia tinggal membayar.
+
+Ini **tidak** bertentangan dengan janji "keranjang tersimpan" di layar Outlet
+Belum Buka: di sana outletnya sama, hanya sedang tutup.
+
+### Task 8 selesai, tapi belum bisa dibuktikan jalan
+
+`/api/v1/checkout/validate` memanggil `requireCustomer` — **wajib sesi login**.
+Tanpa Task 5, setiap panggilan dari aplikasi menerima HTTP 401 dan layar
+checkout akan menampilkan "Sesimu sudah berakhir. Masuk lagi untuk
+melanjutkan." Itu perilaku yang benar untuk keadaan itu, tapi artinya jalur
+sukses layar ini **belum pernah dijalankan melawan gateway sungguhan**.
+
+Yang sudah terbukti: seluruh logika murninya (penerjemahan pesan, aturan
+pemulihan, operasi keranjang) lewat 13 test. Yang belum: perilakunya terhadap
+balasan gateway yang nyata.
+
+### Jebakan yang ditangani di Task 8
+
+| Jebakan | Penanganan |
+|---|---|
+| `ok: false` datang sebagai HTTP **200** | `GatewayResult.Sukses` tidak dianggap lampu hijau; `bolehLanjut` mensyaratkan `total != null && masalah.isEmpty() && alasan == null` |
+| Total hasil hitungan aplikasi bisa beda dari tagihan | Semua angka uang diambil dari balasan gateway; saat ditolak, angka dikosongkan sama sekali |
+| Satu menu menempati beberapa baris (catatan berbeda) | `hapusMenuItem` membuang **semua** barisnya — kalau tidak, checkout gagal lagi dengan keluhan identik dan tombol "Hapus" tampak rusak |
+| Gateway menambah jenis masalah baru | `pesanUntukMasalah` selalu menghasilkan kalimat; kode mesin tidak pernah bocor ke layar |
+| Membuang seluruh keranjang saat satu item bermasalah | Dilarang rencana, dan memang tidak dilakukan: hanya item bermasalah yang disentuh |
+
+---
+
+## Bug yang ditemukan saat Task 9/10 — sebelum sempat dipakai
+
+`OrderDetailDto.posOrderNumber` dideklarasikan `String?`, padahal kolomnya
+`pos_order_number int` di `retail.order_drafts` dan gateway meneruskannya apa
+adanya sebagai **angka JSON**.
+
+kotlinx-serialization melempar saat menguraikannya. Karena pengurai dipanggil
+di dalam `try/catch` milik `GatewayClient`, kegagalan itu **menyamar jadi
+`GatewayError.Jaringan`** — layar status dan riwayat akan selalu gagal, dengan
+pesan yang menuduh koneksi pelanggan padahal koneksinya baik-baik saja.
+
+Diperbaiki jadi `Int?`. Pelajaran yang berlaku umum di aplikasi ini: bentuk
+DTO adalah **klaim**, dan klaim itu hanya terbukti saat balasan sungguhan
+diurai. Ketiga DTO lain yang memuat angka sudah diperiksa ulang.
+
+## Yang sengaja TIDAK dibangun di Task 9/10
+
+| Diminta rencana/artboard | Kenapa tidak |
+|---|---|
+| Layar "Pilih Metode" (10) | Halaman tagihan Xendit sudah punya pemilih metodenya sendiri. Layar kedua hanya menampilkan daftar yang sama dua kali. **Perlu dikonfirmasi di transaksi nyata pertama** — kalau ternyata tidak, layar ini dihidupkan lagi. |
+| QR di layar sukses | Tidak ada jalur pemindaian di sisi kasir; POS tidak punya fitur memindai kode pesanan. QR yang tak bisa dipindai menjanjikan cara kerja yang tidak ada, dan pelanggan akan menyodorkan layarnya ke kasir yang kebingungan. |
+| Tombol "Pesan Lagi" di riwayat | `/api/v1/orders/list` hanya mengembalikan ringkasan (nomor, total, status, outlet) — tanpa rincian item. Menebak isi keranjang dari nama menu meleset begitu menu berganti nama, dan meleset di keranjang berarti pelanggan membayar sesuatu yang tidak ia pilih. Butuh gateway mengembalikan `items` per pesanan. |
+| Ubah nomor HP di profil | **Gateway tidak punya endpoint profil sama sekali.** Rencana mengasumsikan ada endpoint yang memvalidasi bentuk nomor di server; endpoint itu tidak pernah dibuat. Kolom yang bisa diketik tapi tak tersimpan ke mana pun membuat pelanggan mengira nomornya sudah tersimpan. |
+
+Nomor HP tetap bisa masuk lewat `customer_phone` saat pembuatan pesanan, dan
+baru benar-benar diperlukan untuk pembayaran referral di Tahap 3.
+
+## Kontrak idempotensi — inti Task 9
+
+`client_order_id` adalah kunci sekali pakai, dan salah arah mahal ke dua sisi:
+
+- **Memakai ulang id setelah draftnya hangus** → `client_order_id` berkendala
+  UNIQUE → gateway membalas 409 selamanya → pesanan itu tidak akan pernah bisa
+  dibuat.
+- **Membuat id baru saat percobaan sebelumnya masih hidup** → DUA tagihan
+  Xendit untuk satu keranjang → pelanggan tertagih dua kali.
+
+Karena itu id hanya diganti pada `pesanan_kadaluarsa`, dan setiap kondisi lain
+— galat jaringan, 5xx, sesi tidak sah, kode yang tidak dikenal —
+mempertahankan id yang sama. Dikunci 8 test.
+
+Id disimpan ke SharedPreferences **sebelum** permintaan pertama dikirim.
+Pembayaran membawa pelanggan keluar aplikasi (Custom Tabs, lalu aplikasi
+e-wallet) dan Android boleh mematikan prosesnya di sana. Id yang hanya hidup
+di memori berarti tagihan kedua saat pelanggan mencoba ulang.

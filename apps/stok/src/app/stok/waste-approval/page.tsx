@@ -1,9 +1,7 @@
 // @ts-nocheck
 'use client'
 import { useState } from 'react'
-import { Card } from '@suka/design-system/src/components/Card'
-import { Button } from '@suka/design-system/src/components/Button'
-import { Input } from '@suka/design-system/src/components/Input'
+import { Card, Button, Input } from '@suka/design-system'
 import { approveWasteReport, rejectWasteReport } from '@/app/actions/waste'
 import { toast } from 'sonner'
 import { useStokBalance } from '@/hooks/useStokBalance'

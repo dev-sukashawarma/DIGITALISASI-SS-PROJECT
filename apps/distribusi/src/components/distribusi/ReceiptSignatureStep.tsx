@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useAuth } from '@suka/auth'
 import { SignatureCanvas } from './SignatureCanvas'
-import { ArrowLeft, CheckCircle2, AlertTriangle, ShieldCheck, PenTool, Check } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ShieldCheck, PenTool, Check } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface ReceiptSignature {

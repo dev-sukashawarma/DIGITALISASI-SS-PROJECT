@@ -66,7 +66,17 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
   const canApproveWaste = ['kitchen', 'spv', 'regional_manager', 'leader', 'area_manager', 'admin', 'owner', 'developer', 'purchasing'].includes(role ?? '')
   const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer', 'purchasing'].includes(role ?? '')
+  // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
+  // jadi khusus staff gudang. Role lain pakai Ledger Stok untuk riwayat outletnya.
+  const canViewInboundOutbound = role === 'kitchen'
   const canViewHPP = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
+  // Nilai Persediaan dibaca lewat view security_invoker, jadi gate-nya HARUS
+  // sama dengan policy RLS `bbh_read` di bahan_baku_harga -- kalau lebih longgar,
+  // role di luar daftar akan membuka halaman lalu melihat total nol dan
+  // menyangka stoknya kosong. Sengaja lebih ketat dari canViewVendorPrices,
+  // yang memang lebih longgar karena halaman Master Harga memakai Server Action
+  // ber-service-role.
+  const canViewNilaiPersediaan = ['admin', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(role ?? '')
 
   // 1. Pending Approvals Permintaan
   const { permintaan } = useApprovalList(isApprover)
@@ -138,6 +148,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
               },
             ]
           : []),
+        ...(canViewNilaiPersediaan
+          ? [
+              {
+                label: 'Nilai Persediaan',
+                href: '/stok/nilai-persediaan',
+                icon: Wallet,
+              },
+            ]
+          : []),
       ],
     },
     {
@@ -205,11 +224,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
               },
             ]
           : []),
-        {
-          label: 'Inbound / Outbound',
-          href: '/stok/inbound-outbound',
-          icon: ArrowDownUp,
-        },
+        ...(canViewInboundOutbound
+          ? [
+              {
+                label: 'Inbound / Outbound',
+                href: '/stok/inbound-outbound',
+                icon: ArrowDownUp,
+              },
+            ]
+          : []),
         {
           label: 'Ledger Stok',
           href: '/stok/ledger',

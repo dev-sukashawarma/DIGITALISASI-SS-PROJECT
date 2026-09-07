@@ -27,6 +27,14 @@ export function susunPayloadPos(input: {
     customer_phone: input.customerPhone,
     cashier_name: null,
     notes: 'Pesanan aplikasi',
+    // Sengaja dipatok, BUKAN kanal Xendit yang sebenarnya. Constraint
+    // `orders_payment_method_check` di database live hanya mengizinkan
+    // 'cash' | 'qris' | 'card' | NULL untuk channel selain 'website'.
+    // Menulis 'OVO'/'BANK_TRANSFER' membuat `atomic_insert_order` gagal
+    // SETELAH uang diterima — pesanan tak pernah sampai ke dapur.
+    // Rekonsiliasi kas aman: apps/finance memfilter `payment_method = 'cash'`.
+    // Cara memperbaikinya (DDL + peringatan verifikasi) ada di
+    // docs/2026-09-01-tahap1-gateway-plan.md, "Catatan Pasca-Pilot".
     payment_method: 'qris',
     total_amount: input.total,
     discount_amount: input.discountAmount,

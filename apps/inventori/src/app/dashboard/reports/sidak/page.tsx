@@ -7,6 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminSidakReviewPage() {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
-  if (staff?.role !== 'admin') redirect('/dashboard')
+  // Hasil sidak dapat dipantau admin dan regional manager.
+  if (!staff || !['admin', 'regional_manager'].includes(staff.role)) redirect('/dashboard')
   return <SidakReviewView />
 }

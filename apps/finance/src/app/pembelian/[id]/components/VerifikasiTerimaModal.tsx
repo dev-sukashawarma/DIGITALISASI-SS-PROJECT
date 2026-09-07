@@ -1,11 +1,11 @@
 // @ts-nocheck
 'use client'
 
-import { useState } from 'react'
-import { X, CheckCircle, PackageCheck, AlertCircle } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { X, CheckCircle, PackageCheck, AlertCircle, Camera, FileText } from 'lucide-react'
 import { Spinner } from '@suka/design-system'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrder'
-import { useVerifikasiTerimaPO } from '@/hooks/usePurchaseOrder'
+import { useVerifikasiTerimaPO, useUploadInvoice, getInvoiceUrl } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 
 type Props = {
@@ -26,6 +26,10 @@ type ItemState = {
 
 export function VerifikasiTerimaModal({ po, onClose }: Props) {
   const verifikasi = useVerifikasiTerimaPO()
+  const uploadInvoice = useUploadInvoice()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+  const [uploadingFile, setUploadingFile] = useState(false)
   
   // Inisialisasi state sesuai default dari PO
   const [items, setItems] = useState<ItemState[]>(
@@ -50,26 +54,36 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
     setItems(prev => prev.map(it => it.id === id ? { ...it, [field]: value } : it))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const payloadItems = items.map(it => ({
-      id: it.id,
-      qty_datang: Number(it.qty_datang || 0),
-      qty_terima: Number(it.qty_terima_sebelumnya) + Number(it.qty_datang || 0),
-      harga_terima: Number(it.harga_terima || 0),
-      kondisi: it.kondisi,
-      catatan: it.catatan
-    }))
+    setUploadingFile(true)
+    try {
+      if (invoiceFile) {
+        await uploadInvoice.mutateAsync({ poId: po.id, file: invoiceFile })
+      }
+      const payloadItems = items.map(it => ({
+        id: it.id,
+        qty_datang: Number(it.qty_datang || 0),
+        qty_terima: Number(it.qty_terima_sebelumnya) + Number(it.qty_datang || 0),
+        harga_terima: Number(it.harga_terima || 0),
+        kondisi: it.kondisi,
+        catatan: it.catatan
+      }))
 
-    verifikasi.mutate({
-      poId: po.id,
-      items: payloadItems
-    }, {
-      onSuccess: () => onClose()
-    })
+      verifikasi.mutate({
+        poId: po.id,
+        items: payloadItems
+      }, {
+        onSuccess: () => onClose()
+      })
+    } catch (err) {
+      console.error('Error during verification submit:', err)
+    } finally {
+      setUploadingFile(false)
+    }
   }
 
-  const isSaving = verifikasi.isPending
+  const isSaving = verifikasi.isPending || uploadingFile
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
@@ -204,6 +218,44 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                 </div>
               )
             })}
+
+            {/* Upload Foto / Dokumen Invoice Supplier */}
+            <div className="p-5 bg-white/95 border border-dashed border-suka-brown/20 rounded-3xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-suka-brown flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-suka-orange" />
+                    Foto / Dokumen Faktur & Surat Jalan Supplier (Opsional)
+                  </h4>
+                  <p className="text-[11px] text-suka-brown/60 mt-0.5">
+                    Unggah bukti fisik nota/surat jalan untuk arsip 3-Way Matching.
+                  </p>
+                </div>
+                {invoiceFile && (
+                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    File terpilih: {invoiceFile.name}
+                  </span>
+                )}
+              </div>
+
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*,application/pdf"
+                className="hidden"
+                onChange={e => setInvoiceFile(e.target.files?.[0] || null)}
+                capture="environment"
+              />
+
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="w-full py-4 text-xs font-bold text-suka-brown/70 bg-suka-cream/30 hover:bg-suka-cream/60 border border-suka-brown/15 rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Camera className="w-4 h-4 text-suka-orange" />
+                <span>{invoiceFile ? 'Ganti File Foto/Invoice' : 'Pilih / Ambil Foto Invoice'}</span>
+              </button>
+            </div>
           </form>
         </div>
 

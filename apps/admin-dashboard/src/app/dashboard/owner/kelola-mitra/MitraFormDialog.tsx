@@ -10,13 +10,7 @@ import {
   Check, 
   CreditCard, 
   FileText, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  Building, 
-  Calendar, 
-  Percent 
+  User
 } from 'lucide-react'
 import { toast } from 'sonner'
 

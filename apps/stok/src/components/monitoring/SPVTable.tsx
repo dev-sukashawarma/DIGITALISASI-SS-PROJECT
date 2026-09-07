@@ -2,8 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import type { MonitoringItem } from '@/lib/types/monitoring';
-import { Skeleton } from '@suka/design-system/src/components/SkeletonBase';
-import { getBahanBakuSource } from '@suka/design-system/src/utils/bahanBaku';
+import { Skeleton, getBahanBakuSource } from '@suka/design-system';
 import { decomposeTriUnitRaw } from '@/lib/format/compositeUnit';
 import { ChevronUp, ChevronDown, ArrowUpDown, Eye, Edit3, Check, X } from 'lucide-react';
 

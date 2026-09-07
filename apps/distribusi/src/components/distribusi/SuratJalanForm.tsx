@@ -7,7 +7,7 @@ import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { BottomNav } from './BottomNav'
-import { ArrowLeft, Search, Plus, Trash2, Check, Package, X, Store, Layers } from 'lucide-react'
+import { ArrowLeft, Search, Plus, Trash2, Check, Package, X, Store } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface FormItem {
@@ -55,7 +55,7 @@ export function SuratJalanForm() {
   const router = useRouter()
   const { outletStaff } = useAuth()
   const { outlets, loading: outletsLoading } = useOutlets()
-  const { bahanBaku, loading: bahanLoading } = useBahanBaku()
+  const { bahanBaku } = useBahanBaku()
   const [outletId, setOutletId] = useState('')
   const [items, setItems] = useState<FormItem[]>([])
   

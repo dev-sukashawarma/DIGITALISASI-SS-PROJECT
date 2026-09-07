@@ -110,3 +110,123 @@ export async function toggleStaffBonusEligibility(staffId: string, isBonusEligib
 
   return { ok: true }
 }
+
+export async function deleteStaffSync(staffId: string): Promise<{
+  ok: boolean
+  archived?: boolean
+  message: string
+}> {
+  await requireRole(['admin', 'owner', 'admin_hr'])
+
+  if (!staffId) throw new Error('ID staf tidak valid')
+  const admin = getAdminSupabase()
+
+  // 1. Fetch staff info
+  const { data: staff, error: staffErr } = await admin
+    .from('outlet_staff')
+    .select('id, name, status, outlet_id, resign_date')
+    .eq('id', staffId)
+    .single()
+
+  if (staffErr || !staff) {
+    throw new Error('Data karyawan tidak ditemukan')
+  }
+
+  // 2. Check operational records: shifts & attendance
+  const { count: shiftCount } = await admin
+    .from('shifts')
+    .select('*', { count: 'exact', head: true })
+    .or(`staff_id.eq.${staffId},closed_by.eq.${staffId}`)
+
+  const { count: attendanceCount } = await admin
+    .from('attendance')
+    .select('*', { count: 'exact', head: true })
+    .eq('outlet_staff_id', staffId)
+
+  const hasOperationalHistory = (shiftCount ?? 0) > 0 || (attendanceCount ?? 0) > 0
+
+  if (hasOperationalHistory) {
+    const today = new Date().toISOString().split('T')[0]
+
+    // Soft delete / archive
+    const { error: updateErr } = await admin
+      .from('outlet_staff')
+      .update({
+        status: 'inactive',
+        is_active: false,
+        inactive_reason: 'Diarsipkan oleh HR (memiliki riwayat operasional shift/absensi)',
+        resign_date: staff.resign_date || today,
+      })
+      .eq('id', staffId)
+
+    if (updateErr) {
+      throw new Error(`Gagal menonaktifkan karyawan: ${updateErr.message}`)
+    }
+
+    // Unassign from all outlets
+    await admin.from('staff_outlets').delete().eq('staff_id', staffId)
+
+    // Remove or revoke login credentials from auth.users
+    try {
+      await admin.auth.admin.deleteUser(staffId)
+    } catch (authErr) {
+      console.warn('Gagal menghapus user auth (kemungkinan sudah dihapus atau ada relasi auth):', authErr)
+      try {
+        await admin.auth.admin.updateUserById(staffId, {
+          ban_duration: '876000h',
+          user_metadata: { deactivated: true },
+        })
+      } catch (_) {}
+    }
+
+    return {
+      ok: true,
+      archived: true,
+      message: `Karyawan "${staff.name}" memiliki riwayat operasional (${shiftCount || 0} shift, ${attendanceCount || 0} absensi). Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut demi integritas data keuangan.`,
+    }
+  }
+
+  // 3. No operational history -> Try hard delete
+  await admin.from('staff_outlets').delete().eq('staff_id', staffId)
+  await admin.from('staff_financials').delete().eq('staff_id', staffId)
+
+  const { error: deleteError } = await admin.from('outlet_staff').delete().eq('id', staffId)
+  if (deleteError) {
+    if (deleteError.code === '23503' || deleteError.message.includes('foreign key constraint')) {
+      const today = new Date().toISOString().split('T')[0]
+      await admin
+        .from('outlet_staff')
+        .update({
+          status: 'inactive',
+          is_active: false,
+          inactive_reason: 'Diarsipkan oleh HR (terkait data historis)',
+          resign_date: staff.resign_date || today,
+        })
+        .eq('id', staffId)
+
+      try {
+        await admin.auth.admin.deleteUser(staffId)
+      } catch (_) {}
+
+      return {
+        ok: true,
+        archived: true,
+        message: `Karyawan "${staff.name}" terkait dengan data sistem. Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut.`,
+      }
+    }
+    throw new Error(`Gagal menghapus karyawan: ${deleteError.message}`)
+  }
+
+  // Delete auth user
+  try {
+    await admin.auth.admin.deleteUser(staffId)
+  } catch (authErr) {
+    console.warn('Gagal menghapus auth user:', authErr)
+  }
+
+  return {
+    ok: true,
+    archived: false,
+    message: `Karyawan "${staff.name}" berhasil dihapus permanen.`,
+  }
+}

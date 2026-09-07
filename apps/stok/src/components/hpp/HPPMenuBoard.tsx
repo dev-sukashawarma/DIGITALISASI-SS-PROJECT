@@ -19,7 +19,7 @@ import {
   SlidersHorizontal,
   Info
 } from 'lucide-react'
-import { Skeleton } from '@suka/design-system/src/components/SkeletonBase'
+import { Skeleton } from '@suka/design-system'
 
 export function HPPMenuBoard() {
   const { data: menuList = [], isLoading, isRefetching, refetch, error } = useHPPMenuList()

@@ -75,6 +75,7 @@ export type BahanBakuOption = {
   id: string
   nama: string
   satuan: string
+  kategori?: string | null
   harga_beli: number | null
 }
 
@@ -142,13 +143,14 @@ export function useBahanBakuOptions() {
     queryFn: async (): Promise<BahanBakuOption[]> => {
       const { data, error } = await supabase
         .from('bahan_baku')
-        .select('id, nama, satuan, bahan_baku_harga(harga_beli)')
+        .select('id, nama, satuan, kategori, bahan_baku_harga(harga_beli)')
         .order('nama')
       if (error) throw error
       return (data ?? []).map((b: any) => ({
         id: b.id,
         nama: b.nama,
         satuan: b.satuan,
+        kategori: b.kategori,
         harga_beli: b.bahan_baku_harga?.[0]?.harga_beli ?? null,
       }))
     },
@@ -286,11 +288,21 @@ export function useDeleteSupplier() {
   })
 }
 
-export async function getSignedInvoiceUrl(path: string): Promise<string> {
+export function getInvoiceUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return ''
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+    if (pathOrUrl.includes('/storage/v1/object/public/po-invoices/')) {
+      const parts = pathOrUrl.split('/storage/v1/object/public/po-invoices/')
+      return `${supabaseUrl}/storage/v1/object/public/po-invoices/${parts[1]}`
+    }
+    return pathOrUrl
+  }
   const supabase = createSupabaseBrowserClient()
-  const { data, error } = await supabase.storage
-    .from('po-invoices')
-    .createSignedUrl(path, 3600)
-  if (error) throw error
-  return data.signedUrl
+  const { data } = supabase.storage.from('po-invoices').getPublicUrl(pathOrUrl)
+  return data?.publicUrl || ''
+}
+
+export async function getSignedInvoiceUrl(path: string): Promise<string> {
+  return getInvoiceUrl(path)
 }

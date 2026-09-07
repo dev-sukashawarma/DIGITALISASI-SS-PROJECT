@@ -1,4 +1,4 @@
-export type SuratJalanStatus = 'draft' | 'dikirim' | 'dikirim_lengkap' | 'diterima_sebagian' | 'diterima_lengkap' | 'selesai'
+export type SuratJalanStatus = 'draft' | 'dikirim' | 'dikirim_lengkap' | 'diterima_sebagian' | 'diterima_lengkap' | 'selesai' | 'dibatalkan'
 export type KondisiItem = 'baik' | 'rusak' | 'hilang_qty'
 
 export interface SuratJalan {

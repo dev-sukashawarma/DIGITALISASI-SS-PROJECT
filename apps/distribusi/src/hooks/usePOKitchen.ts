@@ -129,3 +129,18 @@ export async function uploadInvoiceKitchen(poId: string, file: File): Promise<vo
     .eq('id', poId)
   if (error) throw error
 }
+
+export function getInvoiceUrl(pathOrUrl: string): string {
+  if (!pathOrUrl) return ''
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
+    if (pathOrUrl.includes('/storage/v1/object/public/po-invoices/')) {
+      const parts = pathOrUrl.split('/storage/v1/object/public/po-invoices/')
+      return `${supabaseUrl}/storage/v1/object/public/po-invoices/${parts[1]}`
+    }
+    return pathOrUrl
+  }
+  const supabase = createSupabaseBrowserClient()
+  const { data } = supabase.storage.from('po-invoices').getPublicUrl(pathOrUrl)
+  return data?.publicUrl || ''
+}

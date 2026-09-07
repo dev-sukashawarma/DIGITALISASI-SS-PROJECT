@@ -187,10 +187,25 @@ export default function NewPOPage() {
                         onChange={e => handleBahanChange(idx, e.target.value)}
                         className="w-full pl-3 pr-2 py-2 text-xs font-bold text-suka-ink bg-white shadow-inner border border-suka-gray-200 rounded-xl focus:outline-none focus:border-suka-orange cursor-pointer"
                       >
-                        <option value="">— Pilih bahan baku —</option>
-                        {bahanList
-                          .filter(b => !usedBahanIds.has(b.id) || b.id === item.bahan_baku_id)
-                          .map(b => <option key={b.id} value={b.id}>{b.nama} ({b.satuan})</option>)}
+                        <option value="">— Pilih item / barang —</option>
+                        {Object.entries(
+                          bahanList
+                            .filter(b => !usedBahanIds.has(b.id) || b.id === item.bahan_baku_id)
+                            .reduce<Record<string, typeof bahanList>>((acc, b) => {
+                              const kat = b.kategori || 'LAINNYA'
+                              if (!acc[kat]) acc[kat] = []
+                              acc[kat].push(b)
+                              return acc
+                            }, {})
+                        ).map(([group, list]) => (
+                          <optgroup key={group} label={`── ${group} ──`}>
+                            {list.map(b => (
+                              <option key={b.id} value={b.id}>
+                                {b.nama} ({b.satuan})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
                       </select>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">

@@ -182,14 +182,76 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
 
     const supabaseService = createServiceClient()
 
-    // 1. Delete from outlet_staff first
+    // 1. Check if user has operational history (shifts, attendance)
+    const { count: shiftCount } = await supabaseService
+      .from('shifts')
+      .select('*', { count: 'exact', head: true })
+      .or(`staff_id.eq.${userId},closed_by.eq.${userId}`)
+
+    const { count: attendanceCount } = await supabaseService
+      .from('attendance')
+      .select('*', { count: 'exact', head: true })
+      .eq('outlet_staff_id', userId)
+
+    if ((shiftCount ?? 0) > 0 || (attendanceCount ?? 0) > 0) {
+      const today = new Date().toISOString().split('T')[0]
+      await supabaseService
+        .from('outlet_staff')
+        .update({
+          status: 'inactive',
+          is_active: false,
+          inactive_reason: 'Diarsipkan oleh Admin (memiliki riwayat operasional shift/absensi)',
+          resign_date: today,
+        })
+        .eq('id', userId)
+
+      await supabaseService.from('staff_outlets').delete().eq('staff_id', userId)
+
+      try {
+        await supabaseService.auth.admin.deleteUser(userId)
+      } catch (_) {}
+
+      return NextResponse.json({
+        success: true,
+        archived: true,
+        message: 'User memiliki riwayat operasional, akun diarsipkan (status Nonaktif) & akses login dicabut.',
+      })
+    }
+
+    // 2. Clean up child tables
+    await supabaseService.from('staff_outlets').delete().eq('staff_id', userId)
+    await supabaseService.from('staff_financials').delete().eq('staff_id', userId)
+
+    // 3. Delete from outlet_staff
     const { error: profileError } = await supabaseService.from('outlet_staff').delete().eq('id', userId)
     if (profileError) {
+      if (profileError.code === '23503' || profileError.message.includes('foreign key constraint')) {
+        const today = new Date().toISOString().split('T')[0]
+        await supabaseService
+          .from('outlet_staff')
+          .update({
+            status: 'inactive',
+            is_active: false,
+            inactive_reason: 'Diarsipkan oleh Admin (terkait data historis)',
+            resign_date: today,
+          })
+          .eq('id', userId)
+
+        try {
+          await supabaseService.auth.admin.deleteUser(userId)
+        } catch (_) {}
+
+        return NextResponse.json({
+          success: true,
+          archived: true,
+          message: 'User terkait riwayat data sistem, akun diarsipkan (status Nonaktif) & akses login dicabut.',
+        })
+      }
       console.error("Gagal menghapus profile:", profileError)
       return NextResponse.json({ error: 'Gagal menghapus profil user: ' + profileError.message }, { status: 500 })
     }
 
-    // 2. Delete Auth User
+    // 4. Delete Auth User
     const { error } = await supabaseService.auth.admin.deleteUser(userId)
     if (error) {
       console.error("Gagal menghapus auth user:", error)
@@ -201,7 +263,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Gagal menghapus autentikasi user: ' + error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, archived: false })
   } catch (err) {
     return errorResponse(err)
   }

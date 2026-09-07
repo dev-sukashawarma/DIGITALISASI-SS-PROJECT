@@ -1,4 +1,4 @@
-import { Card } from '@suka/design-system/src/components/Card'
+import { Card } from '@suka/design-system'
 
 export function ListSkeleton({ rows = 6, title = 'Memuat...' }: { rows?: number; title?: string }) {
   return (

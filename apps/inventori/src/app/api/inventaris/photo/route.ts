@@ -6,6 +6,9 @@ export const runtime = 'nodejs'
 
 const PHOTO_BUCKET = 'inventaris-foto'
 const MAX_INPUT_FILE_BYTES = 50 * 1024 * 1024
+// Hasil kompresi browser (1024px, WebP q72) hampir selalu di bawah 400 KB.
+// Ambang ini membedakannya dari WebP besar yang dipilih langsung dari galeri.
+const OPTIMIZED_PHOTO_MAX_BYTES = 1024 * 1024
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp'])
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -114,16 +117,24 @@ export async function POST(request: Request) {
     const { data: signedUrlData } = await supabase.storage
       .from(PHOTO_BUCKET)
       .createSignedUrl(path, 24 * 60 * 60)
-    after(async () => {
-      await optimizeUploadedPhoto(supabase, path)
-    })
-    return NextResponse.json({ ok: true, photo_path: path, photo_url: signedUrlData?.signedUrl ?? null, optimizing: true })
+    // Browser sudah mengecilkan foto menjadi WebP <=1024px sebelum mengunggah,
+    // jadi tidak ada yang perlu dikerjakan sharp. Melewatinya juga menghindari
+    // pekerjaan sia-sia: bucket ini hanya punya policy INSERT/SELECT/DELETE,
+    // sehingga upload ulang dengan upsert SELALU ditolak RLS ("new row violates
+    // row-level security policy") setelah men-download dan mengonversi ulang.
+    const alreadyOptimized = photo.type.toLowerCase() === 'image/webp' && photo.size <= OPTIMIZED_PHOTO_MAX_BYTES
+    if (!alreadyOptimized) {
+      after(async () => {
+        await optimizeUploadedPhoto(supabase, path)
+      })
+    }
+    return NextResponse.json({ ok: true, photo_path: path, photo_url: signedUrlData?.signedUrl ?? null, optimizing: !alreadyOptimized })
   } catch (error) {
     return errorResponse(error instanceof Error ? error.message : 'Gagal memproses foto.', 500)
   }
 }
 
-/** Foto bukti untuk laporan. Jalur ini sengaja hanya tersedia untuk admin. */
+/** Foto bukti untuk laporan. Jalur ini tersedia untuk admin dan regional manager. */
 export async function GET(request: Request) {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -134,7 +145,7 @@ export async function GET(request: Request) {
     .select('role')
     .eq('id', user.id)
     .maybeSingle()
-  if (staffError || staff?.role !== 'admin') return errorResponse('Akses laporan hanya untuk admin.', 403)
+  if (staffError || !staff || !['admin', 'regional_manager'].includes(staff.role)) return errorResponse('Akses laporan hanya untuk admin atau regional manager.', 403)
 
   const path = new URL(request.url).searchParams.get('path')?.trim() ?? ''
   if (!isSafePhotoPath(path)) return errorResponse('Path foto tidak valid.')

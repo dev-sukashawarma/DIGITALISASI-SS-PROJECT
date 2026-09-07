@@ -68,11 +68,19 @@ export async function fetchAnalyticsData(
 
     const netRevenue = completedOrders.reduce((s: number, o: any) => s + (Number(o.total_amount) || 0), 0)
 
-    // Potongan promo offline yang SUDAH terpotong dari total_amount — info saja,
-    // jangan ditambahkan balik ke omzet (lihat getOrderGrossAmount di lib/channel-filter.ts).
+    // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000):
+    //   Potongan    = MAX(0, SUM(order_items.subtotal) - total_amount)
+    //   Omzet Kotor = total_amount + Potongan
+    // Bertumpu pada nilai menu, bukan pada discount_amount/promo_subsidy, karena
+    // arti `total_amount` sempat berubah (19 Agustus 2026, commit b41efc7a).
+    // Subsidi food apps TIDAK masuk sini -- dilaporkan terpisah sebagai
+    // totalPromoSubsidy.
     const totalDeductions = completedOrders.reduce((s: number, o: any) => {
-      if (isFoodAppOrder(o)) return s
-      return s + (Number(o.discount_amount) || 0)
+      const items = Array.isArray(o.order_items) ? o.order_items : []
+      const total = Number(o.total_amount) || 0
+      if (items.length === 0) return s + (Number(o.discount_amount) || 0)
+      const itemValue = items.reduce((sum: number, i: any) => sum + (Number(i.subtotal) || 0), 0)
+      return s + Math.max(0, itemValue - total)
     }, 0)
 
     // Potongan App: subsidi promo food apps. Tidak memotong total_amount (food apps
@@ -81,7 +89,8 @@ export async function fetchAnalyticsData(
       return isFoodAppOrder(o) ? s + (Number(o.promo_subsidy) || 0) : s
     }, 0)
 
-    const totalRevenue = netRevenue
+    // Omzet Kotor -- label & angka disamakan dengan dashboard pusat.
+    const totalRevenue = netRevenue + totalDeductions
     const totalOrders = completedOrders.length
     const pendingCount = (ordersData || []).filter((o: any) => o.status === 'pending').length
     const canceledCount = (ordersData || []).filter((o: any) => o.status === 'cancelled' || o.cancellation_status === 'pending_approval').length

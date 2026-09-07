@@ -23,10 +23,24 @@ export const Sidebar = () => {
   }
 
   const groups = accessibleGroups(role)
+  /** Apakah item ini — atau salah satu sub-menunya — sedang dibuka. */
+  const itemOrChildActive = (item: (typeof groups)[number]['items'][number]) =>
+    isItemActive(item.href, pathname) ||
+    (item.children ?? []).some((c) => isItemActive(c.href, pathname))
   // Pintu yang sedang dibuka: default pintu yang memuat halaman aktif.
-  const activeGroupTitle = groups.find((g) => g.items.some((i) => isItemActive(i.href, pathname)))?.title
+  const activeGroupTitle = groups.find((g) => g.items.some(itemOrChildActive))?.title
   const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? groups[0]?.title ?? null)
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
+
+  // Sub-menu yang sedang terbuka. Default: yang memuat halaman aktif.
+  const activeParentHref = groups
+    .flatMap((g) => g.items)
+    .find((i) => (i.children ?? []).some((c) => isItemActive(c.href, pathname)))?.href
+  const [openSub, setOpenSub] = useState<string | null>(activeParentHref ?? null)
+
+  useEffect(() => {
+    if (activeParentHref) setOpenSub(activeParentHref)
+  }, [activeParentHref])
 
   // Sync openDoor when pathname changes so it naturally reflects the active item
   useEffect(() => {
@@ -53,7 +67,7 @@ export const Sidebar = () => {
         {groups.map((group) => {
           const DoorIcon = group.icon
           const isOpen = openDoor === group.title
-          const doorActive = group.items.some((i) => isItemActive(i.href, pathname))
+          const doorActive = group.items.some(itemOrChildActive)
 
           return (
             <div key={group.title}>
@@ -76,26 +90,67 @@ export const Sidebar = () => {
                   {/* Dropdown Items */}
                   {isOpen && (
                     <div className="space-y-0.5 ml-2">
-                      {group.items.map(({ href, label, icon: Icon }) => {
+                      {group.items.map((item) => {
+                        const { href, label, icon: Icon, children } = item
                         const active = isItemActive(href, pathname)
+                        const hasChildren = Boolean(children?.length)
+                        const subOpen = hasChildren && openSub === href
+
                         return (
-                          <Link
-                            key={href}
-                            href={href}
-                            className={`group flex items-center gap-3 rounded-xl mx-2 px-3 py-2 font-semibold transition-all active:scale-95 ${
-                              active
-                                ? 'bg-white text-[#4A1713] shadow-md'
-                                : 'text-white/70 hover:bg-white/10 hover:text-white'
-                            }`}
-                          >
-                            <Icon size={16} className={active ? 'text-[#4A1713]' : 'text-white/50 group-hover:text-white/80'} />
-                            <span className="flex-1 text-[13px]">{label}</span>
-                            {href === '/dashboard/hr/leave' && pendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-                                {pendingCount}
-                              </span>
+                          <div key={href}>
+                            <div className="flex items-center">
+                              <Link
+                                href={href}
+                                className={`group flex flex-1 items-center gap-3 rounded-xl ml-2 ${hasChildren ? 'mr-0' : 'mr-2'} px-3 py-2 font-semibold transition-all active:scale-95 ${
+                                  active
+                                    ? 'bg-white text-[#4A1713] shadow-md'
+                                    : 'text-white/70 hover:bg-white/10 hover:text-white'
+                                }`}
+                              >
+                                <Icon size={16} className={active ? 'text-[#4A1713]' : 'text-white/50 group-hover:text-white/80'} />
+                                <span className="flex-1 text-[13px]">{label}</span>
+                                {href === '/dashboard/hr/leave' && pendingCount > 0 && (
+                                  <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                    {pendingCount}
+                                  </span>
+                                )}
+                              </Link>
+
+                              {hasChildren && (
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenSub(subOpen ? null : href)}
+                                  aria-expanded={subOpen}
+                                  aria-label={subOpen ? `Tutup sub-menu ${label}` : `Buka sub-menu ${label}`}
+                                  className="mr-2 shrink-0 rounded-lg p-1.5 text-white/40 hover:bg-white/10 hover:text-white transition-all active:scale-95"
+                                >
+                                  <ChevronDown size={13} className={`transition-transform ${subOpen ? 'rotate-180' : ''}`} />
+                                </button>
+                              )}
+                            </div>
+
+                            {hasChildren && subOpen && (
+                              <div className="ml-6 mt-0.5 space-y-0.5 border-l border-white/10 pl-2">
+                                {children!.map(({ href: subHref, label: subLabel, icon: SubIcon }) => {
+                                  const subActive = isItemActive(subHref, pathname)
+                                  return (
+                                    <Link
+                                      key={subHref}
+                                      href={subHref}
+                                      className={`group flex items-center gap-2.5 rounded-lg mx-1 px-2.5 py-1.5 font-semibold transition-all active:scale-95 ${
+                                        subActive
+                                          ? 'bg-white text-[#4A1713] shadow-md'
+                                          : 'text-white/60 hover:bg-white/10 hover:text-white'
+                                      }`}
+                                    >
+                                      <SubIcon size={14} className={subActive ? 'text-[#4A1713]' : 'text-white/40 group-hover:text-white/70'} />
+                                      <span className="flex-1 text-[12px]">{subLabel}</span>
+                                    </Link>
+                                  )
+                                })}
+                              </div>
                             )}
-                          </Link>
+                          </div>
                         )
                       })}
                     </div>

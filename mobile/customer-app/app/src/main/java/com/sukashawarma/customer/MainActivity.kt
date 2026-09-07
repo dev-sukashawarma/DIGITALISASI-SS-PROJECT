@@ -281,12 +281,11 @@ fun CustomerAppRoot(container: AppContainer) {
                 }
             )
 
-            // Percobaan yang tertinggal (aplikasi sempat dimatikan Android
-            // selama pelanggan berada di halaman pembayaran) DILANJUTKAN,
-            // bukan dimulai ulang. Memulai ulang berarti tagihan kedua.
-            LaunchedEffect(Unit) {
-                if (!paymentViewModel.lanjutkanJikaAda()) paymentViewModel.bayar()
-            }
+            // `mulai()` yang memutuskan: melanjutkan percobaan tertinggal,
+            // atau membuat pesanan baru kalau yang lama sudah mati. Keputusan
+            // itu ada di ViewModel karena butuh memeriksa status ke gateway
+            // lebih dulu -- bukan sesuatu yang bisa ditebak dari sini.
+            LaunchedEffect(Unit) { paymentViewModel.mulai() }
 
             PaymentWaitScreen(
                 viewModel = paymentViewModel,

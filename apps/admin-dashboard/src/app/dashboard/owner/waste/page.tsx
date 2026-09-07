@@ -8,7 +8,7 @@ import { useOutlets } from '@/hooks/useOutlets'
 import { useWasteSummary } from '@/hooks/useWasteSummary'
 import { useWasteIncidents, type WasteIncidentRow } from '@/hooks/useWasteIncidents'
 import { useBudgetLoss } from '@/hooks/useBudgetLoss'
-import { useSalesSummary } from '@/hooks/useSalesSummary'
+import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { aggregateByOutlet, aggregateByReason, aggregateByDate } from '@/lib/wasteBreakdown'
 import { aggregateByBahanWithSpread } from '@/lib/wasteMetrics'
 import { previousRange } from '@/lib/period'
@@ -39,7 +39,7 @@ export default function WastePage() {
   const summaryPrev = useWasteSummary(filter, { rangeOverride: prev })
   const incidents = useWasteIncidents(filter, page)
   const budgetLoss = useBudgetLoss(filter)
-  const sales = useSalesSummary(filter, outlets)
+  const sales = useSalesDaily(filter, outlets)
 
   // Ganti filter -> kembali ke halaman 1, supaya tidak terjebak di halaman
   // yang sudah tidak ada pada hasil baru.
@@ -48,7 +48,7 @@ export default function WastePage() {
   // summaryPrev & sales ikut digate: kalau tidak, tile sempat menampilkan
   // "N/A" palsu (delta & % omzet) sebelum datanya datang.
   const loading = summary.loading || summaryPrev.loading || budgetLoss.loading || sales.loading
-  const error = summary.error || budgetLoss.error || incidents.error
+  const error = summary.error || summaryPrev.error || budgetLoss.error || incidents.error || sales.error
 
   const totalNilai = useMemo(() => summary.rows.reduce((s, r) => s + r.nilai, 0), [summary.rows])
   const totalPrevious = useMemo(() => summaryPrev.rows.reduce((s, r) => s + r.nilai, 0), [summaryPrev.rows])
@@ -91,6 +91,12 @@ export default function WastePage() {
       {error && (
         <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">
           Gagal memuat data waste: {error}
+        </div>
+      )}
+
+      {summary.truncated && (
+        <div className="p-4 bg-amber-50 text-amber-800 rounded-xl border border-amber-100 text-sm">
+          Rentang tanggal terlalu panjang — data dipotong di 1.000 baris, angka di bawah ini tidak lengkap. Persempit rentangnya.
         </div>
       )}
 

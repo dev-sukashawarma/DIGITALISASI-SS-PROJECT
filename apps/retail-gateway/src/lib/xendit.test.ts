@@ -32,4 +32,53 @@ describe('bacaStatusWebhook', () => {
     expect(bacaStatusWebhook('bukan objek')).toBeNull()
     expect(bacaStatusWebhook(null)).toBeNull()
   })
+
+  it('membaca bentuk webhook QR Code (reference_id di dalam data)', () => {
+    // Bentuk nyata callback `qr.payment` dari Xendit. Berbeda total dari
+    // Invoice: id-nya `reference_id`, letaknya di dalam `data`, dan statusnya
+    // `SUCCEEDED` bukan `PAID`.
+    const hasil = bacaStatusWebhook({
+      event: 'qr.payment',
+      data: {
+        id: 'qrpy_123',
+        qr_id: 'qr_123',
+        reference_id: '9197d153-2a29-4ca8-a123-a4a6ff8e1cbf',
+        channel_code: 'ID_DANA',
+        amount: 8000,
+        currency: 'IDR',
+        status: 'SUCCEEDED',
+      },
+    })
+    expect(hasil).toEqual({
+      externalId: '9197d153-2a29-4ca8-a123-a4a6ff8e1cbf',
+      status: 'lunas',
+    })
+  })
+
+  it('bentuk Invoice TETAP dikenali setelah QR ditambahkan', () => {
+    // Jalur Invoice dipertahankan sebagai cadangan, dan pesanan lama yang
+    // tagihannya masih hidup harus tetap bisa diselesaikan.
+    expect(bacaStatusWebhook({ external_id: 'abc', status: 'PAID' })).toEqual({
+      externalId: 'abc',
+      status: 'lunas',
+    })
+  })
+
+  it('QR yang kedaluwarsa dibaca sebagai gagal', () => {
+    expect(
+      bacaStatusWebhook({ event: 'qr.payment', data: { reference_id: 'abc', status: 'INACTIVE' } })
+    ).toEqual({ externalId: 'abc', status: 'gagal' })
+  })
+
+  it('status QR yang belum final tetap diabaikan', () => {
+    expect(
+      bacaStatusWebhook({ event: 'qr.payment', data: { reference_id: 'abc', status: 'ACTIVE' } })
+    ).toBeNull()
+  })
+
+  it('data tanpa reference_id jatuh ke bentuk akar, bukan melempar', () => {
+    expect(
+      bacaStatusWebhook({ data: { sesuatu: 1 }, external_id: 'abc', status: 'PAID' })
+    ).toEqual({ externalId: 'abc', status: 'lunas' })
+  })
 })

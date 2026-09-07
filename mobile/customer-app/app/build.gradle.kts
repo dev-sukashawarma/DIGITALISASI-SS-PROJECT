@@ -108,7 +108,13 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.coil.compose)
     // Custom Tabs untuk halaman pembayaran Xendit -- BUKAN WebView sendiri.
+    // Masih dipakai sebagai cadangan ketika gateway mengembalikan
+    // `payment_url` alih-alih `qr_string`.
     implementation("androidx.browser:browser:1.8.0")
+
+    // Penggambar QRIS. `core` saja: Java murni, tanpa Activity pemindai
+    // bawaan ZXing yang tidak kita butuhkan (kita menggambar, bukan memindai).
+    implementation("com.google.zxing:core:3.5.3")
 
     // HTTP client — talks ONLY to the Retail Gateway. No Supabase SDK, no DB credentials.
     implementation(libs.ktor.client.android)

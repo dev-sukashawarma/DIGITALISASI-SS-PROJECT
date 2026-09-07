@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Locale
 import java.util.TimeZone
 
@@ -88,19 +88,67 @@ class SessionStore(context: Context) {
     }
 }
 
+private val POLA_ISO = Regex(
+    """^(\d{4})-(\d{2})-(\d{2})[Tt ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?\s*([Zz]|[+-]\d{2}:?\d{2})?$"""
+)
+
 /**
- * Mengurai `expires_at` dari gateway.
+ * Mengurai cap waktu ISO-8601 dari gateway.
  *
- * Gateway mengirim `Date.toISOString()`: selalu UTC, selalu berformat sama.
- * `java.time` butuh API 26 sedangkan minSdk di sini 24, jadi `SimpleDateFormat`
- * yang dipakai -- dikunci ke Locale.US supaya perangkat berlokal lain tidak
- * mengubah cara angkanya dibaca.
+ * **Gateway mengirim DUA bentuk berbeda**, dan versi pertama fungsi ini hanya
+ * mengenali satu:
+ *
+ *   - `2026-09-07T03:23:34.097Z`        <- dari `Date.toISOString()` (JS),
+ *                                          dipakai `expires_at` sesi login
+ *   - `2026-09-07T10:23:34.097+07:00`   <- dari kolom `timestamptz` lewat
+ *                                          PostgREST, dipakai `expires_at`
+ *                                          dan `created_at` pesanan
+ *
+ * Pola lama `...HH:mm:ss.SSS'Z'` menolak bentuk kedua, dan kegagalannya
+ * SENYAP: penelepon memperlakukan null sebagai "tidak diketahui" lalu memilih
+ * jalur aman. Akibat nyatanya, aplikasi memantau pesanan yang sudah
+ * kedaluwarsa alih-alih membuat yang baru -- pelanggan menonton pemuat
+ * selamanya dan tidak pernah bisa membayar.
+ *
+ * Pecahan detik juga bervariasi: PostgREST mengirim mikrodetik (6 digit)
+ * untuk sebagian kolom dan milidetik (3 digit) untuk yang lain.
+ *
+ * `java.time` butuh API 26 sedangkan minSdk di sini 24, jadi penguraiannya
+ * dilakukan sendiri lewat regex + `Calendar` UTC.
  */
 internal fun uraiWaktuIso(iso: String): Long? {
-    val pola = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
+    val m = POLA_ISO.find(iso.trim()) ?: return null
+    val (th, bl, hr, jj, mm, dd, pecahan, offset) = m.destructured
+
+    val kal = Calendar.getInstance(TimeZone.getTimeZone("UTC"), Locale.US).apply {
+        isLenient = false
+        clear()
+        set(th.toInt(), bl.toInt() - 1, hr.toInt(), jj.toInt(), mm.toInt(), dd.toInt())
     }
-    return runCatching { pola.parse(iso)?.time }.getOrNull()
+
+    val milidetik = runCatching {
+        // Ambil tiga digit pertama; sisanya (mikrodetik) dibuang, bukan
+        // dianggap gagal. Angka lebih pendek dari tiga digit di-pad.
+        if (pecahan.isEmpty()) 0 else pecahan.padEnd(3, '0').take(3).toInt()
+    }.getOrElse { 0 }
+
+    val epochUtc = runCatching { kal.timeInMillis }.getOrNull() ?: return null
+
+    // Offset kosong diperlakukan sebagai UTC. Itu tebakan, tapi satu-satunya
+    // yang masuk akal -- dan tidak pernah terjadi pada data dari gateway ini.
+    val geser = when {
+        offset.isEmpty() || offset.equals("Z", ignoreCase = true) -> 0L
+        else -> {
+            val tanda = if (offset[0] == '-') -1 else 1
+            val angka = offset.substring(1).replace(":", "")
+            if (angka.length != 4) return null
+            val jam = angka.substring(0, 2).toIntOrNull() ?: return null
+            val menit = angka.substring(2, 4).toIntOrNull() ?: return null
+            tanda * (jam * 60L + menit) * 60_000L
+        }
+    }
+
+    return epochUtc + milidetik - geser
 }
 
 /**

@@ -1,7 +1,9 @@
 package com.sukashawarma.customer.ui.screens.payment
 
 import android.net.Uri
+import androidx.browser.customtabs.CustomTabColorSchemeParams
 import androidx.browser.customtabs.CustomTabsIntent
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -28,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaTint
 
 /**
@@ -63,7 +66,7 @@ fun PaymentWaitScreen(
         val url = state.paymentUrl
         if (url != null && url != urlTerbuka) {
             urlTerbuka = url
-            CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
+            bukaHalamanBayar(context, url)
         }
     }
 
@@ -174,4 +177,34 @@ fun PaymentWaitScreen(
             }
         }
     }
+}
+
+/**
+ * Membuka halaman tagihan Xendit di Custom Tab bergaya merek.
+ *
+ * Custom Tab berjalan di TASK YANG SAMA dengan aplikasi -- tombol Back
+ * mengembalikan pelanggan ke sini, dan Recents tetap menampilkan satu kartu.
+ * Bilah Chrome tetap terlihat dan memang TIDAK bisa dihilangkan; itu justru
+ * jaminan bagi pelanggan bahwa halaman pembayaran benar-benar berasal dari
+ * domain Xendit, bukan tiruan yang digambar aplikasi.
+ *
+ * Yang bisa dilakukan hanyalah menyelaraskan warnanya supaya terasa bagian
+ * dari aplikasi, bukan jendela asing.
+ *
+ * **Jangan menggantinya dengan WebView sendiri.** Halaman ini memuat 3-D
+ * Secure dan melompat ke aplikasi e-wallet; WebView buatan sendiri sering
+ * memblokir keduanya, dan gagalnya senyap -- pelanggan hanya melihat layar
+ * putih di tengah pembayaran.
+ */
+private fun bukaHalamanBayar(context: android.content.Context, url: String) {
+    val warna = CustomTabColorSchemeParams.Builder()
+        .setToolbarColor(SukaBrown.toArgb())
+        .build()
+
+    CustomTabsIntent.Builder()
+        .setDefaultColorSchemeParams(warna)
+        .setShowTitle(true)
+        .setUrlBarHidingEnabled(false)
+        .build()
+        .launchUrl(context, Uri.parse(url))
 }

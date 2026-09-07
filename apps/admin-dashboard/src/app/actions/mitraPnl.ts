@@ -44,6 +44,8 @@ export interface ComprehensiveMitraPnl {
     profitMarginPct: number
     policyStatus?: string
     isBep?: boolean
+    /** `false` bila `mitra_investments.is_profit_sharing_active` dimatikan owner. */
+    profitSharingActive?: boolean
   }
   channels: {
     pos: ChannelPnlDetail
@@ -131,22 +133,28 @@ export async function getMitraComprehensivePnl(
     supabase.from('outlets').select('id, name').in('id', targetOutletIds),
     supabase.from('mitra_investments').select('*').in('outlet_id', targetOutletIds),
     supabase.from('mitra_transfers').select('*').in('outlet_id', targetOutletIds),
-    supabase
+    // OPEX WAJIB dipaginasi: PostgREST memotong di 1.000 baris tanpa error,
+    // dan OPEX yang terpotong membuat laba (dan bagi hasil) terlalu besar.
+    fetchAllPages<any>(() => supabase
       .from('petty_cash_expenses')
       .select('id, amount, expense_date, category, description, outlet_id')
       .in('outlet_id', targetOutletIds)
       .neq('outlet_id', TEST_OUTLET_ID)
       .is('deleted_at', null)
       .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to),
-    supabase
+      .lte('expense_date', filter.to)
+      .order('id', { ascending: true })
+    ).then(rows => ({ data: rows })),
+    fetchAllPages<any>(() => supabase
       .from('expenses')
       .select('id, amount, expense_date, category, description, outlet_id, type')
       .in('outlet_id', targetOutletIds)
       .neq('outlet_id', TEST_OUTLET_ID)
       .eq('type', 'expense')
       .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to),
+      .lte('expense_date', filter.to)
+      .order('id', { ascending: true })
+    ).then(rows => ({ data: rows })),
     supabase.rpc('get_waste_periode', {
       p_from: filter.from,
       p_to: filter.to,
@@ -205,7 +213,6 @@ export async function getMitraComprehensivePnl(
   let tkCogs = 0
   let tkCount = 0
 
-  const outletGrossRevMap = new Map<string, number>()
   const outletFinancialsMap = new Map<string, { gross: number; deductions: number; cogs: number }>()
 
   if (!rpcError && rpcData && Array.isArray(rpcData)) {
@@ -216,7 +223,6 @@ export async function getMitraComprehensivePnl(
       const cogs = Number(row.cogs) || 0
       const count = Number(row.order_count) || 0
 
-      outletGrossRevMap.set(row.outlet_id, (outletGrossRevMap.get(row.outlet_id) || 0) + gross)
 
       const curFin = outletFinancialsMap.get(row.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
       curFin.gross += gross
@@ -347,7 +353,6 @@ export async function getMitraComprehensivePnl(
         : disc + promo
       const grossRev = totalAmt + deductions
 
-      outletGrossRevMap.set(ord.outlet_id, (outletGrossRevMap.get(ord.outlet_id) || 0) + grossRev)
 
       const curFin = outletFinancialsMap.get(ord.outlet_id) || { gross: 0, deductions: 0, cogs: 0 }
       curFin.gross += grossRev
@@ -544,6 +549,7 @@ export async function getMitraComprehensivePnl(
   let singleIsBep = false
   let singleManagementFeePct = 0
   let singleProfitSharingPct = 50
+  let singleSharingActive = true
 
   for (const oid of targetOutletIds) {
     const inv = invMap.get(oid)
@@ -556,6 +562,13 @@ export async function getMitraComprehensivePnl(
 
     const legacyShare = Number(inv?.persentase_bagi_hasil) || Number(profile?.profit_sharing_pct) || 50
     const legacyFee = Number(inv?.management_fee) || 0
+
+    // `is_profit_sharing_active` sebelumnya HANYA ditulis panel owner, tak pernah
+    // dibaca perhitungan mana pun: outlet yang bagi hasilnya sengaja dimatikan
+    // tetap menampilkan jatah mitra. Baris NULL/undefined (belum pernah diisi)
+    // diperlakukan aktif supaya outlet lama tak ikut mati mendadak — hanya
+    // `false` eksplisit yang mematikan.
+    const sharingActive = inv?.is_profit_sharing_active !== false
 
     const policy = resolveMitraPolicy({
       periodFrom: filter.from,
@@ -574,16 +587,19 @@ export async function getMitraComprehensivePnl(
     }
 
     const outletNetProfit = fin.gross - fin.deductions - fin.cogs - opex - waste - mgmtFee
-    const outletMitraShare = outletNetProfit > 0 ? Math.round((outletNetProfit * policy.profitSharingPct) / 100) : 0
+    const outletMitraShare = sharingActive && outletNetProfit > 0
+      ? Math.round((outletNetProfit * policy.profitSharingPct) / 100)
+      : 0
 
     totalManagementFeeAmount += mgmtFee
     totalMitraShare += outletMitraShare
 
     if (targetOutletIds.length === 1) {
-      singlePolicyStatus = policy.statusLabel
+      singlePolicyStatus = sharingActive ? policy.statusLabel : 'Bagi Hasil Nonaktif'
       singleIsBep = policy.isBep
       singleManagementFeePct = policy.managementFeePct
-      singleProfitSharingPct = policy.profitSharingPct
+      singleProfitSharingPct = sharingActive ? policy.profitSharingPct : 0
+      singleSharingActive = sharingActive
     }
   }
 
@@ -607,6 +623,11 @@ export async function getMitraComprehensivePnl(
     totalTransfers = transfers.reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
   }
 
+  // Definisi bersama dengan mitraRoi.ts: "dana kembali yang sudah beres" =
+  // bagi hasil historis (di luar sistem) + transfer yang tercatat di sistem.
+  // Akrual periode berjalan (sudah dihasilkan, belum ditransfer) SENGAJA tidak
+  // masuk ke sini; itu ditambahkan terpisah di kartu ROI (mitraRoi.ts) supaya
+  // "sudah kembali" dan "sedang berjalan" tak tercampur jadi satu angka.
   const totalProfitDistributed = totalOmzetHistoris + totalTransferHistoris + totalTransfers
   const roi = totalModal > 0 ? (totalProfitDistributed / totalModal) * 100 : 0
   const bepPercentage = Math.min(roi, 100)
@@ -623,6 +644,8 @@ export async function getMitraComprehensivePnl(
   const finalPolicyStatus = targetOutletIds.length === 1
     ? singlePolicyStatus
     : 'Agregasi Jaringan Kemitraan'
+
+  const finalSharingActive = targetOutletIds.length === 1 ? singleSharingActive : true
 
   const finalIsBep = targetOutletIds.length === 1
     ? singleIsBep
@@ -649,7 +672,8 @@ export async function getMitraComprehensivePnl(
       mitraShare,
       profitMarginPct,
       policyStatus: finalPolicyStatus,
-      isBep: finalIsBep
+      isBep: finalIsBep,
+      profitSharingActive: finalSharingActive
     },
     channels: {
       pos: {

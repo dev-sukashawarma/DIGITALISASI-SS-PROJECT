@@ -1,20 +1,25 @@
 // apps/admin-dashboard/src/app/dashboard/owner/waste/page.tsx
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { useScopedFilter } from '@/hooks/useScopedFilter'
 import { useOutlets } from '@/hooks/useOutlets'
-import { useWasteBreakdown } from '@/hooks/useWasteBreakdown'
-import { aggregateByOutlet, aggregateByDate, aggregateByBahanAndReason } from '@/lib/wasteBreakdown'
-import { PeriodFilter } from '@/components/PeriodFilter'
-import { PageHeader, StatTile, Section, StatTilesSkeleton } from '@/components/ui'
-import { rupiah } from '@/lib/format'
-import CountUp from 'react-countup'
-import { TrendingDown } from 'lucide-react'
+import { useWasteSummary } from '@/hooks/useWasteSummary'
+import { useWasteIncidents, type WasteIncidentRow } from '@/hooks/useWasteIncidents'
 import { useBudgetLoss } from '@/hooks/useBudgetLoss'
-import { computeWasteGap } from '@/lib/wasteGap'
-import { Target } from 'lucide-react'
+import { useSalesSummary } from '@/hooks/useSalesSummary'
+import { aggregateByOutlet, aggregateByReason, aggregateByDate } from '@/lib/wasteBreakdown'
+import { aggregateByBahanWithSpread } from '@/lib/wasteMetrics'
+import { previousRange } from '@/lib/period'
+import { PeriodFilter } from '@/components/PeriodFilter'
+import { PageHeader, Section, StatTilesSkeleton } from '@/components/ui'
+import { WasteKpiRow } from '@/components/waste/WasteKpiRow'
+import { WasteOutletRanking } from '@/components/waste/WasteOutletRanking'
+import { WasteReasonBreakdown } from '@/components/waste/WasteReasonBreakdown'
+import { WasteBahanRanking } from '@/components/waste/WasteBahanRanking'
+import { WasteIncidentTable } from '@/components/waste/WasteIncidentTable'
+import { WasteIncidentDetailModal } from '@/components/waste/WasteIncidentDetailModal'
 
 const WasteTrendChart = dynamic(
   () => import('@/components/WasteTrendChart').then((m) => m.WasteTrendChart),
@@ -25,22 +30,57 @@ export default function WastePage() {
   const { data: outlets = [] } = useOutlets()
   const { filter, setFilter, lockedOutletId } = useScopedFilter()
 
-  const { rows, loading: wasteLoading, error: wasteError } = useWasteBreakdown(filter)
-  const budgetLoss = useBudgetLoss(filter)
-  const loading = wasteLoading || budgetLoss.loading
-  const error = wasteError || budgetLoss.error
+  const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<WasteIncidentRow | null>(null)
 
-  const totalNilai = useMemo(() => rows.reduce((s, r) => s + r.nilai, 0), [rows])
-  const byOutlet = useMemo(() => aggregateByOutlet(rows), [rows])
-  const byBahanAndReason = useMemo(() => aggregateByBahanAndReason(rows), [rows])
-  const byDate = useMemo(() => aggregateByDate(rows), [rows])
+  const prev = useMemo(() => previousRange({ from: filter.from, to: filter.to }), [filter.from, filter.to])
+
+  const summary = useWasteSummary(filter)
+  const summaryPrev = useWasteSummary(filter, { rangeOverride: prev })
+  const incidents = useWasteIncidents(filter, page)
+  const budgetLoss = useBudgetLoss(filter)
+  const sales = useSalesSummary(filter, outlets)
+
+  // Ganti filter -> kembali ke halaman 1, supaya tidak terjebak di halaman
+  // yang sudah tidak ada pada hasil baru.
+  useEffect(() => { setPage(1) }, [filter.from, filter.to, filter.outletId])
+
+  // summaryPrev & sales ikut digate: kalau tidak, tile sempat menampilkan
+  // "N/A" palsu (delta & % omzet) sebelum datanya datang.
+  const loading = summary.loading || summaryPrev.loading || budgetLoss.loading || sales.loading
+  const error = summary.error || budgetLoss.error || incidents.error
+
+  const totalNilai = useMemo(() => summary.rows.reduce((s, r) => s + r.nilai, 0), [summary.rows])
+  const totalPrevious = useMemo(() => summaryPrev.rows.reduce((s, r) => s + r.nilai, 0), [summaryPrev.rows])
+  const totalInsiden = useMemo(() => summary.rows.reduce((s, r) => s + r.jumlah_insiden, 0), [summary.rows])
   const totalBudget = useMemo(() => budgetLoss.rows.reduce((s, r) => s + r.budget_loss, 0), [budgetLoss.rows])
-  const gap = useMemo(() => computeWasteGap(totalNilai, totalBudget), [totalNilai, totalBudget])
+
+  const byOutlet = useMemo(() => aggregateByOutlet(summary.rows), [summary.rows])
+  const byReason = useMemo(() => aggregateByReason(summary.rows), [summary.rows])
+  const byDate = useMemo(() => aggregateByDate(summary.rows), [summary.rows])
+  const byBahan = useMemo(() => aggregateByBahanWithSpread(summary.rows), [summary.rows])
+
+  const omzetByOutlet = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const r of sales.rows) map.set(r.outlet_id, (map.get(r.outlet_id) ?? 0) + r.omzet)
+    return map
+  }, [sales.rows])
+
   const budgetByOutlet = useMemo(() => {
     const map = new Map<string, number>()
-    budgetLoss.rows.forEach(r => map.set(r.outlet_id, r.budget_loss))
+    for (const r of budgetLoss.rows) map.set(r.outlet_id, r.budget_loss)
     return map
   }, [budgetLoss.rows])
+
+  const totalOmzet = useMemo(() => {
+    let sum = 0
+    for (const [outletId, omzet] of omzetByOutlet) {
+      if (filter.outletId === 'all' || outletId === filter.outletId) sum += omzet
+    }
+    return sum
+  }, [omzetByOutlet, filter.outletId])
+
+  const showOutletColumn = filter.outletId === 'all'
 
   return (
     <div className="space-y-6">
@@ -55,115 +95,46 @@ export default function WastePage() {
       )}
 
       {loading ? (
-        <StatTilesSkeleton count={1} />
+        <StatTilesSkeleton count={4} />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatTile
-              label="Total Kerugian Waste"
-              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalNilai} duration={1} separator="." /></>}
-              sub="Approved, periode terpilih"
-              icon={TrendingDown}
-              accent="red"
-            />
-            <StatTile
-              label="Budget Loss (BOM)"
-              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalBudget} duration={1} separator="." /></>}
-              sub="Alokasi Loss dari resep x qty terjual"
-              icon={Target}
-              accent="brown"
-            />
-            <StatTile
-              label="Gap %"
-              value={gap.gapPct === null ? 'N/A' : <><CountUp end={gap.gapPct} duration={1} decimals={1} /> %</>}
-              sub={gap.gapPct === null ? 'Belum ada budget pada periode ini' : gap.gapPct > 0 ? 'Waste melebihi alokasi BOM' : 'Di bawah alokasi BOM'}
-              icon={TrendingDown}
-              accent={gap.gapPct === null ? 'brown' : gap.gapPct > 0 ? 'red' : 'green'}
-            />
-          </div>
+          <WasteKpiRow
+            totalNilai={totalNilai}
+            totalPrevious={totalPrevious}
+            totalOmzet={totalOmzet}
+            totalBudget={totalBudget}
+            totalInsiden={totalInsiden}
+            outletCount={byOutlet.length}
+          />
 
           <Section title="Tren Waktu">
             <WasteTrendChart data={byDate} />
           </Section>
 
-          {/* Layout berubah tergantung apakah filter outlet 'all' atau spesifik */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-            {filter.outletId === 'all' && (
-              <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
-                <div className="px-6 py-4 border-b border-suka-gray-100">
-                  <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Ranking per Outlet</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
-                        <th className="py-3 px-6">Outlet</th>
-                        <th className="py-3 px-6 text-right">Nilai</th>
-                        <th className="py-3 px-6 text-right">Budget Loss</th>
-                        <th className="py-3 px-6 text-right">Gap %</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-suka-gray-100 font-medium">
-                      {byOutlet.length === 0 ? (
-                        <tr><td colSpan={4} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
-                      ) : byOutlet.map(o => {
-                        const budget = budgetByOutlet.get(o.id) ?? 0
-                        const rowGap = computeWasteGap(o.nilai, budget)
-                        return (
-                          <tr key={o.id}>
-                            <td className="py-3 px-6 text-suka-ink font-bold">{o.name.replace('SUKA SHAWARMA ', '')}</td>
-                            <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(o.nilai)}</td>
-                            <td className="py-3 px-6 text-right text-suka-gray-600">{rupiah(budget)}</td>
-                            <td className={`py-3 px-6 text-right font-bold ${rowGap.gapPct === null ? 'text-suka-gray-400' : rowGap.gapPct > 0 ? 'text-red-700' : 'text-suka-green'}`}>
-                              {rowGap.gapPct === null ? 'N/A' : `${rowGap.gapPct.toFixed(1)}%`}
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {showOutletColumn && (
+              <WasteOutletRanking rows={byOutlet} budgetByOutlet={budgetByOutlet} omzetByOutlet={omzetByOutlet} />
             )}
-
-            <div className={`bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden ${filter.outletId !== 'all' ? 'lg:col-span-2' : ''}`}>
-              <div className="px-6 py-4 border-b border-suka-gray-100">
-                <h3 className="font-extrabold text-suka-brown text-sm tracking-tight uppercase">Rincian Waste</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
-                      <th className="py-3 px-6">Tanggal</th>
-                      <th className="py-3 px-6">Bahan Baku</th>
-                      <th className="py-3 px-6">Alasan</th>
-                      <th className="py-3 px-6 text-right">Qty</th>
-                      <th className="py-3 px-6 text-right">HPP / satuan</th>
-                      <th className="py-3 px-6 text-right">Nilai</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-suka-gray-100 font-medium">
-                    {byBahanAndReason.length === 0 ? (
-                      <tr><td colSpan={6} className="py-8 text-center text-suka-gray-400">Belum ada waste pada periode ini</td></tr>
-                    ) : byBahanAndReason.map(b => (
-                      <tr key={b.id}>
-                        <td className="py-3 px-6 text-suka-gray-600 whitespace-nowrap">
-                          {new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(b.tanggal))}
-                        </td>
-                        <td className="py-3 px-6 text-suka-ink font-bold">{b.bahan_nama}</td>
-                        <td className="py-3 px-6 text-suka-gray-600">{b.reason}</td>
-                        <td className="py-3 px-6 text-right text-suka-gray-600">{b.qty_kecil} {b.satuan_kecil}</td>
-                        <td className="py-3 px-6 text-right text-suka-gray-600">{rupiah(b.hpp_kecil)}</td>
-                        <td className="py-3 px-6 text-right text-red-700 font-extrabold">{rupiah(b.nilai)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className={showOutletColumn ? '' : 'lg:col-span-2'}>
+              <WasteReasonBreakdown rows={byReason} total={totalNilai} />
             </div>
           </div>
+
+          <WasteBahanRanking rows={byBahan} />
+
+          <WasteIncidentTable
+            rows={incidents.rows}
+            totalCount={incidents.totalCount}
+            page={page}
+            onPageChange={setPage}
+            onSelect={setSelected}
+            showOutletColumn={showOutletColumn}
+            loading={incidents.loading}
+          />
         </>
       )}
+
+      <WasteIncidentDetailModal isOpen={selected !== null} onClose={() => setSelected(null)} row={selected} />
     </div>
   )
 }

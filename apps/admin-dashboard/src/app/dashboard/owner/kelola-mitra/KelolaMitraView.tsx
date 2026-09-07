@@ -71,7 +71,7 @@ function getAvatarGradient(name: string) {
     'from-orange-600 via-amber-600 to-rose-600',
     'from-emerald-700 via-emerald-600 to-teal-700',
     'from-blue-700 via-indigo-600 to-sky-700',
-    'from-purple-700 via-purple-600 to-pink-700',
+    'from-amber-800 via-orange-900 to-stone-800',
   ]
   let hash = 0
   for (let i = 0; i < (name || '').length; i++) {

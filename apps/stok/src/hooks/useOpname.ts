@@ -55,7 +55,7 @@ export function useOpnameActions() {
   const supabase = createClient()
   const { add, flush, isOnline } = useOfflineQueue<FinalizePayload>('stok-opname-finalize')
 
-  const createDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
+  const createDraft = useCallback(async (outletId: string, tipe: string, _createdBy: string, notes?: string) => {
     const res = await createOrReuseOpnameDraftAction(outletId, tipe, notes)
     if (res.error) throw new Error(res.error)
     return res.data!
@@ -70,7 +70,7 @@ export function useOpnameActions() {
     return res.data
   }, [])
 
-  const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, createdBy: string, notes?: string) => {
+  const createOrReuseDraft = useCallback(async (outletId: string, tipe: string, _createdBy: string, notes?: string) => {
     const res = await createOrReuseOpnameDraftAction(outletId, tipe, notes)
     if (res.error) throw new Error(res.error)
     return res.data!

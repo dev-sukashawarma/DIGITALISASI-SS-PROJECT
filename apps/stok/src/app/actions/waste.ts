@@ -37,7 +37,7 @@ export type WasteReportData = {
   photo_url: string;
 }
 
-const WASTE_APPROVER_ROLES = ['leader', 'regional_manager', 'spv', 'kitchen', 'admin', 'owner', 'purchasing', 'developer'] as const
+const WASTE_APPROVER_ROLES = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'] as const
 
 /**
  * Cek role approver waste saja (tanpa scope outlet).
@@ -55,7 +55,7 @@ async function requireApproverIdentity() {
 
   if (error) throw new Error(error.message)
   if (!staff || staff.status !== 'active' || !(WASTE_APPROVER_ROLES as readonly string[]).includes(staff.role)) {
-    throw new Error('Forbidden: hanya Leader/SPV/Kitchen/Admin/Owner yang boleh menyetujui atau menolak laporan waste')
+    throw new Error('Forbidden: hanya Area Manager, Regional Manager, Admin, Central Kitchen, atau Developer yang boleh menyetujui atau menolak laporan waste')
   }
 
   return { currentUserId, authedClient }
@@ -195,7 +195,32 @@ export async function fetchPendingWasteReports(outletId?: string) {
 
   const { data, error } = await query
   if (error) throw new Error(error.message)
-  return data
+
+  const rawReports = data ?? []
+  const bahanBakuIds = Array.from(new Set(rawReports.map((r: any) => r.bahan_baku_id).filter(Boolean)))
+  const priceMap = new Map<string, number>()
+
+  if (bahanBakuIds.length > 0) {
+    const { data: prices } = await supabase
+      .from('bahan_baku_harga')
+      .select('bahan_baku_id, harga_beli')
+      .in('bahan_baku_id', bahanBakuIds)
+
+    for (const p of prices || []) {
+      priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+    }
+  }
+
+  return rawReports.map((r: any) => {
+    const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
+    const qtyNum = Number(r.qty) || 0
+    const nilai = Math.round(qtyNum * hargaBeli)
+    return {
+      ...r,
+      harga_beli: hargaBeli,
+      nilai_waste: nilai,
+    }
+  })
 }
 
 export async function countPendingWasteReports(outletId?: string) {
@@ -247,4 +272,164 @@ export async function getWasteReportDetails(id: string) {
     .maybeSingle()
   if (error) throw new Error(error.message)
   return data
+}
+
+export interface WasteHistoryFilter {
+  outletId?: string
+  status?: 'ALL' | 'APPROVED' | 'REJECTED' | 'PENDING'
+  from?: string // YYYY-MM-DD
+  to?: string   // YYYY-MM-DD
+  page?: number // default: 1
+  limit?: number // default: 25
+}
+
+export interface WasteHistoryResult {
+  data: any[]
+  totalCount: number
+  totalNilai: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export async function fetchWasteHistory(filters: WasteHistoryFilter = {}): Promise<WasteHistoryResult> {
+  const authedClient = await getAuthedClient()
+  const currentUserId = await getCurrentUserId(authedClient)
+  const supabase = makeServiceClient()
+
+  const { data: staff, error: staffError } = await supabase
+    .from('outlet_staff')
+    .select('role, outlet_id, status')
+    .eq('id', currentUserId)
+    .maybeSingle()
+
+  if (staffError || !staff || staff.status !== 'active') {
+    throw new Error('Unauthorized: Akun staf tidak aktif atau tidak ditemukan')
+  }
+
+  const isApprover = (WASTE_APPROVER_ROLES as readonly string[]).includes(staff.role)
+  const allowedOutletIds = await getAccessibleOutletIds(authedClient)
+
+  let query = supabase
+    .from('stok_waste_reports')
+    .select(
+      '*, bahan_baku(nama, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan), outlets(name), reported_by_staff:outlet_staff!reported_by(name), approved_by_staff:outlet_staff!approved_by(name)',
+      { count: 'exact' }
+    )
+
+  let summaryQuery = supabase
+    .from('stok_waste_reports')
+    .select('bahan_baku_id, qty')
+
+  if (!isApprover) {
+    // Regular staff: strictly scoped to staff.outlet_id
+    if (!staff.outlet_id) {
+      throw new Error('Staff belum ditugaskan ke outlet mana pun')
+    }
+    query = query.eq('outlet_id', staff.outlet_id)
+    summaryQuery = summaryQuery.eq('outlet_id', staff.outlet_id)
+  } else if (filters.outletId) {
+    if (allowedOutletIds.size > 0 && !allowedOutletIds.has(filters.outletId)) {
+      throw new Error('Forbidden: outlet di luar cakupan akses Anda')
+    }
+    query = query.eq('outlet_id', filters.outletId)
+    summaryQuery = summaryQuery.eq('outlet_id', filters.outletId)
+  } else if (allowedOutletIds.size > 0) {
+    query = query.in('outlet_id', Array.from(allowedOutletIds))
+    summaryQuery = summaryQuery.in('outlet_id', Array.from(allowedOutletIds))
+  }
+
+  if (filters.status && filters.status !== 'ALL') {
+    query = query.eq('status', filters.status)
+    summaryQuery = summaryQuery.eq('status', filters.status)
+  }
+
+  if (filters.from) {
+    query = query.gte('created_at', `${filters.from}T00:00:00`)
+    summaryQuery = summaryQuery.gte('created_at', `${filters.from}T00:00:00`)
+  }
+  if (filters.to) {
+    query = query.lte('created_at', `${filters.to}T23:59:59.999Z`)
+    summaryQuery = summaryQuery.lte('created_at', `${filters.to}T23:59:59.999Z`)
+  }
+
+  const page = Math.max(1, filters.page || 1)
+  const limit = Math.max(1, Math.min(100, filters.limit || 25))
+  const fromIdx = (page - 1) * limit
+  const toIdx = page * limit - 1
+
+  query = query.order('created_at', { ascending: false }).range(fromIdx, toIdx)
+
+  const [{ data, count, error }, { data: summaryRows }] = await Promise.all([
+    query,
+    summaryQuery,
+  ])
+
+  if (error) throw new Error(error.message)
+
+  const rawReports = data ?? []
+  const allSummary = summaryRows ?? []
+
+  // Fetch prices for all bahan_baku in page & summary
+  const allBahanBakuIds = Array.from(
+    new Set([
+      ...rawReports.map((r: any) => r.bahan_baku_id),
+      ...allSummary.map((s: any) => s.bahan_baku_id),
+    ].filter(Boolean))
+  )
+
+  const priceMap = new Map<string, number>()
+  if (allBahanBakuIds.length > 0) {
+    const { data: prices } = await supabase
+      .from('bahan_baku_harga')
+      .select('bahan_baku_id, harga_beli')
+      .in('bahan_baku_id', allBahanBakuIds)
+
+    for (const p of prices || []) {
+      priceMap.set(p.bahan_baku_id, Number(p.harga_beli) || 0)
+    }
+  }
+
+  let totalNilai = 0
+  for (const s of allSummary) {
+    const price = priceMap.get(s.bahan_baku_id) || 0
+    totalNilai += Math.round((Number(s.qty) || 0) * price)
+  }
+
+  const formattedData = rawReports.map((r: any) => {
+    const hargaBeli = priceMap.get(r.bahan_baku_id) || 0
+    const qtyNum = Number(r.qty) || 0
+    const nilai = Math.round(qtyNum * hargaBeli)
+    return {
+      ...r,
+      harga_beli: hargaBeli,
+      nilai_waste: nilai,
+    }
+  })
+
+  const totalCount = count ?? 0
+  const totalPages = Math.ceil(totalCount / limit) || 1
+
+  return {
+    data: formattedData,
+    totalCount,
+    totalNilai,
+    page,
+    limit,
+    totalPages,
+  }
+}
+
+export async function getAccessibleOutletsForWaste(): Promise<{ id: string; name: string }[]> {
+  const authedClient = await getAuthedClient()
+  const allowedOutletIds = await getAccessibleOutletIds(authedClient)
+  const supabase = makeServiceClient()
+
+  let query = supabase.from('outlets').select('id, name').eq('is_active', true).order('name')
+  if (allowedOutletIds.size > 0) {
+    query = query.in('id', Array.from(allowedOutletIds))
+  }
+  const { data, error } = await query
+  if (error) return []
+  return data ?? []
 }

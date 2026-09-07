@@ -3,6 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { PeriodFilterValue } from '@/lib/types'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export const INCIDENTS_PER_PAGE = 25
 
@@ -51,26 +52,28 @@ export function useWasteIncidents(filter: PeriodFilterValue, page: number) {
       })
       if (error) throw error
       const raw = data ?? []
-      const rows: WasteIncidentRow[] = raw.map((r: any) => ({
-        id: r.id as string,
-        outlet_id: r.outlet_id as string,
-        outlet_name: r.outlet_name as string,
-        bahan_baku_id: r.bahan_baku_id as string,
-        bahan_nama: r.bahan_nama as string,
-        reason: r.reason as string,
-        qty: Number(r.qty),
-        qty_kecil: Number(r.qty_kecil),
-        satuan_besar: (r.satuan_besar as string) ?? '',
-        satuan_kecil: (r.satuan_kecil as string) ?? '',
-        hpp_kecil: Number(r.hpp_kecil),
-        nilai: Number(r.nilai),
-        photo_url: (r.photo_url as string) ?? null,
-        reporter_name: (r.reporter_name as string) ?? null,
-        approver_name: (r.approver_name as string) ?? null,
-        created_at: r.created_at as string,
-        updated_at: r.updated_at as string,
-        ledger_row_count: Number(r.ledger_row_count),
-      }))
+      const rows: WasteIncidentRow[] = raw
+        .filter((r: any) => r.outlet_id !== TEST_OUTLET_ID && !isTestOutlet(r.outlet_id))
+        .map((r: any) => ({
+          id: r.id as string,
+          outlet_id: r.outlet_id as string,
+          outlet_name: r.outlet_name as string,
+          bahan_baku_id: r.bahan_baku_id as string,
+          bahan_nama: r.bahan_nama as string,
+          reason: r.reason as string,
+          qty: Number(r.qty),
+          qty_kecil: Number(r.qty_kecil),
+          satuan_besar: (r.satuan_besar as string) ?? '',
+          satuan_kecil: (r.satuan_kecil as string) ?? '',
+          hpp_kecil: Number(r.hpp_kecil),
+          nilai: Number(r.nilai),
+          photo_url: (r.photo_url as string) ?? null,
+          reporter_name: (r.reporter_name as string) ?? null,
+          approver_name: (r.approver_name as string) ?? null,
+          created_at: r.created_at as string,
+          updated_at: r.updated_at as string,
+          ledger_row_count: Number(r.ledger_row_count),
+        }))
       // total_count identik di setiap baris (window function sebelum LIMIT).
       const totalCount = raw.length > 0 ? Number(raw[0].total_count) : 0
       return { rows, totalCount }

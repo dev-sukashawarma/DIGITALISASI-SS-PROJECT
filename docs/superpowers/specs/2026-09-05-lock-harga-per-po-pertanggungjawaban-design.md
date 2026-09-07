@@ -850,7 +850,50 @@ baru bermakna setelah P2 terpenuhi.
 
 ---
 
-## 12. Status & langkah berikutnya
+## 12. MULAI DARI SINI (untuk sesi berikutnya)
+
+**Baca §1.1 (garis mulai) dan §4.0 (invarian kantong) dulu.** Keduanya aturan
+fondasi; sisanya turunan.
+
+**Keadaan per 5 September 2026:** rancangan selesai dari hulu ke hilir. **Nol
+kode ditulis, nol data disentuh.** Sudah lewat tinjauan konsistensi.
+
+**Sedang berjalan di luar sesi ini:** 52 surat jalan berstatus `draft` sedang
+dikoreksi (syarat 5). Yang 203 berstatus `dikirim` **belum** digarap.
+
+**Jangan diulang — sudah diputuskan** (lihat tabel §11): kantong hanya di gudang;
+dipilih saat permintaan disetujui; outlet cuma rupiah; gudang menanggung barang
+di jalan; gramasi tidak diubah; data lama tidak dikoreksi mundur.
+
+**Jangan diusulkan ulang — sudah ditolak:**
+
+| Pernah diusulkan | Kenapa gugur |
+|---|---|
+| Kantong ikut ke outlet | 1.530 kasus stok minus tak punya jawaban; outlet tak perlu tahu vendor |
+| Simpan `harga_pokok` per satuan besar | Menaruh ranjau gramasi di tiap perkalian — diganti `nilai_rp` proporsional (§4.3.1) |
+| Nolkan 7 bumbu BNR lewat SQL | Terbantah: crew pernah menghitung CENGKEH dan menemukan 4. Barangnya nyata (§1.1) |
+| Setoran uang bahan baku dari crew | Crew sudah setor 100% penjualan — jadi bayar dua kali (§8) |
+
+**Yang menunggu keputusan owner, dan tidak boleh ditebak sendiri:**
+
+1. O10 — nasib 203 surat jalan `dikirim` menggantung: dianggap diterima penuh,
+   atau ditelusuri? Ini menentukan angka pembuka.
+2. §10.2 — ambang selisih wajar. **Tidak boleh ditetapkan sebelum data mode
+   pantau ada.**
+3. §10.3 — siapa menagih dan kapan.
+4. §10.4 — apakah HPP per outlet dipakai menilai kinerja.
+
+**Yang boleh dikerjakan tanpa menunggu** (keduanya cuma membaca atau menutup
+lubang yang sudah terbukti melukai):
+
+- **Tahap 0** — laporan pertanggungjawaban dari data yang sudah ada. Nol tulisan
+  ke DB. Ini justru alat untuk menguji apakah konsepnya pakem.
+- **P1** — penjaga finalisasi opname. Berdiri sendiri, sudah terbukti perlu
+  (BNR 4 September: 24 dari 43 bahan tak terisi, Rp1,2 juta terhapus).
+
+---
+
+## 12.1 Status & langkah berikutnya
 
 **Status: menunggu konsep dinyatakan pakem oleh owner.** Tidak ada kode yang
 ditulis, tidak ada skema yang disentuh, tidak ada data yang berubah.

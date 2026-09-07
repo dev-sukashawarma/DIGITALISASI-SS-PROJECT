@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { Store, AlertTriangle, RotateCw, History, ArrowRight } from 'lucide-react'
+import { AlertCircle, AlertTriangle, RotateCw, History } from 'lucide-react'
 import { BoardHeader } from '@/components/BoardHeader'
 import { BoardSkeleton } from '@/components/BoardSkeleton'
 import { BentoLeftDeck } from '@/components/BentoLeftDeck'
@@ -183,7 +183,7 @@ export default function Page() {
           </div>
           <button
             onClick={() => void refetch()}
-            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-stone-950 hover:bg-amber-400 active:scale-[0.97] transition-all shadow-sm"
+            className="mt-6 inline-flex items-center gap-2 rounded-xl bg-[#f29744] px-4 py-2 text-xs font-black text-[#400a07] hover:bg-[#e08533] active:scale-[0.97] transition-all shadow-sm"
           >
             <RotateCw size={14} />
             Coba Sinkron Ulang
@@ -231,19 +231,19 @@ export default function Page() {
 
         {/* Banner Informasi: Menampilkan Data Kemarin jika Hari Ini Belum Buka */}
         {isYesterday && (
-          <div className="flex items-center justify-between rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-1 text-amber-200 shadow-xs">
+          <div className="flex items-center justify-between rounded-xl border border-[#f29744]/30 bg-[#f29744]/10 px-3.5 py-1 text-orange-200 shadow-xs">
             <div className="flex items-center gap-2">
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-amber-500/20 text-amber-400">
+              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-[#f29744]/20 text-[#f29744]">
                 <History size={11} />
               </span>
               <div className="flex items-center gap-2 text-xs">
-                <span className="rounded bg-amber-500/25 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider text-amber-300 border border-amber-500/40">
+                <span className="rounded bg-[#f29744]/25 px-1.5 py-0.2 text-[9px] font-black uppercase tracking-wider text-[#f29744] border border-[#f29744]/40">
                   REKAP KEMARIN
                 </span>
-                <strong className="font-bold text-amber-100">
+                <strong className="font-bold text-orange-100">
                   {data?.yesterdayLabel}
                 </strong>
-                <span className="hidden md:inline text-[11px] text-amber-300/80">
+                <span className="hidden md:inline text-[11px] text-[#f29744]/90">
                   - Menampilkan data hari sebelumnya (outlet belum mulai transaksi hari ini).
                 </span>
                 {simulatedRows && (
@@ -255,7 +255,7 @@ export default function Page() {
             </div>
 
             {/* Selector Mode Manual (Kemarin vs Hari Ini) */}
-            <div className="flex items-center gap-1 rounded-lg border border-amber-500/20 bg-black/30 p-0.5 text-[11px] font-bold shrink-0">
+            <div className="flex items-center gap-1 rounded-lg border border-[#f29744]/25 bg-black/30 p-0.5 text-[11px] font-bold shrink-0">
               <button
                 onClick={() => {
                   setSimulatedRows(null)
@@ -263,8 +263,8 @@ export default function Page() {
                 }}
                 className={`rounded px-2 py-0.5 active:scale-[0.97] transition-all cursor-pointer ${
                   mode === 'yesterday' || mode === 'auto'
-                    ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-amber-300/70 hover:text-white'
+                    ? 'bg-[#f29744] text-[#400a07] font-black shadow-xs'
+                    : 'text-[#f29744]/70 hover:text-white'
                 }`}
               >
                 Kemarin
@@ -276,8 +276,8 @@ export default function Page() {
                 }}
                 className={`rounded px-2 py-0.5 active:scale-[0.97] transition-all cursor-pointer ${
                   mode === 'today'
-                    ? 'bg-amber-500 text-stone-950 shadow-xs'
-                    : 'text-amber-300/70 hover:text-white'
+                    ? 'bg-[#f29744] text-[#400a07] font-black shadow-xs'
+                    : 'text-[#f29744]/70 hover:text-white'
                 }`}
               >
                 Hari Ini
@@ -286,29 +286,25 @@ export default function Page() {
           </div>
         )}
 
-        {/* Jika mode dipaksa 'today' dan belum ada transaksi */}
-        {empty && !isYesterday ? (
-          <div className="mx-auto max-w-xl my-auto px-6 py-20 text-center">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-400 shadow-inner">
-              <Store size={28} />
+        {/* State Kosong (Outlet belum buka / libur nasional) */}
+        {empty ? (
+          <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-[var(--border-subtle)] bg-[var(--card-bg)]/80 p-8 text-center backdrop-blur-md">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f29744]/15 text-[#f29744] shadow-inner">
+              <AlertCircle size={28} />
             </div>
-            <h2 className="mt-4 text-xl font-black text-[var(--text-primary)]">
-              Papan Siap - Belum Ada Penjualan Hari Ini
+            <h2 className="mt-4 text-xl font-black uppercase tracking-wide text-[var(--text-primary)]">
+              Belum Ada Transaksi Hari Ini
             </h2>
-            <p className="mt-2 text-xs text-[var(--text-muted)]">
-              Sistem monitoring real-time aktif. Angka penjualan dan urutan ranking outlet akan langsung muncul otomatis begitu transaksi kasir pertama dicatat.
+            <p className="mx-auto mt-2 max-w-md text-xs text-[var(--text-muted)]">
+              Data penjualan akan terisi otomatis begitu kasir outlet mulai memproses pesanan pelanggan.
             </p>
-            <div className="mt-5 flex justify-center gap-3">
+            <div className="mt-6 flex items-center gap-3">
               <button
-                onClick={() => {
-                  setSimulatedRows(null)
-                  setMode('auto')
-                }}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-500/40 bg-amber-500/20 px-4 py-2 text-xs font-bold text-amber-300 hover:bg-amber-500/30 active:scale-[0.97] transition-all cursor-pointer"
+                onClick={() => setMode('yesterday')}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-[#f29744]/40 bg-[#f29744]/20 px-4 py-2 text-xs font-bold text-[#f29744] hover:bg-[#f29744]/30 active:scale-[0.97] transition-all cursor-pointer"
               >
-                <History size={13} />
-                <span>Tampilkan Rekap Kemarin Dulu</span>
-                <ArrowRight size={12} />
+                <History size={14} />
+                Lihat Rekap Kemarin
               </button>
             </div>
           </div>

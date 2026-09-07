@@ -85,14 +85,14 @@ export function BentoLeftDeck({
 
           {/* Big Rank 1 Numeral */}
           <div className="flex items-center gap-2 shrink-0">
-            <Crown size={28} className="text-amber-400 hidden sm:block" />
-            <span className="text-6xl lg:text-7xl font-black text-amber-400/90 tabular leading-none select-none">
+            <Crown size={28} className="text-[#f29744] hidden sm:block" />
+            <span className="text-6xl lg:text-7xl font-black text-[#f29744]/90 tabular leading-none select-none">
               1
             </span>
           </div>
         </div>
 
-        {/* Center: Giant Sales Number in Gold */}
+        {/* Center: Giant Sales Number in Suka Orange */}
         <div className="relative z-10 my-auto py-2 flex flex-col gap-2">
           <div className="flex items-center gap-2">
             <span
@@ -103,24 +103,24 @@ export function BentoLeftDeck({
               }}
               className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border shadow-xs"
             >
-              <Crown size={12} className="text-amber-400" />
+              <Crown size={12} className="text-[#f29744]" />
               SALES VOLUME OUTLET
             </span>
           </div>
           <div className="flex items-baseline gap-3">
-            <span className="text-6xl lg:text-8xl xl:text-9xl font-black tracking-tight text-amber-400 tabular drop-shadow-sm leading-none">
+            <span className="text-6xl lg:text-8xl xl:text-9xl font-black tracking-tight text-[#f29744] tabular drop-shadow-sm leading-none">
               {p1.pcsToday.toLocaleString('id-ID')}
             </span>
-            <span className="text-2xl lg:text-3xl font-black text-amber-500 tracking-wider">
+            <span className="text-2xl lg:text-3xl font-black text-[#f29744]/80 tracking-wider">
               PCS
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/35 shadow-xs">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#f29744]/20 text-[#f29744] border border-[#f29744]/35 shadow-xs">
               ⚡ {((p1.pcsToday / (summary.totalPcs || 1)) * 100).toFixed(1)}% Seluruh Outlet
             </span>
             {p2 && (
-              <span className="text-[10px] text-amber-400/90 font-bold">
+              <span className="text-[10px] text-[#f29744]/90 font-bold">
                 Memimpin +{p1.pcsToday - p2.pcsToday} PCS dari Rank 2
               </span>
             )}
@@ -128,7 +128,7 @@ export function BentoLeftDeck({
         </div>
 
         {/* Bottom Hero Metrics Footer (3-column horizontal) */}
-        <div className="relative z-10 grid grid-cols-3 gap-3 pt-3 lg:pt-4 border-t border-amber-500/20 text-xs items-center">
+        <div className="relative z-10 grid grid-cols-3 gap-3 pt-3 lg:pt-4 border-t border-[#f29744]/20 text-xs items-center">
           <div
             style={{
               backgroundColor: 'var(--gold-bg)',
@@ -215,10 +215,10 @@ export function BentoLeftDeck({
                 {p2.outletName}
               </h3>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="text-3xl lg:text-4xl font-black text-amber-400 tabular leading-none">
+                <span className="text-3xl lg:text-4xl font-black text-[#f29744] tabular leading-none">
                   {p2.pcsToday.toLocaleString('id-ID')}
                 </span>
-                <span className="text-xs font-extrabold text-amber-500/80">
+                <span className="text-xs font-extrabold text-[#f29744]/80">
                   PCS
                 </span>
               </div>
@@ -249,12 +249,12 @@ export function BentoLeftDeck({
           <div
             ref={registerRow(p3.outletId)}
             data-flip-key={p3.outletId}
-            className="relative rounded-2xl border border-amber-900/40 bg-[var(--card-bg)]/85 backdrop-blur-md p-4 lg:p-5 flex flex-col justify-between shadow-sm transition-all duration-200 hover:border-amber-700/50 h-full"
+            className="relative rounded-2xl border border-[#701604]/50 bg-[var(--card-bg)]/85 backdrop-blur-md p-4 lg:p-5 flex flex-col justify-between shadow-sm transition-all duration-200 hover:border-[#f29744]/50 h-full"
           >
             {/* Header */}
             <div className="flex items-center justify-between gap-1">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-black uppercase tracking-wider text-amber-600/90">
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#f29744]/90">
                   RANK 3
                 </span>
                 {p3Shift && p3Shift.diff !== 0 && (
@@ -267,7 +267,7 @@ export function BentoLeftDeck({
                   </span>
                 )}
               </div>
-              <span className="text-3xl font-black text-amber-600/80 tabular leading-none">
+              <span className="text-3xl font-black text-[#701604] tabular leading-none">
                 3
               </span>
             </div>
@@ -281,14 +281,14 @@ export function BentoLeftDeck({
                 {p3.outletName}
               </h3>
               <div className="mt-1 flex items-baseline gap-1.5">
-                <span className="text-3xl lg:text-4xl font-black text-amber-400 tabular leading-none">
+                <span className="text-3xl lg:text-4xl font-black text-[#f29744] tabular leading-none">
                   {p3.pcsToday.toLocaleString('id-ID')}
                 </span>
-                <span className="text-xs font-extrabold text-amber-500/80">
+                <span className="text-xs font-extrabold text-[#f29744]/80">
                   PCS
                 </span>
               </div>
-              <div className="mt-1 text-[10px] font-semibold text-amber-500/80">
+              <div className="mt-1 text-[10px] font-semibold text-[#f29744]/80">
                 {((p3.pcsToday / (summary.totalPcs || 1)) * 100).toFixed(1)}% seluruh outlet
               </div>
             </div>
@@ -313,13 +313,13 @@ export function BentoLeftDeck({
 
       {/* 3. BENTO KPI STRIP (Spotlight Hero Total Sales + Secondary Fleet Metrics) */}
       <div style={{ flex: '0.7 1 0%' }} className="flex gap-3 min-h-[115px]">
-        {/* HERO SPOTLIGHT CHAMBER: TOTAL SALES ARMADA */}
+        {/* HERO SPOTLIGHT CHAMBER: TOTAL SALES OUTLET */}
         <div
           style={{ borderColor: 'var(--gold-border)' }}
-          className="relative w-[38%] rounded-2xl border-2 bg-gradient-to-br from-amber-500/25 via-amber-500/10 to-[var(--card-bg)]/95 backdrop-blur-md p-3 lg:p-3.5 shadow-[0_0_30px_rgba(245,158,11,0.25)] ring-1 ring-amber-400/40 flex flex-col justify-between overflow-hidden"
+          className="relative w-[38%] rounded-2xl border-2 bg-gradient-to-br from-[#f29744]/30 via-[#701604]/20 to-[var(--card-bg)]/95 backdrop-blur-md p-3 lg:p-3.5 shadow-[0_0_30px_rgba(242,151,68,0.25)] ring-1 ring-[#f29744]/40 flex flex-col justify-between overflow-hidden"
         >
           {/* Glowing Ambient Halo */}
-          <div className="absolute -top-6 -right-6 h-24 w-24 bg-amber-400/20 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute -top-6 -right-6 h-24 w-24 bg-[#f29744]/20 rounded-full blur-xl pointer-events-none" />
 
           {/* Top Badge */}
           <div className="relative z-10 flex items-center justify-between">
@@ -342,12 +342,12 @@ export function BentoLeftDeck({
             </span>
           </div>
 
-          {/* Giant Number in Gold */}
+          {/* Giant Number in Suka Orange */}
           <div className="relative z-10 flex items-baseline gap-1.5 my-auto py-0.5">
-            <span className="text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-amber-400 tabular drop-shadow-[0_0_15px_rgba(245,158,11,0.4)] leading-none">
+            <span className="text-3xl lg:text-4xl xl:text-5xl font-black tracking-tight text-[#f29744] tabular drop-shadow-[0_0_15px_rgba(242,151,68,0.4)] leading-none">
               {summary.totalPcs.toLocaleString('id-ID')}
             </span>
-            <span className="text-xs lg:text-sm font-black text-amber-500">
+            <span className="text-xs lg:text-sm font-black text-[#f29744]/80">
               PCS
             </span>
           </div>

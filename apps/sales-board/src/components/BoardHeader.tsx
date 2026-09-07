@@ -72,10 +72,10 @@ export function BoardHeader({
   return (
     <header className="relative flex flex-col md:flex-row items-center justify-between gap-3 md:gap-4 rounded-2xl border border-[var(--border-card)]/80 bg-gradient-to-r from-[var(--card-bg)]/95 via-[var(--card-bg)]/80 to-[var(--card-bg)]/95 backdrop-blur-md px-4 lg:px-6 py-2.5 shadow-[0_4px_25px_rgba(0,0,0,0.4)] transition-all shrink-0 overflow-hidden">
       {/* Stadium ambient gold flare in the center */}
-      <div className="absolute left-1/2 -translate-x-1/2 top-0 h-full w-[450px] bg-gradient-to-b from-amber-500/15 via-amber-500/5 to-transparent pointer-events-none blur-xl" />
+      <div className="absolute left-1/2 -translate-x-1/2 top-0 h-full w-[450px] bg-gradient-to-b from-[#f29744]/15 via-[#f29744]/5 to-transparent pointer-events-none blur-xl" />
 
       {/* Subtle bottom golden hairline laser */}
-      <div className="absolute bottom-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-amber-500/40 to-transparent pointer-events-none" />
+      <div className="absolute bottom-0 left-8 right-8 h-[1px] bg-gradient-to-r from-transparent via-[#f29744]/40 to-transparent pointer-events-none" />
 
       {/* SAYAP KIRI: Live Broadcast & Clock Telemetry (1/3 Lebar) */}
       <div className="relative z-10 w-full md:w-1/3 flex items-center justify-start gap-2.5">
@@ -95,7 +95,7 @@ export function BoardHeader({
 
           {/* Realtime Clock WIB */}
           <div className="flex items-center gap-1.5 text-xs font-black text-slate-200 tabular font-mono">
-            <Radio size={12} className="text-amber-400 animate-pulse" />
+            <Radio size={12} className="text-[#f29744] animate-pulse" />
             <span>{nowLabel}</span>
           </div>
 
@@ -116,7 +116,7 @@ export function BoardHeader({
       <div className="relative z-10 w-full md:w-1/3 flex items-center justify-center">
         <div className="flex items-center gap-3">
           {/* Official Suka Shawarma Logo with Golden Ambient Aura */}
-          <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500/25 via-amber-600/10 to-amber-700/5 border border-amber-500/50 p-1.5 shadow-[0_0_20px_rgba(245,158,11,0.3)] ring-1 ring-amber-400/40 shrink-0">
+          <div className="relative flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f29744]/25 via-[#701604]/20 to-[#400a07]/10 border border-[#f29744]/50 p-1.5 shadow-[0_0_20px_rgba(242,151,68,0.3)] ring-1 ring-[#f29744]/40 shrink-0">
             <img
               src="/logo.png"
               alt="Suka Shawarma"
@@ -126,8 +126,8 @@ export function BoardHeader({
 
           <div className="flex flex-col items-start text-left">
             <div className="flex items-center gap-1.5">
-              <Crown size={12} className="text-amber-400 fill-amber-400/40" />
-              <span className="text-[10px] font-black tracking-[0.25em] uppercase text-amber-400">
+              <Crown size={12} className="text-[#f29744] fill-[#f29744]/40" />
+              <span className="text-[10px] font-black tracking-[0.25em] uppercase text-[#f29744]">
                 SUKA SHAWARMA
               </span>
             </div>
@@ -145,11 +145,11 @@ export function BoardHeader({
           <button
             onClick={onSimulateShift}
             title="Simulasikan Pergeseran Peringkat Leaderboard (Shortcut: S)"
-            className="group cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-amber-500/50 bg-gradient-to-r from-amber-500/20 to-amber-600/10 px-3 py-1.5 text-xs font-black text-amber-300 hover:from-amber-500/30 hover:to-amber-600/20 active:scale-[0.96] transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+            className="group cursor-pointer inline-flex items-center gap-1.5 rounded-xl border border-[#f29744]/50 bg-gradient-to-r from-[#f29744]/20 to-[#701604]/20 px-3 py-1.5 text-xs font-black text-[#f29744] hover:from-[#f29744]/30 hover:to-[#701604]/30 active:scale-[0.96] transition-all shadow-[0_0_15px_rgba(242,151,68,0.2)]"
           >
-            <Sparkles size={13} className="text-amber-400 animate-pulse" />
+            <Sparkles size={13} className="text-[#f29744] animate-pulse" />
             <span className="text-[11px] uppercase tracking-wider">Simulasi Salip</span>
-            <kbd className="hidden lg:inline-block rounded border border-amber-500/40 bg-amber-500/20 px-1 py-0.2 text-[9px] text-amber-200 font-mono">
+            <kbd className="hidden lg:inline-block rounded border border-[#f29744]/40 bg-[#f29744]/20 px-1 py-0.2 text-[9px] text-[#f29744] font-mono">
               S
             </kbd>
           </button>
@@ -163,7 +163,7 @@ export function BoardHeader({
             title="Tampilkan / Sembunyikan Nominal Rupiah (Shortcut: R)"
             className={`group cursor-pointer inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-bold active:scale-[0.96] transition-all ${
               showRupiah
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                ? 'bg-[#f29744]/20 text-[#f29744] border border-[#f29744]/40'
                 : 'text-slate-400 hover:text-white hover:bg-white/5'
             }`}
           >

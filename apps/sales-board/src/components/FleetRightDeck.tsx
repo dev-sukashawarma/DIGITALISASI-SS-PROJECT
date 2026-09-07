@@ -30,14 +30,14 @@ export function FleetRightDeck({
         key={row.outletId}
         ref={registerRow(row.outletId)}
         data-flip-key={row.outletId}
-        className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-card)] bg-[var(--card-bg)]/85 backdrop-blur-md px-3.5 py-1.5 lg:py-2 transition-all duration-200 hover:border-amber-500/40 hover:bg-[var(--card-bg)] shadow-xs"
+        className="group relative flex flex-col justify-between rounded-xl border border-[var(--border-card)] bg-[var(--card-bg)]/85 backdrop-blur-md px-3.5 py-1.5 lg:py-2 transition-all duration-200 hover:border-[#f29744]/40 hover:bg-[var(--card-bg)] shadow-xs"
       >
         {/* Line 1: Header (Rank + Outlet Name on Left, Rank Number on Right) */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
             <span
               title={row.outletName}
-              className="text-[11px] lg:text-xs font-black uppercase tracking-wide text-slate-200 truncate"
+              className="text-[11px] lg:text-xs font-black uppercase tracking-wide text-[var(--text-primary)] truncate"
             >
               {rank}. {row.outletName}
             </span>
@@ -59,12 +59,12 @@ export function FleetRightDeck({
           </span>
         </div>
 
-        {/* Line 2: Giant Sales Number in Amber (Matching Mockup) */}
+        {/* Line 2: Giant Sales Number in Suka Orange */}
         <div className="my-0.5 flex items-baseline gap-1">
-          <span className="text-xl lg:text-2xl font-black text-amber-400 tabular leading-none">
+          <span className="text-xl lg:text-2xl font-black text-[#f29744] tabular leading-none">
             {row.pcsToday.toLocaleString('id-ID')}
           </span>
-          <span className="text-[10px] font-extrabold text-amber-500/80">
+          <span className="text-[10px] font-extrabold text-[#f29744]/80">
             PCS
           </span>
         </div>
@@ -102,7 +102,7 @@ export function FleetRightDeck({
         <div className="rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--card-bg)]/40 px-3.5 py-2 lg:py-2.5 flex items-center justify-center gap-2 text-[var(--text-muted)] select-none">
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
-            20 Cabang Terhubung Aktif
+            20 Outlet Terhubung Aktif
           </span>
         </div>
       )}

@@ -450,3 +450,181 @@ supabase db query "UPDATE outlets SET app_enabled = false WHERE id = '<OUTLET_ID
 Sejak saat itu gateway menolak seluruh pesanan baru untuk outlet itu, dan POS berjalan seperti sebelum app ada. Pesanan yang sudah dibayar tetap diproses.
 
 Jangan `DROP SCHEMA retail` — draft dan profil pelanggan ada di sana, termasuk pesanan yang mungkin belum selesai.
+
+---
+
+# Adendum 2026-09-05 — Uji di "outlet tes", dan tiga syarat yang belum terpenuhi
+
+Keputusan owner: pengujian memakai **outlet tes**, bukan outlet pilot yang
+melayani pelanggan.
+
+| | |
+|---|---|
+| Nama | `outlet tes` |
+| id | `eb174b2b-ff69-47eb-97af-b6c824d3ce4a` |
+| `type` | `test` |
+| `is_active` | ✅ `true` |
+| `app_enabled` | ❌ `false` — **harus dinyalakan** |
+| Baris `stok_balance` | ✅ ada, saldo awal 10 per bahan |
+| Ada di allowlist BOM | ❌ **tidak** |
+
+## Bug yang ditemukan saat menyiapkan ini (sudah diperbaiki di kode)
+
+`ambilKatalog` menyaring `.eq('outlet_id', outletId)`. Menu di sistem ini
+**global**: seluruh 50 baris `menu_items` punya `outlet_id = NULL`, dan
+pos-kasir tidak pernah menyaring menu per outlet. Penyaring itu mencocokkan
+nol baris untuk setiap outlet — katalog aplikasi akan **selalu kosong**.
+
+Gejalanya ("Menu belum terbit") menyerupai kesalahan pengisian data, jadi
+tanpa temuan ini jam-jam pertama pilot akan habis menambah `tampil_di_app`
+berulang kali tanpa hasil. Diperbaiki di commit `e289a944`; **gateway perlu
+di-redeploy** agar berlaku.
+
+## Tiga syarat sebelum uji ini bermakna
+
+Ketiganya perubahan pada database produksi dan **menunggu persetujuan owner**.
+
+**1. Nyalakan outlet tes untuk aplikasi**
+
+```sql
+UPDATE public.outlets SET app_enabled = true
+WHERE id = 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a';
+```
+
+**2. Terbitkan beberapa menu ke aplikasi**
+
+Menu bersifat global, jadi ini berlaku untuk semua outlet yang `app_enabled`
+— saat ini hanya outlet tes. Pilih menu yang **punya resep aktif**, supaya
+pemotongan BOM benar-benar teruji:
+
+```sql
+UPDATE public.menu_items SET tampil_di_app = true
+WHERE id IN (
+  SELECT menu_item_ref::uuid FROM public.resep
+  WHERE is_active = true AND scope = 'global'
+  LIMIT 3
+);
+```
+
+**3. Masukkan outlet tes ke allowlist BOM** ← yang paling mudah terlewat
+
+Pemotongan stok dijaga `global_settings.bom_automation_allowed_outlets`.
+Outlet tes **tidak ada di dalamnya**, jadi tanpa langkah ini trigger BOM
+langsung `RETURN NEW` dan tidak memotong apa pun.
+
+Kotak centang "stok bahan baku berkurang" akan **lulus sebagai no-op** dan
+tidak membuktikan apa-apa — kegagalan diam-diam yang justru paling berbahaya,
+karena ia terlihat seperti keberhasilan.
+
+```sql
+UPDATE public.global_settings
+SET value = value || ',eb174b2b-ff69-47eb-97af-b6c824d3ce4a'
+WHERE key = 'bom_automation_allowed_outlets'
+  AND value NOT LIKE '%eb174b2b-ff69-47eb-97af-b6c824d3ce4a%';
+```
+
+Nilainya TEXT biasa berisi UUID dipisah koma (sudah diperiksa: tanpa kutip
+pembungkus, jadi `string_to_array` mencocokkan entri pertama dan terakhir
+dengan benar).
+
+## Syarat keempat yang bukan perubahan DB
+
+**Pesanan harus diselesaikan kasir.** Trigger BOM hanya menyala pada
+`status = 'completed'`. Aplikasi memasukkan pesanan sebagai `preparing`, jadi
+harus ada orang yang membuka POS untuk outlet tes dan menandai pesanan itu
+selesai. Tanpa itu, stok tidak akan berkurang — dan sekali lagi, bukan karena
+ada yang rusak.
+
+## Urutan uji yang disarankan
+
+1. Redeploy gateway (memuat perbaikan katalog).
+2. Terapkan tiga langkah SQL di atas.
+3. Buka aplikasi → pilih **outlet tes** → katalog harus berisi menu.
+4. Susun keranjang → masuk dengan Google → bayar nominal kecil sungguhan.
+5. Buka POS untuk outlet tes → tandai pesanan **completed**.
+6. Periksa `ledger_stok` untuk `ref_order_id` pesanan itu — **harus ada baris
+   `pemakaian` bernilai negatif**. Ini kotak centang yang paling penting.
+7. Periksa `orders.payment_method` tercatat `qris` (lihat catatan pasca-pilot
+   di rencana gateway — ini disengaja, bukan bug).
+
+## Setelah selesai
+
+Kembalikan outlet tes ke keadaan semula bila tidak dipakai lagi
+(`app_enabled = false`), dan putuskan apakah ia tetap di allowlist BOM.
+Rotasi `CRON_SECRET` — nilainya pernah masuk transkrip percakapan.
+
+---
+
+# Status penyiapan — SUDAH DIJALANKAN 2026-09-05
+
+Keempat langkah di bawah **sudah diterapkan ke database produksi** atas
+persetujuan owner. Tidak perlu dijalankan ulang.
+
+| # | Tindakan | Hasil terverifikasi |
+|---|---|---|
+| 1 | `outlets.app_enabled = true` untuk outlet tes | ✅ satu-satunya outlet yang aktif untuk aplikasi |
+| 2 | `menu_items.tampil_di_app = true` untuk 3 menu | ✅ Ice Tea Rp8.000 · Original Ayam Sedang Rp24.000 · Original Sapi Sedang Rp27.000 |
+| 3 | Outlet tes masuk allowlist BOM | ✅ 22 → 23 outlet, entri terakhir bersih tanpa spasi/kutip |
+| 4 | Pengisian stok outlet tes | ✅ 24 baris ledger `adjustment` +1000, seluruhnya naik tepat +1000 |
+
+Ketiga menu dipilih karena **punya resep global aktif** — tanpa resep,
+pemotongan BOM tidak akan terjadi apa pun yang dilakukan.
+
+Kapasitas setelah pengisian stok:
+
+| Menu | Bahan | Cukup untuk |
+|---|---|---|
+| Ice Tea | 5 | 25 porsi (dibatasi POWDER TEH 40/porsi) |
+| Original Ayam Sedang | 13 | 16 porsi |
+| Original Sapi Sedang | 13 | 9 porsi |
+
+## Kenapa langkah 4 tidak bisa dilewati
+
+`ledger_stamp_saldo` **melempar exception** untuk tipe `pemakaian` yang
+membuat saldo negatif:
+
+```sql
+IF NEW.saldo_sesudah < 0 AND NEW.tipe NOT IN ('opname_selisih','rejected_kiriman')
+THEN RAISE EXCEPTION 'Stok tidak cukup: ...'
+```
+
+Stok awal outlet tes hanya 10 per bahan, sedangkan Ice Tea butuh 16 ES BATU
+dan 40 POWDER TEH per porsi. Tanpa pengisian stok, `UPDATE orders SET
+status='completed'` di POS akan **dibatalkan seluruhnya** — uang sudah masuk,
+pesanan menggantung, tepat di langkah yang paling ingin dibuktikan.
+
+Pengisian dilakukan lewat ledger `adjustment`, **bukan** `UPDATE stok_balance`
+langsung, sesuai SOP yang berlaku di proyek ini.
+
+## Bukti bug katalog, diambil dari gateway produksi
+
+Setelah langkah 1–3 selesai, gateway hidup masih menjawab:
+
+```
+GET /api/v1/outlets  -> outlet tes muncul          ✅
+GET /api/v1/catalog  -> {"items":[]}               ❌
+```
+
+Menu sudah terbit, outlet sudah aktif, katalog tetap kosong. Ini bug
+`.eq('outlet_id', outletId)` yang diperbaiki di commit `e289a944`.
+
+⚠️ **Gateway WAJIB di-redeploy sebelum uji dimulai.** Tanpa itu aplikasi akan
+menampilkan "Menu belum terbit" dan seluruh persiapan di atas sia-sia.
+
+## Sisa langkah
+
+1. **Redeploy `retail-gateway` di Coolify.**
+2. Konfirmasi `GET /api/v1/catalog?outlet_id=eb174b2b-ff69-47eb-97af-b6c824d3ce4a`
+   mengembalikan 3 item.
+3. Pasang APK, pilih outlet tes, pesan **Ice Tea Rp8.000**, bayar sungguhan.
+4. Buka POS untuk outlet tes, tandai pesanan **completed**.
+5. Periksa `ledger_stok` untuk `ref_order_id` pesanan itu — harus ada baris
+   `pemakaian` negatif untuk CUP, ES BATU, STIKER, PLASTIK MERAH, POWDER TEH.
+
+## Setelah selesai
+
+- Kembalikan `app_enabled = false` bila outlet tes tidak dipakai lagi.
+- Putuskan apakah outlet tes tetap di allowlist BOM.
+- Putuskan apakah 3 menu itu tetap `tampil_di_app` (menu bersifat global —
+  begitu outlet pilot sungguhan dinyalakan, ketiganya ikut terbit di sana).
+- **Rotasi `CRON_SECRET`** — nilainya pernah masuk transkrip percakapan.

@@ -32,10 +32,12 @@ export const Sidebar = () => {
   const [openDoor, setOpenDoor] = useState<string | null>(activeGroupTitle ?? groups[0]?.title ?? null)
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
 
-  // Sub-menu yang sedang terbuka. Default: yang memuat halaman aktif.
+  // Sub-menu yang sedang terbuka. Terbuka sendiri begitu halaman induknya
+  // ATAU salah satu anaknya dibuka — membuka induk berarti ingin melihat
+  // pilihannya, bukan cuma halamannya.
   const activeParentHref = groups
     .flatMap((g) => g.items)
-    .find((i) => (i.children ?? []).some((c) => isItemActive(c.href, pathname)))?.href
+    .find((i) => i.children?.length && itemOrChildActive(i))?.href
   const [openSub, setOpenSub] = useState<string | null>(activeParentHref ?? null)
 
   useEffect(() => {
@@ -101,6 +103,7 @@ export const Sidebar = () => {
                             <div className="flex items-center">
                               <Link
                                 href={href}
+                                onClick={() => hasChildren && setOpenSub(href)}
                                 className={`group flex flex-1 items-center gap-3 rounded-xl ml-2 ${hasChildren ? 'mr-0' : 'mr-2'} px-3 py-2 font-semibold transition-all active:scale-95 ${
                                   active
                                     ? 'bg-white text-[#4A1713] shadow-md'

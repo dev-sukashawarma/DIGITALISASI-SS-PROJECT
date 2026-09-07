@@ -918,13 +918,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   return (
     <div className="space-y-8 animate-fade-in pb-12">
       <PageHeader
-        title={scope === 'all' ? 'Laba Rugi & Profitabilitas' : `Laba Rugi ${SCOPE_LABEL[scope]}`}
+        title={scope === 'all' ? 'Laba Rugi Global' : `Laba Rugi ${SCOPE_LABEL[scope]}`}
         description={
           scope === 'mitra'
             ? 'Omzet, beban pokok, dan biaya operasional khusus outlet kemitraan (di luar biaya kantor pusat)'
             : scope === 'internal'
               ? 'Omzet, beban pokok, dan biaya operasional outlet milik pusat, termasuk biaya kantor pusat'
-              : 'Analisis mendalam perbandingan omzet penjualan, beban pokok, dan biaya operasional'
+              : 'Seluruh outlet — pusat dan kemitraan — digabung, termasuk biaya kantor pusat'
         }
         icon={Calculator}
       >

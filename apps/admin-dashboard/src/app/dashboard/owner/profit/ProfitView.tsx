@@ -951,21 +951,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         }
         icon={Calculator}
       >
-        <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="flex items-center gap-2">
-            <button disabled={isExporting} onClick={handleExportCSV} className={`flex items-center gap-1.5 bg-green-50 text-green-700 hover:bg-green-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border border-green-200 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
-              <Download className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export CSV'}
-            </button>
-            <button disabled={isExporting} onClick={handleExportPDF} className={`flex items-center gap-1.5 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors border border-red-200 ${isExporting ? 'opacity-50 cursor-not-allowed' : ''}`}>
-              <FileText className="w-3.5 h-3.5" /> {isExporting ? 'Exporting...' : 'Export PDF'}
-            </button>
-          </div>
-          <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} />
-        </div>
+        {/* Baris atas hanya berisi PENYARING — "apa yang sedang dilihat".
+            Tombol perintah turun ke pita di bawah supaya keduanya tak
+            berdesakan sebagai hal yang setara. */}
+        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} />
       </PageHeader>
 
       {/* Status Sinkronisasi / Last Updated */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-4 mb-2 text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2.5 -mt-5 mb-2 pt-3 border-t border-suka-brown/10 text-xs">
         <div className="flex items-center gap-2">
           {isPast ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
@@ -982,15 +975,40 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             </span>
           )}
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={loading}
-          className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
-          title="Muat ulang data laba rugi dari database"
-        >
-          <RefreshCw className={`w-3 h-3 text-suka-orange ${loading ? 'animate-spin' : ''}`} />
-          <span>Segarkan Data</span>
-        </button>
+        {/* Semua perintah berkumpul di sini: muat ulang & ekspor. Gayanya
+            netral supaya filter aktif (oranye) tetap jadi yang paling menonjol. */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Muat ulang data laba rugi dari database"
+          >
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${loading ? 'animate-spin' : ''}`} />
+            <span>Segarkan Data</span>
+          </button>
+
+          <span className="w-px h-4 bg-suka-gray-200" aria-hidden="true" />
+
+          <button
+            disabled={isExporting}
+            onClick={handleExportCSV}
+            title="Unduh rincian laba rugi sebagai CSV"
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs active:scale-95 ${isExporting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <Download className="w-3 h-3 text-suka-orange" />
+            <span>{isExporting ? 'Menyiapkan…' : 'CSV'}</span>
+          </button>
+          <button
+            disabled={isExporting}
+            onClick={handleExportPDF}
+            title="Unduh laporan laba rugi sebagai PDF"
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs active:scale-95 ${isExporting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+          >
+            <FileText className="w-3 h-3 text-suka-orange" />
+            <span>{isExporting ? 'Menyiapkan…' : 'PDF'}</span>
+          </button>
+        </div>
       </div>
 
       {error && (

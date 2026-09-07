@@ -4,15 +4,18 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { SalesSummaryRow, PeriodFilterValue, SalesSource } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { fetchAllPagesParallel } from '@/lib/queryPaging'
+import { periodCacheOptions, withPeriodCache } from '@/lib/periodCache'
 
 // Ringkasan harian per outlet × sumber langsung dari view DB `sales_daily_scoped`.
 // Sangat cepat karena dihitung langsung di database menggunakan covering & functional indexes.
 export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string; name: string }[]) {
   const supabase = createClient()
+  const queryKey = ['sales-daily', filter.from, filter.to, filter.outletId, filter.source] as const
   const query = useQuery<SalesSummaryRow[]>({
-    queryKey: ['sales-daily', filter.from, filter.to, filter.outletId, filter.source],
-    staleTime: 2 * 60_000,
-    queryFn: async () => {
+    queryKey: [...queryKey],
+    ...periodCacheOptions(filter),
+    queryFn: withPeriodCache(queryKey, filter, async () => {
       // PostgREST memotong hasil di 1.000 baris tanpa error apa pun. Rentang
       // 30 hari menghasilkan ~2.000 baris (outlet × sumber × tanggal), jadi
       // tanpa paginasi omzet yang tampil hanya ~50% dari yang sebenarnya —
@@ -43,6 +46,16 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
         return b
       }
 
+      // SENGAJA berurutan, bukan paralel. `sales_daily_scoped` adalah view
+      // beragregat: tiap halaman menjalankan ulang SELURUH agregasi (~2,4 detik
+      // untuk satu bulan), jadi biayanya CPU database, bukan waktu tunggu
+      // jaringan. Diukur pada data produksi Agustus 2026 (2.930 baris, 3
+      // halaman): berurutan 7,3 detik vs paralel 7,7 detik — paralel tidak
+      // membantu sama sekali, hanya menaruh tiga agregasi berat sekaligus di
+      // database yang dipakai bersama app lain. Percepatan sesungguhnya untuk
+      // view ini ada di sisi DB (RPC yang mengagregasi per outlet), bukan di
+      // pola pengambilan halaman. Bandingkan `orders` di useHpp, yang justru
+      // terikat jaringan sehingga paralel di sana memangkas 8,2 detik jadi 4,3.
       const salesData: any[] = []
       for (let offset = 0; ; offset += PAGE_SIZE) {
         const { data, error } = await buildSalesQuery().range(offset, offset + PAGE_SIZE - 1)
@@ -85,36 +98,32 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       // Fetch Ecommerce Sales (Shopee, TikTok Shop, Web SS Online) if applicable
       const allEcommerceRows: SalesSummaryRow[] = []
       if (filter.outletId === 'all' || filter.outletId === 'ss-online') {
-        const PAGE_SIZE = 1000
-        let offset = 0
-        const ecommerceSalesList: any[] = []
-
-        while (true) {
-          // `order_date` bukan pengurut yang aman untuk paginasi: nilainya
-          // disimpan sebagai tengah malam tiap hari, sehingga 1.377 baris hanya
-          // punya ~30 timestamp unik (satu hari bisa memuat 75 baris kembar).
-          // Tiap halaman adalah query terpisah, dan urutan baris di dalam
-          // kelompok kembar tidak dijamin sama antar-query — akibatnya sebagian
-          // baris terhitung dua kali dan sebagian terlewat, membuat omzet
-          // berubah-ubah antar-refresh. `id` unik dipakai sebagai pemecah seri
-          // agar urutannya deterministik.
-          const { data: page, error: ecommerceError } = await supabase
-            .from('ecommerce_sales')
-            .select('id, channel_id, order_date, total_amount, raw_data')
-            .gte('order_date', fromIso)
-            .lte('order_date', toIso)
-            .order('order_date', { ascending: true })
-            .order('id', { ascending: true })
-            .range(offset, offset + PAGE_SIZE - 1)
-
-          if (ecommerceError) {
-            console.error('useSalesDaily ecommerce error:', ecommerceError)
-            break
-          }
-          if (!page || page.length === 0) break
-          ecommerceSalesList.push(...page)
-          if (page.length < PAGE_SIZE) break
-          offset += PAGE_SIZE
+        // Sama seperti di atas: halaman diambil bersamaan, bukan berurutan.
+        // `order_date` saja bukan pengurut yang aman untuk paginasi — nilainya
+        // disimpan sebagai tengah malam tiap hari, sehingga 1.377 baris hanya
+        // punya ~30 timestamp unik. `id` dipakai sebagai pemecah seri agar
+        // urutannya deterministik dan tak ada baris terhitung dua kali.
+        let ecommerceSalesList: any[] = []
+        try {
+          ecommerceSalesList = await fetchAllPagesParallel<any>(
+            (from, to, withCount) =>
+              supabase
+                .from('ecommerce_sales')
+                .select(
+                  'id, channel_id, order_date, total_amount, raw_data',
+                  withCount ? { count: 'exact' } : undefined,
+                )
+                .gte('order_date', fromIso)
+                .lte('order_date', toIso)
+                .order('order_date', { ascending: true })
+                .order('id', { ascending: true })
+                .range(from, to),
+            1000,
+          )
+        } catch (ecommerceError) {
+          // Perilaku lama dipertahankan: kegagalan sisi ecommerce tidak
+          // menggagalkan seluruh laporan, cukup dicatat dan dilewati.
+          console.error('useSalesDaily ecommerce error:', ecommerceError)
         }
 
         const ecommerceSummaryMap = new Map<string, SalesSummaryRow>()
@@ -166,7 +175,7 @@ export function useSalesDaily(filter: PeriodFilterValue, outlets?: { id: string;
       }
 
       return [...posRows, ...allEcommerceRows]
-    },
+    }),
   })
 
   // Resolusi nama outlet dari daftar yang sudah dimuat caller (useOutlets()).

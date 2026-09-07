@@ -192,6 +192,17 @@ describe('navConfig — invarian', () => {
     expect(bocor).toEqual([])
   })
 
+  it('Buku Kas & Analisis Pengeluaran duduk bersebelahan di pintu yang sama', () => {
+    const door = NAV_GROUPS.find((g) =>
+      g.items.some((i) => i.href === '/dashboard/reports/input-pengeluaran'),
+    )
+    const hrefs = door?.items.map((i) => i.href) ?? []
+    const iBuku = hrefs.indexOf('/dashboard/reports/input-pengeluaran')
+    const iAnalisis = hrefs.indexOf('/dashboard/owner/expenses')
+    expect(iBuku).toBeGreaterThanOrEqual(0)
+    expect(iAnalisis).toBe(iBuku + 1)
+  })
+
   it('Laba Rugi punya sub-menu Internal & Mitra', () => {
     const labaRugi = ALL_ITEMS.find((i) => i.href === '/dashboard/owner/profit')
     expect(labaRugi?.label).toBe('Laba Rugi')

@@ -13,6 +13,12 @@ interface PayrollSlipFormProps {
   onSubmit: (values: {
     id: string
     basic_salary: number
+    allowance_meal?: number
+    allowance_transport?: number
+    allowance_communication?: number
+    sales_bonus?: number
+    deduction_kasbon?: number
+    deduction_bpjs?: number
     allowance_position: number
     allowance_presence: number
     bonus: number
@@ -42,6 +48,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
 
   // 2. Deductions Components (Potongan)
   const [cashAdvanceDeduction, setCashAdvanceDeduction] = useState(initial.cashAdvanceDeduction)
+  const [bpjsDeduction, setBpjsDeduction] = useState(initial.bpjsDeduction)
   const [lateMinutes, setLateMinutes] = useState(initial.lateMinutes)
   const [otherDeduction, setOtherDeduction] = useState(initial.otherDeduction)
   const [otherDeductionReason, setOtherDeductionReason] = useState('')
@@ -184,7 +191,11 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     Number(salesBonus) +
     Number(positionAllowance)
 
-  const totalDeductions = Number(cashAdvanceDeduction) + Number(lateDeduction) + Number(otherDeduction)
+  const totalDeductions =
+    Number(cashAdvanceDeduction) +
+    Number(bpjsDeduction) +
+    Number(lateDeduction) +
+    Number(otherDeduction)
   const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
 
   const handleApplyLiveAttendance = () => {
@@ -202,6 +213,7 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
       transport: Number(transportAllowance),
       communication: Number(communicationAllowance),
       kasbon: Number(cashAdvanceDeduction),
+      bpjs: Number(bpjsDeduction),
       lateMinutes: Number(lateMinutes),
       lateDeduction: Number(lateDeduction),
       otherDeduction: Number(otherDeduction),
@@ -211,9 +223,14 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
     onSubmit({
       id: record.id,
       basic_salary: Number(basicSalary),
+      allowance_meal: Number(mealAllowance),
+      allowance_transport: Number(transportAllowance),
+      allowance_communication: Number(communicationAllowance),
+      sales_bonus: Number(salesBonus),
+      deduction_kasbon: Number(cashAdvanceDeduction),
+      deduction_bpjs: Number(bpjsDeduction),
       allowance_presence: Number(mealAllowance),
-      allowance_position:
-        Number(positionAllowance) + Number(transportAllowance) + Number(communicationAllowance),
+      allowance_position: Number(positionAllowance),
       bonus: Number(overtime) + Number(salesBonus),
       bonus_note,
       deductions: totalDeductions,
@@ -437,6 +454,22 @@ export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: Payr
                 className={inputClass}
                 value={cashAdvanceDeduction}
                 onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <ShieldAlert size={12} className="text-red-600" />
+                  <span>Potongan BPJS (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={bpjsDeduction}
+                onChange={(e) => setBpjsDeduction(Number(e.target.value))}
                 min={0}
               />
             </div>

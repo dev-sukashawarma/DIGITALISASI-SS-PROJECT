@@ -370,7 +370,7 @@ export function StaffTable({
                 </div>
                 {selectedStaff.financials ? (
                   <div className="space-y-2.5">
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
                         <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Gaji Pokok</span>
                         <span className="text-xs font-bold text-suka-brown mt-0.5 block">
@@ -378,15 +378,47 @@ export function StaffTable({
                         </span>
                       </div>
                       <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
-                        <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Tunj. Jabatan</span>
-                        <span className="text-xs font-bold text-suka-brown mt-0.5 block">
-                          {formatRupiah(selectedStaff.financials.allowance_position)}
+                        <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Tunj. Makan</span>
+                        <span className="text-xs font-bold text-emerald-800 mt-0.5 block">
+                          {formatRupiah(selectedStaff.financials.allowance_meal ?? selectedStaff.financials.allowance_presence ?? 0)}
                         </span>
                       </div>
                       <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
-                        <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Tunj. Hadir</span>
-                        <span className="text-xs font-bold text-suka-brown mt-0.5 block">
-                          {formatRupiah(selectedStaff.financials.allowance_presence)}
+                        <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Tunj. Transport</span>
+                        <span className="text-xs font-bold text-emerald-800 mt-0.5 block">
+                          {formatRupiah(selectedStaff.financials.allowance_transport ?? 0)}
+                        </span>
+                      </div>
+                      <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
+                        <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Tunj. Komunikasi</span>
+                        <span className="text-xs font-bold text-emerald-800 mt-0.5 block">
+                          {formatRupiah(selectedStaff.financials.allowance_communication ?? 0)}
+                        </span>
+                      </div>
+                      <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
+                        <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Sales Bonus</span>
+                        <span className="text-xs font-bold text-amber-800 mt-0.5 block">
+                          {formatRupiah(selectedStaff.financials.sales_bonus ?? 0)}
+                        </span>
+                      </div>
+                      {Number(selectedStaff.financials.allowance_position) > 0 && (
+                        <div className="bg-[#FDF9F3] p-2 rounded-xl border border-suka-brown/10 text-center">
+                          <span className="text-[9px] uppercase font-bold text-suka-gray-500 block">Tunj. Jabatan</span>
+                          <span className="text-xs font-bold text-suka-brown mt-0.5 block">
+                            {formatRupiah(selectedStaff.financials.allowance_position)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="bg-red-50/70 p-2 rounded-xl border border-red-200 text-center">
+                        <span className="text-[9px] uppercase font-bold text-red-700 block">Pot. Kasbon</span>
+                        <span className="text-xs font-bold text-red-600 mt-0.5 block">
+                          -{formatRupiah(selectedStaff.financials.deduction_kasbon ?? 0)}
+                        </span>
+                      </div>
+                      <div className="bg-red-50/70 p-2 rounded-xl border border-red-200 text-center">
+                        <span className="text-[9px] uppercase font-bold text-red-700 block">Pot. BPJS</span>
+                        <span className="text-xs font-bold text-red-600 mt-0.5 block">
+                          -{formatRupiah(selectedStaff.financials.deduction_bpjs ?? 0)}
                         </span>
                       </div>
                     </div>

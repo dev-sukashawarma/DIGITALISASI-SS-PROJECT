@@ -22,6 +22,8 @@ export async function createStaffSync(values: StaffFormValues) {
     emergency_name, emergency_relationship, emergency_phone,
     nip, contract_type, join_date, resign_date, leave_quota,
     basic_salary, allowance_position, allowance_presence,
+    allowance_meal, allowance_transport, allowance_communication,
+    sales_bonus, deduction_kasbon, deduction_bpjs,
     bank_name, bank_account_number, bank_account_name,
     npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
   } = values as any
@@ -73,10 +75,27 @@ export async function createStaffSync(values: StaffFormValues) {
   }
 
   // 3. Financials
-  if (bank_name || bank_account_number || bank_account_name || basic_salary !== undefined) {
+  if (
+    bank_name ||
+    bank_account_number ||
+    bank_account_name ||
+    basic_salary !== undefined ||
+    allowance_meal !== undefined ||
+    allowance_transport !== undefined ||
+    allowance_communication !== undefined ||
+    sales_bonus !== undefined ||
+    deduction_kasbon !== undefined ||
+    deduction_bpjs !== undefined
+  ) {
     await admin.from('staff_financials').insert({
       staff_id: staffId,
       basic_salary: basic_salary || 0,
+      allowance_meal: allowance_meal || 0,
+      allowance_transport: allowance_transport || 0,
+      allowance_communication: allowance_communication || 0,
+      sales_bonus: sales_bonus || 0,
+      deduction_kasbon: deduction_kasbon || 0,
+      deduction_bpjs: deduction_bpjs || 0,
       allowance_position: allowance_position || 0,
       allowance_presence: allowance_presence || 0,
       bank_name: bank_name || '',

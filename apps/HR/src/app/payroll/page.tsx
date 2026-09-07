@@ -16,6 +16,7 @@ import { CashAdvanceForm } from '@/components/modules/CashAdvanceForm'
 import { BulkWAModal } from '@/components/modules/BulkWAModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
+import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import type { PayrollRecord } from '@/lib/types'
 import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
 
@@ -102,21 +103,30 @@ export default function PayrollPage() {
       return
     }
 
-    const rows = payrollData.map((r) => ({
-      Nama: r.outlet_staff?.name || '-',
-      Role: r.outlet_staff?.role || '-',
-      Outlet: r.outlet_staff?.outlets?.name || 'Pusat',
-      Periode: `${r.period_month}/${r.period_year}`,
-      'Gaji Pokok': r.basic_salary,
-      'Tunjangan Jabatan': r.allowance_position,
-      'Tunjangan Hadir': r.allowance_presence,
-      Bonus: r.bonus,
-      'Catatan Bonus': r.bonus_note || '-',
-      Potongan: r.deductions,
-      'Catatan Potongan': r.deduction_note || '-',
-      'Total Gaji Bersih': r.total_salary,
-      Status: r.status,
-    }))
+    const rows = payrollData.map((r) => {
+      const b = getPayrollBreakdown(r)
+      return {
+        Nama: r.outlet_staff?.name || '-',
+        Role: r.outlet_staff?.role || '-',
+        Outlet: r.outlet_staff?.outlets?.name || 'Pusat',
+        Periode: `${r.period_month}/${r.period_year}`,
+        'Gaji Pokok': b.basicSalary,
+        'Tunjangan Makan': b.mealAllowance,
+        'Tunjangan Transportasi': b.transportAllowance,
+        'Tunjangan Telekomunikasi': b.communicationAllowance,
+        'Sales Bonus': b.salesBonus,
+        'Tunjangan Jabatan': b.positionAllowance,
+        Lembur: b.overtime,
+        'Potongan Kasbon': b.cashAdvanceDeduction,
+        'Potongan BPJS': b.bpjsDeduction,
+        'Denda Telat': b.lateDeduction,
+        'Potongan Lain': b.otherDeduction,
+        'Total Penerimaan': b.totalEarnings,
+        'Total Potongan': b.totalDeductions,
+        'Total Gaji Bersih (THP)': b.takeHomePay,
+        Status: r.status,
+      }
+    })
 
     exportCsv(
       rows,

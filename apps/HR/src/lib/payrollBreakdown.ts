@@ -12,6 +12,7 @@ export interface PayrollBreakdown {
 
   // ── 2. Komponen Potongan ──
   cashAdvanceDeduction: number // kasbon
+  bpjsDeduction: number // iuran / potongan BPJS
   lateMinutes: number // total menit keterlambatan dari absensi
   lateDeduction: number // keterlambatan = lateMinutes * 1000
   otherDeduction: number // ganti rugi / denda lainnya
@@ -29,13 +30,23 @@ export const LATE_FEE_PER_MINUTE = 1000 // Rp 1.000 / menit keterlambatan
  */
 export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
   const basicSalary = Number(slip.basic_salary) || 0
-  const mealAllowance = Number(slip.allowance_presence) || 0
+  let mealAllowance =
+    slip.allowance_meal !== undefined && slip.allowance_meal !== null
+      ? Number(slip.allowance_meal)
+      : (Number(slip.allowance_presence) || 0)
   const positionAllowance = Number(slip.allowance_position) || 0
 
   let overtime = 0
-  let salesBonus = 0
-  let transportAllowance = 0
-  let communicationAllowance = 0
+  let salesBonus =
+    slip.sales_bonus !== undefined && slip.sales_bonus !== null ? Number(slip.sales_bonus) : 0
+  let transportAllowance =
+    slip.allowance_transport !== undefined && slip.allowance_transport !== null
+      ? Number(slip.allowance_transport)
+      : 0
+  let communicationAllowance =
+    slip.allowance_communication !== undefined && slip.allowance_communication !== null
+      ? Number(slip.allowance_communication)
+      : 0
 
   // Coba parse bonus_note jika ada format terstruktur JSON atau string
   if (slip.bonus_note) {
@@ -43,9 +54,9 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
       if (slip.bonus_note.startsWith('{')) {
         const parsed = JSON.parse(slip.bonus_note)
         overtime = Number(parsed.overtime) || 0
-        salesBonus = Number(parsed.salesBonus) || 0
-        transportAllowance = Number(parsed.transport) || 0
-        communicationAllowance = Number(parsed.communication) || 0
+        if (salesBonus === 0) salesBonus = Number(parsed.salesBonus) || 0
+        if (transportAllowance === 0) transportAllowance = Number(parsed.transport) || 0
+        if (communicationAllowance === 0) communicationAllowance = Number(parsed.communication) || 0
       } else {
         // Parse string patterns e.g. "Overtime: Rp 100.000, Sales Bonus: Rp 200.000"
         const otMatch = slip.bonus_note.match(/(?:overtime|lembur)[:\s]*rp?\s*([0-9.,]+)/i)
@@ -54,9 +65,9 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
         const comMatch = slip.bonus_note.match(/(?:communication|komunikasi|pulsa)[:\s]*rp?\s*([0-9.,]+)/i)
 
         if (otMatch) overtime = Number(otMatch[1].replace(/[^0-9]/g, '')) || 0
-        if (sbMatch) salesBonus = Number(sbMatch[1].replace(/[^0-9]/g, '')) || 0
-        if (trMatch) transportAllowance = Number(trMatch[1].replace(/[^0-9]/g, '')) || 0
-        if (comMatch) communicationAllowance = Number(comMatch[1].replace(/[^0-9]/g, '')) || 0
+        if (sbMatch && salesBonus === 0) salesBonus = Number(sbMatch[1].replace(/[^0-9]/g, '')) || 0
+        if (trMatch && transportAllowance === 0) transportAllowance = Number(trMatch[1].replace(/[^0-9]/g, '')) || 0
+        if (comMatch && communicationAllowance === 0) communicationAllowance = Number(comMatch[1].replace(/[^0-9]/g, '')) || 0
       }
     } catch {
       // Fallback
@@ -73,7 +84,14 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
   }
 
   // Potongan parsing
-  let cashAdvanceDeduction = 0
+  let cashAdvanceDeduction =
+    slip.deduction_kasbon !== undefined && slip.deduction_kasbon !== null
+      ? Number(slip.deduction_kasbon)
+      : 0
+  let bpjsDeduction =
+    slip.deduction_bpjs !== undefined && slip.deduction_bpjs !== null
+      ? Number(slip.deduction_bpjs)
+      : 0
   let lateMinutes = 0
   let lateDeduction = 0
   let otherDeduction = 0
@@ -82,17 +100,24 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
     try {
       if (slip.deduction_note.startsWith('{')) {
         const parsed = JSON.parse(slip.deduction_note)
-        cashAdvanceDeduction = Number(parsed.kasbon) || 0
+        if (cashAdvanceDeduction === 0) cashAdvanceDeduction = Number(parsed.kasbon) || 0
+        if (bpjsDeduction === 0) bpjsDeduction = Number(parsed.bpjs) || 0
         lateMinutes = Number(parsed.lateMinutes) || 0
         lateDeduction = Number(parsed.lateDeduction) || lateMinutes * LATE_FEE_PER_MINUTE
         otherDeduction = Number(parsed.other) || 0
       } else {
         const kasbonMatch = slip.deduction_note.match(/(?:kasbon|pinjaman)[:\s]*rp?\s*([0-9.,]+)/i)
+        const bpjsMatch = slip.deduction_note.match(/(?:bpjs)[:\s]*rp?\s*([0-9.,]+)/i)
         const lateMinMatch = slip.deduction_note.match(/(?:telat|keterlambatan)\s*\(?([0-9]+)\s*m/i)
         const lateDedMatch = slip.deduction_note.match(/(?:denda telat|telat|keterlambatan)[:\s]*rp?\s*([0-9.,]+)/i)
-        const otherMatch = slip.deduction_note.match(/(?:ganti rugi|denda)[:\s]*rp?\s*([0-9.,]+)/i)
+        const otherMatch = slip.deduction_note.match(/(?:ganti rugi|denda|potongan lain)[:\s]*rp?\s*([0-9.,]+)/i)
 
-        if (kasbonMatch) cashAdvanceDeduction = Number(kasbonMatch[1].replace(/[^0-9]/g, '')) || 0
+        if (kasbonMatch && cashAdvanceDeduction === 0) {
+          cashAdvanceDeduction = Number(kasbonMatch[1].replace(/[^0-9]/g, '')) || 0
+        }
+        if (bpjsMatch && bpjsDeduction === 0) {
+          bpjsDeduction = Number(bpjsMatch[1].replace(/[^0-9]/g, '')) || 0
+        }
         if (lateMinMatch) lateMinutes = Number(lateMinMatch[1]) || 0
         if (lateDedMatch) lateDeduction = Number(lateDedMatch[1].replace(/[^0-9]/g, '')) || 0
         else if (lateMinutes > 0) lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
@@ -104,9 +129,11 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
   }
 
   // Fallback jika deductions > 0 tapi belum terurai
-  if (cashAdvanceDeduction === 0 && lateDeduction === 0 && otherDeduction === 0 && (Number(slip.deductions) || 0) > 0) {
+  if (cashAdvanceDeduction === 0 && bpjsDeduction === 0 && lateDeduction === 0 && otherDeduction === 0 && (Number(slip.deductions) || 0) > 0) {
     if (slip.deduction_note?.toLowerCase().includes('kasbon')) {
       cashAdvanceDeduction = Number(slip.deductions)
+    } else if (slip.deduction_note?.toLowerCase().includes('bpjs')) {
+      bpjsDeduction = Number(slip.deductions)
     } else if (slip.deduction_note?.toLowerCase().includes('telat')) {
       lateDeduction = Number(slip.deductions)
       lateMinutes = Math.floor(lateDeduction / LATE_FEE_PER_MINUTE)
@@ -124,8 +151,8 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
     salesBonus +
     positionAllowance
 
-  const totalDeductions = cashAdvanceDeduction + lateDeduction + otherDeduction
-  const takeHomePay = totalEarnings - totalDeductions
+  const totalDeductions = cashAdvanceDeduction + bpjsDeduction + lateDeduction + otherDeduction
+  const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
 
   return {
     basicSalary,
@@ -136,6 +163,7 @@ export function getPayrollBreakdown(slip: PayrollRecord): PayrollBreakdown {
     salesBonus,
     positionAllowance,
     cashAdvanceDeduction,
+    bpjsDeduction,
     lateMinutes,
     lateDeduction,
     otherDeduction,
@@ -155,6 +183,7 @@ export function buildPayrollNotes(data: {
   communication?: number
   customBonusNote?: string
   kasbon?: number
+  bpjs?: number
   lateMinutes?: number
   lateDeduction?: number
   otherDeduction?: number
@@ -169,6 +198,7 @@ export function buildPayrollNotes(data: {
 
   const dedParts: string[] = []
   if (data.kasbon && data.kasbon > 0) dedParts.push(`Kasbon: Rp ${data.kasbon.toLocaleString('id-ID')}`)
+  if (data.bpjs && data.bpjs > 0) dedParts.push(`BPJS: Rp ${data.bpjs.toLocaleString('id-ID')}`)
   const lateMin = data.lateMinutes || 0
   const lateFee = data.lateDeduction || lateMin * LATE_FEE_PER_MINUTE
   if (lateFee > 0) {

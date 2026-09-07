@@ -43,8 +43,14 @@ export interface StaffRow {
   leave_quota?: number | null
   financials?: {
     basic_salary: number
-    allowance_position: number
-    allowance_presence: number
+    allowance_meal?: number
+    allowance_transport?: number
+    allowance_communication?: number
+    sales_bonus?: number
+    deduction_kasbon?: number
+    deduction_bpjs?: number
+    allowance_position?: number
+    allowance_presence?: number
     bank_name: string
     bank_account_number: string
     bank_account_name: string
@@ -80,6 +86,12 @@ export interface StaffFormValues {
   resign_date?: string | null
   leave_quota?: number | null
   basic_salary?: number
+  allowance_meal?: number
+  allowance_transport?: number
+  allowance_communication?: number
+  sales_bonus?: number
+  deduction_kasbon?: number
+  deduction_bpjs?: number
   allowance_position?: number
   allowance_presence?: number
   bank_name?: string
@@ -162,6 +174,12 @@ export interface PayrollRecord {
   period_month: number
   period_year: number
   basic_salary: number
+  allowance_meal?: number
+  allowance_transport?: number
+  allowance_communication?: number
+  sales_bonus?: number
+  deduction_kasbon?: number
+  deduction_bpjs?: number
   allowance_position: number
   allowance_presence: number
   bonus: number

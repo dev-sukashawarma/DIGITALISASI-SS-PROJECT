@@ -56,12 +56,18 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
           }
         }
 
+        const isPusat = !row.outlet_id || 
+          row.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
+          row.outlets?.name?.toLowerCase().includes('kantor pusat') ||
+          row.category === 'pengeluaran_global' ||
+          row.category === 'gaji_staff_kantor'
+
         return {
           id: row.id,
           outlet_id: row.outlet_id,
-          outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : 'Kantor Pusat'),
+          outlet_name: isPusat ? 'Kantor Pusat' : (row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : 'Kantor Pusat')),
           category: cat,
-          scope: row.outlet_id ? deriveScope(cat) : ('pusat' as const),
+          scope: isPusat ? ('pusat' as const) : ('outlet' as const),
           amount: Number(row.amount),
           description: displayDesc,
           expense_date: row.expense_date,

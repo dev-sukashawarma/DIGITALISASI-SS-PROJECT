@@ -37,6 +37,7 @@ import {
 import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
+import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 
 function formatLastUpdated(dateIso?: string) {
@@ -310,6 +311,25 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const isModerate = displayMargin >= 5 && displayMargin < 20
 
   const [isExporting, setIsExporting] = useState(false)
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
+
+  // Biaya pusat hanya ikut pada tampilan gabungan seluruh outlet — sama persis
+  // dengan syarat yang dipakai `displayLaba`, supaya rincian mendarat di angka
+  // yang tertera di kartu.
+  const includeCentral = isAllOutlets && scope !== 'mitra'
+  const waterfallInput = useMemo(() => ({
+    grossRevenue: actualGrossRevenue,
+    deductions: totalDeductions,
+    hpp: totalHpp,
+    waste: totalWaste,
+    opexMonthly: pengeluaranOutletBulanan,
+    opexPettyCash: pengeluaranOutletPettyCash,
+    centralExpense: pengeluaranPusat,
+    includeCentral,
+  }), [
+    actualGrossRevenue, totalDeductions, totalHpp, totalWaste,
+    pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
+  ])
 
   const handleExportCSV = () => {
     setIsExporting(true)
@@ -1065,18 +1085,33 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <span className="text-base font-semibold">{displayLaba < 0 ? '-Rp ' : 'Rp '}</span>
                   <CountUp end={Math.abs(displayLaba)} duration={1} separator="." />
                 </h3>
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border ${
-                    displayLaba >= 0 
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                    displayLaba >= 0
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
                       : 'bg-rose-100 text-rose-800 border-rose-200'
                   }`}>
                     Margin: {displayMargin.toFixed(1)}%
                   </span>
+                  <button
+                    type="button"
+                    onClick={() => setBreakdownOpen(true)}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-suka-brown/70 hover:text-suka-brown underline decoration-dotted underline-offset-2 transition-colors active:scale-95 cursor-pointer"
+                  >
+                    <Search className="w-3 h-3" /> Lihat rincian
+                  </button>
                 </div>
               </div>
             </div>
           </motion.div>
+
+          <NetProfitBreakdownModal
+            isOpen={breakdownOpen}
+            onClose={() => setBreakdownOpen(false)}
+            periodLabel={`${filter.from} s/d ${filter.to}`}
+            scopeLabel={isAllOutlets ? SCOPE_LABEL[scope] : (outlets.find(o => o.id === filter.outletId)?.name ?? SCOPE_LABEL[scope])}
+            input={waterfallInput}
+          />
 
           {/* 2. CORE DUAL SECTION: P&L Statement (2/3) + Financial Health & Cost Structure (1/3) */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">

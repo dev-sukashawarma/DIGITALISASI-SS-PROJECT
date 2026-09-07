@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -137,9 +138,20 @@ private fun SpandukKeranjangDikosongkan(onTutup: () -> Unit) {
     }
 }
 
+/**
+ * Bilah keranjang di dasar layar.
+ *
+ * `navigationBarsPadding()` WAJIB. Scaffold menerapkan window insets ke slot
+ * KONTEN, bukan ke slot `bottomBar` -- tanpa ini bilahnya tergambar di bawah
+ * tombol navigasi sistem. Terbukti di Galaxy A07 (Android 16): tulisan
+ * "1 porsi Rp8.000" separuh tertutup dan tombolnya sulit diketuk.
+ */
 @Composable
 private fun BilahKeranjang(porsi: Int, subtotal: Long, onKlik: () -> Unit) {
-    Surface(color = MaterialTheme.colorScheme.background) {
+    Surface(
+        color = MaterialTheme.colorScheme.background,
+        modifier = Modifier.navigationBarsPadding()
+    ) {
         Button(
             onClick = onKlik,
             modifier = Modifier.fillMaxWidth().padding(16.dp)

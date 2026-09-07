@@ -103,24 +103,37 @@ export function NetProfitBreakdownModal({
             return (
               <div
                 key={step.key}
-                className={`flex items-start justify-between gap-4 px-4 py-2 ${
-                  step.kind === 'deduction' ? 'border-l-2 border-rose-200 ml-2' : ''
-                }`}
+                className={step.kind === 'deduction' ? 'border-l-2 border-rose-200 ml-2' : ''}
               >
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-suka-gray-700">{step.label}</span>
-                  {step.hint && (
-                    <span className="block text-[11px] text-suka-gray-400 leading-snug">{step.hint}</span>
-                  )}
-                </span>
-                <span className="text-right shrink-0">
-                  <span className={`block text-sm font-bold ${negative ? 'text-rose-600' : 'text-suka-brown'}`}>
-                    {negative ? '-' : ''}{rupiah(Math.abs(step.amount))}
+                <div className="flex items-start justify-between gap-4 px-4 py-2">
+                  <span className="min-w-0">
+                    <span className="block text-sm font-semibold text-suka-gray-700">{step.label}</span>
+                    {step.hint && !step.breakdown && (
+                      <span className="block text-[11px] text-suka-gray-400 leading-snug">{step.hint}</span>
+                    )}
                   </span>
-                  <span className="block text-[11px] font-medium text-suka-gray-400">
-                    {step.pctOfGross.toFixed(1)}%
+                  <span className="text-right shrink-0">
+                    <span className={`block text-sm font-bold ${negative ? 'text-rose-600' : 'text-suka-brown'}`}>
+                      {negative ? '-' : ''}{rupiah(Math.abs(step.amount))}
+                    </span>
+                    <span className="block text-[11px] font-medium text-suka-gray-400">
+                      {step.pctOfGross.toFixed(1)}%
+                    </span>
                   </span>
-                </span>
+                </div>
+
+                {step.breakdown && (
+                  <div className="ml-4 mb-2 pl-3 border-l border-dashed border-suka-gray-200 space-y-0.5">
+                    {step.breakdown.map((item) => (
+                      <div key={item.label} className="flex items-baseline justify-between gap-4 pr-4">
+                        <span className="text-[12px] text-suka-gray-500 truncate">{item.label}</span>
+                        <span className="text-[12px] font-semibold text-rose-500/90 shrink-0 tabular-nums">
+                          {item.amount < 0 ? '-' : ''}{rupiah(Math.abs(item.amount))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )
           })}

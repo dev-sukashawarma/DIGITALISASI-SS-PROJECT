@@ -19,6 +19,17 @@ export interface WaterfallStep {
   pctOfGross: number
   /** Penjelasan singkat, ditampilkan di bawah label. */
   hint?: string
+  /**
+   * Rincian pembentuk baris ini, bila ada. Murni informatif — jumlahnya wajib
+   * sama dengan `amount` dan tidak pernah ikut dihitung ulang ke dalam rantai.
+   */
+  breakdown?: WaterfallDetail[]
+}
+
+export interface WaterfallDetail {
+  label: string
+  /** Bertanda sama dengan baris induknya (pengurangan = negatif). */
+  amount: number
 }
 
 export interface WaterfallInput {
@@ -31,12 +42,15 @@ export interface WaterfallInput {
   centralExpense: number
   /** Biaya kantor pusat hanya ikut pada tampilan gabungan seluruh outlet. */
   includeCentral: boolean
+  /** Rincian per kategori untuk baris beban bulanan outlet. */
+  opexMonthlyBreakdown?: WaterfallDetail[]
 }
 
 export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
   const {
     grossRevenue, deductions, hpp, waste,
     opexMonthly, opexPettyCash, centralExpense, includeCentral,
+    opexMonthlyBreakdown,
   } = input
 
   const pct = (n: number) => (grossRevenue > 0 ? (n / grossRevenue) * 100 : 0)
@@ -100,6 +114,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       amount: -opexMonthly,
       kind: 'deduction',
       pctOfGross: pct(-opexMonthly),
+      breakdown: opexMonthlyBreakdown?.length ? opexMonthlyBreakdown : undefined,
     },
     {
       key: 'opex_petty_cash',

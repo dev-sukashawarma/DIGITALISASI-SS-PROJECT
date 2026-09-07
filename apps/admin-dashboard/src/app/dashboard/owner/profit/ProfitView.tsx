@@ -36,6 +36,7 @@ import {
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { isTestOutlet } from '@/lib/outletFilters'
+import { CATEGORY_META } from '@/lib/expenseCategories'
 import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
@@ -317,6 +318,25 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   // dengan syarat yang dipakai `displayLaba`, supaya rincian mendarat di angka
   // yang tertera di kartu.
   const includeCentral = isAllOutlets && scope !== 'mitra'
+  // Rincian per kategori untuk baris "Beban Bulanan Outlet" di modal. Sumbernya
+  // baris yang PERSIS sama dengan yang membentuk `pengeluaranOutletBulanan`,
+  // supaya jumlah rinciannya tak mungkin meleset dari angka induknya.
+  const opexMonthlyBreakdown = useMemo(() => {
+    const perKategori = new Map<string, number>()
+    expenseRows
+      .filter(r => r.scope === 'outlet' && r.source === 'monthly' && !isTestOutlet(r.outlet_id) && !isTestOutlet(r.outlet_name))
+      .forEach(r => {
+        const key = (r as any).category || 'lainnya'
+        perKategori.set(key, (perKategori.get(key) ?? 0) + r.amount)
+      })
+    return [...perKategori.entries()]
+      .map(([kategori, jumlah]) => ({
+        label: CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori,
+        amount: -jumlah,
+      }))
+      .sort((a, b) => a.amount - b.amount)
+  }, [expenseRows])
+
   const waterfallInput = useMemo(() => ({
     grossRevenue: actualGrossRevenue,
     deductions: totalDeductions,
@@ -326,9 +346,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     opexPettyCash: pengeluaranOutletPettyCash,
     centralExpense: pengeluaranPusat,
     includeCentral,
+    opexMonthlyBreakdown,
   }), [
     actualGrossRevenue, totalDeductions, totalHpp, totalWaste,
     pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
+    opexMonthlyBreakdown,
   ])
 
   const handleExportCSV = () => {

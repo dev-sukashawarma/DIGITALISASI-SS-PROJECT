@@ -102,3 +102,42 @@ describe('buildProfitWaterfall', () => {
     expect(total?.amount).toBeLessThan(0)
   })
 })
+
+describe('rincian Beban Bulanan Outlet', () => {
+  const RINCIAN = [
+    { label: 'Gaji Crew Outlet', amount: -18_000_000 },
+    { label: 'Biaya Sewa Outlet', amount: -5_000_000 },
+    { label: 'PLN', amount: -2_000_000 },
+  ]
+
+  it('menempel pada baris beban bulanan, bukan baris lain', () => {
+    const steps = buildProfitWaterfall({ ...INPUT, opexMonthly: 25_000_000, opexMonthlyBreakdown: RINCIAN })
+    expect(steps.find((s) => s.key === 'opex_bulanan')?.breakdown).toEqual(RINCIAN)
+    for (const s of steps.filter((s) => s.key !== 'opex_bulanan')) {
+      expect(s.breakdown).toBeUndefined()
+    }
+  })
+
+  it('jumlah rinciannya sama dengan baris induknya', () => {
+    const steps = buildProfitWaterfall({ ...INPUT, opexMonthly: 25_000_000, opexMonthlyBreakdown: RINCIAN })
+    const induk = steps.find((s) => s.key === 'opex_bulanan')!
+    const jumlah = induk.breakdown!.reduce((s, r) => s + r.amount, 0)
+    expect(jumlah).toBe(induk.amount)
+  })
+
+  it('tidak mengubah laba bersih sama sekali', () => {
+    const tanpa = buildProfitWaterfall(INPUT)
+    const dengan = buildProfitWaterfall({ ...INPUT, opexMonthlyBreakdown: RINCIAN })
+    expect(dengan.find((s) => s.kind === 'total')?.amount).toBe(
+      tanpa.find((s) => s.kind === 'total')?.amount,
+    )
+  })
+
+  it('tak ada rincian saat daftarnya kosong atau tak diberikan', () => {
+    expect(buildProfitWaterfall(INPUT).find((s) => s.key === 'opex_bulanan')?.breakdown).toBeUndefined()
+    expect(
+      buildProfitWaterfall({ ...INPUT, opexMonthlyBreakdown: [] }).find((s) => s.key === 'opex_bulanan')
+        ?.breakdown,
+    ).toBeUndefined()
+  })
+})

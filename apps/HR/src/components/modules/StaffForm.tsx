@@ -5,9 +5,11 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button, CurrencyInput } from '@suka/design-system'
+import { DollarSign, ShieldAlert, Sparkles, Navigation, Phone, Wallet, Coins } from 'lucide-react'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
+import { formatRupiah } from '@/lib/format'
 
 const ROLES: Role[] = [
   'admin',
@@ -50,28 +52,18 @@ const getStaffFormSchema = (isEditing: boolean) =>
       'admin_finance',
       'area_manager',
       'purchasing',
-    ]),
-    outlet_id: z.string().min(1, 'Outlet Home wajib diisi'),
-    outlet_ids: z.array(z.string()).default([]),
-    is_bonus_eligible: z.boolean().default(true).optional(),
-    nip: z.string().nullable().optional(),
-    contract_type: z.enum(['permanent', 'contract', 'intern', 'daily']).nullable().optional(),
-    join_date: z.string().nullable().optional(),
-    resign_date: z.string().nullable().optional(),
-    leave_quota: z.coerce.number().nullable().optional(),
-
-    nik: z
-      .string()
-      .refine((val) => !val || val.length === 16, 'NIK harus tepat 16 digit angka!')
-      .nullable()
-      .optional(),
-    email: z.string().email('Email tidak valid').or(z.literal('')).nullable().optional(),
+    ] as [string, ...string[]]),
+    outlet_id: z.string().min(1, 'Outlet wajib dipilih'),
+    outlet_ids: z.array(z.string()).optional(),
+    is_bonus_eligible: z.boolean().optional(),
+    nik: z.string().nullable().optional(),
+    email: z.string().email('Format email tidak valid').nullable().optional().or(z.literal('')),
     phone: z.string().nullable().optional(),
     address_ktp: z.string().nullable().optional(),
     address_domicile: z.string().nullable().optional(),
     birth_place: z.string().nullable().optional(),
     birth_date: z.string().nullable().optional(),
-    gender: z.enum(['male', 'female', '']).nullable().optional(),
+    gender: z.enum(['male', 'female']).nullable().optional(),
     religion: z.string().nullable().optional(),
 
     emergency_name: z.string().nullable().optional(),
@@ -79,6 +71,12 @@ const getStaffFormSchema = (isEditing: boolean) =>
     emergency_phone: z.string().nullable().optional(),
 
     basic_salary: z.coerce.number().nullable().optional(),
+    allowance_meal: z.coerce.number().nullable().optional(),
+    allowance_transport: z.coerce.number().nullable().optional(),
+    allowance_communication: z.coerce.number().nullable().optional(),
+    sales_bonus: z.coerce.number().nullable().optional(),
+    deduction_kasbon: z.coerce.number().nullable().optional(),
+    deduction_bpjs: z.coerce.number().nullable().optional(),
     allowance_position: z.coerce.number().nullable().optional(),
     allowance_presence: z.coerce.number().nullable().optional(),
     bank_name: z.string().nullable().optional(),
@@ -95,7 +93,23 @@ const stepFields: Record<string, (keyof FormData)[]> = {
   utama: ['name', 'username', 'password', 'role', 'outlet_id', 'outlet_ids', 'is_bonus_eligible', 'nip', 'contract_type', 'join_date', 'resign_date', 'leave_quota'],
   pribadi: ['nik', 'email', 'phone', 'address_ktp', 'address_domicile', 'birth_place', 'birth_date', 'gender', 'religion'],
   darurat: ['emergency_name', 'emergency_relationship', 'emergency_phone'],
-  keuangan: ['basic_salary', 'allowance_position', 'allowance_presence', 'bank_name', 'bank_account_number', 'bank_account_name', 'npwp', 'bpjs_ketenagakerjaan', 'bpjs_kesehatan'],
+  keuangan: [
+    'basic_salary',
+    'allowance_meal',
+    'allowance_transport',
+    'allowance_communication',
+    'sales_bonus',
+    'deduction_kasbon',
+    'deduction_bpjs',
+    'allowance_position',
+    'allowance_presence',
+    'bank_name',
+    'bank_account_number',
+    'bank_account_name',
+    'npwp',
+    'bpjs_ketenagakerjaan',
+    'bpjs_kesehatan',
+  ],
 }
 
 export function StaffForm({
@@ -140,6 +154,12 @@ export function StaffForm({
       emergency_relationship: initial?.emergency_relationship ?? '',
       emergency_phone: initial?.emergency_phone ?? '',
       basic_salary: initial?.basic_salary ?? 0,
+      allowance_meal: initial?.allowance_meal ?? (initial?.allowance_presence ?? 0),
+      allowance_transport: initial?.allowance_transport ?? 0,
+      allowance_communication: initial?.allowance_communication ?? 0,
+      sales_bonus: initial?.sales_bonus ?? 0,
+      deduction_kasbon: initial?.deduction_kasbon ?? 0,
+      deduction_bpjs: initial?.deduction_bpjs ?? 0,
       allowance_position: initial?.allowance_position ?? 0,
       allowance_presence: initial?.allowance_presence ?? 0,
       bank_name: initial?.bank_name ?? '',
@@ -153,6 +173,19 @@ export function StaffForm({
   })
 
   const watchRole = watch('role')
+  const watchBasic = Number(watch('basic_salary')) || 0
+  const watchMeal = Number(watch('allowance_meal')) || 0
+  const watchTransport = Number(watch('allowance_transport')) || 0
+  const watchComms = Number(watch('allowance_communication')) || 0
+  const watchBonus = Number(watch('sales_bonus')) || 0
+  const watchPos = Number(watch('allowance_position')) || 0
+  const watchKasbon = Number(watch('deduction_kasbon')) || 0
+  const watchBpjs = Number(watch('deduction_bpjs')) || 0
+
+  const formEarnings = watchBasic + watchMeal + watchTransport + watchComms + watchBonus + watchPos
+  const formDeductions = watchKasbon + watchBpjs
+  const formTHP = Math.max(0, formEarnings - formDeductions)
+
   const [activeTab, setActiveTab] = useState<'utama' | 'pribadi' | 'darurat' | 'keuangan'>('utama')
 
   const inputCls =
@@ -227,8 +260,14 @@ export function StaffForm({
       resign_date: data.resign_date || null,
       leave_quota: data.leave_quota || 0,
       basic_salary: data.basic_salary || 0,
+      allowance_meal: data.allowance_meal || 0,
+      allowance_transport: data.allowance_transport || 0,
+      allowance_communication: data.allowance_communication || 0,
+      sales_bonus: data.sales_bonus || 0,
+      deduction_kasbon: data.deduction_kasbon || 0,
+      deduction_bpjs: data.deduction_bpjs || 0,
       allowance_position: data.allowance_position || 0,
-      allowance_presence: data.allowance_presence || 0,
+      allowance_presence: data.allowance_meal || data.allowance_presence || 0,
       bank_name: data.bank_name || undefined,
       bank_account_number: data.bank_account_number || undefined,
       bank_account_name: data.bank_account_name || undefined,
@@ -467,7 +506,13 @@ export function StaffForm({
         {activeTab === 'keuangan' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2 bg-suka-orange/10 rounded-xl p-3 text-xs text-suka-brown border border-suka-orange/20 font-medium">
-              🔒 Komponen Gaji & Nomor Rekening Transfer Bank Staf.
+              🔒 Komponen Gaji &amp; Nomor Rekening Transfer Bank Staf.
+            </div>
+
+            {/* 1. Komponen Penerimaan (Earnings) */}
+            <div className="md:col-span-2 flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+              <DollarSign size={14} className="text-emerald-600" />
+              <span>1. Komponen Penerimaan (Earnings)</span>
             </div>
 
             <div>
@@ -488,12 +533,12 @@ export function StaffForm({
 
             <div>
               <Controller
-                name="allowance_position"
+                name="allowance_meal"
                 control={control}
                 render={({ field }) => (
                   <CurrencyInput
-                    id="sf-allowance-pos"
-                    label="Tunjangan Jabatan (Rp)"
+                    id="sf-allowance-meal"
+                    label="Tunjangan Makan (Rp)"
                     className={inputCls}
                     value={field.value ?? ''}
                     onChange={field.onChange}
@@ -504,12 +549,12 @@ export function StaffForm({
 
             <div>
               <Controller
-                name="allowance_presence"
+                name="allowance_transport"
                 control={control}
                 render={({ field }) => (
                   <CurrencyInput
-                    id="sf-allowance-pres"
-                    label="Tunjangan Kehadiran (Rp)"
+                    id="sf-allowance-trans"
+                    label="Tunjangan Transportasi (Rp)"
                     className={inputCls}
                     value={field.value ?? ''}
                     onChange={field.onChange}
@@ -519,12 +564,115 @@ export function StaffForm({
             </div>
 
             <div>
-              <label htmlFor="sf-npwp" className={labelCls}>NPWP</label>
-              <input id="sf-npwp" className={inputCls} placeholder="Nomor NPWP" {...register('npwp')} />
+              <Controller
+                name="allowance_communication"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-comms"
+                    label="Tunjangan Telekomunikasi (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </div>
 
-            <div className="md:col-span-2 border-t border-suka-gray-200 my-2 pt-2">
-              <h4 className="text-xs font-bold text-suka-brown uppercase tracking-wider mb-2">Informasi Rekening Bank</h4>
+            <div>
+              <Controller
+                name="sales_bonus"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-sales-bonus"
+                    label="Sales Bonus (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <Controller
+                name="allowance_position"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-pos"
+                    label="Tunjangan Jabatan (Rp) [Opsional]"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            {/* 2. Komponen Potongan Rutin (Deductions) */}
+            <div className="md:col-span-2 flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider bg-red-50 px-3 py-1.5 rounded-xl border border-red-200 mt-2">
+              <ShieldAlert size={14} className="text-red-600" />
+              <span>2. Komponen Potongan Rutin (Deductions)</span>
+            </div>
+
+            <div>
+              <Controller
+                name="deduction_kasbon"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-ded-kasbon"
+                    label="Potongan Kasbon (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <Controller
+                name="deduction_bpjs"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-ded-bpjs"
+                    label="Potongan BPJS (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            {/* 3. Live Take Home Pay Summary */}
+            <div className="md:col-span-2 p-3.5 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 flex flex-wrap justify-between items-center gap-2 shadow-xs">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-suka-gray-500 block">
+                  Estimasi Gaji Bersih / Take Home Pay (THP)
+                </span>
+                <div className="flex items-center gap-3 text-xs mt-0.5">
+                  <span className="text-emerald-700 font-bold">Penerimaan: {formatRupiah(formEarnings)}</span>
+                  <span className="text-red-600 font-bold">Potongan: -{formatRupiah(formDeductions)}</span>
+                </div>
+              </div>
+              <span className="text-lg font-black text-suka-orange font-mono">
+                {formatRupiah(formTHP)}
+              </span>
+            </div>
+
+            {/* 4. Rekening Bank & Pajak */}
+            <div className="md:col-span-2 border-t border-suka-gray-200 my-1 pt-2">
+              <h4 className="text-xs font-bold text-suka-brown uppercase tracking-wider mb-2">Informasi Rekening Bank &amp; Pajak</h4>
+            </div>
+
+            <div>
+              <label htmlFor="sf-npwp" className={labelCls}>NPWP</label>
+              <input id="sf-npwp" className={inputCls} placeholder="Nomor NPWP" {...register('npwp')} />
             </div>
 
             <div>
@@ -537,7 +685,7 @@ export function StaffForm({
               <input id="sf-bank-acc-num" className={inputCls} placeholder="Nomor Rekening" {...register('bank_account_number')} />
             </div>
 
-            <div className="md:col-span-2">
+            <div>
               <label htmlFor="sf-bank-acc-name" className={labelCls}>Nama Pemilik Rekening</label>
               <input id="sf-bank-acc-name" className={inputCls} placeholder="Nama Sesuai Buku Tabungan" {...register('bank_account_name')} />
             </div>

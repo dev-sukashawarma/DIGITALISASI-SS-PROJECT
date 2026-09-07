@@ -76,6 +76,7 @@ export function generateSalarySlipPdf(slip: PayrollRecord) {
 
   const deductionsList: [string, string][] = []
   if (b.cashAdvanceDeduction > 0) deductionsList.push(['Potongan Kasbon', rupiah(b.cashAdvanceDeduction)])
+  if (b.bpjsDeduction > 0) deductionsList.push(['Potongan BPJS', rupiah(b.bpjsDeduction)])
   if (b.lateDeduction > 0) {
     deductionsList.push([`Denda Telat (${b.lateMinutes}m x Rp1.000)`, rupiah(b.lateDeduction)])
   }
@@ -180,6 +181,7 @@ export function buildSalarySlipWhatsAppMessage(slip: PayrollRecord): string {
 
   const deductionLines: string[] = []
   if (b.cashAdvanceDeduction > 0) deductionLines.push(`• Potongan Kasbon: -${rupiah(b.cashAdvanceDeduction)}`)
+  if (b.bpjsDeduction > 0) deductionLines.push(`• Potongan BPJS: -${rupiah(b.bpjsDeduction)}`)
   if (b.lateDeduction > 0) {
     deductionLines.push(`• Denda Keterlambatan (${b.lateMinutes} menit @ Rp1.000): -${rupiah(b.lateDeduction)}`)
   }

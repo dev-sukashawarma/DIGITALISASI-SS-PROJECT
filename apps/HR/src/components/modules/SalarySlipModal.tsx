@@ -170,6 +170,15 @@ export function SalarySlipModal({ slip, onClose }: SalarySlipModalProps) {
               </div>
             )}
 
+            {b.bpjsDeduction > 0 && (
+              <div className="flex justify-between text-red-600 font-medium">
+                <span className="flex items-center gap-1">
+                  <ShieldAlert size={11} /> Potongan BPJS
+                </span>
+                <span className="font-mono font-bold">-{formatRupiah(b.bpjsDeduction)}</span>
+              </div>
+            )}
+
             {b.lateDeduction > 0 && (
               <div className="flex justify-between text-red-600 font-medium">
                 <span className="flex items-center gap-1">

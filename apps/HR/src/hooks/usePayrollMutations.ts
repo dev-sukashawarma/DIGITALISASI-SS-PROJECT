@@ -140,6 +140,12 @@ export function usePayrollMutations() {
           status,
           staff_financials(
             basic_salary,
+            allowance_meal,
+            allowance_transport,
+            allowance_communication,
+            sales_bonus,
+            deduction_kasbon,
+            deduction_bpjs,
             allowance_position,
             allowance_presence
           )
@@ -175,17 +181,25 @@ export function usePayrollMutations() {
           : s.staff_financials
 
         const basicSalary = Number(fin?.basic_salary) || 0
+        const allowanceMeal = Number(fin?.allowance_meal) || Number(fin?.allowance_presence) || 0
+        const allowanceTransport = Number(fin?.allowance_transport) || 0
+        const allowanceCommunication = Number(fin?.allowance_communication) || 0
         const allowancePosition = Number(fin?.allowance_position) || 0
-        const allowancePresence = Number(fin?.allowance_presence) || 0
+        const staffSalesBonus = Number(fin?.sales_bonus) || 0
 
         const lateMinutes = lateMinutesMap.get(s.id) || 0
         const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
-        const kasbonDeduction = kasbonMap.get(s.id) || 0
+        const kasbonActive = kasbonMap.get(s.id) || 0
+        const kasbonDeduction = kasbonActive > 0 ? kasbonActive : (Number(fin?.deduction_kasbon) || 0)
+        const bpjsDeduction = Number(fin?.deduction_bpjs) || 0
 
-        const totalDeductions = lateDeduction + kasbonDeduction
+        const totalDeductions = lateDeduction + kasbonDeduction + bpjsDeduction
         const deductionNotes: string[] = []
         if (kasbonDeduction > 0) {
           deductionNotes.push(`Kasbon: Rp ${kasbonDeduction.toLocaleString('id-ID')}`)
+        }
+        if (bpjsDeduction > 0) {
+          deductionNotes.push(`BPJS: Rp ${bpjsDeduction.toLocaleString('id-ID')}`)
         }
         if (lateMinutes > 0) {
           deductionNotes.push(`Telat (${lateMinutes} mnt x Rp 1.000): Rp ${lateDeduction.toLocaleString('id-ID')}`)
@@ -193,9 +207,16 @@ export function usePayrollMutations() {
 
         const autoBonusInfo = salesBonusMap.get(s.id)
         const autoBonusAmount = autoBonusInfo?.bonus || 0
-        const bonusNote = autoBonusInfo?.note || null
+        const finalSalesBonus = autoBonusAmount > 0 ? autoBonusAmount : staffSalesBonus
+        const bonusNote = autoBonusInfo?.note || (staffSalesBonus > 0 ? `Sales Bonus: Rp ${staffSalesBonus.toLocaleString('id-ID')}` : null)
 
-        const totalEarnings = basicSalary + allowancePosition + allowancePresence + autoBonusAmount
+        const totalEarnings =
+          basicSalary +
+          allowanceMeal +
+          allowanceTransport +
+          allowanceCommunication +
+          allowancePosition +
+          finalSalesBonus
         const totalSalary = Math.max(0, totalEarnings - totalDeductions)
 
         return {
@@ -203,9 +224,15 @@ export function usePayrollMutations() {
           period_month: month,
           period_year: year,
           basic_salary: basicSalary,
+          allowance_meal: allowanceMeal,
+          allowance_transport: allowanceTransport,
+          allowance_communication: allowanceCommunication,
+          sales_bonus: finalSalesBonus,
+          deduction_kasbon: kasbonDeduction,
+          deduction_bpjs: bpjsDeduction,
           allowance_position: allowancePosition,
-          allowance_presence: allowancePresence,
-          bonus: autoBonusAmount,
+          allowance_presence: allowanceMeal,
+          bonus: finalSalesBonus,
           bonus_note: bonusNote,
           deductions: totalDeductions,
           deduction_note: deductionNotes.join(' | ') || null,
@@ -313,6 +340,12 @@ export function usePayrollMutations() {
     mutationFn: async ({
       id,
       basic_salary,
+      allowance_meal,
+      allowance_transport,
+      allowance_communication,
+      sales_bonus,
+      deduction_kasbon,
+      deduction_bpjs,
       allowance_position,
       allowance_presence,
       bonus,
@@ -322,6 +355,12 @@ export function usePayrollMutations() {
     }: {
       id: string
       basic_salary: number
+      allowance_meal?: number
+      allowance_transport?: number
+      allowance_communication?: number
+      sales_bonus?: number
+      deduction_kasbon?: number
+      deduction_bpjs?: number
       allowance_position: number
       allowance_presence: number
       bonus: number
@@ -329,21 +368,36 @@ export function usePayrollMutations() {
       deductions: number
       deduction_note: string | null
     }) => {
-      const totalSalary =
-        basic_salary + allowance_position + allowance_presence + bonus - deductions
+      const meal = allowance_meal !== undefined ? allowance_meal : allowance_presence
+      const totalEarnings =
+        basic_salary +
+        meal +
+        (allowance_transport || 0) +
+        (allowance_communication || 0) +
+        allowance_position +
+        bonus
+      const totalSalary = Math.max(0, totalEarnings - deductions)
+
+      const patch: Record<string, unknown> = {
+        basic_salary,
+        allowance_position,
+        allowance_presence: meal,
+        bonus,
+        bonus_note,
+        deductions,
+        deduction_note,
+        total_salary: totalSalary,
+      }
+      if (allowance_meal !== undefined) patch.allowance_meal = allowance_meal
+      if (allowance_transport !== undefined) patch.allowance_transport = allowance_transport
+      if (allowance_communication !== undefined) patch.allowance_communication = allowance_communication
+      if (sales_bonus !== undefined) patch.sales_bonus = sales_bonus
+      if (deduction_kasbon !== undefined) patch.deduction_kasbon = deduction_kasbon
+      if (deduction_bpjs !== undefined) patch.deduction_bpjs = deduction_bpjs
 
       const { error } = await supabase
         .from('payroll_records')
-        .update({
-          basic_salary,
-          allowance_position,
-          allowance_presence,
-          bonus,
-          bonus_note,
-          deductions,
-          deduction_note,
-          total_salary: totalSalary,
-        })
+        .update(patch)
         .eq('id', id)
 
       if (error) throw error

@@ -18,7 +18,7 @@ export async function GET(
   // menebak id pesanan bisa membaca pesanan orang lain.
   const { data: draft } = await retail
     .from('order_drafts')
-    .select('id, status, total_amount, outlet_id, pos_order_id, pos_order_number, created_at')
+    .select('id, status, total_amount, outlet_id, pos_order_id, pos_order_number, created_at, expires_at')
     .eq('id', id)
     .eq('customer_id', sesi.customerId)
     .maybeSingle()
@@ -52,5 +52,10 @@ export async function GET(
     pos_order_number: draft.pos_order_number,
     outlet_name: outlet?.name ?? null,
     created_at: draft.created_at,
+    // Aplikasi butuh ini untuk tahu apakah percobaan pembayaran yang
+    // tertinggal masih hidup. Tanpanya, aplikasi memantau draft yang sudah
+    // lewat batas waktu dan tidak akan pernah berubah status -- pelanggan
+    // menonton pemuat selama lima menit lalu diberi pesan yang keliru.
+    expires_at: draft.expires_at,
   })
 }

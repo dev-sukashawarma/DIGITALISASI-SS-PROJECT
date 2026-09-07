@@ -161,12 +161,70 @@ class PaymentViewModel(
         }
     }
 
-    /** Melanjutkan percobaan yang tertinggal setelah aplikasi sempat mati. */
-    fun lanjutkanJikaAda(): Boolean {
-        val orderId = percobaan.orderId() ?: return false
-        _state.value = _state.value.copy(orderId = orderId)
-        tanyaSampaiPasti(orderId)
-        return true
+    /**
+     * Titik masuk layar pembayaran.
+     *
+     * Kalau ada percobaan tertinggal, statusnya DIPERIKSA dulu -- tidak
+     * langsung dipantau. Versi sebelumnya memantau apa pun yang tersimpan,
+     * termasuk draft yang batas waktunya sudah lewat: pelanggan menonton
+     * pemuat lima menit penuh untuk pesanan yang tidak akan pernah berubah,
+     * lalu diberi pesan "belum ada kabar" yang keliru.
+     *
+     * Galat jaringan saat memeriksa TIDAK memulai pesanan baru. Pesanan lama
+     * mungkin masih hidup, dan membuat yang baru berarti tagihan kedua.
+     */
+    fun mulai() {
+        val orderId = percobaan.orderId()
+        if (orderId == null) {
+            bayar()
+            return
+        }
+
+        _state.value = _state.value.copy(memuat = true, orderId = orderId)
+
+        viewModelScope.launch {
+            when (val hasil = repository.statusPesanan(orderId)) {
+                is GatewayResult.Gagal -> {
+                    // Tidak tahu nasibnya. Arah aman: pantau, jangan menagih ulang.
+                    _state.value = _state.value.copy(memuat = false)
+                    tanyaSampaiPasti(orderId)
+                }
+
+                is GatewayResult.Sukses -> {
+                    val d = hasil.data
+                    when (nasibPercobaan(d.status, d.expiresAt, System.currentTimeMillis())) {
+                        NasibPercobaan.DIBAYAR -> {
+                            cart.kosongkan()
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(
+                                memuat = false,
+                                dibayar = true,
+                                nomorPesanan = d.posOrderNumber
+                            )
+                        }
+
+                        NasibPercobaan.GAGAL -> {
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(memuat = false, gagalBayar = true)
+                        }
+
+                        NasibPercobaan.MULAI_BARU -> {
+                            // Percobaan lama mati. Dibuang, lalu pesanan baru
+                            // dibuat dengan client_order_id baru -- id lama
+                            // sudah terpakai dan akan ditolak 409 selamanya.
+                            percobaan.selesai()
+                            _state.value = _state.value.copy(memuat = false, orderId = null)
+                            bayar()
+                        }
+
+                        NasibPercobaan.LANJUTKAN -> {
+                            _state.value = _state.value.copy(memuat = false)
+                            tanyaSampaiPasti(orderId)
+                        }
+                    }
+                }
+            }
+        }
     }
 
     fun batalkanPercobaan() {

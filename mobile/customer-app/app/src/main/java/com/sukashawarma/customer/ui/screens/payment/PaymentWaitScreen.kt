@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sukashawarma.customer.ui.components.KartuQris
 import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaTint
 
@@ -62,9 +63,11 @@ fun PaymentWaitScreen(
     // penggambaran ulang membuka tab baru dan pelanggan tertimbun jendela.
     var urlTerbuka by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(state.paymentUrl) {
+    // Peramban HANYA dibuka bila tidak ada QR. Selama QR ada, pembayaran
+    // tidak pernah meninggalkan aplikasi.
+    LaunchedEffect(state.paymentUrl, state.qrString) {
         val url = state.paymentUrl
-        if (url != null && url != urlTerbuka) {
+        if (state.qrString == null && url != null && url != urlTerbuka) {
             urlTerbuka = url
             bukaHalamanBayar(context, url)
         }
@@ -85,12 +88,35 @@ fun PaymentWaitScreen(
         ) {
             when {
                 state.memuat || state.menungguKonfirmasi -> {
+                    // QR ditampilkan LEBIH DULU, sebelum teks menunggu.
+                    // Pelanggan datang ke layar ini untuk membayar, bukan
+                    // untuk membaca status.
+                    state.qrString?.let { qr ->
+                        Text(
+                            "Pindai untuk membayar",
+                            style = MaterialTheme.typography.headlineSmall,
+                            textAlign = TextAlign.Center
+                        )
+                        KartuQris(qrString = qr)
+                        Text(
+                            "Buka aplikasi bank atau e-wallet mana pun, pilih menu " +
+                                "pindai QRIS, lalu arahkan ke kode di atas.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
                     CircularProgressIndicator(
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(if (state.qrString != null) 24.dp else 36.dp),
                         color = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        if (state.memuat) "Menyiapkan pembayaran" else "Menunggu konfirmasi pembayaran",
+                        when {
+                            state.memuat -> "Menyiapkan pembayaran"
+                            state.qrString != null -> "Menunggu pembayaranmu"
+                            else -> "Menunggu konfirmasi pembayaran"
+                        },
                         style = MaterialTheme.typography.titleMedium,
                         textAlign = TextAlign.Center
                     )
@@ -109,7 +135,7 @@ fun PaymentWaitScreen(
                     // pesanannya tidak bisa dibayar sama sekali: tagihan lama
                     // masih berlaku, dan pesanan kedua ditolak demi mencegah
                     // tagihan ganda.
-                    state.urlBayarTersimpan?.let { url ->
+                    if (state.qrString == null) state.urlBayarTersimpan?.let { url ->
                         Button(
                             onClick = { bukaHalamanBayar(context, url) },
                             modifier = Modifier.fillMaxWidth()

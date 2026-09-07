@@ -37,6 +37,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from '@suka/design-system'
 import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
 import { toast } from 'sonner'
+import { CustomDateFilter, CustomDateRange } from './CustomDateFilter'
 
 function FormattedDate({ iso, showTime }: { iso: string | null | undefined; showTime?: boolean }) {
   const dateText = useFormattedDate(iso, {
@@ -58,7 +59,7 @@ function FormattedDate({ iso, showTime }: { iso: string | null | undefined; show
   return <>{dateText}</>
 }
 
-type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
+type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif' | 'custom'
 type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
 type SortOption = 'newest' | 'oldest' | 'outlet_asc' | 'status'
 type ViewMode = 'grid' | 'table'
@@ -72,6 +73,7 @@ export function SuratJalanList() {
   
   // States
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customRange, setCustomRange] = useState<CustomDateRange>({ startDate: '', endDate: '' })
   const [statusTab, setStatusTab] = useState<StatusTab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
@@ -87,7 +89,7 @@ export function SuratJalanList() {
 
   // Realtime sync & Data query
   useDistribusiRealtime()
-  const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
+  const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter, customRange)
 
   const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
@@ -578,7 +580,7 @@ export function SuratJalanList() {
             {/* Filter Controls Group */}
             <div className="flex flex-wrap items-center gap-2">
               {/* Date Filter Pills */}
-              <div className="flex bg-[#fff8f1] p-1 rounded-2xl border border-suka-brown/10 overflow-x-auto no-scrollbar">
+              <div className="flex items-center bg-[#fff8f1] p-1 rounded-2xl border border-suka-brown/10 overflow-x-auto no-scrollbar">
                 {[
                   { key: 'all', label: 'Semua Waktu' },
                   { key: 'today', label: 'Hari Ini' },
@@ -587,7 +589,10 @@ export function SuratJalanList() {
                 ].map((btn) => (
                   <button
                     key={btn.key}
-                    onClick={() => setDateFilter(btn.key as DateFilter)}
+                    onClick={() => {
+                      setDateFilter(btn.key as DateFilter)
+                      setCurrentPage(1)
+                    }}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                       dateFilter === btn.key
                         ? 'bg-suka-brown text-white shadow-xs'
@@ -597,6 +602,23 @@ export function SuratJalanList() {
                     {btn.label}
                   </button>
                 ))}
+
+                <CustomDateFilter
+                  variant="light"
+                  startDate={customRange.startDate}
+                  endDate={customRange.endDate}
+                  isActive={dateFilter === 'custom'}
+                  onApply={(range) => {
+                    setCustomRange(range)
+                    setDateFilter('custom')
+                    setCurrentPage(1)
+                  }}
+                  onReset={() => {
+                    setDateFilter('all')
+                    setCustomRange({ startDate: '', endDate: '' })
+                    setCurrentPage(1)
+                  }}
+                />
               </div>
 
               {/* Outlet Filter Dropdown */}
@@ -717,18 +739,20 @@ export function SuratJalanList() {
                 Tidak Ada Dokumen Surat Jalan
               </h3>
               <p className="text-xs text-suka-gray-500 font-medium max-w-md mx-auto">
-                {searchQuery || selectedOutlet !== 'all' || statusTab !== 'all'
+                {searchQuery || selectedOutlet !== 'all' || statusTab !== 'all' || dateFilter !== 'all'
                   ? 'Tidak ditemukan dokumen yang sesuai dengan kriteria filter pencarian Anda.'
                   : 'Belum ada data Surat Jalan yang tercatat dalam sistem.'}
               </p>
             </div>
-            {(searchQuery || selectedOutlet !== 'all' || statusTab !== 'all') && (
+            {(searchQuery || selectedOutlet !== 'all' || statusTab !== 'all' || dateFilter !== 'all') && (
               <button
                 onClick={() => {
                   setSearchQuery('')
                   setSelectedOutlet('all')
                   setStatusTab('all')
                   setDateFilter('all')
+                  setCustomRange({ startDate: '', endDate: '' })
+                  setCurrentPage(1)
                 }}
                 className="mt-2 px-4 py-2 bg-suka-brown text-white text-xs font-bold uppercase rounded-xl hover:bg-suka-ink transition-all cursor-pointer"
               >

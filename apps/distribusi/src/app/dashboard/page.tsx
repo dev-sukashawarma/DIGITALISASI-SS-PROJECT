@@ -41,10 +41,11 @@ import {
   Check,
   Ban
 } from 'lucide-react'
+import { CustomDateFilter, CustomDateRange, formatRangeLabel } from '@/components/distribusi/CustomDateFilter'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-type DateRange = 'all' | 'today' | '7days' | '30days'
+type DateRange = 'all' | 'today' | '7days' | '30days' | 'custom'
 type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
 
 export default function DashboardPage() {
@@ -56,6 +57,7 @@ export default function DashboardPage() {
 
   // Filter States
   const [dateRange, setDateRange] = useState<DateRange>('all')
+  const [customRange, setCustomRange] = useState<CustomDateRange>({ startDate: '', endDate: '' })
   const [statusTab, setStatusTab] = useState<StatusTab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOutletFilter, setSelectedOutletFilter] = useState<string | null>(null)
@@ -130,7 +132,7 @@ export default function DashboardPage() {
     sentCount,
     diterimaCount,
     selesaiCount,
-  } = useSuratJalanList(dateRange)
+  } = useSuratJalanList(dateRange, customRange)
 
   // Time-aware greeting
   const greeting = useMemo(() => {
@@ -474,7 +476,7 @@ export default function DashboardPage() {
             {/* Quick Filter & Global Action Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
               {/* Date Filter Pills */}
-              <div className="bg-black/30 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 flex items-center gap-1">
+              <div className="bg-black/30 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 flex flex-wrap items-center gap-1">
                 {[
                   { key: 'all', label: 'Semua' },
                   { key: 'today', label: 'Hari Ini' },
@@ -496,6 +498,23 @@ export default function DashboardPage() {
                     {range.label}
                   </button>
                 ))}
+
+                <CustomDateFilter
+                  variant="dark"
+                  startDate={customRange.startDate}
+                  endDate={customRange.endDate}
+                  isActive={dateRange === 'custom'}
+                  onApply={(range) => {
+                    setCustomRange(range)
+                    setDateRange('custom')
+                    setPage(1)
+                  }}
+                  onReset={() => {
+                    setDateRange('all')
+                    setCustomRange({ startDate: '', endDate: '' })
+                    setPage(1)
+                  }}
+                />
               </div>
 
               {isPusat ? (
@@ -770,16 +789,36 @@ export default function DashboardPage() {
                       </h3>
                       <p className="text-[10px] text-suka-gray-500 font-semibold">
                         Menampilkan {filteredShipments.length} dari {allShipments.length} dokumen
+                        {dateRange === 'custom' && customRange.startDate && (
+                          <span className="ml-1 text-suka-orange font-bold">
+                            &bull; Periode: {formatRangeLabel(customRange.startDate, customRange.endDate)}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
 
-                  <Link
-                    href={isPusat ? '/distribusi/surat-jalan' : '/distribusi/terima'}
-                    className="text-xs font-black text-suka-orange hover:text-orange-700 flex items-center gap-1 uppercase tracking-wider self-start sm:self-auto"
-                  >
-                    Buka Daftar Lengkap <ChevronRight size={14} />
-                  </Link>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {dateRange === 'custom' && (
+                      <button
+                        onClick={() => {
+                          setDateRange('all')
+                          setCustomRange({ startDate: '', endDate: '' })
+                          setPage(1)
+                        }}
+                        className="text-[10px] font-black text-suka-orange hover:text-orange-700 bg-suka-orange/10 px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                        title="Reset Filter Tanggal Kustom"
+                      >
+                        <X size={12} /> {formatRangeLabel(customRange.startDate, customRange.endDate)}
+                      </button>
+                    )}
+                    <Link
+                      href={isPusat ? '/distribusi/surat-jalan' : '/distribusi/terima'}
+                      className="text-xs font-black text-suka-orange hover:text-orange-700 flex items-center gap-1 uppercase tracking-wider"
+                    >
+                      Buka Daftar Lengkap <ChevronRight size={14} />
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Search and Tabs Row */}

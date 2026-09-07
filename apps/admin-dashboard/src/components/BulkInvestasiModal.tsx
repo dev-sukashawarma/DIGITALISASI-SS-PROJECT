@@ -84,8 +84,8 @@ export function BulkInvestasiModal({
       <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between mb-4 shrink-0">
           <div>
-            <h3 className="text-xl font-bold text-suka-ink">Input Massal Modal & Profit Historis</h3>
-            <p className="text-sm text-suka-gray-500 mt-1">Pindahkan angka dari laporan PDF (Total Modal Mitra & Total Profit Mitra Sementara) ke sini.</p>
+            <h3 className="text-xl font-bold text-suka-ink">Input Massal Modal & Bagi Hasil Historis</h3>
+            <p className="text-sm text-suka-gray-500 mt-1">Pindahkan angka dari laporan PDF (Total Modal Mitra & total bagi hasil yang sudah dibayar sebelum pindah sistem) ke sini.</p>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors text-suka-gray-500">
             <X className="w-5 h-5" />
@@ -105,7 +105,7 @@ export function BulkInvestasiModal({
               <tr>
                 <th className="px-4 py-3 font-semibold text-suka-ink w-[25%]">Nama Outlet</th>
                 <th className="px-4 py-3 font-semibold text-suka-ink w-[30%]">Total Modal Mitra</th>
-                <th className="px-4 py-3 font-semibold text-suka-ink w-[30%]">Profit Historis (Sementara)</th>
+                <th className="px-4 py-3 font-semibold text-suka-ink w-[30%]">Bagi Hasil Historis (s/d Juni 2026)</th>
                 <th className="px-4 py-3 font-semibold text-suka-ink w-[15%] text-right">Est. ROI</th>
               </tr>
             </thead>

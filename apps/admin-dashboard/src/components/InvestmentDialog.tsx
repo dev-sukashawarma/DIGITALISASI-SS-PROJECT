@@ -177,8 +177,12 @@ export function InvestmentDialog({
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="text-sm">
-                  <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[11px]">Omzet Historis (Rp)</span>
-                  <span className="text-[10px] text-gray-400 block mb-1 font-normal">Omzet sebelum sistem digital</span>
+                  {/* Kolomnya bernama `omzet_historis`, tapi isinya BAGI HASIL, bukan
+                      omzet — semua perhitungan BEP/ROI memakainya sebagai uang yang
+                      sudah kembali ke mitra. Label lamanya ("Omzet sebelum sistem
+                      digital") membuat orang mengira kolom ini minta diisi omzet. */}
+                  <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[11px]">Bagi Hasil Historis (Rp)</span>
+                  <span className="text-[10px] text-gray-400 block mb-1 font-normal">Total bagi hasil yang sudah dibayar sebelum pindah sistem (s/d Juni 2026)</span>
                   <input 
                     type="number" 
                     className={inputCls} 
@@ -189,7 +193,7 @@ export function InvestmentDialog({
                 </label>
                 <label className="text-sm">
                   <span className="mb-1 block font-semibold text-gray-700 uppercase tracking-wider text-[11px]">Transfer Historis (Rp)</span>
-                  <span className="text-[10px] text-gray-400 block mb-1 font-normal">Bagi hasil manual masa lalu</span>
+                  <span className="text-[10px] text-gray-400 block mb-1 font-normal">Bagi hasil lain yang belum tercatat di menu Transfer. Biasanya 0.</span>
                   <input 
                     type="number" 
                     className={inputCls} 

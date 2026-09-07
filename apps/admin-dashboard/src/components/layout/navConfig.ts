@@ -81,6 +81,9 @@ export const NAV_GROUPS: NavGroup[] = [
       // Sengaja bertetangga supaya orang tak perlu menebak ada di pintu mana.
       { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/expenses', label: 'Analisis Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      // Rincian dari satu irisan kategori di Analisis Pengeluaran — ditaruh
+      // tepat di bawahnya supaya pendalamannya tak berpindah pintu.
+      { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/budget-outlet', label: 'Budget Outlet', shortLabel: 'Budget', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['ADMIN'] },
@@ -92,10 +95,11 @@ export const NAV_GROUPS: NavGroup[] = [
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
-      { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Package, roles: ['OWNER', 'ADMIN'] },
+      // "Selisih Stok" (/dashboard/reports/shrinkage) sengaja dilepas dari nav
+      // atas permintaan owner — halamannya TETAP ADA dan masih bisa dibuka
+      // lewat URL. Kembalikan barisnya di sini kalau mau ditampilkan lagi.
       { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
     ],
   },

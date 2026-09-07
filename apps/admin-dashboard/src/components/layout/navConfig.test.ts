@@ -79,7 +79,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/input-pengeluaran',
     '/dashboard/reports/pembelian',
     '/dashboard/reports/pos',
-    '/dashboard/reports/shrinkage',
     '/dashboard/reports/target-harian',
     '/dashboard/resep',
     '/dashboard/system-health',
@@ -107,7 +106,6 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/crew-bonus',
     '/dashboard/reports/input-pengeluaran',
     '/dashboard/reports/pos',
-    '/dashboard/reports/shrinkage',
     '/dashboard/reports/target-harian',
   ],
   ADMIN_HR: [
@@ -192,15 +190,26 @@ describe('navConfig — invarian', () => {
     expect(bocor).toEqual([])
   })
 
-  it('Buku Kas & Analisis Pengeluaran duduk bersebelahan di pintu yang sama', () => {
+  it('klaster beban berurutan sepintu: catat → analisis → dalami waste', () => {
     const door = NAV_GROUPS.find((g) =>
       g.items.some((i) => i.href === '/dashboard/reports/input-pengeluaran'),
     )
     const hrefs = door?.items.map((i) => i.href) ?? []
-    const iBuku = hrefs.indexOf('/dashboard/reports/input-pengeluaran')
-    const iAnalisis = hrefs.indexOf('/dashboard/owner/expenses')
-    expect(iBuku).toBeGreaterThanOrEqual(0)
-    expect(iAnalisis).toBe(iBuku + 1)
+    const start = hrefs.indexOf('/dashboard/reports/input-pengeluaran')
+    expect(start).toBeGreaterThanOrEqual(0)
+    expect(hrefs.slice(start, start + 3)).toEqual([
+      '/dashboard/reports/input-pengeluaran',
+      '/dashboard/owner/expenses',
+      '/dashboard/owner/waste',
+    ])
+  })
+
+  it('Selisih Stok sengaja tak ada di nav, tapi halamannya tetap ada', () => {
+    // Dilepas dari nav atas permintaan owner, BUKAN dihapus. Test ini menjaga
+    // dua-duanya: tak muncul di nav, dan file halamannya tidak ikut terhapus
+    // supaya bisa dikembalikan kapan saja.
+    expect(ALL_ITEMS.some((i) => i.href === '/dashboard/reports/shrinkage')).toBe(false)
+    expect(existsSync(join(process.cwd(), 'src/app/dashboard/reports/shrinkage/page.tsx'))).toBe(true)
   })
 
   it('Laba Rugi punya sub-menu Internal & Mitra', () => {

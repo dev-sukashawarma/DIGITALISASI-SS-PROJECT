@@ -1,7 +1,7 @@
 'use client'
 
 import CountUp from 'react-countup'
-import { TrendingDown, TrendingUp, Percent, Target, ClipboardList } from 'lucide-react'
+import { TrendingDown, TrendingUp, Minus, Percent, Target, ClipboardList } from 'lucide-react'
 import { StatTile } from '@/components/ui'
 import { rupiah } from '@/lib/format'
 import { computeDeltaPct, computeWastePctOmzet } from '@/lib/wasteMetrics'
@@ -35,8 +35,8 @@ export function WasteKpiRow({
         label="Total Kerugian Waste"
         value={<><span className="text-lg align-top">Rp </span><CountUp end={totalNilai} duration={1} separator="." /></>}
         sub={deltaSub}
-        icon={delta !== null && delta > 0 ? TrendingUp : TrendingDown}
-        accent={delta === null ? 'brown' : delta > 0 ? 'red' : 'green'}
+        icon={delta === null || delta === 0 ? Minus : delta > 0 ? TrendingUp : TrendingDown}
+        accent={delta === null || delta === 0 ? 'brown' : delta > 0 ? 'red' : 'green'}
         tooltip="Nilai waste yang sudah di-approve pada periode terpilih, dibandingkan dengan periode sama panjang tepat sebelumnya."
       />
 

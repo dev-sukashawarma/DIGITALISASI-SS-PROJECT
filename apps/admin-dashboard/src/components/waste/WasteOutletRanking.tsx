@@ -32,6 +32,34 @@ function cmpNullable(a: number | null, b: number | null, dir: 1 | -1): number {
   return (a - b) * dir
 }
 
+// Dipindah ke module scope (bukan didefinisikan di dalam body render parent):
+// definisi di dalam parent membuat identitas komponen baru tiap render, jadi
+// React me-remount subtree <th>/<button> tiap kali sort di-toggle — pengguna
+// keyboard yang baru menekan tombol sort langsung kehilangan fokusnya.
+interface ThProps {
+  k: SortKey
+  label: string
+  align?: 'left' | 'right'
+  sortKey: SortKey
+  toggle: (key: SortKey) => void
+}
+
+function Th({ k, label, align = 'right', sortKey, toggle }: ThProps) {
+  return (
+    <th className={`py-3 px-6 ${align === 'right' ? 'text-right' : 'text-left'}`}>
+      <button
+        type="button"
+        onClick={() => toggle(k)}
+        className={`inline-flex items-center gap-1 hover:text-suka-brown transition-colors ${sortKey === k ? 'text-suka-brown' : ''}`}
+        aria-label={`Urutkan menurut ${label}`}
+      >
+        {label}
+        <ArrowUpDown className="w-3 h-3" />
+      </button>
+    </th>
+  )
+}
+
 export function WasteOutletRanking({ rows, budgetByOutlet, omzetByOutlet }: WasteOutletRankingProps) {
   const [sortKey, setSortKey] = useState<SortKey>('nilai')
   const [dir, setDir] = useState<1 | -1>(-1)
@@ -68,20 +96,6 @@ export function WasteOutletRanking({ rows, budgetByOutlet, omzetByOutlet }: Wast
     else { setSortKey(key); setDir(key === 'name' ? 1 : -1) }
   }
 
-  const Th = ({ k, label, align = 'right' }: { k: SortKey; label: string; align?: 'left' | 'right' }) => (
-    <th className={`py-3 px-6 ${align === 'right' ? 'text-right' : 'text-left'}`}>
-      <button
-        type="button"
-        onClick={() => toggle(k)}
-        className={`inline-flex items-center gap-1 hover:text-suka-brown transition-colors ${sortKey === k ? 'text-suka-brown' : ''}`}
-        aria-label={`Urutkan menurut ${label}`}
-      >
-        {label}
-        <ArrowUpDown className="w-3 h-3" />
-      </button>
-    </th>
-  )
-
   return (
     <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
       <div className="px-6 py-4 border-b border-suka-gray-100">
@@ -92,11 +106,11 @@ export function WasteOutletRanking({ rows, budgetByOutlet, omzetByOutlet }: Wast
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-suka-cream/30 text-left text-suka-gray-500 font-bold border-b border-suka-gray-100">
-              <Th k="name" label="Outlet" align="left" />
-              <Th k="nilai" label="Nilai" />
-              <Th k="pctOmzet" label="% Omzet" />
-              <Th k="budget" label="Budget BOM" />
-              <Th k="gapPct" label="Gap %" />
+              <Th k="name" label="Outlet" align="left" sortKey={sortKey} toggle={toggle} />
+              <Th k="nilai" label="Nilai" sortKey={sortKey} toggle={toggle} />
+              <Th k="pctOmzet" label="% Omzet" sortKey={sortKey} toggle={toggle} />
+              <Th k="budget" label="Budget BOM" sortKey={sortKey} toggle={toggle} />
+              <Th k="gapPct" label="Gap %" sortKey={sortKey} toggle={toggle} />
             </tr>
           </thead>
           <tbody className="divide-y divide-suka-gray-100 font-medium">

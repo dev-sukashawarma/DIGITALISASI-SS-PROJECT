@@ -24,7 +24,17 @@ private const val BATAS_TUNGGU_MS = 5 * 60 * 1000L
 data class PaymentState(
     val memuat: Boolean = false,
     val pesanGalat: String? = null,
-    /** URL halaman pembayaran Xendit; dibuka dengan Custom Tabs. */
+    /**
+     * Teks QRIS yang digambar aplikasi sendiri. Ini jalur utama.
+     */
+    val qrString: String? = null,
+    /**
+     * URL halaman pembayaran Xendit; dibuka dengan Custom Tabs.
+     *
+     * CADANGAN, dipakai hanya ketika `qrString` kosong -- yaitu ketika QR Code
+     * API menolak dan gateway jatuh ke Invoice. Selama masih ada QR, pelanggan
+     * tidak pernah dilempar ke peramban.
+     */
     val paymentUrl: String? = null,
     val orderId: String? = null,
     val menungguKonfirmasi: Boolean = false,
@@ -84,9 +94,13 @@ class PaymentViewModel(
                     _state.value = _state.value.copy(
                         memuat = false,
                         orderId = r.orderId,
-                        // `payment_url` bisa null kalau ini balasan duplikat
-                        // untuk pesanan yang tagihannya sudah dibuat. Bukan
-                        // galat: lanjut menanyakan status saja.
+                        qrString = r.qrString,
+                        // Keduanya bisa null kalau ini balasan duplikat untuk
+                        // pesanan yang tagihannya sudah dibuat. Bukan galat:
+                        // lanjut menanyakan status saja.
+                        //
+                        // Custom Tab HANYA dibuka bila tidak ada QR -- lihat
+                        // penjaga di PaymentWaitScreen.
                         paymentUrl = r.paymentUrl
                     )
                     tanyaSampaiPasti(r.orderId)
@@ -234,9 +248,11 @@ class PaymentViewModel(
                             // demi mencegah tagihan ganda.
                             _state.value = _state.value.copy(
                                 memuat = false,
-                                // Server didahulukan: salinan lokal hilang
-                                // saat aplikasi dipasang ulang atau pelanggan
-                                // ganti perangkat.
+                                // QR yang sama ditampilkan lagi, bukan tagihan
+                                // kedua. Server didahulukan untuk URL cadangan:
+                                // salinan lokal hilang saat aplikasi dipasang
+                                // ulang atau pelanggan ganti perangkat.
+                                qrString = d.qrString,
                                 urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl()
                             )
                             tanyaSampaiPasti(orderId)

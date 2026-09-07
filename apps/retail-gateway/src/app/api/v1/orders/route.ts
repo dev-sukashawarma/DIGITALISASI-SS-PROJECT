@@ -4,7 +4,7 @@ import { createServiceClient, createRetailClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
 import { periksaKeranjang, jumlahWajar } from '@/lib/validateCart'
 import { hitungTotal, type ItemPesanan } from '@/lib/pricing'
-import { buatTagihan } from '@/lib/xendit'
+import { buatQris, buatTagihan } from '@/lib/xendit'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,6 +14,31 @@ const BATAS_BAYAR_MS = 15 * 60 * 1000
 /** Bentuk nomor HP Indonesia yang wajar: 08xxx, 62xxx, atau +62xxx. */
 function nomorHpWajar(nomor: string): boolean {
   return /^(\+62|62|0)8\d{7,12}$/.test(nomor.replace(/[\s-]/g, ''))
+}
+
+/**
+ * Menandai draft gagal ketika tagihan tidak bisa dibuat.
+ *
+ * Draft sudah terlanjur ada di titik ini. Membiarkannya `menunggu_bayar`
+ * berarti ia menggantung selamanya sebagai pesanan yang tak akan pernah bisa
+ * dibayar -- dan `client_order_id`-nya ikut terkunci, sehingga percobaan ulang
+ * pelanggan tersandung draft mati itu dengan 409.
+ */
+async function gagalkanDraft(
+  retail: ReturnType<typeof createRetailClient>,
+  draftId: string,
+  clientOrderId: string,
+  sebab: unknown
+) {
+  console.error('Gagal membuat tagihan Xendit:', sebab)
+  const { error } = await retail
+    .from('order_drafts')
+    .update({ status: 'gagal' })
+    .eq('id', draftId)
+  if (error) {
+    console.error('GAGAL MENANDAI DRAFT GAGAL', { client_order_id: clientOrderId, error })
+  }
+  return NextResponse.json({ error: 'Gagal membuat tagihan pembayaran' }, { status: 502 })
 }
 
 export async function POST(request: Request) {
@@ -207,35 +232,42 @@ export async function POST(request: Request) {
     .eq('id', sesi.customerId)
     .maybeSingle()
 
+  // QR Code API didahulukan supaya pembayaran tidak meninggalkan aplikasi:
+  // `qr_string` digambar sendiri oleh aplikasi, tanpa peramban.
+  //
+  // Invoice DIPERTAHANKAN sebagai cadangan, bukan sisa yang lupa dibuang.
+  // Kalau QR Code API menolak -- kanal belum aktif di akun, atau Xendit
+  // sedang bermasalah -- pelanggan tetap bisa membayar lewat halaman Xendit
+  // alih-alih menerima galat. Yang paling buruk di titik ini bukan tampilan
+  // yang kurang mulus, melainkan pesanan yang tidak bisa dibayar sama sekali.
   let tagihan
   try {
-    tagihan = await buatTagihan({
+    tagihan = await buatQris({
       externalId: body.client_order_id,
       amount: rincian.total,
-      description: `Pesanan SukaShawarma di ${outlet.name}`,
-      customerName: pelanggan?.name ?? 'Pelanggan',
     })
-  } catch (e) {
-    console.error('Gagal membuat tagihan Xendit:', e)
-    // Draft sudah terlanjur ada. Tandai gagal supaya tidak menggantung sebagai
-    // `menunggu_bayar` yang tak akan pernah bisa dibayar, dan supaya percobaan
-    // ulang dengan client_order_id yang sama tidak tersandung draft mati ini.
-    const { error: tandaiGagalError } = await retail
-      .from('order_drafts')
-      .update({ status: 'gagal' })
-      .eq('id', draft.id)
-    if (tandaiGagalError) {
-      console.error('GAGAL MENANDAI DRAFT GAGAL', {
-        client_order_id: body.client_order_id,
-        error: tandaiGagalError,
+  } catch (eQris) {
+    console.error('QR Code API gagal, jatuh ke Invoice:', eQris)
+    try {
+      tagihan = await buatTagihan({
+        externalId: body.client_order_id,
+        amount: rincian.total,
+        description: `Pesanan SukaShawarma di ${outlet.name}`,
+        customerName: pelanggan?.name ?? 'Pelanggan',
       })
+    } catch (e) {
+      return await gagalkanDraft(retail, draft.id, body.client_order_id, e)
     }
-    return NextResponse.json({ error: 'Gagal membuat tagihan pembayaran' }, { status: 502 })
   }
+
 
   const { error: updateError } = await retail
     .from('order_drafts')
-    .update({ payment_ref: tagihan.ref, payment_url: tagihan.url })
+    .update({
+      payment_ref: tagihan.ref,
+      payment_url: tagihan.url,
+      qr_string: tagihan.qrString,
+    })
     .eq('id', draft.id)
 
   // Tagihan sudah ada di Xendit tapi tidak tercatat di draft. Pelanggan tetap
@@ -262,6 +294,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     order_id: draft.id,
     payment_url: tagihan.url,
+    qr_string: tagihan.qrString,
     total_amount: rincian.total,
     expires_at: kedaluwarsa.toISOString(),
   })

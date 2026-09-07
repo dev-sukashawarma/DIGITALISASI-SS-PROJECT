@@ -1,4 +1,4 @@
--- 20300202000000_waste_dashboard_rpcs.sql
+-- 20260907000000_waste_dashboard_rpcs.sql
 --
 -- Dua RPC untuk halaman /dashboard/owner/waste (admin-dashboard) yang dirombak.
 -- Spec: docs/superpowers/specs/2026-09-07-waste-dashboard-comprehensive-design.md

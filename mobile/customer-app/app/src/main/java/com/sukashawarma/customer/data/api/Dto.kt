@@ -139,7 +139,8 @@ data class OrderDetailDto(
     // Default null supaya aplikasi ini tetap jalan melawan gateway yang belum
     // di-redeploy. Ketiadaannya diperlakukan sebagai "tidak diketahui", dan
     // percobaan lama TIDAK dibuang atas dasar tebakan.
-    @SerialName("expires_at") val expiresAt: String? = null
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("payment_url") val paymentUrl: String? = null
 )
 
 @Serializable

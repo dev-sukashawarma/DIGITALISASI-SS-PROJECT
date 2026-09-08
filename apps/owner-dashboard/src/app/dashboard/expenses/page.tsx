@@ -12,6 +12,7 @@ import {
 } from 'recharts'
 import CountUp from 'react-countup'
 import { Wallet, Users, Zap, Home, Receipt, MoreHorizontal } from 'lucide-react'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 const CATEGORY_LABELS: Record<string, string> = {
   bahan_baku: 'Bahan Baku',
@@ -49,6 +50,8 @@ export default function ExpensesPage() {
     supabase
       .from('outlets')
       .select('id,name')
+      // Outlet uji developer jangan masuk perhitungan (@/lib/outletFilters).
+      .neq('id', TEST_OUTLET_ID)
       .order('name')
       .then(({ data }) => setOutlets(data ?? []))
   }, [supabase])

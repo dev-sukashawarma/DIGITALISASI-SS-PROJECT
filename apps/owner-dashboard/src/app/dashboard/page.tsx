@@ -13,6 +13,7 @@ import { RevenueTrendChart } from '@/components/RevenueTrendChart'
 import { TopMenus } from '@/components/TopMenus'
 import { OutletLeaderboard } from '@/components/OutletLeaderboard'
 import type { PeriodFilterValue } from '@/lib/types'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export default function DashboardPage() {
   const supabase = createSupabaseBrowserClient()
@@ -21,7 +22,7 @@ export default function DashboardPage() {
   const prevFilter = useMemo<PeriodFilterValue>(() => ({ ...filter, ...previousRange({ from: filter.from, to: filter.to }) }), [filter])
 
   useEffect(() => {
-    supabase.from('outlets').select('id,name').order('name').then(({ data }) => setOutlets(data ?? []))
+    supabase.from('outlets').select('id,name').neq('id', TEST_OUTLET_ID).order('name').then(({ data }) => setOutlets(data ?? []))
   }, [supabase])
 
   const cur = useSalesSummary(filter)

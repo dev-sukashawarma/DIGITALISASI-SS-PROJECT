@@ -6,6 +6,111 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ---
 
+## ⛔ ATURAN — "outlet tes" JANGAN masuk perhitungan apa pun
+
+**Keputusan owner, 8 September 2026:**
+
+> "outlet tes hanya untuk testing oleh developer, jadi jangan masuk ke
+> perhitungan"
+
+Berlaku untuk **semua** angka: omzet, HPP, laba, nilai persediaan, waste,
+laporan apa pun. Isinya angka karangan — sisa uji bug skala opname, "reset ke
+10× reorder point", dan percobaan lain.
+
+**Cara mengenalinya:** `outlets.type = 'test'` (bukan lewat nama — nama bisa
+berubah). Saat ini hanya satu baris: "outlet tes".
+
+Ikut dikecualikan dengan alasan berbeda: `type = 'marketplace'` (Shopee &
+TikTok Shop) — outlet virtual yang tak pernah memegang barang fisik, jadi tak
+masuk hitungan **persediaan**. Untuk omzet, marketplace justru sah dihitung —
+jangan disamakan dengan outlet tes.
+
+### Sudah ditutup
+
+| Tempat | Status |
+|---|---|
+| `nilai_persediaan_spv` | ✅ dikecualikan (`20300131000000`) |
+| HPP & waste — 6 fungsi RPC | ✅ lewat helper `outlet_ids_terhitung()` (`20300132000000`) |
+| `sales_summary_spv` & `menu_sales_spv` | ✅ dikecualikan (`20300133000000`) |
+| Sisi klien — daftar outlet tiap app | ✅ ditutup 8 Sep (rincian di bawah) |
+
+**Helper baru `outlet_ids_terhitung()`** — pakai ini untuk agregasi laporan
+baru. Ia = `accessible_outlet_ids()` minus lokasi non-operasional.
+`accessible_outlet_ids()` SENGAJA tidak diubah: itu mengatur hak baca, dan
+kalau outlet tes dikeluarkan dari sana, developer tak bisa lagi melihat data
+ujinya sendiri. Aturannya "jangan dihitung", bukan "jangan dilihat".
+
+Dibuktikan tak ada efek samping: omzet total 1.679.672.213 → 1.678.792.213
+(−Rp880.000, tepat sebesar omzet outlet tes), baris view −7 dan −26 persis
+seperti yang diukur sebelum perubahan.
+
+Sebelum ditutup, halaman Nilai Persediaan menampilkan **Rp2,45 miliar** di
+kartu "Belum Pasti" — **Rp2,37 miliar** di antaranya murni dari outlet tes.
+Angka jujurnya: pasti Rp358,8 juta, belum pasti Rp75,0 juta.
+
+### ⚠️ Yang masih terbuka
+
+Outlet tes tetap **aktif** (`is_active = true`) dan datanya masih ada di tabel
+dasar — 17 order, 1.663 baris ledger, 2 laporan waste. Itu **disengaja**: ia
+memang outlet uji dan harus tetap bisa dipakai. Yang sudah ditutup adalah
+jalur **perhitungannya**, bukan datanya.
+
+**Kalau menggarap yang tersisa:** cari agregasi yang mengelompokkan per
+`outlet_id` tanpa memeriksa `type`. Untuk yang di database, pakai
+`outlet_ids_terhitung()` yang sudah ada. **Jangan andalkan `is_active`** —
+outlet tes justru `is_active=true`, dan banyak agregasi tak memeriksanya.
+
+### Sisi klien — daftar outlet tiap app (ditutup 8 September)
+
+Tiap app menarik daftar outletnya sendiri; memperbaiki satu tidak memperbaiki
+yang lain (pola yang sama dengan kebocoran marketplace, Session 2026-08-05
+butir 1b). Ditelusuri satu per satu, bukan ditebak:
+
+| App | Tempat | Tindakan |
+|---|---|---|
+| admin-dashboard | `lib/outletFilters.ts` + ~20 pemakai | sudah ditutup lebih dulu (`f8f01556`) |
+| HR | `hooks/useOutlets.ts` | sudah ditutup lebih dulu |
+| finance | `hooks/useOutlets.ts`, `hooks/useCashDeposit.ts` | ✅ disaring |
+| owner-dashboard | `hooks/useSalesSummary.ts` + 3 halaman dashboard | ✅ disaring |
+| manager | `app/page.tsx`, `app/reports/page.tsx` | ✅ daftar outlet **dan** agregat order/waste |
+| distribusi | `hooks/useOutlets.ts` (tujuan surat jalan) | ✅ disaring |
+| stok | `lib/queries/monitoring.ts` `fetchOutletsList` | ✅ disaring |
+| stok | `hooks/useOutletScope.tsx` (OutletSwitcher) | ⬜ **sengaja dibiarkan** |
+| inventori | peta nama outlet di laporan inventaris | ⬜ sengaja dibiarkan |
+
+**Dua yang sengaja dibiarkan, dan alasannya:**
+
+- **OutletSwitcher di app stok** adalah pintu masuk developer untuk menjalankan
+  pengujian (opname, mutasi, permintaan) di outlet tes. Aturannya "jangan
+  dihitung", bukan "jangan dilihat" — sama persis dengan alasan
+  `accessible_outlet_ids()` tidak diubah.
+- **Laporan inventaris di app inventori** hanya memakai daftar outlet sebagai
+  peta id→nama untuk menampilkan label; ia tidak menjumlahkan uang.
+
+**Di `apps/manager` daftar outletnya saja tidak cukup** — halaman utamanya
+menjumlahkan `orders` dan `stok_waste_reports` langsung dari tabel mentah, jadi
+penyaring dipasang di tiap agregat juga.
+
+**Catatan penyaring:** app-app baru memakai `TEST_OUTLET_ID` + `outlets.type`
+(`apps/{stok,distribusi,owner-dashboard,manager}/src/lib/outletFilters.ts`),
+bukan kecocokan potongan nama seperti berkas serupa di admin-dashboard/finance/
+HR. Hari ini keduanya memberi hasil sama (diperiksa: dari 29 outlet hanya
+"outlet tes" yang kena), tetapi nama outlet bisa diubah admin kapan saja
+sedangkan `type` diisi oleh skema.
+
+**Ukuran masalahnya, supaya tak dibesar-besarkan:** omzet outlet tes 0,051% dari
+total (Rp0,88 jt dari Rp1.739 jt), dan karena semua laporan dikelompokkan per
+outlet, ia muncul sebagai baris sendiri — tidak pernah mencemari angka outlet
+lain. Menambal sisa jalur ini soal kerapian, bukan kebenaran angka.
+
+**Catatan terpisah:** KANTOR PUSAT (`type = 'office'`) juga dummy, tapi
+**tidak** bisa disaring per-type — jenis itu memuat GUDANG PUSAT (HQ) yang
+merupakan gudang sungguhan dan pemegang persediaan terbesar. Nilainya kecil
+(2 baris, Rp2,4 juta) dan dibiarkan tampil, bukan disembunyikan lewat
+penyaring nama yang rapuh. Bersih-bersih datanya pekerjaan tersendiri.
+
+---
+
 ## SUDAH SELESAI
 
 - **FOIL digabung** — FOIL (48) dinonaktifkan, saldo dipindah lewat 42 baris

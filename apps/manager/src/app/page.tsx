@@ -12,6 +12,7 @@ import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
 import { presetRange, previousRange, type Preset } from '../lib/period';
+import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 
 const formatRupiah = (amount: number) => {
   return new Intl.NumberFormat('id-ID', {
@@ -147,7 +148,10 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     return all;
   };
 
-  let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region, type').order('name');
+  // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
+  // Disaring di daftar outlet DAN di tiap agregat di bawah — menyaring
+  // daftarnya saja tidak cukup, omzet/waste dijumlahkan dari tabel mentah.
+  let qOutlets = supabaseAdmin.from('outlets').select('id, name, is_active, region, type').neq('id', TEST_OUTLET_ID).order('name');
 
   let qOrdersToday = supabaseAdmin
     .from('orders')
@@ -155,6 +159,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
     .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`)
     .eq('status', 'completed')
+    .neq('outlet_id', TEST_OUTLET_ID)
     .order('created_at', { ascending: true });
 
   let qOrdersYesterday = supabaseAdmin
@@ -163,6 +168,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .gte('created_at', `${prevStartDate}T00:00:00+07:00`)
     .lte('created_at', `${prevEndDate}T23:59:59.999+07:00`)
     .eq('status', 'completed')
+    .neq('outlet_id', TEST_OUTLET_ID)
     .order('created_at', { ascending: true });
 
   let qAttendance = supabaseAdmin.from('attendance')
@@ -180,12 +186,14 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
     .from('stok_waste_reports')
     .select('bahan_baku_id, qty')
     .eq('status', 'APPROVED')
+    .neq('outlet_id', TEST_OUTLET_ID)
     .gte('created_at', `${mainStartDate}T00:00:00+07:00`)
     .lte('created_at', `${mainEndDate}T23:59:59.999+07:00`);
 
   let qWastePending = supabaseAdmin
     .from('stok_waste_reports')
     .select('id', { count: 'exact', head: true })
+    .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'PENDING');
 
   let accessibleOutlets: string[] = [];

@@ -3,6 +3,7 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 export interface OutletOption {
   id: string
@@ -18,6 +19,8 @@ export function useOutlets() {
       const { data, error } = await supabase
         .from('outlets')
         .select('id, name')
+        // Outlet uji developer jangan masuk perhitungan setoran.
+        .neq('id', TEST_OUTLET_ID)
         .order('name', { ascending: true })
       if (error) throw error
       return (data as OutletOption[]) ?? []

@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-09-08T03:21:06.606Z",
+        "reason": "Font resmi design system proyek, bukan pilihan sesi ini. CLAUDE.md Session 2026-06-27 menetapkan Lilita One (display/headline) + Plus Jakarta Sans (body) dari packages/design-system, dipakai seragam di 9 app. Mengganti font body = keputusan branding lintas-app, bukan perbaikan per-berkas."
+      }
+    ]
+  }
+}

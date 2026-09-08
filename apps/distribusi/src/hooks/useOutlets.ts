@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { cachedFetch } from '@/lib/refCache'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 interface Outlet {
   id: string
@@ -16,6 +17,10 @@ async function fetchOutlets(): Promise<Outlet[]> {
     .from('outlets')
     .select('id, name, address')
     .eq('is_active', true)
+    // Outlet uji developer dikecualikan (lihat @/lib/outletFilters). Daftar ini
+    // adalah pemilih tujuan surat jalan: mengirim barang ke outlet tes menulis
+    // baris ledger sungguhan dan mengurangi stok Gudang Pusat.
+    .neq('id', TEST_OUTLET_ID)
     .order('name')
   if (error) throw new Error(error.message)
   return data || []

@@ -1,5 +1,6 @@
 // Use @suka/auth browser client yang properly configure session untuk browser
 import { createSupabaseBrowserClient } from '@suka/auth';
+import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 
 type SupabaseBrowserClient = ReturnType<typeof createSupabaseBrowserClient>;
 
@@ -559,13 +560,22 @@ export async function fetchOutletItemsDetail(outletId: string): Promise<OutletDe
 }
 
 /**
- * Fetch master list of all outlets
+ * Fetch master list of all outlets.
+ *
+ * Outlet uji developer dikecualikan (lihat `@/lib/outletFilters`) — daftar ini
+ * memberi makan papan monitoring-live, halaman Threshold, dan OpnameForm, yang
+ * semuanya menghitung/menampilkan angka lintas outlet.
+ *
+ * Developer tetap bisa membuka outlet tes lewat OutletSwitcher
+ * (`useOutletScope`, sengaja TIDAK disaring — itu pintu masuk kerja pengujian)
+ * atau langsung lewat URL `/stok/monitoring-live/<id>`.
  */
 export async function fetchOutletsList() {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from('outlets')
     .select('id, nama:name, slug, address, type')
+    .neq('id', TEST_OUTLET_ID)
     .order('name');
 
   if (error) throw error;

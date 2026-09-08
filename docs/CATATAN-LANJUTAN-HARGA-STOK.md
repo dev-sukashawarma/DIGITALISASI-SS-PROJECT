@@ -220,6 +220,50 @@ Keadaan jendela 1–8 September sebelum koreksi: 478 baris, **386 sudah bersih**
 (Rp176 jt), 35 baris harga beda tapi satuan benar (pembekuan yang memang
 bekerja — SAPI 100.000, FOIL lama 11.554: JANGAN disentuh), 57 baris tersangka.
 
+### ✅ 1 SEPTEMBER 2026 = TITIK MULAI BERSIH (selesai 8 September)
+
+Keadaan akhir jendela 1–8 September, **483 baris surat jalan**:
+
+| Keadaan | Baris | Nilai |
+|---|--:|--:|
+| Harga beku = master (bersih) | **441** | Rp199,3 jt |
+| Harga beku beda wajar — **ini normal**, memang guna pembekuan | 30 | Rp31,3 jt |
+| Sengaja ditinggal (FOIL 10, POLYBAG 2) | 12 | Rp1,8 jt |
+
+Tiga migration menutupnya: `20260908170000` (AYAM/CUP/KERTAS STRUK, 9 baris),
+`20260908180000` (kedua saos, 9 baris), `20260908190000` (5 bahan sisa, 35
+baris). Ketiganya idempoten dan sudah diuji dijalankan dua kali.
+
+**Kebijakan yang dipakai (keputusan owner):** *"pakai B, nanti kalau setelah
+audit ada perubahan harga nanti inject saja perubahan harganya."* Harga yang
+dikonfirmasi hari ini jadi dasar; selisih dari audit disuntikkan belakangan.
+
+### ⚠️ KENAPA HARGA BEKU TIDAK BISA DIPULIHKAN DENGAN PERKALIAN
+
+Temuan ini membatalkan kolom "faktor" yang sempat saya sodorkan. **Normalisasi
+3 September tidak mengalikan harga lama — ia menggantinya.** Nilai lama hanya
+kunci pengaman:
+
+```sql
+UPDATE bahan_baku_harga SET harga_beli = 248004, kemasan_qty = 12000
+  WHERE nama = 'MAYONAISE' AND harga_beli = 23706;
+```
+
+248.004 tidak dihitung dari 23.706. Batch pertama menyatakannya terang-terangan:
+`KEJU  Rp12.044 per Pack  10.850 -> 289.056  10 -> 240` — basis keju yang benar
+Rp12.044/Pack (×24 = 289.056), sementara yang beku 10.850. Itu bukan soal
+satuan, memang harga yang lebih lama.
+
+**Rasio harga-beku terhadap master mencampur perubahan SATUAN dan perubahan
+HARGA sekaligus**, dan basis harga lama tidak tercatat di mana pun — tidak di
+master, tidak di riwayat, tidak di migration. Tidak ada perkalian yang
+memulihkannya. Bukti pergerakan harga nyata: normalisasi menetapkan SAOS TOMAT
+POUCH ke 140.004, hari ini 141.000 — berubah oleh PO 31 Agustus (80 Dus @
+141.000).
+
+**Kedua saos berhasil bukan karena metode menemukan faktornya, melainkan karena
+owner menyebutkan harganya.**
+
 ### ✅ SAOS CABE & SAOS SAMYANG — 9 baris terakhir, dari keterangan owner
 
 Migration `20260908180000` — applied & idempoten. SAOS CABE 7 baris

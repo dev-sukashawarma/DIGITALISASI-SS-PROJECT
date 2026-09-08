@@ -446,7 +446,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   return (
     <div className="space-y-5 relative pb-24">
       {toast && (
-        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 z-50 animate-bounce font-bold text-sm text-white transition-all ${
+        <div className={`fixed bottom-6 right-6 px-6 py-4 rounded-2xl shadow-2xl border flex items-center gap-3 z-50 animate-toast-in font-bold text-sm text-white transition-all ${
           toast.type === 'success' ? 'bg-[#0a7d2c] border-[#93f997]/30 shadow-[0px_8px_24px_rgba(10,125,44,0.15)]' : 'bg-[#ba1a1a] border-[#ffdad6]/30 shadow-[0px_8px_24px_rgba(186,26,26,0.15)]'
         }`}>
           <span>{toast.type === 'success' ? '✅' : '🚨'}</span>

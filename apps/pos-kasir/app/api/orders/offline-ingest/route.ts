@@ -18,6 +18,63 @@ function isUuid(v: unknown): v is string {
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 }
 
+function normalizeCustomerName(str?: string | null): string {
+  if (!str) return ''
+  return str
+    .toLowerCase()
+    .trim()
+    .replace(/^(ka|kak|pa|pak|bu|ibu|mas|mbak)\s+/i, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .trim()
+}
+
+function isFuzzyNameMatch(a?: string | null, b?: string | null): boolean {
+  const normA = normalizeCustomerName(a)
+  const normB = normalizeCustomerName(b)
+  if (!normA || !normB) return false
+  if (normA === normB) return true
+  // Substring matching untuk nama dengan panjang minimal 4 karakter (misal: 'dongki' vs 'dongkil')
+  if (normA.length >= 4 && normB.length >= 4 && (normA.includes(normB) || normB.includes(normA))) {
+    return true
+  }
+  // Toleransi 1 karakter typo (Levenshtein distance <= 1)
+  if (Math.abs(normA.length - normB.length) <= 1 && normA.length >= 4 && normB.length >= 4) {
+    let diffs = 0
+    let i = 0, j = 0
+    while (i < normA.length && j < normB.length) {
+      if (normA[i] !== normB[j]) {
+        diffs++
+        if (diffs > 1) return false
+        if (normA.length > normB.length) i++
+        else if (normB.length > normA.length) j++
+        else { i++; j++ }
+      } else {
+        i++; j++
+      }
+    }
+    return true
+  }
+  return false
+}
+
+function areItemsSimilar(
+  itemsA?: Array<{ menu_item_name?: string; quantity: number }> | null,
+  itemsB?: Array<{ menu_item_name?: string; quantity: number }> | null
+): boolean {
+  if (!itemsA || !itemsB || itemsA.length === 0 || itemsB.length === 0) return false
+  if (itemsA.length !== itemsB.length) return false
+
+  const cleanItemName = (name?: string) => (name || '').split('|NOTE|')[0].toLowerCase().trim()
+
+  const sortedA = [...itemsA].sort((x, y) => cleanItemName(x.menu_item_name).localeCompare(cleanItemName(y.menu_item_name)))
+  const sortedB = [...itemsB].sort((x, y) => cleanItemName(x.menu_item_name).localeCompare(cleanItemName(y.menu_item_name)))
+
+  return sortedA.every((itA, idx) => {
+    const itB = sortedB[idx]
+    return cleanItemName(itA.menu_item_name) === cleanItemName(itB.menu_item_name) && itA.quantity === itB.quantity
+  })
+}
+
 export async function POST(request: Request) {
   let body: OfflineIngestPayload
   try {
@@ -85,31 +142,74 @@ export async function POST(request: Request) {
     })
   }
 
-  // Soft-match: jika webhook (incoming/pull-online) sudah memasukkan order online
-  // lebih dulu sebelum sinkronisasi offline ini.
-  const timeLimit = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  const { data: softMatchData } = await supabaseService
-    .from('orders')
-    .select('id, order_number, client_order_id')
-    .eq('outlet_id', outletId)
-    .eq('customer_name', body.customer_name)
-    .eq('total_amount', body.total_amount)
-    .gte('created_at', timeLimit)
-    .limit(1)
+  // ── Soft-match & Idempotent Deduplication ──────────────────────────────────
+  // Jika order sudah dimasukkan lebih dulu (melalui Web POS, online webhook,
+  // atau sinkronisasi lain) sebelum proses upload offline ini tiba.
+  // Window waktu: ±6 jam dari waktu transaksi asli (body.created_at).
+  const orderCreatedAt = new Date(body.created_at)
+  const windowStart = new Date(orderCreatedAt.getTime() - 6 * 60 * 60 * 1000).toISOString()
+  const windowEnd = new Date(orderCreatedAt.getTime() + 6 * 60 * 60 * 1000).toISOString()
 
-  if (softMatchData && softMatchData.length > 0) {
-    const matched = softMatchData[0]
-    // Jika match dan belum punya client_order_id, kita update dengan client_order_id
-    if (!matched.client_order_id) {
-      await supabaseService
-        .from('orders')
-        .update({ client_order_id: body.client_order_id })
-        .eq('id', matched.id)
-      
-      console.log(`offline-ingest: Soft-match berhasil, update client_order_id untuk order ${matched.id}`)
-      
+  const { data: candidateOrders } = await supabaseService
+    .from('orders')
+    .select(`
+      id,
+      order_number,
+      client_order_id,
+      customer_name,
+      total_amount,
+      status,
+      payment_method,
+      created_at,
+      order_items (
+        menu_item_name,
+        quantity,
+        subtotal
+      )
+    `)
+    .eq('outlet_id', outletId)
+    .gte('created_at', windowStart)
+    .lte('created_at', windowEnd)
+    .neq('status', 'cancelled')
+
+  if (candidateOrders && candidateOrders.length > 0) {
+    const matched = candidateOrders.find((cand: any) => {
+      // 1. Cek kecocokan nominal (identik, atau toleransi diskon promo merdeka s/d 5.000)
+      const amountDiff = Math.abs(cand.total_amount - body.total_amount)
+      const isAmountExact = amountDiff === 0
+      const isAmountPromoClose = amountDiff <= 5000
+
+      // 2. Cek kecocokan nama pembeli
+      const isNameMatch = isFuzzyNameMatch(cand.customer_name, body.customer_name)
+
+      // 3. Cek kecocokan daftar item
+      const isItemMatch = areItemsSimilar(cand.order_items, body.items)
+
+      // Kriteria duplikat:
+      // a. Nominal sama persis DAN (nama mirip ATAU item mirip)
+      if (isAmountExact && (isNameMatch || isItemMatch)) return true
+
+      // b. Jika nominal selisih promo <= 5000, WAJIB nama mirip DAN item mirip
+      if (isAmountPromoClose && isNameMatch && isItemMatch) return true
+
+      return false
+    })
+
+    if (matched) {
+      if (!matched.client_order_id) {
+        await supabaseService
+          .from('orders')
+          .update({ client_order_id: body.client_order_id })
+          .eq('id', matched.id)
+
+        console.log(`offline-ingest: Soft-match berhasil ditautkan, update client_order_id untuk order #${matched.order_number} (${matched.id})`)
+      } else {
+        console.log(`offline-ingest: Order duplikat terdeteksi cocok dengan #${matched.order_number} (${matched.id})`)
+      }
+
       return NextResponse.json({
         success: true,
+        duplicate: true,
         order_id: matched.id,
         order_number: matched.order_number,
       })

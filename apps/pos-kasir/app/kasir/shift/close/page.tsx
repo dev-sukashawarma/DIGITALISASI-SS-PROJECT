@@ -174,7 +174,7 @@ export default function CloseShiftPage() {
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
           supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('updated_at', shiftData.start_time)
+          supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', shiftData.start_time)
         ])
 
         snapExpenses = expRes.data || []

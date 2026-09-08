@@ -116,6 +116,31 @@ surat jalan** bertanggal 29 Agu–1 Sep membekukan harga tes itu, senilai
 **Rp19.950.000**. Pola yang sama dengan kebocoran outlet tes, lewat pintu
 berbeda: **jalur PO belum punya penyaring dokumen uji coba.**
 
+### ✅ Ditutup 8 September: satuan asli dua baris PO FOIL ditandai
+
+Migration `20260908160000_tandai_satuan_baris_po_foil.sql` — **applied &
+diverifikasi**. `satuan_ad_hoc = 'Roll'` diisi pada dua baris itu.
+**Nol angka diubah**: qty 2.000/1.000, harga 8.791,2/11.554, dan subtotal
+Rp17.582.400/Rp11.554.000 identik sebelum dan sesudah. Utang supplier tidak
+bergerak (po_payable_spv memakai `subtotal`).
+
+Keputusan owner: **menandai, bukan menskala** — menskala ke Dus akan membuat
+dokumen tidak cocok lagi dengan faktur supplier yang menyebut 2.000 Roll, dan
+memasukkan pecahan berulang (2.000/48) ke dokumen pembelian.
+
+Aman karena inert: semua pembaca `satuan_ad_hoc` memakainya sebagai **cadangan**
+setelah `bahan_baku.satuan`, dan kedua baris punya `bahan_baku_id`
+(`COALESCE(b.satuan, poi.satuan_ad_hoc, …)` di `verifikasi_terima_po`;
+`bahan_baku?.satuan || satuan_ad_hoc` di PODetailView, KitchenVerifikasiModal;
+VerifikasiTerimaModal hanya memakainya untuk baris ad-hoc). Diuji idempoten:
+dijalankan dua kali, yang kedua nol baris.
+
+`PO/KITCHEN/20260902/0001` sengaja tidak disentuh — memakai bahan lama
+"FOIL (48) (DIGABUNG KE FOIL)" yang satuannya memang masih Roll.
+
+**Masih terbuka:** PLASTIK MERAH (butuh catatan pembayaran ke Pak Aji untuk
+memastikan 50 Pack atau 50 Ikat) dan POLYBAG (master datanya sendiri ditahan).
+
 ### ⚠️ KOREKSI: "4 baris PO salah" ternyata keliru — uangnya sudah benar
 
 Diperiksa 8 September, dan ini membatalkan cara saya membingkainya sebelumnya.

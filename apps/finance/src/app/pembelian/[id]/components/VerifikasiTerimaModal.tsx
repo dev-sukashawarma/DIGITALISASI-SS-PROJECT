@@ -165,22 +165,38 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                           </span>
                         )}
                       </div>
-                      <input 
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        required
-                        value={state.qty_datang}
-                        onChange={e => updateItem(poItem.id, 'qty_datang', parseFloat(e.target.value) || 0)}
-                        className="w-full px-3.5 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs tabular-nums"
-                      />
+                      {/* Satuan ditempel di dalam kolom, bukan cuma disebut di
+                          baris keterangan di atas -- mata orang yang sedang
+                          mengetik ada di sini. */}
+                      <div className="relative">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          required
+                          value={state.qty_datang}
+                          onChange={e => updateItem(poItem.id, 'qty_datang', parseFloat(e.target.value) || 0)}
+                          className="w-full pl-3.5 pr-16 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs tabular-nums"
+                        />
+                        <span className="absolute right-3.5 top-1/2 -translate-y-1/2 font-bold text-suka-brown/50 text-[10px] uppercase tracking-wider pointer-events-none">
+                          {satuan}
+                        </span>
+                      </div>
                     </div>
-                    
+
                     <div className="space-y-1.5">
-                      <label className="text-[11px] font-bold text-suka-brown/70 uppercase tracking-wider">Harga Aktual</label>
+                      {/* "Harga Aktual" saja adalah akar kekeliruan yang berulang:
+                          PLASTIK MERAH (satuan Ikat) diisi Rp18.000 -- harga per
+                          PACK -- dua kali, Agustus dan September 2026. Guard di
+                          verifikasi_terima_po menahan penulisan masternya, tapi
+                          orang yang mengetik tak pernah diberi tahu kolom ini
+                          meminta harga per apa. */}
+                      <label className="text-[11px] font-bold text-suka-brown/70 uppercase tracking-wider">
+                        Harga Aktual <span className="text-suka-orange">per {satuan}</span>
+                      </label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-bold text-suka-brown/40 text-xs">Rp</span>
-                        <input 
+                        <input
                           type="number"
                           min="0"
                           required
@@ -189,6 +205,12 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                           className="w-full pl-9 pr-3.5 py-2 bg-suka-cream/30 border border-suka-brown/15 rounded-xl focus:border-suka-orange outline-none transition-all font-bold text-xs tabular-nums"
                         />
                       </div>
+                      {state.qty_datang > 0 && state.harga_terima > 0 && (
+                        <p className="text-[10px] font-bold text-suka-brown/60 tabular-nums leading-snug">
+                          {state.qty_datang} {satuan} × {rupiah(state.harga_terima)} ={' '}
+                          <span className="text-suka-brown">{rupiah(state.qty_datang * state.harga_terima)}</span>
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">

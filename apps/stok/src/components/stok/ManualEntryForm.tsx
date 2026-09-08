@@ -34,6 +34,14 @@ export interface DraftItem {
   wasteReason?: string
   summaryText: string
   adjDirection?: 'in' | 'out'
+  /**
+   * Berapa kali lipat entri ini dibanding stok terpasang saat ditambahkan.
+   * Peringatan di area input hilang begitu item pindah ke daftar; tanpa ini
+   * tombol "Simpan Semua Entri" tak punya penghalang apa pun -- persis celah
+   * yang meloloskan insiden FOIL 8 September 2026.
+   * undefined bila stok awal 0 (rasio tak bermakna).
+   */
+  lipatStok?: number
 }
 
 export function ManualEntryForm({ outletId, createdBy }: { outletId: string; createdBy: string }) {
@@ -160,6 +168,10 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       ? convertBesarToGram(finalQty, selectedBahan)
       : finalQty
 
+    // Dibawa serta ke daftar supaya peringatannya tidak menguap saat item
+    // dipindahkan. Rasio dihitung terhadap stok saat item ditambahkan.
+    const lipatStok = existingSaldo > 0 ? finalQtyLedgerScale / existingSaldo : undefined
+
     if (tipe === 'adjustment') {
       const delta = adjDirection === 'in' ? finalQtyLedgerScale : -finalQtyLedgerScale
       const targetSaldo = existingSaldo + delta
@@ -188,7 +200,8 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         finalQty,
         summaryText: text,
         catatanItem: catatan,
-        adjDirection
+        adjDirection,
+        lipatStok
       }
     } else {
       // Waste/transfer_keluar sama-sama butuh finalQtyLedgerScale (bukan
@@ -210,6 +223,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         summaryText: text,
         catatanItem: catatan,
         wasteReason: tipe === 'waste' ? wasteReason : undefined,
+        lipatStok
       }
     }
   }
@@ -532,7 +546,11 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
             {draftItems.map((item, idx) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between p-3 bg-[#fff8f1] border border-[#d9c2b2]/40 rounded-xl text-xs"
+                className={`flex items-center justify-between p-3 rounded-xl text-xs ${
+                  (item.lipatStok ?? 0) >= 10
+                    ? 'bg-[#ffdad6] border border-[#ba1a1a]/30'
+                    : 'bg-[#fff8f1] border border-[#d9c2b2]/40'
+                }`}
               >
                 <div className="space-y-0.5 min-w-0 pr-2">
                   <div className="flex items-center gap-2">
@@ -549,7 +567,21 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
                       {item.tipe === 'adjustment' ? 'Penyesuaian' : item.tipe === 'waste' ? 'Waste' : 'Transfer'}
                     </span>
                   </div>
-                  <p className="text-[11px] font-medium text-[#544437]/80 truncate">{item.summaryText}</p>
+                  <p
+                    className={`text-[11px] font-medium ${
+                      (item.lipatStok ?? 0) >= 10
+                        ? 'text-[#ba1a1a] font-semibold'
+                        : 'text-[#544437]/80 truncate'
+                    }`}
+                  >
+                    {item.summaryText}
+                  </p>
+                  {(item.lipatStok ?? 0) >= 10 && (
+                    <p className="text-[11px] font-bold text-[#ba1a1a] leading-snug">
+                      ⚠️ {item.lipatStok!.toLocaleString('id-ID', { maximumFractionDigits: 0 })}× stok yang ada
+                      saat ditambahkan — periksa satuannya sebelum menyimpan.
+                    </p>
+                  )}
                 </div>
 
                 <button

@@ -6,6 +6,63 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ---
 
+## ⛔ ATURAN — "outlet tes" JANGAN masuk perhitungan apa pun
+
+**Keputusan owner, 8 September 2026:**
+
+> "outlet tes hanya untuk testing oleh developer, jadi jangan masuk ke
+> perhitungan"
+
+Berlaku untuk **semua** angka: omzet, HPP, laba, nilai persediaan, waste,
+laporan apa pun. Isinya angka karangan — sisa uji bug skala opname, "reset ke
+10× reorder point", dan percobaan lain.
+
+**Cara mengenalinya:** `outlets.type = 'test'` (bukan lewat nama — nama bisa
+berubah). Saat ini hanya satu baris: "outlet tes".
+
+Ikut dikecualikan dengan alasan berbeda: `type = 'marketplace'` (Shopee &
+TikTok Shop) — outlet virtual yang tak pernah memegang barang fisik, jadi tak
+masuk hitungan **persediaan**. Untuk omzet, marketplace justru sah dihitung —
+jangan disamakan dengan outlet tes.
+
+### Sudah ditutup
+
+| Tempat | Status |
+|---|---|
+| `nilai_persediaan_spv` | ✅ dikecualikan (`20300131000000`) |
+
+Sebelum ditutup, halaman Nilai Persediaan menampilkan **Rp2,45 miliar** di
+kartu "Belum Pasti" — **Rp2,37 miliar** di antaranya murni dari outlet tes.
+Angka jujurnya: pasti Rp358,8 juta, belum pasti Rp75,0 juta.
+
+### ⚠️ MASIH BOCOR — belum ditutup
+
+Diperiksa 8 September, outlet tes masih **aktif** (`is_active = true`) dan
+datanya ikut terhitung:
+
+```
+17 order (semuanya 30 hari terakhir)  →  Rp880.000 tercatat sebagai omzet
+1.663 baris ledger
+2 laporan waste
+```
+
+Artinya ia masih menyusup ke laporan penjualan, HPP (order → resep), dan waste.
+Nilainya kecil, tapi aturannya tegas: jangan masuk perhitungan.
+
+**Langkah pertama kalau digarap:** cari agregasi yang mengelompokkan per
+`outlet_id` tanpa memeriksa `type` — polanya sama dengan kebocoran outlet
+marketplace yang pernah ditemukan (lihat CLAUDE.md Session 2026-08-05 butir 1b:
+tiap app punya `useOutlets` sendiri yang tak ikut diperbaiki). Jangan andalkan
+`is_active` saja; banyak agregasi tidak memeriksanya.
+
+**Catatan terpisah:** KANTOR PUSAT (`type = 'office'`) juga dummy, tapi
+**tidak** bisa disaring per-type — jenis itu memuat GUDANG PUSAT (HQ) yang
+merupakan gudang sungguhan dan pemegang persediaan terbesar. Nilainya kecil
+(2 baris, Rp2,4 juta) dan dibiarkan tampil, bukan disembunyikan lewat
+penyaring nama yang rapuh. Bersih-bersih datanya pekerjaan tersendiri.
+
+---
+
 ## SUDAH SELESAI
 
 - **FOIL digabung** — FOIL (48) dinonaktifkan, saldo dipindah lewat 42 baris

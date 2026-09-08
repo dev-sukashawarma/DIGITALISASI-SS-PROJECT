@@ -20,11 +20,13 @@ const statusLabelMap = {
   selesai: '✅ Selesai',
 };
 
-export function MutasiList({ items }: { items: MutasiAntarOutlet[] }) {
+export function MutasiList({ items, emptyMessage }: { items: MutasiAntarOutlet[]; emptyMessage?: string }) {
   if (items.length === 0) {
     return (
       <div className="text-center py-10 bg-white border border-[#d9c2b2]/40 rounded-2xl shadow-sm">
-        <p className="text-[#544437]/60 font-medium">Belum ada riwayat mutasi antar outlet.</p>
+        <p className="text-[#544437]/60 font-medium">
+          {emptyMessage || 'Belum ada riwayat mutasi antar outlet.'}
+        </p>
       </div>
     );
   }

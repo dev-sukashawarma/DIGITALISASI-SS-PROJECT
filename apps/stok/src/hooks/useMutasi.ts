@@ -1,8 +1,72 @@
 'use client'
 import { useId } from 'react'
+import { useAuth } from '@suka/auth'
 import { useQuery } from '@tanstack/react-query'
 import { useRealtimeInvalidate } from '@suka/realtime'
-import { fetchMutasiList, fetchMutasiById, ajukanMutasi, approveMutasi, kirimMutasi, terimaMutasi } from '@/app/actions/mutasi'
+import {
+  fetchMutasiList,
+  fetchMutasiById,
+  fetchPendingMutasiRaw,
+  ajukanMutasi,
+  approveMutasi,
+  kirimMutasi,
+  terimaMutasi,
+} from '@/app/actions/mutasi'
+import {
+  calculateMutasiBadgeCounts,
+  type MutasiBadgeCounts,
+} from '@/lib/stok/mutasiBadge'
+
+const DEFAULT_BADGE_COUNTS: MutasiBadgeCounts = {
+  total: 0,
+  menungguPersetujuan: 0,
+  menungguPengiriman: 0,
+  dikirim: 0,
+}
+
+// ---------------------------------------------------------------------------
+// Hook: useMutasiBadge — realtime notification badge counter
+// ---------------------------------------------------------------------------
+export function useMutasiBadge(outletId?: string | null) {
+  const { outletStaff } = useAuth()
+  const role = outletStaff?.role
+  const effectiveOutletId = (outletId || outletStaff?.outlet_id) ?? undefined
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['mutasi_badge_count', effectiveOutletId, role],
+    queryFn: async () => {
+      const items = await fetchPendingMutasiRaw(effectiveOutletId)
+      return calculateMutasiBadgeCounts(items, role, effectiveOutletId)
+    },
+    enabled: !!outletStaff,
+    staleTime: 20000,
+    gcTime: 60000,
+  })
+
+  const instanceId = useId()
+  useRealtimeInvalidate({
+    channelName: `mutasi_badge_${effectiveOutletId ?? 'all'}_${instanceId}`,
+    enabled: !!outletStaff,
+    subs: [
+      {
+        table: 'mutasi_antar_outlet',
+        queryKeys: [
+          ['mutasi_badge_count'],
+          ['mutasi_list'],
+        ],
+      },
+    ],
+  })
+
+  return {
+    badgeCount: data?.total ?? 0,
+    counts: data ?? DEFAULT_BADGE_COUNTS,
+    loading: isLoading,
+    error: error ? (error as Error).message : null,
+    refresh: refetch,
+  }
+}
+
 
 // ---------------------------------------------------------------------------
 // Hook: useMutasiList

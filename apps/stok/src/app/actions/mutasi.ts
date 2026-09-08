@@ -2,6 +2,7 @@
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { MutasiAntarOutlet } from '@/lib/types/mutasi'
+import type { PendingMutasiItem } from '@/lib/stok/mutasiBadge'
 
 // ---------------------------------------------------------------------------
 // Authenticated client — respects RLS and sets auth.uid()
@@ -15,6 +16,27 @@ async function getAuthClient() {
         cookieStore.set(name, value, options as any)
       ),
   })
+}
+ 
+// ---------------------------------------------------------------------------
+// fetchPendingMutasiRaw — query ringan untuk realtime badge mutasi
+// ---------------------------------------------------------------------------
+export async function fetchPendingMutasiRaw(outletId?: string | null): Promise<PendingMutasiItem[]> {
+  const supabase = await getAuthClient()
+  
+  let query = supabase
+    .from('mutasi_antar_outlet')
+    .select('id, status, outlet_asal_id, outlet_tujuan_id, created_at')
+    .in('status', ['menunggu_persetujuan', 'menunggu_pengiriman', 'dikirim'])
+    .order('created_at', { ascending: false })
+
+  if (outletId) {
+    query = query.or(`status.eq.menunggu_persetujuan,outlet_asal_id.eq.${outletId},outlet_tujuan_id.eq.${outletId}`)
+  }
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return (data ?? []) as PendingMutasiItem[]
 }
 
 // ---------------------------------------------------------------------------

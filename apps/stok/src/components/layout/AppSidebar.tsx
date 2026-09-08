@@ -7,6 +7,7 @@ import { useAuth, createSupabaseBrowserClient } from '@suka/auth'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
+import { useMutasiBadge } from '@/hooks/useMutasi'
 import { isApproverRole } from '@/lib/stok/approver'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
@@ -108,6 +109,9 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
     staleTime: 30000,
   })
   const inboundPosCount = inboundPos.length
+
+  // 4. Pending Actionable Mutasi Antar Outlet (Realtime)
+  const { badgeCount: pendingMutasiCount } = useMutasiBadge(targetOutletId)
 
   const handleLogout = async () => {
     await signOut()
@@ -253,6 +257,8 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
           label: 'Mutasi Stok',
           href: '/stok/mutasi',
           icon: ArrowLeftRight,
+          badge: pendingMutasiCount > 0 ? `${pendingMutasiCount}` : undefined,
+          badgeColor: 'bg-red-500 text-white',
         },
       ],
     },

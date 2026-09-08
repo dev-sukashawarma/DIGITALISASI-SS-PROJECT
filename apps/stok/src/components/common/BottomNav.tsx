@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth'
 import { useApprovalList } from '@/hooks/usePermintaan'
+import { useMutasiBadge } from '@/hooks/useMutasi'
 import { isApproverRole } from '@/lib/stok/approver'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
@@ -71,6 +72,9 @@ export function BottomNav() {
   })
   const inboundPosCount = inboundPos.length
 
+  // 4. Pending Mutasi Antar Outlet (Realtime)
+  const { badgeCount: pendingMutasiCount } = useMutasiBadge(outletStaff?.outlet_id)
+
   // Secondary drawer items for "Lainnya"
   const kitchenAdminMoreItems = [
     {
@@ -124,7 +128,7 @@ export function BottomNav() {
       icon: ArrowLeftRight,
       label: 'Mutasi Antar Outlet',
       desc: 'Kirim & terima transfer stok',
-      badge: 0,
+      badge: pendingMutasiCount,
     },
     {
       href: '/stok/waste/approval',
@@ -155,7 +159,7 @@ export function BottomNav() {
       icon: ArrowLeftRight,
       label: 'Mutasi Antar Outlet',
       desc: 'Transfer stok antar outlet binaan',
-      badge: 0,
+      badge: pendingMutasiCount,
     },
     {
       href: '/stok/penerimaan-po',
@@ -170,6 +174,23 @@ export function BottomNav() {
       label: 'Riwayat Waste',
       desc: 'Histori laporan bahan terbuang',
       badge: 0,
+    },
+  ]
+
+  const crewMoreItems = [
+    {
+      href: '/stok/ledger',
+      icon: BookOpen,
+      label: 'Buku Ledger Stok',
+      desc: 'Kartu stok masuk, keluar & saldo',
+      badge: 0,
+    },
+    {
+      href: '/stok/mutasi',
+      icon: ArrowLeftRight,
+      label: 'Mutasi Antar Outlet',
+      desc: 'Kirim & terima transfer stok',
+      badge: pendingMutasiCount,
     },
   ]
 
@@ -190,7 +211,12 @@ export function BottomNav() {
       { href: '/stok/permintaan', icon: ClipboardList, label: 'Permintaan', badge: pendingCount },
       { href: '/stok/opname', icon: FileSpreadsheet, label: 'Opname' },
       { href: '/stok/penerimaan-po', icon: Truck, label: 'Terima PO', badge: inboundPosCount },
-      { icon: MoreHorizontal, label: 'Lainnya', isMore: true, badge: pendingWasteCount },
+      {
+        icon: MoreHorizontal,
+        label: 'Lainnya',
+        isMore: true,
+        badge: (pendingWasteCount > 0 ? pendingWasteCount : 0) + (pendingMutasiCount > 0 ? pendingMutasiCount : 0),
+      },
     ]
   } else if (isLeaderOrSPV) {
     primaryTabs = [
@@ -203,7 +229,12 @@ export function BottomNav() {
         label: 'Waste',
         badge: canApproveWaste && pendingWasteCount > 0 ? pendingWasteCount : undefined,
       },
-      { icon: MoreHorizontal, label: 'Lainnya', isMore: true },
+      {
+        icon: MoreHorizontal,
+        label: 'Lainnya',
+        isMore: true,
+        badge: pendingMutasiCount > 0 ? pendingMutasiCount : undefined,
+      },
     ]
   } else {
     primaryTabs = [
@@ -211,11 +242,20 @@ export function BottomNav() {
       { href: '/stok/permintaan', icon: ClipboardList, label: 'Permintaan' },
       { href: '/stok/opname', icon: FileSpreadsheet, label: 'Opname' },
       { href: '/stok/waste/history', icon: Trash2, label: 'Waste' },
-      { href: '/stok/ledger', icon: BookOpen, label: 'Ledger' },
+      {
+        icon: MoreHorizontal,
+        label: 'Lainnya',
+        isMore: true,
+        badge: pendingMutasiCount > 0 ? pendingMutasiCount : undefined,
+      },
     ]
   }
 
-  const moreItems = isKitchenOrAdmin ? kitchenAdminMoreItems : leaderMoreItems
+  const moreItems = isKitchenOrAdmin
+    ? kitchenAdminMoreItems
+    : isLeaderOrSPV
+    ? leaderMoreItems
+    : crewMoreItems
   const isMoreActive = moreItems.some((item) => pathname.startsWith(item.href))
 
   const isTabActive = (tab: PrimaryTab) => {

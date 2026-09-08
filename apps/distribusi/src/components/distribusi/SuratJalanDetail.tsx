@@ -30,7 +30,8 @@ import {
   FileCheck,
   HelpCircle,
   Ban,
-  RefreshCw
+  RefreshCw,
+  Lock
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -192,7 +193,8 @@ export function SuratJalanDetail({ id }: { id: string }) {
     const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
       outletStaff?.role || ''
     )
-    const hideQR = !isPusat
+    const isSentOrCompleted = data ? ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status) : false
+    const hideQR = !isPusat || !isSentOrCompleted
 
     const loadPdfHtml = async () => {
       if (data) {
@@ -253,7 +255,8 @@ export function SuratJalanDetail({ id }: { id: string }) {
     const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
       outletStaff?.role || ''
     )
-    const hideQR = !isPusat
+    const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
+    const hideQR = !isPusat || !isSentOrCompleted
 
     try {
       toast.info('Menyiapkan file PDF Surat Jalan 3-Ply (14 x 12 cm)...')
@@ -287,7 +290,8 @@ export function SuratJalanDetail({ id }: { id: string }) {
     const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
       outletStaff?.role || ''
     )
-    const hideQR = !isPusat
+    const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
+    const hideQR = !isPusat || !isSentOrCompleted
     try {
       toast.info(
         copies === 1
@@ -347,6 +351,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
         documentNumber: data.document_number || `SJ-${data.id.substring(0, 8).toUpperCase()}`,
         outletName: data.outlets?.name || 'Unknown',
         createdAt: data.created_at,
+        status: data.status,
         verificationCode: data.verification_code,
         items: data.surat_jalan_item,
       })
@@ -948,28 +953,60 @@ export function SuratJalanDetail({ id }: { id: string }) {
               </h4>
             </div>
 
-            <div className="p-3.5 bg-[#fff8f1] rounded-2xl border border-suka-orange/15 text-center space-y-1">
-              <span className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest">
-                Kode Validasi Serah Terima
-              </span>
-              <div className="flex items-center justify-center gap-2">
-                <p className="text-lg font-mono font-black text-suka-orange tracking-widest">
-                  {data.verification_code || docNumber.substring(docNumber.length - 6)}
-                </p>
-                <button
-                  onClick={() =>
-                    handleCopyCode(data.verification_code || docNumber.substring(docNumber.length - 6))
-                  }
-                  className="p-1 rounded-lg bg-white border border-suka-brown/10 text-suka-gray-600 hover:text-suka-orange transition-colors cursor-pointer"
-                  title="Salin Kode"
-                >
-                  {copiedCode ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
-                </button>
+            {data.status === 'draft' ? (
+              <div className="p-4 bg-amber-50/80 rounded-2xl border border-amber-200 text-center space-y-2.5">
+                <div className="w-10 h-10 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center mx-auto shadow-2xs">
+                  <Lock size={18} />
+                </div>
+                <div>
+                  <p className="text-xs font-black text-amber-900 uppercase tracking-wide">
+                    Kode & QR Masih Terkunci
+                  </p>
+                  <p className="text-[11px] text-amber-800 font-medium leading-relaxed mt-1">
+                    Kode validasi serah terima dan QR code baru akan dibuka setelah <strong>Admin Gudang</strong> dan <strong>Supir</strong> selesai menandatangani dan mengirim surat jalan ini.
+                  </p>
+                </div>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-amber-300/80 rounded-full text-[10px] font-bold text-amber-800 shadow-2xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                  Status: Draft (Belum Dikirim)
+                </div>
               </div>
-            </div>
-            <p className="text-[10px] text-suka-gray-500 font-medium leading-relaxed text-center">
-              Petugas outlet dapat memindai QR pada formulir 3-ply atau memasukkan kode di atas untuk serah terima.
-            </p>
+            ) : data.status === 'dibatalkan' ? (
+              <div className="p-4 bg-rose-50/80 rounded-2xl border border-rose-200 text-center space-y-1.5">
+                <Ban size={18} className="text-rose-600 mx-auto" />
+                <p className="text-xs font-black text-rose-800 uppercase tracking-wide">
+                  Dokumen Dibatalkan
+                </p>
+                <p className="text-[10px] text-rose-700 font-medium">
+                  Kode verifikasi tidak berlaku untuk surat jalan yang dibatalkan.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="p-3.5 bg-[#fff8f1] rounded-2xl border border-suka-orange/15 text-center space-y-1">
+                  <span className="text-[9px] font-black text-suka-gray-400 uppercase tracking-widest">
+                    Kode Validasi Serah Terima
+                  </span>
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-lg font-mono font-black text-suka-orange tracking-widest">
+                      {data.verification_code || docNumber.substring(docNumber.length - 6)}
+                    </p>
+                    <button
+                      onClick={() =>
+                        handleCopyCode(data.verification_code || docNumber.substring(docNumber.length - 6))
+                      }
+                      className="p-1 rounded-lg bg-white border border-suka-brown/10 text-suka-gray-600 hover:text-suka-orange transition-colors cursor-pointer"
+                      title="Salin Kode"
+                    >
+                      {copiedCode ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[10px] text-suka-gray-500 font-medium leading-relaxed text-center">
+                  Petugas outlet dapat memindai QR pada formulir 3-ply atau memasukkan kode di atas untuk serah terima.
+                </p>
+              </>
+            )}
           </div>
 
           {/* 4. Finalize Button by Pusat (If Received by Outlet) */}

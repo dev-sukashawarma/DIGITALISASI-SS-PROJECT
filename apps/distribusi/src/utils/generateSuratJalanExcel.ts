@@ -17,6 +17,7 @@ export type SuratJalanExcelData = {
   documentNumber: string
   outletName: string
   createdAt: string
+  status?: string
   verificationCode?: string
   items: SuratJalanItem[]
 }
@@ -150,7 +151,9 @@ export function buildSuratJalanExcel(data: SuratJalanExcelData) {
   rows.push(`<row r="5" ht="21">${formCells(5, 14)}</row>`)
   rows.push(`<row r="6" ht="14.25">${formCells(6, 0)}</row>`)
   rows.push(`<row r="7" ht="21.75">${cell('A7', 'Nama Outlet', 5)}${cell('C7', ':', 5)}${cell('D7', data.outletName, 6)}${cell('E7', 'Nomor Surat Jalan', 5)}${cell('G7', ':', 5)}${cell('H7', data.documentNumber, 16)}</row>`)
-  rows.push(`<row r="8" ht="14.25">${cell('A8', 'Kode Verifikasi', 5)}${cell('C8', ':', 5)}${cell('D8', data.verificationCode || '-', 6)}${cell('E8', 'Tanggal Surat Jalan', 5)}${cell('G8', ':', 5)}${cell('H8', formattedDate, 1)}</row>`)
+  const isSentOrCompleted = !data.status || ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
+  const displayVerificationCode = isSentOrCompleted ? (data.verificationCode || '-') : 'TERKUNCI (DRAFT)'
+  rows.push(`<row r="8" ht="14.25">${cell('A8', 'Kode Verifikasi', 5)}${cell('C8', ':', 5)}${cell('D8', displayVerificationCode, 6)}${cell('E8', 'Tanggal Surat Jalan', 5)}${cell('G8', ':', 5)}${cell('H8', formattedDate, 1)}</row>`)
   rows.push(`<row r="9" ht="14.25">${formCells(9, 0)}</row>`)
   rows.push(`<row r="10" ht="25.5">${formCells(10, 7, {
     A: { value: 'No', style: 7 },

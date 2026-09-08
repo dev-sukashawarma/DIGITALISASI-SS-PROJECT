@@ -259,7 +259,7 @@ export default function DashboardPage() {
           signatures: sj.signatures || [],
           receipt_signatures: sj.receipt_signatures || [],
         },
-        { hideQR: !isPusat }
+        { hideQR: !isPusat || sj.status === 'draft' || sj.status === 'dibatalkan' }
       )
 
       downloadPDF(`Surat-Jalan-${docNumber || sj.id.substring(0, 8)}.pdf`, pdfBlob)
@@ -271,6 +271,16 @@ export default function DashboardPage() {
 
   const handleQuickPrintQR = async (e: React.MouseEvent, sjId: string, docNumber?: string) => {
     e.stopPropagation()
+    const targetSj = allShipments.find((d) => d.id === sjId)
+    if (targetSj?.status === 'draft') {
+      toast.warning('QR belum tersedia. Surat jalan wajib ditandatangani Admin Gudang & Supir lalu dikirim terlebih dahulu.')
+      return
+    }
+    if (targetSj?.status === 'dibatalkan') {
+      toast.warning('Surat jalan telah dibatalkan.')
+      return
+    }
+
     try {
       toast.info('Menghubungkan ke printer...')
       const { generateQRDataUrl, printBarcode } = await import('@/utils/generatePDF')

@@ -103,7 +103,8 @@ export async function generatePDFContent(
   data: SuratJalanData,
   options?: SuratJalanPDFOptions
 ): Promise<string> {
-  const hideQR = options?.hideQR ?? false
+  const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
+  const hideQR = (options?.hideQR ?? false) || !isSentOrCompleted
   const copiesCount = options?.copies ?? 3
   const qrUrl = data.verification_code || data.document_number
   const qrDataUrl = !hideQR ? await generateQRDataUrl(qrUrl, 140) : ''
@@ -174,7 +175,7 @@ export async function generatePDFContent(
           </div>
           <div class="meta-col">
             <div class="meta-row"><span class="meta-lbl">Tanggal Kirim</span><b>:</b><span class="meta-val">${createdDate}</span></div>
-            <div class="meta-row"><span class="meta-lbl">Kode Verifikasi</span><b>:</b><span class="meta-val font-mono"><strong>${data.verification_code || '-'}</strong></span></div>
+            <div class="meta-row"><span class="meta-lbl">Kode Verifikasi</span><b>:</b><span class="meta-val font-mono"><strong>${isSentOrCompleted ? (data.verification_code || '-') : 'TERKUNCI (DRAFT)'}</strong></span></div>
           </div>
           ${!hideQR && qrDataUrl ? `
             <div class="meta-qr">
@@ -596,6 +597,7 @@ export async function generateSuratJalanPDF(
     day: 'numeric',
   })
   const completed = ['diterima_lengkap', 'diterima_sebagian', 'selesai'].includes(data.status)
+  const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
   const receiptSignatures = data.receipt_signatures || []
   const adminSignature = data.signatures.find((sig) => ['Admin Kitchen', 'Kitchen SPV', 'Admin Gudang'].includes(sig.role))
   const driverSignature = data.signatures.find((sig) => sig.role === 'Supir')
@@ -683,7 +685,7 @@ export async function generateSuratJalanPDF(
 
       const rightColX = marginX + 120
       drawMetaRow('Tanggal Kirim', createdDate, rightColX, metaTop)
-      drawMetaRow('Kode Verifikasi', data.verification_code || '-', rightColX, metaTop + 4.5)
+      drawMetaRow('Kode Verifikasi', isSentOrCompleted ? (data.verification_code || '-') : 'TERKUNCI (DRAFT)', rightColX, metaTop + 4.5)
 
       // Line under meta
       doc.setLineWidth(0.25)

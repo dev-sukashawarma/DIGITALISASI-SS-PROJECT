@@ -15,7 +15,8 @@ import {
   Lock,
   QrCode,
   RefreshCw,
-  Check
+  Check,
+  Ban
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -292,6 +293,60 @@ export function VerifikasiForm({ id }: { id: string }) {
               Kembali ke Inbox
             </button>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Guard: jika SJ masih draft, cegah verifikasi penerimaan
+  if (data.status === 'draft') {
+    return (
+      <div className="min-h-screen bg-[#fff8f1]/50 flex items-center justify-center p-6 bg-grain">
+        <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-amber-500/30 p-6 max-w-sm text-center shadow-xl space-y-4">
+          <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+            <Lock size={30} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-black text-suka-brown uppercase tracking-wide font-display">
+              Surat Jalan Belum Dikirim
+            </h3>
+            <p className="text-xs text-suka-gray-600 font-medium leading-relaxed">
+              Surat Jalan ini masih berstatus <strong>Draft</strong> di Gudang Pengirim. Admin Gudang dan Supir wajib menandatangani serta memproses pengiriman terlebih dahulu sebelum penerimaan dapat diverifikasi.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/distribusi/terima')}
+            className="w-full bg-suka-brown hover:bg-suka-ink active:scale-[0.98] text-white rounded-xl py-3 font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+          >
+            Kembali ke Inbox
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Guard: jika SJ dibatalkan
+  if (data.status === 'dibatalkan') {
+    return (
+      <div className="min-h-screen bg-[#fff8f1]/50 flex items-center justify-center p-6 bg-grain">
+        <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-rose-500/30 p-6 max-w-sm text-center shadow-xl space-y-4">
+          <div className="w-14 h-14 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+            <Ban size={30} />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-black text-rose-700 uppercase tracking-wide font-display">
+              Surat Jalan Dibatalkan
+            </h3>
+            <p className="text-xs text-suka-gray-600 font-medium leading-relaxed">
+              Surat Jalan ini telah dibatalkan oleh pihak pengirim. Proses verifikasi serah terima tidak dapat dilanjutkan.
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/distribusi/riwayat')}
+            className="w-full bg-suka-brown hover:bg-suka-ink active:scale-[0.98] text-white rounded-xl py-3 font-extrabold text-xs uppercase tracking-wider shadow-md transition-all cursor-pointer"
+          >
+            Buka Riwayat
+          </button>
         </div>
       </div>
     )

@@ -198,6 +198,16 @@ export function SuratJalanList() {
     verificationCode?: string
   ) => {
     e.stopPropagation()
+    const targetSj = data.find((entry) => entry.id === sjId)
+    if (targetSj?.status === 'draft') {
+      toast.warning('QR belum tersedia. Surat jalan wajib ditandatangani Admin Gudang & Supir lalu dikirim terlebih dahulu.')
+      return
+    }
+    if (targetSj?.status === 'dibatalkan') {
+      toast.warning('Surat jalan telah dibatalkan.')
+      return
+    }
+
     const { generateQRDataUrl, printBarcode } = await import('@/utils/generatePDF')
     const { fetchPrintLayout, DEFAULT_PRINT_LAYOUT } = await import('@/utils/printLayout')
     const url = `${window.location.origin}/distribusi/terima/${sjId}`
@@ -251,7 +261,7 @@ export function SuratJalanList() {
       }))
 
       const outletData = data.find((d) => d.id === sjId)
-      const hideQR = !isPusat
+      const hideQR = !isPusat || sj.status === 'draft' || sj.status === 'dibatalkan'
 
       const pdfBlob = await generateSuratJalanPDF(
         {
@@ -285,7 +295,7 @@ export function SuratJalanList() {
       const supabase = createSupabaseBrowserClient()
       const { data: sj, error: suratJalanError } = await supabase
         .from('surat_jalan')
-        .select('id, document_number, created_at, verification_code')
+        .select('id, document_number, created_at, status, verification_code')
         .eq('id', sjId)
         .single()
 
@@ -306,6 +316,7 @@ export function SuratJalanList() {
         documentNumber: sj.document_number || `SJ-${sj.id.substring(0, 8).toUpperCase()}`,
         outletName: outletData?.outlet?.name || 'Unknown',
         createdAt: sj.created_at,
+        status: sj.status,
         verificationCode: sj.verification_code,
         items: items || [],
       })

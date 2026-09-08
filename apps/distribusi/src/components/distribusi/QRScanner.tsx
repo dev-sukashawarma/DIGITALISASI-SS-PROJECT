@@ -59,6 +59,18 @@ export function QRScanner() {
       toast.error(errMsg)
       return
     }
+    if (data.status === 'draft') {
+      const msg = 'Surat Jalan ini belum dikirim oleh Gudang (status masih draft). Admin Gudang dan Supir harus menandatangani dan mengirim surat jalan terlebih dahulu.'
+      setError(msg)
+      toast.error(msg)
+      return
+    }
+    if (data.status === 'dibatalkan') {
+      const msg = 'Surat Jalan ini telah dibatalkan dan tidak dapat diverifikasi'
+      setError(msg)
+      toast.error(msg)
+      return
+    }
     if (data.status === 'diterima_lengkap' || data.status === 'diterima_sebagian' || data.status === 'selesai' || data.status === 'diterima') {
       const msg = 'Surat Jalan ini sudah selesai diverifikasi sebelumnya'
       setError(msg)

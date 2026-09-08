@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
+import { isSuspiciousZero } from '@/lib/stok/zeroGuard';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import type { BahanBaku } from '@/types/stok';
 
@@ -126,7 +127,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
    * cuma mengganti bunyi notifikasi, tidak menahan apa pun.
    */
   const [penurunanDrastis, setPenurunanDrastis] = useState<
-    { id: string; nama: string; sistemText: string; fisikText: string; habisTotal: boolean }[]
+    { id: string; nama: string; sistemText: string; fisikText: string; habisTotal: boolean; bolehLewati: boolean }[]
   >([]);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -353,9 +354,36 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           sistemText: b ? formatSystemQty(b, i.qty_system) : String(i.qty_system),
           fisikText: b ? formatSystemQty(b, i.qty_fisik) : String(i.qty_fisik),
           habisTotal: i.qty_fisik === 0 && i.qty_system > 0,
+          // Bahan yang ditandai habis padahal sistem masih mencatat stok berarti
+          // boleh dikembalikan ke status "belum dihitung" -- lihat skipItem.
+          bolehLewati: isSuspiciousZero(i.qty_fisik, i.qty_system, b?.faktor_konversi),
         };
       })
       .sort((a, b) => Number(b.habisTotal) - Number(a.habisTotal));
+  }
+
+  /**
+   * Mengembalikan bahan ke status "belum dihitung": isiannya dihapus sehingga
+   * item dilewati opname dan saldo sistemnya tidak diubah sama sekali.
+   *
+   * Definisi yang berlaku (keputusan owner, 8 September 2026): kolom kosong =
+   * belum dihitung (saldo aman), kolom 0 = sudah dihitung dan fisiknya habis
+   * (saldo dinolkan). Crew terbiasa memakai 0 untuk keduanya, jadi peringatan
+   * saja tidak cukup -- perlu jalan keluar yang benar di tempat peringatan itu
+   * muncul.
+   */
+  function skipItem(bahanId: string) {
+    setInputs((prev) => {
+      const next = { ...prev };
+      delete next[bahanId];
+      return next;
+    });
+    setTargets((prev) => {
+      const next = { ...prev };
+      delete next[bahanId];
+      return next;
+    });
+    setPenurunanDrastis((prev) => prev.filter((x) => x.id !== bahanId));
   }
 
   /** Gerbang terakhir sebelum finalisasi, dipakai dua jalur masuk. */
@@ -851,6 +879,15 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                     Sistem <strong>{it.sistemText}</strong> → fisik{' '}
                     <strong>{it.fisikText}</strong>
                   </p>
+                  {it.bolehLewati && (
+                    <button
+                      type="button"
+                      onClick={() => skipItem(it.id)}
+                      className="mt-1.5 py-1 px-2.5 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg font-bold text-[10px] cursor-pointer transition-all active:scale-[0.99]"
+                    >
+                      Belum dihitung — lewati
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -859,6 +896,11 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
               Pastikan bahan-bahan di atas memang benar-benar sudah dihitung dan
               jumlahnya sesegitu. Setelah difinalisasi, selisihnya langsung
               memotong stok dan <strong>tidak bisa dibatalkan</strong>.
+              <span className="mt-1.5 block">
+                Kalau bahannya <strong>belum sempat dihitung</strong>, tekan
+                &quot;Belum dihitung&quot; — bahan itu dilewati dan stoknya tetap aman.
+                Mengisi <strong>0</strong> berarti fisiknya benar-benar habis.
+              </span>
             </div>
 
             <div className="flex gap-2.5 pt-2">

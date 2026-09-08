@@ -5,6 +5,9 @@ import {
   formatTriUnitSaldoAdaptive,
   formatCompositeSaldoAdaptive,
   decomposeTriUnitRaw,
+  getDistribusiFactor,
+  convertToBaseUnit,
+  convertToDistribusiUnit,
 } from './compositeUnit'
 
 // Semua angka di sini diambil verbatim dari ledger_stok produksi (opname
@@ -117,5 +120,48 @@ describe('formatCompositeSaldoAdaptive — pemilih berdasar saldo_is_gram (2-tin
 
   it('saldo_is_gram=false -> dekomposisi besar-scale lama', () => {
     expect(formatCompositeSaldoAdaptive(2.5, false, 'Kg', 'Gram', 1000)).toBe('2 Kg + 500 Gram')
+  })
+})
+
+// Konfigurasi FOIL setelah migration 20260908103000 (Dus > Roll > cm).
+// Angka saldo diambil dari stok_balance produksi (Empang, 7 September 2026).
+const FOIL = {
+  satuan: 'Dus',
+  satuan_tengah: 'Roll',
+  faktor_tengah: 48,
+  satuan_kecil: 'cm',
+  faktor_tampilan: 36480,
+  satuan_distribusi: 'roll',
+}
+
+describe('FOIL 3 tingkat — Dus > Roll > cm, 1 Dus = 48 Roll = 36.480 cm', () => {
+  it('Empang: 57005 cm -> 1 Dus + 27 Roll + 5 cm', () => {
+    expect(
+      formatTriUnitSaldoFromGram(57005, FOIL.satuan, FOIL.satuan_tengah, FOIL.faktor_tengah, FOIL.satuan_kecil, FOIL.faktor_tampilan)
+    ).toBe('1 Dus + 27 Roll + 5 cm')
+  })
+
+  it('kelipatan pas: 72960 cm -> 2 Dus, tanpa sisa', () => {
+    expect(
+      formatTriUnitSaldoFromGram(72960, FOIL.satuan, FOIL.satuan_tengah, FOIL.faktor_tengah, FOIL.satuan_kecil, FOIL.faktor_tampilan)
+    ).toBe('2 Dus')
+  })
+
+  it('kurang dari sedus: 20525 cm -> 27 Roll + 5 cm (tanpa baris Dus)', () => {
+    expect(
+      formatTriUnitSaldoFromGram(20525, FOIL.satuan, FOIL.satuan_tengah, FOIL.faktor_tengah, FOIL.satuan_kecil, FOIL.faktor_tampilan)
+    ).toBe('27 Roll + 5 cm')
+  })
+
+  it('satuan_distribusi "roll" memetakan ke satuan tengah, bukan satuan besar', () => {
+    expect(getDistribusiFactor(FOIL)).toBe(48)
+  })
+
+  it('surat jalan 48 Roll = 1 Dus dalam satuan basis', () => {
+    expect(convertToBaseUnit(48, FOIL)).toBe(1)
+  })
+
+  it('tampilan permintaan: 1 Dus di basis ditampilkan kembali sebagai 48 Roll', () => {
+    expect(convertToDistribusiUnit(1, FOIL)).toBe(48)
   })
 })

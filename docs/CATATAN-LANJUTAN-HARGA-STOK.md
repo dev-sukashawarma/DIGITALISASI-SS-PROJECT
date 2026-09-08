@@ -6,6 +6,66 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ---
 
+## 🎯 KEPUTUSAN METODE BASIS HARGA — pengukuran final 8 September
+
+Diukur ulang setelah jendela 1 September dibersihkan dan tiga baris PO ditandai
+satuannya. Dasar: **`subtotal`** (uang selalu benar) dibagi jumlah yang sudah
+dinormalkan ke satuan besar, menghormati `satuan_ad_hoc`. PO uji coba dikecualikan.
+
+| Bahan | Saldo gudang | Master | WAC on-hand | Dampak |
+|---|--:|--:|--:|--:|
+| PLASTIK 24 | 482 Pack | 13.000 | 12.415 | +Rp282.000 |
+| STIKER | 89,87 Lembar | 5.300 | 5.570 | −Rp24.265 |
+| KEJU | 5,13 Dus | 289.056 | 289.048 | +Rp41 |
+| MAYONAISE | 7 Dus | 248.004 | 248.000 | +Rp28 |
+| **Total** | | | | **+Rp257.804** |
+
+**Selisih antara "harga terakhir" dan "rata-rata tertimbang" untuk SELURUH
+persediaan = Rp257.804**, atau sekitar **0,07%** dari nilai persediaan pasti
+(±Rp359 juta). Konsisten dengan pengukuran 3 September (nol) dan pagi ini
+(Rp277.735) — tiga pengukuran independen, kesimpulan sama.
+
+**PLASTIK MERAH hilang dari daftar** setelah kedua baris PO-nya ditandai:
+rata-ratanya pas Rp90.000, sama dengan master. Itu memvalidasi cara ukurnya.
+
+### 🔴 Temuan sampingan yang jauh lebih besar: saldo FOIL gudang tidak masuk akal
+
+Pengukuran menandai FOIL −Rp44,3 juta, tetapi **itu bukan selisih metode**.
+Saldo FOIL di Gudang Pusat **36.588.680 cm ≈ 1.003 Dus ≈ 48.143 Roll** —
+mustahil secara fisik. Asalnya:
+
+| Tipe ledger | Baris | Total cm |
+|---|--:|--:|
+| **adjustment** | 12 | **+36.231.799** |
+| pembelian_supplier | 1 | +760.000 |
+| transfer_keluar | 64 | −407.861 |
+| opname_selisih | 11 | +188 |
+
+Pembelian nyata cuma 760.000 cm; sisanya penyesuaian manual sejak 23 Juli.
+Ini kelas masalah yang sudah dikenal (penulis ledger buta-skala,
+[[ledger-writers-scale-blind-to-saldo-is-gram]]), **bukan** soal metode harga.
+Perlu opname fisik FOIL di Gudang Pusat.
+
+### ✅ Rekomendasi: PERTAHANKAN metode sekarang
+
+Selisihnya 0,07% — tidak ada yang perlu diperbaiki dari sisi akurasi. Pindah ke
+rata-rata tertimbang hanya perlu dipertimbangkan kalau:
+
+1. **Persediaan dilaporkan ke pihak luar** (pajak/audit). "Harga terakhir yang
+   diketik" bukan metode yang diakui PSAK 14; FIFO dan rata-rata tertimbang
+   diakui. Ini pertanyaan kepatuhan, bukan akurasi — dan satu-satunya
+   pertanyaan yang tersisa untuk pemegang pembukuan.
+2. **Ada bahan berperputaran lambat yang stok dua vendornya menumpuk
+   bersamaan.** Sampai 8 September belum pernah terjadi: stok on-hand tiap
+   bahan selalu ditutupi satu vendor saja.
+
+Yang lebih layak digarap lebih dulu, karena benar-benar menggeser angka:
+saldo FOIL gudang di atas, dan **form terima PO** yang labelnya generik
+sehingga operator berulang kali mengisi harga per sub-satuan (dua kali untuk
+PLASTIK MERAH, dua bulan berbeda).
+
+---
+
 ## 📏 PENGUKURAN ULANG 8 SEPTEMBER — metode basis harga
 
 Mengukur ulang selisih **harga master vs rata-rata tertimbang stok yang benar-benar

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSPVMonitoringData, useMonitoringRealtime } from '@/hooks/useMonitoringData';
 import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
+import { isTestOutlet } from '@/lib/outletFilters';
 import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 
 function getOutletRegion(slug: string, address: string | null): string {
@@ -107,7 +108,10 @@ export function LiveMonitoringPage() {
     if (masterList.length === 0 && items.length > 0) {
       const uniqueOutlets: Record<string, string> = {};
       for (const item of items) {
-        if (item.outlet_id && item.outlet_name) {
+        // Outlet tes juga harus dikecualikan di jalur cadangan ini, bukan cuma
+        // di fetchOutletsList — kalau tidak, ia muncul lagi tiap kali daftar
+        // master gagal dimuat.
+        if (item.outlet_id && item.outlet_name && !isTestOutlet(item.outlet_id)) {
           uniqueOutlets[item.outlet_id] = item.outlet_name;
         }
       }

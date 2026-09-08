@@ -3,6 +3,7 @@ import { cookies, headers } from 'next/headers';
 import { createSupabaseServerClient, parseStaffHeader, STAFF_HEADER } from '@suka/auth';
 import { createClient } from '@supabase/supabase-js';
 import ReportsClient from './ReportsClient';
+import { TEST_OUTLET_ID } from '@/lib/outletFilters';
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
@@ -116,7 +117,9 @@ export default async function ReportsPage({
     .from('orders')
     .select('id, status, payment_method, channel, sales_source, total_amount, discount_amount, promo_subsidy, created_at, voided_by, void_reason, cancellation_reason, outlet_id, order_items(id, menu_item_name, quantity, subtotal)')
     .gte('created_at', p_start.toISOString())
-    .lte('created_at', p_end.toISOString());
+    .lte('created_at', p_end.toISOString())
+    // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
+    .neq('outlet_id', TEST_OUTLET_ID);
 
   // Apply filters
   if (statusFilter !== 'all') {
@@ -165,7 +168,7 @@ export default async function ReportsPage({
   }
 
   // Fetch Outlets for the filter dropdown
-  let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true);
+  let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).neq('id', TEST_OUTLET_ID);
   if (staff?.role === 'area_manager') {
     qOutlets = qOutlets.in('id', accessibleOutlets);
   } else if (staff?.outlet_id && staff.role !== 'regional_manager') {

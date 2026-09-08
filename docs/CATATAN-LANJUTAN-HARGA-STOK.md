@@ -32,6 +32,7 @@ jangan disamakan dengan outlet tes.
 | `nilai_persediaan_spv` | ✅ dikecualikan (`20300131000000`) |
 | HPP & waste — 6 fungsi RPC | ✅ lewat helper `outlet_ids_terhitung()` (`20300132000000`) |
 | `sales_summary_spv` & `menu_sales_spv` | ✅ dikecualikan (`20300133000000`) |
+| Sisi klien — daftar outlet tiap app | ✅ ditutup 8 Sep (rincian di bawah) |
 
 **Helper baru `outlet_ids_terhitung()`** — pakai ini untuk agregasi laporan
 baru. Ia = `accessible_outlet_ids()` minus lokasi non-operasional.
@@ -54,17 +55,48 @@ dasar — 17 order, 1.663 baris ledger, 2 laporan waste. Itu **disengaja**: ia
 memang outlet uji dan harus tetap bisa dipakai. Yang sudah ditutup adalah
 jalur **perhitungannya**, bukan datanya.
 
-**Yang belum diperiksa satu per satu:**
+**Kalau menggarap yang tersisa:** cari agregasi yang mengelompokkan per
+`outlet_id` tanpa memeriksa `type`. Untuk yang di database, pakai
+`outlet_ids_terhitung()` yang sudah ada. **Jangan andalkan `is_active`** —
+outlet tes justru `is_active=true`, dan banyak agregasi tak memeriksanya.
 
-- **Agregasi sisi klien.** Tiap app punya `useOutlets` sendiri; yang disaring
-  baru marketplace (Session 2026-08-05 butir 1b), belum `test`. Kalau ada
-  halaman yang menjumlahkan sendiri dari daftar outlet, outlet tes masih ikut.
-- **Laporan di luar stok** — finance, owner-dashboard, manager. Belum diaudit.
+### Sisi klien — daftar outlet tiap app (ditutup 8 September)
 
-**Kalau menggarapnya:** cari agregasi yang mengelompokkan per `outlet_id` tanpa
-memeriksa `type`. Untuk yang di database, pakai `outlet_ids_terhitung()` yang
-sudah ada. **Jangan andalkan `is_active`** — outlet tes justru `is_active=true`,
-dan banyak agregasi tak memeriksanya.
+Tiap app menarik daftar outletnya sendiri; memperbaiki satu tidak memperbaiki
+yang lain (pola yang sama dengan kebocoran marketplace, Session 2026-08-05
+butir 1b). Ditelusuri satu per satu, bukan ditebak:
+
+| App | Tempat | Tindakan |
+|---|---|---|
+| admin-dashboard | `lib/outletFilters.ts` + ~20 pemakai | sudah ditutup lebih dulu (`f8f01556`) |
+| HR | `hooks/useOutlets.ts` | sudah ditutup lebih dulu |
+| finance | `hooks/useOutlets.ts`, `hooks/useCashDeposit.ts` | ✅ disaring |
+| owner-dashboard | `hooks/useSalesSummary.ts` + 3 halaman dashboard | ✅ disaring |
+| manager | `app/page.tsx`, `app/reports/page.tsx` | ✅ daftar outlet **dan** agregat order/waste |
+| distribusi | `hooks/useOutlets.ts` (tujuan surat jalan) | ✅ disaring |
+| stok | `lib/queries/monitoring.ts` `fetchOutletsList` | ✅ disaring |
+| stok | `hooks/useOutletScope.tsx` (OutletSwitcher) | ⬜ **sengaja dibiarkan** |
+| inventori | peta nama outlet di laporan inventaris | ⬜ sengaja dibiarkan |
+
+**Dua yang sengaja dibiarkan, dan alasannya:**
+
+- **OutletSwitcher di app stok** adalah pintu masuk developer untuk menjalankan
+  pengujian (opname, mutasi, permintaan) di outlet tes. Aturannya "jangan
+  dihitung", bukan "jangan dilihat" — sama persis dengan alasan
+  `accessible_outlet_ids()` tidak diubah.
+- **Laporan inventaris di app inventori** hanya memakai daftar outlet sebagai
+  peta id→nama untuk menampilkan label; ia tidak menjumlahkan uang.
+
+**Di `apps/manager` daftar outletnya saja tidak cukup** — halaman utamanya
+menjumlahkan `orders` dan `stok_waste_reports` langsung dari tabel mentah, jadi
+penyaring dipasang di tiap agregat juga.
+
+**Catatan penyaring:** app-app baru memakai `TEST_OUTLET_ID` + `outlets.type`
+(`apps/{stok,distribusi,owner-dashboard,manager}/src/lib/outletFilters.ts`),
+bukan kecocokan potongan nama seperti berkas serupa di admin-dashboard/finance/
+HR. Hari ini keduanya memberi hasil sama (diperiksa: dari 29 outlet hanya
+"outlet tes" yang kena), tetapi nama outlet bisa diubah admin kapan saja
+sedangkan `type` diisi oleh skema.
 
 **Ukuran masalahnya, supaya tak dibesar-besarkan:** omzet outlet tes 0,051% dari
 total (Rp0,88 jt dari Rp1.739 jt), dan karena semua laporan dikelompokkan per

@@ -41,6 +41,12 @@ export function OutletScopeProvider({ children }: { children: ReactNode }) {
       const supabase = createClient()
       
       if (isPrivileged) {
+        // Outlet tes SENGAJA tidak disaring di sini. Ini OutletSwitcher —
+        // pintu masuk developer untuk menjalankan pengujian (opname, mutasi,
+        // permintaan) di outlet tes. Yang harus bersih adalah PERHITUNGAN,
+        // dan itu sudah ditutup di sisi basis data (migration 20300131/32/33)
+        // serta di daftar master `fetchOutletsList`. Lihat
+        // `@/lib/outletFilters`.
         const { data, error } = await supabase
           .from('outlets')
           .select('id, name')

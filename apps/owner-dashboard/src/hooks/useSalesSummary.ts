@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import type { SalesSummaryRow, PeriodFilterValue } from '@/lib/types'
+import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 
 // Sumber data: sales_hourly_spv (agregat per outlet × sumber × tanggal × jam,
 // pola SPV definer/bypass-RLS yang sama dengan sales_summary_spv) + nama outlet
@@ -23,13 +24,15 @@ export function useSalesSummary(filter: PeriodFilterValue) {
       .select('outlet_id, sales_source, sales_date, omzet, jumlah_order_completed')
       .gte('sales_date', filter.from)
       .lte('sales_date', filter.to)
+      // Outlet uji developer jangan masuk perhitungan (lihat @/lib/outletFilters).
+      .neq('outlet_id', TEST_OUTLET_ID)
       
     if (filter.outletId !== 'all') q = q.eq('outlet_id', filter.outletId)
     if (filter.source !== 'all') q = q.eq('sales_source', filter.source)
     
     Promise.all([
       q,
-      supabase.from('outlets').select('id, name')
+      supabase.from('outlets').select('id, name').neq('id', TEST_OUTLET_ID)
     ]).then(([hourlyRes, outletsRes]) => {
       if (!active) return
       

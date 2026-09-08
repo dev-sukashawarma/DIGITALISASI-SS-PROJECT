@@ -218,6 +218,17 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       toast.error('Silakan isi nominal target harian ATAU tulis pesan motivasi untuk kasir.')
       return
     }
+    // Kirim ke SEMUA cabang tidak bisa ditarik kembali (langsung tampil di layar
+    // kasir seluruh outlet) — minta konfirmasi eksplisit supaya tidak keliru
+    // saat maksudnya cuma satu cabang.
+    if (audienceAll) {
+      const ok = window.confirm(
+        `Pesan/target ini akan diterapkan ke SEMUA cabang (${rows.length} outlet).\n\n` +
+          'Kalau maksudnya hanya cabang tertentu, batalkan lalu pilih "Pilih Spesifik" dulu.\n\n' +
+          'Lanjut kirim ke semua cabang?'
+      )
+      if (!ok) return
+    }
     setSending(true)
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -275,8 +286,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
       setBonusInput('')
       setTitle('')
       setBody('')
-      setSelectedOutlets(new Set())
-      setAudienceAll(true)
+      // Pilihan cabang penerima SENGAJA tidak di-reset. Dulu form balik sendiri
+      // ke "Semua Outlet" setelah kirim, jadi pesan berikutnya diam-diam
+      // ter-broadcast ke seluruh cabang padahal admin merasa masih memilih satu
+      // cabang saja.
       await Promise.all([loadTargets(), loadHistory()])
     } catch (e: any) {
       console.error(e)
@@ -347,6 +360,15 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
     rows.forEach((r) => m.set(r.outlet_id, cleanName(r.outlet_name)))
     return m
   }, [rows])
+
+  // Ringkasan penerima untuk label tombol kirim — audiens harus selalu terbaca
+  // sebelum admin menekan kirim.
+  const audienceSummary = useMemo(() => {
+    const names = Array.from(selectedOutlets).map((id) => outletNameById.get(id) ?? '—')
+    if (names.length === 0) return ''
+    if (names.length <= 2) return names.join(' & ')
+    return `${names.slice(0, 2).join(', ')} +${names.length - 2} cabang lain`
+  }, [selectedOutlets, outletNameById])
 
   return (
     <div className="space-y-6">
@@ -651,9 +673,10 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   type="button"
                   onClick={submit}
                   disabled={
-                    sending || 
-                    (title.trim().length > 0 && body.trim().length === 0) || 
-                    (hasBonus && !hasTarget) || 
+                    sending ||
+                    !audienceValid ||
+                    (title.trim().length > 0 && body.trim().length === 0) ||
+                    (hasBonus && !hasTarget) ||
                     (!hasTarget && body.trim().length === 0)
                   }
                   className="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-suka-brown to-suka-ink hover:from-suka-ink hover:to-black text-white font-extrabold text-sm shadow-[0_8px_20px_rgba(44,24,16,0.15)] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-[.99] flex items-center justify-center gap-2 mt-4"
@@ -667,13 +690,17 @@ export default function TargetsView({ initialTargets, initialGlobalDefault, init
                   )}
                   {sent
                     ? 'Berhasil Terkirim!'
+                    : !audienceValid
+                    ? 'Pilih Cabang Penerima Dulu'
                     : (title.trim().length > 0 && body.trim().length === 0)
                     ? 'Isi Pesan Wajib Diisi (Judul Terisi)'
                     : (hasBonus && !hasTarget)
                     ? 'Isi Target Omzet Terlebih Dahulu'
                     : (!hasTarget && body.trim().length === 0)
                     ? 'Isi Target Omzet ATAU Tulis Pesan'
-                    : '🚀 Kirim Target & Pesan ke Kasir'}
+                    : audienceAll
+                    ? `🚀 Kirim ke SEMUA CABANG (${rows.length} outlet)`
+                    : `🚀 Kirim ke ${audienceSummary}`}
                 </button>
               </div>
             )}

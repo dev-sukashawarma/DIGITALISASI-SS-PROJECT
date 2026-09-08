@@ -98,15 +98,23 @@ function formatTime(value?: string | null): string {
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
+  pengeluaran_outlet: 'Outlet',
   bahan_baku: 'Bahan Baku',
-  pengeluaran_outlet: 'Operasional Outlet',
-  utilitas: 'Utilitas',
-  lainnya: 'Lainnya',
+  transport: 'Transport',
+  pln: 'Listrik',
+  pdam: 'Air',
+  internet: 'Internet',
+  lembur: 'Overtime',
+  endorsement: 'Endorsement',
   // Backwards compatibility for old data:
   bb: 'Bahan Baku',
-  outlet: 'Operasional Outlet',
-  operasional: 'Operasional Outlet',
+  outlet: 'Outlet',
+  operasional: 'Outlet',
+  utilitas: 'Utilitas',
   utilities: 'Utilitas',
+  lainnya: 'Lainnya',
+  overtime: 'Overtime',
+  ads: 'Ads',
 }
 
 export default function CashierShiftPage() {
@@ -744,9 +752,14 @@ export default function CashierShiftPage() {
                       disabled={isSubmitting}
                       className="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none text-sm font-medium"
                     >
+                      <option value="pengeluaran_outlet">Outlet (Plastik, ATK, Kebersihan)</option>
                       <option value="bahan_baku">Bahan Baku (Es Batu, Sayur)</option>
-                      <option value="pengeluaran_outlet">Operasional Outlet (Plastik, ATK, Lainnya)</option>
-                      <option value="utilitas">Utilitas (Listrik Darurat)</option>
+                      <option value="transport">Transport (Ongkir, Bensin, Lalamove)</option>
+                      <option value="pln">Listrik</option>
+                      <option value="pdam">Air</option>
+                      <option value="internet">Internet</option>
+                      <option value="lembur">Overtime (Lembur)</option>
+                      <option value="endorsement">Endorsement</option>
                     </select>
                   </div>
                   <div>

@@ -71,6 +71,62 @@ sesudahnya.
 
 ---
 
+## 🔗 RANTAI HARGA: PO → master → surat jalan (8 September)
+
+**Terkonfirmasi di kode:** `SuratJalanForm.tsx:177` menulis
+`qty_dikirim = convertToBaseUnit(qty, bahan)` = `qty ÷ getDistribusiFactor(b)`,
+dan faktor itu menurunkan dari `satuan_distribusi` ke `satuan`. Jadi
+**`qty_dikirim` disimpan dalam satuan besar** — sesuai catatan sesi FOIL-Dus.
+
+**Rantainya:** `verifikasi_terima_po` menimpa `bahan_baku_harga.harga_beli` →
+trigger `fill_harga_snapshot` menyalinnya APA ADANYA ke
+`surat_jalan_item.harga_snapshot` saat SJ dibuat. Tidak ada kode app yang
+menulis kolom itu; trigger satu-satunya pengisi. Snapshot **beku**: memperbaiki
+baris PO tidak mengubahnya.
+
+Semua **2.626** baris SJ punya snapshot (18 Juli–8 September).
+
+### Konsekuensinya: snapshot mewarisi basis master saat itu
+
+`harga_beli` baru dinormalkan ke satuan besar pada 3 September
+(`20300122000000`/`20300122000001`). Snapshot yang dibekukan sebelum itu
+memakai basis lama yang campur, sementara `qty_dikirim` selalu satuan besar —
+jadi `qty × snapshot` pada baris-baris itu tidak sebanding.
+
+Pemisahan kasar (rasio snapshot terhadap master kini):
+
+| Kelompok | Nilai beku |
+|---|---:|
+| Rasio ≥ 3× — hampir pasti beda basis | ~Rp24,2 juta |
+| Rasio 1,5–3× — ambigu, didominasi AYAM | ~Rp97,7 juta |
+
+⚠️ **Angka itu perkiraan kasar, jangan dikutip sebagai kerugian.** Pemisah yang
+dipakai (rasio cocok dengan faktor konversi) mewarisi kelemahan yang sama dengan
+GUARD SALAH SATUAN: **kalau harganya ikut bergerak, rasionya tidak lagi mendarat
+persis di faktor**. KENTANG 24.000 (rasio 10,42) jelas per-Pack tapi lolos ke
+kelompok "harga lama" hanya karena bukan tepat 10,00. Pemisah yang benar butuh
+master per-tanggal, dan `bahan_baku_harga_history` tidak lengkap.
+
+### Yang terbukti tanpa keraguan
+
+**PO uji coba menulis harga ke master produksi.** Riwayat mencatat AYAM
+51.000 → **35.000** pada 28 Agustus dari PO bernama
+`TEST/PO/PARTIAL/1787895628258`, kembali ke 53.500 pada 1 September. **22 baris
+surat jalan** bertanggal 29 Agu–1 Sep membekukan harga tes itu, senilai
+**Rp19.950.000**. Pola yang sama dengan kebocoran outlet tes, lewat pintu
+berbeda: **jalur PO belum punya penyaring dokumen uji coba.**
+
+### Meredakan: belum ada laporan yang salah hari ini
+
+`harga_snapshot` hanya dibaca `hpp_nilai_stok_harian_spv` dan
+`hpp_barang_masuk_harian_spv`, yang memberi makan `get_hpp_periode` — dan itu
+**dorman** (produksi memakai `menu_items.hpp_override`). Jadi tidak ada angka
+yang sedang salah di layar. Tapi view itulah yang menyala kalau HPP dinamis atau
+rata-rata tertimbang dinyalakan — snapshot berbasis campur akan langsung jadi
+masalah saat itu.
+
+---
+
 ## ⛔ ATURAN — "outlet tes" JANGAN masuk perhitungan apa pun
 
 **Keputusan owner, 8 September 2026:**

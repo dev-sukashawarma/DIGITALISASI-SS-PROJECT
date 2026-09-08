@@ -1,4 +1,3 @@
-// @ts-nocheck
 'use client'
 
 import React, { useState, useMemo } from 'react'
@@ -21,7 +20,6 @@ import {
   Plus, 
   UserCheck, 
   TrendingUp, 
-  Building2, 
   Edit3, 
   ShieldCheck, 
   AlertCircle,
@@ -29,17 +27,10 @@ import {
   FileText,
   DollarSign,
   PieChart,
-  Percent,
-  Calendar,
   Activity,
-  ChevronRight,
   User,
   Phone,
-  Mail,
-  MapPin,
-  HelpCircle,
   Copy,
-  ExternalLink,
   Check,
   CheckCircle2,
   Sparkles,
@@ -90,6 +81,19 @@ function getInitials(name: string) {
   return name.slice(0, 2).toUpperCase()
 }
 
+export interface KelolaMitraViewProps {
+  mitraProfiles?: any[]
+  suggestions?: any[]
+  allUsers?: any[]
+  allOutlets?: any[]
+  transfers?: any[]
+  investments?: any[]
+  initialPnlData?: any
+  currentFilter?: PeriodFilterValue
+  mitraOutletIds?: string[]
+  realtimeBepMap?: Record<string, any>
+}
+
 export function KelolaMitraView({ 
   mitraProfiles = [], 
   suggestions = [], 
@@ -101,7 +105,7 @@ export function KelolaMitraView({
   currentFilter = { from: '', to: '', outletId: 'all', source: 'all' },
   mitraOutletIds = [],
   realtimeBepMap = {}
-}: any) {
+}: KelolaMitraViewProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'pnl' | 'daftar' | 'investasi' | 'transfer' | 'saran'>('pnl')
   const [searchQuery, setSearchQuery] = useState('')
@@ -240,200 +244,202 @@ export function KelolaMitraView({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#251A14] p-4 sm:p-6 lg:p-8 space-y-7 animate-fade-in relative selection:bg-amber-500 selection:text-white">
-      
-      {/* 1. ARCHITECTURAL AMBIENT LIGHTING */}
-      <div className="fixed top-0 right-0 w-[600px] h-[600px] bg-gradient-to-bl from-amber-200/20 via-orange-100/10 to-transparent rounded-full blur-[140px] pointer-events-none -z-10" />
-      <div className="fixed bottom-0 left-0 w-[500px] h-[500px] bg-gradient-to-tr from-amber-300/15 via-rose-100/10 to-transparent rounded-full blur-[140px] pointer-events-none -z-10" />
+    <div className="min-h-screen space-y-6 animate-fade-in pb-12 text-[#251A14]">
+      {/* 1. HEADER DASHBOARD KEMITRAAN */}
+      <div className="bg-white/90 backdrop-blur-xl rounded-3xl border border-suka-brown/10 p-6 sm:p-7 shadow-xs relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-amber-500/10 via-orange-500/5 to-transparent rounded-full blur-3xl -z-10 pointer-events-none" />
 
-      {/* 2. EXECUTIVE HERO: DOUBLE-BEZEL MACHINED ENCLOSURE */}
-      <div className="bg-amber-950/[0.03] p-1.5 rounded-[2rem] ring-1 ring-amber-950/[0.06] shadow-[0_12px_35px_-15px_rgba(56,38,28,0.06)]">
-        <div className="bg-white/95 backdrop-blur-2xl rounded-[calc(2rem-0.375rem)] p-6 sm:p-8 shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_2px_8px_-2px_rgba(56,38,28,0.03)] relative overflow-hidden">
-          
-          <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-bl from-amber-500/10 via-orange-500/5 to-transparent rounded-full blur-3xl -z-10 pointer-events-none" />
-
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-3xl">
-              
-              {/* Eyebrow Pill */}
-              <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-600 to-orange-600 text-white text-[11px] font-semibold tracking-wider uppercase shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Executive Partnership Hub
-                </span>
-                
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-medium border border-emerald-200/80 shadow-xs">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  {totalMitraAktif} Mitra Terverifikasi
-                </span>
-              </div>
-
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-[#2A1D16] tracking-tight">
-                Pusat Manajemen Kemitraan
-              </h1>
-              
-              <p className="text-sm sm:text-base text-[#6E5A4E] font-normal leading-relaxed">
-                Platform kontrol terpadu untuk monitoring P&L real-time, audit komparasi finansial outlet, database legalitas PKS, dan otomatisasi transfer bagi hasil mitra.
-              </p>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-suka-orange/10 text-suka-orange text-[11px] font-bold uppercase tracking-wider border border-suka-orange/20">
+                <Sparkles className="w-3.5 h-3.5" />
+                Manajemen Kemitraan
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 text-[11px] font-semibold border border-emerald-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                {totalMitraAktif} Mitra Terverifikasi
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-suka-brown/5 text-suka-brown text-[11px] font-medium border border-suka-brown/10">
+                <Store className="w-3.5 h-3.5 text-suka-brown/70" />
+                {uniqueOutletsCovered} Outlet Kemitraan
+              </span>
             </div>
-            
-            {/* Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button 
-                onClick={() => setIsTransferFormOpen(true)}
-                className="group inline-flex items-center justify-center gap-2.5 px-5 py-2.5 bg-white hover:bg-amber-50/80 text-[#2A1D16] border border-amber-200/80 rounded-full text-xs sm:text-sm font-semibold shadow-xs hover:shadow-sm transition-all duration-300 active:scale-[0.98]"
-              >
-                <UploadCloud className="w-4 h-4 text-amber-600" />
-                <span>Upload Bukti Transfer</span>
-              </button>
 
-              <button 
-                onClick={handleAdd}
-                className="group inline-flex items-center justify-center gap-2 pl-5 pr-2 py-2 bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-full text-xs sm:text-sm font-semibold shadow-md shadow-amber-600/25 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <span>Tambah Mitra Baru</span>
-                <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center transition-transform duration-300 group-hover:scale-105">
-                  <Plus className="w-3.5 h-3.5 text-white" />
-                </div>
-              </button>
-            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-suka-brown tracking-tight">
+              Dashboard Kemitraan
+            </h1>
+
+            <p className="text-xs sm:text-sm text-suka-ink/65 max-w-2xl font-normal leading-relaxed">
+              Monitoring performa P&L, pelacak modal investasi & progres BEP, legalitas kontrak PKS, serta riwayat transfer bagi hasil mitra.
+            </p>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0 pt-1 lg:pt-0">
+            <button
+              onClick={() => setIsTransferFormOpen(true)}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-suka-gray-50 text-suka-brown border border-suka-gray-200 rounded-xl text-xs sm:text-sm font-semibold shadow-2xs hover:border-suka-orange/40 transition-all active:scale-[0.98]"
+            >
+              <UploadCloud className="w-4 h-4 text-suka-orange" />
+              <span>Upload Bukti Transfer</span>
+            </button>
+
+            <button
+              onClick={handleAdd}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-suka-orange hover:bg-suka-orange/90 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs transition-all active:scale-[0.98]"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Tambah Mitra Baru</span>
+            </button>
           </div>
         </div>
       </div>
 
-      {/* 3. BENTO-GRID EXECUTIVE STAT METRICS */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        
-        {/* Card 1: Total Mitra */}
-        <div 
+      {/* 2. BENTO-GRID KPI METRICS */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-4">
+        {/* Card 1: Mitra Terdaftar */}
+        <div
           onClick={() => setActiveTab('daftar')}
-          className="group bg-amber-950/[0.02] p-1 rounded-[1.75rem] ring-1 ring-amber-950/[0.05] shadow-xs hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+          className={`group bg-white/95 rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer flex flex-col justify-between ${
+            activeTab === 'daftar'
+              ? 'ring-2 ring-suka-orange/40 border-suka-orange/60 bg-amber-50/20 shadow-sm'
+              : 'border-suka-brown/10 shadow-xs hover:border-suka-orange/40 hover:shadow-sm'
+          }`}
         >
-          <div className="bg-white/95 rounded-[calc(1.75rem-0.25rem)] p-5 h-full flex flex-col justify-between shadow-[inset_0_1px_1px_rgba(255,255,255,1)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">Mitra Terdaftar</span>
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center border border-amber-200/60 group-hover:scale-105 transition-all">
-                <Users className="w-4 h-4" />
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-suka-gray-500 uppercase tracking-wider">Mitra Terdaftar</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center border border-amber-200/60 shrink-0">
+              <Users className="w-4 h-4" />
             </div>
-            <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-bold text-[#2A1D16] tabular-nums tracking-tight">{totalMitra}</div>
-              <div className="text-xs font-medium text-emerald-700 mt-1 flex items-center gap-1">
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600" /> {totalMitraAktif} aktif
-              </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl sm:text-2xl font-bold text-suka-brown tabular-nums tracking-tight">{totalMitra}</div>
+            <div className="text-xs font-medium text-emerald-700 mt-1 flex items-center gap-1 truncate">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>{totalMitraAktif} aktif</span>
             </div>
           </div>
         </div>
 
         {/* Card 2: Outlet Kemitraan */}
-        <div 
+        <div
           onClick={() => setActiveTab('investasi')}
-          className="group bg-amber-950/[0.02] p-1 rounded-[1.75rem] ring-1 ring-amber-950/[0.05] shadow-xs hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+          className={`group bg-white/95 rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer flex flex-col justify-between ${
+            activeTab === 'investasi'
+              ? 'ring-2 ring-suka-orange/40 border-suka-orange/60 bg-amber-50/20 shadow-sm'
+              : 'border-suka-brown/10 shadow-xs hover:border-suka-orange/40 hover:shadow-sm'
+          }`}
         >
-          <div className="bg-white/95 rounded-[calc(1.75rem-0.25rem)] p-5 h-full flex flex-col justify-between shadow-[inset_0_1px_1px_rgba(255,255,255,1)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">Outlet Mitra</span>
-              <div className="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-700 flex items-center justify-center border border-orange-200/60 group-hover:scale-105 transition-all">
-                <Store className="w-4 h-4" />
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-suka-gray-500 uppercase tracking-wider">Outlet Mitra</span>
+            <div className="w-8 h-8 rounded-xl bg-orange-500/10 text-orange-700 flex items-center justify-center border border-orange-200/60 shrink-0">
+              <Store className="w-4 h-4" />
             </div>
-            <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-bold text-[#2A1D16] tabular-nums tracking-tight">
-                {uniqueOutletsCovered} <span className="text-sm font-normal text-[#8C7566]">Unit</span>
-              </div>
-              <div className="text-xs font-medium text-orange-800 mt-1 flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-orange-600" /> Terkelola aktif
-              </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-xl sm:text-2xl font-bold text-suka-brown tabular-nums tracking-tight">
+              {uniqueOutletsCovered} <span className="text-xs font-normal text-suka-gray-500">Unit</span>
+            </div>
+            <div className="text-xs font-medium text-orange-800 mt-1 flex items-center gap-1 truncate">
+              <ShieldCheck className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+              <span>{mitraOutlets.length} outlet terhubung</span>
             </div>
           </div>
         </div>
 
-        {/* Card 3: Modal Masuk */}
-        <div 
+        {/* Card 3: Modal Terhimpun */}
+        <div
           onClick={() => setActiveTab('investasi')}
-          className="group bg-amber-950/[0.02] p-1 rounded-[1.75rem] ring-1 ring-amber-950/[0.05] shadow-xs hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+          className={`group bg-white/95 rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer flex flex-col justify-between ${
+            activeTab === 'investasi'
+              ? 'ring-2 ring-suka-orange/40 border-suka-orange/60 bg-amber-50/20 shadow-sm'
+              : 'border-suka-brown/10 shadow-xs hover:border-suka-orange/40 hover:shadow-sm'
+          }`}
         >
-          <div className="bg-white/95 rounded-[calc(1.75rem-0.25rem)] p-5 h-full flex flex-col justify-between shadow-[inset_0_1px_1px_rgba(255,255,255,1)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">Modal Terhimpun</span>
-              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-700 flex items-center justify-center border border-blue-200/60 group-hover:scale-105 transition-all">
-                <DollarSign className="w-4 h-4" />
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-suka-gray-500 uppercase tracking-wider">Modal Terhimpun</span>
+            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-700 flex items-center justify-center border border-blue-200/60 shrink-0">
+              <DollarSign className="w-4 h-4" />
             </div>
-            <div className="mt-3">
-              <div className="text-xl sm:text-2xl font-bold text-[#2A1D16] tabular-nums tracking-tight truncate">
-                {formatRupiah(totalModalSemua)}
-              </div>
-              <div className="text-xs font-medium text-blue-800 mt-1 flex items-center gap-1">
-                <Activity className="w-3.5 h-3.5 text-blue-600" /> {investments.length} slot modal
-              </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-lg sm:text-xl font-bold text-suka-brown tabular-nums tracking-tight truncate" title={formatRupiah(totalModalSemua)}>
+              {formatRupiah(totalModalSemua)}
+            </div>
+            <div className="text-xs font-medium text-blue-800 mt-1 flex items-center gap-1 truncate">
+              <Activity className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>{investments.length} slot modal</span>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Total Transfer Terbayar */}
-        <div 
+        {/* Card 4: Bagi Hasil Terbayar */}
+        <div
           onClick={() => setActiveTab('transfer')}
-          className="group bg-amber-950/[0.02] p-1 rounded-[1.75rem] ring-1 ring-amber-950/[0.05] shadow-xs hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+          className={`group bg-white/95 rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer flex flex-col justify-between ${
+            activeTab === 'transfer'
+              ? 'ring-2 ring-suka-orange/40 border-suka-orange/60 bg-amber-50/20 shadow-sm'
+              : 'border-suka-brown/10 shadow-xs hover:border-suka-orange/40 hover:shadow-sm'
+          }`}
         >
-          <div className="bg-white/95 rounded-[calc(1.75rem-0.25rem)] p-5 h-full flex flex-col justify-between shadow-[inset_0_1px_1px_rgba(255,255,255,1)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">Bagi Hasil Terbayar</span>
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center border border-emerald-200/60 group-hover:scale-105 transition-all">
-                <TrendingUp className="w-4 h-4" />
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-suka-gray-500 uppercase tracking-wider">Bagi Hasil Terbayar</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center border border-emerald-200/60 shrink-0">
+              <TrendingUp className="w-4 h-4" />
             </div>
-            <div className="mt-3">
-              <div className="text-xl sm:text-2xl font-bold text-[#2A1D16] tabular-nums tracking-tight truncate">
-                {formatRupiah(totalTransferNominal)}
-              </div>
-              <div className="text-xs font-medium text-emerald-800 mt-1 flex items-center gap-1">
-                <FileCheck className="w-3.5 h-3.5 text-emerald-600" /> {transfers.length} bukti transfer
-              </div>
+          </div>
+          <div className="mt-3">
+            <div className="text-lg sm:text-xl font-bold text-suka-brown tabular-nums tracking-tight truncate" title={formatRupiah(totalTransferNominal)}>
+              {formatRupiah(totalTransferNominal)}
+            </div>
+            <div className="text-xs font-medium text-emerald-800 mt-1 flex items-center gap-1 truncate">
+              <FileCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>{transfers.length} bukti transfer</span>
             </div>
           </div>
         </div>
 
-        {/* Card 5: Saran & Pesan */}
-        <div 
+        {/* Card 5: Kotak Saran */}
+        <div
           onClick={() => setActiveTab('saran')}
-          className="col-span-2 lg:col-span-1 group bg-amber-950/[0.02] p-1 rounded-[1.75rem] ring-1 ring-amber-950/[0.05] shadow-xs hover:shadow-lg hover:shadow-amber-500/10 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+          className={`col-span-2 sm:col-span-1 xl:col-span-1 group bg-white/95 rounded-2xl p-4 sm:p-5 border transition-all cursor-pointer flex flex-col justify-between ${
+            activeTab === 'saran'
+              ? 'ring-2 ring-suka-orange/40 border-suka-orange/60 bg-amber-50/20 shadow-sm'
+              : 'border-suka-brown/10 shadow-xs hover:border-suka-orange/40 hover:shadow-sm'
+          }`}
         >
-          <div className="bg-white/95 rounded-[calc(1.75rem-0.25rem)] p-5 h-full flex flex-col justify-between shadow-[inset_0_1px_1px_rgba(255,255,255,1)]">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">Kotak Saran</span>
-              <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-700 flex items-center justify-center border border-rose-200/60 group-hover:scale-105 transition-all">
-                <MessageSquare className="w-4 h-4" />
-              </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-suka-gray-500 uppercase tracking-wider">Kotak Saran</span>
+            <div className="w-8 h-8 rounded-xl bg-rose-500/10 text-rose-700 flex items-center justify-center border border-rose-200/60 shrink-0">
+              <MessageSquare className="w-4 h-4" />
             </div>
-            <div className="mt-3">
-              <div className="text-2xl sm:text-3xl font-bold text-[#2A1D16] tabular-nums tracking-tight">{suggestions.length}</div>
-              <div className="text-xs font-medium mt-1">
-                {pendingSuggestions > 0 ? (
-                  <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 font-semibold inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
-                    {pendingSuggestions} baru
-                  </span>
-                ) : (
-                  <span className="text-[#8C7566]">Semua ditanggapi</span>
-                )}
-              </div>
+          </div>
+          <div className="mt-3 flex items-center sm:block justify-between">
+            <div className="text-xl sm:text-2xl font-bold text-suka-brown tabular-nums tracking-tight">{suggestions.length}</div>
+            <div className="text-xs font-medium mt-1">
+              {pendingSuggestions > 0 ? (
+                <span className="text-rose-700 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 font-semibold inline-flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                  {pendingSuggestions} baru
+                </span>
+              ) : (
+                <span className="text-suka-gray-500">Semua ditanggapi</span>
+              )}
             </div>
           </div>
         </div>
-
       </div>
 
-      {/* 4. SEGMENTED CONTROL: CLEAN PILL TRACK */}
-      <div className="flex items-center justify-between flex-wrap gap-4 pt-2">
-        <div className="flex flex-wrap gap-1 bg-amber-950/[0.04] p-1 rounded-2xl w-fit border border-amber-950/[0.06] shadow-xs">
-          
+      {/* 3. SEGMENTED TAB TRACK */}
+      <div className="overflow-x-auto no-scrollbar pb-1">
+        <div className="flex items-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-md rounded-2xl border border-suka-brown/10 shadow-xs w-max max-w-full">
           <button
             onClick={() => setActiveTab('pnl')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
               activeTab === 'pnl'
-                ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white shadow-sm'
-                : 'text-[#6E5A4E] hover:text-[#2A1D16] hover:bg-white/60'
+                ? 'bg-suka-orange text-white shadow-xs'
+                : 'text-suka-ink/70 hover:text-suka-brown hover:bg-suka-gray-100/60'
             }`}
           >
             <PieChart className="w-4 h-4" />
@@ -442,16 +448,16 @@ export function KelolaMitraView({
 
           <button
             onClick={() => setActiveTab('daftar')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
               activeTab === 'daftar'
-                ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white shadow-sm'
-                : 'text-[#6E5A4E] hover:text-[#2A1D16] hover:bg-white/60'
+                ? 'bg-suka-orange text-white shadow-xs'
+                : 'text-suka-ink/70 hover:text-suka-brown hover:bg-suka-gray-100/60'
             }`}
           >
             <Users className="w-4 h-4" />
             <span>Database & Biodata Mitra</span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              activeTab === 'daftar' ? 'bg-white/25 text-white' : 'bg-amber-100/80 text-amber-900'
+              activeTab === 'daftar' ? 'bg-white/25 text-white' : 'bg-suka-gray-100 text-suka-brown'
             }`}>
               {mitraProfiles.length}
             </span>
@@ -459,10 +465,10 @@ export function KelolaMitraView({
 
           <button
             onClick={() => setActiveTab('investasi')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
               activeTab === 'investasi'
-                ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white shadow-sm'
-                : 'text-[#6E5A4E] hover:text-[#2A1D16] hover:bg-white/60'
+                ? 'bg-suka-orange text-white shadow-xs'
+                : 'text-suka-ink/70 hover:text-suka-brown hover:bg-suka-gray-100/60'
             }`}
           >
             <DollarSign className="w-4 h-4" />
@@ -471,17 +477,17 @@ export function KelolaMitraView({
 
           <button
             onClick={() => setActiveTab('transfer')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
               activeTab === 'transfer'
-                ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white shadow-sm'
-                : 'text-[#6E5A4E] hover:text-[#2A1D16] hover:bg-white/60'
+                ? 'bg-suka-orange text-white shadow-xs'
+                : 'text-suka-ink/70 hover:text-suka-brown hover:bg-suka-gray-100/60'
             }`}
           >
             <FileCheck className="w-4 h-4" />
             <span>Riwayat Transfer</span>
             {transfers.length > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                activeTab === 'transfer' ? 'bg-white/25 text-white' : 'bg-amber-100/80 text-amber-900'
+                activeTab === 'transfer' ? 'bg-white/25 text-white' : 'bg-suka-gray-100 text-suka-brown'
               }`}>
                 {transfers.length}
               </span>
@@ -490,24 +496,30 @@ export function KelolaMitraView({
 
           <button
             onClick={() => setActiveTab('saran')}
-            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all duration-200 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 ${
               activeTab === 'saran'
-                ? 'bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 text-white shadow-sm'
-                : 'text-[#6E5A4E] hover:text-[#2A1D16] hover:bg-white/60'
+                ? 'bg-suka-orange text-white shadow-xs'
+                : 'text-suka-ink/70 hover:text-suka-brown hover:bg-suka-gray-100/60'
             }`}
           >
             <MessageSquare className="w-4 h-4" />
             <span>Kotak Saran</span>
-            {pendingSuggestions > 0 && (
+            {pendingSuggestions > 0 ? (
               <span className="bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                {pendingSuggestions}
+                {pendingSuggestions} baru
               </span>
-            )}
+            ) : suggestions.length > 0 ? (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                activeTab === 'saran' ? 'bg-white/25 text-white' : 'bg-suka-gray-100 text-suka-brown'
+              }`}>
+                {suggestions.length}
+              </span>
+            ) : null}
           </button>
         </div>
       </div>
 
-      {/* 5. TAB CONTENT PANELS */}
+      {/* 4. TAB CONTENT PANELS */}
 
       {/* TAB 1: COMPREHENSIVE P&L LAPORAN FINANSIAL */}
       {activeTab === 'pnl' && (
@@ -518,19 +530,20 @@ export function KelolaMitraView({
               currentFilter={currentFilter}
               onFilterChange={handleFilterChange}
               outlets={mitraOutlets}
+              className="mt-0"
             />
           ) : (
-            <div className="p-14 text-center bg-white/90 backdrop-blur-md rounded-3xl border border-dashed border-amber-200 shadow-xs space-y-5">
-              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+            <div className="p-12 text-center bg-white/90 backdrop-blur-md rounded-3xl border border-dashed border-suka-brown/20 shadow-xs space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-50 text-suka-orange flex items-center justify-center mx-auto border border-amber-200/70">
                 <Store className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="font-bold text-[#2A1D16] text-base">Belum Ada Transaksi di Jaringan Kemitraan</h3>
-                <p className="text-xs text-[#6E5A4E] max-w-md mx-auto font-normal mt-2">
+                <h3 className="font-bold text-suka-brown text-base">Belum Ada Transaksi di Jaringan Kemitraan</h3>
+                <p className="text-xs text-suka-gray-500 max-w-md mx-auto font-normal mt-1.5">
                   Silakan sesuaikan filter rentang tanggal atau pastikan outlet mitra telah terhubung dengan data penjualan.
                 </p>
               </div>
-              <div className="flex justify-center mt-4">
+              <div className="flex justify-center mt-3">
                 <PeriodFilter
                   value={currentFilter}
                   onChange={handleFilterChange}
@@ -546,55 +559,53 @@ export function KelolaMitraView({
       {/* TAB 2: DATABASE & BIODATA MITRA */}
       {activeTab === 'daftar' && (
         <div className="space-y-6">
-          
           {/* Search & Status Filter Toolbar */}
-          <div className="bg-white/95 rounded-2xl p-4 border border-amber-200/70 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-            
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-suka-brown/10 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
             {/* Search Input */}
             <div className="relative w-full md:max-w-md">
               <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none">
-                <Search className="w-4 h-4 text-amber-700/60" />
+                <Search className="w-4 h-4 text-suka-gray-400" />
               </span>
               <input
                 type="text"
-                placeholder="Cari nama mitra, NIK, bank, nomor rekening, atau outlet..."
+                placeholder="Cari nama mitra, NIK, bank, rekening, atau outlet..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-8 py-2.5 text-xs sm:text-sm rounded-xl border border-amber-200/80 focus:outline-none focus:ring-2 focus:ring-amber-500/25 focus:border-amber-500 placeholder:text-[#9E897C] bg-[#FAF7F2] font-normal"
+                className="w-full pl-10 pr-8 py-2.5 text-xs sm:text-sm rounded-xl border border-suka-gray-200 focus:outline-none focus:ring-2 focus:ring-suka-orange/20 focus:border-suka-orange placeholder:text-suka-gray-400 bg-suka-gray-50/60 font-normal transition-all"
               />
               {searchQuery && (
                 <button 
                   onClick={() => setSearchQuery('')} 
-                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-suka-gray-400 hover:text-suka-ink"
                 >
                   <X className="w-4 h-4" />
                 </button>
               )}
             </div>
 
-            {/* Status Pills */}
+            {/* Status Pills & Action */}
             <div className="flex items-center gap-2 w-full md:w-auto justify-between md:justify-end">
-              <div className="flex items-center gap-1 bg-[#FAF7F2] p-1 rounded-xl border border-amber-200/70 text-xs">
+              <div className="flex items-center gap-1 bg-suka-gray-100/70 p-1 rounded-xl border border-suka-gray-200/70 text-xs">
                 <button
                   onClick={() => setStatusFilter('all')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    statusFilter === 'all' ? 'bg-white text-amber-950 shadow-xs font-semibold' : 'text-[#6E5A4E] hover:text-[#2A1D16]'
+                  className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
+                    statusFilter === 'all' ? 'bg-white text-suka-brown shadow-2xs font-semibold' : 'text-suka-ink/70 hover:text-suka-brown'
                   }`}
                 >
                   Semua ({mitraProfiles.length})
                 </button>
                 <button
                   onClick={() => setStatusFilter('aktif')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    statusFilter === 'aktif' ? 'bg-emerald-600 text-white shadow-xs font-semibold' : 'text-[#6E5A4E] hover:text-[#2A1D16]'
+                  className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
+                    statusFilter === 'aktif' ? 'bg-emerald-600 text-white shadow-2xs font-semibold' : 'text-suka-ink/70 hover:text-suka-brown'
                   }`}
                 >
                   Aktif ({totalMitraAktif})
                 </button>
                 <button
                   onClick={() => setStatusFilter('nonaktif')}
-                  className={`px-3 py-1.5 rounded-lg transition-all ${
-                    statusFilter === 'nonaktif' ? 'bg-rose-600 text-white shadow-xs font-semibold' : 'text-[#6E5A4E] hover:text-[#2A1D16]'
+                  className={`px-3 py-1.5 rounded-lg transition-all font-medium ${
+                    statusFilter === 'nonaktif' ? 'bg-rose-600 text-white shadow-2xs font-semibold' : 'text-suka-ink/70 hover:text-suka-brown'
                   }`}
                 >
                   Nonaktif ({mitraProfiles.length - totalMitraAktif})
@@ -603,16 +614,16 @@ export function KelolaMitraView({
 
               <button
                 onClick={handleAdd}
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold text-xs rounded-xl shadow-sm transition-all shrink-0"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white font-semibold text-xs rounded-xl shadow-2xs transition-all shrink-0 active:scale-95"
               >
                 <Plus className="w-4 h-4" />
-                <span>Tambah</span>
+                <span>Tambah Mitra</span>
               </button>
             </div>
           </div>
 
-          {/* Cards Bento Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredMitra.map((mitra: any) => {
               const staffUser = allUsers.find((u: any) => u.id === mitra.user_id)
               const outletCount = mitra.outlet_ids?.length || 0
@@ -622,29 +633,28 @@ export function KelolaMitraView({
               return (
                 <div 
                   key={mitra.id || mitra.user_id} 
-                  className="group bg-white/95 rounded-3xl border border-amber-200/70 p-6 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                  className="group bg-white/95 rounded-2xl border border-suka-brown/10 p-5 sm:p-6 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between h-full"
                 >
                   <div className="space-y-4">
-                    
                     {/* Header: Avatar, Name, User, Status */}
-                    <div className="flex items-start gap-3.5 pb-3.5 border-b border-amber-100">
-                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${avatarGrad} text-white font-bold text-base flex items-center justify-center shrink-0 shadow-sm`}>
+                    <div className="flex items-start gap-3.5 pb-3.5 border-b border-suka-gray-100">
+                      <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${avatarGrad} text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-2xs`}>
                         {initials}
                       </div>
                       
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-[#2A1D16] text-base leading-snug truncate group-hover:text-amber-600 transition-colors">
+                        <h3 className="font-bold text-suka-brown text-base leading-snug truncate group-hover:text-suka-orange transition-colors">
                           {mitra.nama_mitra}
                         </h3>
-                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-[#6E5A4E]">
-                          <UserCheck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                        <div className="flex items-center gap-1.5 mt-0.5 text-xs text-suka-ink/65">
+                          <UserCheck className="w-3.5 h-3.5 text-suka-orange shrink-0" />
                           <span className="truncate font-medium">
                             {staffUser ? `@${staffUser.username}` : `ID: ${mitra.user_id?.substring(0, 8)}...`}
                           </span>
                         </div>
                       </div>
 
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shrink-0 shadow-xs ${
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider shrink-0 ${
                         mitra.status === 'nonaktif' 
                           ? 'bg-rose-50 text-rose-700 border border-rose-200' 
                           : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
@@ -654,19 +664,19 @@ export function KelolaMitraView({
                     </div>
 
                     {/* NIK & Kontak WhatsApp */}
-                    <div className="grid grid-cols-2 gap-2.5 text-xs">
-                      <div className="bg-[#FAF7F2] p-2.5 rounded-2xl border border-amber-200/50">
-                        <span className="text-[10px] font-semibold text-[#8C7566] uppercase tracking-wider flex items-center gap-1">
-                          <User className="w-3 h-3 text-amber-600" /> NIK / KTP
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="bg-suka-gray-50/80 p-2.5 rounded-xl border border-suka-gray-200/60">
+                        <span className="text-[10px] font-semibold text-suka-gray-500 uppercase tracking-wider flex items-center gap-1">
+                          <User className="w-3 h-3 text-suka-orange" /> NIK / KTP
                         </span>
                         <div className="flex items-center justify-between mt-1">
-                          <span className="font-mono font-medium text-[#2A1D16] text-xs truncate">
+                          <span className="font-mono font-medium text-suka-brown text-xs truncate">
                             {mitra.nik || '-'}
                           </span>
                           {mitra.nik && (
                             <button
                               onClick={() => handleCopy(mitra.nik, `nik-${mitra.id}`)}
-                              className="text-[#8C7566] hover:text-amber-700 transition-colors"
+                              className="text-suka-gray-400 hover:text-suka-brown transition-colors"
                               title="Salin NIK"
                             >
                               {copiedKey === `nik-${mitra.id}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
@@ -675,12 +685,12 @@ export function KelolaMitraView({
                         </div>
                       </div>
 
-                      <div className="bg-[#FAF7F2] p-2.5 rounded-2xl border border-amber-200/50">
-                        <span className="text-[10px] font-semibold text-[#8C7566] uppercase tracking-wider flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-amber-600" /> WhatsApp
+                      <div className="bg-suka-gray-50/80 p-2.5 rounded-xl border border-suka-gray-200/60">
+                        <span className="text-[10px] font-semibold text-suka-gray-500 uppercase tracking-wider flex items-center gap-1">
+                          <Phone className="w-3 h-3 text-suka-orange" /> WhatsApp
                         </span>
                         <div className="flex items-center justify-between mt-1">
-                          <span className="font-medium text-[#2A1D16] text-xs truncate">
+                          <span className="font-medium text-suka-brown text-xs truncate">
                             {mitra.phone || '-'}
                           </span>
                           {mitra.phone && (
@@ -699,105 +709,104 @@ export function KelolaMitraView({
                     </div>
 
                     {/* Rekening Tujuan Transfer */}
-                    <div className="p-3.5 bg-amber-50/60 rounded-2xl border border-amber-200/80 shadow-xs">
+                    <div className="p-3 bg-amber-50/50 rounded-xl border border-amber-200/70 shadow-2xs">
                       <div className="flex items-center justify-between text-[10px] font-semibold text-amber-950 uppercase mb-1">
                         <span className="flex items-center gap-1">
-                          <CreditCard className="w-3.5 h-3.5 text-amber-600" /> Rekening Bagi Hasil
+                          <CreditCard className="w-3.5 h-3.5 text-suka-orange" /> Rekening Bagi Hasil
                         </span>
                         <span className="font-bold px-2 py-0.5 bg-amber-600 text-white rounded-md text-[10px]">
                           {mitra.profit_sharing_pct ?? 50}% Profit
                         </span>
                       </div>
                       <div className="flex items-center justify-between mt-1">
-                        <div className="font-bold text-sm text-[#2A1D16]">
+                        <div className="font-bold text-xs sm:text-sm text-suka-brown truncate">
                           {mitra.bank_name || 'BCA'} • {mitra.bank_account_number || '-'}
                         </div>
                         {mitra.bank_account_number && (
                           <button
                             onClick={() => handleCopy(mitra.bank_account_number, `bank-${mitra.id}`)}
-                            className="text-[#8C7566] hover:text-amber-700 transition-colors p-1"
+                            className="text-suka-gray-400 hover:text-suka-brown transition-colors p-1"
                             title="Salin Nomor Rekening"
                           >
                             {copiedKey === `bank-${mitra.id}` ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
                           </button>
                         )}
                       </div>
-                      <div className="text-[11px] text-[#6E5A4E] font-normal mt-0.5">
+                      <div className="text-[11px] text-suka-ink/65 font-normal mt-0.5 truncate">
                         a.n. {mitra.bank_account_holder || mitra.nama_mitra}
                       </div>
                     </div>
 
                     {/* Legalitas & PKS */}
-                    <div className="p-3 bg-[#FAF7F2] rounded-2xl border border-amber-200/50 text-xs space-y-1">
-                      <div className="flex items-center justify-between text-[10px] font-semibold text-[#8C7566] uppercase">
+                    <div className="p-3 bg-suka-gray-50/80 rounded-xl border border-suka-gray-200/60 text-xs space-y-1">
+                      <div className="flex items-center justify-between text-[10px] font-semibold text-suka-gray-500 uppercase">
                         <span className="flex items-center gap-1">
-                          <FileText className="w-3 h-3 text-amber-600" /> Kontrak PKS
+                          <FileText className="w-3 h-3 text-suka-orange" /> Kontrak PKS
                         </span>
-                        <span className="font-normal text-[#8C7566]">
+                        <span className="font-normal text-suka-gray-400">
                           Berakhir: {formatDate(mitra.tanggal_berakhir_pks)}
                         </span>
                       </div>
-                      <div className="font-mono font-medium text-xs text-[#2A1D16] truncate">
+                      <div className="font-mono font-medium text-xs text-suka-brown truncate">
                         {mitra.no_pks || 'Belum diisi'}
                       </div>
                     </div>
 
                     {/* Akses Outlet */}
                     <div className="space-y-1.5">
-                      <div className="flex items-center justify-between text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">
+                      <div className="flex items-center justify-between text-[11px] font-semibold text-suka-gray-500 uppercase tracking-wider">
                         <span className="flex items-center gap-1">
-                          <Store className="w-3.5 h-3.5 text-amber-600" /> Akses Outlet
+                          <Store className="w-3.5 h-3.5 text-suka-orange" /> Akses Outlet
                         </span>
-                        <span className="text-[#8C7566] font-medium">{outletCount} Unit</span>
+                        <span className="text-suka-gray-500 font-medium">{outletCount} Unit</span>
                       </div>
 
-                      <div className="flex flex-wrap gap-1.5 min-h-[30px]">
+                      <div className="flex flex-wrap gap-1.5 min-h-[32px]">
                         {mitra.outlet_ids?.map((oid: string) => {
                           const outlet = allOutlets.find((o: any) => o.id === oid)
                           return (
                             <span 
                               key={oid} 
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-100/70 text-[#2A1D16] border border-amber-200 text-xs font-medium rounded-xl shadow-xs"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-suka-orange/10 text-suka-brown border border-suka-orange/20 text-xs font-medium rounded-lg"
                             >
-                              <Store className="w-3 h-3 text-amber-600" />
+                              <Store className="w-3 h-3 text-suka-orange" />
                               {outlet?.name || 'Unknown'}
                             </span>
                           )
                         })}
                         {outletCount === 0 && (
-                          <div className="text-xs text-gray-400 italic py-1">Belum ada outlet terhubung</div>
+                          <div className="text-xs text-suka-gray-400 italic py-1">Belum ada outlet terhubung</div>
                         )}
                       </div>
                     </div>
                   </div>
 
                   {/* Bottom Action Button */}
-                  <div className="pt-3.5 mt-2 border-t border-amber-100">
+                  <div className="pt-3.5 mt-auto border-t border-suka-gray-100">
                     <button 
                       onClick={() => handleEdit(mitra)}
-                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 bg-amber-500/10 hover:bg-amber-600 hover:text-white text-amber-950 font-semibold rounded-xl transition-all duration-200 text-xs border border-amber-200/80 hover:border-amber-600 shadow-xs"
+                      className="w-full inline-flex items-center justify-center gap-2 py-2 px-3.5 bg-suka-gray-50 hover:bg-suka-orange hover:text-white text-suka-brown font-semibold rounded-xl transition-all duration-200 text-xs border border-suka-gray-200 hover:border-suka-orange shadow-2xs active:scale-[0.98]"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>Edit Biodata & Akses Outlet</span>
                     </button>
                   </div>
-
                 </div>
               )
             })}
 
             {filteredMitra.length === 0 && (
-              <div className="col-span-full bg-white/90 rounded-3xl border border-dashed border-amber-200 p-14 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto border border-amber-200">
+              <div className="col-span-full bg-white/90 rounded-2xl border border-dashed border-suka-brown/20 p-12 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-suka-orange flex items-center justify-center mx-auto border border-amber-200">
                   <AlertCircle className="w-6 h-6" />
                 </div>
-                <h3 className="font-bold text-[#2A1D16] text-base">Tidak ada data mitra ditemukan</h3>
-                <p className="text-xs text-[#6E5A4E] max-w-sm mx-auto font-normal">
+                <h3 className="font-bold text-suka-brown text-base">Tidak ada data mitra ditemukan</h3>
+                <p className="text-xs text-suka-gray-500 max-w-sm mx-auto font-normal">
                   {searchQuery ? `Tidak ditemukan profil mitra dengan kata kunci "${searchQuery}".` : 'Belum ada data profil mitra yang ditambahkan ke sistem.'}
                 </p>
                 <button
                   onClick={handleAdd}
-                  className="inline-flex items-center gap-1.5 px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl text-xs font-semibold shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-suka-orange text-white rounded-xl text-xs font-semibold shadow-xs"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Tambah Mitra Baru</span>
@@ -811,39 +820,39 @@ export function KelolaMitraView({
       {/* TAB 3: MODAL & PROGRES BEP */}
       {activeTab === 'investasi' && (
         <div className="space-y-6">
-          <div className="bg-white/95 rounded-2xl p-5 border border-amber-200/70 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Header Summary BEP */}
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl p-5 border border-suka-brown/10 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 rounded-full mb-1.5 border border-amber-200/70">
-                <Activity className="w-3.5 h-3.5 text-amber-600" />
-                <span className="text-xs font-semibold text-amber-900 tracking-wider uppercase">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 bg-amber-50 rounded-full mb-1.5 border border-amber-200/70">
+                <Activity className="w-3.5 h-3.5 text-suka-orange" />
+                <span className="text-[11px] font-semibold text-amber-900 tracking-wider uppercase">
                   Pelacak Balik Modal (ROI & BEP)
                 </span>
               </div>
-              <h3 className="font-bold text-[#2A1D16] text-base sm:text-lg">Monitoring Modal Investasi & Status BEP</h3>
-              <p className="text-xs text-[#6E5A4E] font-normal mt-0.5">
+              <h3 className="font-bold text-suka-brown text-base sm:text-lg">Monitoring Modal Investasi & Status BEP</h3>
+              <p className="text-xs text-suka-gray-500 font-normal mt-0.5">
                 Pantau progres pengembalian investasi (BEP) tiap outlet berdasarkan akumulasi transfer bagi hasil riil.
               </p>
             </div>
 
-            <div className="flex items-center gap-4 bg-[#FAF7F2] p-3 rounded-2xl border border-amber-200/60 shrink-0 flex-wrap sm:flex-nowrap">
-              <div>
-                <span className="text-[10px] font-semibold text-[#8C7566] uppercase tracking-wider block">Total Modal Awal</span>
-                <span className="font-bold text-sm sm:text-base text-[#2A1D16]">{formatRupiah(totalModalSemua)}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-suka-gray-50/80 rounded-2xl border border-suka-gray-200/70 shrink-0">
+              <div className="pr-3">
+                <span className="text-[10px] font-semibold text-suka-gray-500 uppercase tracking-wider block">Total Modal Awal</span>
+                <span className="font-bold text-sm sm:text-base text-suka-brown tabular-nums">{formatRupiah(totalModalSemua)}</span>
               </div>
-              <div className="h-8 w-px bg-amber-200/60 hidden sm:block" />
-              <div>
-                <span className="text-[10px] font-semibold text-[#8C7566] uppercase tracking-wider block">Total Laba Kembali (Realtime)</span>
-                <span className="font-bold text-sm sm:text-base text-emerald-700">{formatRupiah(totalDanaKembaliSemua)}</span>
+              <div className="sm:border-l sm:border-suka-gray-200/70 sm:pl-3 pr-3">
+                <span className="text-[10px] font-semibold text-suka-gray-500 uppercase tracking-wider block">Total Laba Kembali</span>
+                <span className="font-bold text-sm sm:text-base text-emerald-700 tabular-nums">{formatRupiah(totalDanaKembaliSemua)}</span>
               </div>
-              <div className="h-8 w-px bg-amber-200/60 hidden sm:block" />
-              <div>
-                <span className="text-[10px] font-semibold text-[#8C7566] uppercase tracking-wider block">Status BEP Jaringan</span>
-                <span className="font-bold text-sm sm:text-base text-amber-800">{bepCount} / {mitraOutlets.length} Outlet</span>
+              <div className="sm:border-l sm:border-suka-gray-200/70 sm:pl-3">
+                <span className="text-[10px] font-semibold text-suka-gray-500 uppercase tracking-wider block">Status BEP Jaringan</span>
+                <span className="font-bold text-sm sm:text-base text-amber-800 tabular-nums">{bepCount} / {mitraOutlets.length} Outlet</span>
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {mitraOutlets.map((outlet: any) => {
               const inv = investmentMap[outlet.id]
               const totalModal = Number(inv?.nilai_investasi) || 0
@@ -864,18 +873,18 @@ export function KelolaMitraView({
               return (
                 <div 
                   key={outlet.id} 
-                  className="group bg-white/95 rounded-3xl p-6 border border-amber-200/70 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between"
+                  className="group bg-white/95 rounded-2xl p-5 sm:p-6 border border-suka-brown/10 shadow-xs hover:shadow-md transition-all duration-300 flex flex-col justify-between h-full"
                 >
                   <div className="space-y-4">
                     {/* Header Outlet & BEP Badge */}
-                    <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start justify-between gap-2 pb-3 border-b border-suka-gray-100">
                       <div className="flex items-center gap-3">
-                        <div className="p-3 bg-amber-500/10 text-amber-700 rounded-2xl border border-amber-200/80">
+                        <div className="p-2.5 bg-amber-500/10 text-suka-orange rounded-xl border border-amber-200/80 shrink-0">
                           <Store className="w-5 h-5" />
                         </div>
-                        <div>
-                          <h4 className="font-bold text-[#2A1D16] text-base">{outlet.name}</h4>
-                          <span className="text-xs text-[#6E5A4E] font-normal">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-suka-brown text-base truncate">{outlet.name}</h4>
+                          <span className="text-xs text-suka-ink/65 font-normal truncate block">
                             Pemilik: <strong className="font-semibold text-amber-800">{ownerMitra?.nama_mitra || 'Belum Ditautkan'}</strong>
                           </span>
                         </div>
@@ -889,94 +898,94 @@ export function KelolaMitraView({
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300/80 flex items-center gap-1 shrink-0">
-                          <TrendingUp className="w-3 h-3 text-amber-600" />
+                          <TrendingUp className="w-3 h-3 text-suka-orange" />
                           <span>BEP: {bepPercentage}%</span>
                         </span>
                       )}
                     </div>
 
                     {/* Progress Balik Modal Box */}
-                    <div className="bg-[#FAF7F2] rounded-2xl p-4 border border-amber-200/70 space-y-2">
+                    <div className="bg-suka-gray-50/80 rounded-xl p-3.5 border border-suka-gray-200/60 space-y-2">
                       <div className="flex justify-between items-center text-xs">
-                        <span className="font-semibold text-[#2A1D16] flex items-center gap-1.5">
-                          <Activity className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="font-semibold text-suka-brown flex items-center gap-1.5">
+                          <Activity className="w-3.5 h-3.5 text-suka-orange" />
                           <span>Progres Balik Modal (BEP)</span>
                         </span>
-                        <span className={`font-bold ${isBep ? 'text-emerald-700' : 'text-amber-700'}`}>
+                        <span className={`font-bold ${isBep ? 'text-emerald-700' : 'text-suka-orange'}`}>
                           {bepPercentage}%
                         </span>
                       </div>
 
                       {/* Progress Track */}
-                      <div className="w-full bg-amber-200/40 rounded-full h-2.5 overflow-hidden">
+                      <div className="w-full bg-suka-gray-200/60 rounded-full h-2.5 overflow-hidden">
                         <div 
                           className={`h-full rounded-full transition-all duration-700 ${
                             isBep 
                               ? 'bg-gradient-to-r from-emerald-500 to-teal-500' 
-                              : 'bg-gradient-to-r from-amber-500 via-amber-600 to-orange-500'
+                              : 'bg-gradient-to-r from-amber-500 to-orange-500'
                           }`}
                           style={{ width: `${Math.max(bepPercentage, totalReturned > 0 ? 4 : 0)}%` }}
                         />
                       </div>
 
-                      <div className="flex justify-between text-[11px] pt-1 text-[#6E5A4E]">
+                      <div className="flex justify-between text-[11px] pt-1 text-suka-ink/70">
                         <span>Total Kembali: <strong className="text-emerald-700 font-bold">{formatRupiah(totalReturned)}</strong></span>
                         <span>
                           {isBep ? (
                             <strong className="text-emerald-700 font-bold">Laba Murni (100% BEP)</strong>
                           ) : (
-                            <>Sisa: <strong className="text-red-500 font-semibold">{formatRupiah(sisaModal)}</strong></>
+                            <>Sisa: <strong className="text-rose-600 font-semibold">{formatRupiah(sisaModal)}</strong></>
                           )}
                         </span>
                       </div>
                     </div>
 
                     {/* Investment & Contract Details */}
-                    <div className="p-4 bg-white rounded-2xl border border-amber-200/60 space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-[#8C7566] font-medium">Modal Investasi Awal:</span>
-                        <span className="font-bold text-[#2A1D16]">{formatRupiah(totalModal)}</span>
+                    <div className="p-3.5 bg-white rounded-xl border border-suka-gray-200/60 space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-suka-gray-500 font-medium">Modal Investasi Awal:</span>
+                        <span className="font-bold text-suka-brown tabular-nums">{formatRupiah(totalModal)}</span>
                       </div>
                       {omzetHistoris > 0 && (
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-[#8C7566] font-medium">Profit Historis Pra-Digital:</span>
-                          <span className="font-bold text-emerald-800">{formatRupiah(omzetHistoris)}</span>
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-suka-gray-500 font-medium">Profit Historis Pra-Digital:</span>
+                          <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(omzetHistoris)}</span>
                         </div>
                       )}
                       {realtimeMitraShare > 0 && (
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-[#8C7566] font-medium">Laba Riil Sistem (Sejak 1 Ags 2026):</span>
-                          <span className="font-bold text-emerald-800">{formatRupiah(realtimeMitraShare)}</span>
+                        <div className="flex justify-between items-center text-[11px]">
+                          <span className="text-suka-gray-500 font-medium">Laba Riil Sistem (Sejak 1 Ags 2026):</span>
+                          <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(realtimeMitraShare)}</span>
                         </div>
                       )}
                       <div className="flex justify-between items-center">
-                        <span className="text-[#8C7566] font-medium">Porsi Bagi Hasil:</span>
+                        <span className="text-suka-gray-500 font-medium">Porsi Bagi Hasil:</span>
                         <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 text-[11px]">
                           {profitSharePct}% Mitra
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#8C7566] font-medium">Management Fee Pusat:</span>
-                        <span className={`font-semibold ${Number(inv?.management_fee) > 0 ? 'text-amber-800 font-bold' : 'text-[#6E5A4E]'}`}>
+                      <div className="flex justify-between items-center">
+                        <span className="text-suka-gray-500 font-medium">Management Fee Pusat:</span>
+                        <span className={`font-semibold ${Number(inv?.management_fee) > 0 ? 'text-amber-800 font-bold' : 'text-suka-gray-400'}`}>
                           {Number(inv?.management_fee) > 0 ? `${inv.management_fee}% Omzet` : '0% (Nonaktif)'}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-[#8C7566] font-medium">Tanggal Mulai Usaha:</span>
-                        <span className="font-medium text-[#2A1D16]">{formatDate(inv?.tanggal_mulai)}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-suka-gray-500 font-medium">Tanggal Mulai Usaha:</span>
+                        <span className="font-medium text-suka-brown">{formatDate(inv?.tanggal_mulai)}</span>
                       </div>
                       {inv?.catatan && (
-                        <p className="text-[11px] text-[#6E5A4E] italic pt-1 border-t border-amber-200/50">
+                        <p className="text-[11px] text-suka-ink/65 italic pt-1 border-t border-suka-gray-100">
                           &ldquo;{inv.catatan}&rdquo;
                         </p>
                       )}
                     </div>
                   </div>
 
-                  <div className="pt-4 border-t border-amber-100">
+                  <div className="pt-3.5 mt-auto border-t border-suka-gray-100">
                     <button 
                       onClick={() => setInvestmentOutlet(outlet)}
-                      className="w-full inline-flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-600 via-amber-500 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white font-semibold rounded-xl transition-all duration-200 text-xs shadow-xs"
+                      className="w-full inline-flex items-center justify-center gap-2 py-2 px-3.5 bg-suka-orange hover:bg-suka-orange/90 text-white font-semibold rounded-xl transition-all duration-200 text-xs shadow-2xs active:scale-[0.98]"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>Atur Modal Investasi Outlet</span>
@@ -1016,10 +1025,8 @@ export function KelolaMitraView({
 
       {investmentOutlet && (
         <InvestmentDialog 
-          isOpen={!!investmentOutlet} 
-          onClose={() => setInvestmentOutlet(null)}
           outlet={investmentOutlet}
-          initialInvestment={investmentMap[investmentOutlet.id]}
+          onClose={() => setInvestmentOutlet(null)}
         />
       )}
     </div>

@@ -69,6 +69,7 @@ interface MitraProfitLossSectionProps {
   onFilterChange: (newFilter: any) => void
   isLoading?: boolean
   outlets?: { id: string; name: string }[]
+  className?: string
 }
 
 export function MitraProfitLossSection({
@@ -76,7 +77,8 @@ export function MitraProfitLossSection({
   currentFilter,
   onFilterChange,
   isLoading = false,
-  outlets = []
+  outlets = [],
+  className = 'mt-6',
 }: MitraProfitLossSectionProps) {
   const [activeDrilldown, setActiveDrilldown] = useState<'pos' | 'foodapps' | 'tiktok' | 'opex' | 'netprofit' | null>(null)
   const [selectedOpexCategory, setSelectedOpexCategory] = useState<OpexCategoryDetail | null>(null)
@@ -93,7 +95,7 @@ export function MitraProfitLossSection({
   const isDeficit = summary.netProfit <= 0
 
   return (
-    <div className="bg-white/95 backdrop-blur-xl border border-amber-200/70 p-6 sm:p-8 rounded-3xl shadow-xs relative overflow-hidden mt-6 animate-fade-in">
+    <div className={`bg-white/95 backdrop-blur-xl border border-amber-200/70 p-6 sm:p-8 rounded-3xl shadow-xs relative overflow-hidden animate-fade-in ${className}`}>
       <div className="absolute top-0 right-0 w-[350px] h-[350px] bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-transparent rounded-full blur-[80px] -z-10 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
 
       {/* Header */}
@@ -144,7 +146,7 @@ export function MitraProfitLossSection({
       {!isLoading && (
         <>
           {/* WATERFALL SUMMARY CARDS */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-4 gap-4 mb-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6 relative z-10">
             {/* 1. Gross Revenue */}
             <div className="bg-[#FAF7F2] border border-amber-200/60 p-5 rounded-2xl shadow-xs flex flex-col justify-between hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between mb-3">

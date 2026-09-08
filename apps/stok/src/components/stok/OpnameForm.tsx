@@ -115,6 +115,19 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }, [inputs, targets, notes, outletId]);
   const [busy, setBusy] = useState(false);
   const [showUnfilledModal, setShowUnfilledModal] = useState(false);
+  /**
+   * Bahan yang hitungan fisiknya turun drastis dari catatan sistem.
+   * Diisi tepat sebelum finalisasi; selama tidak kosong, modal konfirmasi
+   * tampil dan finalisasi ditahan.
+   *
+   * Latar: 4 September 2026 di BNR, 24 bahan difinalisasi dengan angka 0 yang
+   * memang diketik crew (bukan baris kosong) -- Rp1,2 juta stok terhapus dalam
+   * satu klik. 16 di antaranya sudah ditandai `flagged`, tapi penanda itu dulu
+   * cuma mengganti bunyi notifikasi, tidak menahan apa pun.
+   */
+  const [penurunanDrastis, setPenurunanDrastis] = useState<
+    { id: string; nama: string; sistemText: string; fisikText: string; habisTotal: boolean }[]
+  >([]);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
@@ -318,6 +331,43 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     }
   }
 
+  /**
+   * Daftar bahan yang hitungan fisiknya turun drastis dari catatan sistem.
+   *
+   * Sengaja memakai `buildItemsToSave` — sumber angka yang SAMA dengan yang
+   * nanti benar-benar disimpan. Kalau perhitungannya disalin ulang di sini,
+   * suatu saat peringatan dan data yang tersimpan akan bercerita beda.
+   *
+   * Hanya penurunan yang diperingatkan, bukan kenaikan: stok yang naik memang
+   * janggal juga, tapi tidak menghapus apa pun — dan memperingatkan segalanya
+   * membuat orang berhenti membaca peringatan.
+   */
+  function hitungPenurunanDrastis() {
+    return buildItemsToSave('')
+      .filter((i) => i.flagged && i.qty_fisik < i.qty_system)
+      .map((i) => {
+        const b = bahanBaku.find((x) => x.id === i.bahan_baku_id);
+        return {
+          id: i.bahan_baku_id,
+          nama: b?.nama ?? '(bahan tidak dikenal)',
+          sistemText: b ? formatSystemQty(b, i.qty_system) : String(i.qty_system),
+          fisikText: b ? formatSystemQty(b, i.qty_fisik) : String(i.qty_fisik),
+          habisTotal: i.qty_fisik === 0 && i.qty_system > 0,
+        };
+      })
+      .sort((a, b) => Number(b.habisTotal) - Number(a.habisTotal));
+  }
+
+  /** Gerbang terakhir sebelum finalisasi, dipakai dua jalur masuk. */
+  function lanjutkanKeFinalisasi() {
+    const turun = hitungPenurunanDrastis();
+    if (turun.length > 0) {
+      setPenurunanDrastis(turun);
+      return;
+    }
+    executeFinalize();
+  }
+
   function handleFinalizeClick() {
     if (filledCount === 0) {
       showToast('🔴 Belum ada item yang diinput.', 'warning');
@@ -327,7 +377,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       setShowUnfilledModal(true);
       return;
     }
-    executeFinalize();
+    lanjutkanKeFinalisasi();
   }
 
   async function executeFinalize() {
@@ -349,7 +399,10 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       const res = await withTimeout(finalize(opname.id), TIMEOUT_MS, 'finalisasi opname');
 
       if (hasFlagged) {
-         showToast('✅ Opname difinalisasi (Selisih dicatat).', 'success');
+         // Dulu bercentang hijau 'success' — terbaca seperti keberhasilan biasa,
+         // padahal justru menandai selisih besar yang baru saja memotong stok.
+         const jml = itemsToSave.filter(i => i.flagged).length;
+         showToast(`⚠️ Opname difinalisasi dengan ${jml} selisih besar — stok sudah dipotong.`, 'warning');
       } else {
          const successMsg = res.queued
            ? '⚠️ Offline: Data disimpan di antrean lokal & akan disinkron saat online!'
@@ -752,11 +805,79 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                 type="button"
                 onClick={() => {
                   setShowUnfilledModal(false);
-                  executeFinalize();
+                  // Lewat gerbang penurunan drastis, bukan langsung finalisasi —
+                  // kalau langsung, jalur "ada bahan belum diisi" akan melewati
+                  // peringatan yang justru paling perlu di kasus BNR.
+                  lanjutkanKeFinalisasi();
                 }}
                 className="flex-1 py-2.5 px-3 bg-[#701604] hover:bg-[#591002] active:bg-[#430b01] text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-md active:scale-[0.99]"
               >
                 Lanjutkan ({filledCount} Item)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {penurunanDrastis.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
+          <div className="bg-white border border-[#d9c2b2]/60 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-scale-in">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-red-100 border border-red-300/60 flex items-center justify-center text-xl shrink-0">
+                ⚠️
+              </div>
+              <div className="space-y-1">
+                <h3 className="font-extrabold text-sm text-[#701604]">
+                  {penurunanDrastis.length} Bahan Turun Drastis
+                </h3>
+                <p className="text-xs text-[#544437]/80">
+                  Hitungan fisik jauh di bawah catatan sistem.
+                </p>
+              </div>
+            </div>
+
+            <div className="max-h-56 overflow-y-auto rounded-xl border border-red-200 bg-red-50/60 divide-y divide-red-200/70">
+              {penurunanDrastis.map((it) => (
+                <div key={it.id} className="px-3.5 py-2.5">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="font-bold text-xs text-[#701604]">{it.nama}</span>
+                    {it.habisTotal && (
+                      <span className="shrink-0 rounded-full bg-red-600 px-2 py-0.5 text-[10px] font-bold text-white">
+                        habis total
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-0.5 text-[11px] text-red-900/90 leading-relaxed">
+                    Sistem <strong>{it.sistemText}</strong> → fisik{' '}
+                    <strong>{it.fisikText}</strong>
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 text-xs text-amber-900 leading-relaxed">
+              Pastikan bahan-bahan di atas memang benar-benar sudah dihitung dan
+              jumlahnya sesegitu. Setelah difinalisasi, selisihnya langsung
+              memotong stok dan <strong>tidak bisa dibatalkan</strong>.
+            </div>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setPenurunanDrastis([])}
+                className="flex-1 py-2.5 px-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-xl font-bold text-xs cursor-pointer transition-all active:scale-[0.99]"
+              >
+                🔍 Periksa Lagi
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setPenurunanDrastis([]);
+                  executeFinalize();
+                }}
+                className="flex-1 py-2.5 px-3 bg-red-700 hover:bg-red-800 active:bg-red-900 text-white rounded-xl font-bold text-xs cursor-pointer transition-all shadow-md active:scale-[0.99]"
+              >
+                Ya, Sudah Saya Hitung
               </button>
             </div>
           </div>

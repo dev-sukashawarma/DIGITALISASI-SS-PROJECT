@@ -1375,5 +1375,97 @@ gudang sungguhan & pemegang persediaan terbesar, bersama KANTOR PUSAT yang dummy
 
 ---
 
+## Session 2026-09-08: Rantai Harga PO → Master → Surat Jalan, Koreksi FOIL, & Perbaikan Form
+
+**Status:** ✅ Semua perubahan DB **sudah live & diverifikasi**; kode ter-merge ke `main`.
+⚠️ **Perlu redeploy `stok` + `finance`** — perbaikan form belum aktif sampai itu.
+
+**📄 Catatan lengkap:** `docs/CATATAN-LANJUTAN-HARGA-STOK.md`
+
+### Keputusan owner yang mengikat
+
+1. **Metode basis harga DIPERTAHANKAN.** Persediaan **murni kendali internal**,
+   tidak ada pelaporan ke pihak luar → pertanyaan PSAK 14 gugur. Selisih
+   "harga terakhir" vs rata-rata tertimbang stok on-hand = **Rp257.804 (0,07%)**,
+   diukur tiga kali. **JANGAN bangun FIFO batch atau rata-rata tertimbang.**
+2. **Harga beku surat jalan:** pakai harga yang dikonfirmasi sekarang; kalau
+   audit menemukan selisih, disuntikkan belakangan.
+3. **1 September 2026 = titik mulai bersih.** 443 dari 483 baris kini sama
+   dengan master; 30 beda wajar (pembekuan memang begitu); 10 FOIL sudah benar.
+
+### Yang diperbaiki di DB (8 migration, semua applied & idempoten)
+
+`20260908150000` guard PO uji coba · `20260908160000` & `20260908210000` tandai
+satuan asli 4 baris PO (nol angka berubah) · `20260908170000`/`180000`/`190000`
+koreksi 53 baris harga beku · `20260908200000` POLYBAG Rp25.000→24.000 ·
+`20260908220000` **saldo FOIL Gudang Pusat → 1.096 Roll (−Rp413,6 juta stok hantu)**
+
+### 🔴 Pelajaran metodologis terpenting sesi ini
+
+**Membandingkan harga terhadap master TIDAK CUKUP.** Kalau satuan bahan pernah
+berubah, `qty` ikut berpindah basis — pasangan (qty, harga) bisa tetap BENAR
+meski harganya tampak salah 48×. Klasifikasi otomatis menandai 10 baris FOIL
+sebagai "salah satuan" dengan **keyakinan tertinggi**; ternyata sudah benar.
+Menjalankannya akan menambah **Rp83 juta nilai fiktif**.
+
+**Uji yang benar: apakah `qty × harga` menghasilkan rupiah yang masuk akal** —
+bukan apakah harga sebanding dengan master. Selalu periksa sisi qty dulu:
+bandingkan bentuk angka qty sebelum vs sesudah perubahan harga; kalau sama,
+basis qty tidak berpindah dan hanya harga yang tertinggal.
+
+Sepanjang hari **tiga angka besar menguap** setelah diverifikasi (Rp47 jt,
+Rp222 jt, Rp83 jt) — semuanya dari sebab yang sama. Yang benar-benar ada
+(Rp413,6 jt) justru baru ketahuan setelah **owner menyebut hitungan fisik
+1.096 Roll**. Hitungan lapangan mengalahkan analisis.
+
+### Kenapa harga beku TIDAK bisa dipulihkan dengan perkalian
+Normalisasi 3 September (`20300122000001`/`...004`) **tidak mengalikan** harga
+lama — ia **menggantinya**; nilai lama cuma kunci pengaman di `WHERE`. Jadi
+rasio harga-beku terhadap master mencampur perubahan **satuan** DAN **harga**,
+dan basis harga lama tak tercatat di mana pun. Jangan coba memulihkan periode
+Juli–Agustus dengan faktor.
+
+### Perbaikan form (⚠️ perlu redeploy)
+Tiga kekeliruan hari ini satu akar: **form meminta angka tanpa menyebut satuan
+dan tanpa menunjukkan hasilnya.**
+- `ManualEntryForm` (stok): kotak "Akan tercatat" + "Stok setelah disimpan" +
+  peringatan merah bila ≥10× stok terpasang, **dan peringatan itu ikut pindah
+  ke Daftar Item Entri** (sebelumnya menguap saat "Tambah item" ditekan —
+  ketahuan dari smoke test owner). Sengaja BUKAN modal kedua: dua peringatan
+  beruntun melatih orang menekan "lanjut".
+- `VerifikasiTerimaModal` (finance): label → **"Harga Aktual per {satuan}"**,
+  satuan ditempel di dalam kolom qty, plus baris `qty × harga = total`.
+
+### ➡️ LANJUTAN DUA-VENDOR — masalahnya OPERASIONAL, bukan biaya
+
+Insiden FOIL **adalah kasus dua-vendor**: dua PO berdekatan, barang datang tidak
+berurutan, PO vendor salah diverifikasi lalu dibatalkan, barang vendor kedua
+datang tanpa PO tersisa → masuk lewat penyesuaian manual → satuannya salah.
+**Kerusakannya dari dokumen yang kehabisan pasangan, bukan dari harga vendor.**
+
+Dua temuan pendukung (rincian di dokumen catatan):
+- Jalur PO resmi adalah **minoritas** barang masuk (32 baris `pembelian_supplier`
+  vs 151 `adjustment` sejak 1 Agu) — dan **hanya jalur PO yang punya guard**.
+- **Master supplier punya duplikat**: Pak Aziz tercatat 4× dengan 3 termin
+  berbeda (15/10/30 hari) → jatuh tempo supplier sama bisa beda 20 hari.
+  Akibatnya 4 dari 11 "bahan multi-vendor" **palsu**; yang asli cuma 7.
+
+**Urutan untuk sesi berikutnya:** (1) gabungkan duplikat supplier — analisis
+dua-vendor apa pun sebelum ini berdiri di atas data salah; (2) keputusan owner
+soal cara membatalkan penerimaan agar PO kembali terbuka; (3) baru nilai apakah
+masih perlu apa-apa lagi.
+
+### 📝 Sisa yang diparkir
+- **Redeploy `stok` + `finance`**, lalu smoke test: FOIL + `1000` satuan Dus →
+  kotak merah + baris daftar merah; PO PLASTIK MERAH → "Harga Aktual per Ikat".
+- `SPB/PO/VII/2026/021` (Altindo, 15 Agu, 2.000 Roll, Rp17,58 jt, **lunas**)
+  berstatus `diterima_lengkap` tapi **tak pernah menulis baris ledger**.
+- Periode Juli–Agustus harga beku: dibiarkan sesuai kebijakan owner.
+- Lubang keamanan **belum diperbaiki** (diverifikasi masih terbuka 8 Sep):
+  `opname_insert`/`opname_update` memakai `accessible_outlet_ids()` → role
+  `kitchen` bisa opname outlet lain. Lihat Session 2026-08-13.
+
+---
+
 **Last updated:** 2026-09-08  
 **Owner:** Dev Suka Shawarma

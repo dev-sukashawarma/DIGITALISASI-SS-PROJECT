@@ -224,11 +224,13 @@ bekerja — SAPI 100.000, FOIL lama 11.554: JANGAN disentuh), 57 baris tersangka
 
 Keadaan akhir jendela 1–8 September, **483 baris surat jalan**:
 
-| Keadaan | Baris | Nilai |
-|---|--:|--:|
-| Harga beku = master (bersih) | **441** | Rp199,3 jt |
-| Harga beku beda wajar — **ini normal**, memang guna pembekuan | 30 | Rp31,3 jt |
-| Sengaja ditinggal (FOIL 10, POLYBAG 2) | 12 | Rp1,8 jt |
+| Keadaan | Baris |
+|---|--:|
+| Harga beku = master (bersih) | **443** |
+| Harga beku beda wajar — **ini normal**, memang guna pembekuan | 30 |
+| FOIL — sudah benar, sengaja tak disentuh | 10 |
+
+Tidak ada lagi baris yang menunggu keputusan.
 
 Tiga migration menutupnya: `20260908170000` (AYAM/CUP/KERTAS STRUK, 9 baris),
 `20260908180000` (kedua saos, 9 baris), `20260908190000` (5 bahan sisa, 35
@@ -237,6 +239,38 @@ baris). Ketiganya idempoten dan sudah diuji dijalankan dua kali.
 **Kebijakan yang dipakai (keputusan owner):** *"pakai B, nanti kalau setelah
 audit ada perubahan harga nanti inject saja perubahan harganya."* Harga yang
 dikonfirmasi hari ini jadi dasar; selisih dari audit disuntikkan belakangan.
+
+### ✅ POLYBAG & PLASTIK MERAH — dua gantungan terakhir ditutup
+
+Keterangan owner 8 September: *"polybag 1 bal harganya 600.000 isi 25 pack,
+1 pack 24.000, plastik merah 50 pack"*. Migration `20260908200000`, idempoten.
+
+**⚠️ Harga POLYBAG diubah Rp25.000 → Rp24.000 per Pack — mengganti angka yang
+sebelumnya sudah dikonfirmasi.** Migration `20300122000003` (3 September)
+menetapkan Rp25.000 dan menyebutnya "jawaban konfirmasi". Yang baru dipakai
+karena punya dua penopang, bukan sekadar ingatan: Rp600.000 ÷ 25 = Rp24.000
+tanpa sisa, dan PO `SPB/PO/VII/2026/039` mencatat 2 × Rp600.000 = Rp1.200.000
+(= 2 Bal). Rp25.000 kemungkinan pembulatan saat konfirmasi lisan.
+
+8 baris surat jalan POLYBAG di jendela September ikut diseragamkan ke 24.000
+(termasuk 6 baris yang tadinya 25.000), mengikuti kebijakan yang sama.
+
+**Struktur satuan TIDAK diubah.** "Bal" adalah kemasan pembelian (25 Pack),
+bukan tingkat operasional. Keputusan 3 September tetap: POLYBAG hanya Pack dan
+Pcs. Menambah tingkat di atas Pack akan mengulang persoalan FOIL — dokumen
+historis berpindah arti diam-diam.
+
+**Dua baris PO ditandai satuannya, nol angka berubah** (pola yang sama dengan
+dua baris FOIL di `20260908160000`):
+
+| PO | Tercatat | Sebenarnya | Uang |
+|---|---|---|---|
+| SPB/PO/VII/2026/039 | 2 "Pack" | 2 **Bal** (= 50 Pack) | Rp1.200.000 tetap |
+| SPB/PO/VII/2026/036 | 50 "Ikat" | 50 **Pack** (= 10 Ikat) | Rp900.000 tetap |
+
+PLASTIK MERAH terbukti konsisten sendiri: master Rp90.000/Ikat dengan 1 Ikat =
+5 Pack berarti Rp18.000/Pack — persis `harga_terima`-nya. Jadi masternya benar,
+hanya labelnya yang keliru.
 
 ### ⚠️ KENAPA HARGA BEKU TIDAK BISA DIPULIHKAN DENGAN PERKALIAN
 

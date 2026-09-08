@@ -46,18 +46,29 @@ Ini kelas masalah yang sudah dikenal (penulis ledger buta-skala,
 [[ledger-writers-scale-blind-to-saldo-is-gram]]), **bukan** soal metode harga.
 Perlu opname fisik FOIL di Gudang Pusat.
 
-### ✅ Rekomendasi: PERTAHANKAN metode sekarang
+### ✅ DIPUTUSKAN 8 September: metode sekarang DIPERTAHANKAN
 
-Selisihnya 0,07% — tidak ada yang perlu diperbaiki dari sisi akurasi. Pindah ke
-rata-rata tertimbang hanya perlu dipertimbangkan kalau:
+**Keputusan owner:** ditanya apakah persediaan dilaporkan ke pihak luar
+(pajak/audit) atau murni kendali internal —
 
-1. **Persediaan dilaporkan ke pihak luar** (pajak/audit). "Harga terakhir yang
-   diketik" bukan metode yang diakui PSAK 14; FIFO dan rata-rata tertimbang
-   diakui. Ini pertanyaan kepatuhan, bukan akurasi — dan satu-satunya
-   pertanyaan yang tersisa untuk pemegang pembukuan.
-2. **Ada bahan berperputaran lambat yang stok dua vendornya menumpuk
-   bersamaan.** Sampai 8 September belum pernah terjadi: stok on-hand tiap
-   bahan selalu ditutupi satu vendor saja.
+> "murni kendali internal"
+
+Dengan itu **pertanyaan PSAK 14 gugur.** Satu-satunya alasan tersisa untuk
+pindah metode adalah kepatuhan pelaporan eksternal, dan itu tidak ada. Dari
+sisi akurasi selisihnya 0,07% — tidak ada yang perlu diperbaiki.
+
+**Jangan bangun FIFO batch atau rata-rata tertimbang.** Ukur ulang HANYA kalau:
+
+1. Mulai ada pelaporan persediaan ke pihak luar, atau
+2. Muncul bahan berperputaran lambat yang stok dua vendornya menumpuk
+   bersamaan. Sampai 8 September belum pernah terjadi: stok on-hand tiap bahan
+   selalu ditutupi satu vendor saja.
+
+**Ini juga menutup pertanyaan yang membuka rangkaian sesi ini** — "bahan dengan
+2 vendor, bagaimana menanganinya dari PO sampai outlet order supaya tidak
+tumpang tindih". Jawabannya: **tidak perlu mekanisme khusus.** Perputaran
+barang cukup cepat sehingga stok vendor lama habis sebelum vendor baru datang,
+dan dampaknya ke HPP terukur nol tiga kali berturut-turut.
 
 Yang lebih layak digarap lebih dulu, karena benar-benar menggeser angka:
 saldo FOIL gudang di atas, dan **form terima PO** yang labelnya generik

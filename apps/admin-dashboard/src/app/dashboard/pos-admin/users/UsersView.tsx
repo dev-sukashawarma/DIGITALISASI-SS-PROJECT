@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Users, Plus, X, Loader2, Store, Search, ChevronDown, Check, Eye, EyeOff, Lock, User } from 'lucide-react'
 import type { Outlet } from '@/pos-types'
@@ -10,6 +11,7 @@ import { toast } from 'sonner'
 interface UserProfile {
   id: string
   role: string
+  name: string
   username: string
   outlet_id: string | null
   outlets?: { name: string }
@@ -36,6 +38,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
   const dropdownRef = useRef<HTMLDivElement>(null)
   
   // Form state
+  const [fullName, setFullName] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -73,6 +76,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
   function openModal(user?: UserProfile) {
     if (user) {
       setEditingUser(user)
+      setFullName(user.name || user.username)
       setUsername(user.username)
       setPassword('') // Password kosongkan saat edit
       setRole(user.role)
@@ -82,6 +86,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       setInactiveReason(user.inactive_reason || '')
     } else {
       setEditingUser(null)
+      setFullName('')
       setUsername('')
       setPassword('')
       setRole(activeTab === 'kiosk' ? 'kiosk' : 'crew')
@@ -113,6 +118,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          name: fullName.trim(),
           username,
           password: password || undefined,
           role,
@@ -140,6 +146,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
         // Success
         toast.success(editingUser ? 'Pengguna berhasil diperbarui!' : 'Pengguna berhasil ditambahkan!')
         setIsModalOpen(false)
+        setFullName('')
         setUsername('')
         setPassword('')
         router.refresh() // Refresh list via server components
@@ -202,7 +209,7 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
       </div>
 
       {/* Modal Tambah User */}
-      {isModalOpen && (
+      {isModalOpen && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto"
           onClick={(e) => { if (e.target === e.currentTarget && !isSubmitting) setIsModalOpen(false) }}
@@ -236,6 +243,23 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
                   {error}
                 </div>
               )}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Nama Lengkap</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    className="w-full bg-gray-50 border-2 border-transparent focus:border-amber-400 focus:bg-white rounded-xl pl-11 pr-4 py-2.5 sm:py-3 outline-none transition-colors font-medium text-sm sm:text-base"
+                    placeholder="Misal: Budi Santoso"
+                    autoComplete="name"
+                  />
+                </div>
+              </div>
               <div className="relative" ref={dropdownRef}>
                 <div className="flex justify-between items-center mb-1">
                   <label className="block text-sm font-bold text-gray-700">Pilih Cabang / Outlet</label>
@@ -468,7 +492,8 @@ export default function UsersView({ initialUsers, initialOutlets }: UsersViewPro
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-card p-4 sm:p-6">

@@ -30,10 +30,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason, is_bonus_eligible } = body
+    const { name, username, password, role, outlet_id, outlet_ids, is_active, inactive_reason, is_bonus_eligible } = body
+    const normalizedName = typeof name === 'string' ? name.trim() : ''
 
-    if (!username || !password || !role) {
-      return NextResponse.json({ error: 'Username, password, dan role harus diisi' }, { status: 400 })
+    if (!normalizedName || !username || !password || !role) {
+      return NextResponse.json({ error: 'Nama lengkap, username, password, dan role harus diisi' }, { status: 400 })
     }
 
     const allowedRoles = [
@@ -101,11 +102,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errMsg }, { status: 500 })
     }
 
-    // Tambahkan baris outlet_staff (identitas kanonik).
-    // name wajib (NOT NULL) → pakai username sebagai nama default.
+    // Tambahkan baris outlet_staff (identitas kanonik) dengan nama lengkap dari admin.
     const { error: profileError } = await supabaseService.from('outlet_staff').insert({
       id: authData.user.id,
-      name: username,
+      name: normalizedName,
       role,
       outlet_id: primaryOutletId,
       username,

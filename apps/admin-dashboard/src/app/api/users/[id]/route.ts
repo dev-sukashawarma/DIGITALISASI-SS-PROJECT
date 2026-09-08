@@ -50,10 +50,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Request body tidak valid' }, { status: 400 })
     }
 
-    const { username, password, role, outlet_id, outlet_ids, is_active, inactive_reason, is_bonus_eligible } = body
+    const { name, username, password, role, outlet_id, outlet_ids, is_active, inactive_reason, is_bonus_eligible } = body
+    const normalizedName = typeof name === 'string' ? name.trim() : ''
 
-    if (!username || !role) {
-      return NextResponse.json({ error: 'Username dan role harus diisi' }, { status: 400 })
+    if (!normalizedName || !username || !role) {
+      return NextResponse.json({ error: 'Nama lengkap, username, dan role harus diisi' }, { status: 400 })
     }
 
     const allowedRoles = [
@@ -122,6 +123,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // Update Profile
     const { error: profileError } = await supabaseService.from('outlet_staff').update({
+      name: normalizedName,
       role,
       outlet_id: primaryOutletId,
       username,

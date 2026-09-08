@@ -6,6 +6,7 @@ import type { Outlet } from '@/pos-types'
 interface UserProfile {
   id: string
   role: string
+  name: string
   username: string
   outlet_id: string | null
   outlets?: { name: string }

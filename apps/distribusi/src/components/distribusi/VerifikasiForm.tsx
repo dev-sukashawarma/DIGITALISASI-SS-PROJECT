@@ -113,11 +113,21 @@ export function VerifikasiForm({ id }: { id: string }) {
     return data.surat_jalan_item.map((item: any) => {
       const b = item.bahan_baku;
       let factor = 1;
-      if (b && b.satuan_distribusi && b.satuan_distribusi !== b.satuan) {
-        const dist = b.satuan_distribusi.toLowerCase();
-        if (dist === b.satuan_tengah?.toLowerCase() && b.faktor_tengah) factor = b.faktor_tengah;
-        else if (dist === b.satuan_kecil?.toLowerCase() && b.faktor_tampilan) factor = b.faktor_tampilan;
-        else if (dist === 'kg' && b.satuan_kecil?.toLowerCase() === 'gram' && b.faktor_tampilan) factor = b.faktor_tampilan / 1000;
+      if (b && b.satuan_distribusi) {
+        const dist = b.satuan_distribusi.toLowerCase().trim();
+        const besar = (b.satuan || '').toLowerCase().trim();
+        const st = b.satuan_tengah?.toLowerCase().trim();
+        const sk = b.satuan_kecil?.toLowerCase().trim();
+
+        if (dist !== besar) {
+          if (st && b.faktor_tengah && (dist === st || (dist === 'bks' && st === 'bungkus') || (dist === 'bungkus' && st === 'bks'))) {
+            factor = b.faktor_tengah;
+          } else if (sk && b.faktor_tampilan && (dist === sk || (dist === 'bks' && sk === 'bungkus') || (dist === 'bungkus' && sk === 'bks'))) {
+            factor = b.faktor_tampilan;
+          } else if (dist === 'kg' && sk === 'gram' && b.faktor_tampilan) {
+            factor = b.faktor_tampilan / 1000;
+          }
+        }
       }
       return {
         ...item,

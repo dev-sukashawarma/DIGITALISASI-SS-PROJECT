@@ -863,7 +863,7 @@ export default function MenuView({
         </div>
       </div>
 
-      {showForm && (
+      {showForm && createPortal(
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-0 sm:p-4 lg:p-6"
           onClick={(e) => { if (e.target === e.currentTarget) closeForm() }}
@@ -1696,7 +1696,8 @@ export default function MenuView({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* ── Menu Grid / Table ────────────────────────────── */}

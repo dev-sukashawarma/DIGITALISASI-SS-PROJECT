@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check, Store } from 'lucide-react'
 import { toast } from 'sonner'
 import { CurrencyInput } from '@suka/design-system'
@@ -440,7 +441,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
 
   return (
     <div className="max-w-4xl w-full mx-auto animate-fade-in">
-      {/* pb besar supaya kartu terakhir tidak tertutup bilah simpan yang sticky */}
+      {/* Ruang bawah menjaga kartu terakhir tetap terbaca di balik bilah aksi fixed. */}
       <div className="space-y-6 pb-40">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">Pengaturan Promo</h1>
@@ -1125,22 +1126,26 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
         </section>
       </div>
 
-      {/* Bilah simpan — melekat di bawah viewport, lebarnya ikut container */}
-      <div className="sticky bottom-4 z-40 flex justify-end">
-        <div className="w-full rounded-2xl bg-white/95 backdrop-blur-md border border-gray-200 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-xs text-gray-500 font-medium sm:pl-2">
-            Tiap promo disimpan hanya ke outlet yang dipilih di kartunya, dari {outlets.length} outlet aktif. Jam promo mengikuti {WIB_LABEL}.
-          </p>
-          <button
-            className="btn-primary px-6 sm:px-8 py-3 rounded-xl shadow-lg shadow-amber-500/30 flex items-center gap-2 text-sm font-bold sm:text-base w-full sm:w-auto justify-center transition-transform active:scale-95 disabled:opacity-60"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
-            Simpan Pengaturan Promo
-          </button>
-        </div>
-      </div>
+      {mounted && createPortal(
+        /* Portal mencegah wrapper swipe/scroll ikut memindahkan bilah fixed. */
+        <div className="pointer-events-none fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom)+1.5rem)] z-40 flex justify-end sm:inset-x-5 lg:inset-x-auto lg:bottom-6 lg:left-1/2 lg:w-[min(calc(100%-3rem),56rem)] lg:-translate-x-1/2">
+          <div className="pointer-events-auto w-full rounded-2xl border border-gray-200 bg-white/95 p-2.5 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.25)] backdrop-blur-md sm:flex sm:justify-end sm:p-4 lg:items-center lg:justify-between lg:gap-3">
+            <p className="hidden text-xs font-medium text-gray-500 lg:block lg:pl-2">
+              Tiap promo disimpan hanya ke outlet yang dipilih di kartunya, dari {outlets.length} outlet aktif. Jam promo mengikuti {WIB_LABEL}.
+            </p>
+            <button
+              className="btn-primary w-full justify-center rounded-xl px-6 py-3 text-sm font-bold shadow-lg shadow-amber-500/30 transition-transform active:scale-95 disabled:opacity-60 sm:w-auto sm:px-8 sm:text-base"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="w-5 h-5" />}
+              <span className="sm:hidden">Simpan Promo</span>
+              <span className="hidden sm:inline">Simpan Pengaturan Promo</span>
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   )
 }

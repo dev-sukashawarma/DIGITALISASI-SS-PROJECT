@@ -1306,6 +1306,73 @@ Skrip: `SS COGS SET/koreksi-foil-opname-terakhir-2026-09-08.sql`, `koreksi-tutup
 - Kalisari & Cileungsi: dugaan dus tersegel tak ikut dihitung (Kalisari terima 1 dus pukul 16:01, malamnya mencatat "1 Roll"). Perlu hitung fisik ulang dengan kolom Dus baru.
 - Usul terpisah: merampingkan daftar 43 item per outlet — akar kebiasaan mengetik 0 pada item yang outletnya memang tidak pakai.
 
+## Session 2026-09-08: Outlet Tes Dikeluarkan dari Semua Perhitungan (DB + 5 app)
+
+**Status:** ✅ COMPLETED & LIVE — 4 migration applied & diverifikasi di DB live; kode
+ter-merge ke `main` lewat PR #52 dan sudah di-redeploy oleh owner.
+
+Guard finalisasi opname yang juga lahir di sesi ini dibahas di entri
+"FOIL bersatuan Dus, Gerbang Nol Opname" di atas (§3) — sesi itu yang
+merekonsiliasi keduanya, jangan ditulis dua kali di sini.
+
+### Aturan (keputusan owner)
+
+> "outlet tes hanya untuk testing oleh developer, jadi jangan masuk ke perhitungan"
+
+Berlaku untuk **semua** angka: omzet, HPP, laba, nilai persediaan, waste.
+**Kenali lewat `outlets.type = 'test'`, bukan nama** — nama bisa diubah admin kapan saja.
+**Jangan andalkan `is_active`** — outlet tes justru `is_active = true`.
+
+### Ditutup di basis data
+
+| Migration | Isi |
+|---|---|
+| `20300131000000` | `nilai_persediaan_spv` kecualikan `type` test & marketplace |
+| `20300132000000` | Helper baru `outlet_ids_terhitung()` + 6 RPC HPP/waste dialihkan ke sana |
+| `20300133000000` | `sales_summary_spv` & `menu_sales_spv` (`security_barrier` dipertahankan) |
+
+**`accessible_outlet_ids()` SENGAJA tidak diubah** — itu mengatur hak *baca*; kalau outlet
+tes dikeluarkan dari sana, developer tak bisa lagi melihat data ujinya. Aturannya "jangan
+dihitung", bukan "jangan dilihat". Untuk agregasi laporan **baru**, pakai
+`outlet_ids_terhitung()` (= `accessible_outlet_ids()` minus lokasi non-operasional).
+
+Efek terukur, tanpa efek samping: omzet total 1.679.672.213 → 1.678.792.213 (−Rp880.000,
+tepat sebesar omzet outlet tes); baris view −7 dan −26, persis seperti yang diukur sebelum
+perubahan. Halaman Nilai Persediaan sebelumnya menampilkan **Rp2,45 miliar** di kartu
+"Belum Pasti" — **Rp2,37 miliar** murni dari outlet tes; angka jujurnya Rp75,0 juta.
+
+### Ditutup di sisi klien (commit `a37cba97`)
+
+Tiap app menarik daftar outletnya sendiri — memperbaiki satu **tidak** memperbaiki yang lain
+(pola sama dengan kebocoran marketplace, Session 2026-08-05 butir 1b). `admin-dashboard` &
+`HR` sudah ditutup lebih dulu oleh `f8f01556`. Sisanya di sesi ini: `finance` (2 hook),
+`owner-dashboard` (hook + 3 halaman), `manager` (2 halaman), `distribusi`, `stok`.
+
+**⚠️ Gotcha: menyaring daftar outlet saja tidak cukup.** Halaman utama `apps/manager`
+menjumlahkan `orders` dan `stok_waste_reports` **langsung dari tabel mentah** — penyaring
+harus dipasang di tiap agregat juga, bukan cuma di dropdown-nya.
+
+**Sengaja DIBIARKAN, dengan catatan di kodenya:** OutletSwitcher app stok
+(`useOutletScope`) = pintu masuk developer untuk menguji; dan peta nama outlet di app
+`inventori` yang hanya jadi label, tak menjumlahkan uang.
+
+**Penyaring app baru** (`apps/{stok,distribusi,owner-dashboard,manager}/src/lib/outletFilters.ts`)
+memakai `TEST_OUTLET_ID` + `outlets.type`, **bukan** kecocokan potongan nama seperti berkas
+serupa di admin-dashboard/finance/HR. Hari ini hasilnya sama (diperiksa: dari 29 outlet
+hanya "outlet tes" yang kena), tetapi `type` diisi skema sedangkan nama diisi pengetik.
+
+**`type = 'office'` TIDAK bisa disaring per-type** — jenis itu memuat GUDANG PUSAT (HQ),
+gudang sungguhan & pemegang persediaan terbesar, bersama KANTOR PUSAT yang dummy.
+
+**📄 Catatan lengkap:** `docs/CATATAN-LANJUTAN-HARGA-STOK.md`
+
+### 📝 Next
+- Audit lanjutan **sudah tuntas**: `absensi`, `pos-kasir`, `inventori`, `monitoring`,
+  `sales-board`, `retail-gateway` ditelusuri, nol yang perlu ditambal.
+  ⛔ `retail-gateway` **jangan** disaring — outlet tes satu-satunya baris
+  `app_enabled = true`, menyaringnya mengosongkan kanal retail.
+- Bersih-bersih data KANTOR PUSAT (dummy, ikut terhitung di nilai persediaan Rp2,4 juta).
+
 ---
 
 **Last updated:** 2026-09-08  

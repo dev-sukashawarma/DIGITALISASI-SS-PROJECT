@@ -77,6 +77,24 @@ butir 1b). Ditelusuri satu per satu, bukan ditebak:
 | stok | `lib/queries/monitoring.ts` `fetchOutletsList` | ✅ disaring |
 | stok | `hooks/useOutletScope.tsx` (OutletSwitcher) | ⬜ **sengaja dibiarkan** |
 | inventori | peta nama outlet di laporan inventaris | ⬜ sengaja dibiarkan |
+| absensi | dropdown Pengaturan (konfigurasi, bukan hitungan) | ⬜ sengaja dibiarkan |
+| pos-kasir | seluruhnya pencarian per-id | — bersih |
+| monitoring | dashboard kamera | — bukan uang |
+| sales-board | view `sales_board_outlets` = `type IN ('outlet','mitra')` | — sudah aman lewat allowlist |
+| retail-gateway | `/api/v1/outlets` menyaring `app_enabled` | ⛔ **JANGAN disaring** — lihat di bawah |
+
+**⛔ retail-gateway: jangan tergoda menambahkan penyaring `type='test'` di sana.**
+Diperiksa 8 September: `outlet tes` adalah **satu-satunya** baris dengan
+`app_enabled = true` di seluruh tabel `outlets` — nol outlet asli. Daftar outlet
+publik kanal retail memang sedang berisi persis satu outlet uji, karena kanalnya
+belum dirilis. Memasang penyaring di sana akan mengosongkan kanal itu sama
+sekali, bukan membersihkan laporan.
+
+**Catatan kecil di luar topik** (`apps/pos-kasir`): `orders/manual` dan
+`orders/walk-in` punya fallback outlet default
+`.from('outlets').select('id').limit(1).single()` **tanpa `ORDER BY`** — Postgres
+bebas mengembalikan baris mana pun. Hari ini kebetulan "SS BACKUP", bukan outlet
+tes, jadi bukan kebocoran; tetapi itu order sungguhan yang bisa nyasar outlet.
 
 **Dua yang sengaja dibiarkan, dan alasannya:**
 

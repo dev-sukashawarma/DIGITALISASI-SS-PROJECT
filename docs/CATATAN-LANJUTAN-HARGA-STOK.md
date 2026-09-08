@@ -202,6 +202,57 @@ dijalankan). Menulis ke tabel riwayat DB bersama tanpa persetujuan pernah jadi
 insiden di proyek ini (Session 2026-07-14). Isinya `CREATE OR REPLACE`, jadi
 `db push` berikutnya menerapkannya ulang dengan aman. Keputusan stempel = owner.
 
+### ✅ 1 September ditetapkan sebagai titik mulai bersih (8 September)
+
+Migration `20260908170000_koreksi_harga_beku_surat_jalan_sejak_1sep.sql` —
+applied & diverifikasi. **Hanya 9 baris disentuh.**
+
+| Bahan | Baris | Sebelum | Sesudah |
+|---|--:|---|---|
+| AYAM | 6 | Rp35.000 (harga dari PO uji coba) | Rp53.500 |
+| CUP | 2 | Rp1.780 (per pcs) | Rp44.500 (×25, per Pack) |
+| KERTAS STRUK | 1 | Rp1.600 (per roll) | Rp16.000 (×10, per pack) |
+
+Dikalikan faktornya, bukan diganti master hari ini — supaya tingkat harga saat
+pengiriman tetap terjaga. Diuji idempoten (jalan kedua = nol baris).
+
+Keadaan jendela 1–8 September sebelum koreksi: 478 baris, **386 sudah bersih**
+(Rp176 jt), 35 baris harga beda tapi satuan benar (pembekuan yang memang
+bekerja — SAPI 100.000, FOIL lama 11.554: JANGAN disentuh), 57 baris tersangka.
+
+### 🚨 NYARIS SALAH: FOIL 10 baris — tampak salah 48×, ternyata benar
+
+Sepuluh baris FOIL (3–8 September) membeku di Rp8.791,2 sementara master kini
+Rp421.977,6. Klasifikasi otomatis menandainya "salah satuan" dengan keyakinan
+**tertinggi** (sisa rasio pas 1,00). Kalau dijalankan, harganya dikalikan 48
+sementara qty tetap Roll → **+Rp83 juta nilai fiktif**.
+
+Yang menyelamatkan: **qty bernilai 48 muncul empat kali** — persis faktor
+bahannya. 48 Dus foil ke satu outlet dalam sehari itu mustahil. Saat surat
+jalan itu dibuat satuan FOIL masih Roll, jadi `qty_dikirim` JUGA dalam Roll.
+Pasangannya konsisten: 48 Roll × 8.791,2 = Rp421.977,6 = tepat 1 Dus.
+
+**Kesalahan metodologis yang sama untuk keempat kalinya di sesi ini:**
+membandingkan satu sisi tanpa memeriksa sisi lainnya. Membandingkan harga
+terhadap master TIDAK CUKUP — untuk tiap bahan yang satuannya pernah berubah,
+qty ikut berpindah basis.
+
+**Uji yang benar: apakah `qty × harga` menghasilkan rupiah yang masuk akal**,
+bukan apakah harga sebanding dengan master.
+
+⚠️ **Karena itu angka "481 baris / Rp381,9 juta" di bagian bahan keputusan di
+atas TIDAK BISA DIPERCAYA** — ia dihitung dengan pemisah yang cacat ini, dan
+setidaknya 74 baris FOIL di dalamnya adalah positif palsu. Perlu dihitung ulang
+dengan uji sisi-qty sebelum dipakai untuk keputusan apa pun.
+
+### Sisa pekerjaan di jendela 1 September
+
+- **Terhalang master data:** SAOS CABE (7 baris) & SAOS SAMYANG (2) — isi
+  kemasannya belum terdaftar di `bahan_baku`, jadi tak ada faktor sah. Ini
+  **salah hari ini juga**, bukan cuma soal riwayat.
+- **Menunggu pemeriksaan sisi qty:** MAYONAISE (14), SAOS TOMAT POUCH (7),
+  KEJU (2), PLASTIK MERAH (2), PAPER WRAP (10).
+
 ### Bahan keputusan: nasib 2.626 snapshot surat jalan
 
 Metode pemisahan (8 September, menggantikan pemisah sebelumnya yang cacat):

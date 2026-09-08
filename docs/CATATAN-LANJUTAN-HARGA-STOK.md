@@ -32,6 +32,28 @@ Rumusnya sengaja disalin persis dari `createDraftItemFromCurrentState` —
 pratinjau yang memakai jalur hitung sendiri akan berbohong tepat ketika paling
 dibutuhkan.
 
+#### Susulan: peringatan harus IKUT ke daftar item
+
+Ketahuan saat smoke test owner. Peringatan di area input **menguap** begitu
+tombol "Tambah item" ditekan — item pindah ke "Daftar Item Entri", kolom bahan
+ter-reset, dan yang tersisa cuma satu baris datar berhuruf kecil:
+
+```
+Penyesuaian: Penambahan 1000 Dus -> Target: 1022 Dus + 40 Roll
+```
+
+Angkanya mengerikan, nadanya tidak. Setelah itu tombol "Simpan Semua Entri"
+tanpa penghalang apa pun — **persis celah yang meloloskan insiden FOIL.**
+
+Diperbaiki: `lipatStok` dibawa serta di `DraftItem`, dan baris daftar yang
+≥10× dirender merah lengkap dengan peringatannya. Peringatannya kini bertahan
+sampai detik tombol simpan ditekan.
+
+**Sengaja BUKAN modal konfirmasi kedua.** Sesi "FOIL Dus & Gerbang Nol" sudah
+membuktikan dua peringatan beruntun justru melatih orang menekan "lanjut"
+(§3 entri CLAUDE.md-nya). Satu tanda yang menetap lebih kuat daripada dua
+tanda yang berkedip.
+
 ### 2. Form terima PO (`apps/finance` VerifikasiTerimaModal)
 
 Labelnya **"Harga Aktual"** — tanpa satuan sama sekali. Itu akar kekeliruan

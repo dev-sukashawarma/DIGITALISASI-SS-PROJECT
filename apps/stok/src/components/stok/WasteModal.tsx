@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
 import { toast } from 'sonner'
 import type { BahanBaku } from '@/types/stok'
+import { WASTE_REASONS } from '@/lib/wasteReasons'
 
 type Props = {
   outletId: string;
@@ -187,11 +188,9 @@ export function WasteModal({ outletId, bahanBaku, onClose, onSuccess }: Props) {
               required
             >
               <option value="" disabled>Pilih alasan...</option>
-              <option value="Basi / Expired">Basi / Expired</option>
-              <option value="Jatuh / Tumpah">Jatuh / Tumpah</option>
-              <option value="Gosong / Rusak Masak">Gosong / Rusak Masak</option>
-              <option value="Kualitas Buruk (dari supplier)">Kualitas Buruk (dari supplier)</option>
-              <option value="Lainnya">Lainnya</option>
+              {WASTE_REASONS.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
             </select>
           </div>
 

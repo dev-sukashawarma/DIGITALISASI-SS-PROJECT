@@ -8,6 +8,7 @@ import { useStokBalance } from '@/hooks/useStokBalance'
 import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
 import { formatTriUnitSaldoAdaptive, convertBesarToGram } from '@/lib/format/compositeUnit'
+import { WASTE_REASONS, isValidWasteReason } from '@/lib/wasteReasons'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -29,6 +30,8 @@ export interface DraftItem {
   finalQty?: number
   file?: File | null
   catatanItem?: string
+  /** Alasan waste (salah satu WASTE_REASONS). Hanya untuk tipe 'waste'. */
+  wasteReason?: string
   summaryText: string
   adjDirection?: 'in' | 'out'
 }
@@ -44,6 +47,11 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const [tipe, setTipe] = useState<'waste'|'adjustment'|'transfer_keluar'>('adjustment')
   const [qty, setQty] = useState('')
   const [catatan, setCatatan] = useState('')
+  // Alasan waste TERPISAH dari `catatan`. Dulu keduanya berbagi satu state,
+  // sehingga teks bebas yang diketik untuk tipe lain bisa menyeberang menjadi
+  // "kategori" waste di laporan (nilai nyata yang lolos: 'Rusak', 'Basi dan
+  // berubah warna'), dan item waste tanpa alasan jatuh ke literal 'Waste'.
+  const [wasteReason, setWasteReason] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -62,7 +70,11 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
   const isCurrentValid = Boolean(bahanBakuId) && qty !== '' && !isNaN(qtyNum) && qtyNum > 0
 
-  const isFormSubmittable = draftItems.length > 0 || (Boolean(bahanBakuId) && isCurrentValid && (!needsReason || catatan.trim() !== ''))
+  // Alasan yang wajib diisi berbeda per tipe: waste memakai dropdown
+  // (wasteReason), tipe lain memakai teks bebas (catatan).
+  const currentReasonFilled = tipe === 'waste' ? wasteReason !== '' : catatan.trim() !== ''
+
+  const isFormSubmittable = draftItems.length > 0 || (Boolean(bahanBakuId) && isCurrentValid && (!needsReason || currentReasonFilled))
 
   function createDraftItemFromCurrentState(): DraftItem | null {
     if (!bahanBakuId || !selectedBahan) return null
@@ -139,11 +151,20 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         file,
         summaryText: text,
         catatanItem: catatan,
+        wasteReason: tipe === 'waste' ? wasteReason : undefined,
       }
     }
   }
 
   function handleAddItem() {
+    // Alasan waste divalidasi DI SINI, bukan hanya saat submit: dulu item bisa
+    // masuk daftar dengan alasan kosong, lalu `isFormSubmittable` melompatinya
+    // karena cabang `draftItems.length > 0`, dan submit mengarang 'Waste'.
+    if (tipe === 'waste' && wasteReason === '') {
+      setErrorMsg('Pilih alasan waste terlebih dahulu sebelum menambahkan item.')
+      return
+    }
+
     const newItem = createDraftItemFromCurrentState()
     if (!newItem) {
       setErrorMsg('Pilih bahan baku dan ubah kuantitas / penyesuaian terlebih dahulu.')
@@ -187,6 +208,17 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       return
     }
 
+    // Pertahanan lapis kedua atas kolom kategori. Sebelum ini, item waste tanpa
+    // alasan diam-diam dikirim sebagai literal 'Waste' dan mencemari laporan.
+    const wasteWithoutReason = itemsToSubmit.find(
+      i => i.tipe === 'waste' && !isValidWasteReason(i.wasteReason ?? '')
+    )
+    if (wasteWithoutReason) {
+      setErrorMsg(`Alasan waste belum dipilih untuk item: ${wasteWithoutReason.bahanBakuNama}`)
+      setBusy(false)
+      return
+    }
+
     try {
       const wasteItems = itemsToSubmit.filter(i => i.tipe === 'waste')
       const nonWasteItems = itemsToSubmit.filter(i => i.tipe !== 'waste')
@@ -217,7 +249,9 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
             outlet_id: outletId,
             bahan_baku_id: w.bahanBakuId,
             qty: w.finalQty ?? 0,
-            reason: w.catatanItem || catatan || 'Waste',
+            // Kategori murni dari dropdown — TANPA fallback ke teks bebas atau
+            // literal karangan. Dijamin terisi oleh guard di atas.
+            reason: w.wasteReason!,
             photo_url: photoUrl
           })
           if (!wasteRes.success) {
@@ -452,16 +486,14 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         </label>
         {tipe === 'waste' ? (
           <select
-            value={catatan}
-            onChange={e => setCatatan(e.target.value)}
+            value={wasteReason}
+            onChange={e => setWasteReason(e.target.value)}
             className="px-4 py-2.5 border border-[#d9c2b2]/40 rounded-xl bg-white text-xs text-[#1e1b15] placeholder-[#544437]/40 focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744] transition-all shadow-sm"
           >
             <option value="" disabled>Pilih alasan...</option>
-            <option value="Basi / Expired">Basi / Expired</option>
-            <option value="Jatuh / Tumpah">Jatuh / Tumpah</option>
-            <option value="Gosong / Rusak Masak">Gosong / Rusak Masak</option>
-            <option value="Kualitas Buruk (dari supplier)">Kualitas Buruk (dari supplier)</option>
-            <option value="Lainnya">Lainnya</option>
+            {WASTE_REASONS.map(r => (
+              <option key={r} value={r}>{r}</option>
+            ))}
           </select>
         ) : (
           <Input

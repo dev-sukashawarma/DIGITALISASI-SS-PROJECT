@@ -28,7 +28,7 @@ persediaan = Rp257.804**, atau sekitar **0,07%** dari nilai persediaan pasti
 **PLASTIK MERAH hilang dari daftar** setelah kedua baris PO-nya ditandai:
 rata-ratanya pas Rp90.000, sama dengan master. Itu memvalidasi cara ukurnya.
 
-### 🔴 Temuan sampingan yang jauh lebih besar: saldo FOIL gudang tidak masuk akal
+### ✅ DITUTUP: saldo FOIL gudang — satu salah ketik satuan, −Rp413,6 juta
 
 Pengukuran menandai FOIL −Rp44,3 juta, tetapi **itu bukan selisih metode**.
 Saldo FOIL di Gudang Pusat **36.588.680 cm ≈ 1.003 Dus ≈ 48.143 Roll** —
@@ -41,10 +41,44 @@ mustahil secara fisik. Asalnya:
 | transfer_keluar | 64 | −407.861 |
 | opname_selisih | 11 | +188 |
 
-Pembelian nyata cuma 760.000 cm; sisanya penyesuaian manual sejak 23 Juli.
-Ini kelas masalah yang sudah dikenal (penulis ledger buta-skala,
-[[ledger-writers-scale-blind-to-saldo-is-gram]]), **bukan** soal metode harga.
-Perlu opname fisik FOIL di Gudang Pusat.
+**KOREKSI atas dugaan awal saya:** saya sempat menulis "12 baris penyesuaian
+sejak 23 Juli". Salah — hampir seluruhnya **satu baris, hari itu juga**:
+
+```
+13:47:33  EMPANG        +36.480.000 cm  "ekadharma"    <- salah outlet + satuan
+13:52:07  EMPANG        -36.480.000 cm  "salah input"  <- dibatalkan sendiri
+13:53:07  GUDANG PUSAT  +36.480.000 cm  "ekadharma"    <- diulang, satuan masih salah
+```
+
+Penerimaan **1.000 Roll** dari Ekadharma diketik "1.000" lalu dikali **36.480**
+(cm per **Dus**) alih-alih **760** (cm per **Roll**) → tercatat 48.000 Roll.
+
+**Formnya tidak salah hitung.** Satuan besar FOIL baru berubah Roll → Dus
+**pagi itu juga** (`20260908103000`), jadi form meminta Dus sementara orang
+gudang masih berpikir Roll. Operator sempat sadar salah outlet dan
+membatalkannya — tapi tidak sadar satuannya ikut berubah.
+
+**Diperbaiki** `20260908220000` — opname fisik owner **1.096 Roll**, ditulis
+lewat ledger `adjustment` (SOP: jangan `UPDATE stok_balance` langsung), delta
+dihitung saat jalan sehingga idempoten:
+
+| | cm | Roll | Dus | Nilai |
+|---|--:|--:|--:|--:|
+| Sistem | 36.588.680 | 48.143,00 | 1.002,98 | Rp423.234.742 |
+| Fisik | 832.960 | 1.096,00 | 22,83 | Rp9.635.155 |
+| **Koreksi** | **−35.755.720** | | | **−Rp413.599.586** |
+
+Uji kewarasan: saldo sebelum penyesuaian salah = 143 Roll; ditambah 1.000 Roll
+yang benar-benar datang = 1.143 Roll. Hitungan fisik 1.096 Roll — selisih 47
+Roll (≈1 Dus), wajar untuk pemakaian/kiriman yang belum tercatat.
+
+Seluruh outlet lain diperiksa dan **sehat** (0,8–110 Roll). Tidak ada PO FOIL
+menggantung, jadi koreksi ini tak akan tertimpa verifikasi susulan.
+
+⚠️ **Perangkapnya masih terpasang.** Siapa pun yang memasukkan FOIL dalam Roll
+lewat form penyesuaian akan kena 48× lagi. Itu pekerjaan berikutnya: label
+form harus menyebut satuan bahannya secara eksplisit — sama persis dengan
+akar masalah pengisian harga per-Pack di form terima PO.
 
 ### ✅ DIPUTUSKAN 8 September: metode sekarang DIPERTAHANKAN
 

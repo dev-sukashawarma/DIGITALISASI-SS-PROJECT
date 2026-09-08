@@ -45,6 +45,7 @@ SELECT t.bahan_baku_id,
        t.diverifikasi_at
   FROM terakhir t
   JOIN public.bahan_baku b ON b.id = t.bahan_baku_id
+ WHERE b.is_active
 ON CONFLICT (bahan_baku_id, supplier_id) DO NOTHING;
 
 -- Sumber 2: supplier.bahan_baku_ids yang belum punya jejak PO.
@@ -67,6 +68,7 @@ SELECT b.id,
   FROM public.supplier s
   CROSS JOIN LATERAL unnest(COALESCE(s.bahan_baku_ids, '{}'::uuid[])) AS bb(id)
   JOIN public.bahan_baku b ON b.id = bb.id
+ WHERE b.is_active
 ON CONFLICT (bahan_baku_id, supplier_id) DO NOTHING;
 
 -- DOWN:

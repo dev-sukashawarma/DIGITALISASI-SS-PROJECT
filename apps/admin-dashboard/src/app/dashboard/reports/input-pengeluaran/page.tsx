@@ -21,6 +21,17 @@ import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
+type PresetKey = 'today' | 'this_month' | 'last_month' | 'last_7_days' | 'last_30_days' | 'custom'
+
+const PRESETS: { key: PresetKey; label: string }[] = [
+  { key: 'today', label: 'Hari Ini' },
+  { key: 'this_month', label: 'Bulan Ini' },
+  { key: 'last_month', label: 'Bulan Lalu' },
+  { key: 'last_7_days', label: '7 Hari' },
+  { key: 'last_30_days', label: '30 Hari' },
+  { key: 'custom', label: 'Custom' },
+]
+
 function getFirstOfMonth() {
   const d = new Date()
   const y = d.getFullYear()
@@ -57,6 +68,10 @@ export default function InputPengeluaranPage() {
   const [startDate, setStartDate] = useState(() => paramFrom || getToday())
   const [endDate, setEndDate] = useState(() => paramTo || getToday())
   const [target, setTarget] = useState<string>(() => paramOutlet || userOutletId || 'all')
+  // Preset periode yang sedang aktif. 'custom' adalah satu-satunya kondisi yang
+  // memunculkan input rentang tanggal, jadi toolbar tidak lagi memajang dua
+  // kontrol tanggal terpisah sepanjang waktu.
+  const [activePreset, setActivePreset] = useState<PresetKey>(() => (paramFrom || paramTo) ? 'custom' : 'today')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
 
@@ -132,9 +147,9 @@ export default function InputPengeluaranPage() {
   }, [allTransactions])
 
   const selectOptions = [
-    { label: '🏢 Semua Outlet', value: 'all' },
-    ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (company-wide)', value: 'PUSAT' }] : []),
-    ...outlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
+    { label: 'Semua Outlet', value: 'all' },
+    ...(isAdmin ? [{ label: 'Pengeluaran Pusat (company-wide)', value: 'PUSAT' }] : []),
+    ...outlets.map(o => ({ label: o.name, value: o.id }))
   ]
 
   const loading = expensesLoading || topupsLoading
@@ -189,8 +204,14 @@ export default function InputPengeluaranPage() {
   }
 
   // Quick preset handlers
-  const setPreset = (preset: 'today' | 'this_month' | 'last_month' | 'last_7_days' | 'last_30_days') => {
+  const setPreset = (preset: PresetKey) => {
+    setActivePreset(preset)
     const today = new Date()
+    // 'custom' hanya membuka input tanggal — rentang yang sedang aktif dibiarkan
+    // apa adanya supaya bisa dipakai sebagai titik mulai penyuntingan.
+    if (preset === 'custom') {
+      return
+    }
     if (preset === 'today') {
       const t = today.toISOString().slice(0, 10)
       setStartDate(t)
@@ -220,79 +241,7 @@ export default function InputPengeluaranPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Buku Kas (OPEX)" description="Catat dan pantau arus kas operasional (Pemasukan & Pengeluaran)" icon={Wallet}>
-        <div className="flex flex-wrap items-center gap-2 mt-3">
-          {/* Preset Buttons */}
-          <div className="flex items-center gap-1 bg-suka-gray-100 p-1 rounded-xl text-xs font-semibold text-suka-gray-600">
-            <button
-              onClick={() => setPreset('today')}
-              className={`px-2.5 py-1.5 rounded-lg transition-all ${
-                startDate === getToday() && endDate === getToday()
-                  ? 'bg-white text-suka-brown font-bold shadow-xs'
-                  : 'hover:bg-white/60 hover:text-suka-brown'
-              }`}
-            >
-              Hari Ini
-            </button>
-            <button
-              onClick={() => setPreset('this_month')}
-              className={`px-2.5 py-1.5 rounded-lg transition-all ${
-                startDate === getFirstOfMonth() && endDate === getLastOfMonth()
-                  ? 'bg-white text-suka-brown font-bold shadow-xs'
-                  : 'hover:bg-white/60 hover:text-suka-brown'
-              }`}
-            >
-              Bulan Ini
-            </button>
-            <button
-              onClick={() => setPreset('last_month')}
-              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
-            >
-              Bulan Lalu
-            </button>
-            <button
-              onClick={() => setPreset('last_7_days')}
-              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
-            >
-              7 Hari
-            </button>
-            <button
-              onClick={() => setPreset('last_30_days')}
-              className="px-2.5 py-1.5 rounded-lg hover:bg-white hover:text-suka-brown hover:shadow-xs transition-all"
-            >
-              30 Hari
-            </button>
-          </div>
-
-          {/* Date Range Inputs */}
-          <div className="flex items-center gap-1.5 bg-white border border-suka-gray-200 rounded-xl px-2.5 py-1.5 shadow-xs">
-            <Calendar className="w-4 h-4 text-suka-gray-400 shrink-0" />
-            <input
-              type="date"
-              value={startDate}
-              onChange={e => setStartDate(e.target.value)}
-              className="text-xs font-semibold text-suka-ink focus:outline-none bg-transparent"
-              title="Dari Tanggal"
-            />
-            <span className="text-suka-gray-300 font-bold text-xs">s/d</span>
-            <input
-              type="date"
-              value={endDate}
-              min={startDate}
-              onChange={e => setEndDate(e.target.value)}
-              className="text-xs font-semibold text-suka-ink focus:outline-none bg-transparent"
-              title="Sampai Tanggal"
-            />
-          </div>
-
-          {/* Target Outlet Combobox */}
-          <TargetCombobox 
-            options={selectOptions}
-            value={target}
-            onChange={setTarget}
-            placeholder="🏢 Pilih Outlet / Cabang"
-          />
-
-          {/* Export Excel Button */}
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="secondary"
             onClick={handleExportExcel}
@@ -314,6 +263,61 @@ export default function InputPengeluaranPage() {
           </Button>
         </div>
       </PageHeader>
+
+      {/* Baris filter dipisah dari kepala halaman supaya judul tidak berdesakan
+          dengan tombol aksi. Periode di kiri, pemilih outlet di kanan. */}
+      <div className="relative z-40 bg-white border border-suka-gray-200 rounded-2xl shadow-xs px-3 py-2.5 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Preset periode */}
+          <div className="flex items-center gap-1 bg-suka-gray-100 p-1 rounded-xl text-xs font-semibold text-suka-gray-600 overflow-x-auto">
+            {PRESETS.map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setPreset(key)}
+                className={`px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-all ${
+                  activePreset === key
+                    ? 'bg-white text-suka-brown font-bold shadow-xs'
+                    : 'hover:bg-white/60 hover:text-suka-brown'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Rentang tanggal manual — hanya tampil kalau preset Custom dipilih */}
+          {activePreset === 'custom' && (
+            <div className="flex items-center gap-1.5 bg-white border border-suka-gray-200 rounded-xl px-2.5 py-1.5 shadow-xs">
+              <Calendar className="w-4 h-4 text-suka-gray-400 shrink-0" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={e => setStartDate(e.target.value)}
+                className="text-xs font-semibold text-suka-ink focus:outline-none bg-transparent"
+                title="Dari Tanggal"
+              />
+              <span className="text-suka-gray-300 font-bold text-xs">s/d</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate}
+                onChange={e => setEndDate(e.target.value)}
+                className="text-xs font-semibold text-suka-ink focus:outline-none bg-transparent"
+                title="Sampai Tanggal"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Target Outlet Combobox */}
+        <TargetCombobox
+          options={selectOptions}
+          value={target}
+          onChange={setTarget}
+          placeholder="Pilih Outlet / Cabang"
+          icon={null}
+        />
+      </div>
 
       {expensesError && (
         <div className="p-4 bg-red-50 text-red-700 rounded-xl border border-red-100 text-sm">

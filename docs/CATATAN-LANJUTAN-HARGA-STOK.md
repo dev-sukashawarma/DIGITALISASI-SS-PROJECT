@@ -30,30 +30,46 @@ jangan disamakan dengan outlet tes.
 | Tempat | Status |
 |---|---|
 | `nilai_persediaan_spv` | ✅ dikecualikan (`20300131000000`) |
+| HPP & waste — 6 fungsi RPC | ✅ lewat helper `outlet_ids_terhitung()` (`20300132000000`) |
+| `sales_summary_spv` & `menu_sales_spv` | ✅ dikecualikan (`20300133000000`) |
+
+**Helper baru `outlet_ids_terhitung()`** — pakai ini untuk agregasi laporan
+baru. Ia = `accessible_outlet_ids()` minus lokasi non-operasional.
+`accessible_outlet_ids()` SENGAJA tidak diubah: itu mengatur hak baca, dan
+kalau outlet tes dikeluarkan dari sana, developer tak bisa lagi melihat data
+ujinya sendiri. Aturannya "jangan dihitung", bukan "jangan dilihat".
+
+Dibuktikan tak ada efek samping: omzet total 1.679.672.213 → 1.678.792.213
+(−Rp880.000, tepat sebesar omzet outlet tes), baris view −7 dan −26 persis
+seperti yang diukur sebelum perubahan.
 
 Sebelum ditutup, halaman Nilai Persediaan menampilkan **Rp2,45 miliar** di
 kartu "Belum Pasti" — **Rp2,37 miliar** di antaranya murni dari outlet tes.
 Angka jujurnya: pasti Rp358,8 juta, belum pasti Rp75,0 juta.
 
-### ⚠️ MASIH BOCOR — belum ditutup
+### ⚠️ Yang masih terbuka
 
-Diperiksa 8 September, outlet tes masih **aktif** (`is_active = true`) dan
-datanya ikut terhitung:
+Outlet tes tetap **aktif** (`is_active = true`) dan datanya masih ada di tabel
+dasar — 17 order, 1.663 baris ledger, 2 laporan waste. Itu **disengaja**: ia
+memang outlet uji dan harus tetap bisa dipakai. Yang sudah ditutup adalah
+jalur **perhitungannya**, bukan datanya.
 
-```
-17 order (semuanya 30 hari terakhir)  →  Rp880.000 tercatat sebagai omzet
-1.663 baris ledger
-2 laporan waste
-```
+**Yang belum diperiksa satu per satu:**
 
-Artinya ia masih menyusup ke laporan penjualan, HPP (order → resep), dan waste.
-Nilainya kecil, tapi aturannya tegas: jangan masuk perhitungan.
+- **Agregasi sisi klien.** Tiap app punya `useOutlets` sendiri; yang disaring
+  baru marketplace (Session 2026-08-05 butir 1b), belum `test`. Kalau ada
+  halaman yang menjumlahkan sendiri dari daftar outlet, outlet tes masih ikut.
+- **Laporan di luar stok** — finance, owner-dashboard, manager. Belum diaudit.
 
-**Langkah pertama kalau digarap:** cari agregasi yang mengelompokkan per
-`outlet_id` tanpa memeriksa `type` — polanya sama dengan kebocoran outlet
-marketplace yang pernah ditemukan (lihat CLAUDE.md Session 2026-08-05 butir 1b:
-tiap app punya `useOutlets` sendiri yang tak ikut diperbaiki). Jangan andalkan
-`is_active` saja; banyak agregasi tidak memeriksanya.
+**Kalau menggarapnya:** cari agregasi yang mengelompokkan per `outlet_id` tanpa
+memeriksa `type`. Untuk yang di database, pakai `outlet_ids_terhitung()` yang
+sudah ada. **Jangan andalkan `is_active`** — outlet tes justru `is_active=true`,
+dan banyak agregasi tak memeriksanya.
+
+**Ukuran masalahnya, supaya tak dibesar-besarkan:** omzet outlet tes 0,051% dari
+total (Rp0,88 jt dari Rp1.739 jt), dan karena semua laporan dikelompokkan per
+outlet, ia muncul sebagai baris sendiri — tidak pernah mencemari angka outlet
+lain. Menambal sisa jalur ini soal kerapian, bukan kebenaran angka.
 
 **Catatan terpisah:** KANTOR PUSAT (`type = 'office'`) juga dummy, tapi
 **tidak** bisa disaring per-type — jenis itu memuat GUDANG PUSAT (HQ) yang

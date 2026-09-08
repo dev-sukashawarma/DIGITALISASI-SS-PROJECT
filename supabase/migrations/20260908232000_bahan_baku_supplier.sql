@@ -43,8 +43,12 @@ COMMENT ON COLUMN public.bahan_baku_supplier.perlu_ditinjau IS
 
 CREATE INDEX IF NOT EXISTS idx_bbs_bahan    ON public.bahan_baku_supplier(bahan_baku_id);
 CREATE INDEX IF NOT EXISTS idx_bbs_supplier ON public.bahan_baku_supplier(supplier_id);
+
+-- DROP dulu: CREATE UNIQUE INDEX IF NOT EXISTS tidak mengubah predikat index
+-- yang sudah ada (fix round 1 — index lama tak mengecualikan baris nonaktif).
+DROP INDEX IF EXISTS public.idx_bbs_satu_preferred;
 CREATE UNIQUE INDEX IF NOT EXISTS idx_bbs_satu_preferred
-  ON public.bahan_baku_supplier(bahan_baku_id) WHERE is_preferred;
+  ON public.bahan_baku_supplier(bahan_baku_id) WHERE (is_preferred AND is_active);
 
 -- ── Riwayat ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.bahan_baku_supplier_history (
@@ -77,8 +81,12 @@ CREATE TRIGGER trg_bbs_updated_at
   BEFORE UPDATE ON public.bahan_baku_supplier
   FOR EACH ROW EXECUTE FUNCTION public.bbs_set_updated_at();
 
+-- SECURITY DEFINER + search_path pinned: fix round 1 — sebagai INVOKER,
+-- INSERT ini gagal RLS untuk role authenticated (tabel riwayat sengaja
+-- tanpa policy INSERT untuk klien) dan me-rollback seluruh statement
+-- pemanggil. Pola wajib repo ini, lihat ledger_stamp_saldo (20260708100001).
 CREATE OR REPLACE FUNCTION public.bbs_tulis_riwayat()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
   IF TG_OP = 'UPDATE'
      AND NEW.harga            IS NOT DISTINCT FROM OLD.harga
@@ -95,7 +103,7 @@ BEGIN
     NEW.id, NEW.bahan_baku_id, NEW.supplier_id,
     CASE WHEN TG_OP = 'UPDATE' THEN OLD.harga ELSE NULL END,
     NEW.harga, NEW.satuan_beli, NEW.isi_satuan_kecil,
-    NEW.sumber, NEW.ref_po_id, NEW.updated_by
+    NEW.sumber, NEW.ref_po_id, COALESCE(auth.uid(), NEW.updated_by)
   );
   RETURN NEW;
 END;
@@ -139,6 +147,10 @@ CREATE POLICY bbsh_select ON public.bahan_baku_supplier_history
                                 'admin_finance','finance','owner','developer')));
 
 -- Riwayat hanya ditulis trigger; tidak ada policy INSERT untuk klien.
+-- Fix round 1: ALTER DEFAULT PRIVILEGES Supabase memberi ALL ke anon/authenticated
+-- untuk tabel baru — GRANT saja tidak membatasi apa pun (anon tertutup semata
+-- karena RLS, bukan GRANT). REVOKE dulu supaya GRANT eksplisit berarti sesuatu.
+REVOKE ALL ON public.bahan_baku_supplier, public.bahan_baku_supplier_history FROM anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.bahan_baku_supplier         TO authenticated;
 GRANT SELECT                         ON public.bahan_baku_supplier_history TO authenticated;
 

@@ -116,6 +116,42 @@ surat jalan** bertanggal 29 Agu–1 Sep membekukan harga tes itu, senilai
 **Rp19.950.000**. Pola yang sama dengan kebocoran outlet tes, lewat pintu
 berbeda: **jalur PO belum punya penyaring dokumen uji coba.**
 
+### ⚠️ KOREKSI: "4 baris PO salah" ternyata keliru — uangnya sudah benar
+
+Diperiksa 8 September, dan ini membatalkan cara saya membingkainya sebelumnya.
+`subtotal` keempat baris = `qty × harga` **persis**, dan rupiahnya benar:
+
+| PO | Baris | qty × harga | subtotal | Status uang |
+|---|---|---|---|---|
+| SPB/PO/VII/2026/021 | FOIL | 2.000 × 8.791,2 | Rp17.582.400 | benar (2.000 **Roll**) |
+| PO/KITCHEN/20260831/0002 | FOIL | 1.000 × 11.554 | Rp11.554.000 | benar (1.000 **Roll**), ada faktur |
+| SPB/PO/VII/2026/039 | POLYBAG | 2 × 600.000 | Rp1.200.000 | benar (2 **Bal**) |
+| SPB/PO/VII/2026/036 | PLASTIK MERAH | 50 × 18.000 | Rp900.000 | **ambigu** |
+
+Yang salah **hanya label satuannya**, bukan uangnya. Dan `po_payable_spv.total`
+memakai kolom `subtotal` yang tersimpan, bukan `qty × harga` — jadi utang ke
+supplier tidak bergantung pada qty/harga sama sekali.
+
+**Dua baris FOIL bukan kesalahan operator.** Saat dibuat (15 & 31 Agustus)
+satuan FOIL memang **Roll**, jadi labelnya benar pada waktunya. Baru menjadi
+salah ketika migration `20260908103000` mengubah satuan FOIL ke Dus tanpa
+menskala ulang riwayat PO. Sesi itu menskala 26 baris surat jalan yang masih
+berjalan, tetapi riwayat PO tidak ikut — memang di luar lingkupnya.
+
+**PLASTIK MERAH ambigu dan butuh manusia:** 50 Pack @18.000 (= 10 Ikat, uang
+Rp900.000 tetap) atau 50 Ikat @90.000 (uang jadi Rp4.500.000)? `paid_amount`
+NULL, tidak ada faktur terlampir, dan PO ini tidak pernah menulis ledger — tidak
+ada bukti stok untuk menengahi. Hanya catatan pembayaran ke Pak Aji yang bisa.
+
+**POLYBAG jangan disentuh dulu:** master datanya sendiri masih ditahan — catatan
+owner "1 bal = 25 pak" bertentangan dengan faktor terdaftar (9). Menskala
+memakai angka yang belum disepakati akan menambah kekacauan.
+
+**Dampak nyata hari ini: nol.** Uang benar, ledger benar, dan tak ada laporan
+yang membaca `qty_terima` sebagai satuan besar. Satu-satunya yang terganggu
+adalah perhitungan rata-rata tertimbang di masa depan — metode yang belum
+diputuskan.
+
 ### ✅ Ditutup 8 September: PO uji coba tak boleh menulis harga master
 
 Migration `20260908150000_guard_harga_master_po_uji_coba.sql` — **applied &

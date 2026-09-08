@@ -1258,5 +1258,55 @@ type-check: hanya 3 error pre-existing (`mitraPolicy.test.ts` TS6133, `vitest.co
 
 ---
 
-**Last updated:** 2026-09-07  
+## Session 2026-09-08: FOIL bersatuan Dus, Gerbang Nol Opname, & Koreksi Stok Ter-nol (apps/stok)
+
+**Status:** Perubahan DB **sudah live** (master data + koreksi saldo, diterapkan via `exec_sql` + verifikasi ground-truth). Perubahan kode (`zeroGuard` + `OpnameForm`) **⚠️ perlu redeploy `stok`** baru berlaku.
+
+### 1. FOIL dapat tingkat satuan Dus (migration `20260908103000`)
+Owner minta crew menghitung FOIL per dus, bukan per roll. Isi 1 Dus dikonfirmasi **48 Roll**.
+
+| | sebelum | sesudah |
+|---|---|---|
+| satuan / tengah / kecil | Roll / — / cm | **Dus / Roll (48) / cm** |
+| faktor_tampilan | 760 | **36.480** |
+| faktor_konversi | 760 | **760 (tetap — kecil per TENGAH)** |
+| harga_beli / kemasan_qty | 8.791,2 per Roll / 760 | **421.977,6 per Dus / 36.480** |
+
+Aman karena satuan terkecil tetap cm: seluruh `stok_balance` dan riwayat `ledger_stok` tetap valid, tak ada rekonsiliasi (beda dengan POLYBAG `20300122000003` yang satuan kecilnya ikut berubah). Harga per cm identik (11,567368) → HPP & nilai persediaan tidak bergeser. Urutan wajib: **faktor dulu, baru harga** (`sync_harga_beli_display` menghitung dari `faktor_tampilan`).
+
+### ⚠️ Gotcha: mengubah satuan besar merusak dokumen yang masih berjalan
+`surat_jalan_item.qty_dikirim` disimpan dalam **satuan besar** (form distribusi mengonversi input Roll → basis lewat `getDistribusiFactor`), lalu dikali `faktor_tampilan` oleh `to_ledger_scale()` saat verifikasi. 26 baris SJ berstatus `dikirim`/`draft` menyimpan angka dengan arti LAMA — termasuk 2 draft yang dibuat pagi itu juga. Kalau dibiarkan, verifikasinya menulis ledger **48× lipat**. Semua dikonversi (÷48) dengan daftar id eksplisit di migration agar idempoten. Diperiksa juga: PO FOIL terbuka 0, permintaan bahan FOIL terbuka 0, tabel mutasi antar-outlet tidak ada di DB ini. **Pelajaran: setiap kali mengubah `satuan`/`faktor_tampilan` sebuah bahan, sisir dulu dokumen in-flight yang menyimpan qty dalam satuan besar.**
+
+### 2. Definisi resmi isian opname (keputusan owner)
+- **Kolom dikosongkan = belum dihitung** → item dilewati, saldo sistem tidak berubah.
+- **Kolom diisi 0 = sudah dihitung, fisik habis** → saldo dinolkan.
+
+Selama ini definisi itu hanya tersirat di kode: form sudah memperingatkan yang dikosongkan, tapi **tidak ada peringatan sama sekali untuk yang diisi 0** — padahal justru itu yang menghapus stok.
+
+### 3. Jalan keluar "Belum dihitung" — digabung ke gerbang PR #52
+Sesi ini membangun gerbang konfirmasi nol sendiri, lalu saat rebase ketahuan **PR #52 (`074a3a2f`, dev lain, hari yang sama)** sudah memasang gerbang yang **lebih luas**: `hitungPenurunanDrastis()` menahan SEMUA penurunan drastis (`isSelisihFlagged` — 0% untuk satuan hitung, 5% untuk timbang), bukan hanya isian 0, dan sudah menggerbangi kedua jalur masuk finalisasi. Kasus yang saya tangani adalah bagian dari kasus mereka, jadi **modal kembar saya dibuang** — dua peringatan beruntun justru melatih orang menekan "lanjut".
+
+Yang dipertahankan dari sesi ini karena tidak ada di PR #52: tombol per baris **"Belum dihitung — lewati"** yang menghapus isian sehingga bahan itu benar-benar dilewati (menegakkan definisi di §2 — peringatan saja tidak cukup, jalan keluarnya harus ada di tempat peringatan muncul). Tombol hanya tampil untuk baris yang lolos `isSuspiciousZero` (`src/lib/stok/zeroGuard.ts`, TDD): fisik 0 dan sistem ≥ 1 satuan menengah. Saldo minus tidak pernah diflag — mengisi 0 di baris minus justru memperbaiki. Menawarkan "lewati" pada penurunan sebagian (mis. 819 → 5) akan salah, karena angka itu memang hasil hitungan.
+
+**Stok sistem tetap tidak tampil di kartu input** — hitungan buta dipertahankan; angka sistem hanya muncul di modal setelah crew selesai menghitung.
+
+### 4. Koreksi stok yang telanjur terhapus (20 baris ledger `adjustment`)
+Sisir 120 opname finalized 1–7 Sep, seluruh outlet. Angka mentah (75 kasus, "Rp593 juta") **menyesatkan** — didominasi BNR yang stok sistemnya sudah korup sejak sebelum September (tercatat 400 Dus PLASTIK VACUM); isian 0 di sana justru menormalkan. Setelah disaring (masih kosong + tak pernah dihitung ulang sesudahnya + ada hitungan fisik nyata sebagai acuan ≥ 1 satuan menengah): 21 kasus, dikoreksi 16 + 4 koreksi manual sebelumnya.
+
+Dikembalikan ke **angka opname terakhir yang benar-benar dihitung** (instruksi owner: jangan pakai perkiraan yang dikurangi pemakaian): FOIL Pajajaran 81 Roll / Jagakarsa 36 Roll / Paledang 14 Roll+7 cm, TUTUP PACK Paledang 57 Pcs, plus 16 baris lintas outlet (kemasan, gas, galon, FOIL Cirendeu, PRINTER THERMAL Empang 2 Unit).
+
+**Sengaja tidak dikoreksi:** ES BATU & Sayur/lettuce (barang habis harian, nol kemungkinan benar); SAOS TOMAT KOMPAN Beji (acuannya sendiri 8 Dus tidak wajar — hari lain 0, outlet lain 0–1 Dus).
+
+Skrip: `SS COGS SET/koreksi-foil-opname-terakhir-2026-09-08.sql`, `koreksi-tutup-pack-paledang-2026-09-08.sql`, `koreksi-opname-terisi-nol-2026-09-08.sql` (semua idempoten: delta dihitung dari saldo live, baris delta 0 dilewati).
+
+### 📝 Next
+- **Redeploy `stok`** — gerbang nol belum aktif sebelum itu.
+- **BNR perlu opname fisik menyeluruh.** Stok sistemnya tak bisa dipercaya sejak sebelum September (warisan data lama, bukan kesalahan crew). Koreksi per baris tidak akan menolong; perlu satu kali hitung total sebagai baseline baru.
+- 3 surat jalan FOIL menggantung berisi barang yang kemungkinan sudah di outlet: Cirendeu 48 Roll (4 Sep), Cibinong 48 Roll (7 Sep), Cileungsi 96 Roll (4 Sep) — outlet perlu memverifikasinya agar stok terkredit. Ada pula 6 SJ FOIL sisa Juli–Agustus (1–4 Roll) yang sebaiknya dibatalkan.
+- Kalisari & Cileungsi: dugaan dus tersegel tak ikut dihitung (Kalisari terima 1 dus pukul 16:01, malamnya mencatat "1 Roll"). Perlu hitung fisik ulang dengan kolom Dus baru.
+- Usul terpisah: merampingkan daftar 43 item per outlet — akar kebiasaan mengetik 0 pada item yang outletnya memang tidak pakai.
+
+---
+
+**Last updated:** 2026-09-08  
 **Owner:** Dev Suka Shawarma

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import jsQR from 'jsqr'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
-import { ArrowLeft, QrCode, Camera, AlertCircle, Sparkles, KeyRound } from 'lucide-react'
+import { ArrowLeft, Camera, AlertCircle, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 export function QRScanner() {

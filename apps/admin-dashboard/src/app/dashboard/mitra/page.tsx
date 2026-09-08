@@ -28,9 +28,13 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     .from('outlet_staff')
     .select('role')
     .eq('id', user.id)
-    .single()
-  
-  const isAdminOrOwner = staffData?.role === 'admin' || staffData?.role === 'owner' || !staffData
+    .maybeSingle()
+
+  // Fail-closed. Dulu `|| !staffData` membuat baris outlet_staff yang gagal
+  // dibaca (RLS, error jaringan, akun belum ter-link) diperlakukan sebagai
+  // admin — dan cabang admin di bawah menarik 5 outlet sembarang untuk
+  // ditampilkan. Tidak ada data staff = tidak ada hak istimewa.
+  const isAdminOrOwner = staffData?.role === 'admin' || staffData?.role === 'owner'
   
   // 1. Fetch profil mitra (own profile or admin selected profile)
   let profile: any = null
@@ -146,7 +150,11 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
     getOwnerDashboardData(curFilter, outlets),
     getOwnerDashboardData(prevFilter, outlets),
     getOwnerDashboardData(trendFilter, outlets),
-    getAggregatedMenuSales({ ...curFilter, outletId: outletIds.length > 0 ? outletIds[0] : 'all' }),
+    // 'all' = seluruh outlet yang boleh diakses mitra ini (view menu_sales_scoped
+    // sudah dibatasi accessible_outlet_ids()). Dulu terkunci ke outletIds[0],
+    // jadi mitra multi-outlet selalu melihat menu outlet pertama saja.
+    // Pergantian outlet di dropdown ditangani ulang di sisi klien.
+    getAggregatedMenuSales({ ...curFilter, outletId: 'all' }),
     outletIds.length > 0 
       ? getMitraRoiStats(outletIds.length === 1 ? outletIds[0] : 'all', outletIds).catch(() => ({ roi: 0, bepPercentage: 0 }))
       : Promise.resolve({ roi: 0, bepPercentage: 0 })

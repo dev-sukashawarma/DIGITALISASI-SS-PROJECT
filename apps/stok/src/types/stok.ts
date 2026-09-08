@@ -108,6 +108,11 @@ export interface WasteReport {
     satuan_kecil?: string | null;
     faktor_tampilan?: number | null;
   } | null
+  outlets?: { name: string } | null
+  reported_by_staff?: { name: string } | null
+  approved_by_staff?: { name: string } | null
+  harga_beli?: number | null
+  nilai_waste?: number | null
 }
 
 export type InboundOutboundTipe = 'IN' | 'OUT';

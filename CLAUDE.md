@@ -1212,7 +1212,51 @@ Memindahkan item antar grup akan **diam-diam mengubah nav OWNER**. Mekanismenya 
 
 **📝 Next:** redeploy `admin-dashboard`; smoke test sidebar sebagai ADMIN & OWNER; putuskan nasib 11 route yatim yang didaftar di §8 spec.
 
+## Session 2026-09-07: Waste Dashboard Komprehensif + Laporan Per-Insiden (apps/admin-dashboard)
+
+**Status:** ✅ Kode COMPLETED, 9 task + fix wave, semua review bersih. ⚠️ **Sudah ter-merge & ter-push ke `origin/main` oleh otomasi repo, bukan lewat PR** (lihat catatan otomasi di bawah). Belum redeploy. Riwayat migration di DB belum di-stempel ulang setelah rename file.
+
+### Fitur
+`/dashboard/owner/waste` dirombak: angka waste kini bisa dibandingkan antar-outlet (**% omzet** + delta vs periode sebelumnya, bukan rupiah mentah yang selalu menyalahkan outlet besar), plus **laporan per-insiden** untuk waste yang sudah di-approve — pelapor, penyetuju, foto bukti, jejak waktu lapor→approve. Sebelumnya tabel "Rincian Waste" mengagregasi per (bahan, alasan, tanggal) sehingga identitas laporan hilang; `get_waste_breakdown` tak pernah menyeleksi `id`/`reported_by`/`approved_by`/`photo_url` padahal `stok_waste_reports` menyimpan keempatnya sejak 2026-07-09.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-07-waste-dashboard-comprehensive-design.md`, `docs/superpowers/plans/2026-09-07-waste-dashboard-comprehensive.md`
+
+### Implementasi
+- **Migration `20260907000000_waste_dashboard_rpcs.sql`** — 2 RPC baru, `SECURITY DEFINER` + `is_owner_or_admin()` + `accessible_outlet_ids()`. `get_waste_summary_v2` (agregat, roll-up di server) dan `get_waste_incidents` (per-laporan, paginasi server 25/hal, cap 100, `total_count` via window function sebelum LIMIT). **Dua RPC, bukan satu, justru karena cap 1.000 baris PostgREST** — total yang terpotong lebih berbahaya daripada tak ada total.
+- **`lib/wasteMetrics.ts`** (TDD, 11 test) — `computeDeltaPct`, `computeWastePctOmzet`, `aggregateByBahanWithSpread`. `aggregateByReason`/`aggregateByBahan` di `wasteBreakdown.ts` **sudah ada tapi tak pernah dipakai halaman** → dipakai ulang, tidak ditulis ulang. `previousRange` juga sudah ada di `period.ts`.
+- **6 komponen** di `components/waste/` + `page.tsx` jadi composition root tipis (169 → 87 baris).
+- **Perbaikan valuasi:** `hpp_kecil` kini dibagi `kemasan_qty` (basis kanonik 2026-09-03), bukan `faktor_konversi`. **Tidak menggeser satu rupiah pun** — diverifikasi di DB live: `SUM(nilai)` identik 20 desimal dengan `get_waste_breakdown` (Agustus 2026, 259 baris). `get_waste_periode` & `get_waste_breakdown` sengaja tak disentuh (menyuplai Profit/Expenses → Laba Bersih, termasuk milik mitra).
+
+### 🔴 Gotcha utama: hook omzet yang tak berpaginasi menggerus penyebut diam-diam
+Plan ini semula menunjuk **`useSalesSummary`** sebagai penyebut "Waste % Omzet". `useSalesSummary` bersandar pada **`useSalesHourlyRaw`**, yang melakukan `.select()` polos ke `sales_hourly_scoped` **tanpa `.range()` dan tanpa `ORDER BY`** — kena cap 1.000 baris. Grain-nya per-JAM, jadi 19 outlet × 7 hari × ~12 jam × ≥2 `sales_source` ≈ 3.000–6.000 baris; yang lolos 1.000 dan **baris mana yang lolos tidak deterministik**.
+
+Akibatnya "Waste % Omzet" terbaca beberapa kali lipat terlalu tinggi, dan outlet yang barisnya tak lolos tampil "N/A" — tepat di kolom yang tujuannya jadi pembanding paling adil. **Fix: pakai `useSalesDaily`**, yang berpaginasi sampai habis (`PAGE_SIZE=1000` loop) di atas grain yang urutannya unik. Semua permukaan omzet lain di app ini (`ProfitView`, `rekap-bulanan`) sudah pindah ke sana lebih dulu; `useSalesSummary` praktis jadi yatim.
+
+⚠️ **`useSalesHourlyRaw` sendiri masih rawan** (dipakai owner dashboard untuk bucket per-jam) — belum diperbaiki, bukan lingkup sesi ini.
+
+Mitigasi sejenis untuk RPC agregat kita: `useWasteSummary` mengekspos `truncated` bila hasil mentah mencapai 1.000 baris, dan halaman menampilkan banner amber ("Rentang tanggal terlalu panjang…") alih-alih angka yang percaya diri tapi salah. Rentang preset aman (maks 31 hari); hanya rentang kustom >~4 bulan yang menggigit.
+
+### ⚠️ Gotcha: CI menolak timestamp 2030, tapi file sudah terlanjur applied
+Plan awal memberi timestamp `20300202000000` agar berurut setelah ranjau-2030 yang sudah ada. Ternyata `.github/workflows/ci.yml` menjalankan `scripts/migration-timestamp-lint.mjs` yang **menolak timestamp jauh ke depan** — dijalankan manual, `exit=1`. Karena migration ini membuat dua nama fungsi yang **baru sama sekali** (tak ditimpa migration lain), timestamp hari ini aman secara urutan → file di-rename ke `20260907000000`, **isi SQL byte-identik**.
+
+**`supabase migration repair` SENGAJA TIDAK dijalankan.** Baris `20300202000000` masih tertinggal di `schema_migrations` DB produksi bersama. Menulis ke tabel riwayat DB bersama tanpa persetujuan pernah jadi insiden di proyek ini (Session 2026-07-14). Aman dibiarkan sementara: SQL-nya murni `CREATE OR REPLACE`, jadi `db push` berikutnya menerapkannya ulang secara idempoten. **Keputusan stempel = milik owner.**
+
+### Batas yang disengaja: cek potongan stok melaporkan KEBERADAAN, bukan kecocokan
+Modal detail menampilkan "Potongan stok tercatat (N baris ledger)" atau peringatan "Tidak ada baris ledger". Ia **tidak pernah** membandingkan `qty` laporan dengan qty ledger: skala ledger bergantung `saldo_is_gram` per outlet sedangkan qty laporan selalu satuan besar, jadi perbandingan langsung akan memicu alarm palsu di >50% baris. Keberadaan bersifat bebas-skala dan tetap menangkap kelas bug yang didokumentasikan `20300120000002` (4 laporan APPROVED Agustus 2026 yang tak pernah menghasilkan baris ledger sama sekali).
+
+### 🤖 Catatan otomasi (jejak audit sebenarnya)
+Otomasi repo memindahkan working tree ke `main` **lima kali** di tengah sesi (sekali sampai file spec lenyap dari working tree — commit selamat, dipulihkan lewat checkout), berulang kali menyapu commit dev lain masuk ke branch ini, lalu **di akhir menggabungkan branch ke `main` dan mem-push ke `origin/main` sendiri** — tanpa PR, tanpa review atas merge-nya. Merge `eae7d911` juga menyeret `f97ac4f4` (riwayat waste `apps/stok`, kerja lain) dan menamai keduanya dalam satu kalimat. **Tidak ada merge/push yang diinisiasi manusia maupun agen di sesi ini.** Section inilah jejak audit atas apa yang benar-benar diputuskan; pesan commit merge-nya tidak.
+
+### Verifikasi
+type-check: hanya 3 error pre-existing (`mitraPolicy.test.ts` TS6133, `vitest.config.ts` ×2). Test: 42 file / 10 test gagal = **baseline persis**, lulus naik 511 → 526, `wasteMetrics` 11/11. Build sukses, route `ƒ /dashboard/owner/waste`. Migration lint lolos setelah rename.
+
+### 📝 Next
+- **Smoke test browser** (belum pernah dijalankan — tak ada sesi login): bandingkan "Waste % Omzet" dengan omzet halaman Profit periode sama; kalau fix `useSalesDaily` benar, konsisten.
+- **Putuskan stempel migration** (lihat gotcha di atas).
+- **Redeploy `admin-dashboard`.**
+- Minor tertunda: `totalCount` insiden belum ikut menyaring outlet test; `ORDER BY s_created_at` belum unik (tambah `, s_id` di migration lanjutan); ambang `> 2`% dan `> 0`% belum jadi konstanta bernama.
+
 ---
 
-**Last updated:** 2026-09-05  
+**Last updated:** 2026-09-07  
 **Owner:** Dev Suka Shawarma

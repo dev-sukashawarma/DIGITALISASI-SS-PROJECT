@@ -13,11 +13,9 @@ import {
   ArrowLeft,
   Plus,
   Calendar,
-  AlertCircle,
   FileDown,
   Eye,
   Check,
-  QrCode,
   Printer,
   Search,
   X,
@@ -29,18 +27,17 @@ import {
   Store,
   Clock,
   ShieldCheck,
-  ArrowRight,
-  FileText,
   AlertTriangle,
-  ArrowUpDown,
   Copy,
   Package,
   Layers,
-  Sparkles
+  Ban
 } from 'lucide-react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from '@suka/design-system'
 import { downloadSuratJalanExcel } from '@/utils/generateSuratJalanExcel'
 import { toast } from 'sonner'
+import { CustomDateFilter, CustomDateRange } from './CustomDateFilter'
 
 function FormattedDate({ iso, showTime }: { iso: string | null | undefined; showTime?: boolean }) {
   const dateText = useFormattedDate(iso, {
@@ -62,7 +59,7 @@ function FormattedDate({ iso, showTime }: { iso: string | null | undefined; show
   return <>{dateText}</>
 }
 
-type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
+type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif' | 'custom'
 type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
 type SortOption = 'newest' | 'oldest' | 'outlet_asc' | 'status'
 type ViewMode = 'grid' | 'table'
@@ -71,10 +68,12 @@ const ITEMS_PER_PAGE = 12
 
 export function SuratJalanList() {
   const router = useRouter()
+  const queryClient = useQueryClient()
   const { outletStaff } = useAuth()
   
   // States
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
+  const [customRange, setCustomRange] = useState<CustomDateRange>({ startDate: '', endDate: '' })
   const [statusTab, setStatusTab] = useState<StatusTab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
@@ -83,11 +82,17 @@ export function SuratJalanList() {
   const [currentPage, setCurrentPage] = useState(1)
   const [copiedId, setCopiedId] = useState<string | null>(null)
 
+  // Cancel Modal State
+  const [cancelModal, setCancelModal] = useState<{ isOpen: boolean; id: string; docNum: string } | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+
   // Realtime sync & Data query
   useDistribusiRealtime()
-  const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter)
+  const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter, customRange)
 
   const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
+  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
 
   // Discrepancy & Selisih count
   const problemCount = useMemo(() => {
@@ -184,20 +189,6 @@ export function SuratJalanList() {
   }
 
   // QR Code & Barcode Handlers
-  const handleDownloadBarcode = async (e: React.MouseEvent, sjId: string, docNumber: string) => {
-    e.stopPropagation()
-    try {
-      toast.info('Mengunduh QR Code...')
-      const { generateQRDataUrl, downloadBarcode } = await import('@/utils/generatePDF')
-      const url = `${window.location.origin}/distribusi/terima/${sjId}`
-      const dataUrl = await generateQRDataUrl(url, 400)
-      downloadBarcode(`Barcode-SJ-${docNumber}.png`, dataUrl)
-      toast.success('QR Code berhasil diunduh!')
-    } catch {
-      toast.error('Gagal mengunduh QR Code')
-    }
-  }
-
   const handlePrintBarcode = async (
     e: React.MouseEvent,
     sjId: string,
@@ -324,6 +315,30 @@ export function SuratJalanList() {
     }
   }
 
+  const handleCancelPO = async () => {
+    if (!cancelModal) return
+    setCancelling(true)
+    const supabase = createSupabaseBrowserClient()
+    try {
+      const { data: res, error } = await supabase.rpc('batalkan_surat_jalan_draft', {
+        p_surat_jalan_id: cancelModal.id,
+        p_alasan: cancelReason.trim() || null,
+      })
+      if (error) throw error
+      if (res && !res.success) {
+        throw new Error(res.message || 'Gagal membatalkan PO')
+      }
+      toast.success(res?.message || 'PO draft berhasil dibatalkan')
+      setCancelModal(null)
+      setCancelReason('')
+      queryClient.invalidateQueries({ queryKey: ['surat_jalan'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal membatalkan PO')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
   // Helper status badges
   const getStatusBadge = (status: string, hasProblem?: boolean) => {
     if (status === 'draft') {
@@ -331,6 +346,13 @@ export function SuratJalanList() {
         label: 'Draft Siap Kirim',
         bg: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
         dot: 'bg-amber-500',
+      }
+    }
+    if (status === 'dibatalkan') {
+      return {
+        label: 'Dibatalkan',
+        bg: 'bg-rose-500/10 text-rose-600 border-rose-500/20',
+        dot: 'bg-rose-500',
       }
     }
     if (status === 'dikirim' || status === 'dikirim_lengkap') {
@@ -558,7 +580,7 @@ export function SuratJalanList() {
             {/* Filter Controls Group */}
             <div className="flex flex-wrap items-center gap-2">
               {/* Date Filter Pills */}
-              <div className="flex bg-[#fff8f1] p-1 rounded-2xl border border-suka-brown/10 overflow-x-auto no-scrollbar">
+              <div className="flex items-center bg-[#fff8f1] p-1 rounded-2xl border border-suka-brown/10 overflow-x-auto no-scrollbar">
                 {[
                   { key: 'all', label: 'Semua Waktu' },
                   { key: 'today', label: 'Hari Ini' },
@@ -567,7 +589,10 @@ export function SuratJalanList() {
                 ].map((btn) => (
                   <button
                     key={btn.key}
-                    onClick={() => setDateFilter(btn.key as DateFilter)}
+                    onClick={() => {
+                      setDateFilter(btn.key as DateFilter)
+                      setCurrentPage(1)
+                    }}
                     className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
                       dateFilter === btn.key
                         ? 'bg-suka-brown text-white shadow-xs'
@@ -577,6 +602,23 @@ export function SuratJalanList() {
                     {btn.label}
                   </button>
                 ))}
+
+                <CustomDateFilter
+                  variant="light"
+                  startDate={customRange.startDate}
+                  endDate={customRange.endDate}
+                  isActive={dateFilter === 'custom'}
+                  onApply={(range) => {
+                    setCustomRange(range)
+                    setDateFilter('custom')
+                    setCurrentPage(1)
+                  }}
+                  onReset={() => {
+                    setDateFilter('all')
+                    setCustomRange({ startDate: '', endDate: '' })
+                    setCurrentPage(1)
+                  }}
+                />
               </div>
 
               {/* Outlet Filter Dropdown */}
@@ -697,18 +739,20 @@ export function SuratJalanList() {
                 Tidak Ada Dokumen Surat Jalan
               </h3>
               <p className="text-xs text-suka-gray-500 font-medium max-w-md mx-auto">
-                {searchQuery || selectedOutlet !== 'all' || statusTab !== 'all'
+                {searchQuery || selectedOutlet !== 'all' || statusTab !== 'all' || dateFilter !== 'all'
                   ? 'Tidak ditemukan dokumen yang sesuai dengan kriteria filter pencarian Anda.'
                   : 'Belum ada data Surat Jalan yang tercatat dalam sistem.'}
               </p>
             </div>
-            {(searchQuery || selectedOutlet !== 'all' || statusTab !== 'all') && (
+            {(searchQuery || selectedOutlet !== 'all' || statusTab !== 'all' || dateFilter !== 'all') && (
               <button
                 onClick={() => {
                   setSearchQuery('')
                   setSelectedOutlet('all')
                   setStatusTab('all')
                   setDateFilter('all')
+                  setCustomRange({ startDate: '', endDate: '' })
+                  setCurrentPage(1)
                 }}
                 className="mt-2 px-4 py-2 bg-suka-brown text-white text-xs font-bold uppercase rounded-xl hover:bg-suka-ink transition-all cursor-pointer"
               >
@@ -778,7 +822,7 @@ export function SuratJalanList() {
                           <AlertTriangle size={11} /> Ada Selisih
                         </span>
                       ) : (
-                        sj.status !== 'draft' && (
+                        sj.status !== 'draft' && sj.status !== 'dibatalkan' && (
                           <span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 flex items-center gap-1">
                             <Check size={11} /> Aman
                           </span>
@@ -790,9 +834,30 @@ export function SuratJalanList() {
                   {/* Bottom Action Suite */}
                   <div className="pt-4 border-t border-suka-brown/10 mt-4 space-y-2">
                     {isDraft ? (
-                      <span className="w-full text-center py-2.5 bg-gradient-to-r from-suka-brown to-[#4d1003] hover:from-[#4d1003] hover:to-black text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 block">
-                        📝 Verifikasi & Kirim Sekarang
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            router.push(`/distribusi/surat-jalan/${sj.id}`)
+                          }}
+                          className="flex-1 text-center py-2.5 bg-gradient-to-r from-suka-brown to-[#4d1003] hover:from-[#4d1003] hover:to-black text-white font-black text-[10px] uppercase tracking-wider rounded-xl shadow-md transition-all active:scale-95 cursor-pointer block"
+                        >
+                          📝 Verifikasi & Kirim
+                        </span>
+                        {canCancelPO && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setCancelModal({ isOpen: true, id: sj.id, docNum })
+                            }}
+                            className="px-3 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-[10px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1 shrink-0"
+                            title="Batalkan PO Draft"
+                          >
+                            <Ban size={12} /> Batal PO
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <div className="grid grid-cols-4 gap-1.5">
                         {/* Detail */}
@@ -917,7 +982,19 @@ export function SuratJalanList() {
                             >
                               <Eye size={12} /> Detail
                             </button>
-                            {sj.status !== 'draft' && (
+                            {sj.status === 'draft' && canCancelPO && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setCancelModal({ isOpen: true, id: sj.id, docNum })
+                                }}
+                                className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                                title="Batalkan PO Draft"
+                              >
+                                <Ban size={12} /> Batal PO
+                              </button>
+                            )}
+                            {sj.status !== 'draft' && sj.status !== 'dibatalkan' && (
                               <>
                                 <button
                                   onClick={(e) => handleDownloadPDF(e, sj.id, docNum)}
@@ -1007,6 +1084,89 @@ export function SuratJalanList() {
           </div>
         )}
       </main>
+
+      {/* Modal Konfirmasi Pembatalan PO Draft */}
+      {cancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl border border-suka-brown/10 p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-suka-brown/10 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center">
+                  <Ban size={18} />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-suka-ink uppercase tracking-wide font-display">
+                    Batalkan PO Draft
+                  </h3>
+                  <p className="text-[10px] font-mono text-suka-gray-500 font-bold">
+                    {cancelModal.docNum}
+                  </p>
+                </div>
+              </div>
+              <button
+                disabled={cancelling}
+                onClick={() => {
+                  setCancelModal(null)
+                  setCancelReason('')
+                }}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-suka-gray-400 hover:text-suka-ink hover:bg-suka-brown/5 transition-colors cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <p className="text-xs text-suka-gray-600 font-medium leading-relaxed">
+              Apakah Anda yakin ingin membatalkan dokumen PO / Surat Jalan berstatus draft ini? Tindakan ini tidak dapat dibatalkan.
+            </p>
+
+            <div className="space-y-1.5">
+              <label className="block text-[10px] font-extrabold uppercase tracking-wider text-suka-brown">
+                Alasan Pembatalan (Opsional)
+              </label>
+              <textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Contoh: Salah input jumlah bahan, outlet membatalkan pesanan, dsb."
+                disabled={cancelling}
+                rows={3}
+                className="w-full text-xs font-medium p-3 rounded-xl border border-suka-brown/20 bg-[#fff8f1]/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-400 text-suka-ink placeholder:text-suka-gray-400 resize-none transition-all"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={() => {
+                  setCancelModal(null)
+                  setCancelReason('')
+                }}
+                className="flex-1 py-2.5 bg-white border border-suka-brown/20 hover:bg-suka-brown/5 text-suka-brown font-bold text-xs uppercase tracking-wider rounded-xl transition-all cursor-pointer disabled:opacity-50"
+              >
+                Kembali
+              </button>
+              <button
+                type="button"
+                disabled={cancelling}
+                onClick={handleCancelPO}
+                className="flex-1 py-2.5 bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-700 hover:to-rose-800 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md shadow-rose-600/20 transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5 active:scale-98"
+              >
+                {cancelling ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Membatalkan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Ban size={14} />
+                    <span>Ya, Batalkan PO</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Navigation Bar */}
       <BottomNav activeTab="riwayat" />

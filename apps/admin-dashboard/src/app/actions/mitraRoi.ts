@@ -4,6 +4,52 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { cookies } from 'next/headers'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { cleanItemName } from '@/lib/order-item-name'
+import { fetchAllPages } from '@/lib/fetchAllPages'
+
+/** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
+const SYSTEM_START_MONTH = '2026-08'
+
+/** Tanggal hari ini menurut Asia/Jakarta (bukan UTC). */
+function todayWib(): string {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
+}
+
+/** Daftar bulan `YYYY-MM` dari SYSTEM_START_MONTH s/d bulan berjalan (WIB). */
+function monthsSinceSystemStart(): { key: string; from: string; to: string }[] {
+  const out: { key: string; from: string; to: string }[] = []
+  const last = todayWib().slice(0, 7)
+  let [y, m] = SYSTEM_START_MONTH.split('-').map(Number)
+  for (let guard = 0; guard < 240; guard++) {
+    const key = `${y}-${String(m).padStart(2, '0')}`
+    const from = `${key}-01`
+    const to = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10) // hari terakhir bulan itu
+    out.push({ key, from, to })
+    if (key >= last) break
+    m++; if (m > 12) { m = 1; y++ }
+  }
+  return out
+}
+
+/**
+ * Bulan pertama yang boleh diakru untuk satu outlet.
+ *
+ * Bagi hasil yang SUDAH ditransfer tercatat di `mitra_transfers` (kolom
+ * `bulan`). Mengakru bulan yang transfernya sudah ada = menghitung uang yang
+ * sama dua kali, sekali sebagai transfer dan sekali sebagai akrual. Karena itu
+ * akrual dimulai dari bulan SETELAH transfer terakhir.
+ */
+function accrualStartMonth(outletTransfers: { bulan?: string | null }[]): string {
+  let latest = ''
+  for (const t of outletTransfers) {
+    const b = (t.bulan || '').slice(0, 7)
+    if (b > latest) latest = b
+  }
+  if (!latest) return SYSTEM_START_MONTH
+  let [y, m] = latest.split('-').map(Number)
+  m++; if (m > 12) { m = 1; y++ }
+  const next = `${y}-${String(m).padStart(2, '0')}`
+  return next > SYSTEM_START_MONTH ? next : SYSTEM_START_MONTH
+}
 
 export async function getMitraRoiStats(outletId: string | 'all', allowedOutletIds: string[]) {
   const targetOutlets = outletId === 'all' ? allowedOutletIds : [outletId]
@@ -29,8 +75,10 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
     const item = bepMap[oid]
     if (item) {
       nilaiInvestasi += item.modalInvestasi
-      historisProfitMitra += (item.omzetHistoris + item.transferHistoris)
-      systemProfitMitra += item.mitraShare
+      // Termasuk transfer lewat sistem — sebelumnya hanya historis, sehingga
+      // "profit historis" dan "total dana kembali" bercerita beda.
+      historisProfitMitra += item.danaSudahKembali
+      systemProfitMitra += item.akrualBelumDitransfer
       totalDanaKembali += item.totalDanaKembali
     }
   }
@@ -53,6 +101,14 @@ export interface MitraRealtimeBepItem {
   modalInvestasi: number
   omzetHistoris: number
   transferHistoris: number
+  /** Jumlah `mitra_transfers.nominal` — bagi hasil yang sudah ditransfer lewat sistem. */
+  transferSistem: number
+  /** omzetHistoris + transferHistoris + transferSistem. Uang yang sudah sampai ke mitra. */
+  danaSudahKembali: number
+  /** Bagi hasil bulan-bulan yang belum ditransfer (akrual), per kebijakan bulan itu. */
+  akrualBelumDitransfer: number
+  /** `false` bila `mitra_investments.is_profit_sharing_active` dimatikan owner. */
+  profitSharingActive: boolean
   revenue: number
   cogs: number
   opex: number
@@ -75,47 +131,13 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   
   if (mitraOutletIds.length === 0) return {}
 
-  const SYSTEM_START_DATE = '2026-07-31T17:00:00.000Z' // 2026-08-01 00:00:00 WIB
+  const months = monthsSinceSystemStart()
 
-  // 1. Fetch investments, profiles, transfers, expenses, waste, and pre-aggregated order RPC in parallel
-  const [
-    invRes,
-    profRes,
-    transfersRes,
-    pettyRes,
-    monthlyRes,
-    wasteRes,
-    rpcRes
-  ] = await Promise.all([
+  // 1. Fetch investments, profiles, transfers
+  const [invRes, profRes, transfersRes] = await Promise.all([
     supabase.from('mitra_investments').select('*').in('outlet_id', mitraOutletIds),
     supabase.from('mitra_profiles').select('*'),
-    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds),
-    supabase
-      .from('petty_cash_expenses')
-      .select('amount, expense_date, outlet_id')
-      .in('outlet_id', mitraOutletIds)
-      .is('deleted_at', null)
-      .gte('expense_date', '2026-08-01'),
-    supabase
-      .from('expenses')
-      .select('amount, expense_date, outlet_id')
-      .in('outlet_id', mitraOutletIds)
-      // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
-      // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
-      // perhitungan ROI/BEP, sehingga laba & BEP terlihat lebih cepat tercapai.
-      // Bug yang sama sudah diperbaiki di mitraPnl.ts; salinannya di sini
-      // terlewat. Pengeluaran nyata bertipe 'expense'.
-      .eq('type', 'expense')
-      .gte('expense_date', '2026-08-01'),
-    supabase.rpc('get_waste_periode', {
-      p_from: '2026-08-01',
-      p_to: new Date().toISOString().slice(0, 10)
-    }).then(res => ({ data: res.data || [] })),
-    supabase.rpc('get_mitra_orders_summary', {
-      p_outlet_ids: mitraOutletIds,
-      p_from: SYSTEM_START_DATE,
-      p_to: new Date().toISOString()
-    })
+    supabase.from('mitra_transfers').select('*').in('outlet_id', mitraOutletIds)
   ])
 
   const invMap: Record<string, any> = {}
@@ -124,21 +146,11 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   })
   const profiles = profRes.data || []
   const transfersData = transfersRes.data || []
-  const pettyExpenses = pettyRes.data || []
-  const monthlyExpenses = monthlyRes.data || []
-  const wasteRows = wasteRes.data || []
 
   // Deklarasi ini sempat hilang saat refactor performa di main (3e0b1e5c):
   // `resultMap` masih dipakai di bawah, tapi tidak pernah dideklarasikan lagi,
   // sehingga fungsi ini SELALU melempar ReferenceError saat dipanggil.
   const resultMap: Record<string, MitraRealtimeBepItem> = {}
-
-  // 2. Process pre-aggregated RPC data (or fallback to order pagination if RPC failed)
-  let rpcDataByOutlet: Record<string, { grossRevenue: number; totalDeductions: number; totalCogs: number }> = {}
-  const { data: rpcData, error: rpcError } = rpcRes
-
-  // Fallback orders array, populated ONLY if RPC is not available
-  let allOrders: any[] = []
 
   // HPP dasar, TANPA markup mitra. Rekursi paket memakai fungsi ini juga, supaya
   // komponen tidak ter-markup lebih dulu lalu ter-markup lagi di lapisan paket.
@@ -205,34 +217,102 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     return m ? getItemHpp(m, 'mitra', channel) : 0
   }
 
-  if (!rpcError && rpcData && Array.isArray(rpcData)) {
-    for (const row of rpcData) {
-      const oid = row.outlet_id
-      if (!rpcDataByOutlet[oid]) {
-        rpcDataByOutlet[oid] = { grossRevenue: 0, totalDeductions: 0, totalCogs: 0 }
+  // 2. Agregat PER BULAN.
+  //
+  // Dulu seluruh rentang (1 Agu s/d hari ini) dihitung dengan SATU kebijakan,
+  // yaitu kebijakan hari ini. Akibatnya bulan-bulan sebelum cutoff September
+  // ikut memakai tarif baru: bagi hasil Agustus untuk outlet bertarif legacy
+  // 60% terhitung 100% plus fee 3% yang saat itu belum berlaku. Sekarang tiap
+  // bulan dihitung dengan kebijakan yang benar-benar berlaku di bulan itu.
+  type WindowFin = { grossRevenue: number; totalDeductions: number; totalCogs: number; opex: number; waste: number }
+  const emptyFin = (): WindowFin => ({ grossRevenue: 0, totalDeductions: 0, totalCogs: 0, opex: 0, waste: 0 })
+
+  async function aggregateMonth(from: string, to: string): Promise<Record<string, WindowFin>> {
+    const acc: Record<string, WindowFin> = {}
+    const bump = (oid: string) => (acc[oid] ||= emptyFin())
+
+    const [rpcRes, pettyRows, monthlyRows, wasteRes] = await Promise.all([
+      supabase.rpc('get_mitra_orders_summary', {
+        p_outlet_ids: mitraOutletIds,
+        p_from: `${from}T00:00:00.000+07:00`,
+        p_to: `${to}T23:59:59.999+07:00`
+      }),
+      // OPEX WAJIB dipaginasi — PostgREST memotong di 1.000 baris tanpa error,
+      // dan OPEX yang hilang membuat laba, bagi hasil, dan BEP terlalu besar.
+      fetchAllPages<any>(() => supabase
+        .from('petty_cash_expenses')
+        .select('id, amount, outlet_id')
+        .in('outlet_id', mitraOutletIds)
+        .is('deleted_at', null)
+        .gte('expense_date', from)
+        .lte('expense_date', to)
+        .order('id', { ascending: true })),
+      fetchAllPages<any>(() => supabase
+        .from('expenses')
+        .select('id, amount, outlet_id')
+        .in('outlet_id', mitraOutletIds)
+        // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
+        // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
+        // perhitungan ROI/BEP, sehingga laba & BEP terlihat lebih cepat tercapai.
+        // Pengeluaran nyata bertipe 'expense'.
+        .eq('type', 'expense')
+        .gte('expense_date', from)
+        .lte('expense_date', to)
+        .order('id', { ascending: true })),
+      supabase.rpc('get_waste_periode', { p_from: from, p_to: to })
+    ])
+
+    const { data: rpcData, error: rpcError } = rpcRes
+    if (!rpcError && Array.isArray(rpcData)) {
+      for (const row of rpcData) {
+        const a = bump(row.outlet_id)
+        a.grossRevenue += Number(row.gross_revenue) || 0
+        a.totalDeductions += Number(row.deductions) || 0
+        a.totalCogs += Number(row.cogs) || 0
       }
-      rpcDataByOutlet[oid].grossRevenue += Number(row.gross_revenue) || 0
-      rpcDataByOutlet[oid].totalDeductions += Number(row.deductions) || 0
-      rpcDataByOutlet[oid].totalCogs += Number(row.cogs) || 0
-    }
-  } else {
-    // Graceful fallback: only paginates if RPC failed
-    let offset = 0
-    while (true) {
-      const { data: page, error } = await supabase
+    } else {
+      // Cadangan bila RPC tak tersedia: hitung dari order mentah, jendela sama.
+      const orders = await fetchAllPages<any>(() => supabase
         .from('orders')
         .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
         .in('outlet_id', mitraOutletIds)
         .eq('status', 'completed')
-        .gte('created_at', SYSTEM_START_DATE)
-        .range(offset, offset + 999)
-        
-      if (error || !page || page.length === 0) break
-      allOrders.push(...page)
-      if (page.length < 1000) break
-      offset += 1000
+        .gte('created_at', `${from}T00:00:00.000+07:00`)
+        .lte('created_at', `${to}T23:59:59.999+07:00`)
+        // Urutan stabil WAJIB: tanpa ini paginasi bisa melewatkan/menggandakan baris.
+        .order('id', { ascending: true }))
+
+      for (const order of orders) {
+        const a = bump(order.outlet_id)
+        const totalAmt = Number(order.total_amount) || 0
+        let orderCogs = 0
+        for (const item of (order.order_items || [])) {
+          const qty = Number(item.quantity) || 1
+          const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
+            || await hppByName(item.menu_item_name, order.channel)
+          orderCogs += hpp * qty
+        }
+        // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000).
+        const itemValue = (order.order_items || []).reduce((s: number, i: any) => s + (Number(i.subtotal) || 0), 0)
+        const deductions = (order.order_items || []).length > 0
+          ? Math.max(0, itemValue - totalAmt)
+          : (Number(order.discount_amount) || 0) + (Number(order.promo_subsidy) || 0)
+        a.grossRevenue += totalAmt + deductions
+        a.totalDeductions += deductions
+        a.totalCogs += orderCogs
+      }
     }
+
+    for (const r of [...pettyRows, ...monthlyRows]) {
+      if (r.outlet_id) bump(r.outlet_id).opex += Number(r.amount) || 0
+    }
+    for (const w of (wasteRes.data || [])) {
+      if (mitraOutletIds.includes(w.outlet_id)) bump(w.outlet_id).waste += Number(w.nilai_waste) || 0
+    }
+    return acc
   }
+
+  const monthlyAgg = await Promise.all(months.map(m => aggregateMonth(m.from, m.to)))
 
   for (const oid of mitraOutletIds) {
     const inv = invMap[oid]
@@ -242,79 +322,59 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const transferHistoris = Number(inv?.transfer_historis) || 0
     const systemTransfers = transfersData.filter(t => t.outlet_id === oid).reduce((sum, t) => sum + (Number(t.nominal) || 0), 0)
 
-    const isBepAlready = modalInvestasi > 0 && (omzetHistoris + transferHistoris + systemTransfers) >= modalInvestasi
+    // "Sudah kembali" = uang yang benar-benar sudah sampai ke mitra: bagi hasil
+    // historis (diselesaikan di luar sistem) + transfer yang tercatat. Ini SATU
+    // definisi, dipakai untuk memicu kebijakan BEP sekaligus untuk progress bar
+    // -- sebelumnya pemicu kebijakan memakai transfer sedangkan progress bar
+    // memakai akrual, sehingga Rp 71,7 juta transfer berbukti tak pernah
+    // kelihatan di bar. Definisi yang sama dipakai mitraPnl.ts.
+    const danaSudahKembali = omzetHistoris + transferHistoris + systemTransfers
+    const isBepAlready = modalInvestasi > 0 && danaSudahKembali >= modalInvestasi
     const legacyShare = inv?.persentase_bagi_hasil ?? profile?.profit_sharing_pct ?? 50
     const legacyFee = Number(inv?.management_fee) || 0
+    const sharingActive = inv?.is_profit_sharing_active !== false
 
-    const policy = resolveMitraPolicy({
-      periodFrom: new Date().toISOString(),
-      isBep: isBepAlready,
-      legacyProfitSharingPct: legacyShare,
-      legacyManagementFee: legacyFee
-    })
-
-    const pct = policy.profitSharingPct
-    const mgmtFeePct = policy.managementFeePct
+    // Akrual hanya untuk bulan yang belum ditransfer, dan tiap bulan memakai
+    // kebijakan yang berlaku di bulan itu.
+    const mulaiAkru = accrualStartMonth(transfersData.filter(t => t.outlet_id === oid))
 
     let grossRevenue = 0
     let totalDeductions = 0
     let totalCogs = 0
+    let opex = 0
+    let waste = 0
+    let managementFee = 0
+    let akrualBelumDitransfer = 0
 
-    if (!rpcError && rpcData && Array.isArray(rpcData)) {
-      if (rpcDataByOutlet[oid]) {
-        grossRevenue = rpcDataByOutlet[oid].grossRevenue
-        totalDeductions = rpcDataByOutlet[oid].totalDeductions
-        totalCogs = rpcDataByOutlet[oid].totalCogs
+    months.forEach((m, idx) => {
+      const w = monthlyAgg[idx][oid]
+      if (!w) return
+      const p = resolveMitraPolicy({
+        periodFrom: m.from,
+        isBep: isBepAlready,
+        legacyProfitSharingPct: legacyShare,
+        legacyManagementFee: legacyFee
+      })
+      const fee = Math.round((w.grossRevenue * p.managementFeePct) / 100)
+      const laba = w.grossRevenue - w.totalDeductions - w.totalCogs - w.opex - w.waste - fee
+
+      grossRevenue += w.grossRevenue
+      totalDeductions += w.totalDeductions
+      totalCogs += w.totalCogs
+      opex += w.opex
+      waste += w.waste
+      managementFee += fee
+
+      if (m.key >= mulaiAkru && sharingActive && laba > 0) {
+        akrualBelumDitransfer += Math.round((laba * p.profitSharingPct) / 100)
       }
-    } else {
-      const outletOrders = allOrders.filter(o => o.outlet_id === oid)
-      // for..of, bukan forEach: cadangan HPP lewat nama menu bersifat async
-      // (peta menu dimuat sekali saat pertama dibutuhkan).
-      for (const order of outletOrders) {
-        const totalAmt = Number(order.total_amount) || 0
-        const disc = Number(order.discount_amount) || 0
-        const promo = Number(order.promo_subsidy) || 0
+    })
 
-        let orderCogs = 0
 
-        if (Array.isArray(order.order_items)) {
-          for (const item of order.order_items) {
-            const qty = Number(item.quantity) || 1
-            const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
-              || await hppByName(item.menu_item_name, order.channel)
-            orderCogs += (hpp * qty)
-          }
-        }
-
-        // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000):
-        //   Potongan = MAX(0, nilai item - total_amount); Omzet = total_amount + Potongan.
-        // Tidak memakai promo_subsidy: arti `total_amount` sempat berubah
-        // (19 Agu 2026, b41efc7a) sehingga promo bisa terhitung dua kali.
-        const itemValue = (order.order_items || []).reduce(
-          (s: number, i: any) => s + (Number(i.subtotal) || 0),
-          0
-        )
-        const deductions = (order.order_items || []).length > 0
-          ? Math.max(0, itemValue - totalAmt)
-          : disc + promo
-        const grossRev = totalAmt + deductions
-
-        grossRevenue += grossRev
-        totalDeductions += deductions
-        totalCogs += orderCogs
-      }
-    }
-
-    const opex = (pettyExpenses?.filter(p => p.outlet_id === oid).reduce((sum, p) => sum + Number(p.amount || 0), 0) || 0) +
-                 (monthlyExpenses?.filter(m => m.outlet_id === oid).reduce((sum, m) => sum + Number(m.amount || 0), 0) || 0)
-
-    const waste = wasteRows?.filter((w: any) => w.outlet_id === oid).reduce((sum: number, w: any) => sum + Number(w.nilai_waste || 0), 0) || 0
-
-    const managementFee = Math.round((grossRevenue * mgmtFeePct) / 100)
     const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee
-    const mitraShare = netProfit > 0 ? Math.round((netProfit * pct) / 100) : 0
+    const mitraShare = akrualBelumDitransfer
 
-    const totalDanaKembali = omzetHistoris + transferHistoris + mitraShare
+    const totalDanaKembali = danaSudahKembali + akrualBelumDitransfer
     const roiPct = modalInvestasi > 0 ? (totalDanaKembali / modalInvestasi) * 100 : 0
     const bepPercentage = Math.min(Math.round(roiPct * 10) / 10, 100)
     const isBep = modalInvestasi > 0 && totalDanaKembali >= modalInvestasi
@@ -325,6 +385,10 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       modalInvestasi,
       omzetHistoris,
       transferHistoris,
+      transferSistem: systemTransfers,
+      danaSudahKembali,
+      akrualBelumDitransfer,
+      profitSharingActive: sharingActive,
       revenue: grossRevenue,
       cogs: totalCogs,
       opex: opex + waste,

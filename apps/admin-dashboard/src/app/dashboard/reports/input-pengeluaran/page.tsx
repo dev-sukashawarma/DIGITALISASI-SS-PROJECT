@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Plus, Wallet, FileText, UploadCloud, ArrowDownRight, ArrowUpRight, Download, Calendar, Filter, Store } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -16,6 +17,7 @@ import { useRole } from '@/components/layout/RoleContext'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { BulkImportModal } from '@/components/BulkImportModal'
 import { CATEGORY_META } from '@/lib/expenseCategories'
+import { BUKU_KAS_PARAMS } from '@/lib/bukuKasLink'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
@@ -43,10 +45,18 @@ export default function InputPengeluaranPage() {
   const { data: outlets = [] } = useOutlets()
   const queryClient = useQueryClient()
 
-  // Default: Filter Hari Ini (Today) & Semua Outlet
-  const [startDate, setStartDate] = useState(getToday)
-  const [endDate, setEndDate] = useState(getToday)
-  const [target, setTarget] = useState<string>(() => userOutletId || 'all')
+  // Filter bisa datang dari URL — dipakai tautan "Lihat detail" di rincian
+  // laba bersih supaya periode & outlet yang sedang dilihat ikut terbawa.
+  // Tanpa parameter itu, default-nya tetap seperti semula: hari ini & outlet
+  // pengguna.
+  const searchParams = useSearchParams()
+  const paramFrom = searchParams.get(BUKU_KAS_PARAMS.from)
+  const paramTo = searchParams.get(BUKU_KAS_PARAMS.to)
+  const paramOutlet = searchParams.get(BUKU_KAS_PARAMS.outlet)
+
+  const [startDate, setStartDate] = useState(() => paramFrom || getToday())
+  const [endDate, setEndDate] = useState(() => paramTo || getToday())
+  const [target, setTarget] = useState<string>(() => paramOutlet || userOutletId || 'all')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [isImportOpen, setIsImportOpen] = useState(false)
 

@@ -15,6 +15,12 @@ export type NavItem = {
   roles: Role[]
   /** Role yang menampilkan item ini di tab bar mobile. Maksimal 4 item per role. */
   primary?: Role[]
+  /**
+   * Sub-menu satu tingkat. Induknya tetap punya `href` sendiri (halaman
+   * gabungan), anak-anaknya menyempitkan tampilan itu. Anak TIDAK boleh punya
+   * `children` lagi — dijaga oleh test.
+   */
+  children?: NavItem[]
 }
 /** Sebuah "pintu" navigasi — kelompok besar berlabel bahasa awam. */
 export type NavGroup = { title: string; icon: LucideIcon; items: NavItem[]; roles: Role[] }
@@ -53,31 +59,47 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    title: 'Bisnis',
+    title: 'Laporan Internal',
     icon: Wallet,
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/owner', label: 'Ringkasan Bisnis', shortLabel: 'Ringkasan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
       { href: '/dashboard/owner/petty-cash', label: 'Petty Cash (Khusus)', shortLabel: 'Petty Cash', icon: Banknote, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['OWNER'] },
-      { href: '/dashboard/owner/profit', label: 'Untung Rugi', shortLabel: 'Untung Rugi', icon: DollarSign, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/expenses', label: 'Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      {
+        href: '/dashboard/owner/profit',
+        label: 'Laba Rugi',
+        shortLabel: 'Laba Rugi',
+        icon: DollarSign,
+        roles: ['OWNER', 'ADMIN'],
+        children: [
+          { href: '/dashboard/owner/profit/internal', label: 'Laba Rugi Internal', shortLabel: 'Internal', icon: Store, roles: ['OWNER', 'ADMIN'] },
+          { href: '/dashboard/owner/profit/mitra', label: 'Laba Rugi Mitra', shortLabel: 'Mitra', icon: HeartHandshake, roles: ['OWNER', 'ADMIN'] },
+        ],
+      },
+      // Sepasang: yang satu untuk MENCATAT, yang satu untuk MENGANALISIS.
+      // Sengaja bertetangga supaya orang tak perlu menebak ada di pintu mana.
+      { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/owner/expenses', label: 'Analisis Pengeluaran', shortLabel: 'Biaya', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
+      // Rincian dari satu irisan kategori di Analisis Pengeluaran — ditaruh
+      // tepat di bawahnya supaya pendalamannya tak berpindah pintu.
+      { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/budget-outlet', label: 'Budget Outlet', shortLabel: 'Budget', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['ADMIN'] },
     ],
   },
   {
-    title: 'Pusat Laporan',
+    title: 'Penjualan & Kinerja',
     icon: FileText,
     roles: ['OWNER', 'ADMIN'],
     items: [
       { href: '/dashboard/reports/pos', label: 'Rangkuman Penjualan', shortLabel: 'Penjualan', icon: PieChart, roles: ['OWNER', 'ADMIN'], primary: ['ADMIN'] },
-      { href: '/dashboard/reports/input-pengeluaran', label: 'Buku Kas (OPEX)', shortLabel: 'Buku Kas', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/reports/shrinkage', label: 'Selisih Stok', shortLabel: 'Selisih', icon: Package, roles: ['OWNER', 'ADMIN'] },
+      // "Selisih Stok" (/dashboard/reports/shrinkage) sengaja dilepas dari nav
+      // atas permintaan owner — halamannya TETAP ADA dan masih bisa dibuka
+      // lewat URL. Kembalikan barisnya di sini kalau mau ditampilkan lagi.
       { href: '/dashboard/reports/target-harian', label: 'Target Harian', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/reports/crew-bonus', label: 'Bonus Crew', shortLabel: 'Bonus', icon: UserCheck, roles: ['OWNER', 'ADMIN'] },
-      { href: '/dashboard/owner/waste', label: 'Kerugian Waste', shortLabel: 'Waste', icon: TrendingDown, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-bulanan', label: 'Rekap Bulanan', shortLabel: 'Rekap', icon: Table2, roles: ['OWNER', 'ADMIN'] },
     ],
   },
@@ -173,9 +195,20 @@ export const NAV_GROUPS: NavGroup[] = [
 ]
 
 /** Flattened list of nav items the given role can access. */
+/**
+ * Item beserta sub-menunya, diratakan: induk lalu anak-anaknya, urut tampilan.
+ * Referensi objeknya sengaja dipertahankan apa adanya (tanpa salinan) supaya
+ * pembanding identitas — mis. `primaryItems` vs `accessibleItems` — tetap sah.
+ */
+function flattenForRole(items: NavItem[], role: Role): NavItem[] {
+  return items
+    .filter((i) => i.roles.includes(role))
+    .flatMap((i) => [i, ...(i.children ?? []).filter((c) => c.roles.includes(role))])
+}
+
 export function accessibleItems(role: Role): NavItem[] {
   return NAV_GROUPS.filter((g) => g.roles.includes(role)).flatMap((g) =>
-    g.items.filter((i) => i.roles.includes(role))
+    flattenForRole(g.items, role)
   )
 }
 
@@ -191,10 +224,19 @@ export function primaryItems(role: Role): NavItem[] {
   return [...marked, ...rest].slice(0, 4)
 }
 
-/** Pintu (group) yang bisa diakses role, beserta item yang sudah difilter. */
+/** Pintu (group) yang bisa diakses role, beserta item & sub-menu yang sudah difilter. */
 export function accessibleGroups(role: Role): NavGroup[] {
   return NAV_GROUPS.filter((g) => g.roles.includes(role))
-    .map((g) => ({ ...g, items: g.items.filter((i) => i.roles.includes(role)) }))
+    .map((g) => ({
+      ...g,
+      items: g.items
+        .filter((i) => i.roles.includes(role))
+        .map((i) =>
+          i.children
+            ? { ...i, children: i.children.filter((c) => c.roles.includes(role)) }
+            : i,
+        ),
+    }))
     .filter((g) => g.items.length > 0)
 }
 
@@ -208,6 +250,9 @@ export function isItemActive(href: string, pathname: string): boolean {
     href === '/dashboard' ||
     href === '/dashboard/mitra' ||
     href === '/dashboard/owner/expenses' ||
+    // Punya sub-menu (/internal, /mitra): induknya hanya aktif pada path persis,
+    // supaya baris induk & anak tidak menyala berbarengan.
+    href === '/dashboard/owner/profit' ||
     href === '/dashboard/pos-admin' ||
     href === '/dashboard/pembelian'
   ) {
@@ -220,9 +265,11 @@ export function isItemActive(href: string, pathname: string): boolean {
 export function labelForPath(pathname: string): string {
   let best: { href: string; label: string } | null = null
   for (const g of NAV_GROUPS) {
-    for (const it of g.items) {
-      if (isItemActive(it.href, pathname) && (!best || it.href.length > best.href.length)) {
-        best = { href: it.href, label: it.label }
+    for (const parent of g.items) {
+      for (const it of [parent, ...(parent.children ?? [])]) {
+        if (isItemActive(it.href, pathname) && (!best || it.href.length > best.href.length)) {
+          best = { href: it.href, label: it.label }
+        }
       }
     }
   }

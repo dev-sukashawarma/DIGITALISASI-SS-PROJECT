@@ -10,15 +10,25 @@ interface SuratJalan {
   created_at: string
   document_number?: string
   has_problem?: boolean
+  surat_jalan_item?: any[]
 }
 
 interface SuratJalanWithOutlet extends SuratJalan {
   outlet?: { name: string }
 }
 
-type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif'
+export type DateFilter = 'all' | 'today' | '7days' | '30days' | 'belum_verif' | 'telah_verif' | 'custom'
 
-async function fetchSuratJalan(dateFilter: DateFilter, outletStaff: any): Promise<SuratJalanWithOutlet[]> {
+export interface CustomDateRange {
+  startDate?: string
+  endDate?: string
+}
+
+async function fetchSuratJalan(
+  dateFilter: DateFilter,
+  outletStaff: any,
+  customRange?: CustomDateRange
+): Promise<SuratJalanWithOutlet[]> {
   const supabase = createSupabaseBrowserClient()
   let query = supabase
     .from('surat_jalan')
@@ -64,6 +74,14 @@ async function fetchSuratJalan(dateFilter: DateFilter, outletStaff: any): Promis
   else if (dateFilter === '30days') query = query.gte('created_at', thirtyDaysAgo)
   else if (dateFilter === 'belum_verif') query = query.in('status', ['diterima_lengkap', 'diterima_sebagian'])
   else if (dateFilter === 'telah_verif') query = query.eq('status', 'selesai')
+  else if (dateFilter === 'custom') {
+    if (customRange?.startDate) {
+      query = query.gte('created_at', `${customRange.startDate}T00:00:00+07:00`)
+    }
+    if (customRange?.endDate) {
+      query = query.lte('created_at', `${customRange.endDate}T23:59:59.999+07:00`)
+    }
+  }
 
   const { data: sjList, error } = await query
   if (error) throw error
@@ -78,12 +96,20 @@ async function fetchSuratJalan(dateFilter: DateFilter, outletStaff: any): Promis
   }) as SuratJalanWithOutlet[]
 }
 
-export function useSuratJalanList(dateFilter: DateFilter = 'all') {
+export function useSuratJalanList(dateFilter: DateFilter = 'all', customRange?: CustomDateRange) {
   const { outletStaff } = useAuth()
 
   const { data = [], isLoading: loading, error } = useQuery({
-    queryKey: ['surat_jalan', dateFilter, outletStaff?.id, outletStaff?.role, outletStaff?.outlet_id],
-    queryFn: () => fetchSuratJalan(dateFilter, outletStaff),
+    queryKey: [
+      'surat_jalan',
+      dateFilter,
+      customRange?.startDate,
+      customRange?.endDate,
+      outletStaff?.id,
+      outletStaff?.role,
+      outletStaff?.outlet_id,
+    ],
+    queryFn: () => fetchSuratJalan(dateFilter, outletStaff, customRange),
     enabled: !!outletStaff,
   })
 

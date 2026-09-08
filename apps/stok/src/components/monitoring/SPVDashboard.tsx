@@ -428,7 +428,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           if (tab === 'approval') {
             router.push('/stok/permintaan');
           } else if (tab === 'waste_approval') {
-            router.push('/stok/waste-approval');
+            router.push('/stok/waste/approval');
           } else if (tab === 'po_inbound') {
             router.push('/stok/penerimaan-po');
           } else if (tab === 'harga_bahan') {

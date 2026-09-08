@@ -132,29 +132,43 @@ export const BottomNav = () => {
                       {group.title}
                     </h3>
                     <div className="grid grid-cols-2 gap-2">
-                      {group.items.map(({ href, label, icon: Icon, roles }) => {
-                        if (!roles.includes(role)) return null
-                        const isActive = isItemActive(href, pathname)
-                        return (
-                          <Link
-                            key={href}
-                            href={href}
-                            onClick={() => setSheetOpen(false)}
-                            className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold text-sm transition-all active:scale-95 ${
-                              isActive
-                                ? 'bg-gradient-to-br from-suka-orange to-suka-brown text-white shadow-md shadow-suka-orange/20 scale-[1.02]'
-                                : 'bg-white/50 text-suka-ink border border-suka-gray-100 hover:bg-white hover:border-suka-gray-200 hover:shadow-sm'
-                            }`}
-                          >
-                            <Icon size={18} className={isActive ? 'text-white' : 'text-suka-orange'} />
-                            <span className="truncate flex-1">{label}</span>
-                            {href === '/dashboard/hr/leave' && pendingCount > 0 && (
-                              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 shadow-sm border border-white">
-                                {pendingCount}
-                              </span>
-                            )}
-                          </Link>
-                        )
+                      {group.items.flatMap((item) => {
+                        if (!item.roles.includes(role)) return []
+                        // Sub-menu ikut tampil sebagai ubin sendiri, ditandai
+                        // lebih redup supaya jelas ia turunan item di atasnya.
+                        const rows = [
+                          { ...item, isChild: false },
+                          ...(item.children ?? [])
+                            .filter((c) => c.roles.includes(role))
+                            .map((c) => ({ ...c, isChild: true })),
+                        ]
+                        return rows.map(({ href, label, icon: Icon, isChild }) => {
+                          const isActive = isItemActive(href, pathname)
+                          return (
+                            <Link
+                              key={href}
+                              href={href}
+                              onClick={() => setSheetOpen(false)}
+                              className={`flex items-center gap-3 rounded-2xl px-4 py-3 font-bold transition-all active:scale-95 ${
+                                isChild ? 'text-[13px] pl-6' : 'text-sm'
+                              } ${
+                                isActive
+                                  ? 'bg-gradient-to-br from-suka-orange to-suka-brown text-white shadow-md shadow-suka-orange/20 scale-[1.02]'
+                                  : isChild
+                                    ? 'bg-white/30 text-suka-ink/80 border border-dashed border-suka-gray-200 hover:bg-white hover:border-suka-gray-300'
+                                    : 'bg-white/50 text-suka-ink border border-suka-gray-100 hover:bg-white hover:border-suka-gray-200 hover:shadow-sm'
+                              }`}
+                            >
+                              <Icon size={isChild ? 16 : 18} className={isActive ? 'text-white' : 'text-suka-orange'} />
+                              <span className="truncate flex-1">{label}</span>
+                              {href === '/dashboard/hr/leave' && pendingCount > 0 && (
+                                <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 shadow-sm border border-white">
+                                  {pendingCount}
+                                </span>
+                              )}
+                            </Link>
+                          )
+                        })
                       })}
                     </div>
                   </div>

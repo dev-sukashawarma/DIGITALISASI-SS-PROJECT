@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+@theme {
+  --color-suka-primary: #f29744;
+  --color-suka-orange: #f29744;
+  --color-suka-brown: #701604;
+  --color-suka-ink: #400a07;
+  --color-suka-cream: #fff7ed;
+  --color-suka-green: #0a7d2c;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+/* Theme: Dark Command Center (Default TV Display) - Suka Shawarma Roasted Ink */
+.theme-dark {
+  --bg-page: #130604;
+  --bg-surface: #1a0805;
+  --card-bg: #220b07;
+  --card-bg-hover: #2e100a;
+  --border-subtle: rgba(242, 151, 68, 0.15);
+  --border-card: rgba(255, 255, 255, 0.08);
+  --border-highlight: rgba(242, 151, 68, 0.4);
+  --text-primary: #fff7ed;
+  --text-secondary: #fed7aa;
+  --text-muted: #9c7b74;
+  --text-brand: #f29744;
+  --bar-fill-start: rgba(242, 151, 68, 0.35);
+  --bar-fill-end: rgba(242, 151, 68, 0.04);
+  --row-stripe: rgba(255, 255, 255, 0.015);
+  --row-hover: rgba(242, 151, 68, 0.08);
+  --glow-accent: rgba(242, 151, 68, 0.3);
+  --gold-accent: #f29744;
+  --gold-text: #f29744;
+  --gold-bg: rgba(242, 151, 68, 0.18);
+  --gold-border: rgba(242, 151, 68, 0.4);
+  color-scheme: dark;
+}
+
+/* Theme: Warm Studio Light (Suka Shawarma Brand Cream) */
+.theme-light {
+  --bg-page: #fffaf3;
+  --bg-surface: #f7ede2;
+  --card-bg: #ffffff;
+  --card-bg-hover: #fdf4eb;
+  --border-subtle: #ede1d3;
+  --border-card: #e5d3c0;
+  --border-highlight: #f29744;
+  --text-primary: #400a07;
+  --text-secondary: #701604;
+  --text-muted: #8a736a;
+  --text-brand: #f29744;
+  --bar-fill-start: rgba(242, 151, 68, 0.25);
+  --bar-fill-end: rgba(242, 151, 68, 0.03);
+  --row-stripe: rgba(112, 22, 4, 0.015);
+  --row-hover: rgba(242, 151, 68, 0.06);
+  --glow-accent: rgba(242, 151, 68, 0.15);
+  --gold-accent: #d97706;
+  --gold-text: #701604;
+  --gold-bg: rgba(242, 151, 68, 0.15);
+  --gold-border: rgba(242, 151, 68, 0.4);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  /* Batas minimal 1280px agar TV/laptop display tetap proporsional */
+  min-width: 1280px;
+  overflow-x: hidden;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Angka besar wajib rata lebar supaya tidak "goyang" tiap refresh data */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Subtle Cyber / Dot Grid Pattern */
+.bg-cyber-grid {
+  background-image: radial-gradient(rgba(242, 151, 68, 0.09) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.theme-light .bg-cyber-grid {
+  background-image: radial-gradient(rgba(112, 22, 4, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Ambient Radial Flare at Top */
+.bg-ambient-flare {
+  background: radial-gradient(75% 50% at 50% 0%, rgba(242, 151, 68, 0.12) 0%, transparent 100%);
+}
+
+.theme-light .bg-ambient-flare {
+  background: radial-gradient(75% 50% at 50% 0%, rgba(242, 151, 68, 0.07) 0%, transparent 100%);
+}
+
+/* Pulse breathing indicator untuk telemetry live status */
+@keyframes pulse-live {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.92);
+  }
+}
+
+.animate-pulse-live {
+  animation: pulse-live 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Shimmer animation for skeleton loader */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.03) 25%,
+    rgba(255, 255, 255, 0.08) 37%,
+    rgba(255, 255, 255, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+.theme-light .animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.03) 25%,
+    rgba(0, 0, 0, 0.07) 37%,
+    rgba(0, 0, 0, 0.03) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.8s ease-in-out infinite;
+}
+
+/* Leaderboard Rank Shift Animations */
+@keyframes rank-shift-up {
+  0% {
+    background-color: rgba(16, 185, 129, 0.28);
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.6);
+  }
+  60% {
+    background-color: rgba(16, 185, 129, 0.12);
+    box-shadow: inset 0 0 0 1px rgba(52, 211, 153, 0.25);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+@keyframes rank-shift-down {
+  0% {
+    background-color: rgba(244, 63, 94, 0.2);
+    box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.4);
+  }
+  60% {
+    background-color: rgba(244, 63, 94, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(244, 63, 94, 0.18);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: inset 0 0 0 1px transparent;
+  }
+}
+
+.animate-rank-up {
+  animation: rank-shift-up 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-rank-down {
+  animation: rank-shift-down 2.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Magic UI Border Beam Animation */
+@keyframes border-beam-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-border-beam {
+  animation: border-beam-spin 8s linear infinite;
+}

@@ -12,7 +12,7 @@ import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import type { BahanBaku } from '@/types/stok';
 
-const TIMEOUT_MS = 15000;
+const TIMEOUT_MS = 60000;
 async function withTimeout<T>(promise: Promise<T>, ms: number, actionName: string): Promise<T> {
   let timer: NodeJS.Timeout;
   const timeoutPromise = new Promise<never>((_, reject) => {

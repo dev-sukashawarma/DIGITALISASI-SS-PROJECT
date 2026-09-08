@@ -38,11 +38,14 @@ import {
   SlidersHorizontal,
   X,
   Radio,
-  Check
+  Check,
+  Ban
 } from 'lucide-react'
+import { CustomDateFilter, CustomDateRange, formatRangeLabel } from '@/components/distribusi/CustomDateFilter'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-type DateRange = 'all' | 'today' | '7days' | '30days'
+type DateRange = 'all' | 'today' | '7days' | '30days' | 'custom'
 type StatusTab = 'all' | 'draft' | 'dikirim' | 'belum_verif' | 'selisih' | 'selesai'
 
 export default function DashboardPage() {
@@ -54,6 +57,7 @@ export default function DashboardPage() {
 
   // Filter States
   const [dateRange, setDateRange] = useState<DateRange>('all')
+  const [customRange, setCustomRange] = useState<CustomDateRange>({ startDate: '', endDate: '' })
   const [statusTab, setStatusTab] = useState<StatusTab>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOutletFilter, setSelectedOutletFilter] = useState<string | null>(null)
@@ -87,7 +91,38 @@ export default function DashboardPage() {
     resolvedPortalUrl = 'http://localhost:3010'
   }
 
+  const queryClient = useQueryClient()
   const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
+  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
+
+  // Cancel Modal State
+  const [cancelModal, setCancelModal] = useState<{ isOpen: boolean; id: string; docNum: string } | null>(null)
+  const [cancelReason, setCancelReason] = useState('')
+  const [cancelling, setCancelling] = useState(false)
+
+  const handleCancelPO = async () => {
+    if (!cancelModal) return
+    setCancelling(true)
+    const supabase = createSupabaseBrowserClient()
+    try {
+      const { data: res, error } = await supabase.rpc('batalkan_surat_jalan_draft', {
+        p_surat_jalan_id: cancelModal.id,
+        p_alasan: cancelReason.trim() || null,
+      })
+      if (error) throw error
+      if (res && !res.success) {
+        throw new Error(res.message || 'Gagal membatalkan PO')
+      }
+      toast.success(res?.message || 'PO draft berhasil dibatalkan')
+      setCancelModal(null)
+      setCancelReason('')
+      queryClient.invalidateQueries({ queryKey: ['surat_jalan'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal membatalkan PO')
+    } finally {
+      setCancelling(false)
+    }
+  }
 
   // Fetch shipments using the enhanced hook
   const {
@@ -97,7 +132,7 @@ export default function DashboardPage() {
     sentCount,
     diterimaCount,
     selesaiCount,
-  } = useSuratJalanList(dateRange)
+  } = useSuratJalanList(dateRange, customRange)
 
   // Time-aware greeting
   const greeting = useMemo(() => {
@@ -441,7 +476,7 @@ export default function DashboardPage() {
             {/* Quick Filter & Global Action Bar */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0">
               {/* Date Filter Pills */}
-              <div className="bg-black/30 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 flex items-center gap-1">
+              <div className="bg-black/30 backdrop-blur-md p-1.5 rounded-2xl border border-white/10 flex flex-wrap items-center gap-1">
                 {[
                   { key: 'all', label: 'Semua' },
                   { key: 'today', label: 'Hari Ini' },
@@ -463,6 +498,23 @@ export default function DashboardPage() {
                     {range.label}
                   </button>
                 ))}
+
+                <CustomDateFilter
+                  variant="dark"
+                  startDate={customRange.startDate}
+                  endDate={customRange.endDate}
+                  isActive={dateRange === 'custom'}
+                  onApply={(range) => {
+                    setCustomRange(range)
+                    setDateRange('custom')
+                    setPage(1)
+                  }}
+                  onReset={() => {
+                    setDateRange('all')
+                    setCustomRange({ startDate: '', endDate: '' })
+                    setPage(1)
+                  }}
+                />
               </div>
 
               {isPusat ? (
@@ -737,16 +789,36 @@ export default function DashboardPage() {
                       </h3>
                       <p className="text-[10px] text-suka-gray-500 font-semibold">
                         Menampilkan {filteredShipments.length} dari {allShipments.length} dokumen
+                        {dateRange === 'custom' && customRange.startDate && (
+                          <span className="ml-1 text-suka-orange font-bold">
+                            &bull; Periode: {formatRangeLabel(customRange.startDate, customRange.endDate)}
+                          </span>
+                        )}
                       </p>
                     </div>
                   </div>
 
-                  <Link
-                    href={isPusat ? '/distribusi/surat-jalan' : '/distribusi/terima'}
-                    className="text-xs font-black text-suka-orange hover:text-orange-700 flex items-center gap-1 uppercase tracking-wider self-start sm:self-auto"
-                  >
-                    Buka Daftar Lengkap <ChevronRight size={14} />
-                  </Link>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    {dateRange === 'custom' && (
+                      <button
+                        onClick={() => {
+                          setDateRange('all')
+                          setCustomRange({ startDate: '', endDate: '' })
+                          setPage(1)
+                        }}
+                        className="text-[10px] font-black text-suka-orange hover:text-orange-700 bg-suka-orange/10 px-2.5 py-1 rounded-xl flex items-center gap-1 uppercase tracking-wider cursor-pointer"
+                        title="Reset Filter Tanggal Kustom"
+                      >
+                        <X size={12} /> {formatRangeLabel(customRange.startDate, customRange.endDate)}
+                      </button>
+                    )}
+                    <Link
+                      href={isPusat ? '/distribusi/surat-jalan' : '/distribusi/terima'}
+                      className="text-xs font-black text-suka-orange hover:text-orange-700 flex items-center gap-1 uppercase tracking-wider"
+                    >
+                      Buka Daftar Lengkap <ChevronRight size={14} />
+                    </Link>
+                  </div>
                 </div>
 
                 {/* Search and Tabs Row */}
@@ -857,11 +929,14 @@ export default function DashboardPage() {
                                   ? 'bg-blue-50 text-blue-700 border-blue-200'
                                   : sj.status === 'selesai'
                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : 'bg-purple-50 text-purple-700 border-purple-200'
+                                    : sj.status === 'dibatalkan'
+                                      ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                      : 'bg-purple-50 text-purple-700 border-purple-200'
                             }`}>
                               {sj.status === 'draft' && 'Draft Siap Kirim'}
                               {sj.status === 'dikirim' && 'Dalam Transit'}
                               {sj.status === 'selesai' && 'Selesai'}
+                              {sj.status === 'dibatalkan' && 'Dibatalkan'}
                               {(sj.status === 'diterima_lengkap' || sj.status === 'diterima_sebagian') && 'Tiba di Outlet'}
                             </span>
 
@@ -890,6 +965,23 @@ export default function DashboardPage() {
 
                         {/* Right: Quick Action Controls */}
                         <div className="flex items-center gap-2 shrink-0 self-end md:self-auto border-t md:border-t-0 pt-3 md:pt-0 border-suka-brown/5 w-full md:w-auto justify-end">
+                          {sj.status === 'draft' && canCancelPO && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setCancelModal({
+                                  isOpen: true,
+                                  id: sj.id,
+                                  docNum: sj.document_number || sj.id.substring(0, 8).toUpperCase(),
+                                })
+                              }}
+                              className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-extrabold text-[10px] uppercase tracking-wider rounded-xl transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                              title="Batalkan Dokumen PO Draft"
+                            >
+                              <Ban size={13} className="text-rose-600" /> Batal PO
+                            </button>
+                          )}
+
                           <button
                             onClick={(e) => {
                               e.stopPropagation()
@@ -1175,6 +1267,72 @@ export default function DashboardPage() {
 
           </div>
         </div>
+
+        {/* Cancel PO Draft Modal */}
+        {cancelModal?.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-suka-brown/10 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0 border border-rose-100">
+                  <Ban size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-suka-ink">Batalkan Dokumen PO</h3>
+                  <p className="text-xs text-suka-gray-500 font-medium">
+                    {cancelModal.docNum}
+                  </p>
+                </div>
+              </div>
+
+              <p className="text-xs text-suka-gray-600 mb-4 leading-relaxed">
+                Tindakan ini akan membatalkan pengiriman PO draft dan mengembalikan status permintaan bahan terkait. Stok tidak akan terpotong.
+              </p>
+
+              <div className="space-y-1.5 mb-6">
+                <label className="text-[11px] font-bold text-suka-ink uppercase tracking-wider">
+                  Alasan Pembatalan (Opsional)
+                </label>
+                <textarea
+                  value={cancelReason}
+                  onChange={(e) => setCancelReason(e.target.value)}
+                  placeholder="Contoh: Salah input pesanan / direvisi ulang..."
+                  className="w-full text-xs p-3 rounded-xl border border-suka-brown/15 focus:outline-hidden focus:border-rose-500 min-h-[80px] text-suka-ink"
+                  disabled={cancelling}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setCancelModal(null)
+                    setCancelReason('')
+                  }}
+                  disabled={cancelling}
+                  className="px-4 py-2 text-xs font-bold text-suka-gray-600 hover:bg-suka-sand rounded-xl transition-colors cursor-pointer"
+                >
+                  Kembali
+                </button>
+                <button
+                  onClick={handleCancelPO}
+                  disabled={cancelling}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-md shadow-rose-600/20 active:scale-95 flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {cancelling ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      Membatalkan...
+                    </>
+                  ) : (
+                    <>
+                      <Ban size={13} />
+                      Ya, Batalkan PO
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Bottom Navigation */}

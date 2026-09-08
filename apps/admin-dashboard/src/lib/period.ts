@@ -1,4 +1,4 @@
-export type Preset = 'today' | 'yesterday' | '7d' | '30d' | 'this_month'
+export type Preset = 'today' | 'yesterday' | '7d' | '30d' | 'last_month' | 'this_month'
 
 function iso(d: Date): string { return d.toISOString().slice(0, 10) }
 function addDays(ymd: string, n: number): string {
@@ -15,6 +15,14 @@ export function presetRange(preset: Preset, now = new Date()): { from: string; t
     return { from: yesterday, to: yesterday }
   }
   
+  // Bulan kalender penuh sebelum bulan berjalan — bukan "30 hari ke belakang",
+  // supaya angkanya bisa dibandingkan langsung dengan tutup buku bulanan.
+  if (preset === 'last_month') {
+    const month = jkt.getUTCMonth() + 1
+    const year = jkt.getUTCFullYear()
+    return month === 1 ? monthRange(year - 1, 12) : monthRange(year, month - 1)
+  }
+
   if (preset === 'this_month') {
     const mm = String(jkt.getUTCMonth() + 1).padStart(2, '0')
     const yyyy = jkt.getUTCFullYear()

@@ -1,6 +1,12 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
-import { fetchPendingWasteReports, fetchMyWasteReports } from '@/app/actions/waste'
+import { 
+  fetchPendingWasteReports, 
+  fetchMyWasteReports, 
+  fetchWasteHistory, 
+  type WasteHistoryFilter, 
+  type WasteHistoryResult 
+} from '@/app/actions/waste'
 import { useRealtimeInvalidate } from '@suka/realtime'
 import type { WasteReport } from '@/types/stok'
 
@@ -59,4 +65,40 @@ export function useMyWasteHistory(staffId: string | undefined) {
   })
 
   return { reports: data ?? [], loading: isLoading, refetch }
+}
+
+/**
+ * Waste history with flexible filters (outlet, status, date range, pagination).
+ * Accessible by both approvers (multi-outlet scoped) and outlet staff (own outlet).
+ */
+export function useWasteHistory(filters: WasteHistoryFilter) {
+  const { data, isLoading, refetch, isFetching } = useQuery<WasteHistoryResult>({
+    queryKey: ['waste_history_list', filters],
+    queryFn: () => fetchWasteHistory(filters),
+    staleTime: 20000,
+    gcTime: 60000,
+  })
+
+  useRealtimeInvalidate({
+    channelName: 'waste_history_list',
+    subs: [
+      {
+        table: 'stok_waste_reports',
+        event: '*',
+        queryKeys: [['waste_history_list']],
+      },
+    ],
+  })
+
+  return {
+    reports: (data?.data ?? []) as WasteReport[],
+    totalCount: data?.totalCount ?? 0,
+    totalNilai: data?.totalNilai ?? 0,
+    page: data?.page ?? 1,
+    totalPages: data?.totalPages ?? 1,
+    limit: data?.limit ?? 25,
+    loading: isLoading,
+    fetching: isFetching,
+    refetch,
+  }
 }

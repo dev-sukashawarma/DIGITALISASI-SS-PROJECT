@@ -10,6 +10,7 @@ import { TargetCombobox } from '@/components/TargetCombobox'
 import CountUp from 'react-countup'
 import { Wallet, TrendingDown, Search, Award } from 'lucide-react'
 import { CATEGORY_META } from '@/lib/expenseCategories'
+import { withWasteSlice } from '@/lib/expenseBreakdown'
 import { motion } from 'framer-motion'
 import dynamic from 'next/dynamic'
 
@@ -75,7 +76,17 @@ export default function ExpensesPage() {
     })).sort((a, b) => b.value - a.value)
   }, [filteredRows])
 
-  const topCategory = byCategory.length > 0 ? byCategory[0].name : '-'
+  // Waste ikut sebagai satu kategori DI TAMPILAN saja — angkanya tetap dari
+  // approval waste, tak pernah ditulis ke `expenses` (lihat expenseBreakdown.ts).
+  // Biaya pusat tak punya waste, jadi irisannya hanya untuk scope outlet.
+  const includeWaste = !isPusat && totalWaste > 0
+  const byCategoryAll = useMemo(
+    () => withWasteSlice(byCategory, totalWaste, includeWaste),
+    [byCategory, totalWaste, includeWaste],
+  )
+  const totalBeban = totalAmount + (includeWaste ? totalWaste : 0)
+
+  const topCategory = byCategoryAll.length > 0 ? byCategoryAll[0].name : '-'
 
   const selectOptions = [
     { label: '🏪 Semua Outlet', value: 'all' },
@@ -87,7 +98,7 @@ export default function ExpensesPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Pengeluaran" description="Analisis pengeluaran operasional" icon={Wallet}>
+      <PageHeader title="Analisis Pengeluaran" description="Sebaran beban operasional per kategori, termasuk kerugian waste. Untuk mencatat transaksi, buka Buku Kas (OPEX)." icon={Wallet}>
         <div className="flex flex-wrap gap-3 mt-3">
           <input type="month" value={month} onChange={e => setMonth(e.target.value)}
             className="border border-suka-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-suka-brown/20" />
@@ -120,9 +131,9 @@ export default function ExpensesPage() {
             >
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-4">
             <StatTile
-              label="Total Pengeluaran"
-              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalAmount} duration={1} separator="." /></>}
-              sub={titleText + ` (Bulanan: Rp ${(amountBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(amountPettyCash/1000).toLocaleString('id-ID')}k)`}
+              label="Total Beban"
+              value={<><span className="text-lg align-top">Rp </span><CountUp end={totalBeban} duration={1} separator="." /></>}
+              sub={titleText + ` (Bulanan: Rp ${(amountBulanan/1000).toLocaleString('id-ID')}k | Kas Kecil: Rp ${(amountPettyCash/1000).toLocaleString('id-ID')}k${includeWaste ? ` | Waste: Rp ${(totalWaste/1000).toLocaleString('id-ID')}k` : ''})`}
               icon={Wallet}
               accent="brown"
             />
@@ -136,7 +147,7 @@ export default function ExpensesPage() {
             <StatTile
               label="Kategori Terbesar"
               value={<span className="text-xl leading-tight">{topCategory}</span>}
-              sub={byCategory.length > 0 ? `Total: Rp ${(byCategory[0].value/1000).toLocaleString('id-ID')}k` : 'Belum ada data'}
+              sub={byCategoryAll.length > 0 ? `Total: Rp ${(byCategoryAll[0].value/1000).toLocaleString('id-ID')}k` : 'Belum ada data'}
               icon={Award}
               accent="orange"
             />
@@ -144,7 +155,7 @@ export default function ExpensesPage() {
               <StatTile
                 label="Kerugian Waste"
                 value={<><span className="text-lg align-top">Rp </span><CountUp end={totalWaste} duration={1} separator="." /></>}
-                sub="Read-only, dari approval waste (bukan input manual)"
+                sub="Sudah termasuk di Total Beban · dari approval waste, bukan input manual"
                 icon={TrendingDown}
                 accent="red"
               />
@@ -156,7 +167,7 @@ export default function ExpensesPage() {
           {/* ── KANAN: ANALISIS GRAFIK ─────────────────────────────── */}
           <div className="w-full lg:w-2/3 xl:w-[65%] flex flex-col gap-6 min-w-0">
             <Section title={`Distribusi ${titleText}`}>
-              <ExpenseDistributionChart byCategory={byCategory} totalOutlet={totalAmount} />
+              <ExpenseDistributionChart byCategory={byCategoryAll} totalOutlet={totalBeban} />
             </Section>
           </div>
         </div>

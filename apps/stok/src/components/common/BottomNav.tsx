@@ -38,6 +38,7 @@ export function BottomNav() {
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
   // jadi khusus staff gudang. Role lain pakai Ledger Stok untuk riwayat outletnya.
   const canViewInboundOutbound = role === 'kitchen'
+  const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')
 
   // 1. Pending Approvals
   const { permintaan } = useApprovalList(isApprover)
@@ -47,10 +48,10 @@ export function BottomNav() {
   const { data: pendingWaste = [] } = useQuery<any[]>({
     queryKey: ['bottomnav-pending-waste'],
     queryFn: () => fetchPendingWasteReports(),
-    enabled: isLeaderOrSPV || isKitchenOrAdmin,
+    enabled: canApproveWaste,
     staleTime: 30000,
   })
-  const pendingWasteCount = pendingWaste.length
+  const pendingWasteCount = canApproveWaste ? pendingWaste.length : 0
 
   // 3. Pending Inbound POs
   const { data: inboundPos = [] } = useQuery({
@@ -126,10 +127,10 @@ export function BottomNav() {
       badge: 0,
     },
     {
-      href: '/stok/waste-approval',
+      href: '/stok/waste/approval',
       icon: Trash2,
-      label: 'Approval Waste',
-      desc: 'Persetujuan laporan bahan terbuang',
+      label: 'Waste',
+      desc: 'Persetujuan & riwayat bahan terbuang',
       badge: pendingWasteCount,
     },
   ]
@@ -163,6 +164,13 @@ export function BottomNav() {
       desc: 'Penerimaan barang inbound',
       badge: inboundPosCount,
     },
+    {
+      href: '/stok/waste/history',
+      icon: Trash2,
+      label: 'Riwayat Waste',
+      desc: 'Histori laporan bahan terbuang',
+      badge: 0,
+    },
   ]
 
   // Primary bottom tabs (Max 5 items)
@@ -189,7 +197,12 @@ export function BottomNav() {
       { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { href: '/stok/permintaan', icon: ClipboardList, label: 'Permintaan', badge: pendingCount },
       { href: '/stok/opname', icon: FileSpreadsheet, label: 'Opname' },
-      { href: '/stok/waste-approval', icon: Trash2, label: 'Waste', badge: pendingWasteCount },
+      {
+        href: canApproveWaste ? '/stok/waste/approval' : '/stok/waste/history',
+        icon: Trash2,
+        label: 'Waste',
+        badge: canApproveWaste && pendingWasteCount > 0 ? pendingWasteCount : undefined,
+      },
       { icon: MoreHorizontal, label: 'Lainnya', isMore: true },
     ]
   } else {
@@ -197,8 +210,8 @@ export function BottomNav() {
       { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
       { href: '/stok/permintaan', icon: ClipboardList, label: 'Permintaan' },
       { href: '/stok/opname', icon: FileSpreadsheet, label: 'Opname' },
+      { href: '/stok/waste/history', icon: Trash2, label: 'Waste' },
       { href: '/stok/ledger', icon: BookOpen, label: 'Ledger' },
-      { href: '/stok/mutasi', icon: ArrowLeftRight, label: 'Mutasi' },
     ]
   }
 
@@ -208,6 +221,9 @@ export function BottomNav() {
   const isTabActive = (tab: PrimaryTab) => {
     if (tab.isMore) return isMoreActive
     if (!tab.href) return false
+    if (tab.href.startsWith('/stok/waste')) {
+      return pathname.startsWith('/stok/waste')
+    }
     return tab.href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(tab.href)
   }
 

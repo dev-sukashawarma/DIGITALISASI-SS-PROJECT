@@ -64,10 +64,10 @@ Expected: `n_supplier=25`, `n_po_duplikat=0`, `n_bahan_aktif=52`. Kalau berbeda,
 | `apps/admin-dashboard/src/lib/satuanPo.test.ts` (baru) | Tes untuk di atas, termasuk regresi "tidak boleh diam-diam 1" |
 | `apps/admin-dashboard/src/lib/katalogVendor.ts` (baru) | Fungsi murni katalog: konversi, penyetaraan harga antar vendor, kelayakan prefill |
 | `apps/admin-dashboard/src/lib/katalogVendor.test.ts` (baru) | Tes untuk di atas |
-| `supabase/migrations/20260908180000_bahan_baku_faktor_po.sql` (baru) | Kolom `faktor_po` + seed + trigger sinkron |
-| `supabase/migrations/20260908181000_merge_supplier_lettuce_pak_aziz.sql` (baru) | Gabung 2 baris supplier duplikat |
-| `supabase/migrations/20260908182000_bahan_baku_supplier.sql` (baru) | Tabel katalog + riwayat + RLS + trigger riwayat |
-| `supabase/migrations/20260908183000_seed_bahan_baku_supplier.sql` (baru) | Seed katalog dari riwayat PO + array supplier |
+| `supabase/migrations/20260908230000_bahan_baku_faktor_po.sql` (baru) | Kolom `faktor_po` + seed + trigger sinkron |
+| `supabase/migrations/20260908231000_merge_supplier_lettuce_pak_aziz.sql` (baru) | Gabung 2 baris supplier duplikat |
+| `supabase/migrations/20260908232000_bahan_baku_supplier.sql` (baru) | Tabel katalog + riwayat + RLS + trigger riwayat |
+| `supabase/migrations/20260908233000_seed_bahan_baku_supplier.sql` (baru) | Seed katalog dari riwayat PO + array supplier |
 
 ---
 
@@ -265,7 +265,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ## Task 2: Kolom `bahan_baku.faktor_po` + trigger sinkron
 
 **Files:**
-- Create: `supabase/migrations/20260908180000_bahan_baku_faktor_po.sql`
+- Create: `supabase/migrations/20260908230000_bahan_baku_faktor_po.sql`
 
 **Interfaces:**
 - Consumes: aturan dari Task 1 (diterjemahkan ke SQL — harus memberi hasil identik).
@@ -275,10 +275,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Tulis migration**
 
-Buat `supabase/migrations/20260908180000_bahan_baku_faktor_po.sql`:
+Buat `supabase/migrations/20260908230000_bahan_baku_faktor_po.sql`:
 
 ```sql
--- 20260908180000_bahan_baku_faktor_po.sql
+-- 20260908230000_bahan_baku_faktor_po.sql
 -- Menutup ranjau: satuan_po sudah terisi untuk 52 bahan aktif tetapi TIDAK ADA
 -- kolom yang menyimpan konversinya ke satuan kecil. Untuk FOIL / MIE /
 -- PLASTIK BESAR, satuan_po bukan satuan master (48x / 40x / 5x), jadi begitu
@@ -384,7 +384,7 @@ ALTER TABLE public.bahan_baku
 - [ ] **Step 2: Lint timestamp**
 
 ```bash
-node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908180000_bahan_baku_faktor_po.sql
+node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908230000_bahan_baku_faktor_po.sql
 ```
 
 Expected: exit 0.
@@ -398,13 +398,13 @@ supabase db push
 Kalau gagal karena drift migration remote-only milik dev lain (sering terjadi di repo ini), **jangan** `migration repair` migration orang lain. Pakai jalur alternatif:
 
 ```bash
-node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908180000_bahan_baku_faktor_po.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
+node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908230000_bahan_baku_faktor_po.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
 ```
 
 lalu stempel sendiri:
 
 ```bash
-supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908180000','bahan_baku_faktor_po') ON CONFLICT (version) DO NOTHING;" --linked
+supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908230000','bahan_baku_faktor_po') ON CONFLICT (version) DO NOTHING;" --linked
 ```
 
 - [ ] **Step 4: Verifikasi ground-truth**
@@ -436,7 +436,7 @@ Expected: satu baris, `tgenabled = 'O'`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260908180000_bahan_baku_faktor_po.sql
+git add supabase/migrations/20260908230000_bahan_baku_faktor_po.sql
 git commit -m "feat(db): kolom bahan_baku.faktor_po + trigger sinkron
 
 satuan_po sudah terisi 52/52 bahan tanpa kolom faktor pendamping. Untuk
@@ -451,7 +451,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ## Task 3: Gabungkan supplier duplikat `Lettuce (Pak Aziz)`
 
 **Files:**
-- Create: `supabase/migrations/20260908181000_merge_supplier_lettuce_pak_aziz.sql`
+- Create: `supabase/migrations/20260908231000_merge_supplier_lettuce_pak_aziz.sql`
 
 **Interfaces:**
 - Consumes: tidak ada.
@@ -468,10 +468,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Tulis migration**
 
-Buat `supabase/migrations/20260908181000_merge_supplier_lettuce_pak_aziz.sql`:
+Buat `supabase/migrations/20260908231000_merge_supplier_lettuce_pak_aziz.sql`:
 
 ```sql
--- 20260908181000_merge_supplier_lettuce_pak_aziz.sql
+-- 20260908231000_merge_supplier_lettuce_pak_aziz.sql
 -- Satu-satunya duplikat supplier tersisa per 8 Sep 2026. Tanpa ini, katalog
 -- harga vendor pecah dua baris untuk vendor yang sama dan pembandingnya bohong.
 --
@@ -519,7 +519,7 @@ END $$;
 - [ ] **Step 2: Lint timestamp**
 
 ```bash
-node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908181000_merge_supplier_lettuce_pak_aziz.sql
+node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908231000_merge_supplier_lettuce_pak_aziz.sql
 ```
 
 Expected: exit 0.
@@ -533,13 +533,13 @@ supabase db push
 Kalau gagal karena drift migration remote-only milik dev lain, **jangan** `migration repair` milik orang lain. Pakai jalur alternatif:
 
 ```bash
-node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908181000_merge_supplier_lettuce_pak_aziz.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
+node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908231000_merge_supplier_lettuce_pak_aziz.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
 ```
 
 lalu stempel sendiri:
 
 ```bash
-supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908181000','merge_supplier_lettuce_pak_aziz') ON CONFLICT (version) DO NOTHING;" --linked
+supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908231000','merge_supplier_lettuce_pak_aziz') ON CONFLICT (version) DO NOTHING;" --linked
 ```
 
 - [ ] **Step 4: Verifikasi ground-truth**
@@ -553,7 +553,7 @@ Expected: `n_supplier=24`, `n_duplikat=0`, `n_bahan_gabungan=3`, `sisa_duplikat=
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260908181000_merge_supplier_lettuce_pak_aziz.sql
+git add supabase/migrations/20260908231000_merge_supplier_lettuce_pak_aziz.sql
 git commit -m "fix(db): gabungkan supplier duplikat Lettuce (Pak Aziz)
 
 Termin sengaja tidak diubah (30 vs 10 belum dikonfirmasi ke supplier).
@@ -566,7 +566,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ## Task 4: Tabel `bahan_baku_supplier` + riwayat + RLS
 
 **Files:**
-- Create: `supabase/migrations/20260908182000_bahan_baku_supplier.sql`
+- Create: `supabase/migrations/20260908232000_bahan_baku_supplier.sql`
 
 **Interfaces:**
 - Consumes: `bahan_baku.faktor_po` (Task 2), `supplier` bebas duplikat (Task 3).
@@ -574,10 +574,10 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 - [ ] **Step 1: Tulis migration**
 
-Buat `supabase/migrations/20260908182000_bahan_baku_supplier.sql`:
+Buat `supabase/migrations/20260908232000_bahan_baku_supplier.sql`:
 
 ```sql
--- 20260908182000_bahan_baku_supplier.sql
+-- 20260908232000_bahan_baku_supplier.sql
 -- Katalog harga vendor: satu baris per pasangan (bahan, vendor).
 -- Lapisan REFERENSI PEMBELIAN. Tidak mengubah harga master, HPP, atau nilai
 -- persediaan. Spec: docs/superpowers/specs/2026-09-08-katalog-harga-vendor-design.md
@@ -731,7 +731,7 @@ GRANT SELECT                         ON public.bahan_baku_supplier_history TO au
 - [ ] **Step 2: Lint timestamp**
 
 ```bash
-node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908182000_bahan_baku_supplier.sql
+node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908232000_bahan_baku_supplier.sql
 ```
 
 Expected: exit 0.
@@ -745,13 +745,13 @@ supabase db push
 Kalau gagal karena drift migration remote-only milik dev lain, **jangan** `migration repair` milik orang lain. Pakai jalur alternatif:
 
 ```bash
-node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908182000_bahan_baku_supplier.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
+node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908232000_bahan_baku_supplier.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
 ```
 
 lalu stempel sendiri:
 
 ```bash
-supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908182000','bahan_baku_supplier') ON CONFLICT (version) DO NOTHING;" --linked
+supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908232000','bahan_baku_supplier') ON CONFLICT (version) DO NOTHING;" --linked
 ```
 
 - [ ] **Step 4: Verifikasi struktur benar-benar ada**
@@ -791,7 +791,7 @@ supabase db query "delete from bahan_baku_supplier where satuan_beli='UJI'; dele
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260908182000_bahan_baku_supplier.sql
+git add supabase/migrations/20260908232000_bahan_baku_supplier.sql
 git commit -m "feat(db): tabel katalog harga vendor bahan_baku_supplier
 
 Lapisan referensi pembelian. Harga master, HPP, dan nilai persediaan
@@ -805,7 +805,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ## Task 5: Seed katalog
 
 **Files:**
-- Create: `supabase/migrations/20260908183000_seed_bahan_baku_supplier.sql`
+- Create: `supabase/migrations/20260908233000_seed_bahan_baku_supplier.sql`
 
 **Interfaces:**
 - Consumes: tabel dari Task 4, `faktor_po` dari Task 2, supplier bersih dari Task 3.
@@ -822,10 +822,10 @@ Memakai `satuan_po`/`faktor_po` di sini akan menyalahkan harga FOIL sebesar 48×
 
 - [ ] **Step 1: Tulis migration**
 
-Buat `supabase/migrations/20260908183000_seed_bahan_baku_supplier.sql`:
+Buat `supabase/migrations/20260908233000_seed_bahan_baku_supplier.sql`:
 
 ```sql
--- 20260908183000_seed_bahan_baku_supplier.sql
+-- 20260908233000_seed_bahan_baku_supplier.sql
 -- Seed katalog dari dua sumber. Idempoten (ON CONFLICT DO NOTHING).
 --
 -- PENTING: harga_terima PO tersimpan dalam SATUAN BESAR, bukan satuan_po.
@@ -898,7 +898,7 @@ ON CONFLICT (bahan_baku_id, supplier_id) DO NOTHING;
 - [ ] **Step 2: Lint timestamp**
 
 ```bash
-node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908183000_seed_bahan_baku_supplier.sql
+node scripts/migration-timestamp-lint.mjs supabase/migrations/20260908233000_seed_bahan_baku_supplier.sql
 ```
 
 Expected: exit 0.
@@ -912,13 +912,13 @@ supabase db push
 Kalau gagal karena drift migration remote-only milik dev lain, **jangan** `migration repair` milik orang lain. Pakai jalur alternatif:
 
 ```bash
-node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908183000_seed_bahan_baku_supplier.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
+node -e "const fs=require('fs');const{createClient}=require('@supabase/supabase-js');require('dotenv').config({path:'apps/stok/.env.local'});const sb=createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.SUPABASE_SERVICE_ROLE_KEY);sb.rpc('exec_sql',{sql:fs.readFileSync('supabase/migrations/20260908233000_seed_bahan_baku_supplier.sql','utf8')}).then(r=>console.log(r.error||'ok'))"
 ```
 
 lalu stempel sendiri:
 
 ```bash
-supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908183000','seed_bahan_baku_supplier') ON CONFLICT (version) DO NOTHING;" --linked
+supabase db query "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260908233000','seed_bahan_baku_supplier') ON CONFLICT (version) DO NOTHING;" --linked
 ```
 
 - [ ] **Step 4: Verifikasi jumlah dan pembagiannya**
@@ -950,7 +950,7 @@ Expected: sama dengan `total` di Step 4 (setiap INSERT menulis 1 baris riwayat).
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/20260908183000_seed_bahan_baku_supplier.sql
+git add supabase/migrations/20260908233000_seed_bahan_baku_supplier.sql
 git commit -m "feat(db): seed katalog harga vendor dari riwayat PO
 
 Baris pra-guard 4 Sep ditandai perlu_ditinjau: basis satuannya campur,

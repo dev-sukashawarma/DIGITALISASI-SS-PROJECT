@@ -6,6 +6,57 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ---
 
+## 🛠️ PERBAIKAN FORM — menutup akar dari tiga kekeliruan sekaligus
+
+Tiga kekeliruan yang ditambal terpisah sepanjang 8 September ternyata satu akar:
+**form meminta angka tanpa menyebut satuannya, dan tak menunjukkan hasilnya
+sebelum disimpan.** ⚠️ **Perlu redeploy `stok` dan `finance`** — ini satu-satunya
+perubahan kode di rangkaian sesi ini; sisanya semua di basis data.
+
+### 1. Form penyesuaian stok (`apps/stok` ManualEntryForm)
+
+Pemilih satuan **sudah lama ada** dan default-nya satuan besar. Yang tidak ada:
+tampilan apa yang benar-benar akan tercatat. Ditambahkan kotak pratinjau di
+bawah kolom kuantitas:
+
+- **"Akan tercatat"** — hasil konversi dalam satuan majemuk yang terbaca
+- **"Stok setelah disimpan"**
+- **Peringatan merah** bila jumlahnya ≥ 10× stok terpasang, menyebutkan satuan
+  yang sedang terpilih secara eksplisit
+
+Untuk insiden FOIL: 1.000 × 36.480 = 36.480.000 berbanding stok 108.680 →
+**336×** → peringatan menyala, dan angka "48.000 Roll" terpampang sebelum
+tombol simpan ditekan.
+
+Rumusnya sengaja disalin persis dari `createDraftItemFromCurrentState` —
+pratinjau yang memakai jalur hitung sendiri akan berbohong tepat ketika paling
+dibutuhkan.
+
+### 2. Form terima PO (`apps/finance` VerifikasiTerimaModal)
+
+Labelnya **"Harga Aktual"** — tanpa satuan sama sekali. Itu akar kekeliruan
+PLASTIK MERAH yang berulang dua kali (Agustus & September): satuan bahannya
+Ikat, operator mengisi Rp18.000 yang merupakan harga per **Pack**.
+
+- Label → **"Harga Aktual per {satuan}"**, satuannya diberi warna aksen
+- Satuan ditempel **di dalam** kolom "Fisik Tiba Hari Ini", bukan cuma di baris
+  keterangan di atasnya — mata orang yang mengetik ada di kolomnya
+- Baris hasil: `{qty} {satuan} × {harga} = {total}`
+
+### ⚠️ Belum diuji di browser
+
+Tidak ada `.env.local` di `apps/stok` maupun `apps/finance` di lingkungan kerja
+ini, jadi dev server tak bisa dijalankan. Yang terverifikasi baru `type-check`
+(bersih di kedua app; sisa galat `useExpenses.ts` adalah baseline lama di berkas
+yang tak disentuh).
+
+**Yang perlu dilihat sekali saat smoke test:** pilih FOIL di form penyesuaian,
+ketik 1000 dengan satuan "Dus" — kotak pratinjau harus merah dan menyebut
+kelipatannya. Lalu buka satu PO PLASTIK MERAH — labelnya harus berbunyi
+"Harga Aktual per Ikat".
+
+---
+
 ## 🎯 KEPUTUSAN METODE BASIS HARGA — pengukuran final 8 September
 
 Diukur ulang setelah jendela 1 September dibersihkan dan tiga baris PO ditandai

@@ -70,6 +70,64 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
   const isCurrentValid = Boolean(bahanBakuId) && qty !== '' && !isNaN(qtyNum) && qtyNum > 0
 
+  // Pratinjau hasil sebelum disimpan. Pemilih satuan sudah lama ada di form
+  // ini; yang TIDAK ada adalah tampilan apa yang benar-benar akan tercatat.
+  //
+  // Insiden 8 September 2026: penerimaan 1.000 Roll FOIL diketik saat pemilih
+  // satuan masih di default "Dus" (satuan FOIL baru berubah Roll -> Dus pagi
+  // itu juga). Tercatat 48.000 Roll -- Rp413,6 juta stok hantu, dan tak ada
+  // satu pun layar yang menunjukkannya sebelum tombol simpan ditekan.
+  // Operator bahkan sempat menyadari salah OUTLET dan membatalkannya; yang
+  // tak terlihat justru satuannya.
+  //
+  // Sengaja memakai rumus yang SAMA PERSIS dengan createDraftItemFromCurrentState
+  // di bawah -- pratinjau yang memakai jalur hitung sendiri akan berbohong
+  // tepat ketika paling dibutuhkan.
+  const preview = (() => {
+    if (!selectedBahan || !isCurrentValid) return null
+
+    let besar = qtyNum
+    if (selectedUnitType === 'kecil' && selectedBahan.faktor_tampilan) {
+      besar = qtyNum / selectedBahan.faktor_tampilan
+    } else if (selectedUnitType === 'tengah' && selectedBahan.faktor_tengah) {
+      besar = qtyNum / selectedBahan.faktor_tengah
+    }
+
+    const ledger = (bal?.saldo_is_gram)
+      ? convertBesarToGram(besar, selectedBahan)
+      : besar
+
+    const menambah = tipe === 'adjustment' ? adjDirection === 'in' : false
+    const sesudah = menambah ? existingSaldo + ledger : existingSaldo - ledger
+
+    // Rasio terhadap stok yang ada. Bukan aturan baku, hanya pemantik
+    // perhatian: perubahan yang berlipat-lipat dari stok terpasang hampir
+    // selalu salah pilih satuan, bukan pergerakan barang sungguhan.
+    const lipat = existingSaldo > 0 ? ledger / existingSaldo : null
+
+    const satuanTerpilih =
+      selectedUnitType === 'besar'
+        ? selectedBahan.satuan
+        : selectedUnitType === 'tengah'
+          ? (selectedBahan.satuan_tengah ?? selectedBahan.satuan)
+          : (selectedBahan.satuan_kecil ?? selectedBahan.satuan)
+
+    return { ledger, sesudah, menambah, lipat, satuanTerpilih }
+  })()
+
+  const formatSaldo = (n: number) =>
+    selectedBahan
+      ? formatTriUnitSaldoAdaptive(
+          n,
+          bal?.saldo_is_gram ?? false,
+          selectedBahan.satuan,
+          selectedBahan.satuan_tengah,
+          selectedBahan.faktor_tengah,
+          selectedBahan.satuan_kecil,
+          selectedBahan.faktor_tampilan
+        )
+      : String(n)
+
   // Alasan yang wajib diisi berbeda per tipe: waste memakai dropdown
   // (wasteReason), tipe lain memakai teks bebas (catatan).
   const currentReasonFilled = tipe === 'waste' ? wasteReason !== '' : catatan.trim() !== ''
@@ -396,6 +454,34 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
               </select>
             )}
           </div>
+
+          {preview && (
+            <div
+              className={`flex flex-col gap-1 px-4 py-2.5 rounded-xl border text-xs font-bold ${
+                preview.lipat !== null && preview.lipat >= 10
+                  ? 'bg-[#ffdad6] border-[#ba1a1a]/20 text-[#ba1a1a]'
+                  : 'bg-[#fff7ed] border-[#d9c2b2]/40 text-[#544437]'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span>Akan tercatat</span>
+                <span className="text-right">
+                  {preview.menambah ? '+' : '−'} {formatSaldo(preview.ledger)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3 opacity-80">
+                <span className="font-semibold">Stok setelah disimpan</span>
+                <span className="text-right font-semibold">{formatSaldo(preview.sesudah)}</span>
+              </div>
+              {preview.lipat !== null && preview.lipat >= 10 && (
+                <p className="pt-1 leading-snug font-semibold">
+                  ⚠️ Jumlah ini {preview.lipat.toLocaleString('id-ID', { maximumFractionDigits: 0 })}× stok
+                  yang ada sekarang. Periksa lagi pilihan satuannya di sebelah kolom angka — sekarang
+                  terpilih <span className="underline">{preview.satuanTerpilih}</span>.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

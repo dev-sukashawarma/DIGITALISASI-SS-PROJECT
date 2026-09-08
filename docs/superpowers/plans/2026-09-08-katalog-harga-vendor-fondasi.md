@@ -1178,7 +1178,7 @@ export function setarakanHargaAntarVendor(rows: BarisKatalog[]): BarisSetara[] {
 cd "apps/admin-dashboard" && yarn vitest run src/lib/katalogVendor.test.ts
 ```
 
-Expected: PASS, 13 tes.
+Expected: PASS, 12 tes (3 konversi + 4 bolehPrefill + 5 setarakan).
 
 - [ ] **Step 5: Bandingkan seluruh suite terhadap baseline**
 
@@ -1187,7 +1187,7 @@ cd "apps/admin-dashboard" && yarn test 2>&1 | tail -20
 cd "apps/admin-dashboard" && yarn type-check 2>&1 | tail -20
 ```
 
-Expected: jumlah kegagalan **sama persis** dengan `/tmp/baseline-test.txt` dan `/tmp/baseline-types.txt`, dengan jumlah tes lulus bertambah 24. Nol regresi. Jangan menuliskan "0 error" kalau baseline-nya tidak nol.
+Expected: jumlah kegagalan **sama persis** dengan `/tmp/baseline-test.txt` dan `/tmp/baseline-types.txt`, dengan jumlah tes lulus bertambah 23 (11 dari Task 1 + 12 dari task ini). Nol regresi. Jangan menuliskan "0 error" kalau baseline-nya tidak nol.
 
 - [ ] **Step 6: Commit**
 

@@ -79,6 +79,82 @@ kelipatannya. Lalu buka satu PO PLASTIK MERAH — labelnya harus berbunyi
 
 ---
 
+## ➡️ LANJUTAN DUA-VENDOR: masalahnya OPERASIONAL, bukan biaya (8 September)
+
+Ini kelanjutan pertanyaan yang membuka rangkaian sesi ini — *"bahan yang punya
+2 vendor, bagaimana menanganinya dari PO sampai outlet order supaya tidak
+tumpang tindih"*. Sisi **biaya sudah tertutup** (lihat bagian keputusan di
+bawah: selisih 0,07%, metode dipertahankan). Yang tersisa, dan yang benar-benar
+menggigit hari ini, ada di sisi **dokumen**.
+
+### Insiden FOIL Rp413,6 juta ADALAH kasus dua-vendor
+
+Rantainya (keterangan owner + jejak ledger): Ekadharma (PO 31 Agu) dan Altindo
+(PO 2 Sep) berdekatan → **barang datang tidak berurutan** → yang diverifikasi PO
+vendor yang salah → dibatalkan, dimasukkan ulang ke vendor benar → barang vendor
+kedua datang 8 Sep, **PO-nya sudah terpakai** → masuk lewat penyesuaian manual →
+di situ satuannya salah 48×.
+
+**Kerusakannya bukan dari harga vendor yang berbeda. Kerusakannya dari dokumen
+yang kehabisan pasangan.** Itu menjelaskan kenapa mengukur selisih harga
+berulang kali tak pernah menemukan apa-apa: kami mencari di tempat yang salah.
+
+### Jalur PO adalah minoritas
+
+Barang masuk Gudang Pusat sejak 1 Agustus:
+
+| Jalur | Baris | Bahan |
+|---|--:|--:|
+| `adjustment` — manual, **nol pengawal** | 151 | 38 |
+| `opname_selisih` | 120 | 48 |
+| `pembelian_supplier` — jalur PO resmi | **32** | 22 |
+
+⚠️ Sebagian dari 151 penyesuaian itu **koreksi, bukan penerimaan** (termasuk
+koreksi 8 September sendiri) — jangan dibaca sebagai "82% barang masuk liar".
+Tetapi arahnya jelas, dan yang penting: **hanya jalur `pembelian_supplier` yang
+punya** guard salah-satuan (`20260904120000`), guard PO uji coba
+(`20260908150000`), pencatatan harga ke master, dan kaitan ke utang supplier.
+Penyesuaian manual melewati semuanya.
+
+### Master supplier punya duplikat — "vendor mana" belum bisa dijawab
+
+| Yang sama, tercatat berbeda | PO | Termin |
+|---|--:|--:|
+| Bapak Aziz | 4 | 15 hari |
+| L:ettuce (Pak Aziz) | 2 | 15 hari |
+| Lettuce (Pak Aziz) | 0 | **10 hari** |
+| Lettuce (Pak Aziz) | 1 | **30 hari** |
+| Agro Boga Utama | 2 | 45 hari |
+| PT Agro Boga Utama | 3 | 45 hari |
+
+Pak Aziz tercatat **empat kali dengan tiga termin berbeda**. Ini bukan sekadar
+kotor: `verifikasi_terima_po` menghitung `jatuh_tempo = tanggal + termin_hari`
+dari record yang kebetulan dipilih — **jatuh tempo supplier yang sama bisa
+berbeda 20 hari.** Ada juga entri sampah `sadsad` (0 PO).
+
+**Akibatnya daftar "11 bahan multi-vendor" MENYESATKAN.** Empat di antaranya
+palsu — KENTANG, KULIT 25, KULIT 28, KULIT 32 sebenarnya satu vendor yang
+tercatat dua kali. Yang benar-benar dua vendor ada **tujuh**: SAPI, MINYAK,
+BAWANG, JINTEN, KUNYIT, KETUMBAR, FOIL.
+
+### 📋 Untuk sesi berikutnya — urutan yang disarankan
+
+1. **Gabungkan duplikat supplier.** Kecil dan langsung berguna: jatuh tempo jadi
+   konsisten, dan pertanyaan "vendor mana" jadi bisa dijawab. **Analisis
+   dua-vendor apa pun sebelum ini berdiri di atas data yang salah.**
+   Hati-hati: `purchase_order.supplier_id` FK + kolom denormalisasi
+   `purchase_order.supplier_nama` — keduanya harus ikut diperbarui, dan
+   pilih termin mana yang benar (owner yang tahu).
+2. **Keputusan alur (butuh owner):** ketika PO vendor salah terlanjur
+   diverifikasi, yang dibutuhkan bukan "batalkan lalu ketik manual" melainkan
+   **cara membatalkan penerimaan sehingga PO-nya kembali terbuka**, supaya
+   barang vendor kedua tetap punya pasangan dokumen. Itu perubahan alur, bukan
+   tambalan — perlu dipastikan dulu apakah begitu cara kerjanya di lapangan.
+3. Baru setelah (1) dan (2): pertimbangkan apakah masih perlu apa-apa lagi soal
+   dua-vendor. Kemungkinan besar tidak.
+
+---
+
 ## 🎯 KEPUTUSAN METODE BASIS HARGA — pengukuran final 8 September
 
 Diukur ulang setelah jendela 1 September dibersihkan dan tiga baris PO ditandai

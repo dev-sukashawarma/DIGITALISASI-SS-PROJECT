@@ -590,6 +590,8 @@ export async function getPettyCashData(
     .from('petty_cash_expenses')
     .select('*, outlets(name)')
     .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+    // Abaikan pengeluaran yang sudah di-void (samakan dgn get_petty_cash_balance).
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
     .limit(1000)
 

@@ -155,6 +155,9 @@ export default async function LeaderDashboardPage() {
         .select('amount')
         .eq('outlet_id', primaryOutletId)
         .gte('created_at', shift.start_time)
+        // Rumus saldo di bawah meniru get_petty_cash_balance(); RPC itu menyaring
+        // baris ter-void, jadi di sini harus sama agar saldonya tidak berbeda.
+        .is('deleted_at', null)
 
       const totalTopups = (topups || []).reduce((sum, t) => sum + Number(t.amount), 0)
       const totalExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount), 0)

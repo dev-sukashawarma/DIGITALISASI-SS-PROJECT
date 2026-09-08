@@ -50,7 +50,18 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
     let b = supabase.from('petty_cash_expenses')
       .select('outlet_id, category, amount')
       .neq('outlet_id', TEST_OUTLET_ID)
-      .in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities'])
+      // Baris yang di-void lewat RPC void_petty_cash_expense TIDAK dihitung —
+      // menyamakan perilaku dengan get_petty_cash_balance() di DB.
+      .is('deleted_at', null)
+      // Kategori petty cash yang dihitung sebagai biaya operasional outlet.
+      // Enam kode di baris kedua adalah pilihan baru layar kasir (Transport,
+      // Listrik, Air, Internet, Overtime, Endorsement) — nol baris historis,
+      // jadi menambahkannya tidak menggeser angka bulan mana pun.
+      // Kode lama 'overtime' dan 'ads' SENGAJA tidak dimasukkan: 14 baris
+      // Agustus–September memakainya dengan kategori salah input, dan
+      // memasukkannya akan mengubah total yang sudah jadi dasar bagi hasil.
+      .in('category', ['bahan_baku', 'pengeluaran_outlet', 'operasional', 'utilitas', 'lainnya', 'bb', 'outlet', 'utilities',
+        'transport', 'pln', 'pdam', 'internet', 'lembur', 'endorsement'])
       .gte('expense_date', filter.from)
       .lte('expense_date', filter.to)
       .order('id', { ascending: true })

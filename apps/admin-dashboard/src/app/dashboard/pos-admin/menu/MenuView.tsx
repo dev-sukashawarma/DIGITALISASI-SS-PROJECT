@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe
+  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe, Tag
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
@@ -18,6 +18,51 @@ import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
 import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync } from './actions'
 import { getChannel } from '@/lib/channels'
+import { getPromoStatus } from '@/lib/promoSchedule'
+
+type MenuPromo = {
+  scope: 'global' | 'item'
+  menu_item_id: string | null
+  outlet_id?: string | null
+  is_active: boolean
+  start_date?: string | null
+  end_date?: string | null
+  daily_start_time?: string | null
+  daily_end_time?: string | null
+  daily_schedule?: Array<{ date: string; start_time: string; end_time: string }> | null
+}
+
+const MENU_PROMO_BADGE_STYLE: Record<'terjadwal' | 'berjalan', string> = {
+  terjadwal: 'bg-violet-50 text-violet-700 border-violet-200',
+  berjalan: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+}
+
+function MenuPromoBadge({ item, promos, now }: { item: MenuItem; promos: MenuPromo[]; now: number }) {
+  const matchingStatuses = promos
+    .filter(promo => {
+      const sameOutlet = promo.outlet_id == null || item.outlet_id == null || promo.outlet_id === item.outlet_id
+      const appliesToItem = promo.scope === 'global' || promo.menu_item_id === item.id
+      return sameOutlet && appliesToItem
+    })
+    .map(promo => getPromoStatus(promo, now))
+    .filter((status): status is 'terjadwal' | 'berjalan' => status === 'terjadwal' || status === 'berjalan')
+    .sort((a, b) => (a === 'berjalan' ? -1 : 1) - (b === 'berjalan' ? -1 : 1))
+
+  const status = matchingStatuses[0]
+  if (!status) return null
+
+  const label = status === 'berjalan' ? 'PROMO AKTIF' : 'PROMO TERJADWAL'
+  return (
+    <span
+      title={status === 'berjalan' ? 'Promo sedang berlaku untuk menu ini' : 'Promo sudah diatur dan akan berlaku sesuai jadwal'}
+      aria-label={label}
+      className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide ${MENU_PROMO_BADGE_STYLE[status]}`}
+    >
+      <Tag className="h-3 w-3" strokeWidth={2.5} />
+      {label}
+    </span>
+  )
+}
 
 function ChannelLogoIcon({ channelKey }: { channelKey: string }) {
   const norm = channelKey.toLowerCase()
@@ -192,6 +237,7 @@ interface MenuViewProps {
   initialCategories: Category[]
   initialChannels: SalesChannel[]
   initialOutlets?: Outlet[]
+  initialPromos?: MenuPromo[]
   initialUpsells?: string[]
   initialBestsellers?: string[]
   initialRecommendations?: string[]
@@ -203,6 +249,7 @@ export default function MenuView({
   initialCategories = [], 
   initialChannels = [], 
   initialOutlets = [],
+  initialPromos = [],
   initialUpsells = [], 
   initialBestsellers = [], 
   initialRecommendations = [],
@@ -230,8 +277,14 @@ export default function MenuView({
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
   const [outletSearch, setOutletSearch] = useState('')
   const [onlinePriceMode, setOnlinePriceMode] = useState<'unified' | 'per_channel'>('unified')
+  const [promoNow, setPromoNow] = useState(() => Date.now())
   const fileRef = useRef<HTMLInputElement>(null)
   const channelDropdownRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setPromoNow(Date.now()), 60_000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -1739,6 +1792,7 @@ export default function MenuView({
                         {bestsellers.includes(item.id) && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">Best Seller</span>}
                         {recommendations.includes(item.id) && <span className="text-[10px] bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded font-bold">Rekomendasi</span>}
                         {upsells.includes(item.id) && <span className="text-[10px] bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded font-bold">Menu Ekstra</span>}
+                        <MenuPromoBadge item={item} promos={initialPromos} now={promoNow} />
 
                         {/* Channel Badges */}
                         {(() => {

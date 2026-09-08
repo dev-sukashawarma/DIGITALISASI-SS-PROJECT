@@ -41,6 +41,21 @@ export default async function AdminMenuPage(props: {
   const initialCategories: Category[] = categoriesRes.data || []
   const initialChannels: SalesChannel[] = channelsRes.data || []
   const initialOutlets: Outlet[] = outletsRes.data || []
+  let initialPromos: any[] = []
+  const activeOutletIds = initialOutlets.map(outlet => outlet.id)
+  if (activeOutletIds.length > 0) {
+    const promosRes = await supabase
+      .from('outlet_promos')
+      .select('scope, menu_item_id, outlet_id, is_active, start_date, end_date, daily_start_time, daily_end_time, daily_schedule')
+      .eq('is_active', true)
+      .in('outlet_id', activeOutletIds)
+
+    if (promosRes.error) {
+      console.error('Error fetching menu promo badges:', promosRes.error)
+    } else {
+      initialPromos = promosRes.data || []
+    }
+  }
   const settingsData = settingsRes.data || []
   
   const parseIds = (key: string) => {
@@ -60,6 +75,7 @@ export default async function AdminMenuPage(props: {
       initialCategories={initialCategories} 
       initialChannels={initialChannels}
       initialOutlets={initialOutlets}
+      initialPromos={initialPromos}
       initialUpsells={upsellIds}
       initialBestsellers={bestsellerIds}
       initialRecommendations={recommendationIds}

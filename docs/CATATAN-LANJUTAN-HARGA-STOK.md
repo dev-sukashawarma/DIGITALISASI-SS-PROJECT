@@ -202,6 +202,46 @@ dijalankan). Menulis ke tabel riwayat DB bersama tanpa persetujuan pernah jadi
 insiden di proyek ini (Session 2026-07-14). Isinya `CREATE OR REPLACE`, jadi
 `db push` berikutnya menerapkannya ulang dengan aman. Keputusan stempel = owner.
 
+### Bahan keputusan: nasib 2.626 snapshot surat jalan
+
+Metode pemisahan (8 September, menggantikan pemisah sebelumnya yang cacat):
+untuk tiap (bahan, nilai snapshot), cari faktor `f` dari kandidat
+{1, faktor_tengah, faktor_tampilan, faktor_konversi, tampilan/tengah} yang
+membuat `snapshot × f` **paling dekat** ke master. Sisa rasionya jadi ukuran
+keyakinan. Ini tidak menuntut rasio mendarat persis di faktor, sehingga tidak
+runtuh saat harga ikut bergerak — kelemahan pemisah sebelumnya dan juga
+kelemahan GUARD SALAH SATUAN.
+
+| Kelompok | Grup | Baris | Nilai apa adanya | Kalau diskala |
+|---|--:|--:|--:|--:|
+| Basis sub-satuan (f > 1) | 14 | 481 | Rp20,9 jt | Rp381,9 jt |
+| Tidak terjelaskan | 6 | 162 | Rp2,3 jt | — |
+| Basis benar (f = 1) | 45 | 1.983 | Rp937,6 jt | tak berubah |
+
+**Basis sub-satuan** — snapshot per sub-satuan sementara `qty_dikirim` satuan
+besar. Keyakinan per grup dari sisa rasio: **kuat** (≈1,00) KENTANG 25.000,
+FOIL 8.791, KERTAS STRUK, BAWANG, CUP, KENTANG 24.000; **lemah** (harga ikut
+bergerak) MAYONAISE 1,15, FOIL 11.957/11.554 1,36/1,31, PLASTIK MERAH 1,31,
+KEJU 0,90, SAOS TOMAT POUCH 0,90, PAPER WRAP 0,86.
+
+⚠️ **PAPER WRAP perlu dilihat manusia**: 37 baris, nilai apa adanya Rp8.176
+menjadi Rp40,9 juta kalau diskala (f = 5.000). Lonjakan sebesar itu dari angka
+sekecil itu patut dicurigai — mungkin masternya sendiri (Rp925.000/Ikat) yang
+salah, bukan snapshotnya.
+
+**Tidak terjelaskan** — tak ada faktor terdaftar yang mendekatkan snapshot ke
+master. Uangnya kecil (Rp2,3 jt) tetapi diagnostik: menandakan **faktor kemasan
+bahan itu belum terdaftar benar**. SAOS CABE butuh ~16, SAOS SAMYANG ~19,
+PLASTIK MERAH ~450, STIKER ~13 — tak satu pun ada di kolom faktornya.
+
+### Tidak ada jendela historis yang bersih
+
+Perubahan satuan FOIL (8 September) membuat 10 baris SJ tertanggal 3–8
+September ikut tidak sebanding — jadi bahkan periode sesudah normalisasi 3
+September pun tidak bersih. Batas bersih yang jujur adalah **sejak hari ini ke
+depan**, dan hanya bertahan kalau setiap perubahan satuan berikutnya ikut
+menskala dokumen historisnya.
+
 ### Meredakan: belum ada laporan yang salah hari ini
 
 `harga_snapshot` hanya dibaca `hpp_nilai_stok_harian_spv` dan

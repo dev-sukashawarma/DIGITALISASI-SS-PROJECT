@@ -6,6 +6,71 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ---
 
+## 📏 PENGUKURAN ULANG 8 SEPTEMBER — metode basis harga
+
+Mengukur ulang selisih **harga master vs rata-rata tertimbang stok yang benar-benar
+ada** di Gudang Pusat (FIFO mundur dari penerimaan PO terbaru sampai menutupi saldo).
+Menggantikan pengukuran 3 September.
+
+| Bahan | Saldo | Master | WAC on-hand | Rasio | Dampak |
+|---|---:|---:|---:|---:|---:|
+| PLASTIK MERAH | 51,80 Ikat | 90.000 | 18.000 | **5,00×** | Rp3.729.600 |
+| POLYBAG | 5,67 Pack | 25.000 | 600.000 | **0,04×** | −Rp3.258.333 |
+| FOIL | 5,98 Dus | 421.978 | 11.554 | **36,52×** | Rp2.453.991 |
+| PLASTIK 24 | 502 Pack | 13.000 | 12.398 | 1,05× | Rp302.000 |
+| STIKER | 89,87 Lembar | 5.300 | 5.570 | 0,95× | −Rp24.265 |
+| MAYONAISE / KEJU / KUNYIT | — | — | — | 1,00× | ≤ Rp72 (pembulatan) |
+
+**Tiga yang terbesar BUKAN selisih metode — itu salah basis satuan di baris PO lama:**
+
+- **FOIL** master per **Dus**, `harga_terima` diisi per **Roll**. Buktinya pas:
+  421.977,6 ÷ 48 (`faktor_tengah`) = **8.791,2** — persis salah satu nilai
+  `harga_terima` yang tercatat.
+- **PLASTIK MERAH** master per **Ikat**, diisi per **Pack** (faktor 5).
+- **POLYBAG** master per **Pack**, diisi per **Bal** (≈25).
+
+**Selisih metode yang sungguhan hanya dua: PLASTIK 24 +Rp302.000 dan STIKER
+−Rp24.265 — bersih Rp277.735 untuk SELURUH nilai persediaan.**
+
+### Temuan pokok: masalah dua-vendor masih belum ada
+
+Untuk **setiap** bahan, stok yang ada di Gudang Pusat ditutupi oleh **satu vendor
+saja** (`jml_vendor_menutupi_saldo = 1`, tanpa kecuali). Sama seperti 3 September:
+perputaran cukup cepat sehingga stok vendor lama habis sebelum vendor baru datang.
+
+### Metode yang benar-benar berjalan sekarang
+
+`verifikasi_terima_po` menimpa `bahan_baku_harga.harga_beli` dengan `harga_terima`
+tiap penerimaan → **"harga pembelian terakhir"**, yang **bukan** metode yang diakui
+PSAK 14 (yang diakui: FIFO dan rata-rata tertimbang).
+
+Tapi lebih tepatnya bahkan bukan itu: **STIKER** punya master 5.300 sementara
+satu-satunya `harga_terima` yang pernah tercatat 5.570 — masternya diketik manual,
+bukan dari PO. Jadi metode nyatanya adalah **"harga apa pun yang terakhir diketik"**,
+campuran penerimaan PO dan suntingan manual.
+
+### Risiko terbuka yang ternyata SUDAH ditutup
+
+Catatan 3 September menandai jalur penerimaan PO sebagai risiko belum-diaudit.
+Sudah ditutup orang lain sehari kemudian: **"GUARD SALAH SATUAN (2026-09-04)"** di
+`verifikasi_terima_po` menolak `harga_terima` yang rasionya terhadap master persis
+sama dengan salah satu faktor konversi bahan (toleransi 1%), mencatatnya sebagai
+`DITOLAK` di `bahan_baku_harga_history` alih-alih menimpa master. Sudah menolak 1×.
+
+⚠️ **Guard itu tidak menangkap POLYBAG.** Rasionya ≈25, sedangkan faktor POLYBAG yang
+terdaftar hanya 9 — angka 25 ("1 bal = 25 pak", catatan owner) tak ada di kolom
+faktor mana pun. Guard hanya sekuat data faktor bahannya.
+
+### Urutan yang benar kalau mau pindah metode
+
+Dari 51 baris PO berharga, **42 dibuat sebelum guard ada**. Rata-rata tertimbang
+dihitung **dari riwayat pembelian** — jadi menerapkannya di atas riwayat yang basis
+satuannya campur akan menghasilkan angka yang **lebih buruk** daripada metode
+sekarang. Bersih-bersih basis satuan 42 baris itu adalah prasyarat, bukan pekerjaan
+sesudahnya.
+
+---
+
 ## ⛔ ATURAN — "outlet tes" JANGAN masuk perhitungan apa pun
 
 **Keputusan owner, 8 September 2026:**

@@ -116,6 +116,31 @@ surat jalan** bertanggal 29 Agu–1 Sep membekukan harga tes itu, senilai
 **Rp19.950.000**. Pola yang sama dengan kebocoran outlet tes, lewat pintu
 berbeda: **jalur PO belum punya penyaring dokumen uji coba.**
 
+### ✅ Ditutup 8 September: PO uji coba tak boleh menulis harga master
+
+Migration `20260908150000_guard_harga_master_po_uji_coba.sql` — **applied &
+diverifikasi di DB live**. Memakai ulang jalur penolakan milik guard salah
+satuan (`20260904120000`): master tidak ditimpa, sebabnya dicatat di
+`bahan_baku_harga_history` supaya terlihat.
+
+Pola dijangkarkan di **awal** nomor PO: `^(test|dummy|coba|demo)[/_-]`.
+Diuji langsung ke 50 PO nyata — 49 lolos, 1 (`TEST/…`) ditolak. Pemisah
+`[/_-]` mencegah salah tangkap: `TESTINDO/PO/2026/1`, `PO/TESTIMONI/2026/01`,
+dan `SPB/PROTEST/2026/7` semuanya **lolos**.
+
+Verifikasi pasca-terap (`pg_get_functiondef`): guard baru terpasang, guard salah
+satuan lama utuh, `to_ledger_scale` utuh, `can_manage_po` utuh,
+`prosecdef = true`.
+
+**Sengaja TIDAK diubah:** PO uji coba tetap menulis `ledger_stok`. Ruang lingkup
+perubahan ini hanya harga; menghentikan pergerakan stoknya keputusan terpisah
+yang belum diambil.
+
+**Riwayat migration sengaja tidak di-stempel** (`migration repair` tidak
+dijalankan). Menulis ke tabel riwayat DB bersama tanpa persetujuan pernah jadi
+insiden di proyek ini (Session 2026-07-14). Isinya `CREATE OR REPLACE`, jadi
+`db push` berikutnya menerapkannya ulang dengan aman. Keputusan stempel = owner.
+
 ### Meredakan: belum ada laporan yang salah hari ini
 
 `harga_snapshot` hanya dibaca `hpp_nilai_stok_harian_spv` dan

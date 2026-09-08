@@ -126,6 +126,44 @@ Roll (≈1 Dus), wajar untuk pemakaian/kiriman yang belum tercatat.
 Seluruh outlet lain diperiksa dan **sehat** (0,8–110 Roll). Tidak ada PO FOIL
 menggantung, jadi koreksi ini tak akan tertimpa verifikasi susulan.
 
+### Kronologi lengkapnya (keterangan owner + jejak ledger, 8 September)
+
+Dua PO FOIL berdekatan: **Ekadharma 31 Agustus** dan **Altindo 2 September**.
+Barang **Altindo datang duluan**, tetapi saat verifikasi yang dieksekusi PO
+**Ekadharma**. Ketahuan, dibatalkan, dimasukkan ulang ke Altindo. Hari ini
+barang Ekadharma yang sungguhan datang — PO-nya sudah terpakai, jadi masuk
+lewat penyesuaian ledger.
+
+```
+02 Sep 16:02  terima PO Ekadharma        +1.000 Roll   <- barangnya Altindo
+02 Sep 16:04  adjustment "salah vendor"  -1.000 Roll   <- dibatalkan
+02 Sep 16:04  adjustment ke FOIL (48)    +1.000 Roll   <- dipindah ke vendor benar
+03 Sep 13:45  terima PO Altindo          +1.000 Roll
+03 Sep 13:46  adjustment "double input"  -1.000 Roll   <- dobelnya dibatalkan
+03 Sep 15:53  penggabungan FOIL(48)->FOIL  ±672 Roll
+08 Sep 13:53  adjustment "ekadharma"    +48.000 Roll   <- SATUAN SALAH
+08 Sep 14:21  koreksi opname fisik      -47.047 Roll
+```
+
+**Tiga kekeliruan pertama ditangkap dan dibalik dengan catatan yang jelas.**
+Yang keempat lolos justru karena satu-satunya yang tak bisa dilihat siapa pun:
+satuan FOIL berubah pagi itu, dan tak ada layar yang menunjukkan hasil
+konversinya. **Ini bukan soal kedisiplinan orang gudang — disiplinnya terbukti
+bagus. Alatnya yang tidak memberi tahu.**
+
+### 🅿️ DIPARKIR (keputusan owner 8 September: "nanti dulu")
+
+**`SPB/PO/VII/2026/021` — Altindo, 15 Agustus, 2.000 Roll, Rp17.582.400, LUNAS.**
+Statusnya `diterima_lengkap` tetapi **tidak pernah menulis satu baris pun ke
+`ledger_stok`**. Stoknya tak pernah dikreditkan lewat jalur penerimaan; kalau
+barangnya memang masuk, ia baru muncul lewat opname/penyesuaian belakangan.
+
+Tidak mendesak: hitungan fisik 8 September sudah jadi acuan dan opname memang
+mekanisme pelurusnya. Tapi kalau suatu saat ditanya "ke mana 2.000 Roll bulan
+Agustus", jejak penerimaannya memang tidak ada di ledger. Perlu ditelusuri
+bersama pola PO lain yang juga tak menulis ledger (`036`, `039` — lihat
+bagian PO di atas).
+
 ⚠️ **Perangkapnya masih terpasang.** Siapa pun yang memasukkan FOIL dalam Roll
 lewat form penyesuaian akan kena 48× lagi. Itu pekerjaan berikutnya: label
 form harus menyebut satuan bahannya secara eksplisit — sama persis dengan

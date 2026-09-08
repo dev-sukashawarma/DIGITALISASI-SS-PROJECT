@@ -220,6 +220,47 @@ Keadaan jendela 1–8 September sebelum koreksi: 478 baris, **386 sudah bersih**
 (Rp176 jt), 35 baris harga beda tapi satuan benar (pembekuan yang memang
 bekerja — SAPI 100.000, FOIL lama 11.554: JANGAN disentuh), 57 baris tersangka.
 
+### ✅ SAOS CABE & SAOS SAMYANG — 9 baris terakhir, dari keterangan owner
+
+Migration `20260908180000` — applied & idempoten. SAOS CABE 7 baris
+Rp14.179 → **Rp244.002** (21 baris September kini seragam); SAOS SAMYANG
+2 baris Rp14.774 → **Rp280.000** (6 baris seragam).
+
+Dasarnya keterangan owner 8 September: *"saos cabe per dus = 244000, saos
+samyang per dus = 280000"*. Dipakai 244.002 bukan 244.000 supaya seragam dengan
+14 baris September lain (selisih Rp14 total).
+
+**KOREKSI klaim saya sebelumnya:** saya menulis bahwa "isi kemasan 4 bahan belum
+terdaftar benar". **Itu salah.** Faktornya lengkap — SAOS CABE 1 Dus = 3 Kompan
+= 16.500 g; SAOS SAMYANG 1 Dus = 5 Kg. Yang tidak lengkap adalah **daftar
+kandidat faktor di kueri saya**: saya tak pernah menguji **kg per satuan besar**
+(`faktor_tampilan / 1000`), padahal `satuan_distribusi` kedua bahan itu 'kg' dan
+`getDistribusiFactor` di kode punya aturan khusus persis untuk itu.
+
+Untuk SAOS CABE faktornya 16,5 kg/Dus → 244.002/16,5 = 14.788, dekat dengan
+harga beku 14.179. SAOS SAMYANG tetap tak terjelaskan dari data (rasio 18,95
+sementara 1 Dus = 5 Kg) — hanya keterangan owner yang menutupnya.
+
+### Sisa jendela 1 September: 35 baris, semua LOLOS uji sisi-qty
+
+Bentuk angka qty sama di kedua sisi perubahan harga — tak ada lompatan seperti
+FOIL. Faktor yang cocok, dengan daftar kandidat yang sudah diperbaiki:
+
+| Bahan | Baris | Harga beku | Faktor | Tersirat per satuan besar | Master kini |
+|---|--:|--:|--:|--:|--:|
+| MAYONAISE | 14 | 23.706 /kg | ×12 kg/Dus | 284.472 | 248.004 |
+| SAOS TOMAT POUCH | 7 | 10.613 /kg | ×12 kg/Dus | 127.356 | 141.000 |
+| PAPER WRAP | 10 | 160 /pcs | ×5.000 pcs/Ikat | 800.000 | 925.000 |
+| KEJU | 2 | 10.850 /pack | ×24 pack/Dus | 260.400 | 289.056 |
+| PLASTIK MERAH | 2 | 23.500 /pack | ×5 pack/Ikat | 117.500 | 90.000 |
+
+Semua tersiratnya dalam jarak wajar dari master (0,77–1,16×) — konsisten dengan
+pergerakan harga biasa, bukan salah faktor. **Tetap menunggu konfirmasi harga
+per satuan besar dari owner**, mengikuti cara yang sama seperti kedua saos.
+
+FOIL (10 baris) dan POLYBAG (2) tetap di luar: yang pertama sudah benar, yang
+kedua master datanya ditahan.
+
 ### 🚨 NYARIS SALAH: FOIL 10 baris — tampak salah 48×, ternyata benar
 
 Sepuluh baris FOIL (3–8 September) membeku di Rp8.791,2 sementara master kini

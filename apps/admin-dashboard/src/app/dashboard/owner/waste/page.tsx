@@ -11,6 +11,7 @@ import { useBudgetLoss } from '@/hooks/useBudgetLoss'
 import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { aggregateByOutlet, aggregateByReason, aggregateByDate } from '@/lib/wasteBreakdown'
 import { aggregateByBahanWithSpread } from '@/lib/wasteMetrics'
+import { normalizeReason, countFreeTextIncidents } from '@/lib/wasteReasons'
 import { previousRange } from '@/lib/period'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { PageHeader, Section, StatTilesSkeleton } from '@/components/ui'
@@ -56,7 +57,15 @@ export default function WastePage() {
   const totalBudget = useMemo(() => budgetLoss.rows.reduce((s, r) => s + r.budget_loss, 0), [budgetLoss.rows])
 
   const byOutlet = useMemo(() => aggregateByOutlet(summary.rows), [summary.rows])
-  const byReason = useMemo(() => aggregateByReason(summary.rows), [summary.rows])
+  // Alasan dinormalisasi HANYA untuk grafik agregat: kolom `reason` punya dua
+  // penulis (dropdown WasteModal vs catatan bebas ManualEntryForm), jadi tanpa
+  // ini bar-nya bertambah tiap kali crew mengetik catatan baru. Tabel insiden
+  // & modal detail tetap memakai teks asli.
+  const byReason = useMemo(
+    () => aggregateByReason(summary.rows.map((r) => ({ ...r, reason: normalizeReason(r.reason) }))),
+    [summary.rows]
+  )
+  const freeTextCount = useMemo(() => countFreeTextIncidents(summary.rows), [summary.rows])
   const byDate = useMemo(() => aggregateByDate(summary.rows), [summary.rows])
   const byBahan = useMemo(() => aggregateByBahanWithSpread(summary.rows), [summary.rows])
 
@@ -122,7 +131,7 @@ export default function WastePage() {
               <WasteOutletRanking rows={byOutlet} budgetByOutlet={budgetByOutlet} omzetByOutlet={omzetByOutlet} />
             )}
             <div className={showOutletColumn ? '' : 'lg:col-span-2'}>
-              <WasteReasonBreakdown rows={byReason} total={totalNilai} />
+              <WasteReasonBreakdown rows={byReason} total={totalNilai} freeTextCount={freeTextCount} />
             </div>
           </div>
 

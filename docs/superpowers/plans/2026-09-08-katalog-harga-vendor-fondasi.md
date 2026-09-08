@@ -858,7 +858,13 @@ SELECT t.bahan_baku_id,
             THEN 1
             ELSE COALESCE(NULLIF(b.faktor_tampilan, 0), 1)
        END,
-       t.harga,
+       -- Harga hanya disimpan bila PO-nya diverifikasi SETELAH guard salah-satuan.
+       -- Sebelum itu basis satuannya campur, DAN definisi satuan besar bahan bisa
+       -- sudah berubah sejak PO tsb (FOIL Roll->Dus, 8 Sep 2026) sehingga angkanya
+       -- salah skala. Angka aslinya tidak hilang: ref_po_id menunjuk ke PO-nya.
+       CASE WHEN t.diverifikasi_at IS NOT NULL
+                 AND t.diverifikasi_at >= TIMESTAMPTZ '2026-09-04 00:00:00+07'
+            THEN t.harga ELSE 0 END,
        'po',
        -- Hanya PO yang diverifikasi SETELAH guard salah-satuan yang dipercaya
        (t.diverifikasi_at IS NULL OR t.diverifikasi_at < TIMESTAMPTZ '2026-09-04 00:00:00+07'),
@@ -937,7 +943,11 @@ Kalau `rusak > 0`, **berhenti** — ada bahan tanpa faktor yang layak.
 supabase db query "select s.nama vendor, bs.satuan_beli, bs.isi_satuan_kecil, bs.harga, bs.harga_per_satuan_kecil, bs.perlu_ditinjau from bahan_baku_supplier bs join bahan_baku b on b.id=bs.bahan_baku_id join supplier s on s.id=bs.supplier_id where b.nama='FOIL' order by s.nama;" --linked
 ```
 
-Expected: `satuan_beli = 'Dus'`, `isi_satuan_kecil = 36480`. Harga per Dus harus berada pada orde ratusan ribu (bukan ribuan). Kalau `satuan_beli` terbaca `roll`, seed memakai kolom yang salah — **rollback dan perbaiki.**
+Expected untuk **kedua** baris FOIL: `satuan_beli = 'Dus'`, `isi_satuan_kecil = 36480`, `harga = 0`, `perlu_ditinjau = true`.
+
+Kalau `satuan_beli` terbaca `roll` atau `isi_satuan_kecil` terbaca `760`, seed memakai kolom yang salah (`satuan_po`/`faktor_po` alih-alih `satuan`/`faktor_tampilan`) — **rollback dan perbaiki.**
+
+**Kenapa `harga = 0` dan bukan angka PO-nya.** Kedua PO FOIL diverifikasi sebelum guard 4 Sep, jadi tercatat dalam satuan besar yang berlaku **saat itu** (Roll), bukan yang berlaku sekarang (Dus, sejak `20260908103000` hari ini). Menyimpan `11.554` sebagai "harga per Dus" adalah pernyataan yang salah 48×. Diverifikasi di DB: rasio harga master terhadap harga PO Altindo persis **48,000**, dan POLYBAG persis **0,040** (= 1/25, faktor Bal vs Pack). Karena itu aturannya seragam: **harga hanya terisi untuk baris pasca-guard.** Angka aslinya tetap bisa ditelusuri lewat `ref_po_id`.
 
 - [ ] **Step 6: Verifikasi riwayat ikut terisi oleh trigger**
 

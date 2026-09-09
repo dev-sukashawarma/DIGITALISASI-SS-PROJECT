@@ -13,6 +13,14 @@ function awalHariWib(): string {
   return new Date(wib.getTime() - 7 * 60 * 60 * 1000).toISOString()
 }
 
+/** Bedakan query error dari nilai nol sungguhan. */
+function getCountValue(res: { count: number | null; error: any }): number | null {
+  if (res.error || res.count === null || res.count === undefined) {
+    return null // indicates query failed or count unavailable
+  }
+  return res.count // valid number (could be 0)
+}
+
 export default async function AppRetailPage() {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
@@ -28,9 +36,9 @@ export default async function AppRetailPage() {
   ])
 
   const kartu = [
-    { label: 'Menu tayang di aplikasi', nilai: menuRes.count ?? 0, ikon: Smartphone, href: '/dashboard/app-retail/menu' },
-    { label: 'Outlet melayani aplikasi', nilai: outletRes.count ?? 0, ikon: Store, href: '/dashboard/app-retail/outlet' },
-    { label: 'Pesanan aplikasi hari ini', nilai: orderRes.count ?? 0, ikon: ShoppingCart, href: null },
+    { label: 'Menu tayang di aplikasi', nilai: getCountValue(menuRes), ikon: Smartphone, href: '/dashboard/app-retail/menu' },
+    { label: 'Outlet melayani aplikasi', nilai: getCountValue(outletRes), ikon: Store, href: '/dashboard/app-retail/outlet' },
+    { label: 'Pesanan aplikasi hari ini', nilai: getCountValue(orderRes), ikon: ShoppingCart, href: null },
   ]
 
   return (
@@ -48,7 +56,16 @@ export default async function AppRetailPage() {
                 <k.ikon className="w-4 h-4" />
                 <span className="text-xs font-semibold">{k.label}</span>
               </div>
-              <p className="mt-2 text-3xl font-bold text-slate-900">{k.nilai}</p>
+              <div className="mt-2">
+                {k.nilai === null ? (
+                  <div>
+                    <p className="text-3xl font-bold text-slate-400">—</p>
+                    <p className="text-xs text-slate-400">Gagal dibaca</p>
+                  </div>
+                ) : (
+                  <p className="text-3xl font-bold text-slate-900">{k.nilai}</p>
+                )}
+              </div>
             </div>
           )
           return k.href

@@ -34,7 +34,7 @@ export async function getBypassRequests() {
     const supabaseAdmin = getSupabaseAdmin()
     let outletIds: string[] = []
 
-    if (role === 'area_manager' || role === 'leader') {
+    if (role === 'area_manager' || role === 'leader' || role === 'regional_manager') {
       const { data: staffOutlets, error: soErr } = await supabaseAdmin
         .from('staff_outlets')
         .select('outlet_id')
@@ -71,7 +71,11 @@ export async function getBypassRequests() {
       } else {
         filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.outlet_id))
       }
-    } else if (role !== 'admin' && role !== 'regional_manager' && (role as string) !== 'superadmin') {
+    } else if (role === 'regional_manager') {
+      if (outletIds.length > 0) {
+        filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.outlet_id))
+      }
+    } else if (role !== 'admin' && (role as string) !== 'superadmin') {
       return { success: false, data: [], error: 'Akses ditolak' }
     }
 

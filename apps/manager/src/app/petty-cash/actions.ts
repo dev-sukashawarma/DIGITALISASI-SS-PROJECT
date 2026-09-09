@@ -24,11 +24,11 @@ export async function getAreaManagerPettyCashTopups(selectedOutletId: string | n
     // 1. Get all assigned outlets for this staff
     let outletQuery = supabase.from('outlets').select('id, name, region').eq('is_active', true)
     
-    if (staff.role === 'area_manager') {
+    if (staff.role === 'area_manager' || staff.role === 'regional_manager') {
       const { data: so } = await supabase.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id)
       if (so && so.length > 0) {
         outletQuery = outletQuery.in('id', so.map((s: any) => s.outlet_id))
-      } else {
+      } else if (staff.role === 'area_manager') {
         return { success: true, data: [], outlets: [] } // No assigned outlets
       }
     }

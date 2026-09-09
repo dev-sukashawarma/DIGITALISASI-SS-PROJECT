@@ -649,7 +649,7 @@ diverifikasi di produksi), yang belum ada hanya yang memanggilnya.
 | Command | lihat di bawah |
 
 ```
-node -e "fetch('http://127.0.0.1:3000/api/cron/expire-drafts',{method:'POST',headers:{authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{console.log(r.status, await r.text()); if(!r.ok) process.exit(1)}).catch(e=>{console.error('GAGAL:', e.message); process.exit(1)})"
+node -e "fetch('http://127.0.0.1:3000/api/cron/expire-drafts',{method:'POST',headers:{authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{const t=await r.text();console.log(r.status,t);if(!r.ok)process.exit(1)})"
 ```
 
 Tiga alasan bentuk perintahnya seperti itu:
@@ -663,6 +663,13 @@ Tiga alasan bentuk perintahnya seperti itu:
 3. **`process.exit(1)` saat gagal.** Tanpa itu perintah selalu keluar dengan
    kode 0 dan Coolify melaporkan "berhasil" meskipun jawabannya 401 atau 500 —
    penjadwal yang tampak sehat padahal tidak pernah menghanguskan apa pun.
+
+4. **Panjangnya di bawah 255 karakter.** Kolom `command` di basis data Coolify
+   `varchar(255)`; versi pertama perintah ini 283 karakter dan ditolak dengan
+   galat INSERT mentah yang tidak menyebut panjang sama sekali. `.catch()` di
+   ujung dibuang untuk memangkasnya menjadi 226 -- aman, karena sejak Node 15
+   promise yang ditolak tanpa penangan sudah membuat proses keluar dengan kode
+   1 dengan sendirinya. Yang hilang hanya kerapian log, bukan sinyal gagalnya.
 
 **Verifikasi setelah dipasang:** jalankan sekali lewat tombol Run di Coolify,
 lalu baca lognya. Keluaran yang benar `200 {"dihanguskan":N}`. Bila `401`,

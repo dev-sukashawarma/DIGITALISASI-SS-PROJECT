@@ -85,7 +85,7 @@ diperbaiki" tidak bisa dibuktikan.
 **Interfaces:**
 - Produces: berkas SQL berisi 3 query bernama (`Q1`, `Q2`, `Q3`) yang dipakai Task 3.
 
-- [ ] **Step 1: Tulis skrip verifikasi**
+- [x] **Step 1: Tulis skrip verifikasi**
 
 ```sql
 -- verifikasi-waterfall-2026-09-09.sql
@@ -140,7 +140,7 @@ SELECT b.nama AS bahan_pengganti,
  ORDER BY 1;
 ```
 
-- [ ] **Step 2: Jalankan Q1–Q3, simpan hasilnya**
+- [x] **Step 2: Jalankan Q1–Q3, simpan hasilnya**
 
 `exec_sql` mengembalikan `null` untuk `SELECT` (fungsinya `RETURNS void`) — jalankan
 lewat klien PostgREST/`supabase-js` dengan service role, bukan `exec_sql`.
@@ -153,7 +153,7 @@ Nilai yang harus tercatat sebagai baseline:
 Kalau Q2 tidak mengembalikan baris (2 hari terakhir sepi), longgarkan ke
 `INTERVAL '7 days'` — jangan lanjut tanpa satu pun baris pembanding.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add "SS COGS SET/verifikasi-waterfall-2026-09-09.sql"
@@ -171,7 +171,7 @@ git commit -m "chore(stok): skrip verifikasi konversi satuan waterfall"
 - Consumes: `saldo_is_gram(stok_balance)`, `bahan_baku.faktor_tampilan`, `bahan_baku_substitusi`
 - Produces: `process_waterfall_deduction(uuid, uuid, numeric, text, uuid) RETURNS void` — signature TIDAK berubah; `trg_process_bom_stok` tidak perlu disentuh.
 
-- [ ] **Step 1: Tulis migration**
+- [x] **Step 1: Tulis migration**
 
 ```sql
 -- 20260909170000_fix_waterfall_konversi_satuan.sql
@@ -380,14 +380,14 @@ REVOKE ALL ON FUNCTION public.process_waterfall_deduction(uuid, uuid, numeric, t
 -- merusak sesuatu yang lebih besar.
 ```
 
-- [ ] **Step 2: Lint timestamp**
+- [x] **Step 2: Lint timestamp**
 
 ```bash
 node scripts/migration-timestamp-lint.mjs supabase/migrations/20260909170000_fix_waterfall_konversi_satuan.sql
 ```
 Harapan: `✓ 1 migration file timestamp wajar.` (exit 0).
 
-- [ ] **Step 3: Commit (belum di-apply)**
+- [x] **Step 3: Commit (belum di-apply)**
 
 ```bash
 git add supabase/migrations/20260909170000_fix_waterfall_konversi_satuan.sql
@@ -404,13 +404,13 @@ git commit -m "fix(db): waterfall lacak sisa potongan dalam satuan kecil"
 **Interfaces:**
 - Consumes: `SS COGS SET/verifikasi-waterfall-2026-09-09.sql` (Task 1), migration Task 2.
 
-- [ ] **Step 1: Terapkan lewat `exec_sql`**
+- [x] **Step 1: Terapkan lewat `exec_sql`**
 
 Pola yang dipakai proyek ini (CLI Supabase tanpa kredensial, `gh` tak terpasang):
 skrip Node di root repo, `dotenv` dari `.env.local`, `supabase-js` service role,
 `rpc('exec_sql', { sql })` dengan isi berkas migration. Hapus skrip setelah selesai.
 
-- [ ] **Step 2: Verifikasi ground-truth definisi fungsi**
+- [x] **Step 2: Verifikasi ground-truth definisi fungsi**
 
 Jangan percaya "sukses" dari `exec_sql`. Baca kembali definisi live dan pastikan
 mengandung `v_sisa_kecil` serta `prosecdef = true`:
@@ -422,7 +422,7 @@ SELECT prosecdef, pg_get_functiondef(oid) LIKE '%v_sisa_kecil%' AS sudah_terpasa
 ```
 Harapan: `prosecdef = true`, `sudah_terpasang = true`.
 
-- [ ] **Step 3: Stempel `schema_migrations`**
+- [x] **Step 3: Stempel `schema_migrations`**
 
 ```sql
 INSERT INTO supabase_migrations.schema_migrations (version)
@@ -430,7 +430,7 @@ VALUES ('20260909170000')
 ON CONFLICT (version) DO NOTHING;
 ```
 
-- [ ] **Step 4: Verifikasi perilaku pada order nyata**
+- [x] **Step 4: Verifikasi perilaku pada order nyata**
 
 Jalankan **Q2** dari Task 1 lagi. Baris limpahan **baru** (setelah waktu penerapan)
 di SAOS TOMAT KOMPAN harus bernilai bulat sesuai resep — **−30 / −50 / −60** —
@@ -442,7 +442,7 @@ sebelum ada minimal satu baris limpahan baru yang terbukti bulat.** Kalau sampai
 akhir hari belum ada, catat itu sebagai verifikasi tertunda di CLAUDE.md — jangan
 mengaku sudah terverifikasi.
 
-- [ ] **Step 5: Verifikasi tidak ada regresi pada jalur mayoritas**
+- [x] **Step 5: Verifikasi tidak ada regresi pada jalur mayoritas**
 
 Bahan tanpa pengganti adalah jalur mayoritas tiap order, dan perbaikan ini secara
 aljabar tidak boleh mengubahnya sama sekali. Uji dengan membandingkan **himpunan
@@ -487,7 +487,7 @@ kemungkinan sudah sampai di outlet dan harus diverifikasi, bukan dibatalkan.
 **Files:**
 - Create: `supabase/migrations/20260909180000_batalkan_sj_foil_basi.sql`
 
-- [ ] **Step 1: Susun daftar terkini**
+- [x] **Step 1: Susun daftar terkini**
 
 ```sql
 SELECT sj.id,
@@ -513,7 +513,7 @@ Harapan saat rencana ini ditulis: **21 baris**, Jul–Agu, 0,0009–0,08 Dus.
 Sajikan sebagai tabel (nomor SJ, outlet, tanggal, perkiraan Roll). Tanpa persetujuan
 eksplisit, hentikan di sini dan lanjutkan ke Task 5.
 
-- [ ] **Step 3: Tulis migration dengan id eksplisit**
+- [x] **Step 3: Tulis migration dengan id eksplisit**
 
 Daftar id di-hardcode (bukan predikat tanggal) supaya idempoten dan supaya SJ baru
 yang kebetulan cocok predikat tidak ikut terbatalkan — pola yang sama dipakai
@@ -532,8 +532,19 @@ yang kebetulan cocok predikat tidak ikut terbatalkan — pola yang sama dipakai
 --
 -- TIDAK menyentuh SJ September: itu barang yang kemungkinan sudah di outlet dan
 -- harus diverifikasi, bukan dibatalkan.
--- TIDAK menulis ledger: SJ berstatus draft/dikirim belum pernah mengkredit stok
--- outlet, jadi pembatalannya tidak menggeser saldo mana pun.
+--
+-- >>> KOREKSI (fix wave review final, 2026-09-09): klaim di bawah ini SALAH <<<
+-- Draf awal Step 3 berasumsi "SJ berstatus draft/dikirim belum pernah mengkredit
+-- stok outlet, jadi pembatalannya tidak menggeser saldo mana pun". Separuh benar,
+-- separuh salah: outlet TUJUAN memang belum dikredit sampai verifikasi -- tapi
+-- GUDANG PUSAT sebagai SUMBER sudah DIDEBIT saat SJ ditandai 'dikirim' (bukan saat
+-- verifikasi). Ground-truth: 21 kiriman kandidat membawa 160 baris ledger_stok
+-- 'transfer_keluar' di Gudang Pusat, ~Rp 33.001.761 lintas 32 bahan. Migration ini
+-- memang TIDAK menulis baris ledger BARU (lihat verifikasi Step 4), tapi itu tidak
+-- berarti saldo tidak terdampak -- 160 baris LAMA itu tetap berdiri dan tidak
+-- ikut dibalik oleh UPDATE status ini. Lihat draft usulan
+-- SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql dan CLAUDE.md
+-- (Session 2026-09-09, §F) untuk rincian lengkap sebelum menjalankan Step 2-5.
 
 UPDATE public.surat_jalan
    SET status = 'dibatalkan',
@@ -584,7 +595,7 @@ git commit -m "chore(db): batalkan surat jalan FOIL basi Juli-Agustus"
 - Modify: `docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md`
 - Modify: `CLAUDE.md`
 
-- [ ] **Step 1: Koreksi §5 spec**
+- [x] **Step 1: Koreksi §5 spec**
 
 Ganti baris langkah 2 pada tabel §5 menjadi dicoret dengan alasannya, dan tambahkan
 paragraf singkat berisi tabel bukti dari K1 (saldo kini + tanggal `opname_selisih`
@@ -592,7 +603,7 @@ terakhir tiap outlet). Sesuaikan juga §3 (bagian "Perbaikan yang diperlukan") a
 menyebut bahwa sisa dilacak dalam satuan kecil, bukan dikalikan rasio faktor —
 rumusannya berubah setelah membaca definisi live `20300105000017`.
 
-- [ ] **Step 2: Tambah entri sesi di CLAUDE.md**
+- [x] **Step 2: Tambah entri sesi di CLAUDE.md**
 
 Isi minimal:
 - bug 1,375× beserta bukti order #38 dan angka 2.185 / 88.003,61 / 24.000,98;
@@ -602,7 +613,7 @@ Isi minimal:
 - catatan bahwa **nol app perlu redeploy**;
 - status verifikasi Step 4 Task 3 (terbukti / masih tertunda).
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md CLAUDE.md

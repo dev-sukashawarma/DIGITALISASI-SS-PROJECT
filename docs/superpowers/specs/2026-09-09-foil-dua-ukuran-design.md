@@ -326,10 +326,14 @@ Tidak ada PO terbuka, jadi sisi pembelian bersih.
 > sudah terjadi Juli–Agustus, saat SJ ditandai `dikirim`. Yang belum
 > terjawab adalah **di mana barang itu secara fisik**: kalau sudah sampai
 > outlet, seharusnya di-*verifikasi*, bukan dibatalkan; kalau tidak pernah
-> keluar gudang, Gudang Pusat butuh `adjustment` pembalik. Migration
-> `20260909180000_batalkan_sj_foil_basi.sql` sudah ditulis tapi **belum
-> di-apply**, dengan penanda eksplisit "belum disetujui owner" — keputusan
-> ini milik owner.
+> keluar gudang, Gudang Pusat butuh `adjustment` pembalik. Draft SQL-nya
+> sudah ditulis tapi **sengaja disimpan di luar `supabase/migrations/`**
+> (`SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql`) supaya
+> `db push` tidak bisa menerapkannya secara tidak sengaja, dengan penanda
+> eksplisit "belum disetujui owner" — keputusan ini milik owner. Kalau
+> disetujui, kembalikan nama filenya jadi
+> `20260909180000_batalkan_sj_foil_basi.sql` dan pindahkan ke
+> `supabase/migrations/` sebelum di-apply.
 >
 > Catatan tambahan: dua SJ FOIL 9 September yang masih `draft` pagi itu
 > sudah berstatus `dikirim` pada saat Task 4 dijalankan — dokumen berpindah

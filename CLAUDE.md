@@ -1727,10 +1727,24 @@ pada environment baru dari nol. Preseden sama dengan 2026-09-07.
    `20300104000005` — fungsi `SECURITY DEFINER` ini berjalan tanpa `search_path` terkunci
    sejak saat itu. Migration baru memulihkannya. **Jebakan umum, layak dicatat:**
    `CREATE OR REPLACE FUNCTION` membuang opsi `SET` level-fungsi yang ditambahkan lewat
-   `ALTER` belakangan; ia TIDAK membuang hak akses (`GRANT`/owner).
-2. **Bug variabel basi:** pengganti tanpa baris `stok_balance` meninggalkan
-   `v_is_gram`/`v_faktor` memegang nilai iterasi sebelumnya. Ditutup dengan
-   `CONTINUE WHEN NOT FOUND`.
+   `ALTER` belakangan; ia TIDAK membuang hak akses (`GRANT`/owner). Catatan kecil: header
+   migration baru menyebut `20300104000005` seolah ikut mendefinisikan fungsinya —
+   sebenarnya migration itu HANYA `ALTER FUNCTION ... SET search_path` (+ `REVOKE`), tidak
+   pernah `CREATE OR REPLACE` body-nya; yang mendefinisikan body tetap `20300103000010` lalu
+   `20300105000017`.
+2. **Klaim "bug variabel basi" — TERBUKTI SALAH, dikoreksi di review final.** Draf
+   antara sesi ini sempat menulis bahwa pengganti tanpa baris `stok_balance` meninggalkan
+   `v_is_gram`/`v_faktor` "memegang nilai iterasi sebelumnya", dan `CONTINUE WHEN NOT FOUND`
+   ditambahkan untuk menutupnya. **Itu tidak benar.** Di PL/pgSQL, `SELECT ... INTO` (tanpa
+   `STRICT`) yang tidak menemukan baris SELALU menyetel target ke `NULL` — tidak pernah
+   mempertahankan nilai sebelumnya. Kode lama (`20300105000017`) sudah menangani kasus itu
+   lewat `COALESCE(v_current_stock, 0)` dan cek `v_current_stock > 0`; `NULL` pada
+   `v_is_gram`/`v_faktor` tidak pernah membuatnya salah baca skala outlet lain.
+   `CONTINUE WHEN NOT FOUND` di fungsi yang sudah diperbaiki adalah **perbaikan
+   keterbacaan, bukan perbaikan bug** — kejelasan niat "lewati bahan yang belum pernah
+   punya baris stok", tidak menutup celah yang sebelumnya tidak ada. Klaim ini sendiri layak
+   dicatat: ia terdengar masuk akal (dan bahkan sempat lolos di draf review antara), padahal
+   salah — koreksinya baru datang di review whole-branch final.
 
 ### D. Catatan untuk siapa pun yang menambah pasangan substitusi nanti
 
@@ -1774,9 +1788,12 @@ baris ledger — dibatalkan saat masih `draft`, sebelum debit terjadi.
 **Ini bukan kerugian baru yang diciptakan oleh pembatalan** — debitnya sudah terjadi
 Juli–Agustus. Yang belum terjawab: di mana barang itu secara fisik. Kalau sudah sampai
 outlet, seharusnya di-*verifikasi*, bukan dibatalkan; kalau tidak pernah keluar gudang,
-Gudang Pusat butuh `adjustment` pembalik. Migration
-`20260909180000_batalkan_sj_foil_basi.sql` **sudah ditulis tapi belum di-apply**, dengan
-penanda eksplisit "belum disetujui owner" — keputusan ini milik owner.
+Gudang Pusat butuh `adjustment` pembalik. Draft SQL-nya **sudah ditulis tapi sengaja
+disimpan di luar `supabase/migrations/`** — `SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql`
+— supaya `db push` siapa pun tidak bisa menerapkannya tanpa sengaja, dengan penanda
+eksplisit "belum disetujui owner" di headernya — keputusan ini milik owner. Kalau
+disetujui, kembalikan nama file aslinya `20260909180000_batalkan_sj_foil_basi.sql` dan
+pindahkan ke `supabase/migrations/` sebelum di-apply.
 
 Catatan tambahan: dua SJ FOIL 9 September yang masih `draft` pagi itu sudah berstatus
 `dikirim` saat Task 4 dijalankan — dokumen berpindah status di tengah pekerjaan. Baris
@@ -1790,8 +1807,10 @@ dokumentasi.
 ### Artefak
 
 - Migration: `supabase/migrations/20260909170000_fix_waterfall_konversi_satuan.sql`
-  (applied), `20260909180000_batalkan_sj_foil_basi.sql` (ditulis, **belum di-apply**,
-  menunggu keputusan owner)
+  (applied); draft usulan pembatalan SJ FOIL **dipindah keluar dari `supabase/migrations/`**
+  ke `SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql` (ditulis, **belum di-apply**,
+  menunggu keputusan owner — restore nama `20260909180000_batalkan_sj_foil_basi.sql` &
+  pindah balik ke `supabase/migrations/` hanya setelah disetujui)
 - Spec: `docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md`
 
 ### 📝 Next
@@ -1799,8 +1818,10 @@ dokumentasi.
 - **Pembuktian perilaku (§E) masih tertunda** — jalankan pengecekan susulan begitu ada
   outlet yang POUCH-nya habis lagi dan limpahan ke KOMPAN terjadi.
 - **Keputusan owner atas 21 SJ FOIL basi** (§F) — verifikasi jika barang sudah sampai
-  outlet, atau `adjustment` pembalik di Gudang Pusat jika tidak pernah keluar; migration
-  `20260909180000` sudah siap, tinggal menunggu izin apply.
+  outlet, atau `adjustment` pembalik di Gudang Pusat jika tidak pernah keluar; draft SQL-nya
+  sudah siap di `SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql` (di luar
+  `supabase/migrations/` dengan sengaja), tinggal menunggu izin apply — baru dipindah balik
+  & di-rename `20260909180000_batalkan_sj_foil_basi.sql` setelah disetujui.
 - **Jangan pecah FOIL dulu** (langkah 4–8 spec) — menunggu hitung fisik Gudang Pusat yang
   memisahkan roll 7,6 m dan 5 m; hitungan itu juga menjawab pertanyaan terbuka "1 Dus
   Altindo isi berapa roll?".

@@ -53,6 +53,16 @@ SELECT l.created_at::date AS tanggal,
  LIMIT 30;
 
 -- Q3: total limpahan & besar kelebihannya, sepanjang riwayat.
+-- ⚠️ Q3 TIDAK memakai filter "NOT EXISTS resep_item aktif" yang dipakai Q2 di
+-- atas -- ia menjumlahkan SEMUA baris `pemakaian` di bahan pengganti, termasuk
+-- yang berasal dari resep aktif si bahan pengganti SENDIRI (bukan limpahan
+-- waterfall). Untuk SAOS CABE (16 resep aktif memakainya langsung), ini berarti
+-- Q3 melaporkan konsumsi resep NORMAL sebagai "kelebihan" -- angkanya TIDAK
+-- bisa dipercaya untuk baris itu. Angka Q3 hanya layak dipercaya untuk bahan
+-- pengganti yang NOL resep aktifnya sendiri (di data sesi ini: SAOS TOMAT
+-- KOMPAN) -- persis alasan yang sama kenapa Q2 memakai filter itu (lihat
+-- komentar Q2 di atas). SQL Q3 di bawah SENGAJA tidak diubah untuk
+-- menyamakannya dengan Q2 -- catatan ini murni peringatan cara baca.
 -- Catatan paginasi (pelajaran Task 1): kalau query ini di-page lewat PostgREST
 -- (.range() loop) karena melampaui batas 1000 baris, WAJIB pakai ORDER BY yang
 -- deterministik (mis. `id ASC`) pada query dasarnya. ledger_stok menerima
@@ -113,6 +123,7 @@ SELECT b.nama AS bahan_pengganti,
 -- query Q2 di atas, memfilter created_at > '2026-09-09T07:32:37.096Z'.
 --
 -- --- Step 5: verifikasi tidak ada regresi (FOIL, bahan tanpa pengganti) ---
+-- [Pengukuran #1 -- implementer, beberapa menit setelah apply 07:32:37 UTC]
 -- Jendela 2 hari, 2113 baris FOIL. Himpunan qty SESUDAH penerapan: {-45}
 -- (2 baris). Himpunan qty SEBELUM penerapan mencakup -45 (403 baris) beserta
 -- nilai bulat lain (-35 s/d -495) dan sisa pecahan floating-point historis
@@ -121,5 +132,18 @@ SELECT b.nama AS bahan_pengganti,
 -- HASIL: LOLOS -- tidak ada regresi terdeteksi pada jalur mayoritas (bahan
 -- tanpa pengganti).
 --
--- Rincian lengkap & skrip verifikasi:
---   .superpowers/sdd/2026-09-09-waterfall-konversi-satuan/task-3-report.md
+-- [Pengukuran #2 -- controller, pengecekan ulang ~40 menit setelah apply
+--  07:32:37 UTC, sesudah review Task 3] Sampel #1 dinilai tipis (2 baris, 1
+--  nilai qty) sehingga controller menjalankan ulang query yang sama pada
+--  jendela yang sudah berjalan lebih lama: **7 baris FOIL pasca-apply, EMPAT
+--  nilai qty berbeda (-35, -40, -45, -120)**. Keempatnya sudah ada di
+--  himpunan pra-apply Pengukuran #1 di atas -- nol nilai baru, kesimpulan
+--  "LOLOS, tidak ada regresi" pada Pengukuran #1 tetap berdiri, sampelnya
+--  saja yang sekarang lebih tebal (7 baris/4 nilai, bukan 2 baris/1 nilai).
+--  Kedua pengukuran adalah observasi BERURUTAN pada jendela waktu yang terus
+--  bertambah (lebih banyak order FOIL masuk di antara keduanya), bukan klaim
+--  yang saling bertentangan.
+--
+-- Rincian lengkap & skrip verifikasi (Pengukuran #1):
+--   CLAUDE.md, Session 2026-09-09: Waterfall Deduction -- Bug Konversi Satuan
+--   Antar Bahan (apps/stok, DB), bagian E "Status verifikasi".

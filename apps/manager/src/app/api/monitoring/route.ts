@@ -45,12 +45,12 @@ export async function GET(request: Request) {
     let outletsQuery = supabaseAdmin.from('outlets').select('id, name, is_active, region, lat, lng, address').eq('is_active', true);
     
     let accessibleOutlets: string[] = [];
-    if (staff.role === 'area_manager') {
+    if (staff.role === 'area_manager' || staff.role === 'regional_manager') {
        const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', staff.id);
        if (so && so.length > 0) {
          accessibleOutlets = so.map((s: any) => s.outlet_id);
          outletsQuery = outletsQuery.in('id', accessibleOutlets);
-       } else {
+       } else if (staff.role === 'area_manager') {
          outletsQuery = outletsQuery.in('id', ['00000000-0000-0000-0000-000000000000']);
        }
     }
@@ -74,7 +74,7 @@ export async function GET(request: Request) {
         .gte('created_at', start)
         .lte('created_at', end);
 
-    if (staff.role === 'area_manager' && accessibleOutlets.length > 0) {
+    if ((staff.role === 'area_manager' || staff.role === 'regional_manager') && accessibleOutlets.length > 0) {
        stfQuery = stfQuery.in('outlet_id', accessibleOutlets);
        mapQuery = mapQuery.in('outlet_id', accessibleOutlets);
        attQuery = attQuery.in('outlet_id', accessibleOutlets);

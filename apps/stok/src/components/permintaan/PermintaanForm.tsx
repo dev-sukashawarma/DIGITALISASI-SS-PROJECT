@@ -1,5 +1,3 @@
-'use client'
-
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { useAuth } from '@suka/auth'
 import { useSaranItem, usePermintaanActions, usePermintaanList, type SaranItem } from '@/hooks/usePermintaan'
@@ -335,12 +333,7 @@ export function PermintaanForm({
       if (onSubmitSuccess) onSubmitSuccess()
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      if (msg.includes('Server Components render') || msg.includes('digest property')) {
-        setErrorMsg('Terjadi kendala saat memproses di server. Mohon muat ulang halaman atau coba beberapa saat lagi.')
-      } else {
-        setErrorMsg(msg)
-      }
+      setErrorMsg(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
     }

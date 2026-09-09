@@ -1,7 +1,7 @@
 // Role yang boleh meng-approve permintaan bahan. Sinkron dengan komentar di
 // `useApprovalList` (approver = leader/SPV/kitchen) dan RLS `permintaan_bahan`
 // yang membatasi baris via `accessible_outlet_ids()`.
-const APPROVER_ROLES = ['kitchen', 'admin_finance', 'spv', 'leader', 'regional_manager', 'area_manager', 'purchasing'] as const
+const APPROVER_ROLES = ['kitchen', 'admin_finance', 'spv', 'leader', 'regional_manager', 'purchasing'] as const
 
 export function isApproverRole(role: string | null | undefined): boolean {
   return !!role && (APPROVER_ROLES as readonly string[]).includes(role)
@@ -11,7 +11,7 @@ export function isApproverRole(role: string | null | undefined): boolean {
 // SERVER-SIDE di `app/actions/opname.ts`: action tersebut memakai service-role
 // client + RPC SECURITY DEFINER yang tidak memeriksa role sama sekali, jadi
 // guard UI saja tidak cukup — Server Action bisa dipanggil langsung.
-const OPNAME_APPROVER_ROLES = ['leader', 'regional_manager', 'area_manager', 'spv', 'kitchen', 'admin_finance', 'admin', 'owner', 'purchasing'] as const
+const OPNAME_APPROVER_ROLES = ['leader', 'regional_manager', 'spv', 'kitchen', 'admin_finance', 'admin', 'owner', 'purchasing'] as const
 
 export function canApproveOpname(role: string | null | undefined): boolean {
   return !!role && (OPNAME_APPROVER_ROLES as readonly string[]).includes(role)

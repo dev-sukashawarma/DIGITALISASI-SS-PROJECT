@@ -157,26 +157,17 @@ export function usePermintaanActions() {
   const buat = async (outletId: string, items: BuatPermintaanItemInput[], targetMetadata?: any) => {
     // eslint-disable-next-line no-console
     console.log('[buat_permintaan] outletId:', outletId, 'items:', items)
-    const res = await buatPermintaan(outletId, items, targetMetadata)
-    if (!res?.success || res?.error) {
-      throw new Error(res?.error || 'Gagal mengirim permintaan bahan.')
-    }
+    await buatPermintaan(outletId, items, targetMetadata)
     // eslint-disable-next-line no-console
     console.log('[buat_permintaan] SUKSES via server action')
   }
 
   const approve = async (permintaanId: string, items: ApproveItemInput[]) => {
-    const res = await approvePermintaan(permintaanId, items)
-    if (!res?.success || res?.error) {
-      throw new Error(res?.error || 'Gagal menyetujui permintaan.')
-    }
+    await approvePermintaan(permintaanId, items)
   }
 
   const tolak = async (permintaanId: string, alasan: string) => {
-    const res = await tolakPermintaan(permintaanId, alasan)
-    if (!res?.success || res?.error) {
-      throw new Error(res?.error || 'Gagal menolak permintaan.')
-    }
+    await tolakPermintaan(permintaanId, alasan)
   }
 
   return { buat, approve, tolak }

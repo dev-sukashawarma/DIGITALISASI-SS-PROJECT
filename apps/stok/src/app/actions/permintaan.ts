@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
-import { assertStaffCanAccessOutlet, getStaffAccessibleOutletIds } from '@/lib/stok/outletAccess'
+import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 
 // ---------------------------------------------------------------------------
@@ -103,7 +103,7 @@ async function requirePermintaanViewer(): Promise<Set<string>> {
     throw new Error('Forbidden: hanya leader/SPV/RM/kitchen/admin/owner yang boleh melihat daftar permintaan pending')
   }
 
-  return getStaffAccessibleOutletIds(makeServiceClient(), userId)
+  return getAccessibleOutletIds(authedClient)
 }
 
 function mapRow(row: any): PermintaanWithItems {
@@ -126,9 +126,10 @@ function mapRow(row: any): PermintaanWithItems {
 
 export async function fetchPermintaanOutlet(outletId: string): Promise<PermintaanWithItems[]> {
   const authedClient = await getAuthedClient()
-  const userId = await getCurrentUserId(authedClient)
+  await getCurrentUserId(authedClient)
+  await assertOutletAccessible(authedClient, outletId)
+
   const supabase = makeServiceClient()
-  await assertStaffCanAccessOutlet(supabase, userId, outletId)
   const { data, error } = await supabase
     .from('permintaan_bahan')
     .select('*, permintaan_bahan_item(*, bahan_baku(nama, satuan)), outlets(name)')
@@ -201,30 +202,23 @@ export async function buatPermintaan(
   outletId: string,
   items: BuatPermintaanItemInput[],
   targetMetadata?: any
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const authedClient = await getAuthedClient()
-    const currentUserId = await getCurrentUserId(authedClient)
-    const supabase = makeServiceClient()
+): Promise<void> {
+  const authedClient = await getAuthedClient()
+  const currentUserId = await getCurrentUserId(authedClient)
+  await assertOutletAccessible(authedClient, outletId)
 
-    // Validasi otorisasi outlet menggunakan service-role client secara langsung
-    // agar aman dari ketergantungan token PostgREST di server action Next.js
-    await assertStaffCanAccessOutlet(supabase, currentUserId, outletId)
-
-    const { error } = await supabase.rpc('buat_permintaan_svc', {
-      p_outlet_id: outletId,
-      p_items: items,
-      p_dibuat_oleh: currentUserId,
-      p_target_metadata: targetMetadata ?? []
-    })
-    if (error) {
-      console.error('[buatPermintaan] RPC buat_permintaan_svc gagal:', error)
-      return { success: false, error: error.message }
-    }
-    return { success: true }
-  } catch (err: any) {
-    console.error('[buatPermintaan] Exception:', err)
-    return { success: false, error: err?.message || String(err) }
+  const supabase = makeServiceClient()
+  const { error } = await supabase.rpc('buat_permintaan_svc', {
+    p_outlet_id: outletId,
+    p_items: items,
+    p_dibuat_oleh: currentUserId,
+    p_target_metadata: targetMetadata ?? []
+  })
+  if (error) {
+    // Next.js menyembunyikan message asli dari Server Action error di production
+    // (redacted jadi "digest"-only) — log di server supaya masih bisa ditelusuri.
+    console.error('[buatPermintaan] RPC buat_permintaan_svc gagal:', error)
+    throw new Error(error.message)
   }
 }
 
@@ -235,23 +229,14 @@ export async function buatPermintaan(
 export async function approvePermintaan(
   permintaanId: string,
   items: ApproveItemInput[]
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    await requirePermintaanApprover()
-    const supabase = makeServiceClient()
-    const { error } = await supabase.rpc('approve_permintaan_svc', {
-      p_permintaan_id: permintaanId,
-      p_items: items,
-    })
-    if (error) {
-      console.error('[approvePermintaan] RPC approve_permintaan_svc gagal:', error)
-      return { success: false, error: error.message }
-    }
-    return { success: true }
-  } catch (err: any) {
-    console.error('[approvePermintaan] Exception:', err)
-    return { success: false, error: err?.message || String(err) }
-  }
+): Promise<void> {
+  await requirePermintaanApprover()
+  const supabase = makeServiceClient()
+  const { error } = await supabase.rpc('approve_permintaan_svc', {
+    p_permintaan_id: permintaanId,
+    p_items: items,
+  })
+  if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------
@@ -261,23 +246,14 @@ export async function approvePermintaan(
 export async function tolakPermintaan(
   permintaanId: string,
   alasan: string
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    await requirePermintaanApprover()
-    const supabase = makeServiceClient()
-    const { error } = await supabase.rpc('tolak_permintaan_svc', {
-      p_permintaan_id: permintaanId,
-      p_alasan: alasan,
-    })
-    if (error) {
-      console.error('[tolakPermintaan] RPC tolak_permintaan_svc gagal:', error)
-      return { success: false, error: error.message }
-    }
-    return { success: true }
-  } catch (err: any) {
-    console.error('[tolakPermintaan] Exception:', err)
-    return { success: false, error: err?.message || String(err) }
-  }
+): Promise<void> {
+  await requirePermintaanApprover()
+  const supabase = makeServiceClient()
+  const { error } = await supabase.rpc('tolak_permintaan_svc', {
+    p_permintaan_id: permintaanId,
+    p_alasan: alasan,
+  })
+  if (error) throw new Error(error.message)
 }
 
 // ---------------------------------------------------------------------------

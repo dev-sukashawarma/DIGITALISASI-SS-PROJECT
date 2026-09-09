@@ -75,3 +75,51 @@ SELECT b.nama AS bahan_pengganti,
    AND l.catatan LIKE 'Penjualan%'
  GROUP BY b.nama, u.faktor_tampilan, p.faktor_tampilan
  ORDER BY 1;
+
+-- =====  HASIL PENERAPAN  =====
+-- Migration 20260909170000_fix_waterfall_konversi_satuan.sql diterapkan ke DB
+-- live via RPC exec_sql (Node script sekali-pakai dari root repo, dihapus
+-- setelah dipakai; pola proyek ini -- CLI Supabase tanpa kredensial).
+--
+-- Waktu penerapan (momen exec_sql kembali sukses):
+--   UTC : 2026-09-09T07:32:37.096Z
+--   WIB : 2026-09-09 14:32:37.096 (+07:00)
+--
+-- --- Step 2: verifikasi ground-truth definisi fungsi ---
+-- Dibaca lewat DO $$ ... RAISE EXCEPTION ... $$ via exec_sql (PostgREST tak
+-- bisa menjangkau pg_proc). Asersi POSITIF (fungsi mengandung 'v_sisa_kecil'
+-- DAN prosecdef=true) kembali TANPA error -- LOLOS.
+-- Kontrol NEGATIF (asersi disengaja dibuat mustahil benar, mencari string
+-- yang tak ada) kembali DENGAN error P0001 seperti diharapkan, membuktikan
+-- kanal verifikasi ini benar-benar bisa gagal:
+--   {"code":"P0001","message":"VERIFIKASI GAGAL (EXPECTED): kontrol negatif
+--    berhasil menangkap ketidakcocokan"}
+-- HASIL: LOLOS (positif tanpa error, negatif dengan error seperti diharapkan).
+--
+-- --- Step 3: stempel supabase_migrations.schema_migrations ---
+-- INSERT ... ON CONFLICT DO NOTHING via exec_sql, lalu diverifikasi lewat
+-- DO block terpisah (RAISE EXCEPTION bila baris tak ditemukan) -- kembali
+-- tanpa error.
+-- HASIL: BERHASIL, baris version='20260909170000' terkonfirmasi ada.
+--
+-- --- Step 4: verifikasi perilaku pada order nyata (Q2, SAOS TOMAT KOMPAN) ---
+-- Dicek sekali, ~4 menit setelah penerapan (07:36:35 UTC), jendela 2 hari:
+-- 159 baris SAOS TOMAT KOMPAN pada jendela ini, SELURUHNYA (159/159) sebelum
+-- waktu penerapan. NOL baris baru sesudahnya pada saat pengecekan.
+-- HASIL: TERTUNDA. Depok Sukmajaya & Paledang biasanya memicu limpahan dalam
+-- hitungan jam (bukan menit) -- 4 menit tidak cukup untuk order nyata baru
+-- terjadi secara alami. TIDAK diklaim terverifikasi; dicatat sebagai
+-- verifikasi tertunda sesuai instruksi brief. Perlu dicek ulang nanti dengan
+-- query Q2 di atas, memfilter created_at > '2026-09-09T07:32:37.096Z'.
+--
+-- --- Step 5: verifikasi tidak ada regresi (FOIL, bahan tanpa pengganti) ---
+-- Jendela 2 hari, 2113 baris FOIL. Himpunan qty SESUDAH penerapan: {-45}
+-- (2 baris). Himpunan qty SEBELUM penerapan mencakup -45 (403 baris) beserta
+-- nilai bulat lain (-35 s/d -495) dan sisa pecahan floating-point historis
+-- tak terkait (~1e-3, riwayat lama tak relevan dengan fix ini).
+-- TIDAK ADA nilai qty baru yang muncul HANYA sesudah penerapan.
+-- HASIL: LOLOS -- tidak ada regresi terdeteksi pada jalur mayoritas (bahan
+-- tanpa pengganti).
+--
+-- Rincian lengkap & skrip verifikasi:
+--   .superpowers/sdd/2026-09-09-waterfall-konversi-satuan/task-3-report.md

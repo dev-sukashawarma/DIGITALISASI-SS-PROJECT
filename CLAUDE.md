@@ -1467,5 +1467,106 @@ masih perlu apa-apa lagi.
 
 ---
 
-**Last updated:** 2026-09-08  
+## Session 2026-09-08/09: Katalog Harga Vendor — Fondasi (Tahap 0 & 1)
+
+**Status:** ✅ COMPLETED — 4 migration **applied & diverifikasi di DB live**, branch
+`feat/katalog-harga-vendor` **di-merge lokal ke `main`** (merge commit `8b41a39e`, 13 commit).
+⚠️ **Belum di-push ke `origin/main`.** Tidak perlu redeploy — modul TS baru **nol konsumen**,
+tak ada UI yang membacanya.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-08-katalog-harga-vendor-design.md`,
+`docs/superpowers/plans/2026-09-08-katalog-harga-vendor-fondasi.md`
+
+### Menjawab lanjutan dua-vendor: **lapisan referensi pembelian**, bukan perubahan metode harga
+
+Tabel `bahan_baku_supplier` menjawab "bahan X, dari vendor mana, satuan apa, harga berapa,
+kapan terakhir" — pertanyaan yang sebelumnya tak bisa dijawab sistem. Sebelumnya relasi
+vendor↔bahan hanya `supplier.bahan_baku_ids UUID[]` (daftar tanpa harga), dan form PO
+prefill `bahan.harga_beli` **global** — harga vendor terakhir siapa pun, bukan vendor yang
+sedang dipesan.
+
+**Harga master, HPP, dan nilai persediaan TIDAK disentuh** (keputusan owner 8 Sep:
+metode harga-terakhir dipertahankan; jangan bangun FIFO/WAC).
+
+| Objek | Isi |
+|---|---|
+| `bahan_baku.faktor_po` + trigger `trg_bahan_baku_faktor_po` | 52/52 bahan aktif; FOIL **760** · MIE **1** · PLASTIK BESAR **50** |
+| `supplier` | 25 → 24 (duplikat `Lettuce (Pak Aziz)` digabung) |
+| `bahan_baku_supplier` (+ `_history`) | **61 baris**; 14 siap prefill, 47 `perlu_ditinjau` |
+| `apps/admin-dashboard/src/lib/satuanPo.ts`, `katalogVendor.ts` | 23 tes, fungsi murni |
+
+### 🔴 Ranjau yang ditutup: `satuan_po` hidup tanpa faktor pendamping
+
+`bahan_baku.satuan_po` terisi 52/52 sejak `20260908155000`, tapi **nol kode membacanya** dan
+**tak ada kolom yang menyimpan konversinya**. Untuk 3 bahan `satuan_po` ≠ satuan master
+(FOIL `roll` vs `Dus` 48×, MIE `bungkus` vs `Dus` 40×, PLASTIK BESAR `pack` vs `Ikat` 5×).
+Siapa pun yang mewirekan `satuan_po` ke form PO sebagai label tanpa konversi akan
+**melipatgandakan qty ledger**. Harga sebagian terlindungi guard `20260904120000`; **qty
+tidak punya penjaga sama sekali**. `faktor_po` menutupnya, dan **sengaja mengembalikan NULL**
+(bukan 1) saat label tak dikenal — `getDistribusiFactor()` mengembalikan 1 dalam keadaan itu,
+dan untuk FOIL itu berarti diam-diam salah 48×.
+
+`docs/MASTER-SATUAN-PO-DAN-DISTRIBUSI.md` §4 dikoreksi (v1.3): dua barisnya menyatakan
+implementasi yang **belum ada** (`usePurchaseOrder.ts` memakai `satuan_po`, `useOpname.ts`
+memakai unit distribusi) — keduanya nol referensi di `grep`. Kolom Status ditambahkan.
+
+### 🔴 Pelajaran: harga PO historis memakai satuan yang berlaku SAAT ITU
+
+Seed awal mengambil `harga_terima` apa adanya. Gerbang verifikasi menangkapnya: harga FOIL
+tampak janggal. Sebabnya **bukan** salah kolom — FOIL berubah Roll→Dus **hari itu juga**
+(`20260908103000`), jadi harga PO 31 Agustus memang tercatat per Roll. Rasio ke master persis
+**48,000** (FOIL Altindo) dan **0,040 = 1/25** (POLYBAG).
+
+**Aturan yang ditetapkan: harga hanya terisi untuk PO pasca-guard 4 Sep; sisanya `harga = 0`
++ `perlu_ditinjau`.** Angka yang percaya diri tapi salah skala lebih berbahaya daripada tidak
+ada angka. Angka aslinya tidak hilang — `ref_po_id` menunjuk ke PO-nya.
+
+⚠️ **Seed memakai `bahan_baku.satuan` + `faktor_tampilan`, BUKAN `satuan_po`/`faktor_po`** —
+`harga_terima` tersimpan per satuan besar. Akibatnya **13 dari 61 baris punya
+`satuan_beli` ≠ `satuan_po`**; Tahap 3 tidak boleh mengasumsikan keduanya sama.
+
+### 🔴 Temuan review: trigger riwayat SECURITY INVOKER = semua tulisan klien gagal senyap
+
+Trigger `bbs_tulis_riwayat` semula INVOKER, sementara tabel riwayat sengaja tanpa policy
+INSERT. Karena `authenticated` tak punya `bypassrls`, **setiap INSERT/UPDATE katalog dari
+klien akan gagal `42501` dan seluruh statement di-rollback.** Tidak ketahuan saat pengujian
+karena `supabase db query --linked` terhubung sebagai `postgres`. Pola sama dengan insiden
+`ledger_stamp_saldo` (8 Juli). Diperbaiki jadi `SECURITY DEFINER SET search_path = public`.
+
+Sekalian di fix round yang sama: `REVOKE ALL FROM anon, authenticated` (default privileges
+Supabase memberi ALL ke tabel baru — GRANT di migration tidak membatasi apa pun);
+`changed_by` → `COALESCE(auth.uid(), NEW.updated_by)` (sebelumnya bisa dipalsukan klien);
+unique parsial `is_preferred` → `WHERE is_preferred AND is_active`.
+
+### 📝 Butuh keputusan owner sebelum Tahap 2
+
+1. **Dedup supplier BELUM tuntas.** Premis spec ("satu-satunya duplikat tersisa") **salah** —
+   `Lettuce (Pak Aziz)` · `L:ettuce (Pak Aziz)` (typo titik dua) · `Bapak Aziz` ketiganya
+   punya jejak PO; plus `Agro Boga Utama` vs `PT Agro Boga Utama`; plus baris sampah `sadsad`.
+   Efeknya sudah terlihat: KENTANG dua baris katalog untuk vendor yang sama. Belum merusak
+   angka (kembarannya `harga=0`). Nama & termin mana yang bertahan = keputusan owner.
+2. **PLASTIK BESAR: `kemasan_qty` 100 vs `faktor_tampilan` 250** (dan `faktor_konversi` 50
+   yang konsisten dengan 250). Akarnya: PLASTIK BESAR sengaja dilewati saat normalisasi harga
+   3 Sep — `20300122000001` baris 19 menulis sendiri *"belum dijawab"*, bersama SABUN,
+   SEDOTAN, TUTUP PACK. Dampak: nilai persediaan Rp545.700 vs Rp218.280 (selisih Rp327.420,
+   0,08%); **0 resep** memakainya jadi HPP tidak terpengaruh.
+3. **Termin Pak Aziz** 30 vs 10 hari — digabung apa adanya (30), menunggu konfirmasi supplier.
+
+### Tertunda (minor, tercatat saat review)
+
+`NaN` lolos `CHECK isi_satuan_kecil > 0` (Postgres: `'NaN'::numeric > 0` = true) · `btrim()`
+SQL vs `String.trim()` TS beda perlakuan `\n`/NBSP · `harga_updated_at` tak dipelihara trigger
+· DELETE katalog tak meninggalkan jejak riwayat · `DISTINCT ON` seed tanpa tiebreak final
+(**wajib** ditambahkan kalau pola disalin ke RPC prefill Tahap 3) · `bolehPrefill` tanpa guard
+`Number.isFinite`.
+
+### Tahap berikutnya (plan terpisah, belum ditulis)
+
+Layar pembanding harga antar vendor · form PO baca katalog · form terima PO pakai satuan
+vendor · `verifikasi_terima_po` menulis balik ke katalog. Layar Tahap 2 **wajib** menyaring
+`bahan_baku.is_active` dan **tidak boleh** merender `harga = 0` sebagai harga.
+
+---
+
+**Last updated:** 2026-09-09  
 **Owner:** Dev Suka Shawarma

@@ -699,3 +699,55 @@ menentukan rotasinya benar-benar terjadi adalah **redeploy**: `CRON_SECRET`
 masuk lewat `--build-arg`, jadi kontainer yang sedang berjalan tetap memegang
 nilai lama sampai dibangun ulang. Periksa `/api/health` — nomor commit yang
 berubah adalah tanda kontainernya memang baru.
+
+---
+
+## Naskah uji sekali-pesan (disiapkan 9 September 2026)
+
+Satu pesanan sungguhan membuktikan tiga hal yang selama ini belum pernah
+diuji lewat jalur aplikasi. Diurutkan begini supaya kalau satu langkah gagal,
+langkah itu sendiri yang menunjuk penyebabnya — bukan hasil akhir yang kabur.
+
+### Prasyarat
+
+| | Yang perlu dilakukan |
+|---|---|
+| APK | Pasang build baru (jendela tunggu bayar 15 menit ada di dalamnya) |
+| `admin-dashboard` | **Redeploy** — toggle "Tampilkan di SukaShawarma APP" baru live sesudahnya |
+| Outlet | Outlet tes (`app_enabled = true`) |
+| Menu | **Ice Tea Rp8.000** — punya resep, jadi bisa membuktikan BOM |
+
+### Langkah
+
+1. **Toggle.** Admin → POS → Menu. Kolom baru **Aplikasi** di paling kanan
+   sebelum Status. Nyalakan Ice Tea, matikan menu tes lama.
+   *Yang dibuktikan:* toggle benar-benar menulis, bukan sekadar berubah warna.
+2. **Katalog.** `GET /api/v1/catalog?outlet_id=<outlet tes>` — Ice Tea muncul,
+   menu yang dimatikan hilang. **Periksa ini sebelum membuka aplikasi.**
+   Kalau katalog sudah benar tapi aplikasi belum, itu masalah cache aplikasi,
+   bukan masalah toggle; membalik urutannya membuat keduanya tertukar.
+3. **Pesan dengan catatan.** Di aplikasi, tambahkan catatan pada Ice Tea —
+   misalnya `es sedikit`. Bayar QRIS sungguhan.
+   *Yang dibuktikan:* konvensi `nama|NOTE|catatan`.
+4. **Periksa `order_items`.** `menu_item_name` harus berbunyi
+   `Ice Tea|NOTE|es sedikit`. Kalau catatannya hilang di sini, struk dapur
+   tidak akan pernah menampilkannya — dan itu kesalahan gateway, bukan POS.
+5. **Struk dapur.** Cetak dari POS. Catatan harus terbaca sebagai catatan,
+   bukan sebagai bagian dari nama menu.
+6. **Tandai `completed` di POS.** BOM hanya menyala pada status ini.
+7. **Periksa `ledger_stok`** untuk `ref_order_id` pesanan itu: harus ada baris
+   `pemakaian` **negatif** untuk tiap bahan resep Ice Tea.
+
+### Yang harus diperhatikan kalau langkah 7 kosong
+
+Urutan curiga, dari yang paling sering:
+
+1. **Outlet tes tidak ada di `global_settings.bom_automation_allowed_outlets`.**
+   Daftarnya dipisah koma dan pernah punya jebakan kutip JSONB yang membuat
+   entri pertama dan terakhir tak pernah cocok.
+2. **`external_order_id` terisi.** Trigger BOM melewati baris mana pun yang
+   punya nilai di kolom itu. `susunPayloadPos` sengaja tidak mengisinya; kalau
+   ternyata terisi, ada yang menambahkannya.
+3. **Status tidak benar-benar `completed`.**
+
+Baru setelah ketiganya bersih, curigai resepnya sendiri.

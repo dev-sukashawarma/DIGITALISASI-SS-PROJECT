@@ -19,6 +19,17 @@ SELECT u.nama AS utama,
 -- Q2: sidik jari limpahan. Baris pemakaian di bahan PENGGANTI yang nilainya
 -- kelipatan rasio dari gram resep (30 -> 41,25 / 50 -> 68,75 / 60 -> 82,5).
 -- Setelah perbaikan, baris BARU harus bernilai bulat sesuai resep (30/50/60).
+--
+-- Filter "NOT EXISTS resep_item aktif" (di bawah): sebuah bahan pengganti yang
+-- JUGA punya resep aktif sendiri (mis. SAOS CABE, dipakai 16 resep) menghasilkan
+-- baris `pemakaian` biasa dari konsumsi resep langsung -- tidak bisa dibedakan
+-- dari limpahan waterfall pada query ini, dan volumenya menenggelamkan baris
+-- limpahan yang sebenarnya (ditemukan Task 1: top-30-by-recency gabungan
+-- kedua pasangan hanya menampilkan SAOS CABE, nol baris SAOS TOMAT KOMPAN).
+-- SAOS TOMAT KOMPAN nol resep aktif, jadi SETIAP baris `pemakaian` di sana
+-- pasti berasal dari waterfall -- itulah baseline pembanding yang valid.
+-- Ini menggeneralisasi: kalau suatu bahan pengganti kelak diberi resepnya
+-- sendiri, Q2 berhenti menampilkannya -- itu memang benar, bukan regresi.
 SELECT l.created_at::date AS tanggal,
        o.name            AS outlet,
        b.nama            AS bahan_pengganti,
@@ -31,10 +42,26 @@ SELECT l.created_at::date AS tanggal,
    AND l.catatan LIKE 'Penjualan%'
    AND l.bahan_baku_id IN (SELECT bahan_baku_pengganti_id FROM public.bahan_baku_substitusi)
    AND l.created_at >= NOW() - INTERVAL '2 days'
+   AND NOT EXISTS (
+         SELECT 1
+           FROM public.resep_item ri
+           JOIN public.resep r ON r.id = ri.resep_id
+          WHERE ri.bahan_baku_id = l.bahan_baku_id
+            AND r.is_active
+       )
  ORDER BY l.created_at DESC
  LIMIT 30;
 
 -- Q3: total limpahan & besar kelebihannya, sepanjang riwayat.
+-- Catatan paginasi (pelajaran Task 1): kalau query ini di-page lewat PostgREST
+-- (.range() loop) karena melampaui batas 1000 baris, WAJIB pakai ORDER BY yang
+-- deterministik (mis. `id ASC`) pada query dasarnya. ledger_stok menerima
+-- INSERT bersamaan terus-menerus -- tanpa ORDER BY eksplisit, baris bisa
+-- bergeser antar halaman dan lolos tak terhitung TANPA error. Kejadian nyata:
+-- percobaan pertama Task 1 (tanpa ORDER BY) kehilangan 179 baris SAOS TOMAT
+-- KOMPAN (2006 vs 2185 seharusnya) sementara jumlahnya nyaris tak bergeser --
+-- justru itu petunjuknya (kehilangan 179 baris nyata semestinya mengubah SUM
+-- ~7000, bukan ~6).
 SELECT b.nama AS bahan_pengganti,
        COUNT(*)                                   AS baris,
        ROUND(SUM(l.qty), 2)                       AS total_dipotong,

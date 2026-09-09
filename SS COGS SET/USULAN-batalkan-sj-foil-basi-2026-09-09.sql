@@ -1,3 +1,51 @@
+-- USULAN-batalkan-sj-foil-basi-2026-09-09.sql
+--
+-- >>> INI USULAN, BUKAN MIGRATION <<<
+-- File ini SENGAJA disimpan di luar supabase/migrations/ (folder "SS COGS SET")
+-- justru supaya `supabase db push` siapa pun, untuk migration lain manapun,
+-- TIDAK BISA menerapkannya secara tidak sengaja. Isinya masih persis draft
+-- migration `20260909180000_batalkan_sj_foil_basi.sql` yang ditulis Task 4
+-- (fix wave whole-branch review, cabang fix/waterfall-konversi-satuan) --
+-- JANGAN dipindah kembali ke supabase/migrations/ sebelum owner menjawab.
+-- Begitu owner MENYETUJUI, kembalikan nama file aslinya
+-- `20260909180000_batalkan_sj_foil_basi.sql` dan pindahkan lagi ke
+-- supabase/migrations/ sebelum di-apply.
+--
+-- >>> FILE INI MEM-BYPASS JALUR PEMBATALAN RESMI <<<
+-- Suka Shawarma sudah punya RPC resmi untuk membatalkan surat_jalan:
+-- `batalkan_surat_jalan_draft` (didefinisikan di
+-- supabase/migrations/20260905140000_allow_cancel_draft_surat_jalan.sql).
+-- RPC itu melakukan TIGA hal yang UPDATE mentah di bawah ini TIDAK lakukan:
+--   1. Menolak membatalkan apa pun selain status 'draft' (`IF v_sj.status !=
+--      'draft' THEN RETURN ... END IF`) -- padahal SELURUH 21 dokumen di
+--      bawah berstatus 'dikirim', jadi RPC ini justru akan MENOLAK semuanya.
+--   2. Ikut membatalkan `permintaan_bahan` yang terhubung ke surat_jalan itu
+--      (status -> 'dibatalkan', catatan ditambahkan).
+--   3. Mengembalikan (refund) debit `outlet_balance` bertipe MATERIAL_PURCHASE
+--      yang tercatat di `outlet_balance_ledger` untuk permintaan_bahan itu --
+--      menambah `current_balance` outlet dan mencatat baris TOP_UP pembalik.
+-- UPDATE langsung ke `surat_jalan.status` di bawah TIDAK melakukan satu pun
+-- dari ketiganya. Siapa pun yang menindaklanjuti usulan ini WAJIB memutuskan
+-- apakah ketiga efek samping itu (khususnya #2 dan #3 -- kalau permintaan
+-- yang mendasari 21 SJ ini pernah mendebit dompet outlet) juga diinginkan,
+-- DI LUAR 160 baris `transfer_keluar` yang belum di-reversal yang sudah
+-- ditandai di header di bawah.
+--
+-- >>> VERIFIKASI CONTROLLER ATAS BLOK DOWN <<<
+-- Diverifikasi ulang oleh controller (fix wave, 2026-09-09): SELURUH 21
+-- kiriman DI BAWAH SUDAH punya baris ledger_stok (160 baris transfer_keluar
+-- di GUDANG PUSAT, lihat catatan asli di bawah). Karena itu, blok `-- DOWN:`
+-- di file ini -- yang menyetel ulang status ke 'dikirim' -- AMAN dijalankan:
+-- trigger `sj_on_dikirim_kurangi_kitchen` yang akan ikut terpicu (OLD.status
+-- <> 'dikirim' AND NEW.status = 'dikirim') punya guard `v_sudah_ada`
+-- (SELECT EXISTS ... WHERE ref_shipment_id = NEW.id AND outlet_id =
+-- <GUDANG PUSAT> AND tipe = 'transfer_keluar') yang akan MENEMUKAN baris
+-- yang sudah ada dan melewati (RAISE WARNING + RETURN NEW tanpa INSERT) --
+-- jadi DOWN TIDAK akan mendebit Gudang Pusat dua kali. Ini properti
+-- keamanan yang tidak jelas terlihat sekilas dari kode DOWN itu sendiri --
+-- dicatat di sini secara eksplisit supaya siapa pun yang mempertimbangkan
+-- DOWN tidak perlu menelusuri trigger-nya dulu untuk yakin aman.
+--
 -- 20260909180000_batalkan_sj_foil_basi.sql
 -- Batalkan surat jalan FOIL Juli-Agustus yang tak akan pernah diverifikasi.
 -- <BELUM DISETUJUI OWNER -- jangan diterapkan sebelum owner menjawab>. Daftar

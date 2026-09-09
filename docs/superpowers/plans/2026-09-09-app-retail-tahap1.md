@@ -992,7 +992,7 @@ describe('hargaAplikasiTampil', () => {
 ../../node_modules/.bin/vitest run --dir src src/lib/appRetail/tampilanMenu.test.ts
 NEXT_TURBOPACK=0 yarn build
 ```
-Diharapkan: test PASS (7 test), build sukses.
+Diharapkan: test PASS (6 test), build sukses.
 
 - [ ] **Step 6: Periksa isolasi lalu commit**
 

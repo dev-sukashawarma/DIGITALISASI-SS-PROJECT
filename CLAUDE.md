@@ -1538,19 +1538,42 @@ Supabase memberi ALL ke tabel baru — GRANT di migration tidak membatasi apa pu
 `changed_by` → `COALESCE(auth.uid(), NEW.updated_by)` (sebelumnya bisa dipalsukan klien);
 unique parsial `is_preferred` → `WHERE is_preferred AND is_active`.
 
-### 📝 Butuh keputusan owner sebelum Tahap 2
+### ✅ Dedup supplier — SELESAI 9 Sep (`20260909100000`, applied & diverifikasi)
 
-1. **Dedup supplier BELUM tuntas.** Premis spec ("satu-satunya duplikat tersisa") **salah** —
-   `Lettuce (Pak Aziz)` · `L:ettuce (Pak Aziz)` (typo titik dua) · `Bapak Aziz` ketiganya
-   punya jejak PO; plus `Agro Boga Utama` vs `PT Agro Boga Utama`; plus baris sampah `sadsad`.
-   Efeknya sudah terlihat: KENTANG dua baris katalog untuk vendor yang sama. Belum merusak
-   angka (kembarannya `harga=0`). Nama & termin mana yang bertahan = keputusan owner.
-2. **PLASTIK BESAR: `kemasan_qty` 100 vs `faktor_tampilan` 250** (dan `faktor_konversi` 50
+**Keputusan owner: nama kanonik `Lettuce (Pak Aziz)` & `PT Agro Boga Utama`, tapi baris
+ber-termin berbeda DIPERTAHANKAN terpisah — "memang beda termin".** Termin berbeda =
+kesepakatan pembayaran berbeda, bukan duplikat.
+
+Premis spec ("satu-satunya duplikat tersisa") memang **salah**: Pak Aziz punya tiga baris
+(`Lettuce (Pak Aziz)` · `L:ettuce (Pak Aziz)` typo titik dua · `Bapak Aziz`) dan ketiganya
+**nomor HP yang sama** (`083876865070` = `+62 838-7686-5070`), plus `Agro Boga Utama` vs
+`PT Agro Boga Utama`, plus baris sampah `sadsad`.
+
+Yang dikerjakan: dua baris Aziz ber-tempo 15 digabung; baris tempo 30 dipertahankan; **baris
+tempo 10 yang keliru digabung oleh `20260908231000` dipulihkan apa adanya** (0 PO, jadi tak
+ada dokumen yang terganggu). Ketiganya dinamai `Lettuce (Pak Aziz) - Tempo 10/15/30` —
+**nama harus membedakan, karena salah pilih di dropdown PO menggeser jatuh tempo utang
+belasan hari.** Agro digabung (keduanya tempo 45). `sadsad` dihapus.
+
+⚠️ **Baris yang bertahan dipilih berdasarkan DATA TERBAIK, bukan namanya.** Baris bernama
+`Agro Boga Utama` memegang satu-satunya harga katalog terpercaya Agro (KENTANG Rp250.000);
+menghapusnya akan menghilangkan harga itu lewat FK CASCADE, dan **seed ulang tak bisa
+memulihkannya** karena semua PO milik baris satunya pra-guard (lahir sebagai harga 0). Jadi
+baris itu yang disimpan lalu di-rename. Diverifikasi setelah apply: harga masih Rp250.000.
+
+Hasil: **22 supplier, nol nama duplikat**; katalog 61 → **56 baris**, 14 siap prefill (tak
+berkurang), riwayat 62 (baris riwayat milik katalog yang dihapus tetap hidup — `ON DELETE
+SET NULL`, memang begitu desainnya).
+
+### 📝 Sisa yang butuh keputusan owner
+
+1. **PLASTIK BESAR: `kemasan_qty` 100 vs `faktor_tampilan` 250** (dan `faktor_konversi` 50
    yang konsisten dengan 250). Akarnya: PLASTIK BESAR sengaja dilewati saat normalisasi harga
    3 Sep — `20300122000001` baris 19 menulis sendiri *"belum dijawab"*, bersama SABUN,
    SEDOTAN, TUTUP PACK. Dampak: nilai persediaan Rp545.700 vs Rp218.280 (selisih Rp327.420,
    0,08%); **0 resep** memakainya jadi HPP tidak terpengaruh.
-3. **Termin Pak Aziz** 30 vs 10 hari — digabung apa adanya (30), menunggu konfirmasi supplier.
+2. **Termin Pak Aziz** — ketiga tempo (10/15/30) kini berdiri sendiri sesuai keputusan owner,
+   tapi belum dikonfirmasi ke supplier mana yang masih berlaku. Tempo 10 nol PO.
 
 ### Tertunda (minor, tercatat saat review)
 

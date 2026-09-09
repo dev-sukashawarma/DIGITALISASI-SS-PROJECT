@@ -551,7 +551,9 @@ ada yang rusak.
 
 Kembalikan outlet tes ke keadaan semula bila tidak dipakai lagi
 (`app_enabled = false`), dan putuskan apakah ia tetap di allowlist BOM.
-Rotasi `CRON_SECRET` — nilainya pernah masuk transkrip percakapan.
+Rotasi `CRON_SECRET` — **selesai 9 September 2026.** Nilai lamanya pernah
+masuk transkrip percakapan; diganti di panel Coolify lalu di-redeploy, dan
+penjadwal `expire-drafts` tetap Success sesudahnya.
 
 ---
 
@@ -627,7 +629,8 @@ menampilkan "Menu belum terbit" dan seluruh persiapan di atas sia-sia.
 - Putuskan apakah outlet tes tetap di allowlist BOM.
 - Putuskan apakah 3 menu itu tetap `tampil_di_app` (menu bersifat global —
   begitu outlet pilot sungguhan dinyalakan, ketiganya ikut terbit di sana).
-- **Rotasi `CRON_SECRET`** — nilainya pernah masuk transkrip percakapan.
+- ~~Rotasi `CRON_SECRET`~~ — **selesai 9 September 2026** (lihat bagian
+  penjadwalan di bawah).
 
 ---
 
@@ -688,3 +691,11 @@ variabel itu ditambahkan.
 ⚠️ Rotasi `CRON_SECRET` **setelah** penjadwal terbukti jalan, jangan sebelum —
 kalau tidak, kegagalan rotasi dan kegagalan penjadwal bercampur jadi satu
 gejala yang sama.
+(Urutan ini diikuti pada 9 September 2026; keduanya lolos.)
+
+⚠️ **Success di Coolify tidak membedakan rahasia baru dari rahasia lama.**
+Ia hanya membuktikan nilai di panel cocok dengan yang dipegang kontainer. Yang
+menentukan rotasinya benar-benar terjadi adalah **redeploy**: `CRON_SECRET`
+masuk lewat `--build-arg`, jadi kontainer yang sedang berjalan tetap memegang
+nilai lama sampai dibangun ulang. Periksa `/api/health` — nomor commit yang
+berubah adalah tanda kontainernya memang baru.

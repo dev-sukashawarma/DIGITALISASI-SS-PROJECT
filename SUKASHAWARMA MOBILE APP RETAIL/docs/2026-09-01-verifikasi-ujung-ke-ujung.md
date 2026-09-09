@@ -633,6 +633,15 @@ menampilkan "Menu belum terbit" dan seluruh persiapan di atas sia-sia.
 
 ## Penjadwalan `expire-drafts` di Coolify (9 September 2026)
 
+> **Terpasang dan terbukti bekerja, 9 September 2026 03:40 UTC (10:40 WIB).**
+> Sapuan pertama membalas `200 {"dihanguskan":4}` -- tepat empat draft basi
+> yang selama ini menggantung di Riwayat pelanggan. Sapuan berikutnya `0`,
+> yang memang keadaan normal.
+>
+> Statusnya "Success" di Coolify sudah bermakna, bukan sekadar "perintah
+> jalan": skripnya keluar dengan kode 1 untuk respons apa pun selain 2xx,
+> jadi rahasia yang salah atau gateway yang mati akan tampil sebagai Failed.
+
 Tanpa penjadwal, draft `menunggu_bayar` yang tidak jadi dibayar tidak pernah
 berpindah status — pelanggan melihatnya menumpuk di Riwayat sebagai pesanan
 yang seolah masih berjalan. Endpointnya sudah ada dan terlindungi

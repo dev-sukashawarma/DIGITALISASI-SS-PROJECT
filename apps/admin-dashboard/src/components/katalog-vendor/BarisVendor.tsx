@@ -2,19 +2,30 @@
 
 import { useState } from 'react'
 import { Check, X, Pencil } from 'lucide-react'
-import { validasiBarisKatalog, type VendorSetara } from '@/lib/katalogGroup'
+import { validasiBarisKatalog, parseAngkaId, type VendorSetara } from '@/lib/katalogGroup'
 
 const rupiah = (n: number) =>
   'Rp ' + Math.round(n).toLocaleString('id-ID')
 
+/** Rasio antara hitungan hidup & harga master di luar [1/5, 5] dianggap kemungkinan salah skala. */
+function pesanRasioMenyimpang(hidup: number, master: number | null): string | null {
+  if (master === null || master <= 0) return null
+  const rasio = hidup / master
+  if (rasio >= 5) return `⚠ ${rasio.toFixed(1)}× harga master`
+  if (rasio <= 1 / 5) return `⚠ ${(1 / rasio).toFixed(1)}× lebih rendah dari harga master`
+  return null
+}
+
 export function BarisVendor({
   v,
   satuanKecil,
+  hargaMasterPerKecil,
   menyimpan,
   onSimpan,
 }: {
   v: VendorSetara
   satuanKecil: string
+  hargaMasterPerKecil: number | null
   menyimpan: boolean
   onSimpan: (input: { id: string; harga: number; satuan_beli: string; isi_satuan_kecil: number }) => Promise<void>
 }) {
@@ -35,10 +46,20 @@ export function BarisVendor({
   }
 
   async function simpan() {
+    const hargaAngka = parseAngkaId(harga)
+    if (hargaAngka === null) {
+      setGalat('Harga wajib diisi.')
+      return
+    }
+    const isiAngka = parseAngkaId(isi)
+    if (isiAngka === null) {
+      setGalat('Isi satuan kecil wajib diisi.')
+      return
+    }
     const input = {
-      harga: Number(harga),
+      harga: hargaAngka,
       satuan_beli: satuanBeli,
-      isi_satuan_kecil: Number(isi),
+      isi_satuan_kecil: isiAngka,
     }
     const pesan = validasiBarisKatalog(input)
     if (pesan) {
@@ -93,7 +114,27 @@ export function BarisVendor({
             aria-label="Harga per satuan beli"
           />
         </td>
-        <td className="py-2 px-3 text-right text-stone-400">—</td>
+        <td className="py-2 px-3 text-right">
+          {(() => {
+            const hargaHidup = parseAngkaId(harga)
+            const isiHidup = parseAngkaId(isi)
+            if (hargaHidup === null || isiHidup === null || isiHidup <= 0) {
+              return <span className="text-stone-300">—</span>
+            }
+            const perKecil = hargaHidup / isiHidup
+            const peringatan = pesanRasioMenyimpang(perKecil, hargaMasterPerKecil)
+            return (
+              <div className="flex flex-col items-end">
+                <span className="text-stone-600">
+                  {perKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
+                </span>
+                {peringatan && (
+                  <span className="text-[11px] font-semibold text-red-600">{peringatan}</span>
+                )}
+              </div>
+            )
+          })()}
+        </td>
         <td className="py-2 px-3 text-right text-stone-400">—</td>
         <td className="py-2 px-3">
           {galat && <span className="text-xs text-red-600">{galat}</span>}

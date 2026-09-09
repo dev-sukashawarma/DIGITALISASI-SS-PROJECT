@@ -175,6 +175,7 @@ Untuk menjamin keakuratan biaya (HPP), kelancaran pengadaan, dan kemudahan penca
 | Aplikasi | File / Modul | Peran Terhadap Satuan |
 |---|---|---|
 | **admin-dashboard** | `apps/admin-dashboard/src/hooks/usePurchaseOrder.ts` | ❌ **BELUM DIIMPLEMENTASIKAN** (diverifikasi 8 Sep 2026: `grep -rn "satuan_po" apps/ packages/` = nol hasil). Rencananya memakai `satuan_po` sebagai unit default saat membuat PO; hari ini form PO masih prefill `bahan.harga_beli` global dan memperlakukan angkanya sebagai satuan master. Lihat peringatan di bawah tabel |
+| **admin-dashboard** | `src/hooks/useKatalogVendor.ts` · `src/lib/katalogGroup.ts` · `src/components/katalog-vendor/*` | ✅ **JALAN — pembaca pertama `satuan_po` DAN `faktor_po`.** Halaman Katalog Harga Vendor (`/dashboard/pembelian/katalog-vendor`) menampilkan `satuan_po`, memakai `faktor_po` sebagai isi default satuan beli, dan `satuan_kecil` sebagai label kolom Isi. Perbandingan harga antar vendor **selalu** dihitung per satuan kecil |
 | **distribusi** | `apps/distribusi/src/components/distribusi/SuratJalanForm.tsx` | Menggunakan `satuan_distribusi` untuk input qty kirim |
 | **distribusi** | `apps/distribusi/src/components/distribusi/VerifikasiForm.tsx` | Menggunakan `satuan_distribusi` untuk verifikasi terima fisik outlet. ⚠️ Logikanya **disalin inline** (baris 113–138), bukan memanggil `getDistribusiFactor()` — dua salinan aturan yang sama, rawan berbeda kalau salah satu diubah |
 | **distribusi** | `apps/distribusi/src/utils/generateSuratJalanExcel.ts` | Mencetak dokumen Surat Jalan fisik & Excel dalam unit `satuan_distribusi` |
@@ -208,12 +209,48 @@ yang menghitung ulang otomatis setiap kali kolom satuan (`satuan_po`,
 `satuan_kecil`, `faktor_konversi`, dst.) berubah — jadi nilainya tidak bisa basi
 diam-diam.
 
-⚠️ **Peringatan yang masih berlaku:** `faktor_po` **belum dibaca kode mana pun**
-(nol call site di `apps/`/`packages/`, diverifikasi 8 Sep 2026). Kolom siap
-dipakai, tapi form PO **tetap tidak boleh** menampilkan `satuan_po` sebagai
-label sampai konversinya benar-benar diwire ke `verifikasi_terima_po` (Tahap 3)
-— sebelum itu, memakai `satuan_po` tanpa membaca `faktor_po` masih akan
-mencatat qty **48× lipat** untuk FOIL seperti dijelaskan di atas.
+**Pembaca pertama sudah ada (9 Sep 2026).** `faktor_po` kini dibaca oleh lima
+berkas — seluruhnya tumpukan Katalog Harga Vendor: `satuanPo.ts`,
+`katalogGroup.ts`, `useKatalogVendor.ts`, `KatalogVendorBoard.tsx`, dan tesnya.
+Klaim "nol call site" pada versi dokumen sebelumnya sudah tidak berlaku.
+
+⚠️ **Peringatan yang MASIH berlaku, dan justru makin penting:**
+`apps/admin-dashboard/src/hooks/usePurchaseOrder.ts` — **form PO** — sampai hari
+ini **belum** membaca `satuan_po` maupun `faktor_po`. Form PO **tetap tidak
+boleh** menampilkan `satuan_po` sebagai label sampai konversinya benar-benar
+diwire ke `verifikasi_terima_po` (Tahap 3–4 katalog vendor). Sebelum itu,
+memakai `satuan_po` tanpa membaca `faktor_po` masih akan mencatat qty **48×
+lipat** untuk FOIL seperti dijelaskan di atas.
+
+**Pelajaran dari halaman katalog:** versi pertamanya melabeli kolom "Isi"
+memakai `satuan_po`/`satuan` padahal angkanya dalam **satuan kecil** — baris
+FOIL tampil *"Satuan beli: Dus · Isi: 36.480 roll"*, yang bertentangan dengan
+dirinya sendiri (1 Dus = 48 roll). Operator yang mempercayai label akan
+"membetulkan" 36.480 jadi 48 dan menyalahkan angka pembanding **760×**. Cacat
+itu lolos empat review per-task dan baru tertangkap saat seluruh lapisan
+dibaca sekaligus. **Menyebut satuan dengan nama yang benar bukan kosmetik —
+di sistem ini itu penjaga.**
+
+### Aturan satuan di Katalog Harga Vendor
+
+Tabel `bahan_baku_supplier` menyimpan harga per (bahan, vendor) beserta
+satuannya sendiri, karena vendor berbeda bisa menota dalam kemasan berbeda.
+
+| Kolom | Isi |
+|---|---|
+| `satuan_beli` | Satuan pada nota vendor. **Default = `satuan_po` bahan.** |
+| `isi_satuan_kecil` | Jumlah satuan **kecil** dalam 1 `satuan_beli`. Default = `faktor_po`. |
+| `harga_per_satuan_kecil` | GENERATED, `harga / isi_satuan_kecil`. **Satu-satunya angka yang boleh dibandingkan antar vendor.** |
+
+Seed awal (`20260908233000`) sengaja menyimpang ke **satuan besar**, karena
+`purchase_order_item.harga_terima` tersimpan per satuan besar — benar untuk
+baris yang membawa harga. Migration `20260909150000` mengembalikan baris yang
+**belum berharga** ke `satuan_po`/`faktor_po`, dengan penjaga tegas: **hanya
+baris `harga = 0`**. Mengubah satuan pada baris berharga tanpa mengubah
+angkanya akan menyalahkannya sebesar faktor konversi bahan.
+
+Per 9 September 2026: **56 dari 56 baris katalog selaras** dengan `satuan_po`,
+dan nol baris berharga tergeser satuannya.
 
 ---
 
@@ -221,6 +258,7 @@ mencatat qty **48× lipat** untuk FOIL seperti dijelaskan di atas.
 
 | Tanggal | Versi | Pembaruan | Otorisasi |
 |---|:---:|---|:---:|
+| **09-09-2026** | **v1.4** | §4 diselaraskan dengan keadaan kode: `faktor_po` kini **punya pembaca** (5 berkas tumpukan Katalog Harga Vendor) — klaim "nol call site" di v1.3 dicabut; peringatan dipersempit ke `usePurchaseOrder.ts` yang memang masih belum membacanya. Ditambahkan §"Aturan satuan di Katalog Harga Vendor" dan pelajaran dari cacat label kolom Isi yang nyaris menyebabkan salah 760×. Diverifikasi: DB cocok dokumen **52/52** untuk `satuan_po`/`satuan`/`satuan_distribusi`; katalog selaras **56/56** (migration `20260909140000` & `20260909150000`). | Owner & Lead Dev |
 | **08-09-2026** | **v1.3** | Ranjau `satuan_po` di §4 ditutup: kolom `bahan_baku.faktor_po` (migration `20260908230000`) mengisi konversi FOIL/MIE/PLASTIK BESAR + trigger auto-recalc. Kode belum membacanya — form PO masih tak boleh pakai `satuan_po` sebagai label sampai Tahap 3 selesai. | Lead Dev |
 | **08-09-2026** | **v1.2** | Koreksi §4: dua baris menyatakan implementasi yang **belum ada** (`usePurchaseOrder.ts` memakai `satuan_po`, `useOpname.ts` memakai unit distribusi) — keduanya nol referensi di kode. Ditambahkan status per baris, catatan `getDistribusiFactor()` yang diam-diam mengembalikan 1, catatan salinan inline di `VerifikasiForm.tsx`, dan peringatan ranjau `satuan_po` tanpa faktor untuk FOIL/MIE/PLASTIK BESAR. | Lead Dev |
 | **08-09-2026** | **v1.1** | Penambahan kolom **Satuan BOM (Resep Menu)** untuk melengkapi rantai 4-tingkat satuan (PO ⭢ Distribusi ⭢ Opname ⭢ BOM). | Owner & Lead Dev |

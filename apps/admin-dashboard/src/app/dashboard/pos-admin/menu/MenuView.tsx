@@ -215,6 +215,15 @@ interface FormState {
   outlet_ids: string[] | null
 }
 
+/**
+ * Slug harga aplikasi di `menu_items.channel_prices`.
+ *
+ * SENGAJA di luar daftar slug yang disapu mode "Satu Harga Semua" -- aplikasi
+ * bukan agregator, dan menyeretnya ke sapuan itu membuat perubahan harga
+ * GoFood diam-diam mengubah harga di aplikasi.
+ */
+const SLUG_APLIKASI = 'aplikasi'
+
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', strike_price: '', campaign_price: '', is_campaign_active: false, base_price: '',
   channel_prices: {},
@@ -341,6 +350,13 @@ export default function MenuView({
         return false
       }
 
+      // Aplikasi diperiksa SEBELUM gerbang `is_available_online` di bawah.
+      // Ia kanal milik sendiri, sejajar Kasir, bukan sejajar GoFood --
+      // mematikan "Tersedia di Food Apps" tidak boleh ikut menutupnya.
+      if (channelKey === SLUG_APLIKASI) {
+        return item.tampil_di_app === true
+      }
+
       if (channelKey === 'all_food_apps') {
         if (item.is_available_online === false) return false
         const hasPrices = item.channel_prices && Object.keys(item.channel_prices).length > 0
@@ -371,6 +387,7 @@ export default function MenuView({
       { key: 'pos_kasir', label: 'Offline (Kasir Toko)', count: initialItems.filter(i => isItemInChannel(i, 'pos_kasir')).length, icon: <ChannelLogoIcon channelKey="pos_kasir" />, theme: 'amber' },
       { key: 'online_only', label: 'Khusus Online (Tidak Dijual Offline)', count: initialItems.filter(i => isItemInChannel(i, 'online_only')).length, icon: <Globe className="w-4 h-4 text-emerald-600" />, theme: 'emerald' },
       { key: 'all_food_apps', label: 'Semua Food Apps', count: initialItems.filter(i => isItemInChannel(i, 'all_food_apps')).length, icon: <ChannelLogoIcon channelKey="all_food_apps" />, theme: 'orange' },
+      { key: SLUG_APLIKASI, label: 'Khusus Aplikasi (SukaShawarma APP)', count: initialItems.filter(i => isItemInChannel(i, SLUG_APLIKASI)).length, icon: <Smartphone className="w-4 h-4 text-amber-600" />, theme: 'amber' },
     ]
 
     initialChannels.forEach(ch => {
@@ -1507,6 +1524,32 @@ export default function MenuView({
                             </div>
                           </div>
                         )}
+                      </div>
+
+                      {/* Harga di Aplikasi -- kartu sendiri, BUKAN bagian Food Apps */}
+                      <div className={`p-4 rounded-xl border space-y-2 transition-colors
+                        ${form.tampil_di_app ? 'bg-amber-50/40 border-amber-200/80' : 'bg-slate-50/60 border-slate-200/70'}`}>
+                        <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <Smartphone className={`w-3.5 h-3.5 ${form.tampil_di_app ? 'text-amber-600' : 'text-slate-400'}`} />
+                          Harga di Aplikasi
+                        </label>
+                        <CurrencyInput
+                          value={form.channel_prices[SLUG_APLIKASI] || ''}
+                          onChange={(v) => {
+                            const valStr = String(v)
+                            setForm(prev => ({
+                              ...prev,
+                              channel_prices: { ...prev.channel_prices, [SLUG_APLIKASI]: valStr }
+                            }))
+                          }}
+                          placeholder={form.price || '0'}
+                          className="input bg-white font-bold text-slate-900 text-sm py-2"
+                        />
+                        <p className="text-[11px] text-slate-500 font-medium">
+                          {form.tampil_di_app
+                            ? 'Kosongkan untuk memakai harga kasir. Harga ini TIDAK ikut berubah saat "Satu Harga Semua" food apps diatur.'
+                            : 'Menu ini belum tayang di aplikasi — harga ini baru dipakai setelah togglenya dinyalakan.'}
+                        </p>
                       </div>
 
                       {/* Campaign Price */}

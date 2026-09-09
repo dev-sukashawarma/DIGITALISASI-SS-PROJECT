@@ -28,6 +28,7 @@ function emptyAccums(): Record<ChannelGroup, ChannelAccum> {
     online: { revenue: 0, hpp: 0, pcs: 0 },
     foodapps: { revenue: 0, hpp: 0, pcs: 0 },
     tiktok: { revenue: 0, hpp: 0, pcs: 0 },
+    app: { revenue: 0, hpp: 0, pcs: 0 },
   }
 }
 

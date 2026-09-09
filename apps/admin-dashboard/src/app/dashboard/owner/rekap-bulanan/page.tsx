@@ -17,14 +17,15 @@ const MONTHS = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ]
 
-const CHANNEL_COLUMNS: { key: 'offline' | 'online' | 'foodapps' | 'tiktok'; label: string; headerClass: string }[] = [
+const CHANNEL_COLUMNS: { key: 'offline' | 'online' | 'foodapps' | 'tiktok' | 'app'; label: string; headerClass: string }[] = [
   { key: 'offline', label: 'Offline', headerClass: 'bg-suka-green text-white' },
   { key: 'online', label: 'Online', headerClass: 'bg-suka-orange text-white' },
   { key: 'foodapps', label: 'Food Apps', headerClass: 'bg-rose-700 text-white' },
   { key: 'tiktok', label: 'TikTok Go', headerClass: 'bg-suka-ink text-white' },
+  { key: 'app', label: 'Aplikasi', headerClass: 'bg-suka-brown text-white' },
 ]
 
-// 1 (Outlet) + 4*3 (channel) + 3 (Total Performance) + 3 (Opex) + 1 (Total GP)
+// 1 (Outlet) + 5*3 (channel) + 3 (Total Performance) + 3 (Opex) + 1 (Total GP)
 const TOTAL_COLUMN_COUNT = 1 + CHANNEL_COLUMNS.length * 3 + 3 + 3 + 1
 
 export default function RekapBulananPage() {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bersihkanKatalog } from './catalog'
+import { bersihkanKatalog, hargaAplikasi } from './catalog'
 
 describe('bersihkanKatalog', () => {
   it('memakai deskripsi_app bila ada, jatuh ke description bila tidak', () => {
@@ -155,5 +155,40 @@ describe('bersihkanKatalog', () => {
     ])
     expect(hasil).toHaveLength(1)
     expect(hasil[0].id).toBe('a')
+  })
+})
+
+describe('hargaAplikasi', () => {
+  it('memakai harga aplikasi bila diisi', () => {
+    expect(hargaAplikasi({ aplikasi: '12000' }, 10000)).toBe(12000)
+  })
+
+  it('menerima channel_prices berbentuk string JSON', () => {
+    expect(hargaAplikasi('{"aplikasi":"9500"}', 10000)).toBe(9500)
+  })
+
+  it('jatuh ke harga kasir bila slug aplikasi tidak ada', () => {
+    expect(hargaAplikasi({ gofood: '15000' }, 10000)).toBe(10000)
+  })
+
+  // Kolom yang dikosongkan admin tersimpan sebagai '' -- bukan "gratis".
+  it('jatuh ke harga kasir untuk string kosong, nol, dan negatif', () => {
+    expect(hargaAplikasi({ aplikasi: '' }, 10000)).toBe(10000)
+    expect(hargaAplikasi({ aplikasi: 0 }, 10000)).toBe(10000)
+    expect(hargaAplikasi({ aplikasi: '-500' }, 10000)).toBe(10000)
+  })
+
+  it('jatuh ke harga kasir untuk nilai yang tidak bisa jadi angka', () => {
+    expect(hargaAplikasi({ aplikasi: 'gratis' }, 10000)).toBe(10000)
+    expect(hargaAplikasi('bukan json', 10000)).toBe(10000)
+    expect(hargaAplikasi(null, 10000)).toBe(10000)
+    expect(hargaAplikasi(undefined, 10000)).toBe(10000)
+  })
+
+  it('dipakai bersihkanKatalog sehingga katalog dan checkout sepakat', () => {
+    const [item] = bersihkanKatalog([
+      { id: 'a', name: 'Ice Tea', price: 8000, channel_prices: { aplikasi: '9000' }, is_available: true },
+    ])
+    expect(item.price).toBe(9000)
   })
 })

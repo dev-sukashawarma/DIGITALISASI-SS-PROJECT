@@ -174,13 +174,46 @@ Untuk menjamin keakuratan biaya (HPP), kelancaran pengadaan, dan kemudahan penca
 
 | Aplikasi | File / Modul | Peran Terhadap Satuan |
 |---|---|---|
-| **admin-dashboard** | `apps/admin-dashboard/src/hooks/usePurchaseOrder.ts` | Menggunakan `satuan_po` sebagai unit default saat membuat PO ke supplier |
+| **admin-dashboard** | `apps/admin-dashboard/src/hooks/usePurchaseOrder.ts` | ❌ **BELUM DIIMPLEMENTASIKAN** (diverifikasi 8 Sep 2026: `grep -rn "satuan_po" apps/ packages/` = nol hasil). Rencananya memakai `satuan_po` sebagai unit default saat membuat PO; hari ini form PO masih prefill `bahan.harga_beli` global dan memperlakukan angkanya sebagai satuan master. Lihat peringatan di bawah tabel |
 | **distribusi** | `apps/distribusi/src/components/distribusi/SuratJalanForm.tsx` | Menggunakan `satuan_distribusi` untuk input qty kirim |
-| **distribusi** | `apps/distribusi/src/components/distribusi/VerifikasiForm.tsx` | Menggunakan `satuan_distribusi` untuk verifikasi terima fisik outlet |
+| **distribusi** | `apps/distribusi/src/components/distribusi/VerifikasiForm.tsx` | Menggunakan `satuan_distribusi` untuk verifikasi terima fisik outlet. ⚠️ Logikanya **disalin inline** (baris 113–138), bukan memanggil `getDistribusiFactor()` — dua salinan aturan yang sama, rawan berbeda kalau salah satu diubah |
 | **distribusi** | `apps/distribusi/src/utils/generateSuratJalanExcel.ts` | Mencetak dokumen Surat Jalan fisik & Excel dalam unit `satuan_distribusi` |
 | **pos-kasir** | `resep_item` & Trigger BOM POS | Memotong stok outlet otomatis berdasarkan `satuan_bom` saat transaksi penjualan selesai |
-| **stok** | `apps/stok/src/lib/format/compositeUnit.ts` | Logika fungsi `getDistribusiFactor()` dan formatter display komposit multi-tier |
-| **stok** | `apps/stok/src/hooks/useOpname.ts` | Melakukan opname harian dalam unit distribusi & konversi ke `satuan_kecil` |
+| **stok** | `apps/stok/src/lib/format/compositeUnit.ts` | Logika fungsi `getDistribusiFactor()` dan formatter display komposit multi-tier. ⚠️ **Diam-diam mengembalikan `1`** kalau tidak ada label satuan yang cocok (baris 212) — kesalahan tersamar, bukan tertangkap |
+| **stok** | `apps/stok/src/hooks/useOpname.ts` | ❌ **BELUM DIIMPLEMENTASIKAN** (diverifikasi 8 Sep 2026). Baik `useOpname.ts` maupun `OpnameForm.tsx` tidak merujuk `satuan_distribusi`, `getDistribusiFactor`, maupun `faktor_tampilan`. Rencananya opname dalam unit distribusi lalu konversi ke `satuan_kecil` |
+
+> **Cara membaca tabel ini.** Kolom yang sudah terisi di database **tidak berarti
+> kodenya sudah memakainya.** Status di atas diverifikasi 8 September 2026 dengan
+> `grep` ke seluruh `apps/` dan `packages/`. Perbarui status ini setiap kali
+> implementasinya berubah.
+
+### ✅ Ranjau `satuan_po` — SUDAH DITUTUP (8 Sep 2026)
+
+Untuk **3 bahan**, `satuan_po` bukan satuan master, dan sebelumnya **tidak ada
+kolom faktor yang menyimpan konversinya**:
+
+| Bahan | `satuan_po` | Satuan master | Selisih skala |
+|---|:---:|:---:|:---:|
+| **FOIL** | `roll` | `Dus` | **48×** |
+| **MIE** | `bungkus` | `Dus` | **40×** |
+| **PLASTIK BESAR** | `pack` | `Ikat` | **5×** |
+
+49 bahan lain `satuan_po` sama dengan satuan master, jadi aman — tabel di atas
+menjelaskan kenapa ketiga bahan ini butuh faktor eksplisit sementara yang lain
+tidak.
+
+Kolom **`bahan_baku.faktor_po`** kini ada dan terisi **52/52 bahan aktif**
+(migration `20260908230000`), lengkap dengan trigger `trg_bahan_baku_faktor_po`
+yang menghitung ulang otomatis setiap kali kolom satuan (`satuan_po`,
+`satuan_kecil`, `faktor_konversi`, dst.) berubah — jadi nilainya tidak bisa basi
+diam-diam.
+
+⚠️ **Peringatan yang masih berlaku:** `faktor_po` **belum dibaca kode mana pun**
+(nol call site di `apps/`/`packages/`, diverifikasi 8 Sep 2026). Kolom siap
+dipakai, tapi form PO **tetap tidak boleh** menampilkan `satuan_po` sebagai
+label sampai konversinya benar-benar diwire ke `verifikasi_terima_po` (Tahap 3)
+— sebelum itu, memakai `satuan_po` tanpa membaca `faktor_po` masih akan
+mencatat qty **48× lipat** untuk FOIL seperti dijelaskan di atas.
 
 ---
 
@@ -188,5 +221,7 @@ Untuk menjamin keakuratan biaya (HPP), kelancaran pengadaan, dan kemudahan penca
 
 | Tanggal | Versi | Pembaruan | Otorisasi |
 |---|:---:|---|:---:|
+| **08-09-2026** | **v1.3** | Ranjau `satuan_po` di §4 ditutup: kolom `bahan_baku.faktor_po` (migration `20260908230000`) mengisi konversi FOIL/MIE/PLASTIK BESAR + trigger auto-recalc. Kode belum membacanya — form PO masih tak boleh pakai `satuan_po` sebagai label sampai Tahap 3 selesai. | Lead Dev |
+| **08-09-2026** | **v1.2** | Koreksi §4: dua baris menyatakan implementasi yang **belum ada** (`usePurchaseOrder.ts` memakai `satuan_po`, `useOpname.ts` memakai unit distribusi) — keduanya nol referensi di kode. Ditambahkan status per baris, catatan `getDistribusiFactor()` yang diam-diam mengembalikan 1, catatan salinan inline di `VerifikasiForm.tsx`, dan peringatan ranjau `satuan_po` tanpa faktor untuk FOIL/MIE/PLASTIK BESAR. | Lead Dev |
 | **08-09-2026** | **v1.1** | Penambahan kolom **Satuan BOM (Resep Menu)** untuk melengkapi rantai 4-tingkat satuan (PO ⭢ Distribusi ⭢ Opname ⭢ BOM). | Owner & Lead Dev |
 | **08-09-2026** | **v1.0** | Rilis perdana Master Dokumen Satuan PO & Distribusi berdasarkan keputusan owner & catatan fisik 8 September 2026. Penambahan kolom `satuan_po` dan standardisasi 52 bahan baku aktif. | Owner & Lead Dev |

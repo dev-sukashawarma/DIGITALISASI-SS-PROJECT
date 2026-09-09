@@ -31,6 +31,7 @@ export function KatalogVendorBoard() {
       toast.success('Harga vendor tersimpan')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
+      throw e
     }
   }
 

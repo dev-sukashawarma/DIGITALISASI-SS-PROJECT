@@ -26,6 +26,14 @@ export function BarisVendor({
 
   const belumAdaHarga = v.harga <= 0
 
+  function mulaiSunting() {
+    setHarga(String(v.harga))
+    setSatuanBeli(v.satuan_beli)
+    setIsi(String(v.isi_satuan_kecil))
+    setGalat(null)
+    setSunting(true)
+  }
+
   async function simpan() {
     const input = {
       harga: Number(harga),
@@ -38,8 +46,13 @@ export function BarisVendor({
       return
     }
     setGalat(null)
-    await onSimpan({ id: v.id, ...input })
-    setSunting(false)
+    try {
+      await onSimpan({ id: v.id, ...input })
+      setSunting(false)
+    } catch {
+      // Penyimpanan gagal (parent sudah menampilkan toast.error).
+      // Tetap di mode sunting, biarkan nilai yang sudah diketik apa adanya.
+    }
   }
 
   function batal() {
@@ -156,7 +169,7 @@ export function BarisVendor({
       </td>
       <td className="py-2 px-3 text-right">
         <button
-          onClick={() => setSunting(true)}
+          onClick={mulaiSunting}
           className="rounded-lg border border-stone-200 px-2 py-1 text-stone-500 hover:bg-stone-50"
           aria-label={`Sunting ${v.supplier_nama}`}
         >

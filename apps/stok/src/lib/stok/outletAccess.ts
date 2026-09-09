@@ -79,3 +79,47 @@ export async function assertStaffCanAccessOutlet(serviceClient: any, staffId: st
 
   throw new Error('Forbidden: outlet di luar scope akses Anda')
 }
+
+/**
+ * Ambil daftar outlet yang boleh diakses staff menggunakan service-role client secara langsung.
+ * Menghindari ketergantungan pada auth.uid() PostgREST di server action.
+ */
+export async function getStaffAccessibleOutletIds(serviceClient: any, staffId: string): Promise<Set<string>> {
+  const { data: staff, error: staffErr } = await serviceClient
+    .from('outlet_staff')
+    .select('id, role, outlet_id, status')
+    .eq('id', staffId)
+    .maybeSingle()
+
+  if (staffErr) throw new Error(`DB error: ${staffErr.message}`)
+  if (!staff || staff.status !== 'active') return new Set()
+
+  const isPrivileged = [
+    'admin', 'admin_hr', 'owner', 'spv', 'kitchen',
+    'admin_finance', 'finance', 'purchasing', 'developer', 'regional_manager', 'area_manager'
+  ].includes(staff.role)
+
+  if (isPrivileged) {
+    const { data: allOutlets, error: outErr } = await serviceClient
+      .from('outlets')
+      .select('id')
+      .eq('is_active', true)
+    if (outErr) throw new Error(`DB error: ${outErr.message}`)
+    return new Set((allOutlets ?? []).map((o: any) => o.id))
+  }
+
+  const result = new Set<string>()
+  if (staff.outlet_id) result.add(staff.outlet_id)
+
+  const { data: so, error: soErr } = await serviceClient
+    .from('staff_outlets')
+    .select('outlet_id')
+    .eq('staff_id', staffId)
+
+  if (soErr) throw new Error(`DB error: ${soErr.message}`)
+  ;(so ?? []).forEach((r: any) => {
+    if (r.outlet_id) result.add(r.outlet_id)
+  })
+
+  return result
+}

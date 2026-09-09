@@ -1591,5 +1591,79 @@ vendor · `verifikasi_terima_po` menulis balik ke katalog. Layar Tahap 2 **wajib
 
 ---
 
+## Session 2026-09-09: Rekonsiliasi PO Impor Excel & Perbaikan `payment_status`
+
+**Status:** ✅ Migration `20260909120000` applied & diverifikasi. ⚠️ **Perlu redeploy `finance`.**
+
+### 🔴 Alur pelunasan PO rusak sejak 2 September — `payment_status` kehilangan `'pending'`
+
+| Migration | CHECK `purchase_order.payment_status` |
+|---|---|
+| `20260711120000` (11 Jul) | `('unpaid','pending','paid')` — cocok dengan RPC |
+| `20260902133000` (2 Sep) | ditulis ulang jadi `('unpaid','paid','lunas')` — **`pending` dibuang** |
+
+RPC `settle_purchase_order` menulis `payment_status = 'pending'`, jadi sejak 2 September
+**setiap pelunasan lewat finance dijamin gagal constraint.** Bukti di data: **nol** PO
+berstatus `pending`, **nol** PO punya `cash_transaction_id` — alur itu tak pernah
+menghasilkan apa pun. Yang ada 20 PO ber-`paid_at`, semuanya dari form manual.
+
+**`'lunas'` juga membelah pembacaan.** Form (`PODetailView`) menulis `'lunas'`;
+`usePurchasingDashboard` menghitung utang dengan `<> 'paid'`; `SupplierView` menghitung
+lunas dengan `= 'paid'`. Jadi PO yang ditandai lunas lewat form **tetap tercatat sebagai
+utang**, dan 23 PO impor bertanda `paid` tampil "Unpaid" di halaman detailnya.
+
+**Perbaikan:** constraint dikembalikan ke `('unpaid','pending','paid')` (memulihkan RPC
+sekaligus membuang `'lunas'`), 5 baris `'lunas'` → `'paid'`, badge `PODetailView` memakai
+peta `PAY_BADGE`. **Utang terbuka 456.684.305 → 419.289.025.**
+
+⚠️ **Jangan tambahkan `'lunas'` kembali ke constraint.** Kata itu lahir dari form, bukan dari
+model datanya. Kosakata resmi = `unpaid | pending | paid` (`PoPaymentStatus`, `PAY_META`,
+`settle_purchase_order`). `retail-gateway/src/lib/xendit.ts` juga memakai kata `lunas` — itu
+**domain lain** (status pembayaran Xendit), jangan ikut diseragamkan.
+
+### Rekonsiliasi 26 PO impor Excel `SPO-PO-047` (Agustus) — diparkir owner
+
+26 PO (15–27 Agu, Rp414,9 jt) ditulis **langsung ke tabel**, melewati `verifikasi_terima_po`.
+Itu satu sebab untuk dua akibat: ledger tak pernah ditulis, dan `jatuh_tempo` tak dihitung
+dari termin. **24 di antaranya nol baris ledger** (Rp367,9 jt).
+
+Dicocokkan dengan `adjustment` di Gudang Pusat (pencocokan **tak langsung** — `adjustment`
+tidak menyimpan rujukan PO; dasarnya bahan + jumlah + tanggal + catatan):
+
+| | Nilai | Porsi |
+|---|---:|---:|
+| Tertutup `adjustment` (12 bahan) | Rp 314.619.740 | 85,5% |
+| Tertutup hanya lewat `opname_selisih` (6 bahan) | Rp 26.735.000 | 7,3% |
+| Tak ada jejak (6 bahan) | Rp 26.505.055 | 7,2% |
+
+TEPUNG & CUP cocok persis sampai angka terakhir. Sisa yang benar-benar perlu ditanya ke
+gudang tinggal **Rp7.945.000** (STIKER, KETUMBAR, JINTEN) — FOIL sudah diselesaikan lewat
+hitung fisik 8 Sep, dan PRINTER THERMAL / ID CARD memang bukan bahan baku.
+
+**Keputusan owner: penyesuaian Agustus diparkir, fokus September.**
+
+⚠️ **Jebakan saat mencocokkan:** ada `pembelian_supplier` 8 September yang qty-nya persis
+sama dengan PO Agustus (JINTEN 10.000, KETUMBAR 50.000, KUNYIT 432). Itu **milik PO
+September** dari Family Suplayer — daftar belanjanya kebetulan sama. Nyaris jadi kesimpulan
+salah; selalu baca `catatan` ledger-nya, jangan cocokkan qty saja.
+
+### September bersih
+
+16 PO, **semua yang diterima menulis ledger** — nol celah. Masalah Agustus tidak berulang
+karena PO September dibuat lewat aplikasi. 5 PO masih di supplier (Rp158,1 jt).
+
+### 📝 Belum dikerjakan
+
+- **Tab "Non-Bahan Baku" di Nilai Persediaan** — sudah disetujui owner, belum digarap.
+  PRINTER THERMAL (`kategori='ASET'`) ikut terhitung **Rp4.885.072 (1,26%)** di nilai
+  persediaan; ID CARD (`PERLENGKAPAN`) saldo nol. Rencana: pisahkan di sisi aplikasi
+  (`useNilaiPersediaan` + `NilaiPersediaanBoard`), **bukan** di view — `nilai_persediaan_spv`
+  didefinisikan migration bertimestamp **2030**, jadi migration bertanggal hari ini akan
+  ditimpa diam-diam saat replay.
+- Konfirmasi ke supplier: Toko Zein `SPB/…/042` (tempo 30 atau tunai) dan Altindo
+  `SPB/…/021` (2.000 **Roll** FOIL — catatan itemnya `Satuan: ROLL`, bukan Dus).
+
+---
+
 **Last updated:** 2026-09-09  
 **Owner:** Dev Suka Shawarma

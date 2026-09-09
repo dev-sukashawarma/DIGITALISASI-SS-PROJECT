@@ -13,6 +13,20 @@ import { generatePurchaseOrderPDF } from '@/utils/poPdfExporter'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
 
+/**
+ * Kosakata payment_status: 'unpaid' | 'pending' | 'paid' — sama dengan CHECK di
+ * purchase_order, RPC settle_purchase_order, dan tipe PoPaymentStatus.
+ *
+ * Sebelumnya form ini menulis 'lunas' sementara dashboard utang & halaman
+ * supplier membaca 'paid', jadi PO yang ditandai lunas tetap tercatat sebagai
+ * utang. Disatukan oleh migration 20260909120000.
+ */
+const PAY_BADGE: Record<string, { label: string; cls: string }> = {
+  unpaid: { label: 'Unpaid', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+  pending: { label: 'Proses', cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+  paid: { label: 'Lunas', cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+}
+
 const STATUS_LABEL: Record<POStatus, string> = {
   draft: 'Draft',
   menunggu_approval_finance: 'Menunggu Approval Finance',
@@ -519,8 +533,8 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           <div className="flex flex-wrap items-center gap-6 text-sm">
             <div>
               <span className="text-suka-brown/60 font-semibold block text-xs">Status Pembayaran</span>
-              <span className={`font-bold mt-1 inline-block px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider border ${po.payment_status === 'lunas' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-amber-50 text-amber-800 border-amber-200'}`}>
-                {po.payment_status === 'lunas' ? 'Lunas' : 'Unpaid'}
+              <span className={`font-bold mt-1 inline-block px-2.5 py-0.5 rounded-lg text-[10px] uppercase tracking-wider border ${PAY_BADGE[po.payment_status ?? 'unpaid']?.cls ?? PAY_BADGE.unpaid.cls}`}>
+                {PAY_BADGE[po.payment_status ?? 'unpaid']?.label ?? PAY_BADGE.unpaid.label}
               </span>
             </div>
             <div>
@@ -547,7 +561,7 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
                   className="w-full bg-white border border-suka-brown/20 rounded-xl px-3 py-2 text-sm font-medium text-suka-brown focus:outline-none focus:border-suka-orange transition-colors"
                 >
                   <option value="unpaid">Unpaid</option>
-                  <option value="lunas">Lunas</option>
+                  <option value="paid">Lunas</option>
                 </select>
               </div>
               <div>

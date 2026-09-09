@@ -62,6 +62,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/pawoon-import/synced',
     '/dashboard/pembelian',
     '/dashboard/pembelian/harga',
+    '/dashboard/pembelian/katalog-vendor',
     '/dashboard/pembelian/perlu-dibeli',
     '/dashboard/pembelian/permintaan',
     '/dashboard/pembelian/supplier',
@@ -118,6 +119,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
   PURCHASING: [
     '/dashboard/pembelian',
     '/dashboard/pembelian/harga',
+    '/dashboard/pembelian/katalog-vendor',
     '/dashboard/pembelian/perlu-dibeli',
     '/dashboard/pembelian/permintaan',
     '/dashboard/pembelian/supplier',

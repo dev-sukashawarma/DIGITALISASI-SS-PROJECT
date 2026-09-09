@@ -15,11 +15,38 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/** Jeda antar-penanyaan status. */
-private const val JEDA_TANYA_MS = 3_000L
+/** Jeda antar-penanyaan status selama menit pertama. */
+private const val JEDA_TANYA_AWAL_MS = 3_000L
 
-/** Batas menunggu konfirmasi pembayaran. */
-private const val BATAS_TUNGGU_MS = 5 * 60 * 1000L
+/**
+ * Jeda setelah menit pertama lewat.
+ *
+ * Pembayaran yang mulus sudah dikonfirmasi dalam hitungan detik. Yang tersisa
+ * setelah semenit adalah pelanggan yang sedang bergulat dengan aplikasi
+ * banknya -- salah PIN, saldo kurang, top-up dulu. Menanyai server tiap tiga
+ * detik selama belasan menit untuk itu memboroskan baterai dan kuota tanpa
+ * mempercepat apa pun.
+ */
+private const val JEDA_TANYA_LANJUT_MS = 10_000L
+
+/** Ambang perpindahan antara kedua jeda di atas. */
+private const val AMBANG_JEDA_MS = 60 * 1000L
+
+/**
+ * Batas menunggu konfirmasi pembayaran.
+ *
+ * DISAMAKAN DENGAN UMUR DRAFT DAN UMUR QR (`BATAS_BAYAR_DETIK` di gateway,
+ * 15 menit). Sebelumnya 5 menit, dan selisih sepuluh menit itu punya wujud
+ * nyata: QR di tangan pelanggan masih sah, tetapi layar sudah menyerah dan
+ * berkata "belum ada kabar". Pesanannya tetap masuk -- webhook tidak peduli
+ * aplikasi masih menonton atau tidak -- tapi orang yang sedang menatap layar
+ * itu tidak punya cara tahu.
+ *
+ * Kalau umur draft di gateway diubah, angka ini WAJIB ikut. Menunggu lebih
+ * lama dari umur draft hanya memperpanjang tatapan pada pesanan yang sudah
+ * mati; menunggu lebih singkat mengembalikan lubang yang baru saja ditutup.
+ */
+private const val BATAS_TUNGGU_MS = 15 * 60 * 1000L
 
 data class PaymentState(
     val memuat: Boolean = false,
@@ -134,7 +161,8 @@ class PaymentViewModel(
         _state.value = _state.value.copy(menungguKonfirmasi = true, waktuHabis = false)
 
         viewModelScope.launch {
-            val batas = System.currentTimeMillis() + BATAS_TUNGGU_MS
+            val mulai = System.currentTimeMillis()
+            val batas = mulai + BATAS_TUNGGU_MS
 
             while (System.currentTimeMillis() < batas) {
                 when (val hasil = repository.statusPesanan(orderId)) {
@@ -176,7 +204,8 @@ class PaymentViewModel(
                     is GatewayResult.Gagal -> Unit
                 }
 
-                delay(JEDA_TANYA_MS)
+                val terlewat = System.currentTimeMillis() - mulai
+                delay(if (terlewat < AMBANG_JEDA_MS) JEDA_TANYA_AWAL_MS else JEDA_TANYA_LANJUT_MS)
             }
 
             // Habis waktu bukan berarti gagal. Pesanan bisa saja tetap masuk;

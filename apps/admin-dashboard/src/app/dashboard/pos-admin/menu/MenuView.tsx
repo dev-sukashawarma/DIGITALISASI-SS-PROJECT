@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plus, Pencil, Trash2, X, Loader2, Copy,
   AlertCircle, UploadCloud, Sandwich, ToggleLeft, ToggleRight,
-  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe, Tag
+  Search, MoreVertical, Check, ArrowUpDown, ChevronUp, ChevronDown, Store, Sparkles, Globe, Tag, Smartphone
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { CurrencyInput, compressImageToWebP } from '@suka/design-system'
@@ -16,7 +16,7 @@ import { formatRupiah } from '@/lib/validations'
 import type { MenuItem, Category, SalesChannel, Outlet } from '@/pos-types'
 import { useDialogStore } from '@/lib/dialogStore'
 import { MenuPicker } from './MenuPicker'
-import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync } from './actions'
+import { saveMenuItem, toggleMenuAvailability, deleteMenuItem, deleteAllMenuItems, toggleGlobalSetting, toggleMenuPublished, retryMenuOnlineSync, toggleTampilDiApp } from './actions'
 import { getChannel } from '@/lib/channels'
 import { getPromoStatus } from '@/lib/promoSchedule'
 
@@ -207,6 +207,7 @@ interface FormState {
   is_available: boolean
   is_available_online: boolean
   is_published_order_online: boolean
+  tampil_di_app: boolean
   available_online_channels: string[] | null
   image_url: string | null
   is_package: boolean
@@ -217,7 +218,7 @@ interface FormState {
 const EMPTY: FormState = {
   id: null, name: '', description: '', price: '', strike_price: '', campaign_price: '', is_campaign_active: false, base_price: '',
   channel_prices: {},
-  category_id: '', is_available: true, is_available_online: true, is_published_order_online: false, available_online_channels: null, image_url: null,
+  category_id: '', is_available: true, is_available_online: true, is_published_order_online: false, tampil_di_app: false, available_online_channels: null, image_url: null,
   is_package: false, package_items: [], outlet_ids: null
 }
 
@@ -528,6 +529,7 @@ export default function MenuView({
       is_available: item.is_available, 
       is_available_online: item.is_available_online ?? true,
       is_published_order_online: item.is_published_order_online ?? false,
+      tampil_di_app: item.tampil_di_app ?? false,
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
@@ -560,6 +562,9 @@ export default function MenuView({
       is_available: item.is_available, 
       is_available_online: item.is_available_online ?? true,
       is_published_order_online: false,
+      // Salinan tidak ikut terbit di aplikasi: menu duplikat biasanya masih
+      // setengah jadi, dan menerbitkannya berarti pelanggan bisa memesannya.
+      tampil_di_app: false,
       available_online_channels: item.available_online_channels ?? null,
       image_url: item.image_url,
       is_package: item.is_package ?? false,
@@ -640,7 +645,7 @@ export default function MenuView({
       campaign_price: form.campaign_price ? parseFloat(form.campaign_price) : null,
       is_campaign_active: form.is_campaign_active,
       category_id: form.category_id || null,
-      is_available: form.is_available, is_available_online: form.is_available_online, is_published_order_online: form.is_published_order_online, available_online_channels: form.available_online_channels, image_url: imgUrl,
+      is_available: form.is_available, is_available_online: form.is_available_online, is_published_order_online: form.is_published_order_online, tampil_di_app: form.tampil_di_app, available_online_channels: form.available_online_channels, image_url: imgUrl,
       channel_prices: parsedChannelPrices,
       is_package: form.is_package,
       package_items_to_save: form.is_package ? form.package_items.map(pi => ({ menu_item_id: pi.menu_item_id, or_menu_item_id: pi.or_menu_item_id, quantity: pi.quantity })) : [],
@@ -672,6 +677,11 @@ export default function MenuView({
   async function togglePublished(item: MenuItem) {
     try { await toggleMenuPublished(item.id, item.is_published_order_online === true) }
     catch (err: any) { setError(err?.message || 'Sinkronisasi gagal') }
+  }
+
+  async function toggleApp(item: MenuItem) {
+    try { await toggleTampilDiApp(item.id, item.tampil_di_app === true) }
+    catch (err: any) { setError(err?.message || 'Gagal mengubah tayang aplikasi') }
   }
 
   async function deleteItem(item: MenuItem) {
@@ -1178,6 +1188,33 @@ export default function MenuView({
                         </div>
                         <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.is_published_order_online ? 'bg-emerald-500' : 'bg-slate-300'}`}>
                           <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.is_published_order_online ? 'left-6' : 'left-1'}`} />
+                        </div>
+                      </div>
+
+                      {/* Toggle: Tampilkan di SukaShawarma APP */}
+                      <div
+                        onClick={() => setForm({ ...form, tampil_di_app: !form.tampil_di_app })}
+                        className={`flex items-center justify-between p-3.5 rounded-xl border transition-all cursor-pointer select-none
+                          ${form.tampil_di_app
+                            ? 'border-amber-200 bg-amber-50/40 hover:bg-amber-50/60'
+                            : 'border-slate-200 bg-slate-50/50 hover:bg-slate-100/60'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-xs
+                            ${form.tampil_di_app ? 'bg-amber-100 text-amber-600' : 'bg-white border border-slate-200 text-slate-400'}`}>
+                            <Smartphone className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-xs sm:text-sm font-bold truncate ${form.tampil_di_app ? 'text-amber-900' : 'text-slate-700'}`}>
+                              Tampilkan di SukaShawarma APP
+                            </p>
+                            <p className="text-[11px] text-slate-500 font-medium truncate">
+                              {form.tampil_di_app ? 'Pelanggan bisa memesan menu ini dari aplikasi' : 'Tidak muncul di aplikasi pelanggan'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`w-11 h-6 rounded-full transition-colors relative shrink-0 ${form.tampil_di_app ? 'bg-amber-500' : 'bg-slate-300'}`}>
+                          <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-xs transition-transform duration-200 ${form.tampil_di_app ? 'left-6' : 'left-1'}`} />
                         </div>
                       </div>
 
@@ -1757,6 +1794,7 @@ export default function MenuView({
                     </div>
                   </th>
                   <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Order Online</th>
+                  <th className="text-center py-3.5 px-4 font-semibold text-gray-500">Aplikasi</th>
                   <th className="text-center py-3.5 px-4 font-semibold text-gray-500 cursor-pointer group" onClick={() => requestSort('status')}>
                     <div className="flex items-center justify-center">Status {getSortIcon('status')}</div>
                   </th>
@@ -1987,6 +2025,13 @@ export default function MenuView({
                         {item.order_online_sync_status === 'pending' && <span className="text-[10px] text-amber-500">Pending</span>}
                         {item.order_online_sync_status === 'failed' && <span className="text-[10px] text-red-500" title={item.order_online_sync_error || undefined}>Gagal</span>}
                       </div>
+                    </td>
+
+                    {/* Tayang di SukaShawarma APP */}
+                    <td className="py-3.5 px-4 text-center">
+                      <button onClick={() => toggleApp(item)} className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${item.tampil_di_app ? 'bg-amber-50 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {item.tampil_di_app ? 'Tayang Aplikasi' : 'Tidak tayang'}
+                      </button>
                     </td>
 
                     {/* Status toggle */}

@@ -63,6 +63,14 @@ export interface MenuItem {
   is_available: boolean
   is_available_online: boolean
   is_published_order_online?: boolean
+  /**
+   * Terbit di SukaShawarma APP (aplikasi pelanggan).
+   *
+   * Terpisah dari `is_published_order_online`: website Order-Online dan
+   * aplikasi adalah dua kanal berbeda dengan katalog yang boleh berbeda.
+   * Gateway retail menyaring dengan kolom ini di `lib/catalog.ts`.
+   */
+  tampil_di_app?: boolean
   order_online_sync_status?: 'not_published' | 'pending' | 'synced' | 'failed'
   order_online_sync_error?: string | null
   order_online_sync_updated_at?: string | null

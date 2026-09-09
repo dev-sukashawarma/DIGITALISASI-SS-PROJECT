@@ -1,6 +1,6 @@
 import type { SalesSource } from './types'
 
-export type ChannelGroup = 'offline' | 'online' | 'foodapps' | 'tiktok'
+export type ChannelGroup = 'offline' | 'online' | 'foodapps' | 'tiktok' | 'app'
 
 const MAP: Record<SalesSource, ChannelGroup> = {
   pos: 'offline',
@@ -14,6 +14,11 @@ const MAP: Record<SalesSource, ChannelGroup> = {
   tiktok_shop: 'online',
   shopee_shop: 'online',
   endors: 'offline',
+  // Grup sendiri, bukan digabung ke 'online'. Keputusan owner 2026-09-09:
+  // pertumbuhan aplikasi harus terbaca terpisah dari website & marketplace.
+  // Sebelum ini 'app' tidak ada di peta sama sekali, jadi omzet aplikasi
+  // jatuh diam-diam ke 'offline' lewat fallback di groupChannel().
+  app: 'app',
 }
 
 /** Kelompokkan sales_source jadi 4 grup channel untuk laporan Rekap Bulanan. Nilai tak dikenal jatuh ke 'offline' (sama seperti default POS Kasir di resolveOrderSource). */

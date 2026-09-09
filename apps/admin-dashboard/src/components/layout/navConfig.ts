@@ -124,6 +124,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/pembelian/katalog-vendor', label: 'Katalog Harga Vendor', shortLabel: 'Katalog Vendor', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['ADMIN', 'PURCHASING'] },
     ],
   },

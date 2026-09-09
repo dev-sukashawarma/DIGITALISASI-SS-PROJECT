@@ -628,3 +628,47 @@ menampilkan "Menu belum terbit" dan seluruh persiapan di atas sia-sia.
 - Putuskan apakah 3 menu itu tetap `tampil_di_app` (menu bersifat global —
   begitu outlet pilot sungguhan dinyalakan, ketiganya ikut terbit di sana).
 - **Rotasi `CRON_SECRET`** — nilainya pernah masuk transkrip percakapan.
+
+---
+
+## Penjadwalan `expire-drafts` di Coolify (9 September 2026)
+
+Tanpa penjadwal, draft `menunggu_bayar` yang tidak jadi dibayar tidak pernah
+berpindah status — pelanggan melihatnya menumpuk di Riwayat sebagai pesanan
+yang seolah masih berjalan. Endpointnya sudah ada dan terlindungi
+(`POST /api/cron/expire-drafts`, dibalas 401 tanpa header yang benar,
+diverifikasi di produksi), yang belum ada hanya yang memanggilnya.
+
+**Coolify → aplikasi `retail-gateway` → Scheduled Tasks → + Add**
+
+| Kolom | Isi |
+|---|---|
+| Name | `expire-drafts` |
+| Frequency | `*/5 * * * *` |
+| Container | biarkan kosong (kontainer utama app) |
+| Command | lihat di bawah |
+
+```
+node -e "fetch('http://127.0.0.1:3000/api/cron/expire-drafts',{method:'POST',headers:{authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{console.log(r.status, await r.text()); if(!r.ok) process.exit(1)}).catch(e=>{console.error('GAGAL:', e.message); process.exit(1)})"
+```
+
+Tiga alasan bentuk perintahnya seperti itu:
+
+1. **`node`, bukan `curl`.** Basis image `node:24-bookworm-slim` tidak memuat
+   `curl` maupun `wget`. Perintah ber-`curl` akan gagal `command not found`
+   setiap lima menit, dan kegagalan itu mudah dikira endpointnya yang rusak.
+2. **`process.env.CRON_SECRET`, bukan nilainya diketik.** Rahasianya sudah ada
+   di lingkungan kontainer; menyalinnya ke kolom perintah menaruh satu salinan
+   lagi di tempat baru, tanpa manfaat apa pun.
+3. **`process.exit(1)` saat gagal.** Tanpa itu perintah selalu keluar dengan
+   kode 0 dan Coolify melaporkan "berhasil" meskipun jawabannya 401 atau 500 —
+   penjadwal yang tampak sehat padahal tidak pernah menghanguskan apa pun.
+
+**Verifikasi setelah dipasang:** jalankan sekali lewat tombol Run di Coolify,
+lalu baca lognya. Keluaran yang benar `200 {"dihanguskan":N}`. Bila `401`,
+`CRON_SECRET` di panel belum terisi atau kontainer belum di-redeploy sejak
+variabel itu ditambahkan.
+
+⚠️ Rotasi `CRON_SECRET` **setelah** penjadwal terbukti jalan, jangan sebelum —
+kalau tidak, kegagalan rotasi dan kegagalan penjadwal bercampur jadi satu
+gejala yang sama.

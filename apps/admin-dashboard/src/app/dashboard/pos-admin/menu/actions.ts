@@ -87,6 +87,7 @@ export async function saveMenuItem(form: Partial<MenuItem> & { package_items_to_
     outlet_id: form.outlet_id || null,
     available_outlets: form.available_outlets || null,
     is_published_order_online: form.is_published_order_online ?? false,
+    tampil_di_app: form.tampil_di_app ?? false,
     order_online_sync_status: form.is_published_order_online ? 'pending' : 'not_published',
     order_online_sync_error: null,
     order_online_sync_updated_at: new Date().toISOString(),
@@ -182,6 +183,27 @@ export async function toggleMenuPublished(id: string, published: boolean) {
   else {
     try { await syncOrQueue(supabase, row, 'delete') } catch { await markSync(supabase, id, 'not_published') }
   }
+  revalidatePath('/dashboard/pos-admin/menu')
+}
+
+/**
+ * Menyalakan/mematikan menu di SukaShawarma APP.
+ *
+ * Menegasikan `currentStatus` DI SINI, mengikuti `toggleMenuAvailability`.
+ * Pemanggil mengirim keadaan sekarang, bukan keadaan yang diinginkan --
+ * kalau kedua sisi sama-sama tidak menegasikan, tombolnya tidak pernah
+ * membalik apa pun dan kegagalannya senyap.
+ *
+ * Tidak ada sinkronisasi ke sistem luar: gateway retail membaca
+ * `menu_items` langsung, jadi perubahan langsung terasa di aplikasi.
+ */
+export async function toggleTampilDiApp(id: string, currentStatus: boolean) {
+  const supabase = await getSupabase()
+  const { error } = await supabase
+    .from('menu_items')
+    .update({ tampil_di_app: !currentStatus })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
   revalidatePath('/dashboard/pos-admin/menu')
 }
 

@@ -3,6 +3,7 @@ import {
   kelompokkanKatalog,
   ringkasKatalog,
   validasiBarisKatalog,
+  parseAngkaId,
   type BarisKatalogVendor,
 } from './katalogGroup'
 
@@ -12,6 +13,7 @@ const baris = (o: Partial<BarisKatalogVendor>): BarisKatalogVendor => ({
   bahan: 'FOIL',
   satuan: 'Dus',
   satuan_po: 'roll',
+  satuan_kecil: 'cm',
   faktor_po: 760,
   supplier_id: 's1',
   supplier_nama: 'Vendor A',
@@ -101,6 +103,14 @@ describe('kelompokkanKatalog', () => {
     expect(hasil[0].hargaMasterPerKecil).toBeNull()
   })
 
+  it('membawa satuan_kecil ke tingkat kelompok', () => {
+    const hasil = kelompokkanKatalog([
+      baris({ id: 'r1', supplier_id: 's1', satuan_kecil: 'roll' }),
+      baris({ id: 'r2', supplier_id: 's2', satuan_kecil: 'roll' }),
+    ])
+    expect(hasil[0].satuan_kecil).toBe('roll')
+  })
+
   it('baris perlu_ditinjau tidak dihitung sebagai berharga meski harganya terisi', () => {
     const hasil = kelompokkanKatalog([
       baris({ id: 'r1', supplier_id: 's1', harga: 999, perlu_ditinjau: true }),
@@ -167,5 +177,31 @@ describe('validasiBarisKatalog', () => {
 
   it('harga nol diperbolehkan -- artinya belum diisi', () => {
     expect(validasiBarisKatalog({ harga: 0, isi_satuan_kecil: 20, satuan_beli: 'Pack' })).toBeNull()
+  })
+})
+
+describe('parseAngkaId', () => {
+  it.each([
+    ['8.791', 8791],
+    ['36.480', 36480],
+    ['8791,2', 8791.2],
+    ['11,5674', 11.5674],
+    ['8791.2', 8791.2],
+    ['421.977,6', 421977.6],
+    ['0', 0],
+  ])('%s -> %s', (masukan, harapan) => {
+    expect(parseAngkaId(masukan)).toBeCloseTo(harapan as number, 6)
+  })
+
+  it('string kosong -> null', () => {
+    expect(parseAngkaId('')).toBeNull()
+  })
+
+  it('spasi saja -> null', () => {
+    expect(parseAngkaId('   ')).toBeNull()
+  })
+
+  it('bukan angka -> null', () => {
+    expect(parseAngkaId('abc')).toBeNull()
   })
 })

@@ -74,7 +74,7 @@ export function KatalogVendorBoard() {
         </p>
       ) : (
         tampil.map((k) => {
-          const satuanKecil = k.satuan_po ?? k.satuan ?? 'satuan'
+          const satuanKecil = k.satuan_kecil ?? 'satuan kecil'
           return (
             <section key={k.bahan_baku_id} className="rounded-2xl border border-stone-200 bg-white">
               <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-100 px-4 py-3">
@@ -117,6 +117,7 @@ export function KatalogVendorBoard() {
                         key={v.id}
                         v={v}
                         satuanKecil={satuanKecil}
+                        hargaMasterPerKecil={k.hargaMasterPerKecil}
                         menyimpan={simpanBaris.isPending}
                         onSimpan={simpan}
                       />

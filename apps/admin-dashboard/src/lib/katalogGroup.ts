@@ -12,6 +12,8 @@ export type BarisKatalogVendor = BarisKatalog & {
   bahan: string
   satuan: string | null
   satuan_po: string | null
+  /** Satuan kecil sesungguhnya (mis. "roll", bukan "Dus"/"Roll" PO). */
+  satuan_kecil: string | null
   faktor_po: number | null
   termin_hari: number | null
   sumber: string
@@ -32,6 +34,7 @@ export type KelompokBahan = {
   bahan: string
   satuan: string | null
   satuan_po: string | null
+  satuan_kecil: string | null
   faktor_po: number | null
   /** Harga master per satuan kecil, untuk dibandingkan dengan harga vendor. */
   hargaMasterPerKecil: number | null
@@ -79,6 +82,7 @@ export function kelompokkanKatalog(rows: BarisKatalogVendor[]): KelompokBahan[] 
       bahan: pertama.bahan,
       satuan: pertama.satuan,
       satuan_po: pertama.satuan_po,
+      satuan_kecil: pertama.satuan_kecil,
       faktor_po: pertama.faktor_po,
       hargaMasterPerKecil: pertama.harga_master_per_kecil,
       vendors,
@@ -111,6 +115,36 @@ export function ringkasKatalog(kelompok: KelompokBahan[]): RingkasanKatalog {
     bahanMultivendor,
     bisaDibandingkan,
   }
+}
+
+/**
+ * Parser angka gaya Indonesia — operator terbiasa mengetik "8.791" untuk
+ * delapan ribu tujuh ratus sembilan puluh satu (titik = pemisah ribuan),
+ * bukan `Number()` yang membacanya sebagai 8,791.
+ *
+ * Aturan:
+ * - String kosong (setelah trim) -> null.
+ * - Ada koma -> koma adalah desimal: buang semua titik, ganti koma jadi titik.
+ * - Tidak ada koma DAN pola ribuan murni (`^\d{1,3}(\.\d{3})+$`) -> titik adalah
+ *   pemisah ribuan: buang semua titik.
+ * - Selain itu: pakai apa adanya (satu titik dianggap desimal).
+ * - Hasil bukan bilangan berhingga -> null.
+ */
+export function parseAngkaId(teks: string): number | null {
+  const t = teks.trim()
+  if (!t) return null
+
+  let dinormalisasi: string
+  if (t.includes(',')) {
+    dinormalisasi = t.replace(/\./g, '').replace(',', '.')
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(t)) {
+    dinormalisasi = t.replace(/\./g, '')
+  } else {
+    dinormalisasi = t
+  }
+
+  const n = Number(dinormalisasi)
+  return Number.isFinite(n) ? n : null
 }
 
 /**

@@ -26,15 +26,20 @@ export function rahasiaCocok(diberikan: string | null, diharapkan: string): bool
 const BATAS_BAYAR_DETIK = 15 * 60
 
 /**
- * Nominal terkecil yang benar-benar bisa dibayar lewat QRIS.
+ * Nominal terkecil untuk jalur **Invoice** (halaman pembayaran Xendit).
  *
- * Ini bukan angka teoretis: tagihan Rp3 dibuat pada 2026-09-07 dan halaman
+ * Bukan angka teoretis: tagihan Rp3 dibuat pada 2026-09-07 dan halaman
  * pembayarannya TIDAK PERNAH selesai memuat -- tanpa pesan galat, hanya
  * kerangka kosong selamanya. Tagihan Rp8.000 pada menit yang sama tampil
- * normal. Menolak di sini, dengan kalimat yang jelas, jauh lebih baik
- * daripada membiarkan pelanggan menemukan halaman yang tak pernah hidup.
+ * normal.
+ *
+ * ⚠️ Batas ini milik HALAMAN-nya, bukan QRIS-nya. Yang gagal adalah render
+ * halaman Xendit, bukan pembuatan tagihannya. Karena itu batas ini TIDAK
+ * berlaku di `buatQris`: di sana aplikasi menggambar kodenya sendiri, tidak
+ * ada halaman yang bisa gagal, dan Xendit-lah yang berhak menentukan batas
+ * nominalnya sendiri.
  */
-export const NOMINAL_MIN_QRIS = 1_000
+export const NOMINAL_MIN_INVOICE = 1_000
 
 export async function buatTagihan(input: {
   externalId: string
@@ -48,8 +53,16 @@ export async function buatTagihan(input: {
   // Penjagaan di batas pembayaran. Tagihan nol atau negatif adalah tanda ada
   // yang salah di hulu; tolak di sini daripada menunggu Xendit menolaknya
   // setelah satu perjalanan jaringan.
-  if (!Number.isInteger(input.amount) || input.amount < 1) {
-    throw new Error('Nilai tagihan tidak sah')
+  //
+  // Batas Rp1.000 berlaku KHUSUS di jalur ini: halaman tagihan Xendit terbukti
+  // tak pernah selesai memuat untuk nominal sangat kecil (lihat
+  // NOMINAL_MIN_INVOICE). Melempar di sini membuat pemanggil menandai draft
+  // gagal dengan alasan yang jelas, alih-alih mengirim pelanggan ke halaman
+  // kosong yang tak pernah hidup.
+  if (!Number.isInteger(input.amount) || input.amount < NOMINAL_MIN_INVOICE) {
+    throw new Error(
+      `Nominal minimum halaman tagihan adalah Rp${NOMINAL_MIN_INVOICE}; diminta Rp${input.amount}`
+    )
   }
 
   const res = await fetch('https://api.xendit.co/v2/invoices', {
@@ -125,10 +138,18 @@ export async function buatQris(input: {
   const key = process.env.XENDIT_SECRET_KEY
   if (!key) throw new Error('XENDIT_SECRET_KEY belum di-set')
 
-  if (!Number.isInteger(input.amount) || input.amount < NOMINAL_MIN_QRIS) {
-    throw new Error(
-      `Nominal minimum QRIS adalah Rp${NOMINAL_MIN_QRIS}; diminta Rp${input.amount}`
-    )
+  // TIDAK ADA batas minimum di sini, dan itu disengaja.
+  //
+  // Versi pertama memasang batas Rp1.000, dipinjam dari kegagalan jalur
+  // Invoice. Itu keliru: yang gagal pada Rp3 adalah HALAMAN Xendit yang tak
+  // pernah selesai memuat -- sedangkan di jalur ini aplikasi menggambar
+  // kodenya sendiri dari `qr_string`, jadi tidak ada halaman yang bisa gagal.
+  //
+  // Kalau Xendit memang punya batas, Xendit yang menolak, dengan pesannya
+  // sendiri -- dan pemanggil jatuh ke Invoice. Menebak batas milik pihak lain
+  // berarti menolak pembayaran yang sebenarnya bisa jalan.
+  if (!Number.isInteger(input.amount) || input.amount < 1) {
+    throw new Error(`Nominal tagihan tidak sah: ${input.amount}`)
   }
 
   const res = await fetch('https://api.xendit.co/qr_codes', {

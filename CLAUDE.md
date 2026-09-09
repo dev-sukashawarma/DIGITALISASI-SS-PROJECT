@@ -1665,5 +1665,147 @@ karena PO September dibuat lewat aplikasi. 5 PO masih di supplier (Rp158,1 jt).
 
 ---
 
+## Session 2026-09-09: Waterfall Deduction — Bug Konversi Satuan Antar Bahan (apps/stok, DB)
+
+**Status:** ✅ Fungsi DB diperbaiki & live (migration `20260909170000`, applied 2026-09-09
+07:32:37 UTC / 14:32 WIB, terstempel di `schema_migrations`). Spec
+`docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md` dikoreksi di sesi yang sama.
+**Nol app perlu redeploy** — murni fungsi database + dokumentasi, tak ada kode aplikasi
+yang berubah.
+
+### A. Bug: sisa limpahan tak dikonversi antar satuan
+
+`process_waterfall_deduction` melacak sisa yang belum tertutup dalam **satuan besar bahan
+utama**, lalu mengalikannya dengan `faktor_tampilan` **pengganti** saat menuliskannya ke
+ledger — tanpa pernah mengoreksi bahwa kedua bahan bisa punya `faktor_tampilan` berbeda.
+
+**Bukti live:** SAOS TOMAT POUCH (utama, 12.000 g/Dus) → SAOS TOMAT KOMPAN (pengganti,
+16.500 g/Dus), rasio **1,375**. Resep 30 g memotong **41,25 g** di outlet yang POUCH-nya
+sudah habis. Order #38 "Original Sapi Jumbo" menunjukkan tanda tangan persis: `-30` di
+outlet yang POUCH-nya masih ada, `-41,25` di Beji & Depok Sukmajaya yang POUCH-nya kosong.
+
+Skala sejak 2 Agustus 2026: **2.185 baris**, total **88.003,61 g** dipotong dari KOMPAN,
+di antaranya **24.000,98 g tidak pernah benar-benar terpakai** (≈ Rp 273.000 @ Rp 11,3744/g).
+
+**Perbaikan:** sisa kini dilacak dalam **satuan kecil** — basis yang dibagikan bersama oleh
+sebuah bahan dan penggantinya (itulah syarat sebuah pasangan boleh disubstitusi). Setiap
+kali fungsi berpindah bahan, sisa dalam satuan kecil dikonversi ke skala ledger bahan
+tersebut sendiri sebelum ditulis.
+
+### B. Dua keputusan yang jangan dibuka ulang tanpa alasan baru
+
+**K1 — koreksi mundur DIBATALKAN, sengaja.** Spec awal minta koreksi ledger untuk 24.001 g
+yang terlanjur terpotong. Tidak diperlukan dan justru berbahaya: kelima outlet terdampak
+menjalankan opname hampir tiap hari, dan tiap `opname_selisih` menyetel ulang saldo ke hasil
+hitung fisik — kelebihan potongan itu tak pernah sempat menumpuk.
+
+| Outlet | Saldo kini | Koreksi terakhir |
+|---|---:|---|
+| DEPOK SUKMAJAYA | 10.093,75 | opname 8, 7, 6, 5 Sep |
+| PALEDANG | 16.500 | opname 7, 5, 4 Sep |
+| BEJI | 0 | opname 4 Sep |
+| EMPANG | 0 | opname 28 Agu |
+| KALISARI | 0 | opname 24 Agu |
+
+Menyuntikkan `adjustment` sekarang akan menambah stok hantu di atas saldo yang sudah benar.
+Baris `pemakaian` historis dibiarkan apa adanya — jejak audit, sudah diimbangi
+`opname_selisih` di sebelahnya. HPP tidak terpengaruh: `get_hpp_periode` dihitung dari
+resep × penjualan, bukan dari ledger.
+
+**K2 — utang timestamp.** Fungsi ini juga didefinisikan oleh tiga migration bertimestamp
+**2030** (`20300103000010`, `20300104000005`, `20300105000017`). Pada replay dari nol,
+ketiganya jalan paling akhir (urut nama) dan akan menimpa balik fix ini. Timestamp 2030
+**tidak dipakai** untuk fix ini karena `scripts/migration-timestamp-lint.mjs` menolak
+apa pun >2 hari ke depan (`FUTURE_WINDOW_DAYS = 2`). Ketiga migration 2030 sudah applied &
+terstempel di produksi, jadi `db push` tidak akan menjalankannya ulang — risiko terbatas
+pada environment baru dari nol. Preseden sama dengan 2026-09-07.
+
+### C. Dua temuan review yang tak dicari siapa pun
+
+1. **`SET search_path` sempat hilang di produksi.** `CREATE OR REPLACE FUNCTION` di
+   `20300105000017` diam-diam membuang `ALTER FUNCTION … SET search_path` yang ditambahkan
+   `20300104000005` — fungsi `SECURITY DEFINER` ini berjalan tanpa `search_path` terkunci
+   sejak saat itu. Migration baru memulihkannya. **Jebakan umum, layak dicatat:**
+   `CREATE OR REPLACE FUNCTION` membuang opsi `SET` level-fungsi yang ditambahkan lewat
+   `ALTER` belakangan; ia TIDAK membuang hak akses (`GRANT`/owner).
+2. **Bug variabel basi:** pengganti tanpa baris `stok_balance` meninggalkan
+   `v_is_gram`/`v_faktor` memegang nilai iterasi sebelumnya. Ditutup dengan
+   `CONTINUE WHEN NOT FOUND`.
+
+### D. Catatan untuk siapa pun yang menambah pasangan substitusi nanti
+
+`trg_process_bom_stok` membagi dengan
+`CASE WHEN faktor_tengah IS NOT NULL AND faktor_tampilan IS NOT NULL THEN faktor_tampilan
+ELSE faktor_konversi END`, sementara fungsi yang sudah diperbaiki mengalikan balik dengan
+`faktor_tampilan`. Round-trip ini eksak **hanya bila `faktor_tengah` terisi**. Keempat bahan
+di pasangan substitusi hari ini memilikinya (SAOS TOMAT POUCH 12, KOMPAN 3, SAOS CABE POUCH
+12, SAOS CABE 3), jadi konversinya eksak. Pasangan baru dengan bahan ber-`faktor_tengah NULL`
+akan round-trip tidak eksak — periksa dulu sebelum menambah.
+
+### E. Status verifikasi — jangan dinaikkan tanpa bukti baru
+
+- Fungsi terpasang, `SECURITY DEFINER`, memuat `v_sisa_kecil` & `search_path` — **diverifikasi
+  dua kali** (implementer & controller), masing-masing dengan **kontrol negatif yang benar-
+  benar memicu error**, membuktikan jalur asersi bisa gagal (bukan selalu lolos).
+- `schema_migrations` terstempel — terverifikasi.
+- **Regresi jalur mayoritas (bahan tanpa pengganti): LOLOS.** FOIL, 7 baris setelah apply,
+  empat nilai qty berbeda (−35, −40, −45, −120), semuanya sudah ada di himpunan pra-apply;
+  tak ada nilai baru muncul.
+- **Pembuktian perilaku untuk limpahan yang sudah dikoreksi: TERTUNDA.** Nol baris limpahan
+  terjadi sejak apply — kejadian ini hanya muncul saat POUCH sebuah outlet benar-benar habis.
+  Pengecekan susulan: baris `pemakaian` SAOS TOMAT KOMPAN dengan `catatan LIKE 'Penjualan%'`
+  dan `created_at > 2026-09-09T07:32:37Z` harus menunjukkan **−30 / −50 / −60**, bukan
+  −41,25 / −68,75 / −82,5.
+
+### F. Surat jalan basi FOIL — klaim di spec yang TERBUKTI SALAH
+
+Spec §6 sebelumnya menyatakan pembatalan 21 SJ basi "tidak menggeser saldo mana pun" karena
+SJ `draft`/`dikirim` belum pernah mengkredit outlet. **Separuh klaim itu salah.** Outlet
+tujuan memang belum dikredit sampai verifikasi — tapi **Gudang Pusat sebagai sumber sudah
+didebit saat SJ ditandai `dikirim`**, bukan saat verifikasi.
+
+Diverifikasi langsung: 21 SJ kandidat membawa **160 baris `ledger_stok`, seluruhnya
+`transfer_keluar` di GUDANG PUSAT**, dan ke-21 nya terdampak. Porsi FOIL kecil (−396,08 cm
+≈ 0,52 Roll); mayoritas adalah **31 bahan lain** yang ikut dalam kiriman yang sama —
+**≈ Rp 33.001.761 lintas 32 bahan** (SAPI Rp 8,2 jt, AYAM Rp 7,5 jt, KENTANG Rp 4,8 jt
+terbesar). Sebagai pembanding, 10 SJ FOIL yang sebelumnya pernah dibatalkan membawa **nol**
+baris ledger — dibatalkan saat masih `draft`, sebelum debit terjadi.
+
+**Ini bukan kerugian baru yang diciptakan oleh pembatalan** — debitnya sudah terjadi
+Juli–Agustus. Yang belum terjawab: di mana barang itu secara fisik. Kalau sudah sampai
+outlet, seharusnya di-*verifikasi*, bukan dibatalkan; kalau tidak pernah keluar gudang,
+Gudang Pusat butuh `adjustment` pembalik. Migration
+`20260909180000_batalkan_sj_foil_basi.sql` **sudah ditulis tapi belum di-apply**, dengan
+penanda eksplisit "belum disetujui owner" — keputusan ini milik owner.
+
+Catatan tambahan: dua SJ FOIL 9 September yang masih `draft` pagi itu sudah berstatus
+`dikirim` saat Task 4 dijalankan — dokumen berpindah status di tengah pekerjaan. Baris
+September tetap dikecualikan dari daftar pembatalan.
+
+### G. Deployment
+
+**Nol aplikasi perlu redeploy** — seluruh pekerjaan sesi ini adalah fungsi database plus
+dokumentasi.
+
+### Artefak
+
+- Migration: `supabase/migrations/20260909170000_fix_waterfall_konversi_satuan.sql`
+  (applied), `20260909180000_batalkan_sj_foil_basi.sql` (ditulis, **belum di-apply**,
+  menunggu keputusan owner)
+- Spec: `docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md`
+
+### 📝 Next
+
+- **Pembuktian perilaku (§E) masih tertunda** — jalankan pengecekan susulan begitu ada
+  outlet yang POUCH-nya habis lagi dan limpahan ke KOMPAN terjadi.
+- **Keputusan owner atas 21 SJ FOIL basi** (§F) — verifikasi jika barang sudah sampai
+  outlet, atau `adjustment` pembalik di Gudang Pusat jika tidak pernah keluar; migration
+  `20260909180000` sudah siap, tinggal menunggu izin apply.
+- **Jangan pecah FOIL dulu** (langkah 4–8 spec) — menunggu hitung fisik Gudang Pusat yang
+  memisahkan roll 7,6 m dan 5 m; hitungan itu juga menjawab pertanyaan terbuka "1 Dus
+  Altindo isi berapa roll?".
+
+---
+
 **Last updated:** 2026-09-09  
 **Owner:** Dev Suka Shawarma

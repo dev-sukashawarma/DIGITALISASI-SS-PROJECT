@@ -16,6 +16,7 @@ export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onT
   const [deskripsi, setDeskripsi] = useState(item.deskripsi_app ?? '')
   const [foto, setFoto] = useState(item.foto_app ?? '')
   const [harga, setHarga] = useState(hargaAwal === null ? '' : String(hargaAwal))
+  const [tayang, setTayang] = useState(item.tampil_di_app)
   const [galat, setGalat] = useState('')
   const [mengunggah, setMengunggah] = useState(false)
   const [menyimpan, mulaiSimpan] = useTransition()
@@ -30,6 +31,8 @@ export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onT
       const { error } = await supabase.storage.from(BUCKET).upload(nama, kecil, { contentType: 'image/webp' })
       if (error) { setGalat(`Unggah gagal: ${error.message}`); return }
       setFoto(supabase.storage.from(BUCKET).getPublicUrl(nama).data.publicUrl)
+    } catch (e) {
+      setGalat(e instanceof Error ? `Unggah gagal: ${e.message}` : 'Unggah foto gagal, coba lagi')
     } finally {
       setMengunggah(false)
     }
@@ -56,7 +59,8 @@ export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onT
     setGalat('')
     mulaiSimpan(async () => {
       try {
-        await toggleTayangDiApp(item.id, item.tampil_di_app)
+        await toggleTayangDiApp(item.id, tayang)
+        setTayang((v) => !v)
       } catch (e) {
         setGalat(e instanceof Error ? e.message : 'Gagal mengubah status tayang')
       }
@@ -80,15 +84,15 @@ export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onT
           <div
             onClick={ubahTayang}
             className={`flex items-center justify-between p-3.5 rounded-xl border cursor-pointer select-none ${
-              item.tampil_di_app ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200 bg-slate-50/60'
+              tayang ? 'border-amber-200 bg-amber-50/40' : 'border-slate-200 bg-slate-50/60'
             }`}
           >
             <span className="flex items-center gap-2 text-sm font-bold text-slate-800">
-              <Smartphone className={`w-4 h-4 ${item.tampil_di_app ? 'text-amber-600' : 'text-slate-400'}`} />
-              {item.tampil_di_app ? 'Tayang di aplikasi' : 'Tidak tayang di aplikasi'}
+              <Smartphone className={`w-4 h-4 ${tayang ? 'text-amber-600' : 'text-slate-400'}`} />
+              {tayang ? 'Tayang di aplikasi' : 'Tidak tayang di aplikasi'}
             </span>
-            <div className={`w-11 h-6 rounded-full relative ${item.tampil_di_app ? 'bg-amber-500' : 'bg-slate-300'}`}>
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full ${item.tampil_di_app ? 'left-6' : 'left-1'}`} />
+            <div className={`w-11 h-6 rounded-full relative ${tayang ? 'bg-amber-500' : 'bg-slate-300'}`}>
+              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full ${tayang ? 'left-6' : 'left-1'}`} />
             </div>
           </div>
 
@@ -96,7 +100,7 @@ export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onT
             <label className="block text-xs font-bold text-slate-700">Harga di aplikasi</label>
             <CurrencyInput
               value={harga}
-              onChange={(v) => setHarga(String(v))}
+              onChange={(v) => setHarga(v > 0 ? String(v) : '')}
               placeholder={String(item.price)}
               className="input w-full bg-white font-bold text-slate-900 text-sm py-2 border border-slate-200 rounded-xl"
             />

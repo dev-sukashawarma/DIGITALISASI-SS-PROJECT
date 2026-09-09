@@ -1,7 +1,7 @@
 # FOIL Dua Ukuran — Pisah Bahan per Spesifikasi Kemasan + Waterfall
 
 **Tanggal:** 2026-09-09
-**Status:** Spec — menunggu persetujuan owner sebelum rencana eksekusi ditulis
+**Status:** Spec — menunggu persetujuan owner sebelum rencana eksekusi ditulis. **§3 (waterfall) sudah diperbaiki dan live** (migration `20260909170000`, 2026-09-09 07:32:37 UTC / 14:32 WIB) — lihat entri sesi CLAUDE.md 2026-09-09 untuk detail penuh. Regresi jalur mayoritas (bahan tanpa pengganti) **terverifikasi lolos**; pembuktian perilaku untuk limpahan yang sudah dikoreksi **masih tertunda** (belum ada baris limpahan baru sejak apply — hanya terjadi saat POUCH sebuah outlet benar-benar habis). Langkah 4–8 (pisah FOIL) tetap menunggu hitung fisik Gudang Pusat seperti semula.
 **Pemilik keputusan:** owner
 
 ---
@@ -144,13 +144,29 @@ Pasangan SAOS CABE dorman (utama nol stok, nol resep) — tidak terdampak.
 FOIL 5M (24.000 cm/Dus) ke FOIL 7,6M (36.480 cm/Dus) berasio 1,52. Tanpa
 perbaikan, tiap limpahan akan memotong **52% terlalu banyak**.
 
-### Perbaikan yang diperlukan
+### Perbaikan yang diperlukan (✅ sudah diimplementasikan — koreksi rumusan)
 
-`process_waterfall_deduction` mengalikan sisa dengan
-`faktor_penuh(utama) / faktor_penuh(pengganti)` saat berpindah bahan, dengan
-`faktor_penuh` = `faktor_tampilan` bila `faktor_tengah` terisi, selain itu
-`faktor_konversi` — **definisi yang sama persis** dengan divisor di
-`trg_process_bom_stok` (migration `20300108000005`).
+> Rumusan di bawah ini menggantikan draf awal ("mengalikan sisa dengan rasio
+> faktor antar bahan"), yang ditulis **sebelum** membaca definisi live
+> fungsi ini di `20300105000017`. Definisi live itu sudah melacak sisa dalam
+> **satuan besar bahan utama**, jadi solusi "kalikan rasio saat berpindah
+> bahan" cuma menambal gejala di titik yang salah — sisa perlu dilacak dalam
+> basis yang sama-sama dimiliki utama dan pengganti sejak awal, bukan
+> dikonversi belakangan saat pindah bahan.
+>
+> Implementasi final (migration `20260909170000`): sisa dilacak dalam
+> **satuan kecil** (`v_sisa_kecil`) — basis yang dibagikan bersama oleh
+> sebuah bahan dan penggantinya (itulah sebabnya substitusi hanya valid
+> ketika keduanya memakai satuan kecil yang sama). Tiap kali fungsi
+> berpindah ke bahan berikutnya (utama atau pengganti), sisa dalam satuan
+> kecil itu dikonversi ke satuan ledger bahan tersebut sendiri (gram-scale
+> vs besar-scale, mengikuti `saldo_is_gram` outlet) sebelum ditulis. Hasilnya
+> setara secara matematis dengan rumusan draf untuk pasangan yang punya
+> `faktor_tengah` terisi (lihat catatan D di entri sesi CLAUDE.md 2026-09-09
+> soal round-trip yang hanya eksak bila `faktor_tengah` terisi — keempat
+> bahan pasangan substitusi hari ini memenuhi syarat itu), tapi lebih tepat
+> karena konversi terjadi di titik yang sama dengan tempat basis bersama itu
+> didefinisikan.
 
 Perbaikan ini berdiri sendiri: bernilai walaupun FOIL tidak jadi dipecah.
 
@@ -242,7 +258,7 @@ menjawabnya langsung.
 | # | Aksi | Bergantung pada |
 |---|---|---|
 | 1 | Perbaiki `process_waterfall_deduction` (§3) | — |
-| 2 | Koreksi 24.001 g SAOS TOMAT KOMPAN di Beji & Depok Sukmajaya lewat ledger `adjustment` | 1 |
+| ~~2~~ | ~~Koreksi 24.001 g SAOS TOMAT KOMPAN di Beji & Depok Sukmajaya lewat ledger `adjustment`~~ — **dibatalkan (K1)** | 1 |
 | 3 | Bereskan 26 SJ berjalan (§6) | — |
 | 4 | **Hitung fisik Gudang Pusat**, pisah roll 7,6 m dan 5 m | — |
 | 5 | Buat bahan `FOIL 7,6M` + harga + baris katalog Ekadharma | 4 |
@@ -250,8 +266,28 @@ menjawabnya langsung.
 | 7 | Pindahkan porsi Ekadharma dari saldo Gudang Pusat ke `FOIL 7,6M` lewat sepasang ledger `adjustment` | 4, 5, 6 |
 | 8 | Pasang baris `bahan_baku_substitusi` | 5, 6 |
 
-Saldo outlet **tidak disentuh** di langkah mana pun: angka cm-nya berubah arti
-begitu `faktor_konversi` menjadi 500, dan itu memang koreksinya.
+**K1 — kenapa langkah 2 dibatalkan.** Kelima outlet yang terkena limpahan
+salah menjalankan opname hampir tiap hari, dan setiap `opname_selisih`
+menyetel ulang saldo ke hasil hitung fisik — jadi kelebihan potongan itu
+tidak pernah sempat menumpuk sampai hari ini; hitungan fisik terakhir sudah
+menghapusnya. Menyuntikkan `adjustment` sekarang justru akan **menambah stok
+hantu** di atas saldo yang sudah benar:
+
+| Outlet | Saldo kini (g, KOMPAN) | Koreksi terakhir |
+|---|---:|---|
+| DEPOK SUKMAJAYA | 10.093,75 | opname 8, 7, 6, 5 Sep |
+| PALEDANG | 16.500 | opname 7, 5, 4 Sep |
+| BEJI | 0 | opname 4 Sep |
+| EMPANG | 0 | opname 28 Agu |
+| KALISARI | 0 | opname 24 Agu |
+
+Baris `pemakaian` historis yang salah **tidak dihapus/diubah** — tetap jadi
+jejak audit, dan sudah diimbangi oleh `opname_selisih` di sebelahnya. HPP
+tidak terpengaruh: `get_hpp_periode` dihitung dari resep × penjualan, bukan
+dari ledger.
+
+Saldo outlet **tidak disentuh** di langkah mana pun sisa tabel: angka cm-nya
+berubah arti begitu `faktor_konversi` menjadi 500, dan itu memang koreksinya.
 
 Semua penulisan stok lewat `ledger_stok` — jangan pernah `UPDATE stok_balance`
 langsung (SOP 2026-07-08).
@@ -272,6 +308,33 @@ dari 36.480 ke 24.000 mengubah arti 26 baris yang sudah tersimpan.
   pada `FOIL 5M` dan verifikasi normal; nilainya otomatis benar.
 
 Tidak ada PO terbuka, jadi sisi pembelian bersih.
+
+> **Koreksi (9 Sep, saat eksekusi Task 4): klaim di atas soal pembatalan
+> "tidak menggeser saldo mana pun" TERBUKTI SALAH untuk separuh kalimatnya.**
+> Benar bahwa outlet tujuan belum dikredit sampai verifikasi. Tapi **Gudang
+> Pusat sebagai sumber sudah didebit saat SJ ditandai `dikirim`** — bukan
+> saat verifikasi. Diverifikasi langsung: 21 SJ kandidat pembatalan membawa
+> **160 baris `ledger_stok`, seluruhnya `transfer_keluar` di GUDANG PUSAT**,
+> dan ke-21 nya terdampak. Porsi FOIL sendiri kecil (−396,08 cm ≈ 0,52 Roll);
+> mayoritas adalah **31 bahan lain** yang ikut dalam kiriman yang sama —
+> total **≈ Rp 33.001.761 lintas 32 bahan** (SAPI Rp 8,2 jt, AYAM Rp 7,5 jt,
+> KENTANG Rp 4,8 jt terbesar). Sebagai pembanding: 10 SJ FOIL yang sebelumnya
+> pernah dibatalkan membawa **nol** baris ledger — artinya dibatalkan saat
+> masih berstatus `draft`, sebelum debit terjadi.
+>
+> Ini **bukan kerugian baru yang diciptakan oleh pembatalan** — debitnya
+> sudah terjadi Juli–Agustus, saat SJ ditandai `dikirim`. Yang belum
+> terjawab adalah **di mana barang itu secara fisik**: kalau sudah sampai
+> outlet, seharusnya di-*verifikasi*, bukan dibatalkan; kalau tidak pernah
+> keluar gudang, Gudang Pusat butuh `adjustment` pembalik. Migration
+> `20260909180000_batalkan_sj_foil_basi.sql` sudah ditulis tapi **belum
+> di-apply**, dengan penanda eksplisit "belum disetujui owner" — keputusan
+> ini milik owner.
+>
+> Catatan tambahan: dua SJ FOIL 9 September yang masih `draft` pagi itu
+> sudah berstatus `dikirim` pada saat Task 4 dijalankan — dokumen berpindah
+> status di tengah pekerjaan. Baris September tetap dikecualikan dari daftar
+> pembatalan baik sebelum maupun sesudah temuan ini.
 
 ---
 

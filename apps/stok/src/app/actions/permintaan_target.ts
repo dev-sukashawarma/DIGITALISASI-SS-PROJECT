@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
-import { assertOutletAccessible } from '@/lib/stok/outletAccess'
+import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -22,6 +22,14 @@ async function getAuthedClient() {
         cookieStore.set(name, value, options as any)
       ),
   })
+}
+
+async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedClient>>): Promise<string> {
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) {
+    throw new Error('Unauthorized: No active user session found')
+  }
+  return user.id
 }
 
 export interface ResepMenu {
@@ -45,8 +53,10 @@ export interface CalculatedBahan {
 // fetchActiveResep — ambil daftar resep menu yang aktif
 // ---------------------------------------------------------------------------
 export async function fetchActiveResep(outletId: string): Promise<ResepMenu[]> {
-  await assertOutletAccessible(await getAuthedClient(), outletId)
+  const authedClient = await getAuthedClient()
+  const userId = await getCurrentUserId(authedClient)
   const supabase = makeServiceClient()
+  await assertStaffCanAccessOutlet(supabase, userId, outletId)
 
   const { data, error } = await supabase
     .from('resep')
@@ -100,8 +110,11 @@ export async function calculateBahanBakuRequest(
 ): Promise<CalculatedBahan[]> {
   if (targets.length === 0) return []
 
-  await assertOutletAccessible(await getAuthedClient(), outletId)
+  const authedClient = await getAuthedClient()
+  const userId = await getCurrentUserId(authedClient)
   const supabase = makeServiceClient()
+  await assertStaffCanAccessOutlet(supabase, userId, outletId)
+
   const { data, error } = await supabase.rpc('calculate_bahan_baku_request', {
     p_outlet_id: outletId,
     p_targets: targets,

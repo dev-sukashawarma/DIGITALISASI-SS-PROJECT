@@ -23,20 +23,16 @@ function storageKey(staffId: string) {
   return `stok:selectedOutletId:${staffId}`
 }
 
-interface StaffOutletRow {
-  outlet_id: string
-  outlets: { id: string; name: string } | null
-}
-
 export function OutletScopeProvider({ children }: { children: ReactNode }) {
   const { outletStaff } = useAuth()
   const staffId = outletStaff?.id
-  const isLeader = outletStaff?.role === 'leader'
-  const isPrivileged = ['admin', 'admin_hr', 'spv', 'kitchen', 'regional_manager', 'admin_finance', 'finance', 'purchasing', 'owner'].includes((outletStaff?.role as string) ?? '')
-  const isKitchen = ['kitchen', 'admin_finance', 'purchasing', 'finance'].includes((outletStaff?.role as string) ?? '')
+  const role = (outletStaff?.role as string) ?? ''
+  const isLeader = role === 'leader'
+  const isPrivileged = ['admin', 'admin_hr', 'spv', 'kitchen', 'admin_finance', 'finance', 'purchasing', 'owner'].includes(role)
+  const isKitchen = ['kitchen', 'admin_finance', 'purchasing', 'finance'].includes(role)
 
   const { data: fetchedOutlets = [] } = useQuery({
-    queryKey: ['staff_outlets', staffId, isKitchen, isPrivileged, isLeader],
+    queryKey: ['staff_outlets', staffId, role, isKitchen, isPrivileged, isLeader],
     queryFn: async () => {
       const supabase = createClient()
       
@@ -56,14 +52,41 @@ export function OutletScopeProvider({ children }: { children: ReactNode }) {
         return (data || []) as BoundOutlet[]
       }
 
-      const { data, error } = await supabase
+      // 1. Fetch assigned outlet IDs from staff_outlets
+      const { data: soData, error: soError } = await supabase
         .from('staff_outlets')
-        .select('outlet_id, outlets(id, name)')
+        .select('outlet_id')
         .eq('staff_id', staffId)
-      if (error) throw error
-      let assigned = ((data ?? []) as unknown as StaffOutletRow[])
-        .filter((row) => row.outlets)
-        .map((row) => ({ id: row.outlets!.id, name: row.outlets!.name }))
+      if (soError) throw soError
+
+      const assignedIds = new Set<string>((soData ?? []).map((s: { outlet_id: string }) => s.outlet_id).filter(Boolean))
+      if (outletStaff?.outlet_id) {
+        assignedIds.add(outletStaff.outlet_id)
+      }
+
+      // If regional_manager has no specific entries in staff_outlets, fallback to all active outlets
+      if (role === 'regional_manager' && assignedIds.size === 0) {
+        const { data, error } = await supabase
+          .from('outlets')
+          .select('id, name')
+          .eq('is_active', true)
+          .order('name')
+        if (error) throw error
+        return (data || []) as BoundOutlet[]
+      }
+
+      // 2. Fetch outlet details using .in('id', ...) to avoid missing FK relation in PostgREST
+      let assigned: BoundOutlet[] = []
+      if (assignedIds.size > 0) {
+        const { data: outletsData, error: outletsError } = await supabase
+          .from('outlets')
+          .select('id, name')
+          .in('id', Array.from(assignedIds))
+          .eq('is_active', true)
+          .order('name')
+        if (outletsError) throw outletsError
+        assigned = (outletsData || []) as BoundOutlet[]
+      }
 
       // Ensure primary outlet is always in the list
       if (outletStaff?.outlet_id && !assigned.some(o => o.id === outletStaff.outlet_id)) {

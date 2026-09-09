@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Image from 'next/image'
 import { Search, Smartphone, AlertTriangle } from 'lucide-react'
 import { namaKategori, hargaAplikasiTampil, type MenuApp } from '@/lib/appRetail/tampilanMenu'
+import PanelEditMenuApp from './PanelEditMenuApp'
 
 const rupiah = (n: number) => `Rp${n.toLocaleString('id-ID')}`
 
@@ -19,6 +20,7 @@ export default function MenuAppView({
   const [saring, setSaring] = useState<Saring>('tayang')
   const [cari, setCari] = useState('')
   const [bukaOutlet, setBukaOutlet] = useState(false)
+  const [dipilih, setDipilih] = useState<MenuApp | null>(null)
 
   const terlihat = useMemo(() => {
     const q = cari.trim().toLowerCase()
@@ -103,7 +105,11 @@ export default function MenuAppView({
               const hargaApp = hargaAplikasiTampil(it.channel_prices)
               const foto = it.foto_app ?? it.image_url
               return (
-                <tr key={it.id} className="border-b border-slate-100 last:border-0">
+                <tr
+                  key={it.id}
+                  onClick={() => setDipilih(it)}
+                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50/70 cursor-pointer"
+                >
                   <td className="py-3 px-4">
                     {foto ? (
                       <Image src={foto} alt="" width={40} height={40} className="w-10 h-10 rounded-lg object-cover" unoptimized />
@@ -140,6 +146,8 @@ export default function MenuAppView({
           </tbody>
         </table>
       </div>
+
+      {dipilih && <PanelEditMenuApp item={dipilih} onTutup={() => setDipilih(null)} />}
     </div>
   )
 }

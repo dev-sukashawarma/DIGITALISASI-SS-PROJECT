@@ -13,9 +13,12 @@ Separuh kiriman dari Gudang Pusat ke outlet tidak pernah diverifikasi crew.
 | Periode | SJ dibuat | Diverifikasi | Menggantung |
 |---|---:|---:|---:|
 | Agustus 2026 | 418 | 209 (50%) | **209** |
-| 1–10 September 2026 | 93 | 52 (56%) | **39** |
+| 1–9 September 2026 | 93 | 52 (56%) | **39** |
 
 Sebabnya kata owner: lupa atau malas. Bukan masalah teknis.
+
+Angka di atas diukur 10 September pukul 17:00 WIB. Tunggakannya **bertambah
+tiap hari** — sore itu juga sudah masuk 10 SJ baru. Lihat §7 butir 3.
 
 Akibatnya rantai stok putus sebelah:
 
@@ -222,6 +225,9 @@ hantu.
 
 Dipasang sebagai tanggal tetap di dalam fungsinya, bukan sekadar diingat-ingat.
 
+**Tanggal mulai: 14 September 2026** (keputusan owner 2026-09-10). SJ yang
+dikirim sebelum tanggal itu tidak akan pernah tersentuh auto-verifikasi.
+
 ### 4.4 Penjaga
 
 | Penjaga | Kenapa |
@@ -283,16 +289,28 @@ outlet masih bisa memverifikasi sambil menolak barang yang kurang.
 
 1. ~~Apa yang mengubah status jadi `selesai`?~~ **Sudah terjawab** — tombol
    Pusat, bukan otomatis. Lihat §3.4 dan §4.2.
-2. **Siapa yang mengerjakan antrean validasi Pusat, dan seberapa sering?**
-   Tempatnya sudah ada (§4.2), orangnya belum ditunjuk. Kalau tidak ada,
-   antreannya cuma pindah, tidak selesai.
-3. **39 SJ tunggakan September mau diapakan?** Dibiarkan menggantung, atau
-   ditutup sebagai dokumen saja tanpa mengubah stok.
+2. ~~Siapa yang mengerjakan antrean validasi Pusat?~~ **Sudah diputuskan** —
+   role **`kitchen`** (owner, 2026-09-10).
+   ⚠️ Sisa yang belum ditentukan: **seberapa sering**, dan **siapa orangnya**.
+   Role `kitchen` punya 5 akun aktif — Admin Kitchen 2, Muhammad Abyansah
+   Mandala, Rusly Irawan, plus **Kitchen Test** dan **Admin SS Online** yang
+   tampaknya bukan orang untuk tugas ini. Menugaskan ke role dan bukan ke orang
+   berisiko jatuh di antara kursi — persis penyakit yang sedang diobati.
+3. **Tunggakan September mau diapakan?** Dibiarkan menggantung, atau ditutup
+   sebagai dokumen saja tanpa mengubah stok. Daftarnya sudah diberikan ke owner
+   2026-09-10.
+   ⚠️ **Jumlahnya bertambah tiap hari.** Per 10 September pukul 17:00: 39 SJ
+   sudah lewat hari (Rp 105.461.894) + 10 SJ hari itu (Rp 29.122.410) yang belum
+   terlambat. Dengan laju ~5 SJ/hari tak terverifikasi, perkiraan **60–65 SJ**
+   saat fitur berlaku 14 September.
+   ⚠️ **6 SJ memuat `FOIL (48)`** (bahan nonaktif), semuanya 2–3 September —
+   apa pun keputusannya, keenam SJ itu tidak boleh menulis stok.
    ⚠️ **209 SJ Agustus TIDAK termasuk pertanyaan ini** — Agustus dilewati atas
    keputusan owner (2026-09-09, ditegaskan 2026-09-10). Jangan ditawarkan,
    jangan ikut diproses.
-4. **Mulai tanggal berapa?** Usul: tanggal fitur ini live, biar batasnya sama
-   dengan batas tunggakan.
+4. ~~Mulai tanggal berapa?~~ **Sudah diputuskan** — target **14 September 2026**
+   (owner, 2026-09-10). SJ yang dikirim sebelum tanggal itu masuk kategori
+   tunggakan (butir 3) dan tidak tersentuh auto-verifikasi.
 5. ~~Cron tiap berapa lama?~~ **Sudah diputuskan** — sekali sehari, 02:00 WIB
    (owner, 2026-09-10). Lihat §4.1.
 6. **Batas 21:00 untuk kiriman malam** (§4.1.1) — diambil dari premis owner

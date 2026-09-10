@@ -7,6 +7,7 @@ import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
+import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -574,6 +575,55 @@ export async function getMitraComprehensivePnl(
     }
   }
 
+  // 7b. Audited Monthly Closing Data (Agustus 2026)
+  if (isAugust2026Period(filter.from, filter.to)) {
+    let hasClosing = false
+    for (const oid of targetOutletIds) {
+      if (getMitraAugustClosing(oid)) {
+        hasClosing = true
+        break
+      }
+    }
+
+    if (hasClosing) {
+      posGross = 0
+      posDeductions = 0
+      posCogs = 0
+      faGross = 0
+      faDeductions = 0
+      faCogs = 0
+      tkGross = 0
+      tkDeductions = 0
+      tkCogs = 0
+
+      for (const oid of targetOutletIds) {
+        const closing = getMitraAugustClosing(oid)
+        if (closing) {
+          outletFinancialsMap.set(oid, {
+            gross: closing.totals.grossRevenue,
+            deductions: closing.totals.totalDeductions,
+            cogs: closing.totals.totalCogs
+          })
+          outletWasteMap.set(oid, closing.totals.totalWaste)
+
+          posGross += closing.pos.revenue
+          posDeductions += closing.pos.deductions
+          posCogs += closing.pos.cogs
+
+          faGross += closing.foodApps.revenue
+          faDeductions += closing.foodApps.deductions
+          faCogs += closing.foodApps.cogs
+
+          tkGross += closing.tiktok.revenue
+          tkDeductions += closing.tiktok.deductions
+          tkCogs += closing.tiktok.cogs
+        }
+      }
+
+      totalWaste = targetOutletIds.reduce((sum, oid) => sum + (outletWasteMap.get(oid) || 0), 0)
+    }
+  }
+
   // 8. Financial Totals
   const totalGrossRevenue = posGross + faGross + tkGross
   const totalDeductions = posDeductions + faDeductions + tkDeductions
@@ -621,15 +671,23 @@ export async function getMitraComprehensivePnl(
     const opex = outletOpexMap.get(oid) || 0
     const waste = outletWasteMap.get(oid) || 0
 
+    const closing = isAugust2026Period(filter.from, filter.to) ? getMitraAugustClosing(oid) : undefined
     let mgmtFee = 0
-    if (policy.managementFeePct > 0) {
+    if (closing) {
+      mgmtFee = Math.round(closing.totals.managementFeeAmount)
+    } else if (policy.managementFeePct > 0) {
       mgmtFee = Math.round((fin.gross * policy.managementFeePct) / 100)
     }
 
-    const outletNetProfit = fin.gross - fin.deductions - fin.cogs - opex - waste - mgmtFee
-    const outletMitraShare = sharingActive && outletNetProfit > 0
+    let outletNetProfit = fin.gross - fin.deductions - fin.cogs - opex - waste - mgmtFee
+    let outletMitraShare = sharingActive && outletNetProfit > 0
       ? Math.round((outletNetProfit * policy.profitSharingPct) / 100)
       : 0
+
+    if (closing) {
+      outletNetProfit = Math.round(closing.totals.netProfit)
+      outletMitraShare = Math.round(closing.totals.mitraShare)
+    }
 
     totalManagementFeeAmount += mgmtFee
     totalMitraShare += outletMitraShare
@@ -644,8 +702,27 @@ export async function getMitraComprehensivePnl(
   }
 
   const managementFeeAmount = Math.round(totalManagementFeeAmount)
-  const netProfit = grossProfit - grandTotalOpex - totalWaste - managementFeeAmount
-  const mitraShare = totalMitraShare
+  let netProfit = grossProfit - grandTotalOpex - totalWaste - managementFeeAmount
+  let mitraShare = totalMitraShare
+
+  if (isAugust2026Period(filter.from, filter.to)) {
+    let closingNet = 0
+    let closingMitra = 0
+    let matchCount = 0
+    for (const oid of targetOutletIds) {
+      const c = getMitraAugustClosing(oid)
+      if (c) {
+        closingNet += Math.round(c.totals.netProfit)
+        closingMitra += Math.round(c.totals.mitraShare)
+        matchCount++
+      }
+    }
+    if (matchCount === targetOutletIds.length) {
+      netProfit = closingNet
+      mitraShare = closingMitra
+    }
+  }
+
   const profitMarginPct = totalGrossRevenue > 0 ? (netProfit / totalGrossRevenue) * 100 : 0
 
   // 9. Investment & Historical BEP Stats (Konsolidasi Jaringan)

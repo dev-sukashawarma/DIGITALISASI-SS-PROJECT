@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { cleanItemName } from '@/lib/order-item-name'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -321,6 +322,21 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     for (const w of (wasteRes.data || [])) {
       if (mitraOutletIds.includes(w.outlet_id)) bump(w.outlet_id).waste += Number(w.nilai_waste) || 0
     }
+
+    if (isAugust2026Period(from, to)) {
+      for (const oid of mitraOutletIds) {
+        const closing = getMitraAugustClosing(oid)
+        if (closing) {
+          const a = bump(oid)
+          a.grossRevenue = closing.totals.grossRevenue
+          a.totalDeductions = closing.totals.totalDeductions
+          a.totalCogs = closing.totals.totalCogs
+          a.opex = closing.totals.totalOpex
+          a.waste = closing.totals.totalWaste
+        }
+      }
+    }
+
     return acc
   }
 

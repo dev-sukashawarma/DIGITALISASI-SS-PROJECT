@@ -2018,10 +2018,27 @@ sekadar diam.
   `ledger_stok` sengaja tak disentuh — sudah benar (hanya SELECT + INSERT
   ber-scope, nol policy UPDATE/DELETE) dan justru jadi kontrol pembanding.
 - **36 SJ `dikirim` memuat bahan nonaktif** → sengaja dilewati fungsi auto
-  (`b.is_active = false`), tapi *dilewati* berarti menggantung selamanya, cuma
-  jadi angka `dilewati` yang tak dilihat siapa pun. Mayoritas Agustus (di luar
-  aturan, aman); ke depan perlu keputusan: dibiarkan menumpuk atau ditutup
-  administratif berkala.
+  (`b.is_active = false`). **SELURUHNYA Agustus, nol September** (dicek
+  2026-09-10 — koreksi atas catatan awal yang menulis "mayoritas"): ke-36 itu
+  sudah tertahan penjaga `c_mulai` bahkan tanpa penjaga bahan-nonaktif, jadi
+  kekhawatiran "menumpuk ke depan" jauh lebih lemah dari dugaan awal. Masuk
+  aturan "Agustus dilewati" — tak perlu diapa-apakan.
+  Bahannya: FOIL (48) (DIGABUNG KE FOIL) 15 · MAYONES 6 · PLASTIK BENING 5 ·
+  SAOS TOMAT 5 · MINYAK (NONAKTIF) 3 · THERMAL STRUK 2 · TUTUP 2 · SARUNG
+  TANGAN BENING 1. Semuanya sisa **penggabungan master data**, bukan barang
+  yang benar-benar berhenti dipakai — barangnya nyata terkirim, nama masternya
+  yang pensiun.
+  **Risiko ke depan kecil tapi berkala.** Form pembuatan SJ sudah menyaring
+  `is_active = true` (`apps/distribusi/src/hooks/useBahanBaku.ts:26`), jadi SJ
+  baru tak akan pernah memuat bahan nonaktif. Yang kena hanya SJ yang **sudah
+  terbit lalu bahannya dinonaktifkan sesudahnya** — persis kasus FOIL (10 SJ
+  September memuat FOIL (48), semuanya sudah `selesai`, dibuat sebelum
+  penonaktifan 8 Sep). Setiap penggabungan master data berikutnya bisa
+  mengulangnya, dan SJ semacam itu **tak akan pernah ditutup cron** serta tak
+  muncul di mana pun kecuali sebagai angka `dilewati` yang tak dilihat siapa
+  pun. Penawar termurah = kebiasaan, bukan kode: **setiap menonaktifkan bahan,
+  sisir dulu SJ `dikirim` yang memuatnya** (pelajaran yang sama dengan "sisir
+  dokumen in-flight" saat FOIL ganti satuan Dus).
 - 6 SJ tunggakan memuat `FOIL (48)` (nonaktif). Sudah ikut ditutup tanpa stok,
   jadi aman — tapi penjaga bahan-nonaktif di fungsi tetap perlu untuk ke depan.
 

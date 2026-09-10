@@ -1826,7 +1826,150 @@ dokumentasi.
   memisahkan roll 7,6 m dan 5 m; hitungan itu juga menjawab pertanyaan terbuka "1 Dus
   Altindo isi berapa roll?".
 
+## Session 2026-09-10: Auto-Verifikasi Surat Jalan & Penutupan Tunggakan
+
+**Status:** ✅ LIVE di produksi. Semua migration applied & diverifikasi ground-truth.
+**Nol app perlu redeploy** — seluruhnya perubahan database.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-10-auto-verifikasi-surat-jalan-design.md`,
+`docs/superpowers/plans/2026-09-10-auto-verifikasi-surat-jalan.md`
+**Pemantau:** `SS COGS SET/verifikasi-auto-sj-2026-09.sql`
+
+### Masalahnya: separuh kiriman tak pernah diverifikasi
+
+| Periode | SJ dibuat | Diverifikasi | Menggantung |
+|---|---:|---:|---:|
+| Agustus | 418 | 209 (50%) | 209 |
+| 1–9 September | 93 | 52 (56%) | 39 |
+
+Sebab menurut owner: lupa/malas, bukan kendala teknis. Akibatnya rantai stok
+putus sebelah — Gudang Pusat didebit saat SJ ditandai `dikirim`, outlet tak
+pernah dikredit.
+
+**Yang menahan saldo outlet tetap positif ternyata opname.** Hanya 31 baris
+`stok_balance` yang minus, 20 di antaranya BNR (korup sejak sebelum September).
+Jadi opname selama ini menambal barang yang tak pernah tercatat masuk — dan
+karena itu berhenti berfungsi sebagai pemeriksa. Owner: *"track barangnya
+berantakan sehingga angka opname pun berantakan."*
+
+**Yang hilang bukan uangnya, tapi jejaknya.**
+
+### 🔴 Alurnya ternyata DUA TAHAP — ini yang paling sering disalahpahami
+
+| Tahap | Siapa | Status jadi | Stok berubah? |
+|---|---|---|---|
+| 1. Terima barang | **Outlet** | `diterima_lengkap` | **Ya** |
+| 2. Validasi & tutup | **Pusat** | `selesai` | Tidak |
+
+`selesai` bukan hasil trigger — ia dari tombol `handleVerifyPusat` di
+`apps/distribusi/src/components/distribusi/SuratJalanDetail.tsx:242`. Yang
+menggantung macet di **tahap 1**.
+
+Auto-verifikasi sengaja **berhenti di tahap 1**. Kiriman yang ditutup sistem
+mengendap di antrean validasi Pusat — kalau ikut ditutup sampai `selesai`,
+kiriman yang tak diperiksa siapa pun justru jadi satu-satunya yang lolos tanpa
+mata manusia.
+
+### Keputusan owner
+
+| # | Keputusan |
+|---|---|
+| K1 | Tenggat = lewat hari, ditutup dini hari 02:00 WIB |
+| K2 | Antrean validasi Pusat dipegang role **`kitchen`** |
+| K3 | Mulai **11 September** (semula 14, digeser) |
+| K4 | Tunggakan ditutup **sebagai dokumen, tanpa mengubah stok** |
+| K5 | **Agustus dilewati seluruhnya** |
+
+### 🔴 Angka 72 jam di draf pertama SALAH UKUR
+
+Draf awal memakai jeda `created_at` → `updated_at` pada SJ `selesai`. Itu
+mengukur jarak sampai **Pusat menutup dokumen** (tahap 2), bukan sampai outlet
+memverifikasi (tahap 1).
+
+Diukur ulang dari `surat_jalan_item.verified_at`, 216 SJ sejak 1 Agustus:
+**98% diverifikasi di hari yang sama, 2% besoknya, NOL lebih dari itu.** Kalau
+tak diverifikasi hari itu, praktis tak akan pernah — jadi tenggat "lewat hari"
+sudah cukup, dan lebih tepat.
+
+### Batas hari = 21:00, bukan tengah malam
+
+Owner: barang tiba di outlet paling lambat 21:00. Kiriman yang ditandai dikirim
+≥21:00 berarti barangnya baru jalan malam itu. Tanpa aturan ini, kiriman 21:10
+Senin ditutup Selasa 02:00 — 5 jam kemudian, seluruhnya saat outlet tutup.
+Terdampak 21 dari 524 SJ (4%).
+
+Teknisnya: **tambah 3 jam sebelum ambil tanggalnya.** Sen 21:10 + 3j = Sel 00:10
+→ hari Selasa. Diuji: 20:00 → 14 Sep, 21:10 → 15 Sep.
+
+### ⚠️ pg_cron menjadwal dalam UTC
+
+`0 19 * * *` = 19:00 UTC = **02:00 WIB keesokan harinya**. Salah pasang menggeser
+tenggat 7 jam tanpa gejala apa pun. Q1 di skrip pemantau memeriksanya.
+
+### Batas 11 September memisahkan dua perlakuan di tempat yang benar
+
+```
+sampai 10 Sep  ->  ditutup sebagai dokumen, TANPA stok  (opname sudah menyerap)
+mulai 11 Sep   ->  auto-verifikasi, DENGAN stok         (rantai utuh sejak awal)
+```
+
+Tunggakan lama tak boleh dapat stok: barangnya sudah lama terserap opname,
+menambahkannya lagi = stok hantu ratusan juta. Kiriman baru justru harus dapat
+stok — itu gunanya fitur ini.
+
+### Yang dikerjakan
+
+| Migration | Isi |
+|---|---|
+| `20260910180000` | Kolom `auto_verified_at` + `ditutup_administratif_at` |
+| `20260910181000` | **39 SJ (1–9 Sep) `dikirim` → `selesai`**, nol baris ledger |
+| `20260910182000` | Fungsi `auto_verifikasi_surat_jalan(p_dry_run)` |
+| `20260910183000` | Geser tanggal mulai 14 → 11 Sep |
+| `20260910184000` | `cron.schedule '0 19 * * *'` |
+
+**Dua kolom penanda, sengaja dipisah:** `auto_verified_at` menambah stok,
+`ditutup_administratif_at` tidak. Digabung jadi satu kolom, perbedaan itu hilang
+selamanya.
+
+**`verified_at` sengaja TIDAK diisi** oleh auto-verifikasi — kolom itu berarti
+"diverifikasi manusia" dan jadi satu-satunya cara mengukur apakah crew makin
+tidak memverifikasi. Mengisinya merusak pengukuran itu permanen.
+
+**Nol penulis stok baru.** Fungsi hanya mengisi `qty_terima` lalu memanggil
+`finalize_surat_jalan_and_ledger` yang sudah scale-aware — kelas bug yang baru
+ditutup 9 September ada persis di penulis stok.
+
+### Verifikasi ground-truth
+
+Setiap penerapan memakai assertion `DO`-block **plus kontrol negatif** yang
+benar-benar melempar error, membuktikan kanal `exec_sql` bisa gagal — bukan
+sekadar diam.
+
+- Penutupan 39: target 39→0 · 10 Sep+ 14→14 · Agustus 180→180 · **nol baris
+  ledger lahir setelah operasi, jenis apa pun**
+- **Simulasi maju ke 16 Sep:** tanpa penjaga tanggal, **194 SJ akan tersapu**
+  (seluruhnya pra-11-Sep, termasuk 180 Agustus). Dengan penjaga: **0**. Ini yang
+  membuktikan penjaganya benar-benar menahan, bukan kebetulan nol.
+- `cron.job` terdaftar, `schedule` persis `0 19 * * *`, `active = true`
+
+### 📝 Belum selesai
+
+- **13 SJ tanggal 10 September** masih `dikirim` (dari 17; 4 sudah diverifikasi
+  setelah owner memberi tahu). Di luar aturan baru. Outlet-outlet itu opname tiap
+  malam, jadi perlakuan yang benar besok = penutupan administratif tanpa stok,
+  sama seperti yang 39.
+- **Siapa orangnya di role `kitchen`, dan seberapa sering** meja validasi
+  dikosongkan. Role itu punya 5 akun aktif, dua di antaranya (Kitchen Test,
+  Admin SS Online) tampak bukan orang untuk tugas ini. Tanpa nama dan irama yang
+  jelas, antreannya cuma pindah dari 17 outlet ke satu meja yang juga tak
+  dipegang siapa-siapa. **Sistem tidak bisa memaksa ini.**
+- **`handleVerifyPusat` menulis status langsung dari browser**, tanpa RPC dan
+  tanpa cek role di kodenya — pola sama dengan lubang otorisasi Session
+  2026-07-20. Perlu diaudit terpisah; rancangan ini tidak memperburuknya.
+- 6 SJ tunggakan memuat `FOIL (48)` (nonaktif). Sudah ikut ditutup tanpa stok,
+  jadi aman — tapi penjaga bahan-nonaktif di fungsi tetap perlu untuk ke depan.
+
 ---
 
-**Last updated:** 2026-09-09  
+**Last updated:** 2026-09-10  
 **Owner:** Dev Suka Shawarma

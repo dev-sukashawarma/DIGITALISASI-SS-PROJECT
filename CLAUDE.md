@@ -2184,5 +2184,71 @@ disarankan: mulai dari yang taruhannya tertinggi & alurnya paling sempit
 `20260910200000`.
 
 
+## Session 2026-09-10: Fondasi Multi-Vendor — aturan, normalisasi, detektor
+
+**Status:** ✅ LIVE (`20260910210000`, applied + terstempel + diuji perilaku).
+Nol app perlu redeploy — murni database.
+
+### Aturan fundamental (ini yang menjawab "bahan punya banyak vendor gimana")
+
+> **Vendor adalah atribut PEMBELIAN, bukan identitas BARANG.**
+> Satu-satunya hal yang memaksa sebuah bahan dipecah:
+> **isi satuan-beli yang berbeda antar vendor.**
+
+Ini **batas teknis, bukan preferensi**: stok disimpan dalam satuan terkecil, dan
+jembatan satuan-besar → satuan-kecil (`faktor_konversi`/`faktor_tampilan`) adalah
+kolom **per-bahan**. Dua nilai berbeda tidak muat di satu kolom.
+
+Harga beda, termin beda, merek beda — **tidak** memaksa pemisahan. Kalau harus
+dipecah, penamaannya mengikuti **spesifikasi** (`FOIL 5M`/`FOIL 7,6M`), **bukan
+merek** — mengikat nama ke vendor mengulang kegagalan `FOIL (48)`, dan langsung
+salah begitu vendor ganti ukuran atau ukuran sama dibeli dari vendor lain.
+
+**Bukti lapangan:** dari **15 bahan multi-vendor, hanya 1 (FOIL) yang isinya
+berbeda** (Ekadharma 760 cm/roll vs Altindo 500 cm/roll). Empat belas sisanya
+(SAPI 3 vendor, AYAM, KENTANG, dst) berjalan tanpa masalah sama sekali.
+Kekacauan FOIL bukan karena dua ukuran itu ada, tapi karena **baru ketahuan
+setelah bercampur di rak**.
+
+### Yang dibangun
+
+| | Isi |
+|---|---|
+| **Normalisasi** | `satuan_beli` → huruf kecil + trim, mengikuti `canon()` di `satuanPo.ts` supaya data & kode sepakat. 11 baris dirapikan, ragam 15 → 11. Trigger `trg_bbs_normalisasi_satuan` menjaga input berikutnya (diuji: `"  DUS  "` → `"dus"`, di dalam transaksi + ROLLBACK). |
+| **Detektor** | View `vendor_konflik_spesifikasi` (`security_invoker=true`). `tingkat`: `konflik_isi` (wajib dipecah **sebelum barang masuk**) · `beda_satuan` (wajib dilihat) · `aman`. Hasil sekarang: **14 aman, 1 konflik_isi (FOIL)**. |
+
+⚠️ **`satuan_beli` SAH berbeda dari `bahan_baku.satuan`** — FOIL dibeli per
+`roll` sedangkan masternya `Dus`. Yang dinormalkan hanya penulisannya, **jangan
+pernah** samakan katanya ke master. Efek samping: layar Katalog Harga Vendor kini
+menampilkan huruf kecil; kapitalkan di lapisan tampilan, jangan di data.
+
+### Status FOIL — pemecahan TIDAK jadi dikerjakan sekarang
+
+Hitung fisik owner 2026-09-10: **Altindo kosong, Ekadharma 928 roll**. Dan **nol
+PO FOIL berjalan** dari vendor mana pun. Jadi gudang cuma memegang satu ukuran →
+`faktor_tampilan` 36.480 (48 × 760) **sekarang benar**. Memecah hari ini berarti
+membuat bahan bersaldo nol. Masalah campur-dua-ukuran **habis terpakai sendiri**.
+
+Spec `2026-09-09-foil-dua-ukuran-design.md` **tetap berlaku**, statusnya berubah
+dari "segera dikerjakan" → **"siap dipakai saat detektor menyala"**. Pemicunya:
+keputusan membeli Altindo lagi. **Aturan urutan: pecah DULU, sebelum roll 5 m
+masuk gudang** — memecah saat gudang masih satu ukuran itu bersih; memecah
+setelah tercampur di rak adalah kekacauan yang baru saja lewat.
+
+**Selisih tersisa:** sistem 723.520 cm vs fisik 928 × 760 = 705.280 cm →
+**+18.240 cm = tepat 24 roll = tepat setengah dus** (± Rp 277.000). Angka terlalu
+bulat untuk kebetulan; belum dikoreksi, belum ditelusuri.
+
+**Harga per satuan pakai:** Ekadharma **Rp 15,20/cm** vs Altindo **Rp 17,58/cm** —
+Altindo **13,5% lebih mahal** untuk barang yang sama; harga per rollnya rendah
+semata karena rollnya lebih pendek.
+
+### 📝 Next
+- Koreksi selisih 24 roll FOIL di Gudang Pusat (opname atau `adjustment` −18.240 cm).
+- **(2) Penjaga di titik masuk** — belum dibuat: tolak/peringatkan saat menyimpan
+  baris katalog atau memverifikasi terima PO kalau `isi_satuan_kecil` berbeda dari
+  vendor lain untuk bahan yang sama. Detektor sekarang masih pasif (harus dilihat).
+- Munculkan `vendor_konflik_spesifikasi` di layar Katalog Harga Vendor.
+
 **Last updated:** 2026-09-10  
 **Owner:** Dev Suka Shawarma

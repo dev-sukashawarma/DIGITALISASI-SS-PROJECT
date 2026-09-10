@@ -1,7 +1,8 @@
 # Auto-Verifikasi Surat Jalan — Design
 
 **Tanggal:** 2026-09-10
-**Status:** Spec — menunggu jawaban owner di §7 sebelum rencana kerja ditulis
+**Status:** Spec — seluruh keputusan owner sudah masuk. Rencana kerja:
+`docs/superpowers/plans/2026-09-10-auto-verifikasi-surat-jalan.md`
 **Yang memutuskan:** owner
 
 ---
@@ -296,9 +297,10 @@ outlet masih bisa memverifikasi sambil menolak barang yang kurang.
    Mandala, Rusly Irawan, plus **Kitchen Test** dan **Admin SS Online** yang
    tampaknya bukan orang untuk tugas ini. Menugaskan ke role dan bukan ke orang
    berisiko jatuh di antara kursi — persis penyakit yang sedang diobati.
-3. **Tunggakan September mau diapakan?** Dibiarkan menggantung, atau ditutup
-   sebagai dokumen saja tanpa mengubah stok. Daftarnya sudah diberikan ke owner
-   2026-09-10.
+3. ~~Tunggakan September mau diapakan?~~ **Sudah diputuskan** — **ditutup
+   sebagai dokumen, tanpa mengubah stok** (owner, 2026-09-10). Status jadi
+   `selesai`, penanda `ditutup_administratif_at`, **nol baris stok ditulis**.
+   Daftarnya disusun ulang pada hari go-live karena bertambah tiap hari.
    ⚠️ **Jumlahnya bertambah tiap hari.** Per 10 September pukul 17:00: 39 SJ
    sudah lewat hari (Rp 105.461.894) + 10 SJ hari itu (Rp 29.122.410) yang belum
    terlambat. Dengan laju ~5 SJ/hari tak terverifikasi, perkiraan **60–65 SJ**

@@ -124,7 +124,7 @@ yang sama supaya admin tidak mengira mengosongkan kolom akan menggratiskan menu.
 yang melayani aplikasi"* — N terhitung nyata, nama outletnya bisa dibuka. Hari
 ini tidak ada tempat mana pun yang memberi tahu hal itu.
 
-**Foto** memakai bucket `menu_images` yang sudah dipakai POS. Bucket baru
+**Foto** memakai bucket `menu-images` yang sudah dipakai POS. Bucket baru
 berarti kebijakan akses baru untuk untung nol.
 
 **Urutan tampil TIDAK ikut tahap ini.** `sort_order` dipakai bersama POS;

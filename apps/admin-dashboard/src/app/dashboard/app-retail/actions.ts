@@ -13,6 +13,20 @@ async function getSupabase() {
   })
 }
 
+/**
+ * Nol baris ter-update BUKAN error di PostgREST.
+ *
+ * Kebijakan tulis `menu_items`/`outlets` menuntut role `admin` persis
+ * (`menu_items_all_admin`, `outlets_all_admin`), sedangkan `owner` role yang
+ * berbeda dan bacanya terbuka. Tanpa pemeriksaan ini halaman terbaca normal
+ * untuk OWNER sementara setiap tulisan lenyap tanpa suara — panel bahkan
+ * menutup diri "seolah tersimpan". Jadi setiap UPDATE wajib `.select('id')`
+ * lalu dicek isinya.
+ */
+function pastikanTerubah(baris: { id: string }[] | null, pesanDitolak: string) {
+  if (!baris || baris.length === 0) throw new Error(pesanDitolak)
+}
+
 function segarkan() {
   revalidatePath('/dashboard/app-retail')
   revalidatePath('/dashboard/app-retail/menu')
@@ -29,11 +43,16 @@ function segarkan() {
  */
 export async function toggleTayangDiApp(id: string, sedangTayang: boolean) {
   const supabase = await getSupabase()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('menu_items')
     .update({ tampil_di_app: !sedangTayang })
     .eq('id', id)
+    .select('id')
   if (error) throw new Error(error.message)
+  pastikanTerubah(
+    data,
+    'Status tayang tidak berubah — akun ini belum berhak mengubah pengaturan aplikasi.',
+  )
   segarkan()
 }
 
@@ -61,7 +80,7 @@ export async function simpanDetailMenuApp(input: {
   if (bacaError) throw new Error(bacaError.message)
   if (!baris) throw new Error('Menu tidak ditemukan')
 
-  const { error } = await supabase
+  const { data: terubah, error } = await supabase
     .from('menu_items')
     .update({
       deskripsi_app: input.deskripsiApp || null,
@@ -69,7 +88,12 @@ export async function simpanDetailMenuApp(input: {
       channel_prices: gabungHargaChannel(baris.channel_prices, input.hargaAplikasi),
     })
     .eq('id', input.id)
+    .select('id')
   if (error) throw new Error(error.message)
+  pastikanTerubah(
+    terubah,
+    'Tampilan menu tidak tersimpan — akun ini belum berhak mengubah pengaturan aplikasi.',
+  )
   segarkan()
 }
 
@@ -82,10 +106,15 @@ export async function simpanDetailMenuApp(input: {
  */
 export async function toggleOutletApp(id: string, sedangMenyala: boolean) {
   const supabase = await getSupabase()
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('outlets')
     .update({ app_enabled: !sedangMenyala })
     .eq('id', id)
+    .select('id')
   if (error) throw new Error(error.message)
+  pastikanTerubah(
+    data,
+    'Outlet tidak berubah — akun ini belum berhak mengubah pengaturan aplikasi.',
+  )
   segarkan()
 }

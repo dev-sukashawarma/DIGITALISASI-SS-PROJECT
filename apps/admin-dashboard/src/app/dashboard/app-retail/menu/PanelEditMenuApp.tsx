@@ -8,8 +8,13 @@ import { createClient } from '@/lib/supabase'
 import { toggleTayangDiApp, simpanDetailMenuApp } from '../actions'
 import { hargaAplikasiTampil, type MenuApp } from '@/lib/appRetail/tampilanMenu'
 
-/** Bucket yang sudah dipakai POS. Bucket baru berarti kebijakan akses baru untuk untung nol. */
-const BUCKET = 'menu_images'
+/**
+ * Bucket yang sudah dipakai POS. Bucket baru berarti kebijakan akses baru untuk untung nol.
+ * Id-nya bertanda hubung (`menu-images`), sesuai `20260612000500_create_menu_images_bucket.sql`
+ * dan semua policy storage-nya. Ejaan bergaris bawah membuat setiap unggahan gagal
+ * "Bucket not found".
+ */
+const BUCKET = 'menu-images'
 
 export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onTutup: () => void }) {
   const hargaAwal = hargaAplikasiTampil(item.channel_prices)

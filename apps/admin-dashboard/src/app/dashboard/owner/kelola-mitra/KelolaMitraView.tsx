@@ -34,7 +34,9 @@ import {
   Check,
   CheckCircle2,
   Sparkles,
-  ArrowUpRight
+  ArrowUpRight,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { PeriodFilterValue } from '@/lib/types'
@@ -116,6 +118,14 @@ export function KelolaMitraView({
   const [isTransferFormOpen, setIsTransferFormOpen] = useState(false)
   const [editMitraData, setEditMitraData] = useState<any>(null)
   const [investmentOutlet, setInvestmentOutlet] = useState<any>(null)
+  const [expandedBreakdownOutlets, setExpandedBreakdownOutlets] = useState<Record<string, boolean>>({})
+
+  const toggleBreakdown = (outletId: string) => {
+    setExpandedBreakdownOutlets(prev => ({
+      ...prev,
+      [outletId]: !prev[outletId]
+    }))
+  }
 
   // Filter change handler
   const handleFilterChange = (newFilter: PeriodFilterValue) => {
@@ -862,7 +872,10 @@ export function KelolaMitraView({
               const bepData = realtimeBepMap[outlet.id]
               const omzetHistoris = Number(inv?.omzet_historis) || 0
               const transferHistoris = Number(inv?.transfer_historis) || 0
+              const transferSistem = Number(bepData?.transferSistem) || 0
               const realtimeMitraShare = bepData?.mitraShare || 0
+              const netProfitOutlet = Number(bepData?.netProfit) || 0
+              const monthlyBreakdown = bepData?.monthlyBreakdown || []
 
               const totalReturned = bepData ? bepData.totalDanaKembali : (omzetHistoris + transferHistoris)
               const roiRaw = totalModal > 0 ? (totalReturned / totalModal) * 100 : 0
@@ -941,39 +954,117 @@ export function KelolaMitraView({
                     </div>
 
                     {/* Investment & Contract Details */}
-                    <div className="p-3.5 bg-white rounded-xl border border-suka-gray-200/60 space-y-2 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-suka-gray-500 font-medium">Modal Investasi Awal:</span>
-                        <span className="font-bold text-suka-brown tabular-nums">{formatRupiah(totalModal)}</span>
+                    <div className="p-3.5 bg-white rounded-xl border border-suka-gray-200/60 space-y-2.5 text-xs">
+                      {/* Modal Investasi Awal */}
+                      <div className="flex justify-between items-center pb-2 border-b border-suka-gray-100">
+                        <span className="text-suka-gray-600 font-medium">Modal Investasi Awal:</span>
+                        <span className="font-bold text-suka-brown tabular-nums text-sm">{formatRupiah(totalModal)}</span>
                       </div>
-                      {omzetHistoris > 0 && (
+
+                      {/* Rincian Komponen Pengembalian Modal Mitra (Rekonsiliasi Transparan) */}
+                      <div className="bg-amber-50/50 rounded-xl p-2.5 border border-amber-200/60 space-y-2">
+                        <span className="text-[10px] font-bold text-amber-900 uppercase tracking-wider block">
+                          Komponen Pengembalian Modal:
+                        </span>
+
+                        {omzetHistoris > 0 && (
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-suka-gray-600">1. Profit Pra-Digital (s/d Jul 2026):</span>
+                            <span className="font-semibold text-emerald-800 tabular-nums">{formatRupiah(omzetHistoris)}</span>
+                          </div>
+                        )}
+
+                        {transferSistem > 0 && (
+                          <div className="flex justify-between items-center text-[11px]">
+                            <span className="text-suka-gray-600 flex items-center gap-1">
+                              <span>{omzetHistoris > 0 ? '2.' : '1.'} Bagi Hasil Ditransfer:</span>
+                              <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded">Terbayar</span>
+                            </span>
+                            <span className="font-semibold text-emerald-800 tabular-nums">{formatRupiah(transferSistem)}</span>
+                          </div>
+                        )}
+
                         <div className="flex justify-between items-center text-[11px]">
-                          <span className="text-suka-gray-500 font-medium">Profit Historis Pra-Digital:</span>
-                          <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(omzetHistoris)}</span>
-                        </div>
-                      )}
-                      {realtimeMitraShare > 0 && (
-                        <div className="flex justify-between items-center text-[11px]">
-                          <span className="text-suka-gray-500 font-medium">Laba Riil Sistem (Sejak 1 Ags 2026):</span>
+                          <span className="text-suka-gray-600">
+                            {omzetHistoris > 0 && transferSistem > 0 ? '3.' : omzetHistoris > 0 || transferSistem > 0 ? '2.' : '1.'} Bagi Hasil Mitra Sistem (Akrual):
+                          </span>
                           <span className="font-bold text-emerald-800 tabular-nums">{formatRupiah(realtimeMitraShare)}</span>
                         </div>
-                      )}
-                      <div className="flex justify-between items-center">
-                        <span className="text-suka-gray-500 font-medium">Porsi Bagi Hasil:</span>
-                        <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 text-[11px]">
-                          {profitSharePct}% Mitra
-                        </span>
+
+                        {/* Toggle Rincian Bulanan jika ada data monthlyBreakdown */}
+                        {monthlyBreakdown.length > 0 && (
+                          <div className="pt-0.5">
+                            <button
+                              type="button"
+                              onClick={() => toggleBreakdown(outlet.id)}
+                              className="text-[10px] font-semibold text-suka-orange hover:text-suka-orange/80 inline-flex items-center gap-1 transition-colors cursor-pointer"
+                            >
+                              <span>{expandedBreakdownOutlets[outlet.id] ? 'Sembunyikan Rincian Bulan' : 'Lihat Rincian Tiap Bulan (Ags, Sep)'}</span>
+                              {expandedBreakdownOutlets[outlet.id] ? (
+                                <ChevronUp className="w-3 h-3" />
+                              ) : (
+                                <ChevronDown className="w-3 h-3" />
+                              )}
+                            </button>
+
+                            {expandedBreakdownOutlets[outlet.id] && (
+                              <div className="mt-2 pt-2 border-t border-amber-200/50 space-y-1.5">
+                                {monthlyBreakdown.map((mb: any) => (
+                                  <div key={mb.monthKey} className="p-2 bg-white/90 rounded-lg border border-amber-200/50 text-[10px] space-y-1 shadow-2xs">
+                                    <div className="flex justify-between font-bold text-suka-brown border-b border-suka-gray-100 pb-0.5">
+                                      <span>{mb.monthLabel}</span>
+                                      <span className={mb.isTransferred ? 'text-emerald-700' : mb.isClosed ? 'text-amber-800' : 'text-blue-700'}>
+                                        {mb.isTransferred ? '✓ Terbayar' : mb.isClosed ? 'Closing Audited' : 'Live Berjalan'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between text-suka-ink/70">
+                                      <span>Laba Bersih Outlet:</span>
+                                      <span className="font-semibold tabular-nums">{formatRupiah(mb.netProfit)}</span>
+                                    </div>
+                                    <div className="flex justify-between text-emerald-800 font-semibold">
+                                      <span>Hak Bagi Hasil Mitra ({mb.profitSharingPct}%):</span>
+                                      <span className="tabular-nums font-bold">{formatRupiah(mb.mitraShare)}</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Garis Penjumlahan yang Pasti Pas */}
+                        <div className="pt-1.5 border-t border-amber-200/70 flex justify-between items-center text-[11px] font-bold">
+                          <span className="text-amber-950">Total Modal Kembali:</span>
+                          <span className="text-emerald-700 tabular-nums">{formatRupiah(totalReturned)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-suka-gray-500 font-medium">Management Fee Pusat:</span>
-                        <span className={`font-semibold ${Number(inv?.management_fee) > 0 ? 'text-amber-800 font-bold' : 'text-suka-gray-400'}`}>
-                          {Number(inv?.management_fee) > 0 ? `${inv.management_fee}% Omzet` : '0% (Nonaktif)'}
-                        </span>
+
+                      {/* Operasional & Ketentuan Kontrak */}
+                      <div className="pt-1 space-y-1.5 text-[11px]">
+                        {netProfitOutlet > 0 && (
+                          <div className="flex justify-between items-center">
+                            <span className="text-suka-gray-500 font-medium">Laba Bersih Outlet (Sistem):</span>
+                            <span className="font-semibold text-suka-brown tabular-nums">{formatRupiah(netProfitOutlet)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between items-center">
+                          <span className="text-suka-gray-500 font-medium">Porsi Bagi Hasil:</span>
+                          <span className="font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200/80 text-[10px]">
+                            {profitSharePct}% Mitra
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-suka-gray-500 font-medium">Management Fee Pusat:</span>
+                          <span className={`font-semibold ${Number(inv?.management_fee) > 0 ? 'text-amber-800 font-bold' : 'text-suka-gray-400'}`}>
+                            {Number(inv?.management_fee) > 0 ? `${inv.management_fee}% Omzet` : '0% (Nonaktif)'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-suka-gray-500 font-medium">Tanggal Mulai Usaha:</span>
+                          <span className="font-medium text-suka-brown">{formatDate(inv?.tanggal_mulai)}</span>
+                        </div>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-suka-gray-500 font-medium">Tanggal Mulai Usaha:</span>
-                        <span className="font-medium text-suka-brown">{formatDate(inv?.tanggal_mulai)}</span>
-                      </div>
+
                       {inv?.catatan && (
                         <p className="text-[11px] text-suka-ink/65 italic pt-1 border-t border-suka-gray-100">
                           &ldquo;{inv.catatan}&rdquo;

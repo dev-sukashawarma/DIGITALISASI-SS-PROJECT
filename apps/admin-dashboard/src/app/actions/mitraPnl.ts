@@ -615,6 +615,7 @@ export async function getMitraComprehensivePnl(
   let totalWaste = 0
   if (wasteRows) {
     for (const w of wasteRows) {
+      if (!targetOutletIds.includes(w.outlet_id)) continue
       const amt = Number(w.nilai_waste) || 0
       totalWaste += amt
       if (w.outlet_id) {

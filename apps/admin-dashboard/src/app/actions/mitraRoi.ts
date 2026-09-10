@@ -97,6 +97,17 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
   }
 }
 
+export interface MitraMonthlyProfitItem {
+  monthKey: string
+  monthLabel: string
+  netProfit: number
+  mitraShare: number
+  profitSharingPct: number
+  managementFee: number
+  isTransferred: boolean
+  isClosed: boolean
+}
+
 export interface MitraRealtimeBepItem {
   outletId: string
   modalInvestasi: number
@@ -121,6 +132,7 @@ export interface MitraRealtimeBepItem {
   roiPct: number
   bepPercentage: number
   isBep: boolean
+  monthlyBreakdown: MitraMonthlyProfitItem[]
 }
 
 export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Promise<Record<string, MitraRealtimeBepItem>> {
@@ -408,6 +420,8 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     let waste = 0
     let managementFee = 0
     let akrualBelumDitransfer = 0
+    const monthlyBreakdown: MitraMonthlyProfitItem[] = []
+    const curMonthKey = todayWib().slice(0, 7)
 
     months.forEach((m, idx) => {
       const w = monthlyAgg[idx][oid]
@@ -428,11 +442,30 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       waste += w.waste
       managementFee += fee
 
-      if (m.key >= mulaiAkru && sharingActive && laba > 0) {
-        akrualBelumDitransfer += Math.round((laba * p.profitSharingPct) / 100)
+      const isTransferred = m.key < mulaiAkru
+      let monthMitraShare = 0
+      if (sharingActive && laba > 0) {
+        monthMitraShare = Math.round((laba * p.profitSharingPct) / 100)
+        if (!isTransferred) {
+          akrualBelumDitransfer += monthMitraShare
+        }
       }
-    })
 
+      const [yr, mo] = m.key.split('-')
+      const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+      const monthLabel = `${monthNames[Number(mo)] || m.key} ${yr}`
+
+      monthlyBreakdown.push({
+        monthKey: m.key,
+        monthLabel,
+        netProfit: laba,
+        mitraShare: monthMitraShare,
+        profitSharingPct: p.profitSharingPct,
+        managementFee: fee,
+        isTransferred,
+        isClosed: m.key < curMonthKey
+      })
+    })
 
     const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee
     const mitraShare = akrualBelumDitransfer
@@ -462,7 +495,8 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       sisaModal,
       roiPct,
       bepPercentage,
-      isBep
+      isBep,
+      monthlyBreakdown
     }
   }
 

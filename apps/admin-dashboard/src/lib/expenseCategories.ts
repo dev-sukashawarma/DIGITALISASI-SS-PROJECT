@@ -4,7 +4,7 @@ import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
 export const OUTLET_CATEGORIES = [
   'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
   'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'internet', 'sewa_outlet',
-  'salary', 'bahan_baku', 'transport', 'utilitas', 'lainnya'
+  'joint_expense', 'salary', 'bahan_baku', 'transport', 'utilitas', 'lainnya'
 ] as const
 export const PUSAT_CATEGORIES = ['pengeluaran_global', 'gaji_staff_kantor'] as const
 export const INCOME_CATEGORIES = ['pemasukan_lain', 'modal_awal', 'setoran_owner'] as const
@@ -33,6 +33,7 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   pln:                { label: 'PLN',                color: '#0a7d2c', icon: Zap },
   internet:           { label: 'Internet',           color: '#0d9488', icon: Wifi },
   sewa_outlet:        { label: 'Biaya Sewa Outlet',  color: '#d97706', icon: Home },
+  joint_expense:      { label: 'Joint Expense',      color: '#dc2626', icon: Globe },
   salary:             { label: 'Salary',             color: '#8b5cf6', icon: Users },
   pengeluaran_global: { label: 'Pengeluaran Global', color: '#dc2626', icon: Globe },
   gaji_staff_kantor:  { label: 'Gaji Staff Kantor',  color: '#9f1239', icon: Building2 },

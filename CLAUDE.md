@@ -1991,6 +1991,73 @@ sekadar diam.
 - 6 SJ tunggakan memuat `FOIL (48)` (nonaktif). Sudah ikut ditutup tanpa stok,
   jadi aman — tapi penjaga bahan-nonaktif di fungsi tetap perlu untuk ke depan.
 
+## Session 2026-09-09: Tab App Retail Tahap 1 (apps/admin-dashboard)
+
+**Status:** ✅ Kode selesai. ⚠️ Perlu **redeploy `admin-dashboard`**.
+
+Grup nav baru **App Retail** (OWNER/ADMIN) dengan tiga halaman: Ringkasan,
+Pengaturan Menu Aplikasi, Outlet Aplikasi. Menutup dua lubang yang sebelumnya
+hanya bisa diisi lewat SQL langsung ke tabel produksi — `menu_items.tampil_di_app`
+beserta `foto_app`/`deskripsi_app`/harga aplikasi, dan `outlets.app_enabled`
+yang bahkan tidak punya UI sama sekali padahal ia satu-satunya gerbang antara
+outlet dan pelanggan (`GET /api/v1/outlets` menyaring persis kolom itu).
+
+**Syarat keras owner: nol gangguan ke POS, web maupun native.** Ditegakkan
+sebagai pemeriksaan, bukan niat: `git diff --name-only origin/main...HEAD`
+harus nol baris di `apps/pos-kasir`, `mobile/`, `pos-admin/`, dan
+`supabase/migrations/`. **Tahap 1 nol migration.**
+
+### ⚠️ Gotcha: jangan tambahkan baris "Aplikasi" ke `sales_channels`
+Mode "Satu Harga Semua" di `MenuView.tsx` menyapu SELURUH baris `sales_channels`
+dan menulis satu harga ke tiap slug-nya. Baris "Aplikasi" di tabel itu membuat
+harga aplikasi ikut tertimpa setiap kali admin mengatur harga food apps. Slug
+`aplikasi` sengaja hidup hanya sebagai kunci di `menu_items.channel_prices`.
+
+### ⚠️ Gotcha: `channel_prices` wajib digabung, bukan ditimpa
+Satu kolom JSON memuat harga semua kanal. Menulis `{ aplikasi: ... }` polos
+menghapus harga GoFood, GrabFood, dan ShopeeFood sekaligus. Semua penulisan
+lewat `gabungHargaChannel` (`src/lib/appRetail/hargaAplikasi.ts`, ber-test).
+
+### Diketahui, sengaja dibiarkan
+Toggle & harga aplikasi masih ada juga di layar menu POS (pekerjaan pagi
+9 Sep). Mencabutnya berarti menyentuh POS — melanggar syarat di atas — jadi
+dibiarkan berdampingan. Dua tempat, satu kolom; membingungkan tapi tak bisa
+menghasilkan data yang bertengkar.
+
+**Tidak ada guard role khusus di `/dashboard/app-retail`.** `RoleContext.tsx`
+memakai allowlist untuk MITRA/LEADER/AREA_MANAGER/PURCHASING, jadi keempatnya
+terlempar dari rute ini; OWNER & ADMIN memang dituju. Tapi **`ADMIN_HR` tidak
+punya allowlist sama sekali** dan bisa membuka rute mana pun di admin-dashboard,
+termasuk halaman yang menyalakan outlet ke pelanggan. Itu **pre-existing dan
+berlaku app-wide**, bukan diciptakan tab ini. Sengaja tidak ditambal di sini:
+guard halaman berjalan di browser dan TIDAK melindungi Server Action (pelajaran
+Session 2026-07-20). Perbaikan yang benar adalah cek role DI DALAM server
+action, pola `requireOpnameApprover` — pekerjaan tersendiri, untuk semua
+halaman, bukan tambalan untuk satu rute.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-09-app-retail-tahap1-design.md`,
+`docs/superpowers/plans/2026-09-09-app-retail-tahap1.md`
+
+### Yang ditangkap review (tiga cacat, semuanya berasal dari rencana)
+
+Bukan kesalahan implementer — ketiganya disalin verbatim dari kode rencana:
+1. **Ringkasan**: `count ?? 0` membuat query gagal tak bisa dibedakan dari nol
+   sungguhan, di halaman yang tujuannya justru menjawab "kanal ini hidup atau
+   tidak". Diperbaiki: `—` + penanda galat, nol sungguhan tetap `0`.
+2. **Panel edit**: `CurrencyInput` mengirim `0` saat kolom dikosongkan, jadi
+   kolom harga menampilkan **"0"** persis di bawah kalimat "Kosong berarti ikut
+   harga kasir, bukan gratis". Diperbaiki di sisi pemanggil (`CurrencyInput`
+   dipakai bersama app lain, tidak disentuh).
+3. **Panel edit**: toggle tayang membaca prop `item` yang beku, sehingga setelah
+   klik pertama tampilannya tak pernah berubah dan klik berikutnya mengirim
+   nilai basi. Diperbaiki dengan state lokal. Halaman Outlet Aplikasi TIDAK
+   mengulang cacat ini — reviewer menelusurinya khusus.
+
+**📝 Next:** redeploy `admin-dashboard`; smoke test sebagai ADMIN (nyalakan satu
+menu, cek `GET /api/v1/catalog` ikut berubah); banner & voucher tahap berikutnya.
+- Pertimbangkan cek role di dalam server action (lihat "Diketahui, sengaja
+  dibiarkan") — berlaku untuk seluruh admin-dashboard, bukan hanya tab ini.
+
 ---
 
 **Last updated:** 2026-09-10  

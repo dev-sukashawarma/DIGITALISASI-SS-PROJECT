@@ -33,6 +33,9 @@ const ROLES: Role[] = [
  */
 const BASELINE_ROUTES: Record<Role, string[]> = {
   ADMIN: [
+    '/dashboard/app-retail',
+    '/dashboard/app-retail/menu',
+    '/dashboard/app-retail/outlet',
     '/dashboard/bahan-baku',
     '/dashboard/budget-outlet',
     '/dashboard/bukti-qris',
@@ -85,6 +88,9 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/system-health',
   ],
   OWNER: [
+    '/dashboard/app-retail',
+    '/dashboard/app-retail/menu',
+    '/dashboard/app-retail/outlet',
     '/dashboard/budget-outlet',
     '/dashboard/data-validate',
     '/dashboard/monitoring',
@@ -141,10 +147,11 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
   ],
 }
 
-/** Jumlah pintu per role setelah konsolidasi. Hanya ADMIN yang berubah (10 → 7). */
+/** Jumlah pintu per role. Konsolidasi mengubah ADMIN (10 → 7); pintu App Retail
+ *  lalu menaikkan ADMIN 7 → 8 dan OWNER 5 → 6. */
 const EXPECTED_GROUP_COUNT: Record<Role, number> = {
-  ADMIN: 7,
-  OWNER: 5,
+  ADMIN: 8,
+  OWNER: 6,
   ADMIN_HR: 1,
   PURCHASING: 1,
   LEADER: 1,
@@ -232,13 +239,14 @@ describe('navConfig — invarian', () => {
     expect(accessibleGroups(role)).toHaveLength(EXPECTED_GROUP_COUNT[role])
   })
 
-  it('ADMIN melihat tujuh pintu dengan urutan yang ditentukan', () => {
+  it('ADMIN melihat delapan pintu dengan urutan yang ditentukan', () => {
     expect(accessibleGroups('ADMIN').map((g) => g.title)).toEqual([
       'Laporan Internal',
       'Penjualan & Kinerja',
       'Produk & Stok',
       'Pembelian',
       'POS',
+      'App Retail',
       'Karyawan',
       'Sistem',
     ])

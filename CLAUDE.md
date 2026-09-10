@@ -1958,11 +1958,14 @@ sekadar diam.
   setelah owner memberi tahu). Di luar aturan baru. Outlet-outlet itu opname tiap
   malam, jadi perlakuan yang benar besok = penutupan administratif tanpa stok,
   sama seperti yang 39.
-- **Siapa orangnya di role `kitchen`, dan seberapa sering** meja validasi
-  dikosongkan. Role itu punya 5 akun aktif, dua di antaranya (Kitchen Test,
-  Admin SS Online) tampak bukan orang untuk tugas ini. Tanpa nama dan irama yang
-  jelas, antreannya cuma pindah dari 17 outlet ke satu meja yang juga tak
-  dipegang siapa-siapa. **Sistem tidak bisa memaksa ini.**
+- **Seberapa sering meja validasi `kitchen` dikosongkan.** Owner memilih tetap
+  di level role, bukan orang tertentu — ditanya ulang, dijawab "role kitchen
+  aja". Antreannya sudah punya tempat: dashboard `apps/distribusi`, kartu & tab
+  **"Perlu Verif"** (`page.tsx:610` & `:865`) yang menyaring persis
+  `diterima_lengkap` + `diterima_sebagian`, jadi terlihat di halaman depan tanpa
+  perlu layar baru. Yang belum ada cuma iramanya. **Sistem tidak bisa memaksa
+  ini** — kalau antrean itu tak pernah dikosongkan, bebannya cuma pindah dari 17
+  outlet ke satu meja Pusat. Q3 di skrip pemantau yang akan menunjukkannya.
 - **`handleVerifyPusat` menulis status langsung dari browser**, tanpa RPC dan
   tanpa cek role di kodenya — pola sama dengan lubang otorisasi Session
   2026-07-20. Perlu diaudit terpisah; rancangan ini tidak memperburuknya.

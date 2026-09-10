@@ -291,8 +291,13 @@ outlet masih bisa memverifikasi sambil menolak barang yang kurang.
 1. ~~Apa yang mengubah status jadi `selesai`?~~ **Sudah terjawab** — tombol
    Pusat, bukan otomatis. Lihat §3.4 dan §4.2.
 2. ~~Siapa yang mengerjakan antrean validasi Pusat?~~ **Sudah diputuskan** —
-   role **`kitchen`** (owner, 2026-09-10).
-   ⚠️ Sisa yang belum ditentukan: **seberapa sering**, dan **siapa orangnya**.
+   role **`kitchen`**, tetap di level role, bukan orang tertentu (owner,
+   2026-09-10, ditegaskan saat ditanya ulang).
+   **Antreannya sudah punya tempat:** dashboard `apps/distribusi`, kartu &
+   tab **"Perlu Verif"**, yang menyaring persis `diterima_lengkap` +
+   `diterima_sebagian`. Jadi siapa pun yang login sebagai `kitchen` melihatnya
+   di halaman depan — tidak perlu dicari, dan tidak perlu layar baru.
+   ⚠️ Sisa yang belum ditentukan: **seberapa sering** meja itu dikosongkan.
    Role `kitchen` punya 5 akun aktif — Admin Kitchen 2, Muhammad Abyansah
    Mandala, Rusly Irawan, plus **Kitchen Test** dan **Admin SS Online** yang
    tampaknya bukan orang untuk tugas ini. Menugaskan ke role dan bukan ke orang

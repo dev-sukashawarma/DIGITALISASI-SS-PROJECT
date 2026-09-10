@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { Smartphone, Store, ShoppingCart } from 'lucide-react'
+import { bacaJumlah } from '@/lib/appRetail/jumlahKueri'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,14 +14,6 @@ function awalHariWib(): string {
   return new Date(wib.getTime() - 7 * 60 * 60 * 1000).toISOString()
 }
 
-/** Bedakan query error dari nilai nol sungguhan. */
-function getCountValue(res: { count: number | null; error: any }): number | null {
-  if (res.error || res.count === null || res.count === undefined) {
-    return null // indicates query failed or count unavailable
-  }
-  return res.count // valid number (could be 0)
-}
-
 export default async function AppRetailPage() {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({
@@ -30,15 +23,19 @@ export default async function AppRetailPage() {
 
   const [menuRes, outletRes, orderRes] = await Promise.all([
     supabase.from('menu_items').select('id', { count: 'exact', head: true }).eq('tampil_di_app', true),
-    supabase.from('outlets').select('id', { count: 'exact', head: true }).eq('app_enabled', true),
+    // Definisi "melayani aplikasi" harus sama dengan GET /api/v1/outlets:
+    // app_enabled DAN bukan marketplace. Tanpa .neq, kartu ini menghitung
+    // outlet virtual yang tidak pernah dilihat pelanggan.
+    supabase.from('outlets').select('id', { count: 'exact', head: true })
+      .eq('app_enabled', true).neq('type', 'marketplace'),
     supabase.from('orders').select('id', { count: 'exact', head: true })
       .eq('source', 'app').gte('created_at', awalHariWib()),
   ])
 
   const kartu = [
-    { label: 'Menu tayang di aplikasi', nilai: getCountValue(menuRes), ikon: Smartphone, href: '/dashboard/app-retail/menu' },
-    { label: 'Outlet melayani aplikasi', nilai: getCountValue(outletRes), ikon: Store, href: '/dashboard/app-retail/outlet' },
-    { label: 'Pesanan aplikasi hari ini', nilai: getCountValue(orderRes), ikon: ShoppingCart, href: null },
+    { label: 'Menu tayang di aplikasi', nilai: bacaJumlah(menuRes), ikon: Smartphone, href: '/dashboard/app-retail/menu' },
+    { label: 'Outlet melayani aplikasi', nilai: bacaJumlah(outletRes), ikon: Store, href: '/dashboard/app-retail/outlet' },
+    { label: 'Pesanan aplikasi hari ini', nilai: bacaJumlah(orderRes), ikon: ShoppingCart, href: null },
   ]
 
   return (

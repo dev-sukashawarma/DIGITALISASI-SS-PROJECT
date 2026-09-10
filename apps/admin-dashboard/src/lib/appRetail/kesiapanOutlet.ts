@@ -6,6 +6,12 @@ export type OutletApp = {
   app_enabled: boolean
 }
 
+/**
+ * Diekspor supaya pemanggil bisa MENAHAN peringatan ini saat jumlah menu tidak
+ * diketahui (kueri gagal) — menahan lebih benar daripada menuduh "nol menu".
+ */
+export const PERINGATAN_NOL_MENU = 'Nol menu tayang — katalog akan kosong'
+
 export type Kesiapan = {
   /** Pelanggan bisa memilih outlet ini di aplikasi. */
   melayani: boolean
@@ -29,7 +35,7 @@ export function periksaKesiapanOutlet(outlet: OutletApp, jumlahMenuTayang: numbe
     // jadi outlet nonaktif tetap ditawarkan ke pelanggan. Endpoint sengaja
     // TIDAK diubah di tahap ini; keadaannya ditandai supaya terlihat.
     if (!outlet.is_active) peringatan.push('Outlet nonaktif tapi masih melayani aplikasi')
-    if (jumlahMenuTayang <= 0) peringatan.push('Nol menu tayang — katalog akan kosong')
+    if (jumlahMenuTayang <= 0) peringatan.push(PERINGATAN_NOL_MENU)
   }
 
   return { melayani, peringatan }

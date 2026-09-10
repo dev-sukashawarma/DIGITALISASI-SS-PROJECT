@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { AlertTriangle, Store } from 'lucide-react'
-import { periksaKesiapanOutlet, type OutletApp } from '@/lib/appRetail/kesiapanOutlet'
+import { periksaKesiapanOutlet, PERINGATAN_NOL_MENU, type OutletApp } from '@/lib/appRetail/kesiapanOutlet'
 import { toggleOutletApp } from '../actions'
 
 export default function OutletAppView({
@@ -10,7 +10,8 @@ export default function OutletAppView({
   jumlahMenuTayang,
 }: {
   outlets: OutletApp[]
-  jumlahMenuTayang: number
+  /** `null` = jumlahnya tidak diketahui (kueri gagal), bukan nol. */
+  jumlahMenuTayang: number | null
 }) {
   const [galat, setGalat] = useState('')
   const [konfirmasi, setKonfirmasi] = useState<OutletApp | null>(null)
@@ -55,18 +56,23 @@ export default function OutletAppView({
               <th className="text-left py-3 px-4 font-semibold text-slate-500">Outlet</th>
               <th className="text-left py-3 px-4 font-semibold text-slate-500 hidden sm:table-cell">Jenis</th>
               <th className="text-center py-3 px-4 font-semibold text-slate-500">Aktif</th>
-              <th className="text-right py-3 px-4 font-semibold text-slate-500">Menu terbit</th>
+              <th className="text-right py-3 px-4 font-semibold text-slate-500">Menu umum terbit</th>
               <th className="text-center py-3 px-4 font-semibold text-slate-500">Melayani aplikasi</th>
             </tr>
           </thead>
           <tbody>
             {outlets.map((o) => {
-              const kesiapan = periksaKesiapanOutlet(o, jumlahMenuTayang)
+              const kesiapan = periksaKesiapanOutlet(o, jumlahMenuTayang ?? 0)
+              // Jumlah tidak diketahui bukan alasan menuduh katalog kosong.
+              const peringatan =
+                jumlahMenuTayang === null
+                  ? kesiapan.peringatan.filter((p) => p !== PERINGATAN_NOL_MENU)
+                  : kesiapan.peringatan
               return (
                 <tr key={o.id} className="border-b border-slate-100 last:border-0">
                   <td className="py-3 px-4">
                     <p className="font-semibold text-slate-900">{o.name}</p>
-                    {kesiapan.peringatan.map((p) => (
+                    {peringatan.map((p) => (
                       <p key={p} className="text-[11px] text-red-600 flex items-center gap-1 mt-0.5">
                         <AlertTriangle className="w-3 h-3 shrink-0" />
                         {p}
@@ -75,7 +81,7 @@ export default function OutletAppView({
                   </td>
                   <td className="py-3 px-4 text-slate-500 hidden sm:table-cell">{o.type ?? '—'}</td>
                   <td className="py-3 px-4 text-center text-slate-500">{o.is_active ? 'Ya' : 'Tidak'}</td>
-                  <td className="py-3 px-4 text-right text-slate-500">{kesiapan.melayani ? jumlahMenuTayang : '—'}</td>
+                  <td className="py-3 px-4 text-right text-slate-500">{kesiapan.melayani ? (jumlahMenuTayang ?? '—') : '—'}</td>
                   <td className="py-3 px-4 text-center">
                     <button
                       type="button"

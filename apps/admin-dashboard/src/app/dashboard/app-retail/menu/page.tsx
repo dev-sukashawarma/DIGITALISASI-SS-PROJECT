@@ -15,9 +15,13 @@ export default async function AppRetailMenuPage() {
   const [itemsRes, outletRes] = await Promise.all([
     supabase
       .from('menu_items')
-      .select('id, name, price, channel_prices, image_url, foto_app, deskripsi_app, tampil_di_app, categories(name)')
+      .select('id, name, price, channel_prices, image_url, foto_app, deskripsi_app, tampil_di_app, is_available, outlet_id, categories(name)')
       .order('name'),
-    supabase.from('outlets').select('name').eq('app_enabled', true).order('name'),
+    // Sama dengan GET /api/v1/outlets: app_enabled DAN bukan marketplace.
+    // Angka ini dipakai untuk klaim cakupan di layar, jadi tidak boleh lebih
+    // longgar daripada yang benar-benar dilayani gateway.
+    supabase.from('outlets').select('name')
+      .eq('app_enabled', true).neq('type', 'marketplace').order('name'),
   ])
 
   return (

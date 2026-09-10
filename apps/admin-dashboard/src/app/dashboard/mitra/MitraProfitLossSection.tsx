@@ -105,7 +105,7 @@ export function MitraProfitLossSection({
       { komparasi: 'Periode', nominal: `${formatDate(currentFilter.from)} - ${formatDate(currentFilter.to)}`, keterangan: '' },
       { komparasi: '--- REVENUE ---', nominal: '', keterangan: '' },
       { komparasi: '1. Omzet Kotor (POS / Offline)', nominal: channels.pos.revenue, keterangan: `${channels.pos.orderCount} pesanan` },
-      { komparasi: '2. Omzet Kotor (Food Apps)', nominal: channels.foodApps.revenue, keterangan: `Grab: ${channels.foodApps.grab}, GoFood: ${channels.foodApps.gofood}, Shopee: ${channels.foodApps.shopeefood}` },
+      { komparasi: '2. Omzet Kotor (Food Apps)', nominal: channels.foodApps.revenue, keterangan: `Grab: ${formatRp(channels.foodApps.grab)}, GoFood: ${formatRp(channels.foodApps.gofood)}, Shopee: ${formatRp(channels.foodApps.shopeefood)}` },
       { komparasi: '3. Omzet Kotor (TikTok Shop/Go)', nominal: channels.tiktok.revenue, keterangan: `${channels.tiktok.orderCount} pesanan` },
       { komparasi: 'TOTAL OMZET KOTOR', nominal: summary.grossRevenue, keterangan: '' },
       { komparasi: 'Potongan / Komisi / Promo Merchant', nominal: -summary.totalDeductions, keterangan: '' },

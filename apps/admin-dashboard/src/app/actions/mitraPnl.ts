@@ -608,7 +608,7 @@ export async function getMitraComprehensivePnl(
     }))
     .sort((a, b) => b.amount - a.amount)
 
-  const grandTotalOpex = totalPettyCash + totalMonthly
+  let grandTotalOpex = totalPettyCash + totalMonthly
 
   // 7. Waste
   const outletWasteMap = new Map<string, number>()
@@ -654,6 +654,7 @@ export async function getMitraComprehensivePnl(
             cogs: closing.totals.totalCogs
           })
           outletWasteMap.set(oid, closing.totals.totalWaste)
+          outletOpexMap.set(oid, closing.totals.totalOpex)
 
           posGross += closing.pos.revenue
           posDeductions += closing.pos.deductions
@@ -670,6 +671,7 @@ export async function getMitraComprehensivePnl(
       }
 
       totalWaste = targetOutletIds.reduce((sum, oid) => sum + (outletWasteMap.get(oid) || 0), 0)
+      grandTotalOpex = targetOutletIds.reduce((sum, oid) => sum + (outletOpexMap.get(oid) || 0), 0)
     }
   }
 

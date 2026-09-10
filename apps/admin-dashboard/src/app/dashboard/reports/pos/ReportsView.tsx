@@ -723,8 +723,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return Array.from(map.values())
   }, [orders, isPawoonVisible, PAWOON_KEYS])
 
-  // â”€â”€â”€ Shared helper (used in analytics useMemo AND downloadCSVAllChannels) â”€â”€â”€
-  const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
+  // ─── Shared helper (used in analytics useMemo AND downloadCSVAllChannels) ───
+  const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
   const isChannelSelected = (target: string, order: any, src: string) => {
     if (target === 'food_apps') return isFoodApp(src)

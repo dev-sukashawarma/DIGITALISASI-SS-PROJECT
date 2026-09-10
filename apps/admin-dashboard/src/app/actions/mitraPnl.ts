@@ -760,14 +760,14 @@ export async function getMitraComprehensivePnl(
     for (const oid of targetOutletIds) {
       const c = getMitraAugustClosing(oid)
       if (c) {
-        closingNet += Math.round(c.totals.netProfit)
-        closingMitra += Math.round(c.totals.mitraShare)
+        closingNet += c.totals.netProfit
+        closingMitra += c.totals.mitraShare
         matchCount++
       }
     }
     if (matchCount === targetOutletIds.length) {
-      netProfit = closingNet
-      mitraShare = closingMitra
+      netProfit = Math.round(closingNet)
+      mitraShare = Math.round(closingMitra)
     }
   }
 

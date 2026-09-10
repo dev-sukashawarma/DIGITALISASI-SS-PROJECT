@@ -2111,5 +2111,64 @@ menu, cek `GET /api/v1/catalog` ikut berubah); banner & voucher tahap berikutnya
 
 ---
 
+## Session 2026-09-10: Sapuan RLS Lintas Tabel — pola `USING(true)` masih luas
+
+**Status:** 🔴 Temuan, **belum diperbaiki**. Butuh triase owner — lingkupnya
+lintas app (HR, POS, finance), terlalu luas untuk ditutup sepihak.
+
+Lanjutan audit `handleVerifyPusat` (entri di atas). Karena `surat_jalan`
+ternyata punya policy `USING(true)` yang membatalkan seluruh perbaikan Juli,
+pola yang sama disapu ke **seluruh** tabel `public`.
+
+### Kabar baik: `orders` & `bypass_requests` SELAMAT
+Perbaikan Juli di sana **bertahan** — nol policy `USING(true)` tersisa, semua
+ber-scope `accessible_outlet_ids()`. Jadi `surat_jalan` memang kasus sial
+(punya policy `_all` liar yang tak diketahui perbaikan Juli), bukan tanda
+seluruh perbaikan Juli gagal.
+
+### 🔴 Tingkat 1 — terbuka untuk `anon` (tanpa login sama sekali)
+Policy `roles={public}` + `USING(true)`, dan `anon` punya grant tabelnya.
+Dikonfirmasi lewat HTTP nyata dengan anon key: **ada data** di
+`cancellation_requests`, `ecommerce_sales`, `order_items`.
+Berlaku juga `ecommerce_channels/entities/menu_prices/sale_items` (ALL) —
+`ecommerce_menu_prices` balas kosong **karena tabelnya memang 0 baris**, bukan
+karena tertutup; jangan salah baca itu sebagai aman.
+
+### 🔴 Tingkat 2 — terbuka untuk SIAPA PUN yang login, termasuk crew
+Policy `roles={authenticated}` + `USING(true)`. **Dibuktikan dengan menyamar
+jadi crew asli** (`request.jwt.claims` + `SET LOCAL ROLE authenticated`), di
+dalam transaksi + `ROLLBACK` — nol perubahan nyata:
+
+| Tabel | Baris yang bisa diubah crew | Artinya |
+|---|---:|---|
+| `payroll_records` | **378** | gaji seluruh karyawan |
+| `menu_outlet_prices` | **368** | harga jual per outlet |
+| `bahan_baku` | **69** | harga beli → dasar HPP |
+| `cash_advances` | **18** | kasbon |
+| `global_settings` | **9** | setelan sistem |
+| `ledger_stok` *(kontrol)* | **0** | ✅ membuktikan uji bisa nol |
+
+Baris kontrol itu yang membuat angka di atasnya bisa dipercaya — bukan artefak
+metode. Tabel lain sekelas: `leave_requests`, `discipline_records`,
+`attendance_logs`, `cash_advance_payments`, `menu_packages`, `sales_channels`,
+`order_online_*`.
+
+### Ciri khas pola ini (untuk pengenalan cepat)
+Nama policy generik peninggalan scaffold awal: *"Allow authenticated
+insert/update/delete"*, *"Enable all access for authenticated users"*,
+*"Allow all for ..."*. Kalau ketemu nama seperti itu, hampir pasti
+`USING(true)`. **`ledger_stok` adalah bukti pola ini bisa benar** — ia hanya
+punya SELECT + INSERT ber-scope, nol policy UPDATE/DELETE, jadi tertutup rapat
+walau grant tabelnya terbuka.
+
+### ⚠️ Jangan tutup massal dalam satu migration
+Tiap tabel di atas menopang app berbeda (HR, POS, finance, absensi). Mencabut
+policy tanpa tahu alur sah tiap app = mematikan fitur di produksi. Urutan yang
+disarankan: mulai dari yang taruhannya tertinggi & alurnya paling sempit
+(`payroll_records`, `bahan_baku`), satu tabel satu migration, tiap kali dengan
+**kontrol positif** (simulasi user sah + `ROLLBACK`) seperti yang dipakai di
+`20260910200000`.
+
+
 **Last updated:** 2026-09-10  
 **Owner:** Dev Suka Shawarma

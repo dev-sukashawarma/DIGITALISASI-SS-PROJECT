@@ -2243,12 +2243,46 @@ bulat untuk kebetulan; belum dikoreksi, belum ditelusuri.
 Altindo **13,5% lebih mahal** untuk barang yang sama; harga per rollnya rendah
 semata karena rollnya lebih pendek.
 
+### (2) Penjaga di titik masuk — ✅ LIVE (`20260910220000`)
+
+`trg_cek_isi_kemasan_vendor` di `ledger_stok` BEFORE INSERT. Menolak baris
+`pembelian_supplier` ber-`ref_po_id` bila `isi_satuan_kecil` vendor itu berbeda
+dari isi turunan master untuk `satuan_beli`-nya (toleransi 0,1%, untuk pembulatan
+saja).
+
+**Ini satu-satunya penjaga di jalur PO yang MEMBLOKIR, dan bedanya bukan selera.**
+Dua penjaga lama (`PO uji coba`, `salah satuan harga`) sengaja tidak memblokir —
+mereka menahan penulisan harga master lalu mencatat penolakan di
+`bahan_baku_harga_history`; penerimaannya sendiri tetap sah karena qty-nya benar.
+Untuk **qty tidak ada jalan mundur yang aman**: `to_ledger_scale()` memakai faktor
+milik BAHAN, bukan vendor, jadi tak ada nilai yang sekaligus benar untuk saldo cm
+DAN hitungan Roll/Dus yang dilihat crew saat opname. Menulis apa pun = memilih
+siapa yang dibohongi. Jadi penjaga ini menegakkan urutan: **pecah dulu, baru
+terima.**
+
+**Dipasang sebagai trigger, bukan dengan mengubah `verifikasi_terima_po`** —
+fungsi itu ~300 baris dan memuat dua penjaga terbukti; `CREATE OR REPLACE` tak
+akan mengeluh kalau salah satunya hilang (persis cara ranjau-2030 membuang fix
+reversal BOM tanpa suara). Trigger juga menjaga jalur penulis lain, sekarang
+maupun nanti.
+
+**Diam kalau tidak bisa memastikan** (tak ada baris katalog · `isi_satuan_kecil`
+kosong · `satuan_beli` tak memetakan ke tingkat satuan mana pun, mis. PRINTER
+THERMAL `unit`). Menolak berdasarkan ketidaktahuan lebih buruk daripada tidak
+menolak.
+
+**Aman memblokir — diukur, bukan diasumsikan:** seluruh katalog aktif dicek, tiap
+baris `isi_satuan_kecil` COCOK dengan turunan master, kecuali FOIL/Altindo.
+
+**Diuji perilaku** (transaksi + `ROLLBACK`, nol perubahan nyata): Altindo **ditolak**
+dengan pesan terbaca manusia · Ekadharma **lolos** (nol alarm palsu) · jalur
+mayoritas (`adjustment`, `pembelian_supplier` tanpa PO) **tidak terganggu** —
+penting karena trigger ini duduk di tabel yang dilewati tiap potongan BOM tiap order.
+
 ### 📝 Next
 - Koreksi selisih 24 roll FOIL di Gudang Pusat (opname atau `adjustment` −18.240 cm).
-- **(2) Penjaga di titik masuk** — belum dibuat: tolak/peringatkan saat menyimpan
-  baris katalog atau memverifikasi terima PO kalau `isi_satuan_kecil` berbeda dari
-  vendor lain untuk bahan yang sama. Detektor sekarang masih pasif (harus dilihat).
-- Munculkan `vendor_konflik_spesifikasi` di layar Katalog Harga Vendor.
+- Munculkan `vendor_konflik_spesifikasi` di layar Katalog Harga Vendor — detektornya
+  masih **pasif**, harus ada yang membuka view-nya.
 
 **Last updated:** 2026-09-10  
 **Owner:** Dev Suka Shawarma

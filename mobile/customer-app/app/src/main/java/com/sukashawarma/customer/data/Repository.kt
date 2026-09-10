@@ -1,6 +1,7 @@
 package com.sukashawarma.customer.data
 
 import com.sukashawarma.customer.data.api.AuthResponse
+import com.sukashawarma.customer.data.api.BannersResponse
 import com.sukashawarma.customer.data.api.CartItemPayload
 import com.sukashawarma.customer.data.api.CheckoutValidateRequest
 import com.sukashawarma.customer.data.api.CheckoutValidateResponse
@@ -37,6 +38,8 @@ class Repository(private val gateway: GatewayClient) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.outlets)
             is GatewayResult.Gagal -> hasil
         }
+
+    suspend fun banners(): GatewayResult<BannersResponse> = gateway.banners()
 
     suspend fun katalog(outletId: String): GatewayResult<List<MenuItemDto>> =
         when (val hasil = gateway.catalog(outletId)) {

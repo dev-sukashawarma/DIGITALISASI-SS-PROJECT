@@ -65,6 +65,27 @@ data class CatalogResponse(
     val items: List<MenuItemDto>
 )
 
+// `urutan` sengaja TIDAK dideklarasikan di sini: urutan carousel sudah
+// dibawa oleh urutan array JSON-nya sendiri, dan `Json { ignoreUnknownKeys
+// = true }` (GatewayClient) membuang field itu dengan aman.
+@Serializable
+data class BannerDto(
+    val id: String,
+    val badge: String? = null,
+    val judul: String,
+    val subjudul: String? = null,
+    @SerialName("teks_tombol") val teksTombol: String? = null,
+    @SerialName("gambar_url") val gambarUrl: String? = null,
+    val aksi: String = "tidak_ada",
+    @SerialName("target_menu_item_id") val targetMenuItemId: String? = null
+)
+
+@Serializable
+data class BannersResponse(
+    val carousel: List<BannerDto> = emptyList(),
+    val popup: BannerDto? = null
+)
+
 @Serializable
 data class CartItemPayload(
     @SerialName("menu_item_id") val menuItemId: String,

@@ -38,7 +38,7 @@ sealed class GatewayResult<out T> {
  * ke Supabase langsung, tidak ada service-role key di aplikasi ini.
  *
  * Menyisipkan `Authorization: Bearer <token>` dari [SessionStore] untuk semua
- * endpoint KECUALI `auth/google`, `catalog`, dan `outlets`.
+ * endpoint KECUALI `auth/google`, `catalog`, `outlets`, dan `banners`.
  */
 class GatewayClient(
     private val sessionStore: SessionStore,
@@ -104,6 +104,15 @@ class GatewayClient(
             val response = client.get("$baseUrl/api/v1/catalog") {
                 parameter("outlet_id", outletId)
             }
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun banners(): GatewayResult<BannersResponse> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/banners")
             hasil(response)
         } catch (e: Exception) {
             GatewayResult.Gagal(GatewayError.Jaringan(e))

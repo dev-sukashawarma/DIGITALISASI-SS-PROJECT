@@ -843,7 +843,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         bodyRows.push(['PLN (LISTRIK)', { content: rupiah(opexSums.pln), styles: { halign: 'right' } }])
         bodyRows.push(['INTERNET & WIFI', { content: rupiah(opexSums.internet), styles: { halign: 'right' } }])
         bodyRows.push(['BIAYA SEWA OUTLET', { content: rupiah(opexSums.sewa_outlet), styles: { halign: 'right' } }])
-        bodyRows.push(['JOINT EXPENSE (PENGELUARAN GLOBAL)', { content: rupiah(opexSums.joint_expense), styles: { halign: 'right' } }])
+        bodyRows.push(['JOINT EXPENSE', { content: rupiah(opexSums.joint_expense), styles: { halign: 'right' } }])
         bodyRows.push([
           { content: 'SUB TOTAL PENGELUARAN (TOTAL OPEX)', styles: { fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }, 
           { content: rupiah(totalOpex), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }

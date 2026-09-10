@@ -145,7 +145,8 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
   ],
 }
 
-/** Jumlah pintu per role setelah konsolidasi. Hanya ADMIN yang berubah (10 → 7). */
+/** Jumlah pintu per role. Konsolidasi mengubah ADMIN (10 → 7); pintu App Retail
+ *  lalu menaikkan ADMIN 7 → 8 dan OWNER 5 → 6. */
 const EXPECTED_GROUP_COUNT: Record<Role, number> = {
   ADMIN: 8,
   OWNER: 6,

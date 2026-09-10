@@ -45,7 +45,8 @@ export default function MenuAppView({
         <div className="flex items-start gap-2">
           <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
           <div>
-            Perubahan berlaku <strong>serentak di {outletMelayani.length} outlet</strong> yang melayani aplikasi.
+            Perubahan pada menu umum berlaku <strong>serentak di {outletMelayani.length} outlet</strong> yang
+            melayani aplikasi. Menu bertanda <strong>khusus outlet</strong> hanya berlaku di outlet pemiliknya.
             {outletMelayani.length > 0 && (
               <button
                 type="button"
@@ -117,7 +118,16 @@ export default function MenuAppView({
                       <div className="w-10 h-10 rounded-lg bg-slate-100" />
                     )}
                   </td>
-                  <td className="py-3 px-4 font-semibold text-slate-900">{it.name}</td>
+                  <td className="py-3 px-4 font-semibold text-slate-900">
+                    {it.name}
+                    {/* Baris ber-outlet_id tidak berlaku di semua outlet; tanpa penanda ini
+                        admin tidak punya cara melihatnya sama sekali. */}
+                    {it.outlet_id && (
+                      <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 align-middle">
+                        khusus outlet
+                      </span>
+                    )}
+                  </td>
                   <td className="py-3 px-4 text-slate-500 hidden sm:table-cell">{namaKategori(it.categories)}</td>
                   <td className="py-3 px-4 text-right text-slate-500">{rupiah(it.price)}</td>
                   <td className="py-3 px-4 text-right font-bold text-slate-900">
@@ -131,6 +141,13 @@ export default function MenuAppView({
                     >
                       {it.tampil_di_app ? 'Tayang' : 'Tidak tayang'}
                     </span>
+                    {/* Gerbang milik POS. Tayang tapi `is_available = false` sampai ke aplikasi
+                        dalam keadaan tidak bisa dipesan — keterangan, bukan alarm. */}
+                    {!it.is_available && (
+                      <span className="ml-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                        Habis
+                      </span>
+                    )}
                   </td>
                 </tr>
               )

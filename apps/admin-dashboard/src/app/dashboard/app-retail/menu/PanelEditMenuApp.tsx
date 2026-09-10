@@ -100,6 +100,10 @@ export default function PanelEditMenuApp({ item, onTutup }: { item: MenuApp; onT
               <span className={`absolute top-1 w-4 h-4 bg-white rounded-full ${tayang ? 'left-6' : 'left-1'}`} />
             </div>
           </div>
+          <p className="text-[11px] text-slate-500 -mt-2.5">
+            Tombol ini langsung tersimpan begitu ditekan — tidak menunggu <strong>Simpan</strong> dan tidak
+            dibatalkan oleh <strong>Batal</strong>. Harga, deskripsi, dan foto baru tersimpan saat menekan Simpan.
+          </p>
 
           <div className="space-y-1.5">
             <label className="block text-xs font-bold text-slate-700">Harga di aplikasi</label>

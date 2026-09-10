@@ -9,6 +9,14 @@ export type MenuApp = {
   foto_app: string | null
   deskripsi_app: string | null
   tampil_di_app: boolean
+  /** Milik POS. `false` = menu tidak bisa dipesan meski tayang (gateway fail-closed). */
+  is_available: boolean
+  /**
+   * `menu_items` tabel campuran: baris ber-`outlet_id` hanya berlaku di outlet itu.
+   * Gateway menghormatinya (`outlet_id.is.null,outlet_id.eq.<id>`) dan POS aktif
+   * membuat baris berlingkup. Klaim "serentak di N outlet" hanya benar untuk `null`.
+   */
+  outlet_id: string | null
   categories: { name: string } | { name: string }[] | null
 }
 

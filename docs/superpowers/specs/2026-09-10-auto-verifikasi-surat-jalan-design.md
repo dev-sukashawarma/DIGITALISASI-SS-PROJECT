@@ -64,19 +64,39 @@ punya alamat** — bisa ditunjuk outlet mana.
 
 ### 3.1 Berapa lama tenggatnya
 
-Jeda dari "dikirim" sampai selesai, pada 52 SJ September yang benar-benar
-diverifikasi:
+Diukur dari `surat_jalan_item.verified_at` — saat outlet benar-benar
+memverifikasi. 216 SJ sejak 1 Agustus:
 
-| Ukuran | Nilai |
+| Kapan diverifikasi | Jumlah |
 |---|---:|
-| Rata-rata tengah | 21,5 jam |
-| 63% selesai dalam | 24 jam |
-| 87% selesai dalam | 48 jam |
-| **98% selesai dalam** | **72 jam** |
-| Paling lama | 100,8 jam |
+| **Hari yang sama dengan SJ dibuat** | **212 (98%)** |
+| Besoknya (H+1) | 4 (2%) |
+| Lebih dari itu | **0** |
 
-Jadi **72 jam**. Angka ini dari data, bukan tebakan. Kalau dipasang 48 jam,
-sistem akan mendahului 13% verifikasi yang sebenarnya tetap datang.
+Kesimpulannya: **kalau tidak diverifikasi hari itu juga, praktis tidak akan
+pernah.** Jadi tenggatnya cukup "lewat hari", tidak perlu berjam-jam.
+
+⚠️ **Koreksi terhadap draf pertama spec ini.** Draf awal memakai 72 jam,
+diambil dari jeda `created_at` → `updated_at` pada SJ berstatus `selesai`.
+Itu salah ukur: yang terukur adalah jarak sampai **Pusat menutup dokumen**
+(tahap 2, §3.4), bukan sampai outlet memverifikasi (tahap 1). Angka 72 jam
+dibuang.
+
+Owner juga memberi fakta lapangan yang cocok dengan data ini: **barang tiba di
+outlet paling lambat pukul 21:00.** Jadi begitu hari berganti, outlet sudah
+punya kesempatan penuh.
+
+Empat SJ yang diverifikasi H+1, semuanya antara 14:00–16:40 WIB:
+
+| SJ dibuat | Diverifikasi | Jeda | Outlet |
+|---|---|---:|---|
+| 07/08 **07:48** | 08/08 15:20 | 31,5 jam | m:Cileungsi |
+| 12/08 **21:10** | 13/08 16:40 | 19,5 jam | Cirendeu |
+| 13/08 **20:56** | 14/08 15:18 | 18,4 jam | m:Cicurug |
+| 18/08 **13:38** | 19/08 14:01 | 24,4 jam | m:Sentul |
+
+Dua di antaranya (21:10 dan 20:56) dibuat setelah jam kedatangan — barangnya
+memang baru jalan malam itu. Lihat §4.1.1.
 
 ### 3.2 Fungsi verifikasi yang sudah ada — dipakai lagi, jangan bikin baru
 
@@ -132,8 +152,8 @@ Catatan: ada dua jalur verifikasi di kode. `VerifikasiForm.tsx` memakai
 ### 4.1 Alurnya
 
 ```
-pg_cron (tiap jam)
-  -> cari SJ yang status "dikirim" dan sudah lewat 72 jam
+pg_cron (sekali sehari, 02:00 WIB)
+  -> cari SJ yang status "dikirim" dan HARI KIRIMNYA sudah lewat
      dan tanggalnya setelah <TANGGAL MULAI>       <- lihat 4.3
      dan lolos semua penjaga                      <- lihat 4.4
   -> isi qty terima = qty kirim
@@ -141,8 +161,39 @@ pg_cron (tiap jam)
   -> panggil finalize_surat_jalan_and_ledger
 ```
 
-Hitungan 72 jam dari **`updated_at`**, bukan tanggal dibuat. `updated_at` itu
-saat SJ benar-benar ditandai dikirim, alias saat barang keluar gudang.
+**Keputusan owner 2026-09-10: ditutup dini hari.** Jalan sekali sehari pukul
+02:00 WIB. Kiriman hari Senin ditutup Selasa dini hari.
+
+Tanggal kirim diambil dari **`updated_at`**, bukan tanggal dibuat — itu saat SJ
+benar-benar ditandai `dikirim`, alias saat barang keluar gudang.
+
+⚠️ `pg_cron` menjadwal dalam **UTC**. 02:00 WIB = **19:00 UTC hari sebelumnya**.
+Salah pasang di sini menggeser tenggat 7 jam tanpa gejala apa pun — wajib
+diverifikasi setelah dipasang.
+
+Konsekuensi yang diterima: keempat verifikasi H+1 di §3.1 akan didahului sistem
+(mereka verifikasi jam 14:00–16:40, sistem menutup jam 02:00). Itu 2% dari yang
+pernah terjadi.
+
+### 4.1.1 Kiriman malam dihitung sebagai hari berikutnya
+
+Owner menyebut barang tiba paling lambat **21:00**. Kiriman yang ditandai
+dikirim **pukul 21:00 ke atas** berarti barangnya baru jalan malam itu — outlet
+belum punya kesempatan sama sekali. Kalau memakai tanggal kalender polos,
+kiriman pukul 21:10 Senin akan ditutup Selasa 02:00, cuma **5 jam kemudian**,
+seluruhnya saat outlet tutup.
+
+Karena itu **hari kirim dihitung berakhir pukul 21:00**, bukan tengah malam:
+SJ yang ditandai dikirim pukul 21:00 ke atas dianggap milik hari berikutnya,
+sehingga baru ditutup pada dini hari berikutnya lagi.
+
+Ini bukan pelonggaran tenggat, melainkan penerapan premis owner sendiri: kiriman
+malam belum melewati harinya. Terdampak **21 dari 524 SJ (4%)** sejak 1 Agustus
+— termasuk 2 dari 4 kasus H+1 di §3.1, yang dengan aturan ini tidak lagi
+terhitung terlambat.
+
+Kalau owner lebih suka aturan tanggal kalender polos, batas 21:00 ini tinggal
+dihapus; sisa rancangan tidak berubah.
 
 ### 4.2 Berhenti di tahap 1, jangan sampai tahap 2
 
@@ -235,13 +286,19 @@ outlet masih bisa memverifikasi sambil menolak barang yang kurang.
 2. **Siapa yang mengerjakan antrean validasi Pusat, dan seberapa sering?**
    Tempatnya sudah ada (§4.2), orangnya belum ditunjuk. Kalau tidak ada,
    antreannya cuma pindah, tidak selesai.
-3. **248 SJ tunggakan mau diapakan?** Dibiarkan menggantung, atau ditutup
-   sebagai dokumen saja tanpa mengubah stok.
+3. **39 SJ tunggakan September mau diapakan?** Dibiarkan menggantung, atau
+   ditutup sebagai dokumen saja tanpa mengubah stok.
+   ⚠️ **209 SJ Agustus TIDAK termasuk pertanyaan ini** — Agustus dilewati atas
+   keputusan owner (2026-09-09, ditegaskan 2026-09-10). Jangan ditawarkan,
+   jangan ikut diproses.
 4. **Mulai tanggal berapa?** Usul: tanggal fitur ini live, biar batasnya sama
    dengan batas tunggakan.
-5. **Cron tiap berapa lama?** Tiap jam cukup. Kalau harian, tenggat 72 jam bisa
-   molor sampai 96 jam.
-6. **Di luar bahasan ini, tapi ketemu waktu menelusuri:** tombol
+5. ~~Cron tiap berapa lama?~~ **Sudah diputuskan** — sekali sehari, 02:00 WIB
+   (owner, 2026-09-10). Lihat §4.1.
+6. **Batas 21:00 untuk kiriman malam** (§4.1.1) — diambil dari premis owner
+   sendiri, tapi belum dikonfirmasi eksplisit. Kalau tidak dipakai, tinggal
+   dihapus.
+7. **Di luar bahasan ini, tapi ketemu waktu menelusuri:** tombol
    `handleVerifyPusat` mengubah status langsung dari browser, tanpa lewat fungsi
    database dan tanpa cek role di kodenya. Polanya sama dengan lubang otorisasi
    yang sudah dicatat di CLAUDE.md (sesi 20 Juli). Perlu diperiksa terpisah.

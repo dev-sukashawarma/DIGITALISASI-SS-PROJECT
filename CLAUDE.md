@@ -1954,10 +1954,29 @@ sekadar diam.
 
 ### 📝 Belum selesai
 
-- **13 SJ tanggal 10 September** masih `dikirim` (dari 17; 4 sudah diverifikasi
-  setelah owner memberi tahu). Di luar aturan baru. Outlet-outlet itu opname tiap
-  malam, jadi perlakuan yang benar besok = penutupan administratif tanpa stok,
-  sama seperti yang 39.
+- **12 SJ tanggal 10 September** masih `dikirim` (tinggal 12 per 17:56 WIB; satu
+  lagi diverifikasi crew sesudah pengecekan pertama). Di luar aturan baru.
+  Outlet-outlet itu opname tiap malam, jadi perlakuan yang benar besok =
+  penutupan administratif tanpa stok, sama seperti yang 39.
+  **Migration sudah ditulis tapi SENGAJA BELUM di-apply:**
+  `20260910190000_tutup_tunggakan_sj_10_september.sql`. Ke-12 SJ itu baru dikirim
+  15:53–17:13 WIB hari yang sama; menutupnya sore itu juga merampas kesempatan
+  outlet memverifikasi, padahal verifikasi sungguhan lebih baik (stok
+  benar-benar tercatat masuk, bukan cuma diserap opname). Keputusan owner: apply
+  besok pagi setelah opname malam. Guard tiga lapis membuat SJ yang keburu
+  diverifikasi otomatis terlewat, jadi daftarnya tak perlu disusun ulang.
+- **Jalan pertama cron BELUM terjadi** (dicek 2026-09-10 17:56 WIB:
+  `cron.job_run_details` untuk jobid 14 kosong). `0 19 * * *` UTC = 02:00 WIB,
+  jadi jalan perdana nanti malam. Dry-run manual saat itu: **0 diproses, 0
+  dilewati**; kontrol negatif menunjukkan **180 SJ akan tersapu tanpa penjaga
+  `c_mulai`** (seluruhnya Agustus) — penjaganya benar-benar menahan.
+  Jalan perdana 02:00 tgl 11 juga harus NOL: SJ yang dikirim tgl 11 belum lewat
+  harinya. Hasil bukan-nol yang pertama baru wajar 02:00 tanggal 12.
+- ⚠️ **`updated_at` bukan tanggal kirim yang stabil.** Migration `20260910181000`
+  menulis `updated_at = now()`, jadi ke-39 SJ yang ditutup administratif kini
+  ber-`updated_at` 10 Sep. Mereka aman dari fungsi auto (kena filter status +
+  penanda), tapi jangan pernah pakai `updated_at` untuk merekonstruksi tanggal
+  kirim historis — pakai `created_at`.
 - **Seberapa sering meja validasi `kitchen` dikosongkan.** Owner memilih tetap
   di level role, bukan orang tertentu — ditanya ulang, dijawab "role kitchen
   aja". Antreannya sudah punya tempat: dashboard `apps/distribusi`, kartu & tab

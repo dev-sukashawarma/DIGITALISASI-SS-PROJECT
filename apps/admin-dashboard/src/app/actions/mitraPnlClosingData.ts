@@ -51,13 +51,13 @@ export const MITRA_CLOSING_DATA_AUGUST_2026: Record<string, MitraMonthlyClosingO
       totalDeductions: 3378637,
       netRevenue: 44245497,
       totalCogs: 28064041,
-      grossProfit: 16152410,
-      totalWaste: 29046,
+      grossProfit: 16153256,
+      totalWaste: 28200,
       totalOpex: 10825083.9,
       managementFeePct: 0,
       managementFeeAmount: 0,
-      netProfit: 5327326.1,
-      mitraShare: 3196395.66
+      netProfit: 5328172.1,
+      mitraShare: 3196903.26
     }
   },
   '550e8400-e29b-41d4-a716-446655440018': {
@@ -108,13 +108,13 @@ export const MITRA_CLOSING_DATA_AUGUST_2026: Record<string, MitraMonthlyClosingO
       totalDeductions: 3347336,
       netRevenue: 71011130,
       totalCogs: 45472276,
-      grossProfit: 20936389.02,
-      totalWaste: 2371711,
+      grossProfit: 21005389.02,
+      totalWaste: 2302711,
       totalOpex: 14430894.9,
       managementFeePct: 3,
       managementFeeAmount: 2230753.98,
-      netProfit: 6505494.12,
-      mitraShare: 6505494.12
+      netProfit: 6574494.12,
+      mitraShare: 6574494.12
     }
   },
   '3f38c41d-11e3-49ce-a189-d7303e45f9ad': {
@@ -127,13 +127,13 @@ export const MITRA_CLOSING_DATA_AUGUST_2026: Record<string, MitraMonthlyClosingO
       totalDeductions: 0,
       netRevenue: 97234920,
       totalCogs: 64891298,
-      grossProfit: 29104074.4,
-      totalWaste: 322500,
+      grossProfit: 29113074.4,
+      totalWaste: 313500,
       totalOpex: 17326358.4,
       managementFeePct: 3,
       managementFeeAmount: 2917047.6,
-      netProfit: 11777716,
-      mitraShare: 11777716
+      netProfit: 11786716,
+      mitraShare: 11786716
     }
   },
   'd9a2ef93-c298-4501-a471-1c5e2b3dff08': {
@@ -146,13 +146,13 @@ export const MITRA_CLOSING_DATA_AUGUST_2026: Record<string, MitraMonthlyClosingO
       totalDeductions: 1392775,
       netRevenue: 139068003,
       totalCogs: 91308270,
-      grossProfit: 40744309.66,
-      totalWaste: 2801600,
+      grossProfit: 40825309.66,
+      totalWaste: 2720600,
       totalOpex: 18884964.4,
       managementFeePct: 3,
       managementFeeAmount: 4213823.34,
-      netProfit: 21859345.26,
-      mitraShare: 21859345.26
+      netProfit: 21940345.26,
+      mitraShare: 21940345.26
     }
   },
   '550e8400-e29b-41d4-a716-446655440003': {
@@ -165,13 +165,13 @@ export const MITRA_CLOSING_DATA_AUGUST_2026: Record<string, MitraMonthlyClosingO
       totalDeductions: 6122038,
       netRevenue: 63715914,
       totalCogs: 39168801,
-      grossProfit: 21951990.44,
-      totalWaste: 499984,
+      grossProfit: 21962874.44,
+      totalWaste: 489100,
       totalOpex: 14312547.4,
       managementFeePct: 3,
       managementFeeAmount: 2095138.56,
-      netProfit: 7639443.04,
-      mitraShare: 7639443.04
+      netProfit: 7650327.04,
+      mitraShare: 7650327.04
     }
   },
   '62a56103-2085-4dd5-9d25-a3c0cffc88ff': {
@@ -184,13 +184,13 @@ export const MITRA_CLOSING_DATA_AUGUST_2026: Record<string, MitraMonthlyClosingO
       totalDeductions: 0,
       netRevenue: 184968050,
       totalCogs: 124869324,
-      grossProfit: 53101684.5,
-      totalWaste: 1448000,
+      grossProfit: 53128684.5,
+      totalWaste: 1421000,
       totalOpex: 23112776.4,
       managementFeePct: 3,
       managementFeeAmount: 5549041.5,
-      netProfit: 29988908.1,
-      mitraShare: 29988908.1
+      netProfit: 30015908.1,
+      mitraShare: 30015908.1
     }
   },
 };

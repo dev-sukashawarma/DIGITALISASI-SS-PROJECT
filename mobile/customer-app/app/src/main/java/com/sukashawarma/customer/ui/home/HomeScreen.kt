@@ -40,19 +40,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import com.sukashawarma.customer.data.BannerDilihatStore
+import com.sukashawarma.customer.data.api.BannerDto
 import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.ui.components.EmptyState
@@ -86,15 +88,46 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    var tampilkanPromoPopup by rememberSaveable { mutableStateOf(true) }
 
-    // Dialog Promo Popup muncul saat tiba di Beranda (sebelum berinteraksi lebih jauh)
-    if (tampilkanPromoPopup && state.outlet != null && !state.memuat && state.galat == null) {
+    // Ke mana ketukan banner (carousel maupun popup) membawa pelanggan.
+    // Menu tujuan yang tidak ada di katalog outlet ini jatuh ke onBukaMenu(),
+    // bukan diam saja -- ketukan yang tidak melakukan apa pun terbaca
+    // sebagai aplikasi rusak.
+    fun bukaTujuan(tujuan: TujuanBanner) {
+        when (tujuan) {
+            is TujuanBanner.TidakAda -> Unit
+            is TujuanBanner.Menu -> onBukaMenu()
+            is TujuanBanner.Item -> state.semuaItem
+                .firstOrNull { it.id == tujuan.menuItemId }
+                ?.let(onPilihItem)
+                ?: onBukaMenu()
+        }
+    }
+
+    val konteks = LocalContext.current
+    val dilihatStore = remember { BannerDilihatStore(konteks) }
+    var sudahDilihat by remember { mutableStateOf(dilihatStore.sudahDilihat()) }
+
+    // Dialog Promo Popup muncul saat tiba di Beranda (sebelum berinteraksi lebih jauh),
+    // sekali per banner per pelanggan (keputusan owner K3).
+    val popup = state.bannerPopup
+    if (popupBolehTampil(popup?.id, sudahDilihat) && popup != null &&
+        state.outlet != null && !state.memuat && state.galat == null
+    ) {
         PromoPopupDialog(
-            onDismiss = { tampilkanPromoPopup = false },
+            imageUrl = popup.gambarUrl,
+            badgeText = popup.badge,
+            judul = popup.judul,
+            subjudul = popup.subjudul,
+            teksTombol = popup.teksTombol,
+            onDismiss = {
+                dilihatStore.tandai(popup.id)
+                sudahDilihat = dilihatStore.sudahDilihat()
+            },
             onKlaimPromo = {
-                tampilkanPromoPopup = false
-                onBukaMenu()
+                dilihatStore.tandai(popup.id)
+                sudahDilihat = dilihatStore.sudahDilihat()
+                bukaTujuan(tujuanBanner(popup.aksi, popup.targetMenuItemId))
             }
         )
     }
@@ -145,13 +178,13 @@ fun HomeScreen(
 
                     HomeContentList(
                         outlet = state.outlet,
-                        firstItem = state.semuaItem.firstOrNull { it.isAvailable },
+                        bannerCarousel = state.bannerCarousel,
                         bestSellerItems = bestSellerItems,
                         onGantiOutlet = onGantiOutlet,
                         onBukaProfil = onBukaProfil,
                         onBukaMenu = onBukaMenu,
                         onPilihItem = onPilihItem,
-                        onBukaPromoPopup = { tampilkanPromoPopup = true },
+                        onKetukBanner = { banner -> bukaTujuan(tujuanBanner(banner.aksi, banner.targetMenuItemId)) },
                         onBukaNotifikasi = onBukaNotifikasi,
                         unreadCount = unreadCount
                     )
@@ -164,13 +197,13 @@ fun HomeScreen(
 @Composable
 private fun HomeContentList(
     outlet: OutletDto?,
-    firstItem: MenuItemDto?,
+    bannerCarousel: List<BannerDto>,
     bestSellerItems: List<MenuItemDto>,
     onGantiOutlet: () -> Unit,
     onBukaProfil: () -> Unit,
     onBukaMenu: () -> Unit,
     onPilihItem: (MenuItemDto) -> Unit,
-    onBukaPromoPopup: () -> Unit,
+    onKetukBanner: (BannerDto) -> Unit,
     onBukaNotifikasi: () -> Unit,
     unreadCount: Int,
     modifier: Modifier = Modifier
@@ -193,15 +226,16 @@ private fun HomeContentList(
                 )
             }
         }
-        // 1. Multi-Slide Promo Media Carousel
-        item(key = "home-promo-carousel") {
-            PromoMediaCarousel(
-                firstItem = firstItem,
-                onSlideClick = onBukaPromoPopup,
-                onPesanSekarang = { item ->
-                    if (item != null) onPilihItem(item) else onBukaMenu()
-                }
-            )
+        // 1. Multi-Slide Promo Media Carousel -- tidak dirender sama sekali
+        // saat kosong, supaya Beranda tanpa banner aktif langsung ke daftar
+        // menu tanpa ruang kosong.
+        if (bannerCarousel.isNotEmpty()) {
+            item(key = "home-promo-carousel") {
+                PromoMediaCarousel(
+                    slides = bannerCarousel,
+                    onKetuk = onKetukBanner
+                )
+            }
         }
 
         // 3. Section Menu Terlaris (Best Seller)
@@ -291,7 +325,7 @@ private fun HomeContentList(
         // 4. Secondary Media / Campaign Promotional Banner
         item(key = "home-secondary-banner") {
             SecondaryMediaBanner(
-                onCekInfo = onBukaPromoPopup
+                onCekInfo = onBukaMenu
             )
         }
 
@@ -305,58 +339,24 @@ private fun HomeContentList(
 }
 
 /**
- * Slide Promosi Media Data
- */
-private data class PromoSlideItem(
-    val badge: String,
-    val judul: String,
-    val subjudul: String,
-    val ctaText: String,
-    val imageUrl: String
-)
-
-private val promoSlideItems = listOf(
-    PromoSlideItem(
-        badge = "🔥 Promo Spesial",
-        judul = "Shawarma Lagi Ngidam?",
-        subjudul = "Fresh, juicy, dan dipanggang saat kamu pesan.",
-        ctaText = "Pesan Sekarang",
-        imageUrl = "https://lh3.googleusercontent.com/aida-public/AB6AXuA-1VF8-8QaQcQ6cmXMurD2EvPHrP2j_cotf5LxDsJhsuHPuzbmNqUIielgYlF8F6zj-wa6sSNP2qdPHdpAkVGLwdkzt2_BoWryJbpIB1MPcnS5KC7Qnsur5QBCCh423OYZcFRPeAFQjjMueVERE8RO6POhDbXSkNX2DUnw82HsiYONuRZKXQbD0T6tbEiGGpqIqxxfRtTj4c0-JjhF44ih-HJwp52RRjdcrpTccNHx45kRZYTRG7iz8v5fQipfTNnWM96x1AEo0WuL"
-    ),
-    PromoSlideItem(
-        badge = "✨ Paket Kombo Sultan",
-        judul = "Hemat s.d. 30%",
-        subjudul = "Shawarma + Fries + Es Lemon Tea dingin segar.",
-        ctaText = "Klaim Promo",
-        imageUrl = "https://lh3.googleusercontent.com/aida/AEtjO1WGc7yXsTH7Q2HiHhro3ZHWeMVWyE5rOeLoQKeery539b8tulI15hljKMSvv_dRRAUS7nPC8hCSMXLO21eEK_pxMQcbs54lQ9m8jZZPS7pLmWzmb8citeQCQqIMdOfKKhyIt9rpgbxfuya9pxh11vlvd3pMSculTWpBdknLFf2gapvIzGgwplnroB9B9KenbhxcsEGUoVR2riL5nQwxHoe-zVOQX0k7lKXXM9Nz1i1d3YAh9vk-XRChk35y"
-    ),
-    PromoSlideItem(
-        badge = "🎉 Diskon Pengguna Baru",
-        judul = "Voucher Diskon 40%",
-        subjudul = "Gunakan kode SUKABARU di checkout.",
-        ctaText = "Pakai Voucher",
-        imageUrl = "https://lh3.googleusercontent.com/aida/AEtjO1V6KGbjlTCABYuMcaZfjUrt7zn4C9O5kPi2gwnI3ZOPrIVQy6486w3nunqhyNCB6qT14P-ALcS4DdvrG_0QfrhUuS2k_JwmGndB3o9hcx9ytJI56yZcBElo2JMpRxL1pb07SVyRfbnBsjTG4wytDd-lRu-768oa3AGhnuFFplsHGJ8uT_1zPAf6tM5f4YHp4Hp0pp_p0QKrdFTCmdX2f3u8QuGooSTRKFvBidF68TkE0pCP8M7Wai_wl_Dg"
-    )
-)
-
-/**
- * Multi-Slide Promo Media Carousel ala Stitch Design System
+ * Multi-Slide Promo Media Carousel ala Stitch Design System -- isi slide
+ * kini seluruhnya berasal dari banner gateway, bukan lagi data hardcoded.
+ * Dipanggil hanya saat [slides] tidak kosong (lihat HomeContentList).
  */
 @Composable
 private fun PromoMediaCarousel(
-    firstItem: MenuItemDto?,
-    onSlideClick: () -> Unit,
-    onPesanSekarang: (MenuItemDto?) -> Unit,
+    slides: List<BannerDto>,
+    onKetuk: (BannerDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val pagerState = rememberPagerState(pageCount = { promoSlideItems.size })
+    val pagerState = rememberPagerState(pageCount = { slides.size })
 
     // Auto advance slide secara berkala
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(pagerState, slides.size) {
         while (true) {
             delay(4500)
-            if (!pagerState.isScrollInProgress) {
-                val next = (pagerState.currentPage + 1) % promoSlideItems.size
+            if (!pagerState.isScrollInProgress && slides.size > 1) {
+                val next = (pagerState.currentPage + 1) % slides.size
                 pagerState.animateScrollToPage(next)
             }
         }
@@ -370,12 +370,12 @@ private fun PromoMediaCarousel(
             state = pagerState,
             modifier = Modifier.fillMaxWidth()
         ) { page ->
-            val slide = promoSlideItems[page]
+            val slide = slides[page]
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp)
-                    .bounceClick(scaleDown = 0.98f) { onSlideClick() },
+                    .bounceClick(scaleDown = 0.98f) { onKetuk(slide) },
                 shape = RoundedCornerShape(18.dp),
                 color = SukaBrown,
                 shadowElevation = 4.dp,
@@ -390,20 +390,22 @@ private fun PromoMediaCarousel(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SukaOrange)
-                                .padding(horizontal = 7.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = slide.badge,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = SukaInk,
-                                    fontSize = 9.sp
+                        if (!slide.badge.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(SukaOrange)
+                                    .padding(horizontal = 7.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = slide.badge,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SukaInk,
+                                        fontSize = 9.sp
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         Text(
@@ -416,21 +418,23 @@ private fun PromoMediaCarousel(
                             )
                         )
 
-                        Text(
-                            text = slide.subjudul,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFFFFF4EB).copy(alpha = 0.85f),
-                                fontSize = 10.sp,
-                                lineHeight = 13.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        if (!slide.subjudul.isNullOrBlank()) {
+                            Text(
+                                text = slide.subjudul,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFFFFF4EB).copy(alpha = 0.85f),
+                                    fontSize = 10.sp,
+                                    lineHeight = 13.sp
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
 
                         Spacer(modifier = Modifier.height(1.dp))
 
                         Button(
-                            onClick = { onPesanSekarang(firstItem) },
+                            onClick = { onKetuk(slide) },
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SukaOrange,
@@ -440,7 +444,7 @@ private fun PromoMediaCarousel(
                             modifier = Modifier.bounceClick()
                         ) {
                             Text(
-                                text = slide.ctaText,
+                                text = slide.teksTombol?.takeIf { it.isNotBlank() } ?: "Lihat",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 11.sp
                             )
@@ -463,12 +467,14 @@ private fun PromoMediaCarousel(
                             .border(BorderStroke(1.5.dp, SukaOrange.copy(alpha = 0.5f)), RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center
                     ) {
-                        AsyncImage(
-                            model = slide.imageUrl,
-                            contentDescription = slide.judul,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                        if (slide.gambarUrl != null) {
+                            AsyncImage(
+                                model = slide.gambarUrl,
+                                contentDescription = slide.judul,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
                     }
                 }
             }
@@ -480,7 +486,7 @@ private fun PromoMediaCarousel(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            repeat(promoSlideItems.size) { index ->
+            repeat(slides.size) { index ->
                 val isSelected = pagerState.currentPage == index
                 val width by animateDpAsState(
                     targetValue = if (isSelected) 18.dp else 5.dp,

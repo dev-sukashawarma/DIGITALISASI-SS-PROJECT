@@ -203,8 +203,10 @@ describe('petakanBanner', () => {
 })
 
 describe('pilihPopup', () => {
-  const a = { urutan: 5, ...contoh({ id: 'a' }) } as unknown as BannerApp
-  const b = { urutan: 1, ...contoh({ id: 'b' }) } as unknown as BannerApp
+  // `urutan` WAJIB lewat argumen contoh(), bukan disebar sebelum spread --
+  // spread menang, jadi `{ urutan: 5, ...contoh() }` diam-diam jadi 0.
+  const a = contoh({ id: 'a', urutan: 5 }) as unknown as BannerApp
+  const b = contoh({ id: 'b', urutan: 1 }) as unknown as BannerApp
 
   it('mengembalikan null saat tidak ada', () => {
     expect(pilihPopup([])).toBeNull()
@@ -517,6 +519,12 @@ function barisDariInput(input: InputBanner) {
   }
 }
 
+/**
+ * Banner baru lahir NONAKTIF -- `aktif` sengaja tidak ditulis di sini, jadi
+ * DEFAULT false dari basis data yang berlaku. Menyimpan draft tidak boleh
+ * langsung menayangkannya ke pelanggan; menyalakannya adalah tindakan
+ * terpisah dan sadar lewat `toggleBannerAktif`.
+ */
 export async function simpanBanner(id: string | null, input: InputBanner) {
   const galat = periksaBanner(input)
   if (galat) throw new Error(galat)
@@ -1068,6 +1076,8 @@ di mana `bukaTujuan` didefinisikan di badan `HomeScreen`:
 Catatan: menu tujuan yang tidak ada di katalog outlet ini jatuh ke `onBukaMenu()`, bukan diam saja — ketukan yang tidak melakukan apa pun terbaca sebagai aplikasi rusak.
 
 `SecondaryMediaBanner` **tetap seperti sekarang**, tapi `onCekInfo`-nya diganti dari `onBukaPromoPopup` menjadi `onBukaMenu` — popup kini milik data, bukan tombol.
+
+Setelah itu parameter `onBukaPromoPopup` (baris 173) **tidak dipakai siapa pun lagi** — hapus parameternya beserta argumen di tempat pemanggilan (baris 154). Parameter nganggur di composable yang panjang adalah jejak yang menyesatkan pembaca berikutnya.
 
 - [ ] **Langkah 3: Ganti pemicu popup**
 

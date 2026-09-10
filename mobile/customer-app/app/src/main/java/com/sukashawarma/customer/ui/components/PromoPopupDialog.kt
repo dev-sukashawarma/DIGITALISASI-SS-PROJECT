@@ -214,28 +214,30 @@ fun PromoPopupDialog(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(2.dp))
-
                         // Tombol Utama CTA (Pesan / Klaim)
-                        Button(
-                            onClick = onKlaimPromo,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SukaOrange,
-                                contentColor = SukaInk
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                        ) {
-                            Text(
-                                text = teksTombol?.takeIf { it.isNotBlank() } ?: "Lihat Sekarang",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 14.sp
+                        if (!teksTombol.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            Button(
+                                onClick = onKlaimPromo,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SukaOrange,
+                                    contentColor = SukaInk
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                            ) {
+                                Text(
+                                    text = teksTombol,
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 14.sp
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         // Tombol Nanti Saja / Dismiss

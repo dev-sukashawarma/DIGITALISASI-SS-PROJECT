@@ -431,29 +431,31 @@ private fun PromoMediaCarousel(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(1.dp))
+                        if (!slide.teksTombol.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(1.dp))
 
-                        Button(
-                            onClick = { onKetuk(slide) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SukaOrange,
-                                contentColor = SukaInk
-                            ),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
-                            modifier = Modifier.bounceClick()
-                        ) {
-                            Text(
-                                text = slide.teksTombol?.takeIf { it.isNotBlank() } ?: "Lihat",
-                                fontWeight = FontWeight.ExtraBold,
-                                fontSize = 11.sp
-                            )
-                            Spacer(modifier = Modifier.width(3.dp))
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(11.dp)
-                            )
+                            Button(
+                                onClick = { onKetuk(slide) },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SukaOrange,
+                                    contentColor = SukaInk
+                                ),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
+                                modifier = Modifier.bounceClick()
+                            ) {
+                                Text(
+                                    text = slide.teksTombol,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp
+                                )
+                                Spacer(modifier = Modifier.width(3.dp))
+                                Icon(
+                                    Icons.AutoMirrored.Filled.ArrowForward,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(11.dp)
+                                )
+                            }
                         }
                     }
 

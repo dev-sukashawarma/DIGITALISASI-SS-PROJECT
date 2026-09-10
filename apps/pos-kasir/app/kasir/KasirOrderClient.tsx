@@ -988,6 +988,15 @@ export default function KasirOrderClient({
     if (!success) return
     queryClient.invalidateQueries({ queryKey: ['orders', outletId] })
 
+    // Sinyal notifikasi pesanan retail aplikasi
+    if (order.source === 'app') {
+      fetch('/api/orders/notify-app-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: order.id, status: 'preparing' }),
+      }).catch((err) => console.warn('Gagal memanggil notify-app-status preparing:', err))
+    }
+
     // Generate and print kitchen receipt
     const receiptData: ReceiptData = {
       outletName: outletName || 'SUKA SHAWARMA',
@@ -1061,6 +1070,16 @@ export default function KasirOrderClient({
         console.error('Gagal mengirim notifikasi online ke order-system:', err)
         showToast({ type: 'error', message: 'Order selesai, tapi WA ke customer gagal terkirim.' })
       })
+
+    // Sinyal notifikasi pesanan retail aplikasi selesai / siap diambil
+    if (targetOrder?.source === 'app' || targetOrder?.sales_source === 'app') {
+      fetch('/api/orders/notify-app-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: id, status: 'completed' }),
+      }).catch((err) => console.warn('Gagal memanggil notify-app-status completed:', err))
+    }
+
     return true
   }
 

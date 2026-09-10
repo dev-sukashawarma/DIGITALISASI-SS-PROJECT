@@ -79,14 +79,17 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#EFE8DE]">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <ShieldCheck className="w-7 h-7 text-orange-500" />
-            Manajemen Pengguna & Role
+          <div className="flex items-center gap-1.5 text-xs font-bold text-[#D9480F] uppercase tracking-wider">
+            <ShieldCheck className="w-3.5 h-3.5" />
+            <span>Hak Akses & Keamanan</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#1A1715] tracking-tight mt-1">
+            Manajemen Pengguna & Role Staf
           </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Atur hak akses staf internal ke sistem Marcom (ADMIN vs MARCOM).
+          <p className="text-xs sm:text-sm text-stone-500 mt-1">
+            Atur otorisasi staf internal Marcom antara hak akses ADMIN (penuh) dan MARCOM (operasional harian).
           </p>
         </div>
 
@@ -95,7 +98,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
             setErrorMessage('')
             setIsCreateOpen(true)
           }}
-          className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-sm font-semibold shadow-sm transition-colors"
+          className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           <span>Tambah Pengguna</span>
@@ -103,114 +106,118 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
       </div>
 
       {errorMessage && !isCreateOpen && !deleteTarget && (
-        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-2">
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm flex items-center gap-2.5">
           <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />
           <span>{errorMessage}</span>
         </div>
       )}
 
       {/* Search Bar */}
-      <div className="flex items-center justify-between bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-[#EFE8DE] shadow-2xs">
         <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Cari nama atau email user..."
+            placeholder="Cari nama atau email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-sm rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+            className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors"
           />
         </div>
-        <div className="text-xs text-slate-500 font-medium">
-          Total: <span className="font-bold text-slate-800">{filtered.length}</span> user terdaftar
+        <div className="text-xs text-stone-500 font-medium">
+          Total: <span className="font-bold text-[#1A1715]">{filtered.length}</span> staf terdaftar
         </div>
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
-        <table className="w-full text-left text-sm text-slate-600">
-          <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-6 py-3.5">User / Nama</th>
-              <th className="px-6 py-3.5">Email</th>
-              <th className="px-6 py-3.5">Role Saat Ini</th>
-              <th className="px-6 py-3.5">Terdaftar</th>
-              <th className="px-6 py-3.5 text-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {filtered.map((u) => {
-              const isSelf = u.id === currentUserId
+      <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+              <tr>
+                <th className="px-6 py-4">Nama Pengguna</th>
+                <th className="px-6 py-4">Alamat Email</th>
+                <th className="px-6 py-4">Role Saat Ini</th>
+                <th className="px-6 py-4">Terdaftar Sejak</th>
+                <th className="px-6 py-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#EFE8DE]">
+              {filtered.map((u) => {
+                const isSelf = u.id === currentUserId
 
-              return (
-                <tr key={u.id} className="hover:bg-slate-50/80 transition-colors">
-                  <td className="px-6 py-4 font-semibold text-slate-900 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-600">
-                      {u.email.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div>
-                      <div>{u.name || '-'}</div>
-                      {isSelf && (
-                        <span className="text-[10px] text-orange-600 font-bold">(Akun Anda)</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-xs font-mono text-slate-700">{u.email}</td>
-                  <td className="px-6 py-4">
-                    <select
-                      value={u.role}
-                      disabled={isSelf}
-                      onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                      className={`text-xs font-bold px-2.5 py-1 rounded-md border cursor-pointer focus:outline-none ${
-                        u.role === 'ADMIN'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200'
-                          : 'bg-blue-50 text-blue-700 border-blue-200'
-                      }`}
-                    >
-                      <option value="ADMIN">ADMIN</option>
-                      <option value="MARCOM">MARCOM</option>
-                    </select>
-                  </td>
-                  <td className="px-6 py-4 text-xs text-slate-500">
-                    {new Date(u.createdAt).toLocaleDateString('id-ID', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                    })}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {!isSelf && (
-                      <button
-                        onClick={() => {
-                          setErrorMessage('')
-                          setDeleteTarget(u)
-                        }}
-                        className="inline-flex items-center p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                        title="Hapus user"
+                return (
+                  <tr key={u.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/20 flex items-center justify-center font-extrabold text-xs">
+                          {u.email.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div>
+                          <div className="font-bold text-[#1A1715] text-sm">{u.name || '-'}</div>
+                          {isSelf && (
+                            <span className="text-[10px] text-[#D9480F] font-bold">(Akun Anda)</span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-xs font-mono text-stone-700">{u.email}</td>
+                    <td className="px-6 py-4">
+                      <select
+                        value={u.role}
+                        disabled={isSelf}
+                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        className={`text-xs font-bold px-3 py-1.5 rounded-lg border cursor-pointer focus:outline-none transition-colors ${
+                          u.role === 'ADMIN'
+                            ? 'bg-amber-50 text-amber-900 border-amber-300'
+                            : 'bg-[#FFF4ED] text-[#D9480F] border-[#D9480F]/30'
+                        }`}
                       >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+                        <option value="ADMIN">ADMIN</option>
+                        <option value="MARCOM">MARCOM</option>
+                      </select>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-stone-500">
+                      {new Date(u.createdAt).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      })}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {!isSelf && (
+                        <button
+                          onClick={() => {
+                            setErrorMessage('')
+                            setDeleteTarget(u)
+                          }}
+                          className="inline-flex items-center p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          title="Hapus user"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Modal Tambah User */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-              <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
-                <UserIcon className="w-5 h-5 text-orange-500" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-md w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE]">
+              <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
+                <UserIcon className="w-5 h-5 text-[#D9480F]" />
                 Tambah Pengguna Baru
               </h3>
               <button
                 onClick={() => setIsCreateOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-md"
+                className="text-stone-400 hover:text-stone-600 p-1 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -218,68 +225,68 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
 
             <form onSubmit={handleCreate} className="p-6 space-y-4">
               {errorMessage && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg flex items-center gap-2">
+                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{errorMessage}</span>
                 </div>
               )}
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Email Staf (Wajib Sesuai Akun Login) *
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Email Staf *
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <Mail className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     name="email"
                     type="email"
                     required
                     placeholder="nama@sukashawarma.com"
-                    className="w-full pl-9 pr-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
                   Nama Lengkap
                 </label>
                 <input
                   name="name"
                   type="text"
                   placeholder="Contoh: Ahmad Fadilah"
-                  className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Role / Hak Akses
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Role Akses
                 </label>
                 <select
                   name="role"
                   defaultValue="MARCOM"
-                  className="w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                 >
                   <option value="MARCOM">MARCOM (Kelola data kampanye & iklan)</option>
                   <option value="ADMIN">ADMIN (Akses penuh & kelola user)</option>
                 </select>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={isPending}
-                  className="px-4 py-2 text-sm font-semibold bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                  className="px-5 py-2.5 text-xs sm:text-sm font-bold bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
                 >
-                  {isPending ? 'Menyimpan...' : 'Simpan User'}
+                  {isPending ? 'Menyimpan...' : 'Simpan Pengguna'}
                 </button>
               </div>
             </form>
@@ -289,17 +296,17 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
 
       {/* Modal Hapus User */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 max-w-sm w-full overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-sm w-full overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>
 
             <div className="text-center">
-              <h3 className="font-bold text-slate-900 text-lg">Hapus Pengguna?</h3>
-              <p className="text-xs text-slate-500 mt-1">
+              <h3 className="font-extrabold text-[#1A1715] text-lg">Hapus Pengguna?</h3>
+              <p className="text-xs text-stone-500 mt-1.5">
                 Apakah Anda yakin ingin menghapus hak akses untuk{' '}
-                <span className="font-bold text-slate-800">{deleteTarget.email}</span>?
+                <span className="font-bold text-[#1A1715]">{deleteTarget.email}</span>?
               </p>
             </div>
 
@@ -307,7 +314,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
               <button
                 type="button"
                 onClick={() => setDeleteTarget(null)}
-                className="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-stone-600 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer"
               >
                 Batal
               </button>
@@ -315,7 +322,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
                 type="button"
                 onClick={handleDelete}
                 disabled={isPending}
-                className="px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                className="px-5 py-2.5 text-xs sm:text-sm font-bold bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 {isPending ? 'Menghapus...' : 'Ya, Hapus'}
               </button>

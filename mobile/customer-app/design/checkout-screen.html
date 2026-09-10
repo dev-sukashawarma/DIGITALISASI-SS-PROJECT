@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suka Shawarma - Konfirmasi Pesanan</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #F8F5F0;
+      color: #2D241E;
+      -webkit-font-smoothing: antialiased;
+    }
+    .text-brand-brown {
+      color: #701604;
+    }
+    .bg-brand-brown {
+      background-color: #701604;
+    }
+    .text-brand-orange {
+      color: #F29744;
+    }
+    .bg-brand-orange {
+      background-color: #F29744;
+    }
+    .border-brand-orange {
+      border-color: #F29744;
+    }
+    /* Hide scrollbar for neat preview */
+    ::-webkit-scrollbar {
+      display: none;
+    }
+  </style>
+</head>
+<body class="flex justify-center min-h-screen py-0 sm:py-6 bg-[#EBE5DE]">
+
+  <!-- Mobile Frame Container (390 x 844 approx) -->
+  <div class="w-full max-w-[390px] bg-[#FFF8F2] min-h-screen relative flex flex-col shadow-2xl sm:rounded-[36px] overflow-hidden border border-[#E9DFD5]">
+    
+    <!-- Modern Android Status Bar -->
+    <div class="pt-3 px-6 pb-2 flex justify-between items-center text-xs font-semibold text-[#544136] tracking-tight z-20 select-none">
+      <span>09:41</span>
+      <div class="flex items-center space-x-1.5">
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/></svg>
+        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17 4h-3V2h-4v2H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>
+      </div>
+    </div>
+
+    <!-- App Top Bar -->
+    <header class="px-5 py-3 flex items-center justify-between sticky top-0 bg-[#FFF8F2]/95 backdrop-blur-md z-20 border-b border-[#F5E8DC]">
+      <a href="cart-screen.html" class="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center border border-[#F0E4D8] text-[#701604] hover:bg-[#FAF4EF] active:scale-95 transition-all">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+      </a>
+      <div class="text-center">
+        <h1 class="text-base font-bold text-[#701604] leading-tight">Konfirmasi Pesanan</h1>
+        <p class="text-[11px] font-medium text-[#927364]">Periksa kembali detail pesanan Anda</p>
+      </div>
+      <div class="w-10 flex items-center justify-end">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-4 ring-emerald-100" title="Koneksi Outlet Aktif"></span>
+      </div>
+    </header>
+
+    <!-- Scrollable Body Content -->
+    <main class="flex-1 overflow-y-auto px-4 pt-3 pb-32 space-y-4">
+      
+      <!-- Smart Real-Time Validation Alert Banner -->
+      <div class="bg-gradient-to-r from-[#EBF9F1] to-[#F2FBF6] border border-[#A7E6C1] rounded-2xl p-3.5 flex items-start space-x-3 shadow-sm">
+        <div class="w-8 h-8 rounded-full bg-emerald-500 flex-shrink-0 flex items-center justify-center text-white shadow-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+          </svg>
+        </div>
+        <div class="flex-1">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-emerald-900 tracking-tight">Ketersediaan &amp; Harga Terverifikasi</h4>
+            <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md">Real-time</span>
+          </div>
+          <p class="text-[11px] text-emerald-800/90 leading-snug mt-0.5">
+            Semua item tersedia di kasir outlet Bogor Pajajaran. Tidak ada perubahan harga atau menu habis.
+          </p>
+        </div>
+      </div>
+
+      <!-- Card 1: Pickup Location & Timeslot (Ambil di Outlet) -->
+      <section class="bg-white rounded-[22px] p-4 border border-[#F3DFC9] shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-24 h-24 bg-[#F29744]/10 rounded-full blur-xl pointer-events-none"></div>
+
+        <!-- Mode Badge -->
+        <div class="flex items-center justify-between mb-3">
+          <div class="inline-flex items-center space-x-1.5 bg-[#FFF4E8] border border-[#FCD8B8] px-2.5 py-1 rounded-full text-[11px] font-bold text-[#D66B14]">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+            <span>Ambil Sendiri di Outlet (Self-Pickup)</span>
+          </div>
+          <span class="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">Outlet Siap</span>
+        </div>
+
+        <!-- Outlet Info -->
+        <div class="flex items-start space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-[#FFF1E4] border border-[#FCD5B5] flex items-center justify-center text-[#701604] flex-shrink-0">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div class="flex-1">
+            <h3 class="text-sm font-bold text-[#701604]">Suka Shawarma – Bogor Pajajaran</h3>
+            <p class="text-xs text-[#6F5B4E] leading-relaxed mt-0.5">
+              Jl. Pajajaran Raya No. 45, Bantarjati, Kec. Bogor Utara, Kota Bogor
+            </p>
+          </div>
+        </div>
+
+        <!-- ETA & Directions action -->
+        <div class="mt-3 pt-3 border-t border-[#F8EFE7] flex items-center justify-between">
+          <div class="flex items-center space-x-2 text-xs text-[#523F34]">
+            <div class="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center text-amber-700">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <span>Estimasi Siap: <strong class="text-[#701604] font-bold">15–20 Menit</strong></span>
+          </div>
+
+          <a href="#petunjuk" class="inline-flex items-center space-x-1 text-xs font-bold text-[#F29744] hover:text-[#d87d29]">
+            <span>Petunjuk Arah</span>
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      </section>
+
+      <!-- Card 2: Contact Info (Data Pemesan) -->
+      <section class="bg-white rounded-[22px] p-4 border border-[#F0E4D9] shadow-sm">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-[#F29744]"></span>
+            <h3 class="text-xs font-bold uppercase tracking-wider text-[#8A7163]">Data Pemesan</h3>
+          </div>
+          <button class="text-xs font-bold text-[#F29744] hover:underline">Ubah</button>
+        </div>
+
+        <div class="flex items-center justify-between bg-[#FDFBF9] p-3 rounded-xl border border-[#F4EBE2]">
+          <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-[#701604] text-white flex items-center justify-center font-bold text-xs">
+              AR
+            </div>
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <h4 class="text-sm font-bold text-[#2E2018]">Ahmad Rizky</h4>
+                <span class="text-[10px] bg-[#FFF2E6] text-[#D86E1B] font-semibold px-1.5 py-0.2 rounded">Pelanggan</span>
+              </div>
+              <p class="text-xs text-[#6F5B4E] font-medium">+62 812-3456-7890</p>
+            </div>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600" title="Notifikasi WhatsApp Aktif">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981z"/>
+            </svg>
+          </div>
+        </div>
+        <p class="text-[10px] text-[#9A8477] mt-2 flex items-center space-x-1">
+          <svg class="w-3 h-3 text-[#9A8477]" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Nomor aktif untuk nomor antrean &amp; notifikasi pesanan siap ambil.</span>
+        </p>
+      </section>
+
+      <!-- Card 3: Items Summary (Ringkasan Menu) -->
+      <section class="bg-white rounded-[22px] p-4 border border-[#F0E4D9] shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-bold text-[#701604]">Ringkasan Menu <span class="text-xs text-[#997E70] font-normal">(2 Item)</span></h3>
+          <a href="#keranjang" class="text-xs font-bold text-[#F29744] hover:underline">Tambah Menu</a>
+        </div>
+
+        <div class="space-y-3 divide-y divide-[#F8EFE7]">
+          <!-- Item 1 -->
+          <div class="pt-1 flex items-start justify-between">
+            <div class="flex items-start space-x-3">
+              <div class="w-12 h-12 rounded-xl overflow-hidden bg-[#F8EFE7] flex-shrink-0 border border-[#EEDBCC]">
+                <img src="https://lh3.googleusercontent.com/aida/AEtjO1WZdbj3a0jBwUBhFTgCsdg7215HMG3BgYKhfS6ZbziHAa2KF36XfsaTvVsmsWInrwm-68o-Pegs7eTZwuITHArEPhyYEaATMbaz09GcPR9iAcj5pZ7_1PSpRiwtUDjhY4-Fy10Dcn23YnC2_w-W0ebSmjUYx3qIODWlIg_Hfuax7BvG65gR8z1h3O5uBzh8N6n09zOmE9HPf8lF1jLgDfmKzCXhgeKihFrvXRVRPMR03us8eqnz750dAaDY" alt="Classic Chicken Shawarma" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-xs font-bold text-[#701604] bg-[#FFF2E6] px-1.5 py-0.5 rounded">1x</span>
+                  <h4 class="text-xs font-bold text-[#2A1D16]">Classic Chicken Shawarma</h4>
+                </div>
+                <p class="text-[11px] text-[#7A6457] mt-0.5">Ukuran Reguler • Garlic Original</p>
+                <div class="inline-flex items-center mt-1 bg-[#FFF9F3] border border-[#F7E1D0] px-1.5 py-0.5 rounded text-[10px] text-[#A2571D] font-medium">
+                  + Extra Mozzarella (+Rp 5.000)
+                </div>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0 pl-2">
+              <span class="text-xs font-bold text-[#701604]">Rp 30.000</span>
+            </div>
+          </div>
+
+          <!-- Item 2 -->
+          <div class="pt-3 flex items-start justify-between">
+            <div class="flex items-start space-x-3">
+              <div class="w-12 h-12 rounded-xl overflow-hidden bg-[#F8EFE7] flex-shrink-0 border border-[#EEDBCC]">
+                <img src="https://lh3.googleusercontent.com/aida/AEtjO1WGc7yXsTH7Q2HiHhro3ZHWeMVWyE5rOeLoQKeery539b8tulI15hljKMSvv_dRRAUS7nPC8hCSMXLO21eEK_pxMQcbs54lQ9m8jZZPS7pLmWzmb8citeQCQqIMdOfKKhyIt9rpgbxfuya9pxh11vlvd3pMSculTWpBdknLFf2gapvIzGgwplnroB9B9KenbhxcsEGUoVR2riL5nQwxHoe-zVOQX0k7lKXXM9Nz1i1d3YAh9vk-XRChk35y" alt="Combo Kenyang Original" class="w-full h-full object-cover">
+              </div>
+              <div>
+                <div class="flex items-center space-x-1.5">
+                  <span class="text-xs font-bold text-[#701604] bg-[#FFF2E6] px-1.5 py-0.5 rounded">1x</span>
+                  <h4 class="text-xs font-bold text-[#2A1D16]">Combo Kenyang Original</h4>
+                </div>
+                <p class="text-[11px] text-[#7A6457] mt-0.5">Shawarma Wrap + Fries + Es Lemon Tea</p>
+                <span class="inline-block mt-1 text-[10px] bg-emerald-50 text-emerald-700 font-semibold px-1.5 py-0.5 rounded border border-emerald-200">
+                  Hemat Paket 15%
+                </span>
+              </div>
+            </div>
+            <div class="text-right flex-shrink-0 pl-2">
+              <span class="text-xs font-bold text-[#701604]">Rp 38.000</span>
+              <p class="text-[10px] text-gray-400 line-through">Rp 45.000</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Card 4: Payment Method Selection (Metode Pembayaran) -->
+      <section class="bg-white rounded-[22px] p-4 border border-[#F0E4D9] shadow-sm">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <h3 class="text-sm font-bold text-[#701604]">Metode Pembayaran</h3>
+            <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">Instant</span>
+          </div>
+          <button class="text-xs font-bold text-[#F29744] hover:underline">Ganti</button>
+        </div>
+
+        <!-- Selected QRIS Option -->
+        <div class="border-2 border-[#F29744] bg-[#FFFBF7] rounded-2xl p-3.5 flex items-center justify-between shadow-xs">
+          <div class="flex items-center space-x-3">
+            <div class="w-11 h-9 rounded-lg bg-white border border-[#F2D7C2] p-1 flex items-center justify-center shadow-xs">
+              <!-- QRIS Badge Representation -->
+              <div class="flex flex-col items-center justify-center leading-none">
+                <span class="text-[11px] font-black tracking-tighter text-red-600">QRIS</span>
+                <span class="text-[6px] font-bold text-gray-600">GPN</span>
+              </div>
+            </div>
+            <div>
+              <div class="flex items-center space-x-1.5">
+                <h4 class="text-xs font-extrabold text-[#2A1D16]">QRIS Digital Pay</h4>
+                <span class="text-[9px] bg-[#E9F8EE] text-[#1E7E34] px-1 rounded font-bold">Bebas Biaya</span>
+              </div>
+              <p class="text-[10px] text-[#786457] mt-0.5">BCA, GoPay, OVO, ShopeePay, Dana, Livin</p>
+            </div>
+          </div>
+
+          <!-- Radio Selected -->
+          <div class="w-5 h-5 rounded-full border-2 border-[#F29744] flex items-center justify-center bg-[#F29744]">
+            <div class="w-2 h-2 rounded-full bg-white"></div>
+          </div>
+        </div>
+
+        <p class="text-[10px] text-[#8C7669] mt-2.5 flex items-center space-x-1.5">
+          <svg class="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+          <span>Kode QRIS langsung muncul sesaat setelah Anda klik Bayar.</span>
+        </p>
+      </section>
+
+      <!-- Card 5: Price Breakdown (Rincian Biaya) -->
+      <section class="bg-white rounded-[22px] p-4 border border-[#F0E4D9] shadow-sm space-y-2.5">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-[#8A7163]">Rincian Pembayaran</h3>
+
+        <div class="space-y-2 text-xs text-[#523F34]">
+          <div class="flex justify-between items-center">
+            <span>Subtotal Menu (2 item)</span>
+            <span class="font-semibold text-[#2C1F17]">Rp 68.000</span>
+          </div>
+
+          <div class="flex justify-between items-center text-emerald-600">
+            <div class="flex items-center space-x-1.5">
+              <span>Diskon Promo</span>
+              <span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.2 rounded">SUKALAUNCH</span>
+            </div>
+            <span class="font-bold">-Rp 10.000</span>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <span class="flex items-center space-x-1">
+              <span>Biaya Layanan Aplikasi</span>
+              <svg class="w-3 h-3 text-[#B0998B]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10" stroke-width="2"/>
+                <path stroke-width="2" d="M12 16v-4m0-4h.01"/>
+              </svg>
+            </span>
+            <span class="font-semibold text-[#2C1F17]">Rp 1.000</span>
+          </div>
+
+          <div class="flex justify-between items-center">
+            <div class="flex items-center space-x-1">
+              <span>Biaya Ambil di Outlet</span>
+              <span class="text-[10px] bg-amber-50 text-[#C26210] font-semibold px-1 rounded">Pickup</span>
+            </div>
+            <span class="font-bold text-emerald-600 uppercase">Gratis</span>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-[#F8EFE7] flex justify-between items-baseline">
+          <div>
+            <span class="text-xs font-bold text-[#701604]">Total Pembayaran</span>
+            <p class="text-[10px] text-[#917B6E]">Termasuk pajak restoran 10%</p>
+          </div>
+          <span class="text-lg font-extrabold text-[#701604]">Rp 59.000</span>
+        </div>
+      </section>
+
+      <!-- Trust & Security Assurance Banner -->
+      <div class="flex items-center justify-center space-x-2 py-1 text-[11px] text-[#8C7669]">
+        <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        <span>Pembayaran aman terenkripsi &amp; pesanan langsung diteruskan ke kasir</span>
+      </div>
+
+    </main>
+
+    <!-- Sticky Bottom Bar with Primary CTA Button -->
+    <div class="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur-md px-5 py-3.5 border-t border-[#F3E2D3] shadow-[0_-8px_20px_rgba(112,22,4,0.06)] z-30 flex items-center justify-between">
+      <div>
+        <div class="flex items-center space-x-1">
+          <span class="text-[10px] text-[#8C7567] font-semibold uppercase tracking-wider">Total Bayar</span>
+          <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1 rounded">Hemat 10rb</span>
+        </div>
+        <div class="text-xl font-extrabold text-[#701604] leading-tight">Rp 59.000</div>
+      </div>
+
+      <a href="payment-screen.html" class="inline-flex items-center justify-center space-x-2 bg-[#F29744] hover:bg-[#E38733] active:scale-98 transition-all px-6 py-3 rounded-full text-[#4A0E03] font-extrabold text-sm shadow-md hover:shadow-lg border border-[#FDC28A]/40">
+        <svg class="w-4 h-4 text-[#4A0E03]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+        <span>Bayar Sekarang</span>
+        <svg class="w-4 h-4 ml-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+        </svg>
+      </a>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      anime.timeline({ easing: 'easeOutCubic', duration: 500 })
+        .add({
+          targets: 'main > div, main > section',
+          translateY: [20, 0],
+          opacity: [0, 1],
+          delay: anime.stagger(60)
+        });
+    });
+  </script>
+</body>
+</html>
+

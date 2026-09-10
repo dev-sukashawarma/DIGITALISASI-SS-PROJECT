@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient, createRetailClient } from '@/lib/supabase'
 import { bacaStatusWebhook, rahasiaCocok } from '@/lib/xendit'
 import { susunPayloadPos } from '@/lib/orderPayload'
+import { insertCustomerNotification } from '@/lib/notifications'
 import type { ItemPesanan } from '@/lib/pricing'
 
 export const dynamic = 'force-dynamic'
@@ -150,6 +151,20 @@ export async function POST(request: Request) {
     })
     return NextResponse.json({ error: 'Gagal menyelesaikan pesanan' }, { status: 500 })
   }
+
+  // Notifikasi otomatis awal "Pesanan Diterima & Sedang Disiapkan"
+  await insertCustomerNotification(retail, {
+    customerId: draft.customer_id,
+    orderId: draft.id,
+    type: 'order_status',
+    title: 'Pesanan Diterima & Sedang Disiapkan 🌯',
+    body: `Pesanan #${posOrder.order_number} berhasil dibayar dan sedang disiapkan dapur.`,
+    data: {
+      order_id: draft.id,
+      status: 'preparing',
+      order_number: posOrder.order_number,
+    },
+  }).catch((err) => console.warn('Gagal mencatat notifikasi pesanan diterima:', err))
 
   return NextResponse.json({ ok: true, order_number: posOrder.order_number })
 }

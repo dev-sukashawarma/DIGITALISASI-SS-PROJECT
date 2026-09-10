@@ -89,4 +89,24 @@ class Repository(private val gateway: GatewayClient) {
             is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.orders)
             is GatewayResult.Gagal -> hasil
         }
+
+    suspend fun ambilNotifikasi(kategori: String? = null): GatewayResult<com.sukashawarma.customer.data.api.NotificationListResponse> =
+        gateway.getNotifications(kategori)
+
+    suspend fun tandaiNotifikasiDibaca(notificationId: String? = null, tandaiSemua: Boolean = false): GatewayResult<Unit> =
+        gateway.markNotificationRead(notificationId, tandaiSemua)
+
+    suspend fun daftarkanFcmToken(token: String, deviceInfo: String? = null): GatewayResult<Unit> =
+        gateway.registerFcmToken(com.sukashawarma.customer.data.api.FcmTokenRequest(fcmToken = token, deviceInfo = deviceInfo))
+
+    suspend fun ambilPreferensiNotifikasi(): GatewayResult<com.sukashawarma.customer.data.api.NotificationPreferencesResponse> =
+        gateway.getNotificationPreferences()
+
+    suspend fun simpanPreferensiNotifikasi(pesanan: Boolean? = null, promo: Boolean? = null): GatewayResult<Unit> =
+        gateway.updateNotificationPreferences(
+            com.sukashawarma.customer.data.api.UpdateNotificationPreferencesRequest(
+                notifyOrderStatus = pesanan,
+                notifyPromotions = promo
+            )
+        )
 }

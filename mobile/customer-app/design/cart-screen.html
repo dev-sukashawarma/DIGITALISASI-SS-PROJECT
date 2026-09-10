@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suka Shawarma - Keranjang Pesanan</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              orange: '#F29744',
+              'orange-dark': '#E08332',
+              'orange-light': '#FFF3E8',
+              brown: '#701604',
+              'brown-dark': '#4A0E03',
+              'brown-subtle': '#F8EFEA',
+              cream: '#FFF8F2',
+              charcoal: '#2D1E18',
+              muted: '#7C6E65',
+              border: '#F2E6DC',
+            }
+          },
+          boxShadow: {
+            'card': '0 4px 20px rgba(112, 22, 4, 0.05)',
+            'sticky': '0 -4px 20px rgba(112, 22, 4, 0.07)',
+            'button': '0 4px 14px rgba(242, 151, 68, 0.35)',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    /* Hide scrollbars but keep functionality */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-[#FFF8F2] text-[#2D1E18] min-h-screen flex justify-center items-start antialiased selection:bg-[#F29744] selection:text-white">
+
+  <!-- Mobile Viewport Container (~390px width) -->
+  <div class="w-full max-w-[420px] bg-[#FFF8F2] min-h-screen relative flex flex-col shadow-2xl overflow-hidden pb-[100px]">
+
+    <!-- Status Bar (Android modern style) -->
+    <div class="sticky top-0 z-50 bg-[#FFF8F2]/95 backdrop-blur-md px-5 pt-3 pb-2 flex items-center justify-between text-xs font-semibold text-[#2D1E18]">
+      <span>09:41</span>
+      <div class="flex items-center space-x-2 text-[11px]">
+        <i class="fa-solid fa-signal"></i>
+        <i class="fa-solid fa-wifi"></i>
+        <i class="fa-solid fa-battery-full text-sm"></i>
+      </div>
+    </div>
+
+    <!-- Top App Bar Navigation -->
+    <header class="sticky top-[34px] z-40 bg-[#FFF8F2]/95 backdrop-blur-md px-4 py-2 flex items-center justify-between border-b border-[#F2E6DC]/60">
+      <a href="home-screen.html" class="w-10 h-10 rounded-full bg-white border border-[#F2E6DC] flex items-center justify-center text-[#2D1E18] shadow-sm hover:bg-[#FFF3E8] active:scale-95 transition-all">
+        <i class="fa-solid fa-arrow-left text-sm"></i>
+      </a>
+      <div class="text-center">
+        <h1 class="text-base font-bold text-[#701604]">Keranjang Pesanan</h1>
+        <p class="text-[11px] text-[#7C6E65] font-medium">Order-ahead &amp; Ambil di Toko</p>
+      </div>
+      <button onclick="clearCart()" class="w-10 h-10 rounded-full bg-white border border-[#F2E6DC] flex items-center justify-center text-[#701604] shadow-sm hover:bg-red-50 active:scale-95 transition-all" title="Kosongkan Keranjang">
+        <i class="fa-regular fa-trash-can text-sm"></i>
+      </button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="px-4 py-3.5 space-y-4 flex-1">
+
+      <!-- Pickup Outlet Banner Card -->
+      <section class="bg-white rounded-2xl p-4 border border-[#F2E6DC] shadow-card relative overflow-hidden">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-full bg-[#FFF3E8] text-[#F29744] flex items-center justify-center shrink-0 mt-0.5 border border-[#F29744]/20">
+              <i class="fa-solid fa-store text-base"></i>
+            </div>
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] uppercase tracking-wider font-bold text-[#F29744] bg-[#FFF3E8] px-2 py-0.5 rounded-full border border-[#F29744]/20">Pickup Di Toko</span>
+                <span class="inline-flex items-center text-[10px] text-emerald-600 font-semibold">
+                  <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse"></span>Buka
+                </span>
+              </div>
+              <h2 class="text-sm font-bold text-[#2D1E18] mt-1">Suka Shawarma - Bogor Pajajaran</h2>
+              <p class="text-xs text-[#7C6E65] mt-0.5 flex items-center gap-1">
+                <i class="fa-regular fa-clock text-[11px] text-[#F29744]"></i>
+                <span>Estimasi siap dalam <span class="font-semibold text-emerald-700">15–20 mnt</span></span>
+              </p>
+            </div>
+          </div>
+          <a href="outlet-picker-screen.html" class="text-xs font-bold text-[#F29744] hover:text-[#E08332] px-2.5 py-1.5 rounded-lg hover:bg-[#FFF3E8] transition-colors shrink-0">
+            Ubah
+          </a>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-dashed border-[#F2E6DC] flex items-center justify-between text-[11px] text-[#7C6E65]">
+          <span class="flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info text-[#F29744]"></i>
+            Langsung ambil tanpa antre di kasir
+          </span>
+          <span class="text-[10px] bg-[#F8EFEA] text-[#701604] font-semibold px-2 py-0.5 rounded-md">Tanpa Ongkir</span>
+        </div>
+      </section>
+
+      <!-- Cart Items Section -->
+      <section class="space-y-3">
+        <div class="flex items-center justify-between px-1">
+          <h3 class="text-sm font-bold text-[#701604] flex items-center gap-2">
+            <span>Item Pesanan</span>
+            <span class="text-xs font-semibold bg-[#FFF3E8] text-[#F29744] px-2 py-0.5 rounded-full border border-[#F29744]/20">2 menu</span>
+          </h3>
+          <span class="text-xs text-[#7C6E65]">Geser item untuk opsi</span>
+        </div>
+
+        <!-- Item Card 1: Classic Chicken Shawarma -->
+        <article class="bg-white rounded-2xl p-3.5 border border-[#F2E6DC] shadow-card transition-all hover:border-[#F29744]/40">
+          <div class="flex gap-3">
+            <div class="w-[74px] h-[74px] rounded-xl overflow-hidden shrink-0 border border-[#F2E6DC] relative bg-stone-100">
+              <img src="https://lh3.googleusercontent.com/aida/AEtjO1UmBDn1Pm46zkIvPi4fA7Hp8YXRIDEkYDvHl3Da-PwHEvpP2irfzubZccymNY7bAriK0_-qn44KsBP1exYkD85CKU33EygMJ0hjutjePsIfvZLHJB_oBM1-EwxsOsm-hTP9w1m1n6AiGf_ztQOa3_WsZAFf0UGWsZJWB-Biw2vovYLrFKLma6fenlWy0bIQ8Idi8cP42XCjAPKDlPfAm1TFHW2g7CGeyYUV5-KTXm1roNbmcDVddqMb3r9p" alt="Classic Chicken Shawarma" class="w-full h-full object-cover">
+              <span class="absolute bottom-1 right-1 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded">1x</span>
+            </div>
+            
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-1">
+                <h4 class="text-sm font-bold text-[#2D1E18] truncate leading-tight">Classic Chicken Shawarma</h4>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button class="text-[#7C6E65] hover:text-[#F29744] p-1 text-xs" title="Edit Pesanan">
+                    <i class="fa-regular fa-pen-to-square"></i>
+                  </button>
+                  <button class="text-[#7C6E65] hover:text-red-500 p-1 text-xs" title="Hapus Item">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Options badge pills -->
+              <p class="text-xs text-[#7C6E65] mt-1 leading-snug">
+                <span class="inline-block bg-[#F8EFEA] text-[#701604] text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1">Reguler</span>
+                <span class="inline-block bg-[#F8EFEA] text-[#701604] text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1">Garlic Original</span>
+                <span class="inline-block bg-[#FFF3E8] text-[#E08332] text-[10px] font-bold px-1.5 py-0.5 rounded">+Mozzarella (+Rp 5.000)</span>
+              </p>
+
+              <!-- Notes -->
+              <div class="mt-1.5 flex items-center gap-1 text-[11px] text-[#7C6E65] bg-[#FFF8F2] px-2 py-1 rounded-lg border border-[#F2E6DC]/70">
+                <i class="fa-regular fa-comment-dots text-[#F29744] text-[10px]"></i>
+                <span class="italic truncate">Catatan: Saus dipisah ya</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer of item: Price & Stepper -->
+          <div class="mt-3 pt-2.5 border-t border-[#F2E6DC]/80 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] text-[#7C6E65] block leading-none">Harga total</span>
+              <span class="text-sm font-extrabold text-[#701604]">Rp 30.000</span>
+            </div>
+
+            <!-- Quantity Stepper -->
+            <div class="flex items-center bg-[#FFF8F2] border border-[#F2E6DC] rounded-full p-0.5 shadow-sm">
+              <button class="w-6 h-6 rounded-full bg-white text-[#701604] hover:bg-[#FFF3E8] flex items-center justify-center font-bold text-xs shadow-xs active:scale-95 transition-all">
+                <i class="fa-solid fa-minus text-[9px]"></i>
+              </button>
+              <span class="w-7 text-center text-xs font-bold text-[#2D1E18]">1</span>
+              <button class="w-6 h-6 rounded-full bg-[#F29744] text-white hover:bg-[#E08332] flex items-center justify-center font-bold text-xs shadow-xs active:scale-95 transition-all">
+                <i class="fa-solid fa-plus text-[9px]"></i>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Item Card 2: Combo Kenyang Original -->
+        <article class="bg-white rounded-2xl p-3.5 border border-[#F2E6DC] shadow-card transition-all hover:border-[#F29744]/40">
+          <div class="flex gap-3">
+            <div class="w-[74px] h-[74px] rounded-xl overflow-hidden shrink-0 border border-[#F2E6DC] relative bg-stone-100">
+              <img src="https://lh3.googleusercontent.com/aida/AEtjO1WGc7yXsTH7Q2HiHhro3ZHWeMVWyE5rOeLoQKeery539b8tulI15hljKMSvv_dRRAUS7nPC8hCSMXLO21eEK_pxMQcbs54lQ9m8jZZPS7pLmWzmb8citeQCQqIMdOfKKhyIt9rpgbxfuya9pxh11vlvd3pMSculTWpBdknLFf2gapvIzGgwplnroB9B9KenbhxcsEGUoVR2riL5nQwxHoe-zVOQX0k7lKXXM9Nz1i1d3YAh9vk-XRChk35y" alt="Combo Kenyang Original" class="w-full h-full object-cover">
+              <span class="absolute bottom-1 right-1 bg-black/60 backdrop-blur-sm text-white text-[9px] font-bold px-1.5 py-0.5 rounded">1x</span>
+            </div>
+            
+            <div class="flex-1 min-w-0">
+              <div class="flex items-start justify-between gap-1">
+                <div>
+                  <h4 class="text-sm font-bold text-[#2D1E18] truncate leading-tight">Combo Kenyang Original</h4>
+                  <span class="inline-block mt-0.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">Hemat Paket 15%</span>
+                </div>
+                <div class="flex items-center gap-1.5 shrink-0">
+                  <button class="text-[#7C6E65] hover:text-[#F29744] p-1 text-xs" title="Edit Pesanan">
+                    <i class="fa-regular fa-pen-to-square"></i>
+                  </button>
+                  <button class="text-[#7C6E65] hover:text-red-500 p-1 text-xs" title="Hapus Item">
+                    <i class="fa-regular fa-trash-can"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Options -->
+              <p class="text-xs text-[#7C6E65] mt-1 leading-snug">
+                <span class="inline-block bg-[#F8EFEA] text-[#701604] text-[10px] font-semibold px-1.5 py-0.5 rounded mr-1">Reguler</span>
+                <span class="inline-block bg-[#F8EFEA] text-[#701604] text-[10px] font-semibold px-1.5 py-0.5 rounded">Es Lemon Tea Manis</span>
+              </p>
+              <p class="text-[11px] text-[#7C6E65] mt-1 truncate">
+                Shawarma Wrap + French Fries + Es Lemon Tea
+              </p>
+            </div>
+          </div>
+
+          <!-- Footer of item: Price & Stepper -->
+          <div class="mt-3 pt-2.5 border-t border-[#F2E6DC]/80 flex items-center justify-between">
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-extrabold text-[#701604]">Rp 38.000</span>
+                <span class="text-[11px] text-[#7C6E65] line-through">Rp 45.000</span>
+              </div>
+            </div>
+
+            <!-- Quantity Stepper -->
+            <div class="flex items-center bg-[#FFF8F2] border border-[#F2E6DC] rounded-full p-0.5 shadow-sm">
+              <button class="w-6 h-6 rounded-full bg-white text-[#701604] hover:bg-[#FFF3E8] flex items-center justify-center font-bold text-xs shadow-xs active:scale-95 transition-all">
+                <i class="fa-solid fa-minus text-[9px]"></i>
+              </button>
+              <span class="w-7 text-center text-xs font-bold text-[#2D1E18]">1</span>
+              <button class="w-6 h-6 rounded-full bg-[#F29744] text-white hover:bg-[#E08332] flex items-center justify-center font-bold text-xs shadow-xs active:scale-95 transition-all">
+                <i class="fa-solid fa-plus text-[9px]"></i>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Add More Items Shortcut Button -->
+        <button class="w-full py-2.5 border-2 border-dashed border-[#F29744] hover:border-[#E08332] rounded-2xl bg-[#FFF3E8]/50 hover:bg-[#FFF3E8] flex items-center justify-center gap-2 text-xs font-bold text-[#F29744] hover:text-[#E08332] transition-all group">
+          <i class="fa-solid fa-plus text-xs group-hover:scale-110 transition-transform"></i>
+          <span>Tambah Menu Lainnya</span>
+        </button>
+      </section>
+
+      <!-- Promo / Voucher Code Section -->
+      <section class="bg-white rounded-2xl p-3.5 border border-[#F2E6DC] shadow-card space-y-2.5">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-[#FFF3E8] text-[#F29744] flex items-center justify-center text-xs">
+              <i class="fa-solid fa-ticket"></i>
+            </div>
+            <span class="text-xs font-bold text-[#2D1E18]">Voucher & Kode Promo</span>
+          </div>
+          <button class="text-[11px] font-bold text-[#F29744] hover:underline">Lihat Promo</button>
+        </div>
+
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <i class="fa-solid fa-tag absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[#7C6E65]"></i>
+            <input type="text" value="SUKALAUNCH" placeholder="Masukkan kode promo..." class="w-full pl-8 pr-3 py-2 bg-[#FFF8F2] border border-[#F2E6DC] focus:border-[#F29744] focus:outline-none rounded-xl text-xs font-bold text-[#701604] uppercase placeholder:normal-case placeholder:font-normal placeholder:text-[#7C6E65]">
+          </div>
+          <button class="px-4 py-2 bg-[#701604] hover:bg-[#4A0E03] text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-sm">
+            Tersimpan
+          </button>
+        </div>
+
+        <!-- Applied promo badge -->
+        <div class="flex items-center justify-between bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl text-xs">
+          <div class="flex items-center gap-2 text-emerald-800">
+            <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+            <div>
+              <p class="font-bold text-[11px] leading-tight text-emerald-900">SUKALAUNCH Berhasil Dipakai</p>
+              <p class="text-[10px] text-emerald-700">Potongan langsung diskon pembukaan outlet</p>
+            </div>
+          </div>
+          <span class="text-[11px] font-extrabold text-emerald-700 shrink-0">-Rp 10.000</span>
+        </div>
+      </section>
+
+      <!-- Order Summary Card (Ringkasan Pembayaran) -->
+      <section class="bg-white rounded-2xl p-4 border border-[#F2E6DC] shadow-card space-y-2.5">
+        <h3 class="text-xs font-bold text-[#701604] uppercase tracking-wider">Ringkasan Pembayaran</h3>
+
+        <div class="space-y-1.5 text-xs">
+          <div class="flex justify-between items-center text-[#7C6E65]">
+            <span>Subtotal (2 menu)</span>
+            <span class="font-medium text-[#2D1E18]">Rp 68.000</span>
+          </div>
+          
+          <div class="flex justify-between items-center text-[#7C6E65]">
+            <span class="flex items-center gap-1">
+              <span>Diskon Promo (SUKALAUNCH)</span>
+            </span>
+            <span class="font-bold text-emerald-600">-Rp 10.000</span>
+          </div>
+
+          <div class="flex justify-between items-center text-[#7C6E65]">
+            <span class="flex items-center gap-1">
+              <span>Biaya Layanan Aplikasi</span>
+              <i class="fa-regular fa-circle-question text-[10px] text-stone-400" title="Biaya pemeliharaan sistem"></i>
+            </span>
+            <span class="font-medium text-[#2D1E18]">Rp 1.000</span>
+          </div>
+
+          <div class="flex justify-between items-center text-[#7C6E65]">
+            <span>Biaya Antar / Pickup</span>
+            <span class="font-bold text-emerald-600 uppercase text-[11px]">Gratis</span>
+          </div>
+        </div>
+
+        <div class="pt-2.5 border-t border-dashed border-[#F2E6DC] flex justify-between items-center">
+          <div>
+            <span class="text-xs font-bold text-[#2D1E18] block">Total Pembayaran</span>
+            <span class="text-[10px] text-[#7C6E65]">Termasuk pajak & biaya resto</span>
+          </div>
+          <span class="text-base font-extrabold text-[#701604]">Rp 59.000</span>
+        </div>
+      </section>
+
+      <!-- Pickup Instructions Tip Card -->
+      <div class="rounded-xl bg-[#FFF3E8] border border-[#F29744]/30 p-3 flex items-start gap-2.5 text-xs text-[#701604]">
+        <i class="fa-solid fa-bell-concierge text-[#F29744] text-sm mt-0.5"></i>
+        <div class="space-y-0.5">
+          <p class="font-bold text-[11px]">Pesanan disiapkan saat Anda bayar</p>
+          <p class="text-[11px] text-[#7C6E65]">Tunjukkan nomor antrean digital di kasir outlet Bogor Pajajaran untuk langsung mengambil pesanan.</p>
+        </div>
+      </div>
+
+    </main>
+
+    <!-- Sticky Bottom Bar with CTA -->
+    <footer class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[420px] bg-white border-t border-[#F2E6DC] px-4 py-3 shadow-sticky z-50 flex items-center justify-between gap-3">
+      <!-- Left: Total info -->
+      <div>
+        <div class="flex items-center gap-1">
+          <span class="text-[10px] uppercase font-bold text-[#7C6E65]">Total Bayar</span>
+          <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1 rounded">Hemat 10rb</span>
+        </div>
+        <div id="cart-final-total" class="text-lg font-extrabold text-[#701604] leading-tight">Rp 59.000</div>
+      </div>
+
+      <!-- Right: Checkout CTA Button -->
+      <a href="checkout-screen.html" class="flex-1 max-w-[210px] py-3 px-4 bg-[#F29744] hover:bg-[#E08332] active:scale-[0.98] transition-all rounded-full shadow-button flex items-center justify-center gap-2 text-[#4A0E03] font-extrabold text-sm">
+        <span>Lanjut Checkout</span>
+        <i class="fa-solid fa-arrow-right text-xs"></i>
+      </a>
+    </footer>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      anime.timeline({ easing: 'easeOutCubic', duration: 500 })
+        .add({
+          targets: 'main > section, main > div',
+          translateY: [25, 0],
+          opacity: [0, 1],
+          delay: anime.stagger(70)
+        });
+    });
+
+    function clearCart() {
+      if (confirm('Kosongkan keranjang pesanan?')) {
+        window.location.href = 'home-screen.html';
+      }
+    }
+  </script>
+</body>
+</html>
+
+

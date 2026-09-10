@@ -1,0 +1,56 @@
+<journey name="Suka Shawarma Customer App End-to-End User Journey">
+   <description>Comprehensive end-to-end journey testing the Suka Shawarma customer mobile application on Android: promo popup handling, home screen discovery, outlet selection modal, menu catalog browsing, product customization with toppings and notes, cart verification, checkout summary, order tracking history, and user profile management.</description>
+   <actions>
+      <!-- Phase 1: Beranda / Home Screen Discovery -->
+      <action>Verify that the app is open and on the Home screen or Promo dialog</action>
+      <action>Tap "Nanti Saja" or close button if Promo dialog is visible</action>
+      <action>Verify that the Home screen displays the brand header "SUKA SHAWARMA" and tagline "Otentik • Panggang • Gurih"</action>
+      <action>Verify that the outlet status banner displays "Buka" and active outlet name</action>
+      <action>Verify that Best Seller menu items are displayed on Home screen</action>
+
+      <!-- Phase 2: Outlet Selector Flow -->
+      <action>Tap "Ganti Outlet" button</action>
+      <action>Verify that the outlet picker screen is displayed with "Pilih Outlet"</action>
+      <action>Tap the close button "Tutup" to return to Home</action>
+      <action>Verify that the app is back on the Home screen</action>
+
+      <!-- Phase 3: Menu Catalog Browsing Flow -->
+      <action>Tap "Menu" tab in bottom navigation bar</action>
+      <action>Verify that the Menu &amp; Katalog screen is displayed with search bar</action>
+      <action>Verify that category filter chips are visible</action>
+      <action>Tap category chip "Original Shawarma Sapi"</action>
+      <action>Verify that menu list is updated for selected category</action>
+      <action>Tap category chip "Original Shawarma Ayam"</action>
+
+      <!-- Phase 4: Product Detail & Customization Flow -->
+      <action>Tap menu item "Original Ayam Jumbo"</action>
+      <action>Verify that Detail Menu screen is displayed with product name, price, and toppings</action>
+      <action>Tap "Tambah" button to increase quantity</action>
+      <action>Verify that quantity is updated to 2</action>
+      <action>Tap "Extra Keju" topping option</action>
+      <action>Tap note input field and type "Ekstra saus toum ya"</action>
+      <action>Tap "+ Keranjang" button to add customized item</action>
+      <action>Verify that item is added to cart and floating cart bar is visible</action>
+
+      <!-- Phase 5: Cart & Checkout Review Flow -->
+      <action>Tap "Lihat Keranjang" floating bar</action>
+      <action>Verify that Keranjang Pesanan screen displays cart items, breakdown, and total</action>
+      <action>Tap "Lanjut Pembayaran" button</action>
+      <action>Verify that Ringkasan Pesanan checkout screen displays pickup details and QRIS payment method</action>
+      <action>Tap "Kembali" to return to Cart screen</action>
+      <action>Tap "Kembali" to return to previous screen</action>
+
+      <!-- Phase 6: Order History & Tracking Flow -->
+      <action>Tap "Pesanan" tab in bottom navigation bar</action>
+      <action>Verify that Riwayat Pesanan screen is displayed with order status filter tabs</action>
+      <action>Tap first active order card to view order status</action>
+      <action>Verify that Status Pesanan tracking screen displays order progress stages</action>
+      <action>Tap "Kembali" to return to Riwayat Pesanan</action>
+
+      <!-- Phase 7: Profile & Navigation Integrity Flow -->
+      <action>Tap "Profil" tab in bottom navigation bar</action>
+      <action>Verify that Profil screen displays user name "Maulana Yusuf" and account settings</action>
+      <action>Tap "Beranda" tab in bottom navigation bar</action>
+      <action>Verify that the app successfully returns to Beranda Home screen</action>
+   </actions>
+</journey>

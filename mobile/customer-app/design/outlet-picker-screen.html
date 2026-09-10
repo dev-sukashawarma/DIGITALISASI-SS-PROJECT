@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suka Shawarma - Pilih Outlet Pengambilan</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .custom-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-[#F6EFE9] min-h-screen flex items-center justify-center p-0 sm:p-4 text-[#2D1E18]">
+
+  <!-- Mobile Device Container (Approx 390px x 844px) -->
+  <div class="w-full max-w-[400px] h-[844px] bg-[#FFF8F2] shadow-2xl relative flex flex-col overflow-hidden sm:rounded-[36px] border sm:border-[#E8DFD5]">
+    
+    <!-- Top System Bar & Header -->
+    <header class="bg-[#FFF8F2]/95 backdrop-blur-md sticky top-0 z-30 pt-2 pb-3 px-5 border-b border-[#EFE4DA] transition-all">
+      <!-- Android Status Bar -->
+      <div class="flex justify-between items-center text-xs font-semibold text-[#5A4035] mb-2 px-1">
+        <span>09:41</span>
+        <div class="flex items-center space-x-1.5 text-xs">
+          <!-- Network / WiFi / Battery Icons -->
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 3C7.5 3 3.75 4.8 1 7.7l11 13.3 11-13.3C20.25 4.8 16.5 3 12 3z"/>
+          </svg>
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/>
+          </svg>
+          <svg class="w-4 h-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M17 4h-3V2h-4v2H7v18h10V4z"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Navigation App Bar -->
+      <div class="flex items-center justify-between mt-1">
+        <a href="home-screen.html" class="w-9 h-9 flex items-center justify-center rounded-full bg-white text-[#701604] shadow-sm hover:bg-orange-50 active:scale-95 transition-all border border-[#F0E4D8]">
+          <svg class="w-4 h-4 stroke-current stroke-[2.5]" fill="none" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </a>
+
+        <div class="text-center">
+          <h1 class="text-base font-extrabold text-[#701604] tracking-tight">Pilih Outlet</h1>
+          <p class="text-[11px] font-semibold text-[#8C6D5F] flex items-center justify-center gap-1">
+            <span class="inline-block w-1.5 h-1.5 rounded-full bg-[#F29744]"></span>
+            Khusus Ambil Sendiri (Self-Pickup)
+          </p>
+        </div>
+
+        <button class="w-9 h-9 flex items-center justify-center rounded-full bg-white text-[#F29744] shadow-sm hover:bg-orange-50 active:scale-95 transition-all border border-[#F0E4D8]" title="Gunakan GPS">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+            <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Content Area -->
+    <main class="flex-1 overflow-y-auto custom-scrollbar px-4 pt-3 pb-32 space-y-4">
+
+      <!-- Search Bar -->
+      <div class="relative">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#8C6D5F]">
+          <svg class="w-4 h-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+        </div>
+        <input 
+          type="text" 
+          value="Bogor"
+          placeholder="Cari outlet, nama jalan, atau area..." 
+          class="w-full pl-10 pr-10 py-2.5 bg-white border border-[#E8DDD2] rounded-full text-xs font-medium text-[#2D1E18] placeholder-[#9C8276] focus:outline-none focus:border-[#F29744] focus:ring-2 focus:ring-[#F29744]/20 shadow-sm"
+        >
+        <button class="absolute inset-y-0 right-0 pr-3 flex items-center text-[#9C8276] hover:text-[#701604]">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Current Location Pill / Banner -->
+      <div class="bg-gradient-to-r from-[#FFF1E5] to-[#FFE8D6] p-3 rounded-2xl border border-[#FCDDC2] flex items-center justify-between shadow-xs">
+        <div class="flex items-center space-x-2.5 min-w-0">
+          <div class="w-8 h-8 rounded-full bg-[#F29744]/20 flex items-center justify-center shrink-0 text-[#701604]">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
+          </div>
+          <div class="truncate">
+            <p class="text-[10px] uppercase font-bold tracking-wider text-[#8A4822]">Lokasimu Saat Ini</p>
+            <p class="text-xs font-bold text-[#2D1E18] truncate">Bogor Tengah, Kota Bogor</p>
+          </div>
+        </div>
+        <button class="shrink-0 px-2.5 py-1 bg-white text-[#701604] border border-[#F29744]/40 rounded-full text-[11px] font-bold shadow-2xs hover:bg-[#F29744] hover:text-white transition-colors flex items-center gap-1">
+          <span>Ubah</span>
+          <svg class="w-2.5 h-2.5 fill-current" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+        </button>
+      </div>
+
+      <!-- Section Title & Filter Tabs -->
+      <div>
+        <div class="flex items-center justify-between mb-2.5">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-[#701604]">Outlet Terdekat di Sekitarmu</h2>
+          <span class="text-[11px] font-semibold text-[#8C6D5F]">4 Outlet Ditemukan</span>
+        </div>
+
+        <div class="flex gap-2 overflow-x-auto custom-scrollbar pb-1 text-[11px] font-semibold">
+          <button class="px-3 py-1 rounded-full bg-[#701604] text-white whitespace-nowrap shadow-xs">Semua (4)</button>
+          <button class="px-3 py-1 rounded-full bg-white text-[#5A4035] border border-[#E8DDD2] whitespace-nowrap hover:border-[#F29744]">Buka Sekarang (3)</button>
+          <button class="px-3 py-1 rounded-full bg-white text-[#5A4035] border border-[#E8DDD2] whitespace-nowrap hover:border-[#F29744]">Antrean Cepat (&lt;20 mnt)</button>
+        </div>
+      </div>
+
+      <!-- Outlets List -->
+      <div class="space-y-3.5">
+
+        <!-- Card 1: SELECTED / ACTIVE -->
+        <div class="relative bg-[#FFF9F3] border-2 border-[#F29744] rounded-[22px] p-4 shadow-md transition-all cursor-pointer">
+          <!-- Active Pin Badge -->
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-1.5 bg-[#F29744] text-white px-2.5 py-0.5 rounded-full text-[10px] font-bold shadow-xs">
+              <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+              </svg>
+              <span>Outlet Pilihanmu</span>
+            </div>
+
+            <div class="w-5 h-5 rounded-full bg-[#F29744] flex items-center justify-center text-white shrink-0 shadow-xs">
+              <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            </div>
+          </div>
+
+          <!-- Outlet Main Info -->
+          <div class="mt-2.5">
+            <div class="flex items-baseline justify-between gap-1">
+              <h3 class="font-bold text-sm text-[#2D1E18] tracking-tight">Suka Shawarma - Bogor Pajajaran</h3>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2 mt-1.5">
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8F8F0] text-[#0C8F54] font-bold text-[11px]">
+                <span class="w-1.5 h-1.5 rounded-full bg-[#0C8F54] animate-pulse"></span>
+                Buka • Siap 15–20 mnt
+              </span>
+              <span class="text-xs font-extrabold text-[#701604] bg-[#FFEBD8] px-2 py-0.5 rounded-md">
+                📍 850 m
+              </span>
+              <span class="text-[11px] text-[#6B5349] font-medium">± 4 menit perjalanan</span>
+            </div>
+
+            <p class="text-xs text-[#5A4035] mt-2 line-clamp-2 leading-relaxed">
+              Jl. Pajajaran Raya No. 45, Bantarjati, Kec. Bogor Utara, Kota Bogor
+            </p>
+
+            <div class="flex items-center justify-between pt-2.5 mt-2.5 border-t border-[#F3E2D3] text-[11px]">
+              <span class="text-[#7A6155] flex items-center gap-1 font-medium">
+                <svg class="w-3.5 h-3.5 text-[#F29744] fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+                Buka setiap hari: 10.00 – 22.00 WIB
+              </span>
+              <a href="#" class="text-[#701604] font-bold hover:underline flex items-center gap-0.5">
+                Peta
+                <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: RAMAI / BUSY -->
+        <div class="relative bg-white border border-[#EADBCE] rounded-[22px] p-4 shadow-sm hover:border-[#F29744]/70 transition-all cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-[#2D1E18]">Suka Shawarma - Empang Bogor</h3>
+              <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF5E6] text-[#B86B00] font-bold text-[11px] border border-[#FFE0B2]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#B86B00]"></span>
+                  Ramai • Siap 25–30 mnt
+                </span>
+                <span class="text-xs font-bold text-[#6B5349] bg-[#F6EFE9] px-2 py-0.5 rounded-md">
+                  📍 2.1 km
+                </span>
+              </div>
+            </div>
+
+            <!-- Radio Unselected -->
+            <div class="w-5 h-5 rounded-full border-2 border-[#D1C2B4] shrink-0 mt-0.5 hover:border-[#F29744] transition-colors"></div>
+          </div>
+
+          <p class="text-xs text-[#5A4035] mt-2 line-clamp-1 leading-relaxed">
+            Jl. Empang Raya No. 24, Empang, Bogor Selatan
+          </p>
+
+          <div class="flex items-center justify-between pt-2.5 mt-2.5 border-t border-[#F6EFE9] text-[11px]">
+            <span class="text-[#7A6155] flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 text-[#9C8276] fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+              10.00 – 22.30 WIB
+            </span>
+            <span class="text-[10px] text-[#A66E2E] bg-[#FFF2DE] px-2 py-0.5 rounded font-semibold">Antrean Dapur Tinggi</span>
+          </div>
+        </div>
+
+        <!-- Card 3: BUKA / NORMAL -->
+        <div class="relative bg-white border border-[#EADBCE] rounded-[22px] p-4 shadow-sm hover:border-[#F29744]/70 transition-all cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-[#2D1E18]">Suka Shawarma - Cibubur Alternatif</h3>
+              <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#E8F8F0] text-[#0C8F54] font-bold text-[11px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#0C8F54]"></span>
+                  Buka • Siap 15–20 mnt
+                </span>
+                <span class="text-xs font-bold text-[#6B5349] bg-[#F6EFE9] px-2 py-0.5 rounded-md">
+                  📍 6.4 km
+                </span>
+              </div>
+            </div>
+
+            <!-- Radio Unselected -->
+            <div class="w-5 h-5 rounded-full border-2 border-[#D1C2B4] shrink-0 mt-0.5"></div>
+          </div>
+
+          <p class="text-xs text-[#5A4035] mt-2 line-clamp-1 leading-relaxed">
+            Jl. Alternatif Cibubur KM 3, Harjamukti, Cimanggis, Depok
+          </p>
+
+          <div class="flex items-center justify-between pt-2.5 mt-2.5 border-t border-[#F6EFE9] text-[11px]">
+            <span class="text-[#7A6155] flex items-center gap-1">
+              <svg class="w-3.5 h-3.5 text-[#9C8276] fill-current" viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/></svg>
+              10.00 – 23.00 WIB
+            </span>
+            <span class="text-[10px] text-[#0C8F54] bg-[#E8F8F0] px-2 py-0.5 rounded font-semibold">Outlet Luas + Drive-thru</span>
+          </div>
+        </div>
+
+        <!-- Card 4: TUTUP / CLOSED STATE -->
+        <div class="relative bg-[#FAF5F0]/80 border border-[#E3D6C9] rounded-[22px] p-4 opacity-75 hover:opacity-100 transition-all cursor-pointer">
+          <div class="flex items-start justify-between">
+            <div>
+              <h3 class="font-bold text-sm text-[#523A30]">Suka Shawarma - Dramaga IPB</h3>
+              <div class="flex flex-wrap items-center gap-2 mt-1.5">
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FEECEB] text-[#D32F2F] font-bold text-[11px]">
+                  <span class="w-1.5 h-1.5 rounded-full bg-[#D32F2F]"></span>
+                  Tutup • Buka pukul 14.00
+                </span>
+                <span class="text-xs font-semibold text-[#8C6D5F] bg-[#EBE0D5] px-2 py-0.5 rounded-md">
+                  📍 9.2 km
+                </span>
+              </div>
+            </div>
+
+            <!-- Disabled Radio -->
+            <div class="w-5 h-5 rounded-full border-2 border-[#D1C2B4] bg-[#EFE7DF] shrink-0 mt-0.5"></div>
+          </div>
+
+          <p class="text-xs text-[#7A6155] mt-2 line-clamp-1 leading-relaxed">
+            Jl. Raya Dramaga No. 88, Babakan, Bogor Barat
+          </p>
+
+          <div class="mt-2.5 pt-2 border-t border-[#EDE1D5] flex items-center gap-1.5 text-[11px] text-[#8C6D5F] font-medium bg-[#FFF8F2] px-2.5 py-1.5 rounded-lg">
+            <svg class="w-3.5 h-3.5 text-[#F29744] shrink-0 fill-current" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+            </svg>
+            <span>Bisa simpan item ke keranjang untuk dipesan saat outlet buka.</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Helpful Note / Customer Care -->
+      <div class="text-center py-2">
+        <p class="text-[11px] text-[#8C6D5F]">
+          Tidak menemukan outlet terdekat? <a href="#" class="text-[#701604] font-bold underline">Buka Peta Seluruh Outlet</a>
+        </p>
+      </div>
+
+    </main>
+
+    <!-- Sticky Bottom Bar with Primary Action -->
+    <div class="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-[#ECDED2] p-4 shadow-[0_-8px_20px_rgba(0,0,0,0.06)] z-40 sm:rounded-b-[36px]">
+      <div class="flex items-center justify-between mb-2 px-1">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-[#0C8F54]"></span>
+          <p class="text-xs font-bold text-[#2D1E18]">
+            Outlet Terpilih: <span class="text-[#701604]">Bogor Pajajaran</span>
+          </p>
+        </div>
+        <span class="text-[11px] font-bold text-[#F29744] bg-[#FFF2E5] px-2 py-0.5 rounded-full">
+          850 m
+        </span>
+      </div>
+
+      <!-- Primary Action CTA -->
+      <a href="home-screen.html" class="w-full py-3.5 px-6 rounded-full bg-[#F29744] hover:bg-[#E88933] active:scale-[0.98] transition-all text-[#4A0E03] font-black text-sm tracking-wide shadow-md flex items-center justify-center gap-2">
+        <span>Konfirmasi &amp; Mulai Pesan</span>
+        <svg class="w-4 h-4 fill-none stroke-current stroke-[2.5]" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+        </svg>
+      </a>
+      
+      <!-- Home bar indicator for iOS/Android gesture navigation -->
+      <div class="w-32 h-1 bg-[#D8C7B8] rounded-full mx-auto mt-3"></div>
+    </div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      anime.timeline({ easing: 'easeOutCubic', duration: 500 })
+        .add({
+          targets: 'main > div',
+          translateY: [20, 0],
+          opacity: [0, 1],
+          delay: anime.stagger(60)
+        });
+    });
+  </script>
+</body>
+</html>
+
+

@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>Suka Shawarma - Order Ahead &amp; Pickup</title>
+<!-- Google Fonts: Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Anime.js Animation Engine CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+<!-- Tailwind CSS v3 CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              cream: '#FFF8F2',
+              orange: '#F29744',
+              orangeHover: '#E08532',
+              deepBrown: '#701604',
+              darkCharcoal: '#2D1E18',
+              taupe: '#7C6E65',
+              softBg: '#F5EBE4'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'system-ui', '-apple-system', 'sans-serif']
+          },
+          boxShadow: {
+            'card': '0 4px 20px rgba(112, 22, 4, 0.05)',
+            'nav': '0 -4px 20px rgba(112, 22, 4, 0.06)',
+            'chip': '0 2px 8px rgba(242, 151, 68, 0.35)',
+            'floating': '0 8px 30px rgba(112, 22, 4, 0.18)'
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Scrollbar, Micro-Interactions & Animation Styles -->
+<style data-purpose="layout">
+    /* Hide scrollbar for clean horizontal scrolling */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    body {
+      -webkit-tap-highlight-color: transparent;
+      overflow-x: hidden;
+    }
+    /* GPU Accelerated layers */
+    .gpu-layer {
+      will-change: transform, opacity;
+      transform: translateZ(0);
+    }
+    /* Flying particle helper */
+    .cart-particle {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      border-radius: 9999px;
+      background: radial-gradient(circle, #F29744 0%, #701604 100%);
+      box-shadow: 0 0 12px rgba(242, 151, 68, 0.8);
+    }
+  </style>
+</head>
+<body class="bg-brand-cream text-brand-darkCharcoal font-sans antialiased min-h-screen flex justify-center selection:bg-brand-orange selection:text-white">
+<!-- Mobile Viewport Container (~390px x 844px frame) -->
+<div class="w-full max-w-[420px] bg-brand-cream min-h-screen flex flex-col relative pb-24 shadow-2xl overflow-x-hidden">
+<!-- BEGIN: StatusBar -->
+<header class="w-full pt-3 px-5 pb-1 flex justify-between items-center text-xs font-semibold text-brand-darkCharcoal select-none" data-purpose="android-status-bar">
+<!-- Time -->
+<span>09:41</span>
+<!-- Icons (Wifi, Signal, Battery) -->
+<div class="flex items-center space-x-2">
+<!-- Signal -->
+<svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24">
+<path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9z" opacity="0.2"></path>
+<path d="M2 22h20L12 2 2 22z"></path>
+</svg>
+<!-- Wifi -->
+<svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24">
+<path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0012 4zm0 4c3.31 0 6.3 1.34 8.47 3.53L12 19.83 3.53 11.53C5.7 9.34 8.69 8 12 8z"></path>
+</svg>
+<!-- Battery -->
+<svg class="w-4 h-4 fill-current" viewbox="0 0 24 24">
+<path d="M17 4h-3V2h-4v2H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V6a2 2 0 00-2-2zm0 15H7V6h10v13z"></path>
+</svg>
+</div>
+</header>
+<!-- END: StatusBar -->
+<!-- BEGIN: TopAppHeader -->
+<section class="px-5 pt-2 pb-3" data-purpose="outlet-header">
+<div class="flex items-center justify-between">
+<!-- Left: Outlet Pickup Selector -->
+<a href="outlet-picker-screen.html" class="flex items-start space-x-2.5 cursor-pointer group hover:opacity-90 transition-opacity">
+<div class="w-8 h-8 rounded-full bg-brand-orange/15 flex items-center justify-center text-brand-orange mt-0.5 shrink-0 group-hover:scale-105 transition-transform">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewbox="0 0 24 24">
+<path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+<path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<span class="text-[11px] font-medium text-brand-taupe uppercase tracking-wider block">Ambil di outlet</span>
+<div class="flex items-center space-x-1 group">
+<h1 class="text-sm font-bold text-brand-darkCharcoal tracking-tight group-hover:text-brand-orange transition-colors">Suka Shawarma - Bogor Pajajaran</h1>
+<svg class="w-4 h-4 text-brand-darkCharcoal transition-transform group-hover:translate-y-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
+<path d="M19 9l-7 7-7-7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<!-- Sub-line: Outlet Operating Status -->
+<div class="flex items-center space-x-1.5 mt-0.5">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+</span>
+<p class="text-[11px] font-semibold text-brand-taupe">Buka • <span class="text-emerald-600 font-bold">Siap dalam 15-20 mnt</span></p>
+</div>
+</div>
+</a>
+<!-- Right: Actions (Notification & Avatar) -->
+<div class="flex items-center space-x-2 shrink-0">
+<!-- Notification Bell -->
+<button aria-label="Notifikasi" onclick="showToast('Semua pesananmu sedang berjalan lancar!')" class="relative w-9 h-9 rounded-full bg-white border border-brand-softBg shadow-card flex items-center justify-center text-brand-darkCharcoal active:scale-95 transition-transform hover:bg-brand-softBg/50" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="absolute top-2 right-2 w-2 h-2 bg-brand-orange rounded-full ring-2 ring-white"></span>
+</button>
+<!-- Profile Avatar -->
+<a href="profile-screen.html" class="w-9 h-9 rounded-full bg-brand-deepBrown text-brand-cream flex items-center justify-center font-bold text-xs shadow-card ring-2 ring-white cursor-pointer active:scale-95 transition-transform hover:opacity-90">
+<span>SK</span>
+</a>
+</div>
+</div>
+</section>
+<!-- END: TopAppHeader -->
+<!-- BEGIN: SearchBar -->
+<section class="px-5 py-2" data-purpose="search-section">
+<div class="relative flex items-center">
+<div class="absolute left-4 text-brand-taupe">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewbox="0 0 24 24">
+<path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<input class="w-full h-12 pl-11 pr-12 rounded-full bg-brand-softBg border-none text-xs placeholder:text-brand-taupe/80 focus:ring-2 focus:ring-brand-orange text-brand-darkCharcoal font-medium shadow-inner" placeholder="Cari menu favoritmu, shawarma, combo..." type="text"/>
+<!-- Filter Action Button -->
+<button aria-label="Filter menu" class="absolute right-2 w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center text-brand-deepBrown active:scale-90 transition-transform" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</section>
+<!-- END: SearchBar -->
+<!-- BEGIN: HeroPromotionalBanner -->
+<section class="px-5 py-2.5" data-purpose="promotional-banner">
+<div class="relative bg-brand-deepBrown rounded-3xl p-5 overflow-hidden shadow-lg border border-[#8a1d07]/40">
+<!-- Ambient radial glow effect -->
+<div class="absolute -right-8 -top-8 w-44 h-44 bg-brand-orange/30 rounded-full blur-2xl pointer-events-none"></div>
+<div class="absolute -left-6 -bottom-6 w-32 h-32 bg-amber-600/20 rounded-full blur-xl pointer-events-none"></div>
+<div class="relative z-10 flex items-center justify-between">
+<!-- Text and CTA Column -->
+<div class="w-7/12 pr-2">
+<!-- Promo Badge -->
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-brand-orange text-brand-deepBrown tracking-wide uppercase shadow-sm">
+              🔥 Promo Hari Ini
+            </span>
+<!-- Headline -->
+<h2 class="mt-2 text-lg font-extrabold text-[#FFF4EB] leading-snug tracking-tight">
+              Shawarma Lagi Ngidam?
+            </h2>
+<!-- Subtitle -->
+<p class="mt-1 text-[11px] text-brand-cream/80 leading-tight">
+              Fresh, juicy, dan dipanggang saat kamu pesan.
+            </p>
+<!-- CTA Button -->
+<a href="product-detail-screen.html" class="mt-3.5 inline-flex items-center px-4 py-2 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-[#4A0E03] text-xs font-extrabold shadow-md active:scale-95 transition-all">
+              Pesan Sekarang
+              <svg class="w-3.5 h-3.5 ml-1" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
+<path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</a>
+</div>
+<!-- Hero Shawarma Wrap Image Cutout with floating animation class -->
+<div class="w-5/12 flex justify-end">
+<div class="hero-shawarma-wrap w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-2 border-brand-orange/40 shadow-xl rotate-1 gpu-layer cursor-pointer" onclick="window.location.href='product-detail-screen.html'">
+<img alt="Appetizing close-up photography of a freshly grilled chicken shawarma wrap cut in half on rustic wooden board" class="w-full h-full object-cover object-center" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA-1VF8-8QaQcQ6cmXMurD2EvPHrP2j_cotf5LxDsJhsuHPuzbmNqUIielgYlF8F6zj-wa6sSNP2qdPHdpAkVGLwdkzt2_BoWryJbpIB1MPcnS5KC7Qnsur5QBCCh423OYZcFRPeAFQjjMueVERE8RO6POhDbXSkNX2DUnw82HsiYONuRZKXQbD0T6tbEiGGpqIqxxfRtTj4c0-JjhF44ih-HJwp52RRjdcrpTccNHx45kRZYTRG7iz8v5fQipfTNnWM96x1AEo0WuL"/>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- END: HeroPromotionalBanner -->
+<!-- BEGIN: CategoryChips -->
+<section class="py-3" data-purpose="category-chips-filter">
+<div class="flex items-center space-x-2 px-5 overflow-x-auto no-scrollbar py-1">
+<!-- Chip: Semua (Selected) -->
+<button class="shrink-0 px-4 py-2 rounded-full bg-brand-orange text-white text-xs font-bold shadow-chip tracking-wide active:scale-95 transition-transform" type="button">
+          Semua
+        </button>
+<!-- Chip: Shawarma -->
+<button class="shrink-0 px-4 py-2 rounded-full bg-white text-brand-darkCharcoal text-xs font-semibold border border-brand-softBg shadow-card hover:border-brand-orange/40 active:scale-95 transition-transform" type="button">
+          Shawarma
+        </button>
+<!-- Chip: Chicken -->
+<button class="shrink-0 px-4 py-2 rounded-full bg-white text-brand-darkCharcoal text-xs font-semibold border border-brand-softBg shadow-card hover:border-brand-orange/40 active:scale-95 transition-transform" type="button">
+          Chicken
+        </button>
+<!-- Chip: Combo Hemat -->
+<button class="shrink-0 px-4 py-2 rounded-full bg-white text-brand-darkCharcoal text-xs font-semibold border border-brand-softBg shadow-card hover:border-brand-orange/40 active:scale-95 transition-transform" type="button">
+          Combo Hemat
+        </button>
+<!-- Chip: Sides & Fries -->
+<button class="shrink-0 px-4 py-2 rounded-full bg-white text-brand-darkCharcoal text-xs font-semibold border border-brand-softBg shadow-card hover:border-brand-orange/40 active:scale-95 transition-transform" type="button">
+          Sides &amp; Fries
+        </button>
+<!-- Chip: Minuman -->
+<button class="shrink-0 px-4 py-2 rounded-full bg-white text-brand-darkCharcoal text-xs font-semibold border border-brand-softBg shadow-card hover:border-brand-orange/40 active:scale-95 transition-transform" type="button">
+          Minuman
+        </button>
+</div>
+</section>
+<!-- END: CategoryChips -->
+<!-- BEGIN: MenuTerlarisSection -->
+<section class="px-5 pt-2 pb-3" data-purpose="best-sellers-section">
+<!-- Section Header -->
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-base font-extrabold text-brand-darkCharcoal tracking-tight flex items-center">
+          Menu Terlaris 🔥
+        </h3>
+<a class="text-xs font-bold text-brand-orange hover:text-brand-orangeHover flex items-center space-x-0.5" href="#">
+<span>Lihat Semua</span>
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewbox="0 0 24 24">
+<path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</a>
+</div>
+<!-- 2-Column Grid -->
+<div class="grid grid-cols-2 gap-3.5" id="menu-catalog">
+<!-- Best Seller Card 1: Classic Chicken -->
+<article class="bg-white rounded-2xl overflow-hidden shadow-card border border-brand-softBg/60 flex flex-col justify-between group hover:shadow-lg transition-shadow cursor-pointer" data-purpose="product-card">
+<div onclick="window.location.href='product-detail-screen.html'">
+<div class="relative w-full h-32 overflow-hidden bg-brand-softBg">
+<img alt="Delicious classic chicken shawarma roll wrap sliced diagonally showing spiced grilled chicken" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBBgEKB1R0d3HDtS20NEA1lhS5r7KiCcf_ywZFWaI0GyIG5gIDv4UtHk7ohNMl6MDZeHzqYZCerjITL-IY3RSan4nmcGLmn6RmtNg_WVpz06M8ECxYv8fSOJxRRAg6BkqYBetx2VsowI2lX8XLeQRmYhZR4BgeZeU-RcA0cXvnkq9WhRGe8-vK8iQZSbXWSufrc52QYbOaxgGv30Hx3u54JltvK6ah-xmhof1EeAzWrqGOwVySruV4Ghz7mGgYI7_r_WZFuhG6YmmpD"/>
+<span class="absolute top-2 left-2 bg-brand-deepBrown/90 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                Favorit
+              </span>
+</div>
+<div class="p-3">
+<h4 class="font-bold text-xs sm:text-sm text-brand-darkCharcoal leading-tight line-clamp-1 group-hover:text-brand-orange transition-colors">
+                Classic Chicken Shawarma
+              </h4>
+<p class="mt-1 text-[11px] text-brand-taupe line-clamp-2 leading-relaxed">
+                Ayam panggang rempah, selada segar, saus garlic khas Suka.
+              </p>
+</div>
+</div>
+<div class="px-3 pb-3 pt-1 flex items-center justify-between mt-auto">
+<span class="font-extrabold text-xs sm:text-sm text-brand-deepBrown">
+              Rp 25.000
+            </span>
+<!-- Add Button with particle trigger -->
+<button aria-label="Tambah Classic Chicken Shawarma" onclick="addToCart(event, 'Classic Chicken Shawarma', 25000)" class="add-to-cart-btn w-9 h-9 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-white flex items-center justify-center shadow-md active:scale-90 transition-transform" type="button">
+<svg class="w-4 h-4 stroke-[2.8]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</article>
+<!-- Best Seller Card 2: Beef Supreme -->
+<article class="bg-white rounded-2xl overflow-hidden shadow-card border border-brand-softBg/60 flex flex-col justify-between group hover:shadow-lg transition-shadow cursor-pointer" data-purpose="product-card">
+<div onclick="window.location.href='product-detail-screen.html'">
+<div class="relative w-full h-32 overflow-hidden bg-brand-softBg">
+<img alt="Juicy grilled beef shawarma wrap cut open showing tender marinated shaved beef strips" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqXJgxTg-Q078s69BidRdaczeH1tTASX0jrH4ZDQekiafa4--pQob1eNYkoKQdUlio5AhS2foCwOtxlqxv5OK7bqgeHoZzoVM78FclqGiYLosjhNzO4h5g1cJBkUoPS4W_yNQ0jcSqvHsscuK4xnYCkxzPvTQSAIZF0y0RtBRBEYaS53kgqHGFtO-W_YA4JFVioy7wmBJ6Yp2Y2bqtUYidcHTc5CDYMF3MtPutPaBABfS_jv2xwtVQ6tf8rprSRka6DxgHF2mkZbEy"/>
+<span class="absolute top-2 left-2 bg-brand-deepBrown/90 backdrop-blur-xs text-white text-[9px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider">
+                Spesial
+              </span>
+</div>
+<div class="p-3">
+<h4 class="font-bold text-xs sm:text-sm text-brand-darkCharcoal leading-tight line-clamp-1 group-hover:text-brand-orange transition-colors">
+                Beef Shawarma Supreme
+              </h4>
+<p class="mt-1 text-[11px] text-brand-taupe line-clamp-2 leading-relaxed">
+                Daging sapi pilihan, saus tahini creamy &amp; bawang bombay karamel.
+              </p>
+</div>
+</div>
+<div class="px-3 pb-3 pt-1 flex items-center justify-between mt-auto">
+<span class="font-extrabold text-xs sm:text-sm text-brand-deepBrown">
+              Rp 32.000
+            </span>
+<!-- Add Button with particle trigger -->
+<button aria-label="Tambah Beef Shawarma Supreme" onclick="addToCart(event, 'Beef Shawarma Supreme', 32000)" class="add-to-cart-btn w-9 h-9 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-white flex items-center justify-center shadow-md active:scale-90 transition-transform" type="button">
+<svg class="w-4 h-4 stroke-[2.8]" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M12 4v16m8-8H4" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</article>
+</div>
+</section>
+<!-- END: MenuTerlarisSection -->
+<!-- BEGIN: PaketComboHematSection -->
+<section class="px-5 pt-2 pb-4" data-purpose="combo-meals-section">
+<!-- Section Header -->
+<div class="flex items-center justify-between mb-3">
+<h3 class="text-base font-extrabold text-brand-darkCharcoal tracking-tight flex items-center">
+          Paket Combo Hemat 🥤
+        </h3>
+</div>
+<!-- Wide Horizontal Combo Card -->
+<article class="bg-white rounded-2xl p-3 shadow-card border border-brand-softBg flex items-center space-x-3.5 group hover:shadow-lg transition-shadow cursor-pointer" data-purpose="combo-product-card">
+<!-- Combo Meal Image -->
+<div class="w-28 h-28 shrink-0 rounded-xl overflow-hidden bg-brand-softBg relative" onclick="window.location.href='product-detail-screen.html'">
+<img alt="Appetizing fast-casual combo meal set: grilled chicken shawarma wrap, golden crispy french fries, and iced lemon tea" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAeeVnSsp4jXNSs5q9rnqP5VpWjocFdFosBh1NH-JQyaXvUIcpIwg4gsquWncBjnCoxyLVTYIwMQNZbQwPe22eotNde0DjQgA8Wy7aWgppFNMJkocIl3vNCOapxfwgpGVwGsJY2sa54iuFWLziVzUx7X6eDo5VpqwbDOpXGxo77PR92xVFaDRVcvxRoDbMgIby-4GNRDjVDdcGalcHVaes3nWgu5XxOom-cfO847VTO2UUmS7HFJvlw8-uF4gxCo-8gwVNemSjjAgOe"/>
+</div>
+<!-- Combo Details -->
+<div class="flex-1 min-w-0">
+<div onclick="window.location.href='product-detail-screen.html'">
+<div class="flex items-center space-x-1.5 mb-1">
+<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-brand-orange/20 text-brand-deepBrown tracking-tight">
+              Hemat 15%
+            </span>
+</div>
+<h4 class="font-bold text-xs sm:text-sm text-brand-darkCharcoal truncate group-hover:text-brand-orange transition-colors">
+            Combo Kenyang Original
+          </h4>
+<p class="text-[11px] text-brand-taupe line-clamp-2 mt-0.5 leading-snug">
+            1 Classic Chicken Shawarma + Fries + Es Lemon Tea Segar
+          </p>
+</div>
+<!-- Price & Add Button Row -->
+<div class="flex items-center justify-between mt-2 pt-1">
+<div class="flex items-baseline space-x-1.5">
+<span class="text-xs sm:text-sm font-extrabold text-brand-deepBrown">
+                Rp 38.000
+              </span>
+<span class="text-[10px] text-brand-taupe line-through">
+                Rp 45.000
+              </span>
+</div>
+<button aria-label="Tambah Combo Kenyang Original" onclick="addToCart(event, 'Combo Kenyang Original', 38000)" class="add-to-cart-btn px-3 py-1.5 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-white text-[11px] font-bold shadow-sm active:scale-95 transition-transform flex items-center space-x-1" type="button">
+<span>+ Tambah</span>
+</button>
+</div>
+</div>
+</article>
+</section>
+<!-- END: PaketComboHematSection -->
+<!-- Floating Cart Pill Bar (Design Spells: Slides up dynamically when items added) -->
+<div id="floating-cart-bar" class="fixed bottom-20 left-1/2 -translate-x-1/2 w-[calc(100%-40px)] max-w-[380px] bg-[#701604] text-white rounded-2xl p-3 shadow-floating z-40 flex items-center justify-between transition-all opacity-0 translate-y-10 pointer-events-none">
+  <div class="flex items-center space-x-3">
+    <div class="relative w-9 h-9 rounded-full bg-brand-orange flex items-center justify-center text-[#4A0E03] font-bold">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
+      </svg>
+      <span id="cart-badge-count" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-extrabold flex items-center justify-center border border-[#701604]">1</span>
+    </div>
+    <div>
+      <p class="text-xs font-bold leading-tight" id="cart-bar-items">1 Item di Keranjang</p>
+      <p class="text-[11px] text-brand-cream/80" id="cart-bar-total">Total: Rp 25.000</p>
+    </div>
+  </div>
+  <a href="cart-screen.html" class="px-3.5 py-2 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-[#4A0E03] font-extrabold text-xs flex items-center space-x-1 shadow-sm active:scale-95 transition-transform">
+    <span>Lihat Keranjang</span>
+    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+    </svg>
+  </a>
+</div>
+
+<!-- Floating Toast Pill -->
+<div id="toast-pill" class="fixed top-12 left-1/2 -translate-x-1/2 max-w-[360px] w-[90%] bg-brand-darkCharcoal/95 backdrop-blur-md text-white px-4 py-3 rounded-full shadow-2xl flex items-center space-x-2.5 z-50 pointer-events-none opacity-0 -translate-y-4 transition-all">
+  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+  <span id="toast-text" class="text-xs font-medium truncate">Item berhasil ditambahkan ke keranjang!</span>
+</div>
+
+<!-- BEGIN: BottomNavigationBar -->
+<nav class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[420px] bg-white border-t border-brand-softBg rounded-t-2xl shadow-nav z-50 px-6 py-2.5 flex justify-between items-center select-none" data-purpose="mobile-bottom-navigation">
+<!-- Tab 1: Beranda (Active) -->
+<a class="flex flex-col items-center justify-center text-brand-orange group cursor-pointer" href="home-screen.html">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 24 24">
+<path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path>
+</svg>
+<span class="text-[11px] font-bold tracking-tight mt-1">Beranda</span>
+<span class="w-1 h-1 bg-brand-orange rounded-full mt-0.5"></span>
+</a>
+<!-- Tab 2: Menu (Inactive) -->
+<a class="flex flex-col items-center justify-center text-brand-taupe hover:text-brand-orange transition-colors cursor-pointer" href="javascript:void(0)" onclick="scrollToMenu()">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-medium tracking-tight mt-1">Menu</span>
+<span class="w-1 h-1 opacity-0 mt-0.5"></span>
+</a>
+<!-- Tab 3: Pesanan (Inactive) -->
+<a class="flex flex-col items-center justify-center text-brand-taupe hover:text-brand-orange transition-colors cursor-pointer" href="order-history-screen.html">
+<div class="relative">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<span class="text-[11px] font-medium tracking-tight mt-1">Pesanan</span>
+<span class="w-1 h-1 opacity-0 mt-0.5"></span>
+</a>
+<!-- Tab 4: Profil (Inactive) -->
+<a class="flex flex-col items-center justify-center text-brand-taupe hover:text-brand-orange transition-colors cursor-pointer" href="profile-screen.html">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewbox="0 0 24 24">
+<path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="text-[11px] font-medium tracking-tight mt-1">Profil</span>
+<span class="w-1 h-1 opacity-0 mt-0.5"></span>
+</a>
+</nav>
+<!-- END: BottomNavigationBar -->
+</div>
+
+<!-- Anime.js & Design Spells Micro-Interactions Script -->
+<script>
+  let cartItemCount = 0;
+  let cartTotalAmount = 0;
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1. Staggered Entrance Animation
+    const tl = anime.timeline({
+      easing: 'easeOutCubic',
+      duration: 600
+    });
+
+    tl.add({
+      targets: '[data-purpose="outlet-header"]',
+      translateY: [-20, 0],
+      opacity: [0, 1],
+      duration: 400
+    })
+    .add({
+      targets: '[data-purpose="search-section"]',
+      translateY: [-15, 0],
+      opacity: [0, 1],
+      duration: 350
+    }, '-=200')
+    .add({
+      targets: '[data-purpose="promotional-banner"]',
+      scale: [0.94, 1],
+      translateY: [25, 0],
+      opacity: [0, 1],
+      duration: 500,
+      easing: 'spring(1, 80, 12, 0)'
+    }, '-=150')
+    .add({
+      targets: '[data-purpose="category-chips-filter"] button',
+      translateX: [30, 0],
+      opacity: [0, 1],
+      delay: anime.stagger(60),
+      duration: 400
+    }, '-=300')
+    .add({
+      targets: '[data-purpose="best-sellers-section"] article, [data-purpose="combo-meals-section"] article',
+      translateY: [35, 0],
+      opacity: [0, 1],
+      delay: anime.stagger(80),
+      duration: 500
+    }, '-=250');
+
+    // 2. Design Spells: Gentle Shawarma Levitation Loop
+    anime({
+      targets: '.hero-shawarma-wrap',
+      translateY: [-5, 5],
+      rotate: [0.5, -1],
+      direction: 'alternate',
+      loop: true,
+      easing: 'easeInOutSine',
+      duration: 2200
+    });
+  });
+
+  // Smooth scroll to catalog
+  function scrollToMenu() {
+    const catalog = document.getElementById('menu-catalog');
+    if (catalog) {
+      catalog.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // Toast Notification
+  function showToast(message) {
+    const toast = document.getElementById('toast-pill');
+    const toastText = document.getElementById('toast-text');
+    toastText.textContent = message;
+
+    anime.remove(toast);
+    anime.timeline()
+      .add({
+        targets: toast,
+        translateY: ['-16px', '0px'],
+        opacity: [0, 1],
+        duration: 350,
+        easing: 'spring(1, 80, 10, 0)'
+      })
+      .add({
+        targets: toast,
+        translateY: ['0px', '-16px'],
+        opacity: [1, 0],
+        duration: 350,
+        delay: 2000,
+        easing: 'easeInQuad'
+      });
+  }
+
+  // Design Spells: Add To Cart with Particle Flight
+  function addToCart(e, itemName, price) {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+
+    // 1. Button spring bounce
+    anime({
+      targets: btn,
+      scale: [1, 0.75, 1.2, 1],
+      duration: 400,
+      easing: 'spring(1, 90, 8, 0)'
+    });
+
+    // 2. Create Flying Particle
+    const btnRect = btn.getBoundingClientRect();
+    const startX = btnRect.left + btnRect.width / 2;
+    const startY = btnRect.top + btnRect.height / 2;
+
+    const cartBar = document.getElementById('floating-cart-bar');
+    const destX = window.innerWidth / 2;
+    const destY = window.innerHeight - 80;
+
+    // Burst particles
+    for (let i = 0; i < 4; i++) {
+      const burst = document.createElement('div');
+      burst.className = 'cart-particle';
+      burst.style.width = '6px';
+      burst.style.height = '6px';
+      burst.style.left = startX + 'px';
+      burst.style.top = startY + 'px';
+      document.body.appendChild(burst);
+
+      const angle = (Math.PI * 2 * i) / 4;
+      const dist = 24 + Math.random() * 16;
+      anime({
+        targets: burst,
+        translateX: Math.cos(angle) * dist,
+        translateY: Math.sin(angle) * dist,
+        scale: [1, 0],
+        opacity: [1, 0],
+        duration: 400,
+        easing: 'easeOutQuad',
+        complete: () => burst.remove()
+      });
+    }
+
+    // Main particle
+    const p = document.createElement('div');
+    p.className = 'cart-particle';
+    p.style.width = '14px';
+    p.style.height = '14px';
+    p.style.left = startX - 7 + 'px';
+    p.style.top = startY - 7 + 'px';
+    document.body.appendChild(p);
+
+    anime({
+      targets: p,
+      translateX: [0, destX - startX],
+      translateY: [0, destY - startY],
+      scale: [1, 1.4, 0.4],
+      opacity: [1, 1, 0.2],
+      duration: 650,
+      easing: 'cubicBezier(0.25, 1, 0.5, 1)',
+      complete: () => {
+        p.remove();
+
+        // Update counts
+        cartItemCount += 1;
+        cartTotalAmount += price;
+        document.getElementById('cart-badge-count').textContent = cartItemCount;
+        document.getElementById('cart-bar-items').textContent = cartItemCount + ' Item di Keranjang';
+        document.getElementById('cart-bar-total').textContent = 'Total: Rp ' + cartTotalAmount.toLocaleString('id-ID');
+
+        // Show & Pop Floating Cart Bar
+        cartBar.classList.remove('pointer-events-none');
+        anime({
+          targets: cartBar,
+          translateY: ['40px', '0px'],
+          opacity: [0, 1],
+          scale: [0.92, 1],
+          duration: 400,
+          easing: 'spring(1, 80, 10, 0)'
+        });
+
+        // Flash badge
+        anime({
+          targets: '#cart-badge-count',
+          scale: [1, 1.6, 1],
+          duration: 350,
+          easing: 'spring(1, 80, 8, 0)'
+        });
+      }
+    });
+
+    // 3. Show Toast feedback
+    showToast(itemName + ' ditambahkan ke keranjang!');
+  }
+</script>
+</body></html>
+

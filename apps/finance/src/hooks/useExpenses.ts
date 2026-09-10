@@ -59,8 +59,8 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
         const isPusat = !row.outlet_id || 
           row.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
           row.outlets?.name?.toLowerCase().includes('kantor pusat') ||
-          row.category === 'pengeluaran_global' ||
-          row.category === 'gaji_staff_kantor'
+          (row.category === 'pengeluaran_global' && !row.outlet_id) ||
+          (row.category === 'gaji_staff_kantor' && !row.outlet_id)
 
         return {
           id: row.id,

@@ -455,6 +455,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const opexSums: Record<string, number> = {
           pengeluaran_outlet: 0,
           gaji_crew_outlet: 0,
+          gaji_staff_kantor: 0,
           bonus_leader: 0,
           bonus_korlap: 0,
           lembur: 0,
@@ -470,7 +471,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
         outletOpex.forEach(e => {
           const c = (e as any).category?.toLowerCase() || ''
-          if (c === 'gaji_crew_outlet' || c === 'salary' || c === 'gaji') opexSums.gaji_crew_outlet += e.amount
+          if (c === 'gaji_staff_kantor') opexSums.gaji_staff_kantor += e.amount
+          else if (c === 'gaji_crew_outlet' || c === 'salary' || c === 'gaji') opexSums.gaji_crew_outlet += e.amount
           else if (c === 'bonus_leader' || c === 'bonus_crew') opexSums.bonus_leader += e.amount
           else if (c === 'bonus_korlap' || c === 'bonus_area_manager' || c === 'bonus_regional_manager') opexSums.bonus_korlap += e.amount
           else if (c === 'lembur' || c === 'overtime') opexSums.lembur += e.amount
@@ -492,6 +494,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const totalOpex = Object.values(opexSums).reduce((a, b) => a + b, 0)
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'PENGELUARAN OUTLET', opexSums.pengeluaran_outlet])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'GAJI CREW OUTLET', opexSums.gaji_crew_outlet])
+        if (opexSums.gaji_staff_kantor > 0) {
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'GAJI STAFF KANTOR', opexSums.gaji_staff_kantor])
+        }
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS LEADER', opexSums.bonus_leader])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'BONUS KORLAP', opexSums.bonus_korlap])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'LEMBUR', opexSums.lembur])
@@ -641,7 +646,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           pln: 0,
           internet: 0,
           sewa_outlet: 0,
-          joint_expense: 0
+          joint_expense: 0,
+          gaji_staff_kantor: 0
         }
 
         outletOpex.forEach(e => {
@@ -658,6 +664,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           else if (c === 'internet' || c === 'wifi') opexSums.internet += e.amount
           else if (c === 'sewa_outlet' || c === 'sewa') opexSums.sewa_outlet += e.amount
           else if (c === 'joint_expense' || c === 'joint_expanse' || c === 'pengeluaran_global') opexSums.joint_expense += e.amount
+          else if (c === 'gaji_staff_kantor') opexSums.gaji_staff_kantor += e.amount
           else opexSums.pengeluaran_outlet += e.amount
         })
 
@@ -844,6 +851,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         bodyRows.push(['INTERNET & WIFI', { content: rupiah(opexSums.internet), styles: { halign: 'right' } }])
         bodyRows.push(['BIAYA SEWA OUTLET', { content: rupiah(opexSums.sewa_outlet), styles: { halign: 'right' } }])
         bodyRows.push(['JOINT EXPENSE', { content: rupiah(opexSums.joint_expense), styles: { halign: 'right' } }])
+        if (opexSums.gaji_staff_kantor > 0) {
+          bodyRows.push(['GAJI STAFF KANTOR', { content: rupiah(opexSums.gaji_staff_kantor), styles: { halign: 'right' } }])
+        }
         bodyRows.push([
           { content: 'SUB TOTAL PENGELUARAN (TOTAL OPEX)', styles: { fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }, 
           { content: rupiah(totalOpex), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaRoseLight, textColor: sukaRoseDark } }

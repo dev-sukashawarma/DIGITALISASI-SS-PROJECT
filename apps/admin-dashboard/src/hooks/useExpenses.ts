@@ -104,7 +104,7 @@ export function useExpenses(filter: PeriodFilterValue) {
           outlet_id: row.outlet_id,
           outlet_name: row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : null),
           category: row.category,
-          scope: deriveScope(row.category),
+          scope: deriveScope(row.category, row.outlet_id),
           amount: Number(row.amount),
         description: row.description ?? '',
         expense_date: row.expense_date,

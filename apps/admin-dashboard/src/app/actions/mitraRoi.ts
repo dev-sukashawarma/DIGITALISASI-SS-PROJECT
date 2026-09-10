@@ -272,7 +272,29 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .gte('expense_date', from)
         .lte('expense_date', to)
         .order('id', { ascending: true })),
-      supabase.rpc('get_waste_periode', { p_from: from, p_to: to }),
+      supabase.rpc('get_waste_periode', { p_from: from, p_to: to }).then(async res => {
+        let data = (res.data || []).filter((r: any) => mitraOutletIds.includes(r.outlet_id))
+        if (!data || data.length === 0) {
+          const { data: directReports } = await supabase
+            .from('stok_waste_reports')
+            .select('outlet_id, qty, bahan_baku_id')
+            .in('outlet_id', mitraOutletIds)
+            .eq('status', 'APPROVED')
+            .gte('created_at', `${from}T00:00:00+07:00`)
+            .lte('created_at', `${to}T23:59:59+07:00`)
+          if (directReports && directReports.length > 0) {
+            const { data: prices } = await supabase.from('bahan_baku_harga').select('bahan_baku_id, harga_beli')
+            const pMap = new Map((prices || []).map((p: any) => [p.bahan_baku_id, Number(p.harga_beli) || 0]))
+            const sumMap = new Map<string, number>()
+            for (const dr of directReports) {
+              const h = pMap.get(dr.bahan_baku_id) || 0
+              sumMap.set(dr.outlet_id, (sumMap.get(dr.outlet_id) || 0) + ((Number(dr.qty) || 0) * h))
+            }
+            data = Array.from(sumMap.entries()).map(([outlet_id, nilai_waste]) => ({ outlet_id, nilai_waste }))
+          }
+        }
+        return { data }
+      }),
       supabase
         .from('platform_settlements')
         .select('outlet_id, platform, omzet_kotor, promo_merchant, commission')

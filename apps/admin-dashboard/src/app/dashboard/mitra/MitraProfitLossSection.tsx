@@ -121,7 +121,7 @@ export function MitraProfitLossSection({
         keterangan: `${c.items.length} transaksi`
       })),
       { komparasi: 'TOTAL BIAYA OPERASIONAL (OPEX)', nominal: -summary.totalOpex, keterangan: `Kas Kecil: ${opex.totalPettyCash}, Transfer: ${opex.totalMonthly}` },
-      { komparasi: 'Fee Manajemen', nominal: -(summary.managementFeeAmount || 0), keterangan: `${summary.managementFeePct}% dari omzet kotor` },
+      { komparasi: 'Fee Manajemen', nominal: -(summary.managementFeeAmount || 0), keterangan: `${summary.managementFeePct || 0}% dari omzet kotor` },
       { komparasi: '--- HASIL AKHIR ---', nominal: '', keterangan: '' },
       { komparasi: 'LABA BERSIH (NET PROFIT)', nominal: summary.netProfit, keterangan: `Margin: ${summary.profitMarginPct.toFixed(1)}%` },
       { komparasi: `HAK BAGI HASIL MITRA (${profitSharingPct}%)`, nominal: summary.mitraShare, keterangan: summary.policyStatus || '' }

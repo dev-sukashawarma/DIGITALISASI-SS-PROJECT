@@ -34,6 +34,7 @@ const ROLES: Role[] = [
 const BASELINE_ROUTES: Record<Role, string[]> = {
   ADMIN: [
     '/dashboard/app-retail',
+    '/dashboard/app-retail/banner',
     '/dashboard/app-retail/menu',
     '/dashboard/app-retail/outlet',
     '/dashboard/bahan-baku',
@@ -89,6 +90,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
   ],
   OWNER: [
     '/dashboard/app-retail',
+    '/dashboard/app-retail/banner',
     '/dashboard/app-retail/menu',
     '/dashboard/app-retail/outlet',
     '/dashboard/budget-outlet',

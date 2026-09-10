@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
@@ -158,6 +158,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/app-retail', label: 'Ringkasan App Retail', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/menu', label: 'Pengaturan Menu Aplikasi', shortLabel: 'Menu App', icon: Tags, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/outlet', label: 'Outlet Aplikasi', shortLabel: 'Outlet App', icon: Store, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/app-retail/banner', label: 'Banner Aplikasi', shortLabel: 'Banner App', icon: GalleryHorizontal, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

@@ -1985,9 +1985,43 @@ sekadar diam.
   perlu layar baru. Yang belum ada cuma iramanya. **Sistem tidak bisa memaksa
   ini** — kalau antrean itu tak pernah dikosongkan, bebannya cuma pindah dari 17
   outlet ke satu meja Pusat. Q3 di skrip pemantau yang akan menunjukkannya.
-- **`handleVerifyPusat` menulis status langsung dari browser**, tanpa RPC dan
-  tanpa cek role di kodenya — pola sama dengan lubang otorisasi Session
-  2026-07-20. Perlu diaudit terpisah; rancangan ini tidak memperburuknya.
+- **`handleVerifyPusat` — SUDAH DIAUDIT 2026-09-10, lebih buruk dari dugaan.**
+  Bukan sekadar "tanpa cek role di kodenya": RLS-nya sendiri terbuka lebar.
+  `surat_jalan_all` & `surat_jalan_item_all` = PERMISSIVE, `cmd=ALL`,
+  role `{public}`, `USING(true) WITH CHECK(true)`. Karena policy permissive
+  di-OR-kan, **keempat policy ber-scope di kedua tabel seluruhnya dekoratif**.
+  `anon` punya grant UPDATE di kedua tabel, dan
+  `finalize_surat_jalan_and_ledger` (SECURITY DEFINER, penulis `ledger_stok`,
+  nol cek role, tak pernah menyentuh `auth.uid()`) di-GRANT EXECUTE ke PUBLIC
+  + anon — terbukti terjangkau lewat anon key: balasannya "Surat jalan not
+  found", pesan dari **dalam badan fungsi**, bukan permission denied.
+  Dampak terburuknya bukan stok palsu, melainkan memanggilnya pada SJ
+  `dikirim` ber-`qty_terima` NULL: SJ tertutup ke `diterima_lengkap` tanpa satu
+  baris ledger pun, dan fungsinya menolak verifikasi ulang — kiriman kehilangan
+  haknya atas stok **permanen**.
+  **DIPERBAIKI & LIVE 2026-09-10** (`20260910200000_tutup_rls_surat_jalan_using_true.sql`,
+  applied + terstempel). Dua policy `USING(true)` dicabut, grant tulis `anon`
+  dicabut, EXECUTE dicabut dari PUBLIC+anon. Verifikasi ground-truth **sesudah**:
+  `qual='true'` 0 (dari 2) · `anon` UPDATE kedua tabel false · anon RPC lewat
+  PostgREST kini **401/42501 permission denied** (sebelumnya masuk badan fungsi)
+  · anon baca `surat_jalan_item` kini **200 []** (sebelumnya 200 + data nyata).
+  **Kontrol positif dijalankan** (transaksi + `ROLLBACK`, jadi nol perubahan
+  nyata): berpura-pura jadi crew asli lewat `request.jwt.claims` + `SET LOCAL
+  ROLE authenticated` → crew tetap bisa baca item & mengisi `qty_terima`
+  kirimannya sendiri, dan **nol** baris outlet lain tersentuh. Blok asersinya
+  sendiri diuji dengan kontrol negatif yang benar-benar melempar error (P0001 di
+  baris terakhir), membuktikan jalan senyap = lulus, bukan tak pernah jalan.
+  Nol bukti pernah dieksploitasi: **0** SJ berstatus diterima yang nol baris
+  ledger di seluruh riwayat (catatan: pemeriksaan itu hanya menangkap pola
+  "ditutup tanpa stok"; qty_terima yang digelembungkan akan tampak seperti
+  kiriman normal dan tak terdeteksi dari sini).
+  `ledger_stok` sengaja tak disentuh — sudah benar (hanya SELECT + INSERT
+  ber-scope, nol policy UPDATE/DELETE) dan justru jadi kontrol pembanding.
+- **36 SJ `dikirim` memuat bahan nonaktif** → sengaja dilewati fungsi auto
+  (`b.is_active = false`), tapi *dilewati* berarti menggantung selamanya, cuma
+  jadi angka `dilewati` yang tak dilihat siapa pun. Mayoritas Agustus (di luar
+  aturan, aman); ke depan perlu keputusan: dibiarkan menumpuk atau ditutup
+  administratif berkala.
 - 6 SJ tunggakan memuat `FOIL (48)` (nonaktif). Sudah ikut ditutup tanpa stok,
   jadi aman — tapi penjaga bahan-nonaktif di fungsi tetap perlu untuk ke depan.
 

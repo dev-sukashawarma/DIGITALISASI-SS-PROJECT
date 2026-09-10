@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import type { PeriodFilterValue } from '@/lib/types'
-import { deriveScope, type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
+import { type ExpenseCategory, type ExpenseScope } from '@/lib/expenseCategories'
 import { getExpensesAction } from '@/app/actions/expenses'
 
 export interface ExpenseRow {
@@ -28,7 +28,7 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
     initialData,
     staleTime: 30_000,
     queryFn: async () => {
-      const { expenses, pettyCashExpenses } = await getExpensesAction({
+      const { expenses } = await getExpensesAction({
         from: filter.from,
         to: filter.to,
         outletId: filter.outletId,

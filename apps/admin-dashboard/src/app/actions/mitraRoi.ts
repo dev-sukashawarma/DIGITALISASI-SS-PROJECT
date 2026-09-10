@@ -232,7 +232,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const acc: Record<string, WindowFin> = {}
     const bump = (oid: string) => (acc[oid] ||= emptyFin())
 
-    const [rpcRes, pettyRows, monthlyRows, wasteRes] = await Promise.all([
+    const [rpcRes, pettyRows, monthlyRows, wasteRes, settlementsRes] = await Promise.all([
       supabase.rpc('get_mitra_orders_summary', {
         p_outlet_ids: mitraOutletIds,
         p_from: `${from}T00:00:00.000+07:00`,
@@ -260,7 +260,14 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .gte('expense_date', from)
         .lte('expense_date', to)
         .order('id', { ascending: true })),
-      supabase.rpc('get_waste_periode', { p_from: from, p_to: to })
+      supabase.rpc('get_waste_periode', { p_from: from, p_to: to }),
+      supabase
+        .from('platform_settlements')
+        .select('outlet_id, platform, omzet_kotor, promo_merchant, commission')
+        .in('outlet_id', mitraOutletIds)
+        .eq('platform', 'tiktokgo')
+        .gte('tanggal', from)
+        .lte('tanggal', to)
     ])
 
     const { data: rpcData, error: rpcError } = rpcRes
@@ -270,6 +277,34 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         a.grossRevenue += Number(row.gross_revenue) || 0
         a.totalDeductions += Number(row.deductions) || 0
         a.totalCogs += Number(row.cogs) || 0
+      }
+
+      if (!isAugust2026Period(from, to)) {
+        const settlements = (settlementsRes as any)?.data || []
+        if (settlements.length > 0) {
+          const settlementByOutlet = new Map<string, { gross: number; deductions: number }>()
+          for (const s of settlements) {
+            const oid = s.outlet_id
+            const ok = Number(s.omzet_kotor) || 0
+            const pm = Number(s.promo_merchant) || 0
+            const cm = Number(s.commission) || 0
+            const sGross = Math.max(0, ok - pm)
+            const sDed = cm
+            const cur = settlementByOutlet.get(oid) || { gross: 0, deductions: 0 }
+            cur.gross += sGross
+            cur.deductions += sDed
+            settlementByOutlet.set(oid, cur)
+          }
+
+          for (const [oid, sData] of settlementByOutlet.entries()) {
+            const rpcTkRow = rpcData.find((r: any) => r.outlet_id === oid && r.channel_group === 'tiktok')
+            const oldTkGross = Number(rpcTkRow?.gross_revenue) || 0
+            const oldTkDed = Number(rpcTkRow?.deductions) || 0
+            const a = bump(oid)
+            a.grossRevenue += (sData.gross - oldTkGross)
+            a.totalDeductions += (sData.deductions - oldTkDed)
+          }
+        }
       }
     } else {
       // Cadangan bila RPC tak tersedia: hitung dari order mentah, jendela sama.

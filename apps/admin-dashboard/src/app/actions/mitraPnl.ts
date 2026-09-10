@@ -128,7 +128,8 @@ export async function getMitraComprehensivePnl(
     pettyExpensesRes,
     monthlyExpensesRes,
     wasteRowsRes,
-    rpcRes
+    rpcRes,
+    settlementsRes
   ] = await Promise.all([
     supabase.from('mitra_profiles').select('*').eq('user_id', user.id).single(),
     supabase.from('outlets').select('id, name').in('id', targetOutletIds),
@@ -186,7 +187,14 @@ export async function getMitraComprehensivePnl(
       p_outlet_ids: targetOutletIds,
       p_from: fromStart.toISOString(),
       p_to: toEnd.toISOString()
-    })
+    }),
+    supabase
+      .from('platform_settlements')
+      .select('outlet_id, platform, omzet_kotor, promo_merchant, commission, tanggal')
+      .in('outlet_id', targetOutletIds)
+      .eq('platform', 'tiktokgo')
+      .gte('tanggal', filter.from)
+      .lte('tanggal', filter.to)
   ])
 
   const profile = profileRes.data
@@ -197,6 +205,7 @@ export async function getMitraComprehensivePnl(
   const monthlyExpenses = monthlyExpensesRes.data
   const wasteRows = wasteRowsRes.data
   const { data: rpcData, error: rpcError } = rpcRes
+  const settlements = (settlementsRes as any)?.data || []
 
   // Penentuan persentase bagi hasil kini lewat resolveMitraPolicy() di bawah
   // (per-outlet, sadar BEP & cutoff September 2026). Blok lama yang menghitung
@@ -271,6 +280,45 @@ export async function getMitraComprehensivePnl(
         posDeductions += ded
         posCogs += cogs
         posCount += count
+      }
+    }
+
+    // 5c. Otomasi Settlement Platform (TikTok Go) dari platform_settlements untuk periode berjalan / umum
+    if (!isAugust2026Period(filter.from, filter.to) && settlements && settlements.length > 0) {
+      const settlementByOutlet = new Map<string, { gross: number; deductions: number }>()
+      for (const s of settlements) {
+        const oid = s.outlet_id
+        const ok = Number(s.omzet_kotor) || 0
+        const pm = Number(s.promo_merchant) || 0
+        const cm = Number(s.commission) || 0
+        const sGross = Math.max(0, ok - pm)
+        const sDed = cm
+        const cur = settlementByOutlet.get(oid) || { gross: 0, deductions: 0 }
+        cur.gross += sGross
+        cur.deductions += sDed
+        settlementByOutlet.set(oid, cur)
+      }
+
+      if (settlementByOutlet.size > 0) {
+        for (const [oid, sData] of settlementByOutlet.entries()) {
+          if (!targetOutletIds.includes(oid)) continue
+          const rpcTkRow = (rpcData || []).find((r: any) => r.outlet_id === oid && r.channel_group === 'tiktok')
+          const oldTkGross = Number(rpcTkRow?.gross_revenue) || 0
+          const oldTkDed = Number(rpcTkRow?.deductions) || 0
+
+          const diffGross = sData.gross - oldTkGross
+          const diffDed = sData.deductions - oldTkDed
+
+          tkGross += diffGross
+          tkDeductions += diffDed
+
+          const curFin = outletFinancialsMap.get(oid)
+          if (curFin) {
+            curFin.gross += diffGross
+            curFin.deductions += diffDed
+            outletFinancialsMap.set(oid, curFin)
+          }
+        }
       }
     }
   } else {

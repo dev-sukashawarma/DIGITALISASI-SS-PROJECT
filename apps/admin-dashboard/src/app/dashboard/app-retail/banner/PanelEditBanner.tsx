@@ -14,6 +14,7 @@ export default function PanelEditBanner(props: {
   awal: InputBanner
   id: string | null
   menuPilihan: { id: string; name: string }[]
+  galatMenu: string | null
   onSelesai: () => void
 }) {
   const [form, setForm] = useState<InputBanner>(props.awal)
@@ -149,16 +150,25 @@ export default function PanelEditBanner(props: {
           {form.aksi === 'menu_item' && (
             <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-700">Menu tujuan</label>
-              <select
-                value={form.targetMenuItemId ?? ''}
-                onChange={(e) => setForm((s) => ({ ...s, targetMenuItemId: e.target.value || null }))}
-                className="input w-full text-sm py-2 border border-slate-200 rounded-xl bg-white"
-              >
-                <option value="">Pilih menu…</option>
-                {props.menuPilihan.map((m) => (
-                  <option key={m.id} value={m.id}>{m.name}</option>
-                ))}
-              </select>
+              {props.galatMenu ? (
+                // Beda dengan daftar menu yang memang kosong (belum ada menu
+                // tampil di aplikasi): ini gagal MEMUAT -- admin harus tahu
+                // dropdown kosong bukan berarti "tidak ada menu tersedia".
+                <p className="text-xs text-red-600">
+                  Gagal memuat daftar menu: {props.galatMenu}
+                </p>
+              ) : (
+                <select
+                  value={form.targetMenuItemId ?? ''}
+                  onChange={(e) => setForm((s) => ({ ...s, targetMenuItemId: e.target.value || null }))}
+                  className="input w-full text-sm py-2 border border-slate-200 rounded-xl bg-white"
+                >
+                  <option value="">Pilih menu…</option>
+                  {props.menuPilihan.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 

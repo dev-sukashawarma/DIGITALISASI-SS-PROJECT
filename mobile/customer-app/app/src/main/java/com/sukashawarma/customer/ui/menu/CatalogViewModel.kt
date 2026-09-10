@@ -74,15 +74,20 @@ class CatalogViewModel(
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 }
                 is GatewayResult.Sukses -> {
-                    // Banner tidak boleh menjatuhkan Beranda: gagal memuatnya
-                    // berarti tidak ada banner, bukan layar galat. Katalog
-                    // adalah isi utama halaman ini.
-                    val banner = repository.banners()
-                    if (banner is GatewayResult.Sukses) {
-                        _state.value = _state.value.copy(
-                            bannerCarousel = banner.data.carousel,
-                            bannerPopup = banner.data.popup
-                        )
+                    // Banner tidak boleh menjatuhkan Beranda ATAU menahannya:
+                    // gagal memuatnya berarti tidak ada banner, bukan layar
+                    // galat, dan lambat memuatnya tidak boleh membuat seluruh
+                    // layar menunggu -- dijalankan di coroutine terpisah
+                    // (bukan di-await di jalur ini) supaya katalog, isi utama
+                    // halaman ini, tidak duduk di spinner menunggu banner.
+                    viewModelScope.launch {
+                        val banner = repository.banners()
+                        if (banner is GatewayResult.Sukses) {
+                            _state.value = _state.value.copy(
+                                bannerCarousel = banner.data.carousel,
+                                bannerPopup = banner.data.popup
+                            )
+                        }
                     }
 
                     val outlets = hasil.data

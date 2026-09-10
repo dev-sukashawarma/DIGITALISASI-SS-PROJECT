@@ -15,7 +15,13 @@ CREATE TABLE IF NOT EXISTS public.app_banners (
   gambar_url          text,
   aksi                text NOT NULL DEFAULT 'tidak_ada'
                       CHECK (aksi IN ('tidak_ada', 'menu', 'menu_item')),
-  target_menu_item_id uuid REFERENCES public.menu_items(id) ON DELETE SET NULL,
+  -- CASCADE, bukan SET NULL: sebuah banner yang menunjuk ke menu item yang
+  -- sudah dihapus tak punya tujuan lagi. SET NULL akan melanggar CHECK
+  -- app_banners_target_sesuai_aksi di bawah (aksi='menu_item' mewajibkan
+  -- target NOT NULL) setiap kali admin menghapus menu item yang sedang
+  -- dipakai sebuah banner -- membuat penghapusan menu item yang tak
+  -- berkaitan gagal dengan error Postgres yang opak.
+  target_menu_item_id uuid REFERENCES public.menu_items(id) ON DELETE CASCADE,
   aktif               boolean NOT NULL DEFAULT false,
   dibuat_pada         timestamptz NOT NULL DEFAULT now(),
   diubah_pada         timestamptz NOT NULL DEFAULT now(),
@@ -58,5 +64,20 @@ CREATE POLICY app_banners_all_admin ON public.app_banners
       WHERE s.id = auth.uid() AND s.role = 'admin' AND s.status = 'active'
     )
   );
+
+-- Policy baca terpisah untuk seluruh staf yang login (mis. OWNER), bukan
+-- admin saja. Tanpa ini, PostgREST tanpa RLS SELECT tidak melempar error --
+-- ia balas nol baris, tak bisa dibedakan dari tabel yang memang kosong,
+-- jadi halaman Banner App Retail akan tampil "Belum ada banner" ke OWNER
+-- walau datanya ada (kelas cacat yang sama sudah beberapa kali ditemukan
+-- di proyek ini). Membatasi baca staf tidak melindungi apa pun -- isi
+-- banner sudah dilayani ke SETIAP pelanggan lewat gateway publik; anon
+-- tetap NOL akses (REVOKE di atas tidak disentuh, tak ada policy untuk
+-- anon). Penulisan tetap admin-only lewat app_banners_all_admin di atas;
+-- policy permissive di-OR-kan, jadi admin tidak terpengaruh.
+DROP POLICY IF EXISTS app_banners_select_staff ON public.app_banners;
+CREATE POLICY app_banners_select_staff ON public.app_banners
+  FOR SELECT TO authenticated
+  USING (true);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_banners TO authenticated;

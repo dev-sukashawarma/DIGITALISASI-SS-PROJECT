@@ -29,6 +29,7 @@ export default async function AppRetailBannerPage() {
       banners={bannerRes.data ?? []}
       menuPilihan={(menuRes.data ?? []) as { id: string; name: string }[]}
       galat={bannerRes.error ? bannerRes.error.message : null}
+      galatMenu={menuRes.error ? menuRes.error.message : null}
     />
   )
 }

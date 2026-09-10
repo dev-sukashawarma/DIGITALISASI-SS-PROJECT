@@ -159,10 +159,12 @@ export default function BannerView({
   banners,
   menuPilihan,
   galat,
+  galatMenu,
 }: {
   banners: BannerRow[]
   menuPilihan: { id: string; name: string }[]
   galat: string | null
+  galatMenu: string | null
 }) {
   const [panel, setPanel] = useState<{ id: string | null; awal: InputBanner } | null>(null)
   const [sedangProses, setSedangProses] = useState<string | null>(null)
@@ -254,6 +256,7 @@ export default function BannerView({
           id={panel.id}
           awal={panel.awal}
           menuPilihan={menuPilihan}
+          galatMenu={galatMenu}
           onSelesai={() => setPanel(null)}
         />
       )}

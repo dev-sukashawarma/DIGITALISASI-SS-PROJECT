@@ -769,7 +769,21 @@ Pengeluaran punya **dua scope**: **Outlet** (dibebankan ke P&L outlet) vs **Pusa
 
 ### Isu data lebih dalam + reset baseline
 - **`stok_balance` ↔ `ledger_stok` divergen** besar (KITCHEN di-seed ~9999 tanpa baris ledger; `SUM(ledger)` negatif). Akar: seeding manual **out-of-band bypass ledger** (BUKAN dari kode — audit repo bersih, tak ada penulis `stok_balance` langsung selain trigger; app hanya `.select`). Jangan re-sync ke `SUM(ledger)` (bikin KITCHEN minus).
-- **Reset baseline 2026-07-08:** semua outlet operasional diset `threshold + 5` (Kitchen id `550e8400-e29b-41d4-a716-446655440001` = `+30`) via **643 `adjustment` ledger** (bukan tulis langsung). Exclude `Kantor Pusat` & `SUKA SHAWARMA HQ` (dummy 9999). Threshold efektif = `COALESCE(outlet_reorder_point.reorder_point, bahan_baku.default_reorder_point, 10)`.
+- **Reset baseline 2026-07-08:** ⚠️ **KLAIM INI TIDAK COCOK DENGAN DATA** (dicek
+  ulang 2026-09-10). Rencananya: semua outlet operasional diset `threshold + 5`
+  (Kitchen `+30`) via 643 `adjustment` ledger. Kenyataan di DB live: pada
+  2026-07-08 hanya ada **42 baris `adjustment`, di SATU outlet — SUKA SHAWARMA
+  BNR**. Tak ada batch 643 baris di tanggal mana pun sepanjang riwayat
+  (`adjustment` terbesar: 251 baris pada 18 Agu, 209 pada 22 Jul, 137 pada
+  3 Sep). Jadi reset baseline itu **tidak pernah berjalan menyeluruh**.
+  🔴 **Dan UUID di catatan lama SALAH:** `550e8400-e29b-41d4-a716-446655440001`
+  **bukan** Kitchen — itu **SUKA SHAWARMA BNR**, sebuah outlet. Gudang Pusat
+  yang benar = `d23e11b3-23f1-4f9a-b428-cc73e1aa9b90` (`GUDANG PUSAT (HQ)`,
+  `type='office'`), sesuai yang dipakai trigger `sj_on_dikirim_kurangi_kitchen`.
+  Kedua fakta itu berdampingan dengan kenyataan bahwa **BNR adalah outlet paling
+  korup** (20 baris saldo minus, terparah −19.485, sudah dicatat "tak bisa
+  dipercaya sejak sebelum September"). Belum terbukti sebab-akibat — tapi
+  jangan pakai angka 643 atau UUID lama itu sebagai dasar apa pun. Exclude `Kantor Pusat` & `SUKA SHAWARMA HQ` (dummy 9999). Threshold efektif = `COALESCE(outlet_reorder_point.reorder_point, bahan_baku.default_reorder_point, 10)`.
 - **PLASTIK MERAH** `default_reorder_point` 1750→dikoreksi (dulu seed 50 pack, jadi 1750 pcs saat ganti satuan); di-re-baseline khusus.
 
 ### SOP (ditegakkan)

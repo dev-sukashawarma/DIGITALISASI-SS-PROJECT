@@ -55,7 +55,10 @@ export function formatNotificationTime(isoString: string): string {
  * Menyisipkan notifikasi ke riwayat pelanggan di database.
  */
 export async function insertCustomerNotification(
-  retail: SupabaseClient,
+  // Skema `retail`, bukan `public`. `SupabaseClient` polos berarti skema
+  // `public` di tipenya, dan ketiga pemanggil mengoper createRetailClient()
+  // -- itu yang membuat build gagal type-check di Docker.
+  retail: SupabaseClient<any, any, any>,
   input: {
     customerId: string
     orderId?: string | null

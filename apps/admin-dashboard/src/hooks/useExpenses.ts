@@ -136,7 +136,17 @@ export function useExpenses(filter: PeriodFilterValue) {
         }
       })
 
-      return [...monthlyRows, ...pettyCashRows] as ExpenseRow[]
+      // Outlet yang sudah memiliki pos pengeluaran operasional / kas kecil hasil audit bulanan
+      const auditedOutlets = new Set<string>()
+      for (const m of monthlyRows) {
+        if (m.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(m.category)) {
+          auditedOutlets.add(m.outlet_id)
+        }
+      }
+
+      const filteredPettyCashRows = pettyCashRows.filter(p => !p.outlet_id || !auditedOutlets.has(p.outlet_id))
+
+      return [...monthlyRows, ...filteredPettyCashRows] as ExpenseRow[]
     }),
   })
   return { rows: query.data ?? EMPTY_ROWS, loading: query.isLoading, error: query.error ? (query.error as Error).message : null }

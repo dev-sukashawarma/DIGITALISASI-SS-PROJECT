@@ -194,7 +194,7 @@ export function MitraProfitLossSection({
             >
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[11px] font-semibold text-[#8C7566] uppercase tracking-wider">
-                  3. Biaya Operasional (OPEX)
+                  3. Biaya Operasional (OPEX) & Waste
                 </span>
                 <div className="flex items-center gap-1 text-red-500 text-xs font-semibold">
                   <span>Detail</span>
@@ -206,7 +206,7 @@ export function MitraProfitLossSection({
                   -{formatRp(summary.totalOpex + summary.totalWaste)}
                 </h3>
                 <p className="text-xs text-[#8C7566] font-normal mt-1">
-                  Gaji, Listrik, Gas, Petty Cash
+                  Gaji, Utilitas, Kas Kecil & Waste
                 </p>
               </div>
             </div>

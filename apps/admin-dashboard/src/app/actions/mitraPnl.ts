@@ -158,7 +158,29 @@ export async function getMitraComprehensivePnl(
     supabase.rpc('get_waste_periode', {
       p_from: filter.from,
       p_to: filter.to,
-    }).then(res => ({ data: (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id)) })),
+    }).then(async res => {
+      let data = (res.data || []).filter((r: any) => targetOutletIds.includes(r.outlet_id))
+      if (!data || data.length === 0) {
+        const { data: directReports } = await supabase
+          .from('stok_waste_reports')
+          .select('outlet_id, qty, bahan_baku_id')
+          .in('outlet_id', targetOutletIds)
+          .eq('status', 'APPROVED')
+          .gte('created_at', `${filter.from}T00:00:00+07:00`)
+          .lte('created_at', `${filter.to}T23:59:59+07:00`)
+        if (directReports && directReports.length > 0) {
+          const { data: prices } = await supabase.from('bahan_baku_harga').select('bahan_baku_id, harga_beli')
+          const pMap = new Map((prices || []).map((p: any) => [p.bahan_baku_id, Number(p.harga_beli) || 0]))
+          const sumMap = new Map<string, number>()
+          for (const dr of directReports) {
+            const h = pMap.get(dr.bahan_baku_id) || 0
+            sumMap.set(dr.outlet_id, (sumMap.get(dr.outlet_id) || 0) + ((Number(dr.qty) || 0) * h))
+          }
+          data = Array.from(sumMap.entries()).map(([outlet_id, nilai_waste]) => ({ outlet_id, nilai_waste }))
+        }
+      }
+      return { data }
+    }),
     supabase.rpc('get_mitra_orders_summary', {
       p_outlet_ids: targetOutletIds,
       p_from: fromStart.toISOString(),
@@ -469,9 +491,27 @@ export async function getMitraComprehensivePnl(
   }
 
   const outletOpexMap = new Map<string, number>()
+
+  // Identifikasi outlet yang sudah memiliki pos pengeluaran operasional / kas kecil
+  // hasil audit bulanan di tabel expenses (pengeluaran_outlet, bahan_baku, transport, dll).
+  // Untuk outlet yang sudah diaudit, nota kasir harian di petty_cash_expenses tidak boleh
+  // ditambahkan lagi karena sudah dirangkum ke dalam beban bulanan audit (mencegah double-counting).
+  const auditedOutletIds = new Set<string>()
+  if (monthlyExpenses) {
+    for (const m of monthlyExpenses) {
+      if (m.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(m.category)) {
+        auditedOutletIds.add(m.outlet_id)
+      }
+    }
+  }
+
   let totalPettyCash = 0
   if (pettyExpenses) {
     for (const p of pettyExpenses) {
+      // Lewati jika outlet ini sudah memiliki entri kas kecil / operasional yang diaudit di monthlyExpenses
+      if (p.outlet_id && auditedOutletIds.has(p.outlet_id)) {
+        continue
+      }
       const amt = Number(p.amount) || 0
       totalPettyCash += amt
       if (p.outlet_id) {

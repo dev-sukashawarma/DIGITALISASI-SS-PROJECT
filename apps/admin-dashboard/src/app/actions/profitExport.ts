@@ -1,4 +1,4 @@
-﻿'use server'
+'use server'
 
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
@@ -82,13 +82,22 @@ export async function getProfitExportBreakdown(filter: PeriodFilterValue): Promi
     opexMap.get(row.outlet_id)!.set(cat, cur + Number(row.amount))
   }
 
+  const auditedOutlets = new Set<string>()
+  expenseRows.forEach(r => {
+    if (r.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(r.category)) {
+      auditedOutlets.add(r.outlet_id)
+    }
+  })
+
   expenseRows.forEach(r => processExpense(r, c => c || 'Lainnya'))
-  pettyCashRows.forEach(r => processExpense(r, c => {
-    if (c === 'bb') return 'bahan_baku'
-    if (c === 'outlet' || c === 'operasional') return 'pengeluaran_outlet'
-    if (c === 'utilities') return 'utilitas'
-    return c || 'Lainnya'
-  }))
+  pettyCashRows
+    .filter(r => !r.outlet_id || !auditedOutlets.has(r.outlet_id))
+    .forEach(r => processExpense(r, c => {
+      if (c === 'bb') return 'bahan_baku'
+      if (c === 'outlet' || c === 'operasional') return 'pengeluaran_outlet'
+      if (c === 'utilities') return 'utilitas'
+      return c || 'Lainnya'
+    }))
 
   // 30 hari ≈ 31.800 baris di sini (outlet × menu × tanggal) = ~32 halaman.
   // Loop sebelumnya memakai ulang satu builder tanpa `ORDER BY`; tanpa urutan

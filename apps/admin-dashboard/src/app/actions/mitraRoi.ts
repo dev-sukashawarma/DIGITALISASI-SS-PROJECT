@@ -249,7 +249,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .order('id', { ascending: true })),
       fetchAllPages<any>(() => supabase
         .from('expenses')
-        .select('id, amount, outlet_id')
+        .select('id, amount, outlet_id, category')
         .in('outlet_id', mitraOutletIds)
         // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
         // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
@@ -303,7 +303,19 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       }
     }
 
-    for (const r of [...pettyRows, ...monthlyRows]) {
+    const auditedOutlets = new Set<string>()
+    for (const r of monthlyRows) {
+      if (r.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(r.category)) {
+        auditedOutlets.add(r.outlet_id)
+      }
+    }
+
+    for (const r of pettyRows) {
+      if (r.outlet_id && !auditedOutlets.has(r.outlet_id)) {
+        bump(r.outlet_id).opex += Number(r.amount) || 0
+      }
+    }
+    for (const r of monthlyRows) {
       if (r.outlet_id) bump(r.outlet_id).opex += Number(r.amount) || 0
     }
     for (const w of (wasteRes.data || [])) {

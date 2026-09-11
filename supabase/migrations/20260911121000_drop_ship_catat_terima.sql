@@ -89,7 +89,10 @@ BEGIN
   IF p_qty IS NULL OR p_qty <= 0 THEN
     RAISE EXCEPTION 'Jumlah harus lebih dari 0' USING ERRCODE = 'check_violation';
   END IF;
-  IF p_tanggal IS NULL OR p_tanggal > current_date OR p_tanggal < current_date - 3 THEN
+  -- Tanggal WIB, bukan current_date (UTC): crew yang mencatat 00:00-07:00 WIB
+  -- akan ditolak "masa depan" kalau pakai UTC.
+  IF p_tanggal IS NULL OR p_tanggal > (now() AT TIME ZONE 'Asia/Jakarta')::date
+     OR p_tanggal < (now() AT TIME ZONE 'Asia/Jakarta')::date - 3 THEN
     RAISE EXCEPTION 'Tanggal terima harus hari ini atau paling lama 3 hari lalu' USING ERRCODE = 'check_violation';
   END IF;
 

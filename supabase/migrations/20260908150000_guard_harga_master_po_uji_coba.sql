@@ -147,7 +147,7 @@ BEGIN
         'pembelian_supplier',
         to_ledger_scale(v_kitchen_id, v_bb_id, v_incoming),
         p_po_id,
-        'Terima PO ' || v_nomor_po || ' Ã¢â‚¬â€� ' || v_nama_bahan || ' (' || v_incoming || ' ' || v_satuan || ')',
+        'Terima PO ' || v_nomor_po || ' Ã¢â‚¬â€� ' || v_nama_bahan || ' (' || v_incoming || ' ' || v_satuan || ')',
         auth.uid(),
         NOW()
       );

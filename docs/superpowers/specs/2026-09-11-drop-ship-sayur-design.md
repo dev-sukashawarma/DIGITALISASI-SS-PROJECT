@@ -1,8 +1,8 @@
 # Drop-Ship Sayur — Kiriman Langsung Vendor ke Outlet
 
 **Tanggal:** 2026-09-11
-**Status:** Spec — **belum dieksekusi.** Semua keputusan di §2 berasal dari sesi
-grilling dengan owner pada 2026-09-11; semua angka di §1 diukur ke DB produksi pada
+**Status:** Spec final — **belum dieksekusi.** Target hidup 21 September 2026.
+Semua keputusan di §2 & §9 berasal dari sesi grilling dengan owner pada 2026-09-11; semua angka di §1 diukur ke DB produksi pada
 hari yang sama.
 **Pemilik keputusan:** owner
 
@@ -131,13 +131,14 @@ catatannya.
 | `periode_mulai`, `periode_akhir` | Mis. 1–10 September |
 | `tanggal_tagihan` | 10 / 20 / 30 (lihat §4.4) |
 | `total_kg_nota`, `total_rupiah_nota` | Diisi dari nota fisik |
-| `foto_nota_url` | Wajib |
+| `foto_nota_url` | Wajib — foto nota yang dikirim Pak Aziz lewat WhatsApp, diunggah oleh pengesah |
 | `status` | `draft` → `disahkan` / `ditolak` |
 | `disahkan_oleh`, `disahkan_at` | |
 | `purchase_order_id` | Terisi saat disahkan |
 | `catatan_selisih` | Wajib diisi bila catatan crew ≠ nota |
 
-**`nota_vendor_rincian`** (opsional) — catatan pengiriman Pak Aziz:
+**`nota_vendor_rincian`** (opsional) — catatan pengiriman Pak Aziz, disalin
+pengesah dari foto WhatsApp:
 `nota_vendor_id, outlet_id, tanggal_kirim, qty_kg`. Bila diisi, pencocokan turun
 ke tingkat outlet atau per pengiriman. Bila kosong, pencocokan hanya total.
 
@@ -178,10 +179,10 @@ salinan TS untuk tampilan (pola `computeDueDate`).
 |---|---|---|
 | 1–10 | 1–10 | tgl 10 |
 | 11–20 | 11–20 | tgl 20 |
-| 21–akhir bulan | 21–akhir | **asumsi: akhir bulan** |
+| 21–akhir bulan | 21–akhir (termasuk tgl 31) | **hari terakhir bulan** (Feb: 28/29) |
 
-⚠️ **Belum diputuskan owner:** bulan 31 hari (tanggal 31 ikut periode ketiga?) dan
-Februari (tidak ada tanggal 30). Lihat §9.
+✅ **Diputuskan owner 2026-09-11:** periode ketiga selalu ditagih di **hari terakhir
+bulan** — tanggal 31 ikut periode 21–31, Februari ditagih tanggal 28/29.
 
 ---
 
@@ -200,7 +201,7 @@ Aktornya beda, dokumennya beda.
 - **Gerbang kewajaran berbatas dua sisi** — tahan bila jumlah jauh di atas
   kebiasaan outlet itu (bukan cuma menolak nol/minus). Pelajaran 2026-09-10: tiga
   ton daging lolos karena tidak ada yang menahan angka mustahil.
-- Foto opsional
+- Foto bukti terima **opsional** (keputusan owner)
 
 Setelah dicatat, stok outlet langsung bertambah. Catatan masih bisa dikoreksi
 selama belum disahkan.
@@ -217,8 +218,13 @@ Untuk purchasing / kitchen / admin.
    `disahkan`, mengunci qty-nya. Selisih wajib diberi `catatan_selisih`.
 6. **Tolak** satu catatan crew → statusnya `ditolak`, trigger membalik stoknya.
 
-Beda harga nota vs `harga_snapshot` ditandai, dan baris katalog vendor
-diperbarui dari nota. **Harga master tidak disentuh di fase ini** (§9).
+Beda harga nota vs `harga_snapshot` ditandai, lalu **katalog vendor dan harga
+master (`bahan_baku_harga`) ikut diperbarui dari nota** (keputusan owner
+2026-09-11), dengan baris `bahan_baku_harga_history` merujuk nota. Harga nota
+wajib lolos **penjaga rasio-faktor** yang sama dengan `verifikasi_terima_po`
+(tolak bila harga baru/lama persis sama dengan salah satu faktor konversi bahan —
+sidik jari salah satuan). Konsekuensi disadari: HPP resep sayur bergeser mengikuti
+harga nota.
 
 ---
 
@@ -248,7 +254,6 @@ tidak ada dua tempat yang menebak aturan peran sendiri-sendiri.
 
 - Surat jalan, ledger Gudang Pusat, `verifikasi_terima_po`, layar `penerimaan-po`
 - HPP resep (`get_hpp_periode` — resep × penjualan × harga master)
-- Harga master (`bahan_baku_harga`) — lihat §9
 - Belanja tunai crew (gas, mie, es batu, galon) — kelas lain; uangnya sudah tercatat
   di petty cash, yang kurang cuma stoknya
 - Baris `adjustment` sayur yang lama — dibiarkan sebagai jejak
@@ -266,18 +271,17 @@ tidak ada dua tempat yang menebak aturan peran sendiri-sendiri.
 
 ---
 
-## 9. Pertanyaan terbuka (untuk owner)
+## 9. Keputusan lanjutan owner (2026-09-11)
 
-1. **Periode ketiga:** tanggal 31 ikut periode 21–31? Februari ditagih tanggal 28/29?
-2. **Tanggal mulai.** Paling bersih di awal periode (tanggal 11 atau 21), didahului
-   opname sayur di semua outlet sebagai baseline.
-3. **Harga master ikut nota?** Untuk sayur yang single-vendor, masuk akal. Tapi itu
-   menggeser HPP resep — lebih aman diputuskan terpisah.
-4. **Catatan pengiriman Pak Aziz bentuknya apa** (kertas, foto, WhatsApp) dan
-   apakah bisa diminta rutin tiap nota?
-5. **Foto bukti terima wajib atau opsional** untuk crew?
+| # | Pertanyaan | Keputusan |
+|---|---|---|
+| 1 | Periode ketiga & Februari | **Hari terakhir bulan** (§4.4) |
+| 2 | Tanggal mulai | **21 September 2026** — periode 21–30 Sep. Didahului **opname sayur di semua outlet** tanggal 20 malam sebagai baseline; sejak 21, crew berhenti memakai `adjustment` untuk sayur |
+| 3 | Harga master ikut nota | **Ya** (§5.2) |
+| 4 | Catatan pengiriman Pak Aziz | **Foto nota via WhatsApp** — diunggah pengesah; rincian per outlet disalin dari foto itu bila terbaca |
+| 5 | Foto bukti terima crew | **Opsional** |
 
----
+Tidak ada pertanyaan terbuka tersisa untuk F1–F3.
 
 ## 10. Urutan pengerjaan
 

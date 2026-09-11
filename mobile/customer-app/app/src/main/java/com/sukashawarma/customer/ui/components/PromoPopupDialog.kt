@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -43,25 +42,27 @@ import com.sukashawarma.customer.ui.theme.SukaCream
 import com.sukashawarma.customer.ui.theme.SukaInk
 import com.sukashawarma.customer.ui.theme.SukaMuted
 import com.sukashawarma.customer.ui.theme.SukaOrange
-
-private const val DEFAULT_PROMO_IMAGE_URL =
-    "https://lh3.googleusercontent.com/aida-public/AB6AXuA-1VF8-8QaQcQ6cmXMurD2EvPHrP2j_cotf5LxDsJhsuHPuzbmNqUIielgYlF8F6zj-wa6sSNP2qdPHdpAkVGLwdkzt2_BoWryJbpIB1MPcnS5KC7Qnsur5QBCCh423OYZcFRPeAFQjjMueVERE8RO6POhDbXSkNX2DUnw82HsiYONuRZKXQbD0T6tbEiGGpqIqxxfRtTj4c0-JjhF44ih-HJwp52RRjdcrpTccNHx45kRZYTRG7iz8v5fQipfTNnWM96x1AEo0WuL"
+import com.sukashawarma.customer.ui.theme.SukaTint
 
 /**
- * Dialog Popup Promo Placeholder yang muncul sebelum beranda / di atas beranda.
- * Menampilkan poster promo visual, voucher eksklusif, serta tombol CTA langsung ke Menu.
+ * Dialog Popup Promo yang muncul di atas Beranda, seluruh isinya didorong
+ * oleh banner dari gateway -- TIDAK ADA nilai default di sini. Popup tanpa
+ * banner aktif tidak pernah dipanggil (lihat [popupBolehTampil] di
+ * HomeScreen); kalau composable ini dipanggil, kontennya wajib nyata.
+ *
+ * Tidak ada voucher di sini dengan sengaja -- kode voucher belum ada
+ * sistemnya, jadi popup tidak boleh punya tempat untuk memajang satu pun.
  */
 @Composable
 fun PromoPopupDialog(
     onDismiss: () -> Unit,
     onKlaimPromo: () -> Unit,
-    modifier: Modifier = Modifier,
-    imageUrl: String = DEFAULT_PROMO_IMAGE_URL,
-    badgeText: String = "🔥 PROMO SPESIAL HARI INI",
-    judul: String = "Diskon 40% Pengguna Baru!",
-    subjudul: String = "Nikmati kelezatan Shawarma Panggang Otentik dengan potongan spesial. Daging berlimpah, saus garlic toum gurih!",
-    kodeVoucher: String = "SUKABARU",
-    infoDiskon: String = "Potongan s.d. Rp 25.000"
+    judul: String,
+    imageUrl: String?,
+    badgeText: String?,
+    subjudul: String?,
+    teksTombol: String?,
+    modifier: Modifier = Modifier
 ) {
     Dialog(
         onDismissRequest = onDismiss,
@@ -96,24 +97,33 @@ fun PromoPopupDialog(
                             .height(190.dp)
                             .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
                     ) {
-                        // Background gradient placeholder jika gambar memuat
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(
-                                    Brush.verticalGradient(
-                                        listOf(SukaBrown, Color(0xFF4A0E03))
+                        if (imageUrl != null) {
+                            // Background gradient placeholder jika gambar memuat
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(
+                                        Brush.verticalGradient(
+                                            listOf(SukaBrown, Color(0xFF4A0E03))
+                                        )
                                     )
-                                )
-                        )
+                            )
 
-                        // Gambar Poster Promo
-                        AsyncImage(
-                            model = imageUrl,
-                            contentDescription = "Promo Banner",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
+                            AsyncImage(
+                                model = imageUrl,
+                                contentDescription = "Promo Banner",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        } else {
+                            // Banner tanpa gambar: isi dengan warna tema, BUKAN
+                            // URL cadangan dari luar.
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(SukaTint)
+                            )
+                        }
 
                         // Subtle dark gradient vignette di bagian atas untuk visibilitas tombol close
                         Box(
@@ -131,23 +141,25 @@ fun PromoPopupDialog(
                         )
 
                         // Floating Promo Badge di kiri atas
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopStart)
-                                .padding(12.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(SukaOrange)
-                                .padding(horizontal = 10.dp, vertical = 5.dp)
-                        ) {
-                            Text(
-                                text = badgeText,
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.Black,
-                                    color = SukaInk,
-                                    fontSize = 10.sp,
-                                    letterSpacing = 0.5.sp
+                        if (!badgeText.isNullOrBlank()) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopStart)
+                                    .padding(12.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(SukaOrange)
+                                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                            ) {
+                                Text(
+                                    text = badgeText,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Black,
+                                        color = SukaInk,
+                                        fontSize = 10.sp,
+                                        letterSpacing = 0.5.sp
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         // Circular Close Button di kanan atas
@@ -189,92 +201,43 @@ fun PromoPopupDialog(
                         )
 
                         // Deskripsi Promo
-                        Text(
-                            text = subjudul,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF6B5548),
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
-                                textAlign = TextAlign.Center
-                            ),
-                            modifier = Modifier.padding(horizontal = 6.dp)
-                        )
-
-                        // Box Kode Voucher
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(14.dp),
-                            color = Color(0xFFFFF0E0),
-                            border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.5f))
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column {
-                                    Text(
-                                        text = "KODE VOUCHER",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            color = SukaMuted,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 9.sp,
-                                            letterSpacing = 0.5.sp
-                                        )
-                                    )
-                                    Text(
-                                        text = kodeVoucher,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = SukaBrown,
-                                            fontSize = 15.sp,
-                                            letterSpacing = 1.sp
-                                        )
-                                    )
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(SukaOrange.copy(alpha = 0.2f))
-                                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                                ) {
-                                    Text(
-                                        text = infoDiskon,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = SukaBrown,
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                }
-                            }
+                        if (!subjudul.isNullOrBlank()) {
+                            Text(
+                                text = subjudul,
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = Color(0xFF6B5548),
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    textAlign = TextAlign.Center
+                                ),
+                                modifier = Modifier.padding(horizontal = 6.dp)
+                            )
                         }
 
-                        Spacer(modifier = Modifier.height(2.dp))
-
                         // Tombol Utama CTA (Pesan / Klaim)
-                        Button(
-                            onClick = onKlaimPromo,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SukaOrange,
-                                contentColor = SukaInk
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
-                        ) {
-                            Text(
-                                text = "Klaim & Pesan Sekarang ➔",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 14.sp
+                        if (!teksTombol.isNullOrBlank()) {
+                            Spacer(modifier = Modifier.height(2.dp))
+
+                            Button(
+                                onClick = onKlaimPromo,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(46.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SukaOrange,
+                                    contentColor = SukaInk
+                                ),
+                                shape = RoundedCornerShape(14.dp),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                            ) {
+                                Text(
+                                    text = teksTombol,
+                                    style = MaterialTheme.typography.titleSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 14.sp
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         // Tombol Nanti Saja / Dismiss

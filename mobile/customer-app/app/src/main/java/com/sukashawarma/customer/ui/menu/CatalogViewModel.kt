@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.sukashawarma.customer.data.CartStore
 import com.sukashawarma.customer.data.OutletStore
 import com.sukashawarma.customer.data.Repository
+import com.sukashawarma.customer.data.api.BannerDto
 import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
@@ -32,7 +33,9 @@ data class CatalogState(
     /** Tidak ada satu pun outlet yang ikut serta di aplikasi. */
     val tidakAdaOutlet: Boolean = false,
     /** Keranjang terhapus karena pelanggan berpindah outlet. */
-    val keranjangDikosongkan: Boolean = false
+    val keranjangDikosongkan: Boolean = false,
+    val bannerCarousel: List<BannerDto> = emptyList(),
+    val bannerPopup: BannerDto? = null
 )
 
 class CatalogViewModel(
@@ -71,6 +74,22 @@ class CatalogViewModel(
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 }
                 is GatewayResult.Sukses -> {
+                    // Banner tidak boleh menjatuhkan Beranda ATAU menahannya:
+                    // gagal memuatnya berarti tidak ada banner, bukan layar
+                    // galat, dan lambat memuatnya tidak boleh membuat seluruh
+                    // layar menunggu -- dijalankan di coroutine terpisah
+                    // (bukan di-await di jalur ini) supaya katalog, isi utama
+                    // halaman ini, tidak duduk di spinner menunggu banner.
+                    viewModelScope.launch {
+                        val banner = repository.banners()
+                        if (banner is GatewayResult.Sukses) {
+                            _state.value = _state.value.copy(
+                                bannerCarousel = banner.data.carousel,
+                                bannerPopup = banner.data.popup
+                            )
+                        }
+                    }
+
                     val outlets = hasil.data
                     if (outlets.isEmpty()) {
                         _state.value = _state.value.copy(

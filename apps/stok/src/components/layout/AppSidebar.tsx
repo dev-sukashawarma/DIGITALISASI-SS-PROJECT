@@ -8,7 +8,7 @@ import { useOutletScope } from '@/hooks/useOutletScope'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
-import { isApproverRole } from '@/lib/stok/approver'
+import { isApproverRole, canCatatTerimaVendor } from '@/lib/stok/approver'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
 import {
@@ -78,6 +78,11 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // yang memang lebih longgar karena halaman Master Harga memakai Server Action
   // ber-service-role.
   const canViewNilaiPersediaan = ['admin', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(role ?? '')
+  // Terima dari Vendor (drop-ship) -- siapa pun yang terhubung ke satu outlet
+  // (outlet_staff.outlet_id). RPC memeriksa ulang, ini hanya menentukan tampil-
+  // tidaknya menu (spec 2026-09-11 §6). "Cocokkan Nota Vendor" (pengesah) SENGAJA
+  // belum ditambah -- halamannya baru dibangun di Task 8.
+  const canCatatVendor = canCatatTerimaVendor(outletStaff?.outlet_id)
 
   // 1. Pending Approvals Permintaan
   const { permintaan } = useApprovalList(isApprover)
@@ -174,6 +179,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 icon: Truck,
                 badge: inboundPosCount > 0 ? `${inboundPosCount}` : undefined,
                 badgeColor: 'bg-amber-500 text-white',
+              },
+            ]
+          : []),
+        ...(canCatatVendor
+          ? [
+              {
+                label: 'Terima dari Vendor',
+                href: '/stok/terima-vendor',
+                icon: Truck,
               },
             ]
           : []),

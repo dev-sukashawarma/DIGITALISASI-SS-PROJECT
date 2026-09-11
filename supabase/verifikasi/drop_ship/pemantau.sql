@@ -6,11 +6,15 @@
 -- Normalnya: 0 baris di hari tagihan itu sendiri (mis. tgl 20 sore); kalau baris
 -- masih ada BESOK tanggal tagihannya (tgl 21+), berarti purchasing/kitchen/admin
 -- belum sempat mengesahkan -- itu yang harus ditindaklanjuti, bukan dianggap bug.
-SELECT s.nama AS vendor, (public.periode_tagihan(t.tanggal_terima)).tanggal_tagihan AS tagihan,
+-- periode_tagihan() mengembalikan TABLE -> wajib LATERAL (tak boleh di WHERE).
+-- Tanggal pembanding WIB, bukan current_date (UTC).
+SELECT s.nama AS vendor, p.tanggal_tagihan AS tagihan,
        count(*) AS catatan, sum(t.qty) AS kg
-  FROM public.terima_vendor_outlet t JOIN public.supplier s ON s.id = t.supplier_id
- WHERE t.status = 'dicatat' AND (public.periode_tagihan(t.tanggal_terima)).tanggal_tagihan < current_date
- GROUP BY 1, 2 ORDER BY 2;
+  FROM public.terima_vendor_outlet t
+  JOIN public.supplier s ON s.id = t.supplier_id
+  CROSS JOIN LATERAL public.periode_tagihan(t.tanggal_terima) p
+ WHERE t.status = 'dicatat' AND p.tanggal_tagihan < (now() AT TIME ZONE 'Asia/Jakarta')::date
+ GROUP BY s.nama, p.tanggal_tagihan ORDER BY p.tanggal_tagihan;
 
 -- Q2: LARANGAN 3 -- PO diterima tanpa ledger. SUDAH mengecualikan PO nota drop-ship
 -- (WHERE nota_vendor_id IS NULL): PO ber-nota_vendor_id tanpa baris ledger_stok

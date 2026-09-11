@@ -20,6 +20,8 @@ BEGIN
   SELECT sum(qty) INTO v_q FROM public.terima_vendor_outlet t, public.periode_tagihan(v_tagih) p
    WHERE t.supplier_id=v_sup AND t.status='dicatat' AND t.tanggal_terima BETWEEN p.mulai AND p.akhir;
   PERFORM public.sahkan_nota_vendor(v_sup, v_tagih, v_q, v_q * (v_lama / 1000), 'https://x/nota.jpg');
+  -- Baca sebagai postgres: policy bbhh_select salah ketik 'purchase' (lihat t7).
+  EXECUTE 'RESET ROLE';
   SELECT harga_beli INTO v_baru FROM public.bahan_baku_harga WHERE bahan_baku_id=v_bahan;
   IF v_baru <> v_lama THEN RAISE EXCEPTION 'GAGAL: harga salah-satuan menimpa master (% -> %)', v_lama, v_baru; END IF;
   PERFORM 1 FROM public.bahan_baku_harga_history WHERE bahan_baku_id=v_bahan AND catatan LIKE 'DITOLAK (dugaan salah satuan)%';

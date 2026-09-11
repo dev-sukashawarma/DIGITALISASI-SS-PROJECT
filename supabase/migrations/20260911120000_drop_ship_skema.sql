@@ -3,6 +3,10 @@
 -- Spec: docs/superpowers/specs/2026-09-11-drop-ship-sayur-design.md
 -- Belum ada penulis stok di migration ini -- trigger & RPC di 20260911121000.
 
+-- ledger_stok dilewati tiap order POS. Kalau lock-nya tak didapat cepat, GAGAL
+-- dan ulangi nanti -- jangan mengantre lalu memblokir penjualan di belakangnya.
+SET lock_timeout = '5s';
+
 -- Peran pemanggil, satu tempat. NULL bila bukan staff aktif.
 CREATE OR REPLACE FUNCTION public.peran_saya()
 RETURNS text LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$

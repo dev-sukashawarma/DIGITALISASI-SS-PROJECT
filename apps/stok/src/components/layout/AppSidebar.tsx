@@ -8,7 +8,7 @@ import { useOutletScope } from '@/hooks/useOutletScope'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
-import { isApproverRole, canCatatTerimaVendor } from '@/lib/stok/approver'
+import { isApproverRole, canCatatTerimaVendor, canLihatNotaVendor } from '@/lib/stok/approver'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
 import {
@@ -28,6 +28,7 @@ import {
   ChefHat,
   Store,
   Wallet,
+  Receipt,
 } from 'lucide-react'
 
 function formatRp(n: number) {
@@ -83,6 +84,9 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // tidaknya menu (spec 2026-09-11 §6). "Cocokkan Nota Vendor" (pengesah) SENGAJA
   // belum ditambah -- halamannya baru dibangun di Task 8.
   const canCatatVendor = canCatatTerimaVendor(outletStaff?.outlet_id)
+  // Cocokkan Nota Vendor (pengesah) -- Task 8, ditunda dari Task 6 (ruling R1).
+  // RPC memeriksa ulang peran; ini hanya menentukan tampil-tidaknya menu.
+  const canLihatNota = canLihatNotaVendor(role)
 
   // 1. Pending Approvals Permintaan
   const { permintaan } = useApprovalList(isApprover)
@@ -188,6 +192,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 label: 'Terima dari Vendor',
                 href: '/stok/terima-vendor',
                 icon: Truck,
+              },
+            ]
+          : []),
+        ...(canLihatNota
+          ? [
+              {
+                label: 'Cocokkan Nota Vendor',
+                href: '/stok/nota-vendor',
+                icon: Receipt,
               },
             ]
           : []),

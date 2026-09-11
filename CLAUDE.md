@@ -2356,5 +2356,58 @@ apply-nya tidak diketahui sesi ini.
    Beranda langsung ke menu · popup sekali · ketuk `menu_item` → mendarat benar ·
    login OWNER → daftar terbaca, simpan ditolak.
 
+---
+
+## Session 2026-09-11: Drop-Ship Sayur — Runbook Go-Live (20–21 September)
+
+**Status:** ✅ Task 1–10 selesai (subagent-driven, tiap task direview). DB sudah
+**LIVE** — 4 migration terstempel 2026-09-11: `20260911120000_drop_ship_skema`,
+`20260911121000_drop_ship_catat_terima`, `20260911122000_drop_ship_sahkan_nota`,
+`20260911123000_drop_ship_laporan`. Uji `supabase/verifikasi/drop_ship/t2/t3/t7/t7b`
+LULUS, tiap uji punya kontrol negatif yang GAGAL sesuai harapan; `pemantau.sql` 4
+kueri jalan, semua 0 baris. Kode app masih di branch
+`feat/drop-ship-sayur`, **belum merge/push/redeploy** — go-live 20–21 Sep bergantung
+pada itu terjadi lebih dulu.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-11-drop-ship-sayur-design.md` (§9),
+`docs/superpowers/plans/2026-09-11-drop-ship-sayur.md` (Task 10).
+**Runbook:** `docs/RUNBOOK-GO-LIVE-DROP-SHIP-SAYUR.md` — langkah 20 Sep sore
+(kabari outlet + opname baseline sayur wajib diisi) → 21 Sep pagi (verifikasi saldo
+`lettuce` tak minus) → pemantauan harian 21–30 Sep (`pemantau.sql` Q3=0, Q4→0) →
+30 Sep (nota pertama `NV/20260930/…` disahkan di `/stok/nota-vendor`).
+
+### Yang wajib diingat sebelum menjalankan runbook
+- **Halaman:** crew di `/stok/terima-vendor` (menu "Terima dari Vendor"); Pusat di
+  `/stok/nota-vendor` (menu "Cocokkan Nota Vendor", pengesah = purchasing/kitchen/
+  admin; owner & admin_finance hanya pantau).
+- **Migration yang menyentuh `ledger_stok` sempat deadlock dengan realtime**
+  (tabel itu ada di publication `supabase_realtime`) — migration lanjutan yang
+  menyentuh struktur `ledger_stok` wajib diterapkan per potongan + `lock_timeout`,
+  bukan satu statement besar.
+- **Temuan terbuka, belum diperbaiki:** policy `bbhh_select` salah ketik
+  `'purchase'` → purchasing tak bisa membaca `bahan_baku_harga_history`. Butuh
+  izin owner sebelum disentuh — tabel produksi di luar migration Task 1–9.
+- **Harga master sayur ikut nota** (keputusan owner, spec §9 poin 3) — ditahan
+  penjaga rasio-faktor bila tampak salah satuan, pola sama dengan penjaga FOIL.
+- **Outlet tes ikut tampil di layar nota** (sengaja — catatan yang harus disahkan
+  tak boleh disembunyikan). Catatan uji di outlet tes ke vendor Tempo 10 akan ikut
+  tersahkan kalau tidak **ditolak** dulu. Belum ada catatan uji di DB (semua uji
+  SQL berjalan dalam transaksi ROLLBACK).
+- **Smoke test browser (login sungguhan) belum pernah dijalankan** — wajib sebelum
+  20 Sep: crew outlet TES mencatat → Pusat melihat → **tolak** catatan uji. Jangan
+  sahkan nota saat uji (menulis PO utang sungguhan).
+- **Review menangkap 4 cacat sebelum live:** tanggal RPC pakai `current_date` UTC
+  (crew 00:00–07:00 WIB ditolak) → WIB; uji t7 tak menguji `tolak_terima_vendor` &
+  menghitung ledger tanpa snapshot tetap → ditambah + REPEATABLE READ; pemantau Q1
+  set-returning function di WHERE → LATERAL.
+
+### 📝 Next
+- Merge seluruh branch (Task 1–10) ke `main`, push (izin owner), redeploy `stok`.
+- Jalankan smoke test login sungguhan (§1 runbook) sebelum mengumumkan ke outlet.
+- Ikuti runbook tanggal demi tanggal; isi hasil nyata (bukan perkiraan) ke entri
+  sesi baru setelah 30 September.
+
+---
+
 **Last updated:** 2026-09-11  
 **Owner:** Dev Suka Shawarma

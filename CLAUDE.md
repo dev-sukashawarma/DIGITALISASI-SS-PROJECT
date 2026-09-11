@@ -1968,24 +1968,27 @@ sekadar diam.
 
 ### 📝 Belum selesai
 
-- **12 SJ tanggal 10 September** masih `dikirim` (tinggal 12 per 17:56 WIB; satu
-  lagi diverifikasi crew sesudah pengecekan pertama). Di luar aturan baru.
-  Outlet-outlet itu opname tiap malam, jadi perlakuan yang benar besok =
-  penutupan administratif tanpa stok, sama seperti yang 39.
-  **Migration sudah ditulis tapi SENGAJA BELUM di-apply:**
-  `20260910190000_tutup_tunggakan_sj_10_september.sql`. Ke-12 SJ itu baru dikirim
-  15:53–17:13 WIB hari yang sama; menutupnya sore itu juga merampas kesempatan
-  outlet memverifikasi, padahal verifikasi sungguhan lebih baik (stok
-  benar-benar tercatat masuk, bukan cuma diserap opname). Keputusan owner: apply
-  besok pagi setelah opname malam. Guard tiga lapis membuat SJ yang keburu
-  diverifikasi otomatis terlewat, jadi daftarnya tak perlu disusun ulang.
-- **Jalan pertama cron BELUM terjadi** (dicek 2026-09-10 17:56 WIB:
-  `cron.job_run_details` untuk jobid 14 kosong). `0 19 * * *` UTC = 02:00 WIB,
-  jadi jalan perdana nanti malam. Dry-run manual saat itu: **0 diproses, 0
-  dilewati**; kontrol negatif menunjukkan **180 SJ akan tersapu tanpa penjaga
-  `c_mulai`** (seluruhnya Agustus) — penjaganya benar-benar menahan.
-  Jalan perdana 02:00 tgl 11 juga harus NOL: SJ yang dikirim tgl 11 belum lewat
-  harinya. Hasil bukan-nol yang pertama baru wajar 02:00 tanggal 12.
+- ✅ **17 SJ tanggal 10 September — TUNTAS** (dicek 2026-09-11). **9 diverifikasi
+  crew** (stok masuk lewat verifikasi sungguhan) + **8 ditutup administratif**
+  tanpa stok. Sore 10 Sep masih 12 yang menggantung; semalam **4 lagi
+  diverifikasi crew** setelah owner memberi tahu outlet — pemberitahuan manusia
+  terbukti bekerja, dan itu sebabnya penutupan sengaja ditunda sampai pagi:
+  menutupnya sore itu juga akan merampas kesempatan verifikasi sungguhan.
+  Migration `20260910190000_tutup_tunggakan_sj_10_september.sql` di-apply
+  **2026-09-11 08:42 WIB** oleh sesi lain & terstempel. Guard tiga lapis membuat
+  SJ yang keburu diverifikasi otomatis terlewat. **Q6 = 0** baris stok dari
+  penutupan administratif.
+  ⚠️ Pesan commit `0bd02ab1` masih berbunyi "(belum di-apply)" — basi; ikuti
+  catatan ini.
+- ✅ **Jalan perdana cron — TERJADI & BENAR** (dicek 2026-09-11).
+  `cron.job_run_details` jobid 14: **11 Sep 02:00:00 WIB, `succeeded`, `1 row`**.
+  Nol SJ ditutup sistem — memang harus nol, belum ada kiriman tgl 11 yang lewat
+  harinya. **Q5 forward-only: 0 pelanggaran.** Sebelum dijadwalkan, dry-run
+  manual 0 diproses dan kontrol negatifnya menunjukkan **180 SJ akan tersapu
+  tanpa penjaga `c_mulai`** (seluruhnya Agustus). Hasil bukan-nol pertama baru
+  muncul setelah ada kiriman yang dibiarkan lewat harinya. `return_message` cron
+  hanya berbunyi "1 row" — jumlah yang diproses dibaca dari
+  `surat_jalan.auto_verified_at`, bukan dari log cron.
 - ⚠️ **`updated_at` bukan tanggal kirim yang stabil.** Migration `20260910181000`
   menulis `updated_at = now()`, jadi ke-39 SJ yang ditutup administratif kini
   ber-`updated_at` 10 Sep. Mereka aman dari fungsi auto (kena filter status +

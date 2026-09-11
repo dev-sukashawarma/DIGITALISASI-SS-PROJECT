@@ -28,3 +28,21 @@ const PERMINTAAN_APPROVER_ROLES = ['kitchen', 'admin_finance', 'admin', 'owner',
 export function canApprovePermintaan(role: string | null | undefined): boolean {
   return !!role && (PERMINTAAN_APPROVER_ROLES as readonly string[]).includes(role)
 }
+
+// Drop-ship vendor -> outlet (spec 2026-09-11 §6). Satu sumber untuk UI; RPC
+// memeriksa ulang di DB (peran_saya()) karena guard UI tidak melindungi apa pun.
+const NOTA_VENDOR_PENGESAH = ['purchasing', 'kitchen', 'admin'] as const
+const NOTA_VENDOR_PEMBACA = [...NOTA_VENDOR_PENGESAH, 'owner', 'admin_finance'] as const
+
+export function canSahkanNotaVendor(role: string | null | undefined): boolean {
+  return !!role && (NOTA_VENDOR_PENGESAH as readonly string[]).includes(role)
+}
+
+export function canLihatNotaVendor(role: string | null | undefined): boolean {
+  return !!role && (NOTA_VENDOR_PEMBACA as readonly string[]).includes(role)
+}
+
+// Pencatat: siapa pun yang terhubung ke SATU outlet (outlet_staff.outlet_id).
+export function canCatatTerimaVendor(outletId: string | null | undefined): boolean {
+  return !!outletId
+}

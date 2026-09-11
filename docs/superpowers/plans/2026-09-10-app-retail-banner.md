@@ -29,7 +29,7 @@
 
 | Berkas | Tanggung jawab |
 |---|---|
-| `supabase/migrations/20260910220000_app_banners.sql` | Tabel, CHECK, RLS, REVOKE |
+| `supabase/migrations/20260911100000_app_banners.sql` | Tabel, CHECK, RLS, REVOKE |
 | `apps/retail-gateway/src/lib/banners.ts` | Fungsi murni: pilih popup pemenang, petakan baris → DTO |
 | `apps/retail-gateway/src/lib/banners.test.ts` | Tes fungsi murni di atas |
 | `apps/retail-gateway/src/app/api/v1/banners/route.ts` | Endpoint |
@@ -61,7 +61,7 @@
 ### Task 1: Migration tabel `app_banners`
 
 **Files:**
-- Create: `supabase/migrations/20260910220000_app_banners.sql`
+- Create: `supabase/migrations/20260911100000_app_banners.sql`
 
 **Interfaces:**
 - Consumes: —
@@ -137,7 +137,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_banners TO authenticated;
 - [ ] **Langkah 2: Jalankan lint timestamp**
 
 Run: `node scripts/migration-timestamp-lint.mjs`
-Expected: keluar dengan kode 0, tanpa menyebut `20260910220000`.
+Expected: keluar dengan kode 0, tanpa menyebut `20260911100000`.
 
 - [ ] **Langkah 3: JANGAN apply**
 
@@ -146,7 +146,7 @@ Migration ini **tidak** dijalankan ke basis data oleh pekerja. Laporkan di ringk
 - [ ] **Langkah 4: Commit**
 
 ```bash
-git add supabase/migrations/20260910220000_app_banners.sql
+git add supabase/migrations/20260911100000_app_banners.sql
 git commit -m "feat(db): tabel app_banners untuk banner App Retail (belum di-apply)"
 ```
 

@@ -2287,5 +2287,74 @@ penting karena trigger ini duduk di tabel yang dilewati tiap potongan BOM tiap o
 - Munculkan `vendor_konflik_spesifikasi` di layar Katalog Harga Vendor — detektornya
   masih **pasif**, harus ada yang membuka view-nya.
 
-**Last updated:** 2026-09-10  
+---
+
+## Session 2026-09-10/11: App Retail Tahap 2 — Banner
+
+**Status:** ✅ Merged ke `main` lokal (merge commit `3d5c5505`), **belum di-push**.
+⚠️ **Perlu redeploy `retail-gateway` + `admin-dashboard`, dan build ulang APK
+`mobile/customer-app`.** ⚠️ **Migration `20260911100000_app_banners.sql` BELUM
+di-apply** (keputusan owner). ⚠️ **Bucket storage `app-banners` belum
+diverifikasi ada** (baca publik, nama persis itu).
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-10-app-retail-banner-design.md`,
+`docs/superpowers/plans/2026-09-10-app-retail-banner.md`
+
+Carousel & popup promo di Beranda dan tab Menu aplikasi pelanggan kini bersumber
+dari tabel `app_banners` → `GET /api/v1/banners` (tanpa cache) → halaman admin
+**Banner Aplikasi** di grup App Retail. **Penghalang rilis ditutup:** aplikasi
+dulu menjanjikan "Voucher Diskon 40%, kode SUKABARU" yang tak ada di mana pun —
+blok voucher dicabut, `PromoPopupDialog` kehilangan seluruh default-nya.
+
+### 🔴 Gotcha: timestamp migration BENTROK — diganti nama saat merge
+Banner semula `20260910220000`, **sama persis** dengan penjaga isi-kemasan
+(`20260910220000_penjaga_isi_kemasan_saat_terima_po.sql`) yang sudah LIVE dan
+terstempel. `schema_migrations` memakai versi sebagai kunci, jadi `db push`
+akan menganggap banner **sudah diterapkan dan melewatinya tanpa suara** — tabel
+tak pernah dibuat, endpoint balas 502. Diganti ke `20260911100000` (berkas belum
+di-apply, isi SQL byte-identik). **Sebelum menulis migration baru, cek
+`ls supabase/migrations | cut -c1-14 | sort | uniq -d` — dua sesi paralel sama-sama
+memilih "jam berikutnya" di hari yang sama.**
+
+### Keputusan owner
+Ketiga permukaan jadi berbasis data kecuali `SecondaryMediaBanner` (cerita
+merek, nol parameter — sengaja hardcoded) · popup sekali per banner per
+pelanggan (disimpan di HP) · ketukan dari daftar tetap `tidak_ada|menu|menu_item`,
+**bukan** URL bebas · global, tanpa lingkup outlet · aktif/nonaktif saja, tanpa
+jadwal tanggal (hindari jebakan zona waktu UTC/WIB) · gambar cadangan mockup
+Stitch di `HomeScreen.kt` (menu tanpa foto) **dibiarkan**.
+
+### Hak akses `app_banners`
+`REVOKE ALL FROM anon, authenticated` · tulis = role `admin` **persis** ·
+SELECT `TO authenticated USING(true)` — sengaja, isi banner memang publik lewat
+gateway, dan tanpa itu OWNER melihat daftar kosong yang tak bisa dibedakan dari
+galat · `anon` nol akses. FK `target_menu_item_id` **ON DELETE CASCADE**
+(SET NULL bentrok dengan CHECK → menghapus menu jadi gagal).
+
+### Yang ditangkap review akhir, tak terlihat review per-task
+`promoSlideItems` **terduplikasi** di `CatalogScreen.kt` (tab Menu) — SUKABARU
+di sana selamat dari 7 task karena inventaris spec hanya menyisir 2 berkas.
+Diperbaiki di gelombang fix bersama: fetch banner yang memblokir katalog (kini
+paralel) dan `menuRes.error` yang dibuang diam-diam di halaman admin.
+
+### ⏸ Menunggu keputusan owner
+Gelombang fix ikut mengganti gambar cadangan BestSellerCard di `CatalogScreen.kt`
+(mockup Stitch → latar `SukaTint`), sementara `HomeScreen.kt` masih mockup →
+menu tanpa foto tampil beda di dua layar. Samakan ke salah satu arah.
+
+### Ikut terbawa merge, BUKAN kerja sesi ini
+Commit `80834b9e` (2 migration koreksi waste SAPI Empang, `20260910230000` &
+`20260910231000`) disapu otomasi ke branch ini. Tidak direview di sini; status
+apply-nya tidak diketahui sesi ini.
+
+### 📝 Next
+1. Apply migration `20260911100000_app_banners.sql`, verifikasi ke katalog DB
+   (tabel + 2 policy + REVOKE).
+2. Buat/cek bucket `app-banners`.
+3. Redeploy `retail-gateway` & `admin-dashboard`; build ulang APK.
+4. Smoke test: unggah banner → muncul · nonaktifkan → hilang · tanpa banner →
+   Beranda langsung ke menu · popup sekali · ketuk `menu_item` → mendarat benar ·
+   login OWNER → daftar terbaca, simpan ditolak.
+
+**Last updated:** 2026-09-11  
 **Owner:** Dev Suka Shawarma

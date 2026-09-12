@@ -2,7 +2,7 @@
 BEGIN;
 DO $$
 DECLARE v_sapi uuid; v_ayam uuid; v_dj uuid; v_az uuid; v_outlet uuid; v_sj surat_jalan; v_ok boolean;
-        v_n int; v_harga_dj numeric; v_sisa numeric;
+        v_n int; v_harga_dj numeric; v_harga_katalog numeric; v_sisa numeric;
 BEGIN
   SELECT id INTO v_sapi FROM bahan_baku WHERE nama='SAPI';
   SELECT id INTO v_ayam FROM bahan_baku WHERE nama='AYAM';
@@ -13,6 +13,14 @@ BEGIN
   INSERT INTO stok_vendor_gudang_mutasi (bahan_baku_id, vendor_id, qty, sumber, catatan) VALUES
     (v_sapi, v_dj, public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 3), 'hitung_fisik', 'UJI'),
     (v_sapi, v_az, public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 4), 'hitung_fisik', 'UJI');
+
+  -- Titik awal harga: katalog Djafafood SAPI dibuat tak-sepele (isi_satuan_kecil
+  -- 500 vs faktor_tampilan 2000) supaya (b) benar-benar menguji KONVERSI, bukan
+  -- sekadar penyalinan angka katalog. Semua di dalam BEGIN..ROLLBACK.
+  UPDATE bahan_baku_supplier bs SET harga = 250000, isi_satuan_kecil = 500, is_active = true
+    FROM supplier s
+   WHERE s.id = bs.supplier_id AND bs.bahan_baku_id = v_sapi
+     AND COALESCE(s.vendor_induk_id, s.id) = v_dj;
 
   -- (a) create_surat_jalan (service) pecah 3+2 + AYAM tanpa vendor (terisi otomatis)
   PERFORM set_config('request.jwt.claims', json_build_object('role','service_role')::text, true);
@@ -25,11 +33,24 @@ BEGIN
   IF EXISTS (SELECT 1 FROM surat_jalan_item WHERE surat_jalan_id=v_sj.id AND bahan_baku_id=v_ayam AND vendor_id IS NULL) THEN
     RAISE EXCEPTION 'GAGAL (a): vendor AYAM tak terisi otomatis'; END IF;
 
-  -- (b) harga baris Djafafood = katalog Djafafood bila > 0
-  SELECT max(bs.harga) INTO v_harga_dj FROM bahan_baku_supplier bs JOIN supplier s ON s.id=bs.supplier_id
-   WHERE bs.bahan_baku_id=v_sapi AND bs.is_active AND COALESCE(s.vendor_induk_id,s.id)=v_dj AND bs.harga > 0;
-  IF v_harga_dj IS NOT NULL AND NOT EXISTS (SELECT 1 FROM surat_jalan_item WHERE surat_jalan_id=v_sj.id AND vendor_id=v_dj AND harga_snapshot=v_harga_dj) THEN
-    RAISE EXCEPTION 'GAGAL (b): harga snapshot bukan harga katalog Djafafood'; END IF;
+  -- (b) harga baris Djafafood = katalog Djafafood DIKONVERSI ke satuan besar.
+  --     Katalog dihargai per `satuan_beli`, harga_snapshot dipakai per satuan
+  --     besar; tanpa konversi FOIL (roll vs Dus) tercatat ~2% nilai sebenarnya.
+  SELECT bs.harga, bs.harga * b.faktor_tampilan / bs.isi_satuan_kecil
+    INTO v_harga_katalog, v_harga_dj
+    FROM bahan_baku_supplier bs
+    JOIN supplier s ON s.id = bs.supplier_id
+    JOIN bahan_baku b ON b.id = bs.bahan_baku_id
+   WHERE bs.bahan_baku_id = v_sapi AND bs.is_active AND bs.harga > 0
+     AND COALESCE(bs.isi_satuan_kecil,0) > 0 AND COALESCE(b.faktor_tampilan,0) > 0
+     AND COALESCE(s.vendor_induk_id,s.id) = v_dj
+   ORDER BY bs.harga_updated_at DESC NULLS LAST, bs.id LIMIT 1;
+  IF v_harga_dj IS NULL THEN RAISE EXCEPTION 'GAGAL (b): katalog Djafafood SAPI tak terbaca (uji jadi hampa)'; END IF;
+  IF v_harga_dj = v_harga_katalog THEN
+    RAISE EXCEPTION 'GAGAL (b): harapan (%) sama dengan harga katalog mentah — konversi tak teruji', v_harga_dj; END IF;
+  IF NOT EXISTS (SELECT 1 FROM surat_jalan_item WHERE surat_jalan_id=v_sj.id AND vendor_id=v_dj AND harga_snapshot = v_harga_dj) THEN
+    RAISE EXCEPTION 'GAGAL (b): harga snapshot % bukan harga katalog terkonversi %',
+      (SELECT harga_snapshot FROM surat_jalan_item WHERE surat_jalan_id=v_sj.id AND vendor_id=v_dj LIMIT 1), v_harga_dj; END IF;
 
   -- (c) kirim → 2 mutasi sj_kirim, sisa Djafafood 0, Pak Aziz 2
   UPDATE surat_jalan SET status='dikirim' WHERE id = v_sj.id;
@@ -74,6 +95,6 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION 'GAGAL (g): SJ dari approval tak ber-vendor'; END IF;
   END;
 
-  RAISE EXCEPTION 'HASIL T3: LULUS (pecah 3+2, vendor otomatis, harga vendor, sj_kirim, blokir sisa & tanpa vendor, approval alokasi)';
+  RAISE EXCEPTION 'HASIL T3: LULUS (pecah 3+2, vendor otomatis, harga vendor terkonversi, sj_kirim, blokir sisa & tanpa vendor, approval alokasi)';
 END $$;
 ROLLBACK;

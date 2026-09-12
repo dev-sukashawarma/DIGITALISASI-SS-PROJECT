@@ -66,15 +66,17 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://auth.sukashawarma.com' }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-      - name: Trigger Coolify Webhook (Pull & Restart on VPS)
+      - name: Trigger Coolify Deploy (Pull & Restart on VPS)
         continue-on-error: true
         env:
-          DEPLOY_WEBHOOK: ${{ secrets.COOLIFY_INVENTORI_DEPLOY_WEBHOOK }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
         run: |
-          if [ -n "$DEPLOY_WEBHOOK" ]; then
-            echo "Triggering Coolify webhook..."
-            curl --fail --show-error --silent --location --request POST "$DEPLOY_WEBHOOK" || echo "Webhook notice: call completed"
-            echo "Coolify webhook triggered!"
+          if [ -n "$COOLIFY_TOKEN" ]; then
+            echo "Triggering Coolify deployment via API..."
+            curl --fail --show-error --silent --location \
+              --request POST "https://coolify.sukashawarma.tech/api/v1/deploy?uuid=bwahepcmkwh5p10akbuvsgjy" \
+              --header "Authorization: Bearer $COOLIFY_TOKEN"
+            echo -e "\nCoolify deployment successfully triggered!"
           else
-            echo "COOLIFY_INVENTORI_DEPLOY_WEBHOOK is not set, skipping webhook trigger."
+            echo "COOLIFY_API_TOKEN is not set, skipping Coolify trigger."
           fi

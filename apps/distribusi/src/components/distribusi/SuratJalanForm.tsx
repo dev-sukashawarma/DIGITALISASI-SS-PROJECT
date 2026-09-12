@@ -1,12 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { BottomNav } from './BottomNav'
+import { PilihVendorBahan } from './PilihVendorBahan'
+import { alokasiAwal, validasiAlokasi, type Alokasi, type SaldoVendor } from '@/lib/alokasiVendor'
 import { ArrowLeft, Search, Plus, Trash2, Check, Package, X, Store } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -50,6 +52,13 @@ function convertToBaseUnit(qtyDistribusi: number, b: any): number {
   return qtyDistribusi / getDistribusiFactor(b);
 }
 
+// Saldo vendor dari RPC saldo_vendor_gudang datang dalam SATUAN BESAR;
+// alokasi & qty di form ini dalam satuan DISTRIBUSI (sama skala dengan
+// item.qty) — jadi kebalikan dari convertToBaseUnit.
+function convertToDistribusiUnit(qtyBase: number, b: any): number {
+  return qtyBase * getDistribusiFactor(b);
+}
+
 const normalizeKategori = (kategori: string | undefined): string => {
   const c = (kategori || '').toLowerCase();
   if (c === 'protein' || c === 'sayur') return 'item core';
@@ -84,6 +93,11 @@ export function SuratJalanForm() {
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // Saldo per vendor di Gudang Pusat (satuan BESAR, dari RPC) + alokasi yang
+  // dipilih pengirim per bahan (satuan DISTRIBUSI, sama dengan kolom qty).
+  const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
+  const [alokasi, setAlokasi] = useState<Record<string, Alokasi[]>>({})
+
   const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
 
   const selectedBahan = useMemo(() => {
@@ -99,6 +113,94 @@ export function SuratJalanForm() {
       return matchCat && matchSearch
     })
   }, [bahanBaku, activeCategory, searchQuery])
+
+  const bahanIdsKey = useMemo(() => items.map((it) => it.bahanId).sort().join(','), [items])
+
+  // Ambil saldo vendor Gudang Pusat untuk bahan yang sudah masuk daftar muatan.
+  useEffect(() => {
+    const bahanIds = items.map((it) => it.bahanId)
+    if (bahanIds.length === 0) {
+      setSaldoVendor({})
+      return
+    }
+    let active = true
+    const supabase = createSupabaseBrowserClient()
+    supabase
+      .rpc('saldo_vendor_gudang', { p_bahan_ids: bahanIds })
+      .then(({ data, error }: { data: any[] | null; error: any }) => {
+        if (!active) return
+        if (error) {
+          console.error('Gagal memuat saldo vendor', error)
+          return
+        }
+        const grouped: Record<string, SaldoVendor[]> = {}
+        for (const row of data || []) {
+          const list = grouped[row.bahan_baku_id] || (grouped[row.bahan_baku_id] = [])
+          list.push({
+            vendor_id: row.vendor_id,
+            vendor_nama: row.vendor_nama,
+            sisa: Number(row.sisa),
+            aktif: row.aktif,
+          })
+        }
+        setSaldoVendor(grouped)
+      })
+    return () => {
+      active = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bahanIdsKey])
+
+  // Saldo vendor (satuan besar dari RPC) dikonversi ke satuan DISTRIBUSI --
+  // sama dengan skala kolom qty item di daftar muatan.
+  const vendorsDist = (item: FormItem): SaldoVendor[] => {
+    const b = bahanBaku.find((x) => x.id === item.bahanId)
+    const raw = saldoVendor[item.bahanId] ?? []
+    if (!b) return raw
+    return raw.map((v) => ({
+      ...v,
+      sisa: Math.floor(convertToDistribusiUnit(v.sisa, b) * 1000) / 1000,
+    }))
+  }
+
+  // Isi alokasi awal begitu vendor & qty diketahui; kalau alokasi tunggal
+  // (belum dipecah), samakan qty-nya ketika qty item berubah (mis. digabung
+  // saat menambah bahan yang sama lagi).
+  useEffect(() => {
+    setAlokasi((prev) => {
+      let changed = false
+      const next = { ...prev }
+      for (const item of items) {
+        const id = item.bahanId
+        const vendors = vendorsDist(item)
+        const current = next[id]
+        if (!current) {
+          if (vendors.length >= 2) {
+            next[id] = alokasiAwal(item.qty, vendors)
+            changed = true
+          }
+        } else if (current.length === 1 && current[0].qty !== item.qty) {
+          next[id] = [{ ...current[0], qty: item.qty }]
+          changed = true
+        }
+      }
+      // Buang alokasi milik bahan yang sudah dihapus dari daftar muatan.
+      for (const id of Object.keys(next)) {
+        if (!items.some((it) => it.bahanId === id)) {
+          delete next[id]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items, saldoVendor, bahanBaku])
+
+  const galatVendor = (item: FormItem): string | null => {
+    if (item.qty <= 0) return null
+    return validasiAlokasi(item.qty, alokasi[item.bahanId] ?? [], vendorsDist(item))
+  }
+  const adaGalatVendor = items.some((it) => !!galatVendor(it))
 
   if (!isPusatSender) {
     return (
@@ -174,6 +276,11 @@ export function SuratJalanForm() {
       toast.error('Tambahkan minimal 1 item barang yang akan dikirim')
       return
     }
+    if (adaGalatVendor) {
+      const pertama = items.map((it) => galatVendor(it)).find((g) => !!g)
+      toast.error(pertama || 'Alokasi vendor belum lengkap')
+      return
+    }
 
     setSubmitting(true)
     const supabase = createSupabaseBrowserClient()
@@ -188,15 +295,27 @@ export function SuratJalanForm() {
       if (sjError) throw new Error(`Gagal membuat surat jalan: ${sjError.message}`)
       if (!sj?.id) throw new Error('ID Surat Jalan tidak valid dari server')
 
-      // Insert items
-      const itemsToInsert = items.map((item) => {
+      // Insert items — bahan multi-vendor (≥2 baris saldo) pecah jadi satu
+      // baris per vendor yang dipilih; bahan satu vendor tetap satu baris
+      // tanpa vendor_id (diisi otomatis oleh trigger fill_harga_snapshot).
+      const itemsToInsert = items.flatMap((item) => {
         const bahan = bahanBaku.find((b) => b.id === item.bahanId)
-        const qty_dikirim_base = bahan ? convertToBaseUnit(item.qty, bahan) : item.qty
-        return {
+        const keBase = (q: number) => (bahan ? convertToBaseUnit(q, bahan) : q)
+        const vendors = saldoVendor[item.bahanId] ?? []
+        const a = alokasi[item.bahanId] ?? []
+        if (vendors.length >= 2) {
+          return a.map((x) => ({
+            surat_jalan_id: sj.id,
+            bahan_baku_id: item.bahanId,
+            qty_dikirim: keBase(x.qty),
+            vendor_id: x.vendor_id,
+          }))
+        }
+        return [{
           surat_jalan_id: sj.id,
           bahan_baku_id: item.bahanId,
-          qty_dikirim: qty_dikirim_base,
-        }
+          qty_dikirim: keBase(item.qty),
+        }]
       })
 
       const { error: itemsError } = await supabase
@@ -395,28 +514,37 @@ export function SuratJalanForm() {
                 <div className="space-y-2">
                   {items.map((item, idx) => {
                     const bahan = bahanBaku.find((b) => b.id === item.bahanId)
-                    const distUnit = bahan?.satuan_distribusi || bahan?.satuan
+                    const distUnit = bahan?.satuan_distribusi || bahan?.satuan || 'Unit'
                     return (
                       <div
                         key={idx}
-                        className="flex justify-between items-center bg-white border border-suka-orange/15 px-4 py-3 rounded-xl shadow-xs hover:border-suka-orange/40 transition-all"
+                        className="bg-white border border-suka-orange/15 px-4 py-3 rounded-xl shadow-xs hover:border-suka-orange/40 transition-all"
                       >
-                        <div className="min-w-0 space-y-0.5">
-                          <p className="text-xs font-black text-suka-ink uppercase tracking-wide truncate">
-                            {bahan?.nama || 'Unknown Item'}
-                          </p>
-                          <p className="text-[10px] font-bold text-suka-orange uppercase">
-                            {item.qty} {distUnit}
-                          </p>
+                        <div className="flex justify-between items-center">
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-xs font-black text-suka-ink uppercase tracking-wide truncate">
+                              {bahan?.nama || 'Unknown Item'}
+                            </p>
+                            <p className="text-[10px] font-bold text-suka-orange uppercase">
+                              {item.qty} {distUnit}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeItem(idx)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center text-red-600 hover:bg-red-50 active:scale-95 transition-all cursor-pointer shrink-0"
+                            title="Hapus item"
+                          >
+                            <Trash2 size={15} />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(idx)}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center text-red-600 hover:bg-red-50 active:scale-95 transition-all cursor-pointer shrink-0"
-                          title="Hapus item"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <PilihVendorBahan
+                          vendors={vendorsDist(item)}
+                          satuan={distUnit}
+                          alokasi={alokasi[item.bahanId] ?? []}
+                          onChange={(a) => setAlokasi((prev) => ({ ...prev, [item.bahanId]: a }))}
+                          galat={galatVendor(item)}
+                        />
                       </div>
                     )
                   })}
@@ -428,7 +556,7 @@ export function SuratJalanForm() {
             <div className="flex gap-3 border-t border-suka-brown/10 pt-5">
               <button
                 type="submit"
-                disabled={submitting || items.length === 0 || !outletId}
+                disabled={submitting || items.length === 0 || !outletId || adaGalatVendor}
                 className="flex-1 py-3.5 bg-suka-brown hover:bg-suka-ink active:scale-[0.98] text-white font-extrabold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Membuat Surat Jalan...' : `Simpan & Lanjut TTD (${items.length} Item)`}

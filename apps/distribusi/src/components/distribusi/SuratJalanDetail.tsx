@@ -31,9 +31,19 @@ import {
   HelpCircle,
   Ban,
   RefreshCw,
-  Lock
+  Lock,
+  Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
+
+interface SaldoVendor {
+  bahan_baku_id: string
+  vendor_id: string
+  vendor_nama: string
+  sisa: number
+  multi: boolean
+  aktif: boolean
+}
 
 function FormattedDate({ iso, extended }: { iso: string | null | undefined; extended?: boolean }) {
   const text = useFormattedDate(
@@ -116,7 +126,7 @@ function SignatureBlock({ title, sigs }: { title: string; sigs: any[] }) {
 export function SuratJalanDetail({ id }: { id: string }) {
   const router = useRouter()
   const { outletStaff } = useAuth()
-  const { data, loading, error } = useSuratJalanDetail(id)
+  const { data, loading, error, refetch } = useSuratJalanDetail(id)
   const [signatures, setSignatures] = useState<any[]>([])
   const [verifying, setVerifying] = useState(false)
   const [pdfHtml, setPdfHtml] = useState<string | null>(null)
@@ -128,8 +138,59 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const [cancelling, setCancelling] = useState(false)
   const [copiedDoc, setCopiedDoc] = useState(false)
   const [copiedCode, setCopiedCode] = useState(false)
+  const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
+  const [updatingVendorItem, setUpdatingVendorItem] = useState<string | null>(null)
 
   const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
+
+  useEffect(() => {
+    if (data?.status !== 'draft') return
+    const bahanIds = data?.surat_jalan_item?.map((it: any) => it.bahan_baku_id) || []
+    if (bahanIds.length === 0) return
+
+    const supabase = createSupabaseBrowserClient()
+    supabase
+      .rpc('saldo_vendor_gudang', { p_bahan_ids: bahanIds })
+      .then(({ data: res, error: rpcErr }: { data: any[] | null; error: any }) => {
+        if (rpcErr) {
+          console.error('Gagal memuat saldo vendor:', rpcErr)
+          return
+        }
+        const grouped: Record<string, SaldoVendor[]> = {}
+        for (const row of res || []) {
+          if (!grouped[row.bahan_baku_id]) grouped[row.bahan_baku_id] = []
+          grouped[row.bahan_baku_id].push(row)
+        }
+        setSaldoVendor(grouped)
+      })
+  }, [data?.status, data?.surat_jalan_item])
+
+  const handleUpdateVendor = async (itemId: string, vendorId: string) => {
+    setUpdatingVendorItem(itemId)
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const { error: rpcErr } = await supabase.rpc('update_surat_jalan_item_vendor', {
+        p_item_id: itemId,
+        p_vendor_id: vendorId,
+      })
+      if (rpcErr) throw rpcErr
+      toast.success('Vendor berhasil diperbarui')
+      if (refetch) await refetch()
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal mengubah vendor')
+    } finally {
+      setUpdatingVendorItem(null)
+    }
+  }
+
+  const unassignedMultiVendorItems = useMemo(() => {
+    if (data?.status !== 'draft') return []
+    return (data?.surat_jalan_item || []).filter((item: any) => {
+      const vendors = saldoVendor[item.bahan_baku_id] || []
+      const isMulti = vendors.length >= 2 || vendors.some((v) => v.multi)
+      return isMulti && !item.vendor_id
+    })
+  }, [data?.status, data?.surat_jalan_item, saldoVendor])
 
   const handleCancelPO = async () => {
     setCancelling(true)
@@ -422,7 +483,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
     )
   }
 
-  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'purchasing'].includes(
     outletStaff?.role || ''
   )
 
@@ -675,6 +736,23 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </div>
           </div>
 
+          {/* Warning Banner jika ada bahan multi-vendor belum dipilih */}
+          {unassignedMultiVendorItems.length > 0 && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-3xl flex items-start gap-3 shadow-xs">
+              <div className="p-2 bg-amber-100 text-amber-700 rounded-xl shrink-0 mt-0.5">
+                <AlertTriangle size={18} />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h4 className="font-black text-xs text-amber-900 uppercase tracking-wider font-display">
+                  Pilihan Vendor Diperlukan Sebelum Dikirim
+                </h4>
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                  Terdapat <strong>{unassignedMultiVendorItems.length} bahan multi-vendor</strong> yang belum dipilih vendornya ({unassignedMultiVendorItems.map((i: any) => i.bahan_baku?.nama).join(', ')}). Silakan tentukan vendor pada kolom <strong>Vendor</strong> di tabel sebelum mengirim surat jalan.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 2. Manifest Items List (Dense, High-Density Table with Badges) */}
           <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden space-y-0">
             {/* Manifest Header */}
@@ -699,6 +777,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
                   <tr className="bg-[#fff8f1]/40 border-b border-suka-brown/10 text-[9px] font-black uppercase text-suka-gray-500 tracking-wider">
                     <th className="py-3 px-4 w-12 text-center">No</th>
                     <th className="py-3 px-4">Nama Bahan Baku</th>
+                    <th className="py-3 px-4">Vendor</th>
                     <th className="py-3 px-4 text-center">Satuan</th>
                     <th className="py-3 px-4 text-right">Qty Kirim</th>
                     {data.status !== 'draft' && data.status !== 'dikirim' && (
@@ -750,6 +829,51 @@ export function SuratJalanDetail({ id }: { id: string }) {
                               </p>
                             )}
                           </div>
+                        </td>
+
+                        {/* Vendor */}
+                        <td className="py-3.5 px-4">
+                          {data.status === 'draft' && isPusatSender ? (
+                            (() => {
+                              const vendors = saldoVendor[item.bahan_baku_id] || []
+                              const isMulti = vendors.length >= 2 || vendors.some((v) => v.multi)
+                              if (isMulti) {
+                                return (
+                                  <div className="flex items-center gap-1.5">
+                                    <select
+                                      value={item.vendor_id || ''}
+                                      onChange={(e) => handleUpdateVendor(item.id, e.target.value)}
+                                      disabled={updatingVendorItem === item.id}
+                                      className={`text-xs font-bold py-1 px-2 rounded-xl border transition-all cursor-pointer ${
+                                        !item.vendor_id
+                                          ? 'bg-amber-50 border-amber-300 text-amber-900 ring-2 ring-amber-400/30'
+                                          : 'bg-white border-suka-brown/20 text-suka-ink hover:border-suka-orange'
+                                      }`}
+                                    >
+                                      <option value="" disabled>-- Pilih Vendor --</option>
+                                      {vendors.map((v) => (
+                                        <option key={v.vendor_id} value={v.vendor_id}>
+                                          {v.vendor_nama} {v.sisa > 0 ? `(Sisa: ${v.sisa})` : ''}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    {updatingVendorItem === item.id && (
+                                      <Loader2 size={12} className="animate-spin text-suka-orange shrink-0" />
+                                    )}
+                                  </div>
+                                )
+                              }
+                              return (
+                                <span className="text-[10px] font-bold text-suka-gray-600 bg-gray-50 border border-gray-200 px-2 py-0.5 rounded-lg inline-block">
+                                  {item.vendor?.nama || vendors[0]?.vendor_nama || '-'}
+                                </span>
+                              )
+                            })()
+                          ) : (
+                            <span className="text-[10px] font-bold text-suka-gray-600 bg-[#fff8f1] border border-suka-brown/10 px-2.5 py-0.5 rounded-lg inline-block">
+                              {item.vendor?.nama || '-'}
+                            </span>
+                          )}
                         </td>
 
                         {/* Satuan */}
@@ -905,6 +1029,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
                   signatures={signatures}
                   onSignatureAdded={handleSignatureAdded}
                   onSent={handleSent}
+                  unassignedVendorsCount={unassignedMultiVendorItems.length}
                 />
               )}
 

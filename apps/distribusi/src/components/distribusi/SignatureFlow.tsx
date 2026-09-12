@@ -18,6 +18,7 @@ interface SignatureFlowProps {
   signatures: Signature[]
   onSignatureAdded: (newSignatures: Signature[]) => void
   onSent: () => void
+  unassignedVendorsCount?: number
 }
 
 const MAX_SIGNATURE_SIZE = 50000 // 50KB
@@ -27,6 +28,7 @@ export function SignatureFlow({
   signatures,
   onSignatureAdded,
   onSent,
+  unassignedVendorsCount = 0,
 }: SignatureFlowProps) {
   const [signedBy, setSignedBy] = useState('')
   const [role, setRole] = useState('Admin Kitchen')
@@ -129,6 +131,11 @@ export function SignatureFlow({
   }
 
   const handleSend = async () => {
+    if (unassignedVendorsCount > 0) {
+      toast.warning(`Terdapat ${unassignedVendorsCount} bahan yang belum dipilih vendornya. Silakan tentukan vendor pada tabel terlebih dahulu.`)
+      return
+    }
+
     if (missingRoles.length > 0) {
       toast.warning(`Tanda tangan yang masih diperlukan: ${missingRoles.join(', ')}`)
       return
@@ -389,11 +396,15 @@ export function SignatureFlow({
 
         <button
           onClick={handleSend}
-          disabled={sending || missingRoles.length > 0}
+          disabled={sending || missingRoles.length > 0 || unassignedVendorsCount > 0}
           className="w-full py-3.5 bg-gradient-to-r from-suka-brown to-[#4d1003] hover:from-[#4d1003] hover:to-black text-white font-black text-xs uppercase tracking-wider rounded-2xl shadow-md disabled:opacity-40 transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
         >
           <Send size={14} />
-          {sending ? 'Memproses Pengiriman...' : 'Kirim Surat Jalan Sekarang'}
+          {sending
+            ? 'Memproses Pengiriman...'
+            : unassignedVendorsCount > 0
+              ? `Pilih Vendor Dahulu (${unassignedVendorsCount} Item)`
+              : 'Kirim Surat Jalan Sekarang'}
         </button>
       </div>
     </div>

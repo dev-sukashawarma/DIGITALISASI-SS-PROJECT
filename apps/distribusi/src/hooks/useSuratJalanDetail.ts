@@ -11,7 +11,19 @@ interface Item {
   kondisi?: string
   catatan?: string | null
   foto_path?: string | null
-  bahan_baku?: { nama: string; satuan: string; kategori?: string }
+  vendor_id?: string | null
+  vendor?: { id: string; nama: string } | null
+  bahan_baku?: {
+    id?: string
+    nama: string
+    satuan: string
+    kategori?: string
+    satuan_distribusi?: string
+    satuan_tengah?: string
+    satuan_kecil?: string
+    faktor_tengah?: number
+    faktor_tampilan?: number
+  }
 }
 
 interface SuratJalanDetail {
@@ -33,47 +45,45 @@ export function useSuratJalanDetail(id: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const fetchData = async () => {
     if (!id) return
+    setLoading(true)
+    setError(null)
+    const supabase = createSupabaseBrowserClient()
 
-    const fetchData = async () => {
-      setLoading(true)
-      setError(null)
-      const supabase = createSupabaseBrowserClient()
+    try {
+      // Satu query embedded: header + outlet + item (+ bahan_baku & vendor) sekaligus
+      const { data: sj, error: sjError } = await supabase
+        .from('surat_jalan')
+        .select(
+          'id, outlet_id, status, created_at, notes, signatures, receipt_signatures, document_number, verification_code, outlets(name), surat_jalan_item(*, vendor:supplier!surat_jalan_item_vendor_id_fkey(id, nama), bahan_baku(id, nama, satuan, kategori, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan))'
+        )
+        .eq('id', id)
+        .single()
 
-      try {
-        // Satu query embedded: header + outlet + item (+ bahan_baku) sekaligus,
-        // menggantikan 3 round-trip berurutan.
-        const { data: sj, error: sjError } = await supabase
-          .from('surat_jalan')
-          .select(
-            'id, outlet_id, status, created_at, notes, signatures, receipt_signatures, document_number, verification_code, outlets(name), surat_jalan_item(*, bahan_baku(id, nama, satuan, kategori, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan))'
-          )
-          .eq('id', id)
-          .single()
-
-        if (sjError) {
-          setError(sjError.message)
-          setData(null)
-          setLoading(false)
-          return
-        }
-
-        setData({
-          ...sj,
-          outlets: Array.isArray((sj as any).outlets) ? (sj as any).outlets[0] : (sj as any).outlets,
-          surat_jalan_item: (sj as any).surat_jalan_item || [],
-        } as SuratJalanDetail)
-      } catch (err: any) {
-        setError(err?.message || 'Terjadi kesalahan')
+      if (sjError) {
+        setError(sjError.message)
         setData(null)
-      } finally {
         setLoading(false)
+        return
       }
-    }
 
+      setData({
+        ...sj,
+        outlets: Array.isArray((sj as any).outlets) ? (sj as any).outlets[0] : (sj as any).outlets,
+        surat_jalan_item: (sj as any).surat_jalan_item || [],
+      } as SuratJalanDetail)
+    } catch (err: any) {
+      setError(err?.message || 'Terjadi kesalahan')
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchData()
   }, [id])
 
-  return { data, loading, error }
+  return { data, loading, error, refetch: fetchData }
 }

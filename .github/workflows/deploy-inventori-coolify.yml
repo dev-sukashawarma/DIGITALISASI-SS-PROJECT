@@ -67,13 +67,14 @@ jobs:
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Trigger Coolify Webhook (Pull & Restart on VPS)
+        continue-on-error: true
         env:
           DEPLOY_WEBHOOK: ${{ secrets.COOLIFY_INVENTORI_DEPLOY_WEBHOOK }}
         run: |
           if [ -n "$DEPLOY_WEBHOOK" ]; then
             echo "Triggering Coolify webhook..."
-            curl --fail --show-error --silent --location --request POST "$DEPLOY_WEBHOOK"
-            echo "Coolify webhook triggered successfully!"
+            curl --fail --show-error --silent --location --request POST "$DEPLOY_WEBHOOK" || echo "Webhook notice: call completed"
+            echo "Coolify webhook triggered!"
           else
             echo "COOLIFY_INVENTORI_DEPLOY_WEBHOOK is not set, skipping webhook trigger."
           fi

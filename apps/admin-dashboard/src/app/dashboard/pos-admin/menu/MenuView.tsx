@@ -621,7 +621,12 @@ export default function MenuView({
     e.preventDefault(); setError('')
     const price = parseFloat(form.price)
     if (!form.name.trim()) { setError('Nama menu wajib diisi'); return }
-    if (isNaN(price) || price <= 0) { setError('Harga harus angka positif'); return }
+    if (isNaN(price) || price < 0) { setError('Harga tidak boleh bernilai negatif'); return }
+
+    if (price === 0) {
+      const confirmZero = await showConfirm(`Menu "${form.name.trim()}" diatur dengan harga Rp 0 (Gratis). Apakah Anda yakin ingin menyimpan menu ini?`)
+      if (!confirmZero) return
+    }
 
     setSaving(true)
     let imgUrl = form.image_url
@@ -636,9 +641,9 @@ export default function MenuView({
     const parsedChannelPrices: Record<string, number> = {}
     
     Object.entries(form.channel_prices).forEach(([k, v]) => {
-      if (v) {
+      if (v !== undefined && v !== null && v !== '') {
         const p = parseFloat(v)
-        if (!isNaN(p) && p > 0) parsedChannelPrices[k] = p
+        if (!isNaN(p) && p >= 0) parsedChannelPrices[k] = p
       }
     })
 
@@ -647,7 +652,7 @@ export default function MenuView({
       form.available_online_channels.forEach(ch => {
         const slug = ch.toLowerCase().replace(/\s+/g, '')
         if (slug !== 'pos_kasir') {
-          if (!parsedChannelPrices[slug] || parsedChannelPrices[slug] <= 0) {
+          if (parsedChannelPrices[slug] === undefined || parsedChannelPrices[slug] < 0) {
             parsedChannelPrices[slug] = finalBasePrice
           }
         }
@@ -1367,9 +1372,16 @@ export default function MenuView({
                       {/* Offline Price & Strike Price */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                         <div>
-                          <label className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5 block">
-                            Harga Offline <span className="text-red-500">*</span>
-                          </label>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                              Harga Offline <span className="text-red-500">*</span>
+                            </label>
+                            {form.price !== '' && !isNaN(Number(form.price)) && Number(form.price) === 0 && (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-fade-in">
+                                GRATIS / Rp 0
+                              </span>
+                            )}
+                          </div>
                           <CurrencyInput
                             value={form.price}
                             onChange={(v) => {
@@ -1529,10 +1541,17 @@ export default function MenuView({
                       {/* Harga di Aplikasi -- kartu sendiri, BUKAN bagian Food Apps */}
                       <div className={`p-4 rounded-xl border space-y-2 transition-colors
                         ${form.tampil_di_app ? 'bg-amber-50/40 border-amber-200/80' : 'bg-slate-50/60 border-slate-200/70'}`}>
-                        <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
-                          <Smartphone className={`w-3.5 h-3.5 ${form.tampil_di_app ? 'text-amber-600' : 'text-slate-400'}`} />
-                          Harga di Aplikasi
-                        </label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                            <Smartphone className={`w-3.5 h-3.5 ${form.tampil_di_app ? 'text-amber-600' : 'text-slate-400'}`} />
+                            Harga di Aplikasi
+                          </label>
+                          {form.tampil_di_app && form.channel_prices[SLUG_APLIKASI] === '0' && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 animate-fade-in">
+                              GRATIS / Rp 0
+                            </span>
+                          )}
+                        </div>
                         <CurrencyInput
                           value={form.channel_prices[SLUG_APLIKASI] || ''}
                           onChange={(v) => {
@@ -1967,14 +1986,14 @@ export default function MenuView({
                         if (item.is_available_online !== false) {
                           if (activeSlug && !['pos_kasir', 'all_food_apps', ''].includes(activeSlug)) {
                             const chPrice = pricesObj[activeSlug] || (activeSlug === 'tiktokgo' ? pricesObj['tiktok_go'] : undefined);
-                            if (chPrice && Number(chPrice) > 0) {
+                            if (chPrice !== undefined && chPrice !== null && !isNaN(Number(chPrice)) && Number(chPrice) >= 0) {
                               targetNumericPrice = Number(chPrice);
                               onlineDisplay = formatRupiah(targetNumericPrice);
                             }
                           } else {
                             const validPrices = Object.values(pricesObj)
                               .map(p => Number(p))
-                              .filter(p => !isNaN(p) && p > 0);
+                              .filter(p => !isNaN(p) && p >= 0);
 
                             if (validPrices.length > 0) {
                               const minP = Math.min(...validPrices);

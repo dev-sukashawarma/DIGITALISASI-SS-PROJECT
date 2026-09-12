@@ -2409,5 +2409,81 @@ pada itu terjadi lebih dulu.
 
 ---
 
-**Last updated:** 2026-09-11  
+## Session 2026-09-12: Saldo per Vendor Gudang Pusat (apps/stok, apps/distribusi)
+
+**Status:** DB **LIVE** — 4 migration applied & terstempel di DB produksi bersama:
+`20260911150000_saldo_vendor_skema`, `20260911151000_saldo_vendor_po`,
+`20260911152000_saldo_vendor_surat_jalan`, `20260911153000_saldo_vendor_opname`.
+Kode app di branch `feat/saldo-vendor-gudang` — **belum merge, belum push, belum
+redeploy**.
+
+### Yang sudah teruji (t1–t4, tiap uji punya kontrol negatif yang benar-benar gagal)
+- **t1 LULUS** — grup vendor (Pak Aziz Tempo 10/15/30), SAPI terdeteksi multi-vendor
+  (2 induk), AYAM tunggal (Dunia Plastik dinonaktifkan), belum aktif sebelum hitung
+  fisik, RPC `saldo_vendor_gudang` untuk `kitchen`, `koreksi_saldo_vendor` (dengan
+  & tanpa catatan), tulis langsung ke `stok_vendor_gudang_mutasi` ditolak, **crew
+  ditolak** baca RPC saldo.
+- **t2 LULUS** — `pembelian_supplier` ber-PO ke bahan multi-vendor menulis tepat 1
+  mutasi vendor sesuai `vendor_induk` supplier PO-nya; bahan satu-vendor & baris
+  `adjustment` tanpa PO diabaikan (nol mutasi).
+- **t3 LULUS** — `create_surat_jalan` memecah baris per vendor, bahan satu-vendor
+  tetap tanpa vendor (terisi otomatis), `harga_snapshot` ikut katalog vendor
+  terkait, status `dikirim` menulis mutasi `sj_kirim` mengurangi sisa vendor yang
+  benar.
+- **t4 LULUS** — jalur opname Gudang Pusat.
+
+### Apps
+
+| Test | Type-check | `next build --webpack` |
+|---|---:|---:|
+| `apps/stok` | 129 lulus | 0 error | sukses |
+| `apps/distribusi` | 11 lulus | 0 error | sukses |
+
+`yarn build` polos gagal di worktree ini karena isu Turbopack/symlink yang tak
+terkait fitur ini — bukan cacat produk, jangan dilaporkan sebagai bug. Verifikasi
+build produksi pakai `next build --webpack` di kedua app.
+
+### Tiga cacat yang tertangkap review sebelum apa pun live (pelajaran, bukan
+sekadar catatan basi)
+Ketiganya ditemukan dengan **menjalankan** SQL-nya, bukan membaca diff — dua di
+antaranya bahkan sudah sempat dilaporkan "terverifikasi ke DB live" oleh reviewer
+sebelum akhirnya ketahuan salah:
+1. **Role guard mati** — pengecekan role memakai `current_user` di dalam fungsi
+   `SECURITY DEFINER`; di situ `current_user` = pemilik fungsi, bukan pemanggil
+   asli. Guard itu tak pernah bisa gagal untuk siapa pun.
+2. **`array_agg(expr ORDER BY 1)` TIDAK mengurutkan** — di dalam agregat, `1`
+   adalah konstanta literal, bukan posisi kolom. Guard pembanding himpunan yang
+   bergantung urutan ini tak akan pernah lolos.
+3. **`opname_item.selisih` adalah kolom `GENERATED ALWAYS`** — tak bisa ditulis
+   lewat INSERT sama sekali.
+
+### Belum bisa dipakai sampai
+1. **Merge + push + redeploy** `stok` **dan** `distribusi`.
+2. **Satu sesi hitung fisik per-vendor** di Gudang Pusat untuk setiap bahan
+   multi-vendor. Sampai bahan itu punya titik awal, penjaganya **sengaja
+   dimatikan by design** — vendor tetap tercatat, kiriman tidak diblokir.
+
+### Follow-up yang diketahui, sengaja tidak diperbaiki di sesi ini
+- Resume draft opname sisi-server tidak membawa sub-baris per-vendor lintas
+  browser (localStorage membawanya; agregat basi sudah dicegah lewat filter).
+- Di pemilih vendor: kalau tak ada satu vendor pun yang bisa menutup seluruh
+  permintaan, mengklik satu vendor menghasilkan qty 0 sampai user menekan
+  "+ pecah vendor".
+
+### Artefak
+- Pemantau: `supabase/verifikasi/saldo_vendor/pemantau.sql` (Q1 selisih sisa
+  vendor vs stok total, Q2 SJ multi-vendor tanpa vendor sejak go-live, Q3 bahan
+  multi-vendor yang belum punya titik awal).
+- Uji: `supabase/verifikasi/saldo_vendor/t1_skema.sql` … `t4_opname.sql`.
+
+### 📝 Next
+- Merge branch `feat/saldo-vendor-gudang`, push, redeploy `stok` + `distribusi`.
+- Jadwalkan sesi hitung fisik per-vendor untuk semua bahan multi-vendor aktif
+  (mulai dari SAPI — sudah punya 2 vendor terverifikasi).
+- Jalankan `pemantau.sql` (satu query per giliran, lihat catatan di kepala file)
+  setelah redeploy & setelah hitung fisik pertama; Q3 harus turun ke 0.
+
+---
+
+**Last updated:** 2026-09-12  
 **Owner:** Dev Suka Shawarma

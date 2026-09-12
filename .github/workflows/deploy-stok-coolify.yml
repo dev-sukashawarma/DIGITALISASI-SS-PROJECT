@@ -9,8 +9,6 @@ on:
       - 'packages/design-system/**'
       - 'packages/realtime/**'
       - 'packages/offline-queue/**'
-      - 'package.json'
-      - 'yarn.lock'
       - '.github/workflows/deploy-stok-coolify.yml'
   workflow_dispatch:
 

@@ -60,7 +60,7 @@ import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
 import com.sukashawarma.customer.ui.components.HomeBrandHeader
-import com.sukashawarma.customer.ui.components.MemuatState
+import com.sukashawarma.customer.ui.components.RangkaBeranda
 import com.sukashawarma.customer.ui.components.OutletHeader
 import com.sukashawarma.customer.ui.components.PromoPopupDialog
 import com.sukashawarma.customer.ui.components.bounceClick
@@ -142,7 +142,7 @@ fun HomeScreen(
                 .fillMaxSize()
         ) {
             when {
-                state.memuat -> MemuatState()
+                state.memuat -> RangkaBeranda()
 
                 state.tidakAdaOutlet -> EmptyState(
                     judul = "Belum ada outlet",

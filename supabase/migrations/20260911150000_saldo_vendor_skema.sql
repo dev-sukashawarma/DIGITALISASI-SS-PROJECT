@@ -65,7 +65,7 @@ CREATE OR REPLACE FUNCTION public.saldo_vendor_gudang(p_bahan_ids uuid[])
 RETURNS TABLE(bahan_baku_id uuid, vendor_id uuid, vendor_nama text, sisa numeric, multi boolean, aktif boolean)
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  IF COALESCE(auth.jwt()->>'role','') <> 'service_role' AND current_user NOT IN ('postgres','service_role')
+  IF COALESCE(auth.jwt()->>'role','') <> 'service_role'
      AND COALESCE(public.peran_saya(),'') NOT IN ('kitchen','purchasing','admin','owner','spv','regional_manager','admin_finance') THEN
     RAISE EXCEPTION 'Tidak berhak melihat saldo vendor' USING ERRCODE = 'insufficient_privilege';
   END IF;

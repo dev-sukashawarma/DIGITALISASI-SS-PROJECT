@@ -5,10 +5,12 @@ import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
 import { BudgetBadge } from './BudgetBadge'
-import type { PermintaanWithItems } from '@/types/permintaan'
-import { fetchCrosscheckStok } from '@/app/actions/permintaan'
+import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
+import { fetchCrosscheckStok, fetchSaldoVendorGudang } from '@/app/actions/permintaan'
 import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
 import { convertToDistribusiUnit, convertToBaseUnit, convertGramToBesar, formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
+import { PilihVendorBahan } from './PilihVendorBahan'
+import { alokasiAwal, validasiAlokasi, type Alokasi, type SaldoVendor } from '@/lib/stok/alokasiVendor'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -38,12 +40,21 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
   const [isFetchingCrosscheck, setIsFetchingCrosscheck] = useState(true)
   const [calculatedMap, setCalculatedMap] = useState<Record<string, number>>({})
 
+  // Saldo per vendor di Gudang Pusat (satuan BESAR, dari RPC) + alokasi yang
+  // dipilih kitchen per bahan (satuan DISTRIBUSI, sama dengan kolom qty).
+  const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
+  const [alokasi, setAlokasi] = useState<Record<string, Alokasi[]>>({})
+
   useEffect(() => {
     const fetchCrosscheck = async () => {
       try {
         const bahanBakuIds = permintaan.items.map(it => it.bahan_baku_id)
-        const data = await fetchCrosscheckStok(permintaan.outlet_id, bahanBakuIds)
+        const [data, vendorData] = await Promise.all([
+          fetchCrosscheckStok(permintaan.outlet_id, bahanBakuIds),
+          fetchSaldoVendorGudang(bahanBakuIds),
+        ])
         setCrosscheckData(data)
+        setSaldoVendor(vendorData)
       } catch (err) {
         console.error('Failed to fetch crosscheck data', err)
       } finally {
@@ -72,6 +83,51 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
     fetchCrosscheck()
     fetchKebutuhan()
   }, [permintaan.outlet_id, permintaan.items, permintaan.target_metadata])
+
+  // Saldo vendor (satuan besar dari RPC) dikonversi ke satuan DISTRIBUSI —
+  // sama dengan skala kolom qty & alokasi di modal ini.
+  const vendorsDist = (it: PermintaanItem): SaldoVendor[] => {
+    const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+    const raw = saldoVendor[it.bahan_baku_id] ?? []
+    if (!b) return raw
+    return raw.map(v => ({
+      ...v,
+      sisa: Math.floor(convertToDistribusiUnit(v.sisa, b) * 1000) / 1000,
+    }))
+  }
+
+  // Isi alokasi awal begitu vendor & qty diketahui; kalau alokasi tunggal
+  // (belum dipecah), samakan qty-nya ketika kitchen mengubah qty bahan.
+  useEffect(() => {
+    setAlokasi(prev => {
+      let changed = false
+      const next = { ...prev }
+      for (const it of permintaan.items) {
+        const id = it.bahan_baku_id
+        const vendors = vendorsDist(it)
+        const qty = qtys[id] ?? 0
+        const current = next[id]
+        if (!current) {
+          if (vendors.length >= 2) {
+            next[id] = alokasiAwal(qty, vendors)
+            changed = true
+          }
+        } else if (current.length === 1 && current[0].qty !== qty) {
+          next[id] = [{ ...current[0], qty }]
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qtys, saldoVendor, bahanBaku, permintaan.items])
+
+  const galatVendor = (it: PermintaanItem): string | null => {
+    const qty = qtys[it.bahan_baku_id] ?? 0
+    if (qty <= 0) return null
+    return validasiAlokasi(qty, alokasi[it.bahan_baku_id] ?? [], vendorsDist(it))
+  }
+  const adaGalatVendor = permintaan.items.some(it => !!galatVendor(it))
 
   const { status: budgetStatus } = useOutletBudgetStatus(permintaan.outlet_id)
   const [liveEstimate, setLiveEstimate] = useState<{ totalNilai: number; itemTanpaHarga: string[] }>({ totalNilai: 0, itemTanpaHarga: [] })
@@ -128,11 +184,15 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
     setErrorMsg(null)
     try {
       const items = permintaan.items.map(it => {
-        const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
-        const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[it.bahan_baku_id] ?? 0, b) : (qtys[it.bahan_baku_id] ?? 0)
+        const id = it.bahan_baku_id
+        const b = bahanBaku.find(x => x.id === id)
+        const qtyDisetujuiBase = b ? convertToBaseUnit(qtys[id] ?? 0, b) : (qtys[id] ?? 0)
         return {
-          bahan_baku_id: it.bahan_baku_id,
+          bahan_baku_id: id,
           qty_disetujui: qtyDisetujuiBase,
+          alokasi: (saldoVendor[id]?.length ?? 0) >= 2
+            ? (alokasi[id] ?? []).map(a => ({ vendor_id: a.vendor_id, qty: b ? convertToBaseUnit(a.qty, b) : a.qty }))
+            : undefined,
         }
       })
       await approve(permintaan.id, items)
@@ -238,7 +298,8 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
               const isOverStock = crosscheckData && crosscheckData[it.bahan_baku_id] && qtyDisetujuiBase > gudangStokBase
 
               return (
-              <div key={it.bahan_baku_id} className="flex items-center justify-between gap-4 border-b border-[#d9c2b2]/10 pb-2">
+              <div key={it.bahan_baku_id} className="border-b border-[#d9c2b2]/10 pb-2">
+              <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold text-[#1e1b15] truncate">{it.nama ?? it.bahan_baku_id}</p>
                   {calculatedMap[it.bahan_baku_id] !== undefined && (
@@ -306,6 +367,16 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
                     </button>
                   </div>
                 </div>
+              </div>
+              <PilihVendorBahan
+                vendors={vendorsDist(it)}
+                satuan={distUnit}
+                targetQty={qtys[it.bahan_baku_id] ?? 0}
+                alokasi={alokasi[it.bahan_baku_id] ?? []}
+                onChange={(a) => setAlokasi(prev => ({ ...prev, [it.bahan_baku_id]: a }))}
+                galat={galatVendor(it)}
+                disabled={!canApprove}
+              />
               </div>
               )
             })}
@@ -394,7 +465,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
           <button
             type="button"
             onClick={handleApprove}
-            disabled={loading || !canApprove}
+            disabled={loading || !canApprove || adaGalatVendor}
             title={canApprove ? undefined : 'Hanya Gudang Pusat, admin, atau owner yang boleh menyetujui'}
             className="px-5 py-3 text-xs uppercase font-bold tracking-wider rounded-xl bg-[#f29744] text-white hover:bg-[#e0873a] transition active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#f29744]"
           >

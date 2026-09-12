@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
+import type { SaldoVendor } from '@/lib/stok/alokasiVendor'
 
 // ---------------------------------------------------------------------------
 // Service role client — bypass RLS, dipakai untuk semua permintaan actions.
@@ -229,14 +230,23 @@ export async function buatPermintaan(
 export async function approvePermintaan(
   permintaanId: string,
   items: ApproveItemInput[]
-): Promise<void> {
-  await requirePermintaanApprover()
-  const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('approve_permintaan_svc', {
-    p_permintaan_id: permintaanId,
-    p_items: items,
-  })
-  if (error) throw new Error(error.message)
+): Promise<{ error?: string }> {
+  try {
+    await requirePermintaanApprover()
+    const supabase = makeServiceClient()
+    const { error } = await supabase.rpc('approve_permintaan_svc', {
+      p_permintaan_id: permintaanId,
+      p_items: items,
+    })
+    if (error) {
+      console.error('[approvePermintaan] RPC approve_permintaan_svc gagal:', error)
+      return { error: error.message }
+    }
+    return {}
+  } catch (err: any) {
+    console.error('[approvePermintaan] Action gagal:', err)
+    return { error: err.message || String(err) }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -246,14 +256,43 @@ export async function approvePermintaan(
 export async function tolakPermintaan(
   permintaanId: string,
   alasan: string
-): Promise<void> {
-  await requirePermintaanApprover()
+): Promise<{ error?: string }> {
+  try {
+    await requirePermintaanApprover()
+    const supabase = makeServiceClient()
+    const { error } = await supabase.rpc('tolak_permintaan_svc', {
+      p_permintaan_id: permintaanId,
+      p_alasan: alasan,
+    })
+    if (error) {
+      console.error('[tolakPermintaan] RPC tolak_permintaan_svc gagal:', error)
+      return { error: error.message }
+    }
+    return {}
+  } catch (err: any) {
+    console.error('[tolakPermintaan] Action gagal:', err)
+    return { error: err.message || String(err) }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// fetchSaldoVendorGudang — sisa saldo per vendor di Gudang Pusat untuk bahan
+// tertentu, dipakai ApprovalModal supaya kitchen bisa pilih vendor mana yang
+// dipotong saat menyetujui permintaan (RPC saldo_vendor_gudang, Task 1).
+// ---------------------------------------------------------------------------
+export async function fetchSaldoVendorGudang(bahanBakuIds: string[]): Promise<Record<string, SaldoVendor[]>> {
+  await requirePermintaanViewer()
+  if (!bahanBakuIds.length) return {}
   const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('tolak_permintaan_svc', {
-    p_permintaan_id: permintaanId,
-    p_alasan: alasan,
-  })
+  const { data, error } = await supabase.rpc('saldo_vendor_gudang', { p_bahan_ids: bahanBakuIds })
   if (error) throw new Error(error.message)
+  const hasil: Record<string, SaldoVendor[]> = {}
+  for (const r of (data ?? []) as { bahan_baku_id: string; vendor_id: string; vendor_nama: string; sisa: number | null; aktif: boolean }[]) {
+    ;(hasil[r.bahan_baku_id] ??= []).push({
+      vendor_id: r.vendor_id, vendor_nama: r.vendor_nama, sisa: Number(r.sisa ?? 0), aktif: r.aktif,
+    })
+  }
+  return hasil
 }
 
 // ---------------------------------------------------------------------------

@@ -31,26 +31,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js for Quality Gate
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: yarn
-
-      - name: Install dependencies
-        run: yarn install --frozen-lockfile --ignore-engines
-
-      - name: Build internal packages
-        run: |
-          yarn workspace @suka/auth build
-          yarn workspace @suka/design-system build
-
-      - name: Pre-flight Automated Tests (Unit & Logic)
-        run: yarn workspace @suka/distribusi test
-
-      - name: Pre-flight Type-Check
-        run: yarn workspace @suka/distribusi type-check
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

@@ -67,7 +67,18 @@ serve(async (req) => {
       body,
       group_name,
       group_photo,
+      mentions,
     } = await req.json()
+
+    // Siapa yang namanya disebut. Dipakai untuk memberi mereka notifikasi yang
+    // berbeda — sama seperti WhatsApp, disebut namanya terasa lain dari sekadar
+    // ada pesan baru di grup.
+    const disebut: string[] = Array.isArray(mentions) ? mentions.filter((m) => typeof m === 'string') : []
+
+    // Jejak untuk menelusuri sebutan yang tidak sampai. Tanpa baris ini,
+    // "penanda tidak muncul" tidak bisa dibedakan antara trigger yang tidak
+    // mengirim daftarnya dan id yang tidak cocok dengan pemilik token.
+    console.log('send-chat-push: mentions =', JSON.stringify(mentions ?? null))
 
     if (!body) {
       return new Response(
@@ -96,7 +107,7 @@ serve(async (req) => {
       )
     }
 
-    const data: Record<string, string> = {
+    const dasar: Record<string, string> = {
       type: 'chat',
       title: group_name || 'Chat Tim',
       body: String(body),
@@ -107,12 +118,23 @@ serve(async (req) => {
       url: '/chat',
     }
 
+    // Payload dibangun PER PENERIMA, bukan sekali untuk semua. Fungsi ini memang
+    // sudah mengirim per token, jadi membedakan isinya tidak menambah satu pun
+    // panggilan jaringan.
+    //
+    // Isi pesannya TIDAK diubah — hanya penandanya yang ditambahkan. Aplikasi
+    // menggambar notifikasi chat dengan MessagingStyle, yang sudah menampilkan
+    // nama pengirim di depan pesannya; menyisipkan "X menyebut Anda:" ke dalam
+    // body akan membuat namanya tertulis dua kali dalam satu baris.
+    const untuk = (staffId: string): Record<string, string> =>
+      disebut.includes(staffId) ? { ...dasar, mention: '1' } : dasar
+
     const hasil = await Promise.allSettled(
-      tokens.map(async (t: { token: string }) => {
+      tokens.map(async (t: { token: string; staff_id: string }) => {
         try {
           await getMessaging().send({
             token: t.token,
-            data,
+            data: untuk(t.staff_id),
             android: { priority: 'high' },
           })
         } catch (e: any) {

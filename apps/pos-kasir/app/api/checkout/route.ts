@@ -4,6 +4,8 @@ import { validateCheckoutPayload } from '@/lib/validations'
 import type { CheckoutPayload } from '@/types'
 import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
 
+const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+
 export async function POST(request: Request) {
   let body: unknown
   try {
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
 
   const { data: { user } } = await supabaseAuth.auth.getUser()
   
-  let outlet_id = '550e8400-e29b-41d4-a716-446655440001' // Default to Pusat for Kiosk Mode
+  let outlet_id = PUSAT_OUTLET_ID // Default to Pusat for Kiosk Mode
 
   if (user) {
     const { data: profile } = await supabaseService
@@ -46,7 +48,7 @@ export async function POST(request: Request) {
     
     // If Admin is testing Kiosk, use the Pusat ID. Else use their outlet_id.
     if (profile.role === 'admin' && !profile.outlet_id) {
-       outlet_id = '550e8400-e29b-41d4-a716-446655440001'
+       outlet_id = PUSAT_OUTLET_ID
     } else if (profile.outlet_id) {
        outlet_id = profile.outlet_id
     } else {
@@ -58,7 +60,7 @@ export async function POST(request: Request) {
   const menuItemIds = payload.items.map((i) => i.menu_item_id)
   const { data: menuItems, error: menuError } = await supabaseService
     .from('menu_items')
-    .select('id, name, price, is_available')
+    .select('id, name, price, is_available, outlet_id')
     .in('id', menuItemIds)
 
   if (menuError) {
@@ -108,6 +110,20 @@ export async function POST(request: Request) {
     if (!menuItem) {
       return NextResponse.json(
         { error: `Menu tidak ditemukan (ID: ${reqItem.menu_item_id})` },
+        { status: 400 }
+      )
+    }
+
+    // Keep the server-side checkout boundary outlet-scoped. The client filters
+    // its catalog too, but a stale or tampered request must not order a menu
+    // item belonging to another outlet.
+    if (
+      menuItem.outlet_id !== null &&
+      menuItem.outlet_id !== outlet_id &&
+      menuItem.outlet_id !== PUSAT_OUTLET_ID
+    ) {
+      return NextResponse.json(
+        { error: `Menu "${menuItem.name}" tidak tersedia di outlet ini` },
         { status: 400 }
       )
     }
@@ -186,6 +202,10 @@ export async function POST(request: Request) {
       outlet_id: outlet_id,
       customer_name: payload.customer_name || null,
       notes: null,
+      // The kiosk checkout is a customer-facing self-order flow. Keep the
+      // source explicit so reports and native cashier screens do not classify
+      // these orders as ordinary POS orders via the database default.
+      source: 'kiosk',
       payment_method: payload.payment_method,
       total_amount: finalTotal,
       // Diskon promo per-item — dicatat untuk laporan, TIDAK mengubah total tagihan

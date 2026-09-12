@@ -133,7 +133,14 @@ export async function processVoidOrder(tokenId: string, action: 'approve' | 'rej
       return { success: false, error: 'Pengajuan sudah diproses' }
     }
 
-    if (request.requested_by === staff.id) {
+    // AM & RM dibebaskan dari penjaga swa-persetujuan: mereka kadang memakai POS
+    // sendiri, dan di outlet ber-AM tunggal pengajuannya tersangkut selamanya karena
+    // tak seorang pun boleh menutupnya. Disamakan dengan `process_void_request`
+    // (migrasi 20300205000000) supaya web dan native tidak berbeda perilaku. Leader
+    // tetap dijaga — itu satu-satunya peran yang merangkap kasir sekaligus penyetuju.
+    const bebasSwaPersetujuan =
+      staff.role === 'area_manager' || staff.role === 'regional_manager'
+    if (request.requested_by === staff.id && !bebasSwaPersetujuan) {
       return { success: false, error: 'Anda tidak bisa menyetujui pengajuan Anda sendiri' }
     }
 

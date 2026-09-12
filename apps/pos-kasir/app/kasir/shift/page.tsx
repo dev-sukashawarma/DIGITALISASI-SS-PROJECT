@@ -54,6 +54,8 @@ interface PettyCashTopup {
   creator?: { name: string | null } | null
   approved_at?: string | null
   approved_by?: string | null
+  leader_forwarded_at?: string | null
+  completed_at?: string | null
   proof_of_transfer_url?: string | null
 }
 
@@ -180,7 +182,10 @@ export default function CashierShiftPage() {
   const ledgerItems = useMemo<LedgerItem[]>(() => {
     const items: LedgerItem[] = []
     expenses.forEach(e => items.push({ type: 'expense', data: e, date: new Date(e.created_at) }))
-    topups.forEach(t => items.push({ type: 'topup', data: t, date: new Date(t.created_at) }))
+    topups.forEach(t => {
+      const topupDate = t.leader_forwarded_at || t.completed_at || t.approved_at || t.created_at
+      items.push({ type: 'topup', data: t, date: new Date(topupDate) })
+    })
     cashOrders.forEach(o => items.push({ type: 'sale', data: o, date: new Date(o.created_at) }))
     return items.sort((a, b) => b.date.getTime() - a.date.getTime())
   }, [expenses, topups, cashOrders])
@@ -260,9 +265,26 @@ export default function CashierShiftPage() {
           return items
         }
 
+        // Ambil shift tertutup sebelumnya untuk menangkap topup interim yang terbawa ke shift ini
+        const { data: lastClosedShift } = await supabase
+          .from('shifts')
+          .select('end_time, updated_at, start_time')
+          .eq('outlet_id', outletId)
+          .eq('status', 'closed')
+          .lt('start_time', shiftData.start_time)
+          .order('end_time', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        // Bila belum pernah ada shift tertutup sebelumnya (shift perdana outlet baru),
+        // gunakan epoch agar seluruh topup awal yang mendanai shift ini terbaca ke ledger
+        const prevCutoff = lastClosedShift
+          ? (lastClosedShift.end_time || lastClosedShift.updated_at || lastClosedShift.start_time)
+          : new Date(0).toISOString()
+
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time},leader_forwarded_at.gte.${shiftData.start_time}`),
+          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${prevCutoff},completed_at.gte.${prevCutoff},leader_forwarded_at.gte.${prevCutoff},approved_at.gte.${prevCutoff}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel, status, cancellation_status, void_reason, cancellation_reason').eq('outlet_id', outletId).in('status', ['completed', 'cancelled']).gte('created_at', shiftData.start_time)
         ])
 
@@ -279,14 +301,19 @@ export default function CashierShiftPage() {
 
         // RPC menjadi satu sumber saldo untuk Admin, Leader, Area Manager, dan POS.
         const startPetty = Number(shiftData.starting_petty_cash) || 0
-        const topupsTotal = snapTopups
-          .filter(t => SUDAH_DI_LACI.includes(t.status))
+        const shiftStartMs = new Date(shiftData.start_time).getTime()
+        const topupsDuringShift = snapTopups
+          .filter(t => {
+            if (!SUDAH_DI_LACI.includes(t.status)) return false
+            const tTime = new Date(t.leader_forwarded_at || t.completed_at || t.approved_at || t.created_at).getTime()
+            return tTime >= shiftStartMs
+          })
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotal = snapExpenses
           .filter(e => !e.deleted_at)
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
-        const fallbackBalance = startPetty + topupsTotal - expensesTotal
+        const fallbackBalance = startPetty + topupsDuringShift - expensesTotal
         calculatedBalance = snapshot ? Number(snapshot.current_balance) || 0 : fallbackBalance
         setPettyCashBalance(calculatedBalance)
       } else {
@@ -297,8 +324,9 @@ export default function CashierShiftPage() {
         setCashOrders([])
 
         if (snapshot) {
-          setStartingPettyCash(String(Number(snapshot.opening_balance) || 0))
-          setPettyCashLocked(Boolean(snapshot.pending_adjustment_id || snapshot.shift_id))
+          const openBal = Number(snapshot.opening_balance) || 0
+          setStartingPettyCash(String(openBal))
+          setPettyCashLocked(Boolean(snapshot.pending_adjustment_id || snapshot.shift_id || openBal > 0))
         } else {
         // Kunci nominal setoran awal Dana Operasional ke SISA PETTY CASH (ending_petty_cash)
         // shift terakhir yang sudah ditutup (closed) — BUKAN nominal tetap standar.
@@ -321,10 +349,10 @@ export default function CashierShiftPage() {
               // completed_at kosong untuk topup yang baru diserahkan Leader,
               // jadi patokan waktunya leader_forwarded_at.
               supabase.from('petty_cash_topups')
-                .select('amount, completed_at, leader_forwarded_at')
+                .select('amount, completed_at, leader_forwarded_at, approved_at, created_at')
                 .eq('outlet_id', outletId)
                 .in('status', SUDAH_DI_LACI)
-                .or(`completed_at.gt.${refTime},leader_forwarded_at.gt.${refTime}`),
+                .or(`completed_at.gt.${refTime},leader_forwarded_at.gt.${refTime},approved_at.gt.${refTime},created_at.gt.${refTime}`),
               supabase.from('petty_cash_expenses')
                 .select('amount')
                 .eq('outlet_id', outletId)
@@ -861,7 +889,7 @@ export default function CashierShiftPage() {
                                 </p>
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-gray-400">
                                   <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{top.creator?.name ?? '—'}</span>
-                                  <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(top.created_at)}</span>
+                                  <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{formatTime(top.leader_forwarded_at || top.completed_at || top.approved_at || top.created_at)}</span>
                                 </div>
                               </div>
                             </div>

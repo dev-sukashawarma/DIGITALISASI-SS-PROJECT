@@ -74,21 +74,17 @@ export default function ShiftBlockerMount() {
 
   async function calculateStartingPettyCash() {
     try {
-      const { data: sharedBalance, error: balanceError } = await supabase.rpc('get_petty_cash_balance', {
+      const { data: sharedSnapshot, error: snapshotError } = await supabase.rpc('get_petty_cash_snapshot', {
         p_outlet_id: outletId,
       })
 
-      if (!balanceError) {
-        const { count } = await supabase
-          .from('shifts')
-          .select('id', { count: 'exact', head: true })
-          .eq('outlet_id', outletId)
-
-        if ((count ?? 0) > 0) {
-          setStartingPettyCash(String(Number(sharedBalance) || 0))
-          setPettyCashLocked(true)
-          return
-        }
+      if (!snapshotError && sharedSnapshot) {
+        const snap = sharedSnapshot as any
+        const openBal = Number(snap.opening_balance) || 0
+        const shouldLock = Boolean(snap.pending_adjustment_id || snap.shift_id || openBal > 0)
+        setStartingPettyCash(String(openBal))
+        setPettyCashLocked(shouldLock)
+        return
       }
 
       const { data: lastShift } = await supabase
@@ -109,8 +105,8 @@ export default function ShiftBlockerMount() {
             supabase.from('petty_cash_topups')
               .select('amount')
               .eq('outlet_id', outletId)
-              .in('status', ['completed', 'approved'])
-              .gt('completed_at', refTime),
+              .in('status', ['forwarded_by_leader', 'approved', 'completed', 'approved_by_finance'])
+              .or(`completed_at.gt.${refTime},leader_forwarded_at.gt.${refTime},approved_at.gt.${refTime},created_at.gt.${refTime}`),
             supabase.from('petty_cash_expenses')
               .select('amount')
               .eq('outlet_id', outletId)

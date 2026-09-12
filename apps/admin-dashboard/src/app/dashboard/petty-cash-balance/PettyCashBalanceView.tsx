@@ -47,7 +47,7 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
   const { showConfirm } = useDialogStore()
   const [selectedOutletId, setSelectedOutletId] = useState('')
   const [targetBalance, setTargetBalance] = useState('')
-  const [note, setNote] = useState('')
+  const [note, setNote] = useState('Penyesuaian')
   const [isSaving, setIsSaving] = useState(false)
   const [isPending, startTransition] = useTransition()
 
@@ -76,12 +76,12 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
   useEffect(() => {
     if (!selectedOutletId) {
       setTargetBalance('')
-      setNote('')
+      setNote('Penyesuaian')
       return
     }
     const currentBal = currentBalances[selectedOutletId] ?? 0
     setTargetBalance(moneyInput(String(currentBal)))
-    setNote('')
+    setNote('Penyesuaian')
   }, [selectedOutletId])
 
   useEffect(() => {
@@ -149,7 +149,7 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
 
       // 2. Update input field to new balance and reset note
       setTargetBalance(moneyInput(String(newTarget)))
-      setNote('')
+      setNote('Penyesuaian')
 
       // 3. Immediately prepend the new adjustment to history list
       const newHistoryRow: PettyCashHistory = {

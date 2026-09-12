@@ -39,6 +39,8 @@ interface Expense {
   created_by?: string | null
   creator?: { name: string | null } | null
   receipt_url?: string | null
+  deleted_at?: string | null
+  delete_reason?: string | null
 }
 
 interface PettyCashTopup {
@@ -51,6 +53,8 @@ interface PettyCashTopup {
   creator?: { name: string | null } | null
   approved_at?: string | null
   approved_by?: string | null
+  leader_forwarded_at?: string | null
+  completed_at?: string | null
 }
 
 interface CashOrder {
@@ -123,14 +127,22 @@ export default function CloseShiftPage() {
     [activeShift, shiftSalesTotal],
   )
 
+  const SUDAH_DI_LACI = ['forwarded_by_leader', 'approved', 'completed', 'approved_by_finance']
+
   const approvedTopupsTotal = useMemo(() => {
+    if (!activeShift) return 0
+    const shiftStartMs = new Date(activeShift.start_time).getTime()
     return topups
-      .filter((t) => t.status === 'approved' || t.status === 'completed')
+      .filter((t) => {
+        if (!SUDAH_DI_LACI.includes(t.status)) return false
+        const tTime = new Date(t.leader_forwarded_at || t.completed_at || t.approved_at || t.created_at).getTime()
+        return tTime >= shiftStartMs
+      })
       .reduce((sum, t) => sum + Number(t.amount), 0)
-  }, [topups])
+  }, [topups, activeShift])
 
   const expensesTotal = useMemo(
-    () => expenses.reduce((s, e) => s + Number(e.amount), 0),
+    () => expenses.filter(e => !e.deleted_at).reduce((s, e) => s + Number(e.amount), 0),
     [expenses],
   )
 
@@ -173,7 +185,7 @@ export default function CloseShiftPage() {
       if (shiftData) {
         const [expRes, topRes, ordRes] = await Promise.all([
           supabase.from('petty_cash_expenses').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
-          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).gte('created_at', shiftData.start_time),
+          supabase.from('petty_cash_topups').select('*').eq('outlet_id', outletId).or(`created_at.gte.${shiftData.start_time},completed_at.gte.${shiftData.start_time},leader_forwarded_at.gte.${shiftData.start_time},approved_at.gte.${shiftData.start_time}`),
           supabase.from('orders').select('id, order_number, total_amount, created_at, payment_method, channel').eq('outlet_id', outletId).eq('status', 'completed').gte('created_at', shiftData.start_time)
         ])
 
@@ -185,10 +197,16 @@ export default function CloseShiftPage() {
         setCashOrders(snapCashOrders)
 
         const startPetty = Number(shiftData.starting_petty_cash) || 0
+        const shiftStartMs = new Date(shiftData.start_time).getTime()
         const topupsTotal = snapTopups
-          .filter(t => ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'].includes(t.status))
+          .filter(t => {
+            if (!SUDAH_DI_LACI.includes(t.status)) return false
+            const tTime = new Date(t.leader_forwarded_at || t.completed_at || t.approved_at || t.created_at).getTime()
+            return tTime >= shiftStartMs
+          })
           .reduce((sum, t) => sum + (Number(t.amount) || 0), 0)
         const expensesTotalLocal = snapExpenses
+          .filter(e => !e.deleted_at)
           .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
 
         const fallbackBalance = startPetty + topupsTotal - expensesTotalLocal

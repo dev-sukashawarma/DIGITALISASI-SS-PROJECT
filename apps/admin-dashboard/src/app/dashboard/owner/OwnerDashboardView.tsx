@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/ui'
 import type { PeriodFilterValue, Outlet, SalesSummaryRow } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { AggregatedMenuSales } from '@/app/actions/menuSales'
+import { revalidateOwnerDashboardCache } from '@/app/actions/ownerDashboard'
 import { Clock, RefreshCw } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { presetRange, diffDays } from '@/lib/period'
@@ -71,7 +72,10 @@ function RealtimeRefresher() {
   useEffect(() => {
     const invalidate = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(() => {
+      debounceRef.current = setTimeout(async () => {
+        try {
+          await revalidateOwnerDashboardCache()
+        } catch {}
         router.refresh()
       }, 800)
     }
@@ -161,7 +165,16 @@ export default function OwnerDashboardView({
             )}
           </div>
           <button
-            onClick={() => startTransition(() => router.refresh())}
+            onClick={() => {
+              startTransition(async () => {
+                try {
+                  await revalidateOwnerDashboardCache()
+                } catch (err) {
+                  console.error('Failed to revalidate owner dashboard cache:', err)
+                }
+                router.refresh()
+              })
+            }}
             disabled={isPending}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
             title="Muat ulang data dari database"

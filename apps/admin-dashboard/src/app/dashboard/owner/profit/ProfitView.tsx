@@ -43,6 +43,7 @@ import { bukuKasHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
+import { clearPeriodCache } from '@/lib/periodCache'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -122,23 +123,37 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
   const isPast = filter.to < todayJakarta
 
-  const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
-    queryClient.invalidateQueries({ queryKey: ['expenses'] })
-    queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
-    queryClient.invalidateQueries({ queryKey: ['waste'] })
-    queryClient.invalidateQueries({ queryKey: ['prorata-payroll-records'] })
-    queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
-    queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
-    queryClient.invalidateQueries({ queryKey: ['prorata-crew-bonus'] })
-    setLastUpdated(new Date().toISOString())
-    toast.success('Memperbarui data laba rugi dari database...')
+  const [isRefreshing, setIsRefreshing] = useState(false)
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      clearPeriodCache()
+      await Promise.all([
+        queryClient.refetchQueries({ queryKey: ['sales-daily'] }),
+        queryClient.refetchQueries({ queryKey: ['expenses'] }),
+        queryClient.refetchQueries({ queryKey: ['hpp-client-calculated'] }),
+        queryClient.refetchQueries({ queryKey: ['waste'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-payroll-records'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-staff-financials'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-rollover-expenses'] }),
+        queryClient.refetchQueries({ queryKey: ['prorata-crew-bonus'] }),
+      ])
+      setLastUpdated(new Date().toISOString())
+      toast.success('Memperbarui data laba rugi dari database...')
+    } catch (err) {
+      console.error('Failed to refresh profit data:', err)
+      toast.error('Gagal memperbarui data laba rugi')
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
   useEffect(() => {
     const invalidate = () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
       debounceRef.current = setTimeout(() => {
+        clearPeriodCache()
         queryClient.invalidateQueries({ queryKey: ['sales-daily'] })
         queryClient.invalidateQueries({ queryKey: ['expenses'] })
         queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
@@ -1026,11 +1041,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         <div className="flex items-center gap-2">
           <button
             onClick={handleRefresh}
-            disabled={loading}
+            disabled={loading || isRefreshing}
             className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
             title="Muat ulang data laba rugi dari database"
           >
-            <RefreshCw className={`w-3 h-3 text-suka-orange ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${loading || isRefreshing ? 'animate-spin' : ''}`} />
             <span>Segarkan Data</span>
           </button>
 

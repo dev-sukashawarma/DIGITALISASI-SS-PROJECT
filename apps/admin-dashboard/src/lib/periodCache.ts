@@ -18,9 +18,20 @@ export function todayJakarta(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
 }
 
-/** Periode tertutup = tanggal akhirnya sudah lewat menurut kalender Jakarta. */
+export function yesterdayJakarta(): string {
+  const today = todayJakarta()
+  const d = new Date(`${today}T00:00:00+07:00`)
+  d.setDate(d.getDate() - 1)
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(d)
+}
+
+/**
+ * Periode tertutup = tanggal akhirnya sebelum kemarin menurut kalender Jakarta.
+ * Tanggal "kemarin" dan "hari ini" BELUM tertutup mutlak karena sinkronisasi POS offline
+ * dan closing kasir sering baru tersinkronisasi pada hari berikutnya.
+ */
 export function isClosedPeriod(filter: Pick<PeriodFilterValue, 'to'>): boolean {
-  return Boolean(filter.to) && filter.to < todayJakarta()
+  return Boolean(filter.to) && filter.to < yesterdayJakarta()
 }
 
 const OPEN_STALE = 2 * 60_000
@@ -38,7 +49,7 @@ export function periodCacheOptions(filter: Pick<PeriodFilterValue, 'to'>) {
 // CLAUDE.md), dan yang kita butuhkan cuma read-through cache untuk periode
 // tertutup. Naikkan VERSION bila bentuk data yang disimpan berubah, agar entri
 // lama tidak dibaca dengan skema baru.
-const VERSION = 'v1'
+const VERSION = 'v2'
 const PREFIX = `rq-period:${VERSION}:`
 const MAX_BYTES = 1_500_000 // jauh di bawah kuota localStorage ~5 MB
 
@@ -86,7 +97,9 @@ export function clearPeriodCache(): void {
     const doomed: string[] = []
     for (let i = 0; i < window.localStorage.length; i++) {
       const k = window.localStorage.key(i)
-      if (k?.startsWith(PREFIX)) doomed.push(k)
+      if (k && (k.startsWith('rq-period:') || k.includes('sales-daily') || k.includes('hpp-client-calculated') || k.includes('waste'))) {
+        doomed.push(k)
+      }
     }
     doomed.forEach((k) => window.localStorage.removeItem(k))
   } catch {

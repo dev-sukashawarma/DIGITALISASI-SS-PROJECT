@@ -2,7 +2,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { unstable_cache, revalidateTag } from 'next/cache'
+import { unstable_cache, revalidateTag, revalidatePath } from 'next/cache'
 import { db } from '@/lib/supabase/server'
 import { createSupabaseServerClient } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
@@ -226,6 +226,8 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 
 export async function revalidateOwnerDashboardCache() {
   revalidateTag('owner-dashboard')
+  revalidatePath('/dashboard/owner')
+  revalidatePath('/dashboard/mitra')
 }
 
 const FULL_ACCESS_ROLES = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'admin_finance', 'purchasing']

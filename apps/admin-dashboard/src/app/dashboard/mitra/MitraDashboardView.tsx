@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useTransition, useRef } from 'react'
 import CountUp from 'react-countup'
 import { 
   TrendingUp, 
@@ -28,6 +28,7 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import type { PeriodFilterValue } from '@/lib/types'
 import { useMitraOutlet } from './MitraOutletContext'
+import { revalidateOwnerDashboardCache } from '@/app/actions/ownerDashboard'
 import { getMitraRoiStats } from '@/app/actions/mitraRoi'
 import { getMitraComprehensivePnl, type ComprehensiveMitraPnl } from '@/app/actions/mitraPnl'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
@@ -78,6 +79,7 @@ export function MitraDashboardView({
   isCached,
 }: any) {
   const router = useRouter()
+  const [isPending, startTransition] = useTransition()
   const supabase = createClient()
   const { selectedOutletId, setSelectedOutletId } = useMitraOutlet()
   
@@ -86,6 +88,31 @@ export function MitraDashboardView({
   const [isBiodataOpen, setIsBiodataOpen] = useState(false)
   const [pnlData, setPnlData] = useState<ComprehensiveMitraPnl | null>(null)
   const [isPnlLoading, setIsPnlLoading] = useState(true)
+  const [refreshCount, setRefreshCount] = useState(0)
+  const debounceRef = useRef<any>(null)
+
+  useEffect(() => {
+    const invalidate = () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(async () => {
+        try {
+          await revalidateOwnerDashboardCache()
+        } catch {}
+        setRefreshCount((c) => c + 1)
+        router.refresh()
+      }, 800)
+    }
+
+    const channel = supabase
+      .channel('mitra-sales-realtime-view')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
+      .subscribe()
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, router])
 
   // Top Menu ikut outlet yang dipilih. Nilai awal dari server ('all' = seluruh
   // outlet mitra ini); begitu dropdown diganti, daftar ditarik ulang khusus
@@ -131,7 +158,7 @@ export function MitraDashboardView({
     }
     loadStats()
     return () => { active = false }
-  }, [selectedOutletId, outlets])
+  }, [selectedOutletId, outlets, refreshCount])
 
   // Load Dynamic Comprehensive P&L
   useEffect(() => {
@@ -156,7 +183,7 @@ export function MitraDashboardView({
     }
     loadPnl()
     return () => { active = false }
-  }, [selectedOutletId, currentFilter, outlets])
+  }, [selectedOutletId, currentFilter, outlets, refreshCount])
 
   // Load Top Menu untuk outlet yang sedang dipilih
   useEffect(() => {
@@ -175,7 +202,7 @@ export function MitraDashboardView({
     }
     loadTopMenus()
     return () => { active = false }
-  }, [selectedOutletId, currentFilter, outlets])
+  }, [selectedOutletId, currentFilter, outlets, refreshCount])
 
   // Handle Download Bukti Transfer
   const handleDownloadTransfer = async (url: string) => {
@@ -415,11 +442,22 @@ export function MitraDashboardView({
             )}
           </div>
           <button
-            onClick={() => router.refresh()}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white/90 hover:bg-white border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+            onClick={() => {
+              startTransition(async () => {
+                try {
+                  await revalidateOwnerDashboardCache()
+                } catch (err) {
+                  console.error('Failed to revalidate cache:', err)
+                }
+                setRefreshCount((c) => c + 1)
+                router.refresh()
+              })
+            }}
+            disabled={isPending}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white/90 hover:bg-white border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
             title="Muat ulang data dari database"
           >
-            <RefreshCw className="w-3 h-3 text-suka-orange" />
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${isPending ? 'animate-spin' : ''}`} />
             <span>Segarkan Data</span>
           </button>
         </div>

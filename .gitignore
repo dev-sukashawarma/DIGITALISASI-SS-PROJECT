@@ -78,6 +78,58 @@ _tmp_*
 **/_tmp_*
 **/scratch/
 scratch/
+**/scratch_*
+**/scratch2.js
+**/scratch_fix_tri.js
+**/scratch_get_tables.js
+
+# Root ad-hoc inspection/test/maintenance scripts
+/*.js
+/*.mjs
+/*.cjs
+/*.ts
+!/tailwind.config.ts
+/*.txt
+
+# App-level ad-hoc scripts
+apps/**/scratch_*
+apps/**/scratch.*
+apps/**/check*.*
+apps/**/fix_*.*
+apps/**/migrate-*.*
+apps/**/force_*.*
+apps/**/get_fks.*
+apps/**/reload_schema.*
+apps/**/test-*.js
+apps/**/test-*.mjs
+apps/**/test-*.cjs
+apps/**/test_*.js
+apps/**/test_*.mjs
+apps/**/test_*.ts
+apps/**/test.js
+apps/**/update_*.*
+apps/**/fix-*.*
+apps/pos-kasir/setup_*.ts
+apps/pos-kasir/cleanup_*.js
+apps/pos-kasir/get_outlets.ts
+apps/pos-kasir/run_rls_migration.ts
+apps/pos-kasir/scripts/check_constraint.js
+apps/pos-kasir/scripts/fix_duplicates.js
+apps/pos-kasir/scripts/force_hours.js
+apps/pos-kasir/scripts/generate-outlet-sql.js
+apps/pos-kasir/scripts/sync_outlets.js
+apps/pos-kasir/scripts/test_mitra.js
+apps/portal/fix_*.js
+apps/finance/test_*.cjs
+apps/stok/fetch_bahan*.js
+scripts/update_cicurug_petty_cash_335800.js
+scripts/inject_cileungsi_petty_cash_500k.js
+
+# Preserve official unit test suites
+!apps/**/src/**/*.test.ts
+!apps/**/src/**/*.test.tsx
+!apps/**/src/**/*.spec.ts
+!apps/**/src/**/*.spec.tsx
 
 # SS COGS SET — media/data referensi (binari besar, jangan commit)
 SS COGS SET/**/*.jpeg

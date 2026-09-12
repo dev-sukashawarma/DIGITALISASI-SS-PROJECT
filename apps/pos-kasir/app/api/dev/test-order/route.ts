@@ -11,8 +11,8 @@ export async function POST(req: Request) {
 
     // Bikin client ke Sistem Order menggunakan SERVICE ROLE KEY untuk memotong RLS
     // Kredensial di-hardcode khusus untuk dev testing agar tidak perlu repot setup env di Vercel
-    const SS_ORDER_URL = "https://qntuhtkujpwudcpudwbj.supabase.co";
-    const SS_ORDER_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFudHVodGt1anB3dWRjcHVkd2JqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3OTI1MzI2NywiZXhwIjoyMDk0ODI5MjY3fQ.aYtkLDltwLjCoULF-i4Jgt_s3D8N5G9tHDDoEe2zju4";
+    const SS_ORDER_URL = process.env.SS_ORDER_URL || "https://qntuhtkujpwudcpudwbj.supabase.co";
+    const SS_ORDER_KEY = process.env.SS_ORDER_SERVICE_ROLE_KEY || process.env.SS_ORDER_KEY || "";
 
     if (!SS_ORDER_URL || !SS_ORDER_KEY) {
       return NextResponse.json({ error: "Kredensial SS_ORDER tidak ditemukan" }, { status: 500 });

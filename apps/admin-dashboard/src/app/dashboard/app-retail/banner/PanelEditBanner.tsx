@@ -6,9 +6,16 @@ import { X, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { simpanBanner } from '../actions'
 import { periksaBanner, type InputBanner, type AksiBanner } from '@/lib/appRetail/bannerForm'
+import { kompresGambarBanner } from '@/lib/appRetail/kompresGambar'
 
 // Nama bucket hasil verifikasi Task 4 Langkah 1. JANGAN diketik dari ingatan.
 const BUCKET = 'app-banners'
+
+function kb(byte: number): string {
+  return byte >= 1024 * 1024
+    ? `${(byte / (1024 * 1024)).toFixed(1)} MB`
+    : `${Math.max(1, Math.round(byte / 1024))} KB`
+}
 
 export default function PanelEditBanner(props: {
   awal: InputBanner
@@ -21,6 +28,7 @@ export default function PanelEditBanner(props: {
   const [galat, setGalat] = useState<string | null>(null)
   const [sibuk, setSibuk] = useState(false)
   const [mengunggah, setMengunggah] = useState(false)
+  const [ringkasUnggah, setRingkasUnggah] = useState<string | null>(null)
 
   // (1) Mengganti aksi WAJIB mengosongkan target. Tanpa ini, admin yang
   // sempat memilih menu lalu berpindah ke "buka Menu" akan ditolak
@@ -33,14 +41,26 @@ export default function PanelEditBanner(props: {
   // jadi nama bucket yang salah membuat foto hilang tanpa satu pun pesan.
   async function unggah(file: File) {
     setGalat(null)
+    setRingkasUnggah(null)
     setMengunggah(true)
     try {
+      // (2b) Kompresi dulu. `kompresGambarBanner` tidak pernah melempar dan
+      // mengembalikan berkas asli bila kompresi tak berlaku atau tak menghemat,
+      // jadi unggahnya tetap jalan apa pun hasilnya.
+      const asli = file
+      const berkas = await kompresGambarBanner(file)
+
       const supabase = createClient()
-      const nama = `${Date.now()}-${file.name.replace(/[^\w.-]/g, '_')}`
-      const { error } = await supabase.storage.from(BUCKET).upload(nama, file)
+      const nama = `${Date.now()}-${berkas.name.replace(/[^\w.-]/g, '_')}`
+      const { error } = await supabase.storage.from(BUCKET).upload(nama, berkas)
       if (error) throw error
       const { data } = supabase.storage.from(BUCKET).getPublicUrl(nama)
       setForm((s) => ({ ...s, gambarUrl: data.publicUrl }))
+      setRingkasUnggah(
+        berkas.size < asli.size
+          ? `Dikecilkan ${kb(asli.size)} → ${kb(berkas.size)}.`
+          : `Diunggah apa adanya (${kb(asli.size)}).`,
+      )
     } catch (e) {
       setGalat(`Gambar gagal diunggah: ${e instanceof Error ? e.message : 'sebab tidak diketahui'}`)
     } finally {
@@ -185,8 +205,11 @@ export default function PanelEditBanner(props: {
             />
             {mengunggah && (
               <p className="text-xs text-slate-500 flex items-center gap-1">
-                <Loader2 className="w-3 h-3 animate-spin" /> Mengunggah…
+                <Loader2 className="w-3 h-3 animate-spin" /> Mengecilkan &amp; mengunggah…
               </p>
+            )}
+            {!mengunggah && ringkasUnggah && (
+              <p className="text-xs text-slate-500">{ringkasUnggah}</p>
             )}
           </div>
 

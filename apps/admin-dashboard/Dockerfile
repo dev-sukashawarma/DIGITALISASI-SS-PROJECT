@@ -1,12 +1,12 @@
 # Multi-stage Dockerfile for Next.js app (@suka/admin-dashboard)
-# Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
+# Built from the monorepo root so shared @suka packages resolve correctly.
 
 # --- Stage 1: Build Next.js application ---
 FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
 # Copy manifests for yarn workspaces resolution
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+COPY package.json yarn.lock .npmrc* tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
@@ -39,6 +39,7 @@ ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
 # Build the application
+WORKDIR /repo
 RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/admin-dashboard build
 
 # --- Stage 2: Ultra-lightweight Production Runner ---
@@ -47,15 +48,23 @@ WORKDIR /repo/apps/admin-dashboard
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
-# (fresh FROM). Server Actions/Route Handlers baca process.env di RUNTIME,
-# jadi harus di-re-declare di sini juga, bukan cuma di builder.
+# Server-only secrets & public variables for runtime
+ARG NEXT_PUBLIC_COOKIE_DOMAIN
+ARG NEXT_PUBLIC_PORTAL_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
 ARG CRON_SECRET
 ARG GUDANG_MAGIC_TOKEN
 ARG ORDER_ONLINE_SERVICE_ROLE_KEY
 ARG ORDER_ONLINE_SUPABASE_URL
+
+ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
+ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 ENV CRON_SECRET=$CRON_SECRET
 ENV GUDANG_MAGIC_TOKEN=$GUDANG_MAGIC_TOKEN
@@ -63,7 +72,7 @@ ENV ORDER_ONLINE_SERVICE_ROLE_KEY=$ORDER_ONLINE_SERVICE_ROLE_KEY
 ENV ORDER_ONLINE_SUPABASE_URL=$ORDER_ONLINE_SUPABASE_URL
 
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/admin-dashboard/node_modules /repo/apps/admin-dashboard/node_modules/
+COPY --from=builder /repo/apps/admin-dashboard/node_module[s] /repo/apps/admin-dashboard/node_modules/
 COPY --from=builder /repo/apps/admin-dashboard/package.json ./package.json
 COPY --from=builder /repo/apps/admin-dashboard/.next ./.next
 COPY --from=builder /repo/apps/admin-dashboard/public ./public

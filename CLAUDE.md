@@ -2463,12 +2463,67 @@ sebelum akhirnya ketahuan salah:
    multi-vendor. Sampai bahan itu punya titik awal, penjaganya **sengaja
    dimatikan by design** — vendor tetap tercatat, kiriman tidak diblokir.
 
+### Gelombang perbaikan setelah review whole-branch (migration `20260912100000`)
+Keempat migration awal sudah applied & terstempel, jadi koreksi dikirim sebagai
+migration BARU — bukan dengan menyunting berkas yang sudah diterapkan.
+1. **🔴 Harga salah satuan (uang).** `fill_harga_snapshot` mengambil
+   `bahan_baku_supplier.harga` apa adanya, padahal kolom itu dihargai per
+   `satuan_beli` sedangkan `harga_snapshot` dikonsumsi per **satuan besar**
+   (`hpp_barang_masuk_harian_spv` mengalikannya dengan `qty_terima`; fallback
+   master `bahan_baku_harga.harga_beli` juga per satuan besar). 12 dari 14 bahan
+   multi-vendor berasio 1,000 — **FOIL tidak** (`roll` vs `Dus`): katalog 11.554
+   (Ekadharma, isi 760) & 8.791 (Altindo, isi 500) vs master 421.977,6, jadi
+   kiriman FOIL pertama akan mencatat ~2% nilai sebenarnya. Sekarang dikonversi
+   `harga / isi_satuan_kecil × faktor_tampilan` (Ekadharma → **554.592**,
+   Altindo → **641.391,36**), dan **hanya** bila baris katalog bisa
+   direkonsiliasi (`isi_satuan_kecil > 0` dan `faktor_tampilan > 0`); selain itu
+   katalog dilewati dan jatuh ke harga master — menebak lebih berbahaya daripada
+   tidak menjawab (mis. PLASTIK 24, `faktor_tampilan` NULL).
+2. **Pemilih vendor buntu di hari pertama.** Sebelum sebuah bahan punya hitung
+   fisik, tak ada vendor yang `aktif` → `alokasiAwal` mengembalikan `[]` untuk
+   **setiap** bahan multi-vendor (keadaan SEMUA bahan pada hari pertama);
+   `+ pecah vendor` tersembunyi, dan mengklik radio vendor mengirim qty 0 →
+   "Jumlah X harus lebih dari 0" dengan Setujui mati dan tanpa jalan keluar.
+   Pemilih kini menerima `qtyTarget` dan memilih satu vendor berarti vendor itu
+   menanggung **seluruh** qty baris — di kedua salinan (stok & distribusi).
+3. **`GUDANG SS ONLINE` ikut ke-match.** `isGudang` di `OpnameForm.tsx` mencocok
+   **nama** yang memuat "GUDANG", jadi outlet aktif kedua itu ikut merender
+   sub-baris vendor lalu ditolak `simpan_hitung_vendor`; karena
+   `saveVendorHitung` melempar, **Simpan Draft dan Finalisasi sama-sama gagal
+   total**. Fitur vendor kini dikunci ke id Gudang Pusat
+   (`d23e11b3-23f1-4f9a-b428-cc73e1aa9b90`) lewat `isGudangPusat`; `isGudang`
+   berbasis nama **dipertahankan** untuk penyaringan bahan bersumber Gudang
+   Pusat (semantiknya memang longgar di situ).
+4. **Gagal muat vendor dulu senyap.** Di `SuratJalanForm.tsx`, kegagalan RPC
+   `saldo_vendor_gudang` hanya `console.error`; `saldoVendor` tetap `{}` →
+   semua bahan tampak satu-vendor → form menulis baris **tanpa `vendor_id`**,
+   yang ditolak penjaga saat dikirim = surat jalan yang tak pernah bisa
+   berangkat. Kini ada `vendorsLoaded`/`vendorError` (pola yang sama dengan
+   `OpnameForm`): banner merah + toast dan submit ditahan. Ini terjangkau
+   **tanpa gangguan jaringan** karena `isPusatSender` memuat `admin_hr`
+   sedangkan daftar role di RPC tidak — daftar role RPC **sengaja tidak
+   dilebarkan**, cukup gagal dengan berisik dan aman.
+
+### 🔴 Dua utang definisi yang didokumentasikan, bukan di-rename
+(a) **`approve_permintaan_svc` kehilangan blok debit budget outlet.** Versi yang
+ditulis ulang di `20260911152000` tidak lagi memuat `v_total_debit` /
+`outlet_balance` / `outlet_balance_ledger` `MATERIAL_PURCHASE` yang ada pada
+definisi terakhir ter-commit di `20260820110001_outlet_budget_topup_ledger.sql`.
+Blok itu **sudah inert di produksi sebelum branch ini** (kedua tabel 0 baris
+meski 202 approval sejak 20 Agu), jadi ini **bukan regresi yang hidup** — tetapi
+definisi kanonik di repo kini menghilangkannya, dan bila dompet budget kelak
+dinyalakan ia akan **diam-diam tidak tersambung**.
+
+(b) **`create_surat_jalan` juga didefinisikan oleh
+`20300109000004_grant_purchasing_kitchen_stok_access.sql`**, yang terurut
+**SETELAH** berkas kita (ranjau timestamp 2030). Replay dari nol akan memulihkan
+versi **tanpa `vendor_id`** sementara penjaganya tetap aktif — **tak ada yang
+bisa dikirim**. Produksi aman karena kedua berkas sudah terstempel. Mengikuti
+preseden repo (situasi sama, 2026-09-09): **didokumentasikan, bukan di-rename**.
+
 ### Follow-up yang diketahui, sengaja tidak diperbaiki di sesi ini
 - Resume draft opname sisi-server tidak membawa sub-baris per-vendor lintas
   browser (localStorage membawanya; agregat basi sudah dicegah lewat filter).
-- Di pemilih vendor: kalau tak ada satu vendor pun yang bisa menutup seluruh
-  permintaan, mengklik satu vendor menghasilkan qty 0 sampai user menekan
-  "+ pecah vendor".
 
 ### Artefak
 - Pemantau: `supabase/verifikasi/saldo_vendor/pemantau.sql` (Q1 selisih sisa
@@ -2482,6 +2537,9 @@ sebelum akhirnya ketahuan salah:
   (mulai dari SAPI — sudah punya 2 vendor terverifikasi).
 - Jalankan `pemantau.sql` (satu query per giliran, lihat catatan di kepala file)
   setelah redeploy & setelah hitung fisik pertama; Q3 harus turun ke 0.
+- **Apply `20260912100000_fix_harga_snapshot_satuan_vendor.sql`** (belum
+  di-apply) sebelum kiriman FOIL pertama — tanpa itu harga snapshot FOIL salah
+  ~48×/73× ke bawah.
 
 ---
 

@@ -36,4 +36,5 @@ export interface BuatPermintaanItemInput {
 export interface ApproveItemInput {
   bahan_baku_id: string
   qty_disetujui: number
+  alokasi?: { vendor_id: string; qty: number }[]
 }

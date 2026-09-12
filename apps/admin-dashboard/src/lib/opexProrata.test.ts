@@ -193,4 +193,121 @@ describe('opexProrata - calculateProratedExpenses', () => {
     const gajiRow = res.rows.find(r => r.category === 'gaji_crew_outlet')
     expect(gajiRow?.amount).toBe(5_000_000)
   })
+
+  it('memprorata bonus crew, AM, dan RM berdasarkan data penjualan porsi pcs MTD', () => {
+    // Outlet-1 memiliki penjualan 1.000 pcs dalam 12 hari (MTD)
+    // Bonus Kru: 1.000 pcs * Rp 100 = Rp 100.000
+    // Bonus AM: 1.000 pcs * Rp 50 = Rp 50.000
+    // Bonus RM: 1.000 pcs * Rp 50 = Rp 50.000
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-12', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      crewBonusRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_bonus: 100_000,
+          total_pcs_outlet: 1_000,
+        },
+      ],
+      now: mockNow,
+      outlets: [{ id: 'outlet-1', name: 'SS Pogung' }],
+    })
+
+    expect(res.isProrated).toBe(true)
+
+    // Bonus Crew
+    const crewRow = res.rows.find(r => r.category === 'bonus_crew')
+    expect(crewRow).toBeDefined()
+    expect(crewRow?.amount).toBe(100_000)
+    expect(res.categoryBreakdown.bonus_crew.source).toBe('sales_pcs_mtd')
+
+    // Bonus AM
+    const amRow = res.rows.find(r => r.category === 'bonus_area_manager')
+    expect(amRow).toBeDefined()
+    expect(amRow?.amount).toBe(50_000)
+    expect(res.categoryBreakdown.bonus_area_manager.source).toBe('sales_pcs_mtd')
+
+    // Bonus RM
+    const rmRow = res.rows.find(r => r.category === 'bonus_regional_manager')
+    expect(rmRow).toBeDefined()
+    expect(rmRow?.amount).toBe(50_000)
+    expect(res.categoryBreakdown.bonus_regional_manager.source).toBe('sales_pcs_mtd')
+  })
+
+  it('memprorata bonus harian (1 hari) secara proporsional', () => {
+    // Filter 1 hari (12 September), overlapDays = 1, curDay = 12
+    // MTD bonus kru = 120.000 -> projected bulanan = 120.000 / 12 * 30 = 300.000
+    // Prorata 1 hari = round(300.000 * 1/30) = 10.000
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-12', to: '2026-09-12', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      crewBonusRecords: [
+        {
+          outlet_id: 'outlet-1',
+          total_bonus: 120_000,
+          total_pcs_outlet: 1_200,
+        },
+      ],
+      now: mockNow,
+      outlets: [{ id: 'outlet-1', name: 'SS Pogung' }],
+    })
+
+    const crewRow = res.rows.find(r => r.category === 'bonus_crew')
+    expect(crewRow?.amount).toBe(10_000)
+
+    // Bonus AM: MTD pcs = 1200 * 50 = 60.000 -> projected = 150.000 -> 1 hari = 5.000
+    const amRow = res.rows.find(r => r.category === 'bonus_area_manager')
+    expect(amRow?.amount).toBe(5_000)
+  })
+
+  it('menggunakan transaksi riil bonus jika Finance sudah menginput di tabel expenses', () => {
+    const realBonus: ExpenseRow = {
+      id: 'bonus-real-1',
+      outlet_id: 'outlet-1',
+      outlet_name: 'SS Pogung',
+      category: 'bonus_crew',
+      scope: 'outlet',
+      amount: 1_500_000,
+      description: 'Bonus kru riil',
+      expense_date: '2026-09-10',
+      period_month: '2026-09-01',
+      source: 'monthly',
+    }
+
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-12', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [realBonus],
+      crewBonusRecords: [
+        // Meskipun ada hitungan live pcs, transaksi riil harus merekonsiliasi (menggantikan)
+        { outlet_id: 'outlet-1', total_bonus: 100_000, total_pcs_outlet: 1_000 },
+      ],
+      now: mockNow,
+      outlets: [{ id: 'outlet-1', name: 'SS Pogung' }],
+    })
+
+    // 12/30 * 1.500.000 = 600.000
+    const crewRow = res.rows.find(r => r.category === 'bonus_crew')
+    expect(crewRow?.amount).toBe(600_000)
+    expect(res.categoryBreakdown.bonus_crew.source).toBe('expenses_real')
+    // Hanya 1 baris bonus crew yang dihasilkan (tidak double count)
+    expect(res.rows.filter(r => r.category === 'bonus_crew').length).toBe(1)
+  })
+
+  it('fallback ke rollover bonus bulan lalu jika belum ada porsi terjual di bulan berjalan', () => {
+    const res = calculateProratedExpenses({
+      filter: { from: '2026-09-01', to: '2026-09-12', outletId: 'outlet-1', source: 'all' },
+      rawExpenses: [],
+      crewBonusRecords: [], // belum ada pcs penjualan
+      lastMonthExpenses: [
+        { outlet_id: 'outlet-1', category: 'bonus_area_manager', amount: 900_000 },
+      ],
+      now: mockNow,
+      outlets: [{ id: 'outlet-1', name: 'SS Pogung' }],
+    })
+
+    // 12/30 * 900.000 = 360.000
+    const amRow = res.rows.find(r => r.category === 'bonus_area_manager')
+    expect(amRow?.amount).toBe(360_000)
+    expect(res.categoryBreakdown.bonus_area_manager.source).toBe('last_month_rollover')
+  })
 })

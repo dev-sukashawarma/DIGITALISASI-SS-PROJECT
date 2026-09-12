@@ -42,6 +42,7 @@ import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { bukuKasHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
 import { useProratedOpex } from '@/hooks/useProratedOpex'
+import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -129,6 +130,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     queryClient.invalidateQueries({ queryKey: ['prorata-payroll-records'] })
     queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
     queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
+    queryClient.invalidateQueries({ queryKey: ['prorata-crew-bonus'] })
     setLastUpdated(new Date().toISOString())
     toast.success('Memperbarui data laba rugi dari database...')
   }
@@ -144,6 +146,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['prorata-payroll-records'] })
         queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
         queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
+        queryClient.invalidateQueries({ queryKey: ['prorata-crew-bonus'] })
       }, 600)
     }
 
@@ -352,7 +355,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       })
     return [...perKategori.entries()]
       .map(([kategori, jumlah]) => {
-        const isCatProrated = isProrated && ['gaji_crew_outlet', 'sewa_outlet', 'internet'].includes(kategori)
+        const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori)
         const baseLabel = CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori
         const label = isCatProrated
           ? `${baseLabel} (Prorata ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} hr)`

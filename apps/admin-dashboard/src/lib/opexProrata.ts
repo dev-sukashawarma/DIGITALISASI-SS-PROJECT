@@ -10,7 +10,14 @@ import type { ExpenseRow } from '@/hooks/useExpenses'
 import type { PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet } from '@/lib/outletFilters'
 
-export const PRORATED_CATEGORIES = ['gaji_crew_outlet', 'sewa_outlet', 'internet'] as const
+export const PRORATED_CATEGORIES = [
+  'gaji_crew_outlet',
+  'sewa_outlet',
+  'internet',
+  'bonus_crew',
+  'bonus_area_manager',
+  'bonus_regional_manager',
+] as const
 export type ProratedCategory = (typeof PRORATED_CATEGORIES)[number]
 
 export interface StaffSalaryBaseline {
@@ -25,12 +32,19 @@ export interface RolloverExpenseBaseline {
   amount: number
 }
 
+export interface CrewBonusRecord {
+  outlet_id: string
+  total_bonus: number
+  total_pcs_outlet?: number
+}
+
 export interface ProrataMonthInfo {
   year: number
   month: number // 1-indexed (1 = Januari, 9 = September)
   firstDay: string // YYYY-MM-01
   lastDay: string // YYYY-MM-DD
   totalDays: number
+  todayDay: number
   overlapDays: number
   ratio: number // overlapDays / totalDays
   isCurrentMonth: boolean
@@ -44,10 +58,12 @@ export function getJakartaCurrentMonthInfo(now = new Date()): {
   lastDay: string
   totalDays: number
   todayStr: string
+  todayDay: number
 } {
   const jkt = new Date(now.getTime() + 7 * 3600 * 1000)
   const year = jkt.getUTCFullYear()
   const month = jkt.getUTCMonth() + 1
+  const todayDay = jkt.getUTCDate()
   const todayStr = jkt.toISOString().slice(0, 10)
 
   const mm = String(month).padStart(2, '0')
@@ -55,7 +71,7 @@ export function getJakartaCurrentMonthInfo(now = new Date()): {
   const firstDay = `${year}-${mm}-01`
   const lastDay = `${year}-${mm}-${String(totalDays).padStart(2, '0')}`
 
-  return { year, month, firstDay, lastDay, totalDays, todayStr }
+  return { year, month, firstDay, lastDay, totalDays, todayStr, todayDay }
 }
 
 /** Menghitung irisan hari antara rentang filter dan bulan berjalan */
@@ -77,6 +93,7 @@ export function calculateMonthOverlap(
       firstDay: cur.firstDay,
       lastDay: cur.lastDay,
       totalDays: cur.totalDays,
+      todayDay: cur.todayDay,
       overlapDays: 0,
       ratio: 0,
       isCurrentMonth: false,
@@ -94,6 +111,7 @@ export function calculateMonthOverlap(
     firstDay: cur.firstDay,
     lastDay: cur.lastDay,
     totalDays: cur.totalDays,
+    todayDay: cur.todayDay,
     overlapDays,
     ratio,
     isCurrentMonth: true,
@@ -108,6 +126,9 @@ export interface ProratedExpenseResult {
     gaji_crew_outlet: { nominalBulanan: number; nominalProrata: number; source: string }
     sewa_outlet: { nominalBulanan: number; nominalProrata: number; source: string }
     internet: { nominalBulanan: number; nominalProrata: number; source: string }
+    bonus_crew: { nominalBulanan: number; nominalProrata: number; source: string }
+    bonus_area_manager: { nominalBulanan: number; nominalProrata: number; source: string }
+    bonus_regional_manager: { nominalBulanan: number; nominalProrata: number; source: string }
   }
 }
 
@@ -122,6 +143,7 @@ export interface CalculateProrataInput {
     allowance_presence?: number
   }[]
   lastMonthExpenses?: RolloverExpenseBaseline[]
+  crewBonusRecords?: CrewBonusRecord[]
   now?: Date
   outlets?: { id: string; name: string }[]
 }
@@ -136,6 +158,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     payrollRecords = [],
     staffFinancials = [],
     lastMonthExpenses = [],
+    crewBonusRecords = [],
     now = new Date(),
     outlets = [],
   } = input
@@ -147,6 +170,9 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     gaji_crew_outlet: { nominalBulanan: 0, nominalProrata: 0, source: 'none' },
     sewa_outlet: { nominalBulanan: 0, nominalProrata: 0, source: 'none' },
     internet: { nominalBulanan: 0, nominalProrata: 0, source: 'none' },
+    bonus_crew: { nominalBulanan: 0, nominalProrata: 0, source: 'none' },
+    bonus_area_manager: { nominalBulanan: 0, nominalProrata: 0, source: 'none' },
+    bonus_regional_manager: { nominalBulanan: 0, nominalProrata: 0, source: 'none' },
   }
 
   // Jika bukan bulan berjalan atau tidak ada irisan hari, kembalikan data riil 100%
@@ -176,12 +202,17 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     cat === 'salary' ||
     cat === 'gaji' ||
     cat === 'sewa' ||
-    cat === 'wifi'
+    cat === 'wifi' ||
+    cat === 'bonus_leader' ||
+    cat === 'bonus_korlap'
 
   const normalizeCategory = (cat: string): ProratedCategory => {
     if (cat === 'salary' || cat === 'gaji' || cat === 'gaji_crew_outlet') return 'gaji_crew_outlet'
     if (cat === 'sewa' || cat === 'sewa_outlet') return 'sewa_outlet'
     if (cat === 'wifi' || cat === 'internet') return 'internet'
+    if (cat === 'bonus_leader' || cat === 'bonus_crew') return 'bonus_crew'
+    if (cat === 'bonus_area_manager' || cat === 'bonus_korlap') return 'bonus_area_manager'
+    if (cat === 'bonus_regional_manager') return 'bonus_regional_manager'
     return cat as ProratedCategory
   }
 
@@ -217,6 +248,9 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
     lastMonthExpenses.forEach(l => {
       if (l.outlet_id && !isTestOutlet(l.outlet_id)) targetOutletIds.add(l.outlet_id)
     })
+    crewBonusRecords.forEach(c => {
+      if (c.outlet_id && !isTestOutlet(c.outlet_id)) targetOutletIds.add(c.outlet_id)
+    })
     currentMonthRealFixed.forEach((_, oid) => {
       if (oid !== 'ALL' && !isTestOutlet(oid)) targetOutletIds.add(oid)
     })
@@ -235,6 +269,20 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   let totalInternetBulanan = 0
   let totalInternetProrata = 0
   let internetSource = 'none'
+
+  let totalBonusCrewBulanan = 0
+  let totalBonusCrewProrata = 0
+  let bonusCrewSource = 'none'
+
+  let totalBonusAmBulanan = 0
+  let totalBonusAmProrata = 0
+  let bonusAmSource = 'none'
+
+  let totalBonusRmBulanan = 0
+  let totalBonusRmProrata = 0
+  let bonusRmSource = 'none'
+
+  const curDay = Math.max(1, Math.min(monthInfo.todayDay, monthInfo.totalDays))
 
   for (const outletId of targetOutletIds) {
     const outletName = outletNameMap.get(outletId) ?? 'Outlet'
@@ -366,6 +414,160 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         source: 'monthly',
       })
     }
+
+    // --- D. BONUS CREW ---
+    let crewBonusMonthly = 0
+    let oCrewBonusSource: 'expenses_real' | 'sales_pcs_mtd' | 'last_month_rollover' | 'none' = 'none'
+    let effectiveCrewMtdBonus = 0
+
+    const realCrewBonus = currentMonthRealFixed.get(outletId)?.get('bonus_crew') ?? 0
+    if (realCrewBonus > 0) {
+      crewBonusMonthly = realCrewBonus
+      oCrewBonusSource = 'expenses_real'
+    } else {
+      const cRows = crewBonusRecords.filter(c => c.outlet_id === outletId)
+      const outletCrewBonusMtd = cRows.reduce((sum, c) => sum + (Number(c.total_bonus) || 0), 0)
+      const outletPcs = cRows.length > 0 ? (Number(cRows[0].total_pcs_outlet) || 0) : 0
+      effectiveCrewMtdBonus = outletCrewBonusMtd > 0 ? outletCrewBonusMtd : outletPcs * 100
+
+      if (effectiveCrewMtdBonus > 0) {
+        crewBonusMonthly = Math.round((effectiveCrewMtdBonus / curDay) * monthInfo.totalDays)
+        oCrewBonusSource = 'sales_pcs_mtd'
+      } else {
+        const lastMonthBonus = lastMonthExpenses
+          .filter(e => e.outlet_id === outletId && (e.category === 'bonus_crew' || e.category === 'bonus_leader'))
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+        if (lastMonthBonus > 0) {
+          crewBonusMonthly = lastMonthBonus
+          oCrewBonusSource = 'last_month_rollover'
+        }
+      }
+    }
+
+    if (crewBonusMonthly > 0) {
+      const proratedCrewBonus = (oCrewBonusSource === 'sales_pcs_mtd' && monthInfo.overlapDays === curDay)
+        ? effectiveCrewMtdBonus
+        : Math.round(crewBonusMonthly * monthInfo.ratio)
+
+      totalBonusCrewBulanan += crewBonusMonthly
+      totalBonusCrewProrata += proratedCrewBonus
+      if (bonusCrewSource === 'none') bonusCrewSource = oCrewBonusSource
+
+      proratedRows.push({
+        id: `prorata-bonus-crew-${outletId}`,
+        outlet_id: outletId,
+        outlet_name: outletName,
+        category: 'bonus_crew',
+        scope: 'outlet',
+        amount: proratedCrewBonus,
+        description: `Prorata Bonus Crew (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        expense_date: filter.to,
+        period_month: monthInfo.firstDay,
+        source: 'monthly',
+      })
+    }
+
+    // --- E. BONUS AREA MANAGER (AM) ---
+    let amBonusMonthly = 0
+    let oAmBonusSource: 'expenses_real' | 'sales_pcs_mtd' | 'last_month_rollover' | 'none' = 'none'
+    let effectiveAmMtdBonus = 0
+
+    const realAmBonus = currentMonthRealFixed.get(outletId)?.get('bonus_area_manager') ?? 0
+    if (realAmBonus > 0) {
+      amBonusMonthly = realAmBonus
+      oAmBonusSource = 'expenses_real'
+    } else {
+      const cRows = crewBonusRecords.filter(c => c.outlet_id === outletId)
+      const outletPcs = cRows.length > 0 ? (Number(cRows[0].total_pcs_outlet) || 0) : 0
+      effectiveAmMtdBonus = outletPcs * 50
+
+      if (effectiveAmMtdBonus > 0) {
+        amBonusMonthly = Math.round((effectiveAmMtdBonus / curDay) * monthInfo.totalDays)
+        oAmBonusSource = 'sales_pcs_mtd'
+      } else {
+        const lastMonthAM = lastMonthExpenses
+          .filter(e => e.outlet_id === outletId && (e.category === 'bonus_area_manager' || e.category === 'bonus_korlap'))
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+        if (lastMonthAM > 0) {
+          amBonusMonthly = lastMonthAM
+          oAmBonusSource = 'last_month_rollover'
+        }
+      }
+    }
+
+    if (amBonusMonthly > 0) {
+      const proratedAmBonus = (oAmBonusSource === 'sales_pcs_mtd' && monthInfo.overlapDays === curDay)
+        ? effectiveAmMtdBonus
+        : Math.round(amBonusMonthly * monthInfo.ratio)
+
+      totalBonusAmBulanan += amBonusMonthly
+      totalBonusAmProrata += proratedAmBonus
+      if (bonusAmSource === 'none') bonusAmSource = oAmBonusSource
+
+      proratedRows.push({
+        id: `prorata-bonus-am-${outletId}`,
+        outlet_id: outletId,
+        outlet_name: outletName,
+        category: 'bonus_area_manager',
+        scope: 'outlet',
+        amount: proratedAmBonus,
+        description: `Prorata Bonus Area Manager (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        expense_date: filter.to,
+        period_month: monthInfo.firstDay,
+        source: 'monthly',
+      })
+    }
+
+    // --- F. BONUS REGIONAL MANAGER (RM) ---
+    let rmBonusMonthly = 0
+    let oRmBonusSource: 'expenses_real' | 'sales_pcs_mtd' | 'last_month_rollover' | 'none' = 'none'
+    let effectiveRmMtdBonus = 0
+
+    const realRmBonus = currentMonthRealFixed.get(outletId)?.get('bonus_regional_manager') ?? 0
+    if (realRmBonus > 0) {
+      rmBonusMonthly = realRmBonus
+      oRmBonusSource = 'expenses_real'
+    } else {
+      const cRows = crewBonusRecords.filter(c => c.outlet_id === outletId)
+      const outletPcs = cRows.length > 0 ? (Number(cRows[0].total_pcs_outlet) || 0) : 0
+      effectiveRmMtdBonus = outletPcs * 50
+
+      if (effectiveRmMtdBonus > 0) {
+        rmBonusMonthly = Math.round((effectiveRmMtdBonus / curDay) * monthInfo.totalDays)
+        oRmBonusSource = 'sales_pcs_mtd'
+      } else {
+        const lastMonthRM = lastMonthExpenses
+          .filter(e => e.outlet_id === outletId && (e.category === 'bonus_regional_manager' || e.category === 'bonus_korlap'))
+          .reduce((sum, e) => sum + (Number(e.amount) || 0), 0)
+        if (lastMonthRM > 0) {
+          rmBonusMonthly = lastMonthRM
+          oRmBonusSource = 'last_month_rollover'
+        }
+      }
+    }
+
+    if (rmBonusMonthly > 0) {
+      const proratedRmBonus = (oRmBonusSource === 'sales_pcs_mtd' && monthInfo.overlapDays === curDay)
+        ? effectiveRmMtdBonus
+        : Math.round(rmBonusMonthly * monthInfo.ratio)
+
+      totalBonusRmBulanan += rmBonusMonthly
+      totalBonusRmProrata += proratedRmBonus
+      if (bonusRmSource === 'none') bonusRmSource = oRmBonusSource
+
+      proratedRows.push({
+        id: `prorata-bonus-rm-${outletId}`,
+        outlet_id: outletId,
+        outlet_name: outletName,
+        category: 'bonus_regional_manager',
+        scope: 'outlet',
+        amount: proratedRmBonus,
+        description: `Prorata Bonus Regional Manager (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        expense_date: filter.to,
+        period_month: monthInfo.firstDay,
+        source: 'monthly',
+      })
+    }
   }
 
   return {
@@ -387,6 +589,21 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         nominalBulanan: totalInternetBulanan,
         nominalProrata: totalInternetProrata,
         source: internetSource,
+      },
+      bonus_crew: {
+        nominalBulanan: totalBonusCrewBulanan,
+        nominalProrata: totalBonusCrewProrata,
+        source: bonusCrewSource,
+      },
+      bonus_area_manager: {
+        nominalBulanan: totalBonusAmBulanan,
+        nominalProrata: totalBonusAmProrata,
+        source: bonusAmSource,
+      },
+      bonus_regional_manager: {
+        nominalBulanan: totalBonusRmBulanan,
+        nominalProrata: totalBonusRmProrata,
+        source: bonusRmSource,
       },
     },
   }

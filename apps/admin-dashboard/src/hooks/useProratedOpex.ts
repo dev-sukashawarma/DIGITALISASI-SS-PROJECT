@@ -132,7 +132,12 @@ export function useProratedOpex({
       const { data, error } = await supabase
         .from('expenses')
         .select('outlet_id, category, amount')
-        .in('category', ['sewa_outlet', 'sewa', 'internet', 'wifi'])
+        .in('category', [
+          'sewa_outlet', 'sewa',
+          'internet', 'wifi',
+          'bonus_crew', 'bonus_leader',
+          'bonus_area_manager', 'bonus_regional_manager', 'bonus_korlap',
+        ])
         .eq('type', 'expense')
         .gte('expense_date', prevMonthRange.from)
         .lte('expense_date', prevMonthRange.to)
@@ -152,9 +157,37 @@ export function useProratedOpex({
     staleTime: 60 * 60 * 1000, // 1 jam (bulan lampau stabil)
   })
 
-  const loading = shouldFetchProrata && (loadingPayroll || loadingStaff || loadingLastMonth)
+  // 5. Kueri data bonus kru & porsi penjualan MTD dari RPC database
+  const { data: crewBonusData = [], isLoading: loadingCrewBonus } = useQuery({
+    queryKey: ['prorata-crew-bonus', overlap.year, overlap.month],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_monthly_crew_bonus', {
+        p_month: overlap.month,
+        p_year: overlap.year,
+        p_outlet_id: null,
+      })
 
-  // 5. Kalkulasi prorata murni
+      if (error) {
+        console.warn('Gagal memuat crew bonus untuk prorata:', error.message)
+        return []
+      }
+
+      const rows = (data ?? []) as any[]
+      return rows.map(r => ({
+        crew_id: r.crew_id as string,
+        outlet_id: r.outlet_id as string,
+        outlet_name: r.outlet_name as string,
+        total_pcs_outlet: Number(r.total_pcs_outlet) || 0,
+        total_bonus: Number(r.total_bonus) || 0,
+      }))
+    },
+    enabled: shouldFetchProrata,
+    staleTime: 5 * 60 * 1000, // 5 menit
+  })
+
+  const loading = shouldFetchProrata && (loadingPayroll || loadingStaff || loadingLastMonth || loadingCrewBonus)
+
+  // 6. Kalkulasi prorata murni
   const calculationResult = useMemo(() => {
     return calculateProratedExpenses({
       filter,
@@ -162,9 +195,10 @@ export function useProratedOpex({
       payrollRecords: payrollData,
       staffFinancials: staffData,
       lastMonthExpenses,
+      crewBonusRecords: crewBonusData,
       outlets,
     })
-  }, [filter, rawExpenses, payrollData, staffData, lastMonthExpenses, outlets])
+  }, [filter, rawExpenses, payrollData, staffData, lastMonthExpenses, crewBonusData, outlets])
 
   return {
     ...calculationResult,

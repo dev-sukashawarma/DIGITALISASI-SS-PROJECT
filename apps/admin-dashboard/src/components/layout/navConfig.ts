@@ -2,7 +2,8 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal,
+  CalendarDays, FileCheck, AlertTriangle, Award, Coins
 } from 'lucide-react'
 
 export type Role = 'ADMIN_HR' | 'OWNER' | 'ADMIN' | 'MITRA' | 'LEADER' | 'AREA_MANAGER' | 'PURCHASING'
@@ -169,8 +170,13 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/hr', label: 'Ringkasan HR', shortLabel: 'HR', icon: LayoutDashboard, roles: ['ADMIN_HR', 'ADMIN'], primary: ['ADMIN'] },
       { href: '/dashboard/hr/staff', label: 'Database Karyawan', shortLabel: 'Karyawan', icon: Users, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/attendance', label: 'Absensi & Shift', shortLabel: 'Absensi', icon: CalendarClock, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/hr/roster', label: 'Jadwal Roster Shift', shortLabel: 'Roster', icon: CalendarDays, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/leave', label: 'Cuti & Izin', shortLabel: 'Cuti', icon: CalendarHeart, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/hr/payroll', label: 'Payroll & Kasbon', shortLabel: 'Payroll', icon: Banknote, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/hr/crew-bonus', label: 'Insentif & Bonus', shortLabel: 'Bonus HR', icon: Coins, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/hr/contracts', label: 'Kontrak PKWT', shortLabel: 'Kontrak', icon: FileCheck, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/hr/discipline', label: 'Disiplin & SP', shortLabel: 'Disiplin', icon: AlertTriangle, roles: ['ADMIN_HR', 'ADMIN'] },
+      { href: '/dashboard/hr/performance', label: 'Evaluasi Kinerja', shortLabel: 'Kinerja', icon: Award, roles: ['ADMIN_HR', 'ADMIN'] },
       { href: '/dashboard/owner/rekap-absensi', label: 'Rekap Absensi (Stealth)', shortLabel: 'Absensi Stealth', icon: Camera, roles: ['ADMIN'] },
     ],
   },

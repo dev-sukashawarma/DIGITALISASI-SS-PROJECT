@@ -1,83 +1,358 @@
 'use client'
-import { Users, CalendarClock, CalendarHeart, Banknote, Clock, ArrowRight } from 'lucide-react'
+
+import { useMemo } from 'react'
 import Link from 'next/link'
-import { Spinner } from '@suka/design-system'
-import { useHrActivity } from '@/hooks/useHrActivity'
+import {
+  Users,
+  UserCheck,
+  Clock,
+  CalendarDays,
+  FileCheck,
+  AlertTriangle,
+  ArrowRight,
+  Sparkles,
+  TrendingUp,
+  DollarSign,
+  AlertCircle,
+} from 'lucide-react'
 import { PageHeader } from '@/components/ui'
+import { useStaff } from '@/hooks/useStaff'
+import { useAttendance } from '@/hooks/useAttendance'
+import { useLeaveRequests } from '@/hooks/useLeaveRequests'
+import { useContracts } from '@/hooks/useContracts'
+import { useHrActivity } from '@/hooks/useHrActivity'
 
-export default function HRDashboard() {
-  const cards = [
-    { title: 'Database Karyawan', desc: 'Kelola data staf dan kontrak', href: '/dashboard/hr/staff', icon: Users, color: 'bg-blue-50 text-blue-600' },
-    { title: 'Absensi & Shift', desc: 'Rekap kehadiran & jam kerja', href: '/dashboard/hr/attendance', icon: CalendarClock, color: 'bg-green-50 text-green-600' },
-    { title: 'Cuti & Izin', desc: 'Pengajuan cuti dan sakit', href: '/dashboard/hr/leave', icon: CalendarHeart, color: 'bg-purple-50 text-purple-600' },
-    { title: 'Payroll & Kasbon', desc: 'Slip gaji & pinjaman karyawan', href: '/dashboard/hr/payroll', icon: Banknote, color: 'bg-orange-50 text-orange-600' },
-  ]
+export default function HrDashboardOverview() {
+  const todayStr = new Date().toISOString().split('T')[0]
 
-  const { data: activities, isLoading } = useHrActivity()
+  const { data: staffList = [] } = useStaff()
+  const { data: todayAttendance = [] } = useAttendance({
+    dateFrom: todayStr,
+    dateTo: todayStr,
+    outletId: 'all',
+    status: 'all',
+  })
+  const { data: leaveRequests = [] } = useLeaveRequests()
+  const { data: contracts = [] } = useContracts('all')
+  const { data: activities = [] } = useHrActivity()
+
+  // KPI Calculations
+  const totalActiveStaff = useMemo(
+    () => staffList.filter((s) => s.status === 'active').length,
+    [staffList]
+  )
+
+  const todayPresent = useMemo(
+    () => todayAttendance.filter((a) => a.clock_in).length,
+    [todayAttendance]
+  )
+
+  const todayLate = useMemo(
+    () => todayAttendance.filter((a) => a.status === 'terlambat').length,
+    [todayAttendance]
+  )
+
+  const pendingLeaves = useMemo(
+    () => leaveRequests.filter((l) => l.status === 'pending').length,
+    [leaveRequests]
+  )
+
+  const expiringContracts = useMemo(
+    () => contracts.filter((c) => c.status === 'expiring_soon' || c.status === 'expired').length,
+    [contracts]
+  )
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Ringkasan HR" description="Overview sistem manajemen sumber daya manusia." />
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {cards.map((card) => (
-          <Link key={card.href} href={card.href} className="block group">
-            <div className="bg-white rounded-xl border border-suka-gray-200 p-5 shadow-sm hover:shadow-md transition-shadow h-full">
-              <div className={`w-12 h-12 rounded-lg ${card.color} flex items-center justify-center mb-4 group-hover:scale-105 transition-transform`}>
-                <card.icon size={24} />
-              </div>
-              <h3 className="font-semibold text-suka-ink mb-1">{card.title}</h3>
-              <p className="text-sm text-suka-gray-500">{card.desc}</p>
-            </div>
+      {/* Page Header */}
+      <PageHeader
+        title="Dashboard HR & Personalia"
+        description="Pusat komando manajemen SDM, presensi, penggajian, dan performa tim Suka Shawarma."
+      >
+        <div className="flex items-center gap-2">
+          <Link
+            href="/dashboard/hr/staff"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-stone-50 border border-suka-gray-200 text-suka-ink rounded-xl text-xs font-bold shadow-2xs transition-all"
+          >
+            <Users size={14} className="text-suka-orange" />
+            <span>Kelola Staf</span>
           </Link>
-        ))}
+          <Link
+            href="/dashboard/hr/payroll"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-suka-orange hover:bg-suka-orange/90 text-white rounded-xl text-xs font-bold shadow-2xs transition-all"
+          >
+            <DollarSign size={14} />
+            <span>Proses Payroll</span>
+          </Link>
+        </div>
+      </PageHeader>
+
+      {/* Top 4 KPI Metrics */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+        {/* Total Staf */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center shrink-0 border border-orange-100">
+            <Users size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Karyawan Aktif</p>
+            <p className="text-2xl font-black text-suka-ink mt-0.5">{totalActiveStaff} Orang</p>
+          </div>
+        </div>
+
+        {/* Kehadiran Hari Ini */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
+            <UserCheck size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Presensi Hari Ini</p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-2xl font-black text-suka-ink">{todayPresent}</p>
+              {todayLate > 0 && (
+                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+                  {todayLate} telat
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Cuti Pending */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
+            <CalendarDays size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Cuti Pending</p>
+            <p className="text-2xl font-black text-suka-ink mt-0.5">{pendingLeaves} Pengajuan</p>
+          </div>
+        </div>
+
+        {/* Kontrak Habis / H-30 */}
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
+            <AlertTriangle size={22} />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Kontrak Segera Habis</p>
+            <p className="text-2xl font-black text-suka-ink mt-0.5">{expiringContracts} Staf</p>
+          </div>
+        </div>
       </div>
-      
-      <div className="bg-white rounded-xl border border-suka-gray-200 p-6">
-        <h3 className="font-semibold text-suka-ink mb-4 flex items-center gap-2">
-          <Clock size={18} /> Aktivitas Terkini
-        </h3>
-        
-        {isLoading ? (
-          <div className="flex justify-center p-6"><Spinner /></div>
-        ) : activities && activities.length > 0 ? (
-          <div className="space-y-4">
-            {activities.map((act) => (
-              <div key={act.id} className="flex gap-4 items-start border-b border-suka-gray-50 pb-4 last:border-0 last:pb-0">
-                <div className="mt-1">
-                  {act.type === 'attendance' && <div className="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><CalendarClock size={16} /></div>}
-                  {act.type === 'leave' && <div className="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center"><CalendarHeart size={16} /></div>}
-                  {act.type === 'cash_advance' && <div className="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center"><Banknote size={16} /></div>}
+
+      {/* Main Grid: 2 Columns */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Shortcut Menu Cards + Live Presensi */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Quick Access Menu Tiles */}
+          <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-extrabold text-suka-brown uppercase tracking-wider flex items-center gap-2">
+              <Sparkles size={16} className="text-suka-orange" />
+              <span>Modul Layanan HR Unggulan</span>
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <Link
+                href="/dashboard/hr/staff"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-orange-100 text-suka-orange flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <Users size={18} />
                 </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-sm text-suka-ink">{act.title}</p>
-                  <p className="text-sm text-suka-gray-600">{act.description}</p>
-                  <p className="text-xs text-suka-gray-400 mt-1">
-                    {new Date(act.timestamp).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
-                  </p>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Database Karyawan
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Profil, NIK KTP, gaji, dan riwayat kontak.
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/hr/attendance"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <UserCheck size={18} />
                 </div>
-                {act.status && (
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Presensi & Foto Selfie
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Audit foto selfie kamera dan GPS outlet.
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/hr/payroll"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <DollarSign size={18} />
+                </div>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Slip Gaji & Kasbon
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Cetak PDF A5, kirim WA, dan kelola kasbon.
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/hr/roster"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <Clock size={18} />
+                </div>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Shift Roster
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Jadwal shift kerja tim outlet mingguan.
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/hr/contracts"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <FileCheck size={18} />
+                </div>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Masa Kontrak PKWT
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Monitoring H-30 dan perpanjangan kontrak.
+                </p>
+              </Link>
+
+              <Link
+                href="/dashboard/hr/performance"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-red-100 text-red-700 flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <TrendingUp size={18} />
+                </div>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Evaluasi KPI & Bonus
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Skor ketepatan waktu dan insentif crew.
+                </p>
+              </Link>
+            </div>
+          </div>
+
+          {/* Today's Attendance Snapshot */}
+          <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm space-y-3">
+            <div className="flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-extrabold text-suka-brown uppercase tracking-wider">
+                  Presensi Masuk Hari Ini ({todayStr})
+                </h3>
+                <p className="text-xs text-suka-gray-500">Log kehadiran karyawan shift aktif hari ini.</p>
+              </div>
+              <Link
+                href="/dashboard/hr/attendance"
+                className="text-xs font-bold text-suka-orange hover:underline flex items-center gap-1"
+              >
+                <span>Lihat Semua</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+
+            <div className="divide-y divide-suka-gray-100">
+              {todayAttendance.slice(0, 5).map((a) => (
+                <div key={a.id} className="py-2.5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-orange-100 text-suka-orange flex items-center justify-center font-black text-xs">
+                      {a.outlet_staff?.name?.charAt(0) || 'S'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-suka-ink text-xs">{a.outlet_staff?.name || 'Staff'}</p>
+                      <p className="text-[11px] text-suka-gray-500">
+                        {a.outlets?.name || 'Pusat'} &bull; {a.outlet_staff?.role}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        a.status === 'hadir'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                      }`}
+                    >
+                      {a.status === 'hadir' ? 'Tepat Waktu' : `Telat (${a.late_minutes}m)`}
+                    </span>
+                    <p className="text-[11px] font-mono text-suka-gray-500 mt-0.5">
+                      {a.clock_in ? new Date(a.clock_in).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+
+              {todayAttendance.length === 0 && (
+                <p className="py-6 text-center text-xs text-suka-gray-400">
+                  Belum ada presensi yang tercatat untuk hari ini.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right 1 Col: Live Activity Feed + Pending Approvals */}
+        <div className="space-y-6">
+          {/* Pending Leaves Alert Box */}
+          {pendingLeaves > 0 && (
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-4.5 space-y-2.5 shadow-xs">
+              <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+                <span>Persetujuan Cuti Menunggu</span>
+              </div>
+              <p className="text-xs text-amber-800 font-medium leading-relaxed">
+                Terdapat <strong>{pendingLeaves} pengajuan cuti</strong> dari staf yang memerlukan persetujuan Admin HR.
+              </p>
+              <Link
+                href="/dashboard/hr/leave"
+                className="inline-flex items-center gap-1.5 text-xs font-black text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-all"
+              >
+                <span>Tinjau Pengajuan</span>
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+          )}
+
+          {/* Activity Feed */}
+          <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm space-y-4">
+            <h3 className="text-sm font-extrabold text-suka-brown uppercase tracking-wider">
+              Aktivitas HR Terbaru
+            </h3>
+
+            <div className="space-y-3">
+              {activities.map((act) => (
+                <div key={act.id} className="flex gap-3 text-xs pb-3 border-b border-suka-gray-100 last:border-0 last:pb-0">
+                  <div className="w-2 h-2 rounded-full bg-suka-orange mt-1.5 shrink-0" />
                   <div>
-                    <span className={`px-2 py-1 text-[10px] font-bold rounded-md uppercase tracking-wider
-                      ${act.status === 'hadir' || act.status === 'approved' || act.status === 'paid_off' ? 'bg-emerald-100 text-emerald-700' : ''}
-                      ${act.status === 'pending' || act.status === 'terlambat' || act.status === 'active' ? 'bg-amber-100 text-amber-700' : ''}
-                      ${act.status === 'rejected' || act.status === 'alfa' ? 'bg-red-100 text-red-700' : ''}
-                      ${act.status === 'sakit' || act.status === 'izin' || act.status === 'cuti' ? 'bg-blue-100 text-blue-700' : ''}
-                      ${!['hadir','approved','paid_off','pending','terlambat','active','rejected','alfa','sakit','izin','cuti'].includes(act.status) ? 'bg-gray-100 text-gray-700' : ''}
-                    `}>
-                      {act.status}
+                    <p className="font-bold text-suka-ink">{act.title}</p>
+                    <p className="text-suka-gray-500 mt-0.5">{act.description}</p>
+                    <span className="text-[10px] font-mono text-suka-gray-400 mt-1 block">
+                      {new Date(act.timestamp).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
                     </span>
                   </div>
-                )}
-              </div>
-            ))}
-            <Link href="/dashboard/hr/staff" className="flex items-center justify-center gap-1 mt-2 text-sm font-semibold text-suka-orange hover:underline">
-              Lihat Detail Semua Karyawan <ArrowRight size={14} />
-            </Link>
+                </div>
+              ))}
+
+              {activities.length === 0 && (
+                <p className="py-6 text-center text-xs text-suka-gray-400">
+                  Belum ada log aktivitas.
+                </p>
+              )}
+            </div>
           </div>
-        ) : (
-          <div className="text-sm text-gray-500 italic p-4 text-center bg-suka-gray-50 rounded-xl">Belum ada aktivitas HR sejauh ini.</div>
-        )}
+        </div>
       </div>
     </div>
   )

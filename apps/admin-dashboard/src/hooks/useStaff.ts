@@ -1,12 +1,44 @@
-import { useQuery } from '@tanstack/react-query'
+'use client'
+
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { StaffRow } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export function useStaff() {
   const supabase = createClient()
+  const queryClient = useQueryClient()
+
+  // Realtime subscription for staff database and financials changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('staff-realtime-channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'outlet_staff' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['staff'] })
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'staff_financials' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['staff'] })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, queryClient])
+
   return useQuery<StaffRow[]>({
     queryKey: ['staff'],
-    staleTime: 5 * 60_000,
+    staleTime: 30_000,
+    refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')
@@ -20,19 +52,24 @@ export function useStaff() {
           staff_outlets(outlet_id),
           staff_financials(
             basic_salary, allowance_position, allowance_presence,
+            allowance_meal, allowance_transport, allowance_communication,
+            sales_bonus, deduction_kasbon, deduction_bpjs,
             bank_name, bank_account_number, bank_account_name,
             npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
           )
         `)
         .order('created_at', { ascending: false })
+
       if (error) throw error
-      return (data ?? []).map((r: any) => ({
+      const mapped = (data ?? []).map((r: any) => ({
         ...r,
         outlet_ids: (r.staff_outlets ?? []).map((s: any) => s.outlet_id),
         financials: Array.isArray(r.staff_financials)
           ? r.staff_financials[0]
           : (r.staff_financials || null),
       })) as StaffRow[]
+
+      return mapped.filter((s) => !isTestOrDevStaff(s))
     },
   })
 }

@@ -1,203 +1,558 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useMemo } from 'react';
-import { rupiah } from '@/lib/format';
-import { Button, CurrencyInput } from '@suka/design-system';
-import type { PayrollRow } from '@/hooks/usePayroll';
-
-/* ------------------------------------------------------------------ */
-/*  Types                                                              */
-/* ------------------------------------------------------------------ */
+import { useState, useEffect } from 'react'
+import { Button } from '@suka/design-system'
+import { formatRupiah } from '@/lib/format'
+import type { PayrollRecord } from '@/lib/types'
+import { getPayrollBreakdown, buildPayrollNotes, LATE_FEE_PER_MINUTE } from '@/lib/payrollBreakdown'
+import { Clock, DollarSign, Wallet, ShieldAlert, Sparkles, Phone, Navigation, RefreshCw, Zap } from 'lucide-react'
+import { createClient } from '@/lib/supabase'
 
 interface PayrollSlipFormProps {
-  record: PayrollRow;
-  onSubmit: (data: {
-    id: string;
-    basic_salary: number;
-    allowance_position: number;
-    allowance_presence: number;
-    bonus: number;
-    bonus_note: string | null;
-    deductions: number;
-    deduction_note: string | null;
-  }) => void;
-  submitting: boolean;
-  onCancel: () => void;
+  record: PayrollRecord
+  onSubmit: (values: {
+    id: string
+    basic_salary: number
+    allowance_meal?: number
+    allowance_transport?: number
+    allowance_communication?: number
+    sales_bonus?: number
+    deduction_kasbon?: number
+    deduction_bpjs?: number
+    allowance_position: number
+    allowance_presence: number
+    bonus: number
+    bonus_note: string | null
+    deductions: number
+    deduction_note: string | null
+  }) => void
+  submitting?: boolean
+  onCancel: () => void
 }
 
-/* ------------------------------------------------------------------ */
-/*  Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
-const MONTHS = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-];
-
 const inputClass =
-  'w-full rounded-xl border border-suka-gray-200 px-3 py-2.5 outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink text-sm';
+  'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-semibold outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange transition-all bg-white text-suka-ink'
+const labelClass = 'mb-1 block text-xs font-bold text-suka-brown'
 
-const labelClass = 'mb-1 block text-sm font-semibold text-suka-ink';
+export function PayrollSlipForm({ record, onSubmit, submitting, onCancel }: PayrollSlipFormProps) {
+  const initial = getPayrollBreakdown(record)
 
-const readonlyClass =
-  'w-full rounded-xl border border-suka-gray-100 bg-suka-cream/40 px-3 py-2.5 text-sm text-suka-gray-500 cursor-not-allowed';
+  // 1. Take Home Pay Components (Penerimaan)
+  const [basicSalary, setBasicSalary] = useState(initial.basicSalary)
+  const [overtime, setOvertime] = useState(initial.overtime)
+  const [mealAllowance, setMealAllowance] = useState(initial.mealAllowance)
+  const [transportAllowance, setTransportAllowance] = useState(initial.transportAllowance)
+  const [communicationAllowance, setCommunicationAllowance] = useState(initial.communicationAllowance)
+  const [salesBonus, setSalesBonus] = useState(initial.salesBonus)
+  const [positionAllowance, setPositionAllowance] = useState(initial.positionAllowance)
 
-/* ------------------------------------------------------------------ */
-/*  Component                                                          */
-/* ------------------------------------------------------------------ */
+  // 2. Deductions Components (Potongan)
+  const [cashAdvanceDeduction, setCashAdvanceDeduction] = useState(initial.cashAdvanceDeduction)
+  const [bpjsDeduction, setBpjsDeduction] = useState(initial.bpjsDeduction)
+  const [lateMinutes, setLateMinutes] = useState(initial.lateMinutes)
+  const [otherDeduction, setOtherDeduction] = useState(initial.otherDeduction)
+  const [otherDeductionReason, setOtherDeductionReason] = useState('')
 
-export function PayrollSlipForm({
-  record,
-  onSubmit,
-  submitting,
-  onCancel,
-}: PayrollSlipFormProps) {
-  const [bonus, setBonus] = useState(record.bonus ?? 0);
-  const [bonusNote, setBonusNote] = useState(record.bonus_note ?? '');
-  const [deductions, setDeductions] = useState(record.deductions ?? 0);
-  const [deductionNote, setDeductionNote] = useState(record.deduction_note ?? '');
+  // Live attendance lookup
+  const [fetchingAtt, setFetchingAtt] = useState(false)
+  const [liveAttMinutes, setLiveAttMinutes] = useState<number | null>(null)
 
-  /* Reset when record changes */
+  // Live sales bonus lookup (Crew, AM, RM)
+  const [fetchingBonus, setFetchingBonus] = useState(false)
+  const [liveBonusInfo, setLiveBonusInfo] = useState<{ amount: number; description: string } | null>(null)
+
   useEffect(() => {
-    setBonus(record.bonus ?? 0);
-    setBonusNote(record.bonus_note ?? '');
-    setDeductions(record.deductions ?? 0);
-    setDeductionNote(record.deduction_note ?? '');
-  }, [record]);
+    const fetchLiveAtt = async () => {
+      setFetchingAtt(true)
+      try {
+        const supabase = createClient()
+        const startDay = `${record.period_year}-${String(record.period_month).padStart(2, '0')}-01`
+        const lastDate = new Date(record.period_year, record.period_month, 0).getDate()
+        const endDay = `${record.period_year}-${String(record.period_month).padStart(2, '0')}-${String(lastDate).padStart(2, '0')}`
 
-  const totalSalary = useMemo(
-    () =>
-      record.basic_salary +
-      record.allowance_position +
-      record.allowance_presence +
-      bonus -
-      deductions,
-    [record, bonus, deductions]
-  );
+        let totalMins = 0
+
+        // 1. Check attendance table
+        const { data: rawAtt } = await supabase
+          .from('attendance')
+          .select('telat_menit, type, status')
+          .eq('outlet_staff_id', record.staff_id)
+          .gte('ts_server', `${startDay}T00:00:00.000+07:00`)
+          .lte('ts_server', `${endDay}T23:59:59.999+07:00`)
+
+        rawAtt?.forEach((a: any) => {
+          if (a.type === 'in' && (a.telat_menit > 0 || a.status === 'telat' || a.status === 'terlambat')) {
+            totalMins += Number(a.telat_menit) || 0
+          }
+        })
+
+        // 2. Check attendance_logs table
+        const { data: logs } = await supabase
+          .from('attendance_logs')
+          .select('late_minutes')
+          .eq('staff_id', record.staff_id)
+          .gte('date', startDay)
+          .lte('date', endDay)
+
+        let logMins = 0
+        logs?.forEach((l: any) => {
+          logMins += Number(l.late_minutes) || 0
+        })
+
+        const finalMins = Math.max(totalMins, logMins)
+        setLiveAttMinutes(finalMins)
+        if (lateMinutes === 0 && finalMins > 0) {
+          setLateMinutes(finalMins)
+        }
+      } catch (e) {
+        // Ignore
+      } finally {
+        setFetchingAtt(false)
+      }
+    }
+
+    const fetchLiveBonus = async () => {
+      setFetchingBonus(true)
+      try {
+        const supabase = createClient()
+        const staffRole = record.outlet_staff?.role
+
+        if (staffRole === 'area_manager') {
+          const { data } = await supabase.rpc('get_monthly_am_bonus', {
+            p_month: record.period_month,
+            p_year: record.period_year,
+          })
+          const match = (data || []).find((a: any) => a.staff_id === record.staff_id)
+          if (match) {
+            const amt = Number(match.total_bonus) || 0
+            setLiveBonusInfo({
+              amount: amt,
+              description: `AM (${match.total_pcs} pcs x Rp 50)`,
+            })
+            if (salesBonus === 0 && amt > 0) {
+              setSalesBonus(amt)
+            }
+          }
+        } else if (staffRole === 'regional_manager') {
+          const { data } = await supabase.rpc('get_monthly_rm_bonus', {
+            p_month: record.period_month,
+            p_year: record.period_year,
+          })
+          const match = (data || []).find((r: any) => r.staff_id === record.staff_id)
+          if (match) {
+            const amt = Number(match.total_bonus) || 0
+            setLiveBonusInfo({
+              amount: amt,
+              description: `RM (${match.total_pcs_global} pcs x Rp 50)`,
+            })
+            if (salesBonus === 0 && amt > 0) {
+              setSalesBonus(amt)
+            }
+          }
+        } else {
+          // Crew & Leader
+          const { data } = await supabase.rpc('get_monthly_crew_bonus', {
+            p_month: record.period_month,
+            p_year: record.period_year,
+            p_outlet_id: null,
+          })
+          const match = (data || []).find((c: any) => c.crew_id === record.staff_id)
+          if (match) {
+            const amt = Number(match.total_bonus) || 0
+            setLiveBonusInfo({
+              amount: amt,
+              description: `Pool (${match.total_pcs_outlet} pcs / ${match.active_crew_count} kru)`,
+            })
+            if (salesBonus === 0 && amt > 0) {
+              setSalesBonus(amt)
+            }
+          }
+        }
+      } catch (e) {
+        // Ignore
+      } finally {
+        setFetchingBonus(false)
+      }
+    }
+
+    fetchLiveAtt()
+    fetchLiveBonus()
+  }, [record.staff_id, record.period_month, record.period_year, record.outlet_staff?.role])
+
+  // Calculations
+  const lateDeduction = lateMinutes * LATE_FEE_PER_MINUTE
+
+  const totalEarnings =
+    Number(basicSalary) +
+    Number(overtime) +
+    Number(mealAllowance) +
+    Number(transportAllowance) +
+    Number(communicationAllowance) +
+    Number(salesBonus) +
+    Number(positionAllowance)
+
+  const totalDeductions =
+    Number(cashAdvanceDeduction) +
+    Number(bpjsDeduction) +
+    Number(lateDeduction) +
+    Number(otherDeduction)
+  const takeHomePay = Math.max(0, totalEarnings - totalDeductions)
+
+  const handleApplyLiveAttendance = () => {
+    if (liveAttMinutes !== null) {
+      setLateMinutes(liveAttMinutes)
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+    e.preventDefault()
+
+    const { bonus_note, deduction_note } = buildPayrollNotes({
+      overtime: Number(overtime),
+      salesBonus: Number(salesBonus),
+      transport: Number(transportAllowance),
+      communication: Number(communicationAllowance),
+      kasbon: Number(cashAdvanceDeduction),
+      bpjs: Number(bpjsDeduction),
+      lateMinutes: Number(lateMinutes),
+      lateDeduction: Number(lateDeduction),
+      otherDeduction: Number(otherDeduction),
+      customDeductionNote: otherDeductionReason.trim() || undefined,
+    })
+
     onSubmit({
       id: record.id,
-      basic_salary: record.basic_salary,
-      allowance_position: record.allowance_position,
-      allowance_presence: record.allowance_presence,
-      bonus,
-      bonus_note: bonusNote.trim() || null,
-      deductions,
-      deduction_note: deductionNote.trim() || null,
-    });
-  };
+      basic_salary: Number(basicSalary),
+      allowance_meal: Number(mealAllowance),
+      allowance_transport: Number(transportAllowance),
+      allowance_communication: Number(communicationAllowance),
+      sales_bonus: Number(salesBonus),
+      deduction_kasbon: Number(cashAdvanceDeduction),
+      deduction_bpjs: Number(bpjsDeduction),
+      allowance_presence: Number(mealAllowance),
+      allowance_position: Number(positionAllowance),
+      bonus: Number(overtime) + Number(salesBonus),
+      bonus_note,
+      deductions: totalDeductions,
+      deduction_note,
+    })
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-lg rounded-2xl border border-suka-gray-200 bg-white p-6 shadow-xl"
+        className="w-full max-w-2xl rounded-3xl border border-suka-gray-200 bg-white p-6 shadow-2xl space-y-5 animate-in zoom-in-95 my-6 max-h-[92vh] overflow-y-auto"
       >
-        {/* Header */}
-        <h3 className="text-lg font-bold text-suka-ink">Edit Slip Gaji</h3>
-        <p className="mt-0.5 text-sm text-suka-gray-400">
-          {record.outlet_staff?.name ?? '—'} &middot;{' '}
-          {MONTHS[(record.period_month ?? 1) - 1]} {record.period_year}
-        </p>
+        {/* Form Header */}
+        <div className="border-b border-suka-gray-100 pb-3">
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-black text-suka-brown">
+              Rincian Komponen Gaji: {record.outlet_staff?.name}
+            </h3>
+          </div>
+          <p className="text-xs text-suka-gray-500 font-medium mt-0.5">
+            Periode: Bulan {record.period_month}/{record.period_year} &bull; Jabatan: {record.outlet_staff?.role?.replace('_', ' ').toUpperCase()} &bull; Outlet: {record.outlet_staff?.outlets?.name || 'Pusat'}
+          </p>
+        </div>
 
-        <div className="mt-5 space-y-4">
-          {/* Readonly base info */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className={labelClass}>Gaji Pokok</label>
-              <input className={readonlyClass} value={rupiah(record.basic_salary)} readOnly />
+        {/* Section 1: Komponen Penerimaan (Take Home Pay) */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-1.5 text-xs font-black uppercase text-emerald-800 tracking-wider bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">
+            <DollarSign size={14} className="text-emerald-600" />
+            <span>1. Komponen Penerimaan (Earnings)</span>
+          </div>
+
+          {/* Automatic Sales Bonus Indicator Banner */}
+          <div className="p-2.5 rounded-xl bg-orange-50/80 border border-orange-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Sparkles size={15} className="text-suka-orange shrink-0" />
+              <div>
+                <span className="font-bold text-orange-950">Koneksi Bonus Penjualan (POS):</span>{' '}
+                {fetchingBonus ? (
+                  <span className="text-suka-gray-500">Mengecek bonus porsi terjual...</span>
+                ) : liveBonusInfo && liveBonusInfo.amount > 0 ? (
+                  <span className="text-emerald-800 font-bold">
+                    Terhitung {formatRupiah(liveBonusInfo.amount)} &bull; {liveBonusInfo.description}
+                  </span>
+                ) : (
+                  <span className="text-suka-gray-500 font-medium">Rp 0 / Belum ada target tercapai</span>
+                )}
+              </div>
             </div>
+
+            {liveBonusInfo && liveBonusInfo.amount > 0 && liveBonusInfo.amount !== salesBonus && (
+              <button
+                type="button"
+                onClick={() => setSalesBonus(liveBonusInfo.amount)}
+                className="px-2 py-1 text-[11px] font-bold bg-white text-orange-900 hover:bg-orange-100 rounded-lg border border-orange-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+              >
+                <RefreshCw size={10} />
+                <span>Terapkan Otomatis ({formatRupiah(liveBonusInfo.amount)})</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className={labelClass}>Tunj. Jabatan</label>
+              <label className={labelClass}>Gaji Pokok / Gapok (Rp)</label>
               <input
-                className={readonlyClass}
-                value={rupiah(record.allowance_position)}
-                readOnly
+                type="number"
+                className={inputClass}
+                value={basicSalary}
+                onChange={(e) => setBasicSalary(Number(e.target.value))}
+                min={0}
+                required
               />
             </div>
+
             <div>
-              <label className={labelClass}>Tunj. Hadir</label>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Clock size={12} className="text-emerald-600" />
+                  <span>Overtime / Lembur (Rp)</span>
+                </span>
+              </label>
               <input
-                className={readonlyClass}
-                value={rupiah(record.allowance_presence)}
-                readOnly
+                type="number"
+                className={inputClass}
+                value={overtime}
+                onChange={(e) => setOvertime(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Uang Makan / Meal Allowance (Rp)</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={mealAllowance}
+                onChange={(e) => setMealAllowance(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Navigation size={12} className="text-blue-600" />
+                  <span>Uang Transport (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={transportAllowance}
+                onChange={(e) => setTransportAllowance(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Phone size={12} className="text-purple-600" />
+                  <span>Tunjangan Komunikasi / Pulsa (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={communicationAllowance}
+                onChange={(e) => setCommunicationAllowance(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Sparkles size={12} className="text-amber-500" />
+                  <span>Sales Bonus / Bonus Target (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={salesBonus}
+                onChange={(e) => setSalesBonus(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Tunjangan Jabatan (Rp)</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={positionAllowance}
+                onChange={(e) => setPositionAllowance(Number(e.target.value))}
+                min={0}
               />
             </div>
           </div>
 
-          {/* Editable fields */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <CurrencyInput
-                label="Bonus"
-                className={inputClass}
-                value={bonus}
-                onChange={setBonus}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Catatan Bonus</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={bonusNote}
-                onChange={(e) => setBonusNote(e.target.value)}
-                placeholder="Opsional"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <CurrencyInput
-                label="Potongan"
-                className={inputClass}
-                value={deductions}
-                onChange={setDeductions}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Catatan Potongan</label>
-              <input
-                type="text"
-                className={inputClass}
-                value={deductionNote}
-                onChange={(e) => setDeductionNote(e.target.value)}
-                placeholder="Opsional"
-              />
-            </div>
-          </div>
-
-          {/* Calculated total */}
-          <div className="rounded-xl bg-suka-cream/60 border border-suka-gray-100 px-4 py-3">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-suka-gray-500">
-                Total Gaji
-              </span>
-              <span className="text-lg font-bold text-suka-ink">
-                {rupiah(totalSalary)}
-              </span>
-            </div>
+          <div className="flex justify-between items-center p-2.5 rounded-xl bg-emerald-50/50 border border-emerald-200 text-xs">
+            <span className="font-bold text-emerald-900">Subtotal Penerimaan:</span>
+            <span className="font-mono font-black text-emerald-700">{formatRupiah(totalEarnings)}</span>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="mt-6 flex items-center justify-end gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={submitting}
-            className="rounded-xl border border-suka-gray-200 px-4 py-2.5 text-sm font-medium text-suka-gray-500 transition-colors hover:bg-suka-gray-50"
-          >
+        {/* Section 2: Komponen Potongan & Otomatisasi Absensi */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between bg-red-50 px-3 py-1.5 rounded-xl border border-red-200">
+            <div className="flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider">
+              <ShieldAlert size={14} className="text-red-600" />
+              <span>2. Komponen Potongan (Deductions)</span>
+            </div>
+            <span className="text-[10px] font-bold text-red-700 bg-white/80 px-2 py-0.5 rounded-full border border-red-200">
+              Denda Telat: Rp 1.000 / menit
+            </span>
+          </div>
+
+          {/* Automatic Attendance Indicator Banner */}
+          <div className="p-2.5 rounded-xl bg-amber-50/80 border border-amber-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <Zap size={15} className="text-amber-600 shrink-0" />
+              <div>
+                <span className="font-bold text-amber-900">Koneksi Otomatis Absensi:</span>{' '}
+                {fetchingAtt ? (
+                  <span className="text-stone-500">Mengecek data kehadiran...</span>
+                ) : liveAttMinutes !== null && liveAttMinutes > 0 ? (
+                  <span className="text-red-700 font-bold">
+                    Terdeteksi {liveAttMinutes} menit terlambat di bulan ini (Denda {formatRupiah(liveAttMinutes * LATE_FEE_PER_MINUTE)})
+                  </span>
+                ) : (
+                  <span className="text-emerald-700 font-semibold">Tepat waktu / Tidak ada telat tercatat</span>
+                )}
+              </div>
+            </div>
+
+            {liveAttMinutes !== null && liveAttMinutes !== lateMinutes && (
+              <button
+                type="button"
+                onClick={handleApplyLiveAttendance}
+                className="px-2 py-1 text-[11px] font-bold bg-white text-amber-900 hover:bg-amber-100 rounded-lg border border-amber-300 flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+              >
+                <RefreshCw size={10} />
+                <span>Terapkan Otomatis ({liveAttMinutes}m)</span>
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <Wallet size={12} className="text-red-600" />
+                  <span>Potongan Kasbon (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={cashAdvanceDeduction}
+                onChange={(e) => setCashAdvanceDeduction(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center gap-1">
+                  <ShieldAlert size={12} className="text-red-600" />
+                  <span>Potongan BPJS (Rp)</span>
+                </span>
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={bpjsDeduction}
+                onChange={(e) => setBpjsDeduction(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>
+                <span className="flex items-center justify-between">
+                  <span>Keterlambatan (Absensi)</span>
+                  <span className="text-[10px] text-red-600 font-semibold">Otomatis Terkoneksi</span>
+                </span>
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  className={`${inputClass} w-24 text-center font-mono`}
+                  value={lateMinutes}
+                  onChange={(e) => setLateMinutes(Number(e.target.value))}
+                  min={0}
+                  placeholder="0 mnt"
+                />
+                <span className="text-xs font-bold text-stone-500">Menit =</span>
+                <span className="font-mono font-black text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl border border-red-200 flex-1 text-right">
+                  -{formatRupiah(lateDeduction)}
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Potongan Lain / Ganti Rugi (Rp)</label>
+              <input
+                type="number"
+                className={inputClass}
+                value={otherDeduction}
+                onChange={(e) => setOtherDeduction(Number(e.target.value))}
+                min={0}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>Keterangan Potongan Lain</label>
+              <input
+                type="text"
+                className={inputClass}
+                value={otherDeductionReason}
+                onChange={(e) => setOtherDeductionReason(e.target.value)}
+                placeholder="Contoh: Ganti rugi inventaris rusak"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-between items-center p-2.5 rounded-xl bg-red-50/50 border border-red-200 text-xs">
+            <span className="font-bold text-red-900">Subtotal Potongan:</span>
+            <span className="font-mono font-black text-red-600">-{formatRupiah(totalDeductions)}</span>
+          </div>
+        </div>
+
+        {/* Section 3: Take Home Pay Summary Banner */}
+        <div className="p-4 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 flex justify-between items-center shadow-xs">
+          <div>
+            <span className="text-[11px] font-black uppercase tracking-wider text-suka-gray-500 block">
+              Gaji Bersih Diterima Staf
+            </span>
+            <span className="text-base font-black text-suka-brown">TOTAL TAKE HOME PAY (THP)</span>
+          </div>
+          <span className="text-xl font-black text-suka-orange font-mono">
+            {formatRupiah(takeHomePay)}
+          </span>
+        </div>
+
+        {/* Buttons */}
+        <div className="flex justify-end gap-2 pt-2 border-t border-suka-gray-100">
+          <Button type="button" variant="ghost" onClick={onCancel} className="rounded-xl font-bold">
             Batal
-          </button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? 'Menyimpan…' : 'Simpan Perubahan'}
+          </Button>
+          <Button
+            type="submit"
+            disabled={submitting}
+            className="rounded-xl font-bold bg-suka-orange hover:bg-suka-orange/90 text-white px-6 shadow-md"
+          >
+            {submitting ? 'Menyimpan...' : 'Simpan Rincian Slip'}
           </Button>
         </div>
       </form>
     </div>
-  );
+  )
 }

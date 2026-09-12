@@ -5,9 +5,11 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button, CurrencyInput } from '@suka/design-system'
 import { useAuth } from '@suka/auth'
+import { DollarSign, ShieldAlert } from 'lucide-react'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
+import { formatRupiah } from '@/lib/format'
 
 const ROLES: Role[] = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'leader', 'crew', 'kiosk', 'mitra', 'staff_pusat', 'admin_finance', 'area_manager']
 
@@ -42,6 +44,12 @@ const getStaffFormSchema = (isEditing: boolean) => z.object({
   emergency_phone: z.string().nullable().optional(),
   
   basic_salary: z.coerce.number().nullable().optional(),
+  allowance_meal: z.coerce.number().nullable().optional(),
+  allowance_transport: z.coerce.number().nullable().optional(),
+  allowance_communication: z.coerce.number().nullable().optional(),
+  sales_bonus: z.coerce.number().nullable().optional(),
+  deduction_kasbon: z.coerce.number().nullable().optional(),
+  deduction_bpjs: z.coerce.number().nullable().optional(),
   allowance_position: z.coerce.number().nullable().optional(),
   allowance_presence: z.coerce.number().nullable().optional(),
   bank_name: z.string().nullable().optional(),
@@ -58,7 +66,7 @@ const stepFields: Record<string, (keyof FormData)[]> = {
   utama: ['name', 'username', 'password', 'role', 'outlet_id', 'outlet_ids', 'is_bonus_eligible', 'nip', 'contract_type', 'join_date', 'resign_date', 'leave_quota'],
   pribadi: ['nik', 'email', 'phone', 'address_ktp', 'address_domicile', 'birth_place', 'birth_date', 'gender', 'religion'],
   darurat: ['emergency_name', 'emergency_relationship', 'emergency_phone'],
-  keuangan: ['basic_salary', 'allowance_position', 'allowance_presence', 'bank_name', 'bank_account_number', 'bank_account_name', 'npwp', 'bpjs_ketenagakerjaan', 'bpjs_kesehatan'],
+  keuangan: ['basic_salary', 'allowance_meal', 'allowance_transport', 'allowance_communication', 'sales_bonus', 'deduction_kasbon', 'deduction_bpjs', 'allowance_position', 'allowance_presence', 'bank_name', 'bank_account_number', 'bank_account_name', 'npwp', 'bpjs_ketenagakerjaan', 'bpjs_kesehatan'],
 }
 
 export function StaffForm({
@@ -107,6 +115,12 @@ export function StaffForm({
       emergency_relationship: initial?.emergency_relationship ?? '',
       emergency_phone: initial?.emergency_phone ?? '',
       basic_salary: initial?.basic_salary ?? 0,
+      allowance_meal: initial?.allowance_meal ?? 0,
+      allowance_transport: initial?.allowance_transport ?? 0,
+      allowance_communication: initial?.allowance_communication ?? 0,
+      sales_bonus: initial?.sales_bonus ?? 0,
+      deduction_kasbon: initial?.deduction_kasbon ?? 0,
+      deduction_bpjs: initial?.deduction_bpjs ?? 0,
       allowance_position: initial?.allowance_position ?? 0,
       allowance_presence: initial?.allowance_presence ?? 0,
       bank_name: initial?.bank_name ?? '',
@@ -120,6 +134,18 @@ export function StaffForm({
   })
 
   const watchRole = watch('role')
+  const watchBasic = watch('basic_salary') || 0
+  const watchMeal = watch('allowance_meal') || 0
+  const watchTransport = watch('allowance_transport') || 0
+  const watchComms = watch('allowance_communication') || 0
+  const watchSalesBonus = watch('sales_bonus') || 0
+  const watchPosition = watch('allowance_position') || 0
+  const watchKasbon = watch('deduction_kasbon') || 0
+  const watchBpjs = watch('deduction_bpjs') || 0
+
+  const formEarnings = Number(watchBasic) + Number(watchMeal) + Number(watchTransport) + Number(watchComms) + Number(watchSalesBonus) + Number(watchPosition)
+  const formDeductions = Number(watchKasbon) + Number(watchBpjs)
+  const formTHP = Math.max(0, formEarnings - formDeductions)
 
   const [activeTab, setActiveTab] = useState<'utama' | 'pribadi' | 'darurat' | 'keuangan'>('utama')
 
@@ -522,6 +548,12 @@ export function StaffForm({
               🔒 Informasi Keuangan Terlindungi RLS. Data ini hanya dapat diakses oleh Owner, Admin, dan Admin HR.
             </div>
 
+            {/* 1. Komponen Penerimaan Rutin (Earnings) */}
+            <div className="md:col-span-2 flex items-center gap-1.5 text-xs font-black uppercase text-suka-brown tracking-wider bg-[#FDF9F3] px-3 py-1.5 rounded-xl border border-suka-brown/15">
+              <DollarSign size={14} className="text-suka-orange" />
+              <span>1. Komponen Penerimaan Rutin (Earnings)</span>
+            </div>
+
             <div>
               <Controller
                 name="basic_salary"
@@ -536,7 +568,71 @@ export function StaffForm({
                   />
                 )}
               />
-              {errors.basic_salary && <span className="text-xs text-red-500 mt-1 block">{errors.basic_salary?.message ?.toString()}</span>}
+              {errors.basic_salary && <span className="text-xs text-red-500 mt-1 block">{errors.basic_salary?.message?.toString()}</span>}
+            </div>
+
+            <div>
+              <Controller
+                name="allowance_meal"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-meal"
+                    label="Tunjangan Makan (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <Controller
+                name="allowance_transport"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-trans"
+                    label="Tunjangan Transportasi (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <Controller
+                name="allowance_communication"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-allowance-comms"
+                    label="Tunjangan Telekomunikasi (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            <div>
+              <Controller
+                name="sales_bonus"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-sales-bonus"
+                    label="Sales Bonus (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
             </div>
 
             <div>
@@ -546,71 +642,106 @@ export function StaffForm({
                 render={({ field }) => (
                   <CurrencyInput
                     id="sf-allowance-pos"
-                    label="Tunjangan Jabatan (Rp)"
+                    label="Tunjangan Jabatan (Rp) [Opsional]"
                     className={inputCls}
                     value={field.value ?? ''}
                     onChange={field.onChange}
                   />
                 )}
               />
-              {errors.allowance_position && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_position?.message ?.toString()}</span>}
+            </div>
+
+            {/* 2. Komponen Potongan Rutin (Deductions) */}
+            <div className="md:col-span-2 flex items-center gap-1.5 text-xs font-black uppercase text-red-800 tracking-wider bg-red-50 px-3 py-1.5 rounded-xl border border-red-200 mt-2">
+              <ShieldAlert size={14} className="text-red-600" />
+              <span>2. Komponen Potongan Rutin (Deductions)</span>
             </div>
 
             <div>
               <Controller
-                name="allowance_presence"
+                name="deduction_kasbon"
                 control={control}
                 render={({ field }) => (
                   <CurrencyInput
-                    id="sf-allowance-pres"
-                    label="Tunjangan Kehadiran (Rp)"
+                    id="sf-ded-kasbon"
+                    label="Potongan Kasbon (Rp)"
                     className={inputCls}
                     value={field.value ?? ''}
                     onChange={field.onChange}
                   />
                 )}
               />
-              {errors.allowance_presence && <span className="text-xs text-red-500 mt-1 block">{errors.allowance_presence?.message ?.toString()}</span>}
+            </div>
+
+            <div>
+              <Controller
+                name="deduction_bpjs"
+                control={control}
+                render={({ field }) => (
+                  <CurrencyInput
+                    id="sf-ded-bpjs"
+                    label="Potongan BPJS (Rp)"
+                    className={inputCls}
+                    value={field.value ?? ''}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+            </div>
+
+            {/* 3. Live Take Home Pay Summary */}
+            <div className="md:col-span-2 p-3.5 rounded-2xl bg-[#FDF9F3] border-2 border-suka-orange/40 flex flex-wrap justify-between items-center gap-2 shadow-xs">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-suka-gray-500 block">
+                  Estimasi Gaji Bersih / Take Home Pay (THP)
+                </span>
+                <div className="flex items-center gap-3 text-xs mt-0.5">
+                  <span className="text-emerald-700 font-bold">Penerimaan: {formatRupiah(formEarnings)}</span>
+                  <span className="text-red-600 font-bold">Potongan: -{formatRupiah(formDeductions)}</span>
+                </div>
+              </div>
+              <span className="text-lg font-black text-suka-orange font-mono">
+                {formatRupiah(formTHP)}
+              </span>
+            </div>
+
+            {/* 4. Rekening Bank & Pajak */}
+            <div className="md:col-span-2 border-t border-suka-gray-200 my-1 pt-2">
+              <h4 className="text-xs font-bold text-suka-brown uppercase tracking-wider mb-2">Informasi Rekening Bank &amp; Pajak</h4>
             </div>
 
             <div>
               <label htmlFor="sf-npwp" className={labelCls}>NPWP</label>
               <input id="sf-npwp" className={inputCls} placeholder="Nomor NPWP" {...register('npwp')} />
-              {errors.npwp && <span className="text-xs text-red-500 mt-1 block">{errors.npwp?.message ?.toString()}</span>}
+              {errors.npwp && <span className="text-xs text-red-500 mt-1 block">{errors.npwp?.message?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bpjs-ket" className={labelCls}>BPJS Ketenagakerjaan</label>
               <input id="sf-bpjs-ket" className={inputCls} placeholder="No. BPJS Ketenagakerjaan" {...register('bpjs_ketenagakerjaan')} />
-              {errors.bpjs_ketenagakerjaan && <span className="text-xs text-red-500 mt-1 block">{errors.bpjs_ketenagakerjaan?.message ?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bpjs-kes" className={labelCls}>BPJS Kesehatan</label>
               <input id="sf-bpjs-kes" className={inputCls} placeholder="No. BPJS Kesehatan" {...register('bpjs_kesehatan')} />
-              {errors.bpjs_kesehatan && <span className="text-xs text-red-500 mt-1 block">{errors.bpjs_kesehatan?.message ?.toString()}</span>}
-            </div>
-
-            <div className="md:col-span-2 border-t border-suka-gray-200 my-2 pt-2">
-              <h4 className="text-sm font-bold text-suka-ink mb-3">Informasi Rekening Bank</h4>
             </div>
 
             <div>
               <label htmlFor="sf-bank-name" className={labelCls}>Nama Bank</label>
               <input id="sf-bank-name" className={inputCls} placeholder="BCA / Mandiri / BNI / BRI" {...register('bank_name')} />
-              {errors.bank_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_name?.message ?.toString()}</span>}
+              {errors.bank_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_name?.message?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bank-acc-num" className={labelCls}>Nomor Rekening</label>
               <input id="sf-bank-acc-num" className={inputCls} placeholder="Nomor Rekening" {...register('bank_account_number')} />
-              {errors.bank_account_number && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_number?.message ?.toString()}</span>}
+              {errors.bank_account_number && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_number?.message?.toString()}</span>}
             </div>
 
             <div>
               <label htmlFor="sf-bank-acc-name" className={labelCls}>Nama Pemilik Rekening</label>
               <input id="sf-bank-acc-name" className={inputCls} placeholder="Nama Sesuai Buku Tabungan" {...register('bank_account_name')} />
-              {errors.bank_account_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_name?.message ?.toString()}</span>}
+              {errors.bank_account_name && <span className="text-xs text-red-500 mt-1 block">{errors.bank_account_name?.message?.toString()}</span>}
             </div>
           </div>
         )}

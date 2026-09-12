@@ -3,23 +3,22 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, Plus, DollarSign, Users, PiggyBank, CreditCard } from 'lucide-react'
-
+import { Download, Plus, DollarSign, Users, CreditCard, MessageSquare, Zap } from 'lucide-react'
 import { PageHeader } from '@/components/ui'
 import { usePayroll } from '@/hooks/usePayroll'
 import { usePayrollMutations } from '@/hooks/usePayrollMutations'
 import { useCashAdvances } from '@/hooks/useCashAdvances'
 import { useCashAdvanceMutations } from '@/hooks/useCashAdvanceMutations'
-
 import { PayrollTable } from '@/components/PayrollTable'
 import { PayrollSlipForm } from '@/components/PayrollSlipForm'
 import { CashAdvanceTable } from '@/components/CashAdvanceTable'
 import { CashAdvanceForm } from '@/components/CashAdvanceForm'
-
-import { rupiah } from '@/lib/format'
+import { BulkWAModal } from '@/components/modules/BulkWAModal'
+import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
-import type { PayrollRow } from '@/hooks/usePayroll'
-import type { CashAdvance } from '@/lib/types'
+import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
+import type { PayrollRecord } from '@/lib/types'
+import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -28,111 +27,150 @@ const MONTHS = [
 
 export default function PayrollPage() {
   const [activeTab, setActiveTab] = useState<'payroll' | 'kasbon'>('payroll')
-  
-  // Payroll States
+
+  // Payroll states
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [year, setYear] = useState(new Date().getFullYear())
-  const [editingSlip, setEditingSlip] = useState<PayrollRow | null>(null)
-  
-  // Cash Advance States
+  const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null)
+  const [showBulkWAModal, setShowBulkWAModal] = useState(false)
+
+  // Kasbon states
   const [showKasbonForm, setShowKasbonForm] = useState(false)
-  const [payingKasbon, setPayingKasbon] = useState<CashAdvance | null>(null)
+  const [payingKasbon, setPayingKasbon] = useState<CashAdvanceRow | null>(null)
 
   // Hooks
   const { data: payrollData = [], isLoading: loadingPayroll } = usePayroll(month, year)
   const payrollMutations = usePayrollMutations()
-  
+
   const { data: kasbonData = [], isLoading: loadingKasbon } = useCashAdvances()
   const kasbonMutations = useCashAdvanceMutations()
 
-  // ---------------------------------------------------------
   // Payroll Actions
-  // ---------------------------------------------------------
   const handleGenerate = () => {
-    if (!confirm(`Generate slip gaji untuk semua staff aktif periode ${MONTHS[month-1]} ${year}?`)) return
-    
-    payrollMutations.generate.mutate({ month, year }, {
-      onSuccess: (count) => toast.success(`Berhasil membuat ${count} slip gaji`),
-      onError: (e: any) => toast.error(e.message)
-    })
+    if (!confirm(`Generate slip gaji untuk semua staf aktif periode ${MONTHS[month - 1]} ${year}?`)) return
+
+    payrollMutations.generate.mutate(
+      { month, year },
+      {
+        onSuccess: (count) =>
+          toast.success(
+            `Berhasil membuat ${count} slip gaji (Bonus Penjualan & Denda Telat otomatis terkalkulasi)`
+          ),
+        onError: (e: any) => toast.error(e.message || 'Gagal generate slip'),
+      }
+    )
+  }
+
+  const handleSyncAttendance = () => {
+    payrollMutations.syncAttendanceDeductions.mutate(
+      { month, year },
+      {
+        onSuccess: (count) =>
+          toast.success(
+            `Berhasil menyinkronkan denda absensi dan bonus penjualan otomatis untuk ${count} slip gaji draft!`
+          ),
+        onError: (e: any) => toast.error(e.message || 'Gagal menyinkronkan data otomatis'),
+      }
+    )
   }
 
   const handleFinalize = () => {
     if (!confirm(`Finalize semua slip? Slip yang sudah final tidak bisa diedit.`)) return
-    
-    payrollMutations.finalizeAll.mutate({ month, year }, {
-      onSuccess: () => toast.success(`Semua slip gaji berhasil di-finalize`),
-      onError: (e: any) => toast.error(e.message)
-    })
+
+    payrollMutations.finalizeAll.mutate(
+      { month, year },
+      {
+        onSuccess: () => toast.success(`Semua slip gaji berhasil di-finalize`),
+        onError: (e: any) => toast.error(e.message || 'Gagal finalize slip'),
+      }
+    )
   }
 
   const handleUpdateSlip = (values: any) => {
     if (!editingSlip) return
-    payrollMutations.updateSlip.mutate({ id: editingSlip.id, ...values }, {
+    payrollMutations.updateSlip.mutate(values, {
       onSuccess: () => {
-        toast.success(`Slip gaji ${editingSlip.outlet_staff?.name} diperbarui`)
+        toast.success(`Slip gaji ${editingSlip.outlet_staff?.name} berhasil diperbarui`)
         setEditingSlip(null)
       },
-      onError: (e: any) => toast.error(e.message)
+      onError: (e: any) => toast.error(e.message || 'Gagal memperbarui slip'),
     })
   }
 
   const handleExportPayroll = () => {
-    if (!payrollData.length) { toast.error('Tidak ada data untuk diexport'); return }
+    if (!payrollData.length) {
+      toast.error('Tidak ada data payroll untuk diexport')
+      return
+    }
 
-    const rows = payrollData.map(r => ({
-      Nama: r.outlet_staff?.name || '-',
-      Role: r.outlet_staff?.role || '-',
-      Outlet: r.outlet_staff?.outlets?.name || '-',
-      Periode: `${r.period_month}/${r.period_year}`,
-      'Gaji Pokok': r.basic_salary,
-      'Tunjangan Jabatan': r.allowance_position,
-      'Tunjangan Hadir': r.allowance_presence,
-      Bonus: r.bonus,
-      'Catatan Bonus': r.bonus_note || '-',
-      Potongan: r.deductions,
-      'Catatan Potongan': r.deduction_note || '-',
-      'Total Gaji': r.total_salary,
-      Status: r.status
-    }))
-    
-    exportCsv(rows, Object.keys(rows[0]).map(k => ({ key: k as keyof typeof rows[0], label: k })), `Payroll_${MONTHS[month-1]}_${year}`)
+    const rows = payrollData.map((r) => {
+      const b = getPayrollBreakdown(r)
+      return {
+        Nama: r.outlet_staff?.name || '-',
+        Role: r.outlet_staff?.role || '-',
+        Outlet: r.outlet_staff?.outlets?.name || 'Pusat',
+        Periode: `${r.period_month}/${r.period_year}`,
+        'Gaji Pokok': b.basicSalary,
+        'Tunjangan Makan': b.mealAllowance,
+        'Tunjangan Transportasi': b.transportAllowance,
+        'Tunjangan Telekomunikasi': b.communicationAllowance,
+        'Sales Bonus': b.salesBonus,
+        'Tunjangan Jabatan': b.positionAllowance,
+        Lembur: b.overtime,
+        'Potongan Kasbon': b.cashAdvanceDeduction,
+        'Potongan BPJS': b.bpjsDeduction,
+        'Denda Telat': b.lateDeduction,
+        'Potongan Lain': b.otherDeduction,
+        'Total Penerimaan': b.totalEarnings,
+        'Total Potongan': b.totalDeductions,
+        'Total Gaji Bersih (THP)': b.takeHomePay,
+        Status: r.status,
+      }
+    })
+
+    exportCsv(
+      rows,
+      Object.keys(rows[0]).map((k) => ({ key: k as any, label: k })),
+      `Payroll_SukaHR_${MONTHS[month - 1]}_${year}`
+    )
+    toast.success('Data payroll berhasil diexport ke CSV')
   }
 
-  // ---------------------------------------------------------
   // Kasbon Actions
-  // ---------------------------------------------------------
   const handleCreateKasbon = (values: any) => {
     kasbonMutations.create.mutate(values, {
       onSuccess: () => {
-        toast.success('Kasbon baru berhasil dibuat')
+        toast.success('Pengajuan kasbon berhasil dicatat!')
         setShowKasbonForm(false)
       },
-      onError: (e: any) => toast.error(e.message)
+      onError: (e: any) => toast.error(e.message || 'Gagal membuat kasbon'),
     })
   }
 
   const handleAddPayment = (values: any) => {
     if (!payingKasbon) return
-    kasbonMutations.addPayment.mutate({
-      cash_advance_id: payingKasbon.id,
-      amount: Number(values.amount),
-      note: values.note ?? null,
-      currentRemaining: payingKasbon.remaining
-    }, {
-      onSuccess: () => {
-        toast.success('Pembayaran kasbon berhasil dicatat')
-        setPayingKasbon(null)
+    kasbonMutations.addPayment.mutate(
+      {
+        cash_advance_id: payingKasbon.id,
+        amount: Number(values.amount),
+        note: values.note ?? null,
+        currentRemaining: payingKasbon.remaining,
       },
-      onError: (e: any) => toast.error(e.message)
-    })
+      {
+        onSuccess: () => {
+          toast.success('Pembayaran cicilan kasbon berhasil dicatat!')
+          setPayingKasbon(null)
+        },
+        onError: (e: any) => toast.error(e.message || 'Gagal mencatat pembayaran'),
+      }
+    )
   }
 
   const handleApproveKasbon = (id: string) => {
     if (!confirm('Setujui pengajuan kasbon ini?')) return
     kasbonMutations.approve.mutate(id, {
       onSuccess: () => toast.success('Kasbon disetujui'),
-      onError: (e: any) => toast.error(e.message)
+      onError: (e: any) => toast.error(e.message),
     })
   }
 
@@ -140,209 +178,253 @@ export default function PayrollPage() {
     if (!confirm('Tolak pengajuan kasbon ini?')) return
     kasbonMutations.reject.mutate(id, {
       onSuccess: () => toast.success('Kasbon ditolak'),
-      onError: (e: any) => toast.error(e.message)
+      onError: (e: any) => toast.error(e.message),
     })
   }
 
-  // ---------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------
   return (
     <div className="space-y-6">
-      <PageHeader title="Payroll & Kasbon" description="Kelola slip gaji bulanan dan pinjaman karyawan." />
+      <PageHeader
+        title="Penggajian (Payroll) &amp; Kasbon"
+        description="Kalkulasi gaji otomatis, cetak slip resmi A5, pengiriman slip via WhatsApp (WAHA), dan cicilan kasbon."
+      >
+        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span>Live Realtime Sync Aktif</span>
+        </div>
+      </PageHeader>
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-suka-gray-200 pb-4">
+      <div className="flex gap-2 border-b border-suka-gray-200 pb-3">
         <button
           onClick={() => setActiveTab('payroll')}
-          className={`px-4 py-2 font-bold rounded-xl transition-all ${
-            activeTab === 'payroll' ? 'bg-suka-brown text-white shadow-md' : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
+          className={`px-4 py-2 font-extrabold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
+            activeTab === 'payroll'
+              ? 'bg-suka-brown text-white shadow-md'
+              : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
           }`}
         >
-          Slip Gaji
+          Slip Gaji Karyawan
         </button>
         <button
           onClick={() => setActiveTab('kasbon')}
-          className={`px-4 py-2 font-bold rounded-xl transition-all ${
-            activeTab === 'kasbon' ? 'bg-suka-brown text-white shadow-md' : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
+          className={`px-4 py-2 font-extrabold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
+            activeTab === 'kasbon'
+              ? 'bg-suka-brown text-white shadow-md'
+              : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
           }`}
         >
-          Kasbon Karyawan
+          Kasbon &amp; Pinjaman
         </button>
       </div>
 
       {activeTab === 'payroll' && (
         <div className="space-y-6 animate-in fade-in">
-          {/* Controls */}
+          {/* Controls Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-            <div className="flex items-center gap-3">
-              <select 
-                value={month} 
-                onChange={e => setMonth(Number(e.target.value))}
-                className="rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
+            <div className="flex items-center gap-2">
+              <select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                className="rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-bold outline-none focus:border-suka-orange bg-white text-suka-ink"
               >
                 {MONTHS.map((m, i) => (
-                  <option key={m} value={i + 1}>{m}</option>
+                  <option key={m} value={i + 1}>
+                    {m}
+                  </option>
                 ))}
               </select>
-              <input 
-                type="number" 
-                value={year} 
-                onChange={e => setYear(Number(e.target.value))}
-                className="w-24 rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
+              <input
+                type="number"
+                value={year}
+                onChange={(e) => setYear(Number(e.target.value))}
+                className="w-24 rounded-xl border border-suka-gray-200 px-3 py-2 text-xs sm:text-sm font-bold font-mono outline-none focus:border-suka-orange bg-white text-suka-ink"
               />
             </div>
-            
-            <div className="flex items-center gap-2">
-              <Button onClick={handleGenerate} disabled={payrollMutations.generate.isPending} className="bg-suka-orange hover:bg-suka-orange/90 text-white border-0">
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <Button
+                type="button"
+                onClick={() => {
+                  if (payrollData.length === 0) {
+                    toast.error('Belum ada slip gaji untuk dikirim. Klik "Generate Slip" terlebih dahulu.')
+                    return
+                  }
+                  setShowBulkWAModal(true)
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+              >
+                <MessageSquare size={15} />
+                <span>Kirim Massal WhatsApp (WAHA)</span>
+              </Button>
+              <Button
+                type="button"
+                onClick={handleGenerate}
+                disabled={payrollMutations.generate.isPending}
+                className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
+              >
                 {payrollMutations.generate.isPending ? <Spinner size={16} /> : 'Generate Slip'}
               </Button>
-              <Button onClick={handleFinalize} disabled={payrollMutations.finalizeAll.isPending} className="bg-emerald-600 hover:bg-emerald-700 text-white border-0">
+              <Button
+                type="button"
+                onClick={handleSyncAttendance}
+                disabled={payrollMutations.syncAttendanceDeductions.isPending || payrollData.length === 0}
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-sm"
+                title="Hitung ulang denda keterlambatan absensi dan bonus porsi penjualan otomatis untuk seluruh slip draft"
+              >
+                {payrollMutations.syncAttendanceDeductions.isPending ? (
+                  <Spinner size={16} />
+                ) : (
+                  <>
+                    <Zap size={14} />
+                    <span>Sinkron Absensi &amp; Bonus</span>
+                  </>
+                )}
+              </Button>
+              <Button
+                type="button"
+                onClick={handleFinalize}
+                disabled={payrollMutations.finalizeAll.isPending}
+                className="bg-suka-brown hover:bg-suka-brown/90 text-white font-bold rounded-xl text-xs"
+              >
                 {payrollMutations.finalizeAll.isPending ? <Spinner size={16} /> : 'Finalize Semua'}
               </Button>
-              <Button onClick={handleExportPayroll} className="bg-white text-suka-ink border-suka-gray-200 hover:bg-suka-gray-50 flex items-center gap-2">
-                <Download size={16} /> Export
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleExportPayroll}
+                className="border border-suka-gray-200 font-bold rounded-xl text-xs flex items-center gap-1.5"
+              >
+                <Download size={14} /> Export CSV
               </Button>
             </div>
           </div>
 
           {/* Summaries */}
           {payrollData.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center shrink-0">
-                  <DollarSign size={24} />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center font-bold">
+                  <DollarSign size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-suka-gray-500">Total Gaji Bulan Ini</p>
-                  <p className="text-xl font-bold text-suka-ink">{rupiah(payrollData.reduce((acc, r) => acc + r.total_salary, 0))}</p>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase">Total Gaji Bulan Ini</p>
+                  <p className="text-xl font-black text-suka-ink mt-0.5">
+                    {formatRupiah(payrollData.reduce((acc, r) => acc + r.total_salary, 0))}
+                  </p>
                 </div>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                  <CreditCard size={24} />
+
+              <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  <CreditCard size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-suka-gray-500">Rata-rata Gaji</p>
-                  <p className="text-xl font-bold text-suka-ink">{rupiah(payrollData.length ? payrollData.reduce((acc, r) => acc + r.total_salary, 0) / payrollData.length : 0)}</p>
+                  <p className="text-xs font-bold text-suka-gray-500 uppercase">Rata-rata Gaji</p>
+                  <p className="text-xl font-black text-suka-ink mt-0.5">
+                    {formatRupiah(
+                      payrollData.length
+                        ? payrollData.reduce((acc, r) => acc + r.total_salary, 0) / payrollData.length
+                        : 0
+                    )}
+                  </p>
                 </div>
               </div>
-              <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Users size={24} />
+
+              <div className="bg-white p-4 rounded-2xl border border-emerald-200 bg-emerald-50/40 shadow-sm flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                  <Users size={22} />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-suka-gray-500">Jumlah Staff</p>
-                  <p className="text-xl font-bold text-suka-ink">{payrollData.length} Orang</p>
+                  <p className="text-xs font-bold text-emerald-800 uppercase">Jumlah Staf</p>
+                  <p className="text-xl font-black text-emerald-900 mt-0.5">{payrollData.length} Orang</p>
                 </div>
               </div>
             </div>
           )}
 
+          {/* Table */}
           {loadingPayroll ? (
-            <div className="flex justify-center p-12"><Spinner size={40} /></div>
+            <div className="flex justify-center p-12">
+              <Spinner />
+            </div>
           ) : (
             <PayrollTable rows={payrollData} onEdit={setEditingSlip} />
           )}
 
+          {/* Edit Slip Form Modal */}
           {editingSlip && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-suka-ink/40 backdrop-blur-sm">
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
-                  <h3 className="text-lg font-bold text-suka-ink mb-4">Edit Slip Gaji — {editingSlip.outlet_staff?.name}</h3>
-                  <PayrollSlipForm 
-                    record={editingSlip} 
-                    onSubmit={handleUpdateSlip} 
-                    submitting={payrollMutations.updateSlip.isPending} 
-                    onCancel={() => setEditingSlip(null)} 
-                  />
-                </div>
-              </div>
-            </div>
+            <PayrollSlipForm
+              record={editingSlip}
+              onSubmit={handleUpdateSlip}
+              submitting={payrollMutations.updateSlip.isPending}
+              onCancel={() => setEditingSlip(null)}
+            />
+          )}
+
+          {/* Bulk WhatsApp Modal */}
+          {showBulkWAModal && (
+            <BulkWAModal
+              records={payrollData}
+              month={month}
+              year={year}
+              onClose={() => setShowBulkWAModal(false)}
+            />
           )}
         </div>
       )}
 
       {activeTab === 'kasbon' && (
         <div className="space-y-6 animate-in fade-in">
-          {/* Controls */}
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg font-bold text-suka-ink">Data Pinjaman Karyawan</h2>
-            <Button onClick={() => setShowKasbonForm(true)} className="flex items-center gap-2">
-              <Plus size={18} /> Tambah Kasbon
+          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
+            <div>
+              <h3 className="font-extrabold text-suka-brown text-sm">Pinjaman Kasbon Staf</h3>
+              <p className="text-xs text-suka-gray-500">Kelola batas kasbon, persetujuan pinjaman, dan cicilan potongan gaji.</p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => setShowKasbonForm(true)}
+              className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
+            >
+              <Plus size={15} /> Tambah Kasbon
             </Button>
           </div>
 
-          {/* Summaries */}
-          {kasbonData.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
-                  <PiggyBank size={24} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-suka-gray-500">Total Kasbon Aktif</p>
-                  <p className="text-xl font-bold text-suka-ink">
-                    {rupiah(kasbonData.filter(k => k.status === 'active').reduce((acc, k) => acc + k.remaining, 0))}
-                  </p>
-                </div>
-              </div>
-              <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                  <Users size={24} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-suka-gray-500">Jumlah Peminjam Aktif</p>
-                  <p className="text-xl font-bold text-suka-ink">
-                    {kasbonData.filter(k => k.status === 'active').length} Orang
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {showKasbonForm && (
-            <div className="bg-white p-6 rounded-2xl border-2 border-suka-brown/20 shadow-sm">
-              <h3 className="text-lg font-bold text-suka-ink mb-4">Pengajuan Kasbon Baru</h3>
-              <CashAdvanceForm 
-                mode="kasbon" 
-                onSubmit={handleCreateKasbon} 
-                submitting={kasbonMutations.create.isPending} 
-                onCancel={() => setShowKasbonForm(false)} 
-              />
-            </div>
-          )}
-
           {loadingKasbon ? (
-            <div className="flex justify-center p-12"><Spinner size={40} /></div>
+            <div className="flex justify-center p-12">
+              <Spinner />
+            </div>
           ) : (
-            <CashAdvanceTable 
-              rows={kasbonData} 
-              onAddPayment={setPayingKasbon} 
+            <CashAdvanceTable
+              rows={kasbonData}
+              onAddPayment={setPayingKasbon}
               onApprove={handleApproveKasbon}
               onReject={handleRejectKasbon}
             />
           )}
 
+          {/* Create Kasbon Modal */}
+          {showKasbonForm && (
+            <CashAdvanceForm
+              mode="kasbon"
+              onSubmit={handleCreateKasbon}
+              submitting={kasbonMutations.create.isPending}
+              onCancel={() => setShowKasbonForm(false)}
+            />
+          )}
+
+          {/* Pay Installment Modal */}
           {payingKasbon && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-suka-ink/40 backdrop-blur-sm">
-              <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg">
-                <div className="p-6">
-                  <h3 className="text-lg font-bold text-suka-ink mb-1">Catat Pembayaran Cicilan</h3>
-                  <p className="text-sm text-suka-gray-500 mb-4">
-                    Karyawan: <span className="font-bold">{payingKasbon.outlet_staff?.name}</span> <br/>
-                    Sisa Kasbon: <span className="font-bold text-suka-orange">{rupiah(payingKasbon.remaining)}</span>
-                  </p>
-                  <CashAdvanceForm 
-                    mode="payment" 
-                    maxAmount={payingKasbon.remaining}
-                    onSubmit={handleAddPayment} 
-                    submitting={kasbonMutations.addPayment.isPending} 
-                    onCancel={() => setPayingKasbon(null)} 
-                  />
-                </div>
-              </div>
-            </div>
+            <CashAdvanceForm
+              mode="payment"
+              maxAmount={payingKasbon.remaining}
+              onSubmit={handleAddPayment}
+              submitting={kasbonMutations.addPayment.isPending}
+              onCancel={() => setPayingKasbon(null)}
+            />
           )}
         </div>
       )}

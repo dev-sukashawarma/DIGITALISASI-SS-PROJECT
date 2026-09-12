@@ -1,6 +1,25 @@
 export function rupiah(n: number): string {
   return 'Rp\u00A0' + Math.round(n).toLocaleString('id-ID')
 }
+export const formatRupiah = rupiah
+export const MONTH_NAMES = [
+  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+]
+export function formatBulanIndonesia(monthNumber: number): string {
+  if (monthNumber < 1 || monthNumber > 12) return ''
+  return MONTH_NAMES[monthNumber - 1]
+}
+export function formatJamWib(isoStr: string | null | undefined): string {
+  if (!isoStr) return '-'
+  try {
+    const d = new Date(isoStr)
+    return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }) + ' WIB'
+  } catch {
+    return isoStr.slice(0, 5)
+  }
+}
+
 export function rupiahCompact(n: number): string {
   const absN = Math.abs(n)
   if (absN >= 1_000_000) {

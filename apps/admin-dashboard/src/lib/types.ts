@@ -62,6 +62,12 @@ export interface StaffRow {
   leave_quota?: number | null
   financials?: {
     basic_salary: number
+    allowance_meal?: number
+    allowance_transport?: number
+    allowance_communication?: number
+    sales_bonus?: number
+    deduction_kasbon?: number
+    deduction_bpjs?: number
     allowance_position: number
     allowance_presence: number
     bank_name: string
@@ -99,6 +105,12 @@ export interface StaffFormValues {
   resign_date?: string | null
   leave_quota?: number | null
   basic_salary?: number
+  allowance_meal?: number
+  allowance_transport?: number
+  allowance_communication?: number
+  sales_bonus?: number
+  deduction_kasbon?: number
+  deduction_bpjs?: number
   allowance_position?: number
   allowance_presence?: number
   bank_name?: string
@@ -176,6 +188,11 @@ export interface AttendanceLog {
   status: AttendanceStatus
   late_minutes: number
   notes: string | null
+  photo_url?: string | null
+  clock_out_photo_url?: string | null
+  lat?: number | null
+  lng?: number | null
+  is_mock_location?: boolean
   /** Data audit dari tabel attendance tidak boleh diubah lewat form manual HR. */
   source?: 'attendance' | 'attendance_logs'
   clock_in_source?: 'web' | 'native'
@@ -222,6 +239,12 @@ export interface PayrollRecord {
   period_month: number
   period_year: number
   basic_salary: number
+  allowance_meal?: number
+  allowance_transport?: number
+  allowance_communication?: number
+  sales_bonus?: number
+  deduction_kasbon?: number
+  deduction_bpjs?: number
   allowance_position: number
   allowance_presence: number
   bonus: number
@@ -232,7 +255,18 @@ export interface PayrollRecord {
   status: PayrollStatus
   created_at?: string
   updated_at?: string
-  outlet_staff?: { name: string; role: string; outlet_id: string; outlets: { name: string } | null }
+  outlet_staff?: {
+    name: string
+    role: string
+    outlet_id: string
+    outlets: { name: string } | null
+    phone?: string | null
+    financials?: {
+      bank_name: string
+      bank_account_number: string
+      bank_account_name: string
+    } | null
+  }
 }
 
 // ── Cash Advance ────────────────────────────────────────────
@@ -258,4 +292,69 @@ export interface CashAdvancePayment {
   payment_date: string
   note: string | null
   created_at?: string
+}
+
+// ── Contract Monitoring ─────────────────────────────────────
+export interface StaffContract {
+  id: string
+  staff_id: string
+  contract_number?: string | null
+  contract_type: 'PKWT' | 'Probation' | 'Tetap' | 'Internship' | 'Harian' | string
+  start_date: string
+  end_date: string | null
+  status: 'active' | 'expiring_soon' | 'expired' | 'renewed'
+  notes?: string | null
+  document_url?: string | null
+  created_at?: string
+  outlet_staff?: { name: string; role: string; outlets?: { name: string } | null; phone?: string | null }
+}
+
+// ── Shift Roster ────────────────────────────────────
+export type ShiftType = 'Pagi' | 'Siang' | 'Sore' | 'Malam' | 'Middle' | 'Full' | 'Off'
+
+export interface ShiftRosterItem {
+  id: string
+  staff_id: string
+  outlet_id: string
+  date: string // YYYY-MM-DD
+  shift: ShiftType
+  notes?: string | null
+  outlet_staff?: { name: string; role: string }
+}
+
+// ── Discipline & Warning ────────────────────────────────────
+export type WarningLevel = 'Teguran' | 'Teguran Lisan' | 'SP1' | 'SP2' | 'SP3' | 'Skorsing'
+
+export interface DisciplineRecord {
+  id: string
+  staff_id: string
+  warning_level: WarningLevel
+  incident_date?: string
+  issue_date?: string
+  expiry_date?: string | null
+  expires_at?: string
+  reason: string
+  action_plan?: string
+  issued_by?: string
+  issued_at?: string
+  created_by?: string | null
+  document_url?: string | null
+  status: 'active' | 'resolved' | 'expired'
+  outlet_staff?: { name: string; role: string; outlets?: { name: string } | null }
+}
+
+// ── Performance & KPI ───────────────────────────────────────
+export interface PerformanceRecord {
+  staff_id: string
+  staff_name: string
+  role: string
+  outlet_name: string
+  period: string // YYYY-MM
+  attendance_rate: number // %
+  punctuality_rate: number // %
+  total_working_days: number
+  total_late_minutes: number
+  crew_bonus: number
+  kpi_score: number
+  grade: 'A' | 'B' | 'C' | 'D'
 }

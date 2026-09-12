@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { LeaveRequest, LeaveStatus } from '@/lib/types'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 export function useLeaveRequests(status?: LeaveStatus) {
   const supabase = createClient()
 
   return useQuery<LeaveRequest[]>({
     queryKey: status ? ['leave-requests', status] : ['leave-requests'],
-    staleTime: 2 * 60_000,
+    staleTime: 60_000,
     queryFn: async () => {
       let query = supabase
         .from('leave_requests')
@@ -25,7 +26,7 @@ export function useLeaveRequests(status?: LeaveStatus) {
 
       const { data, error } = await query
       if (error) throw error
-      return (data ?? []) as LeaveRequest[]
+      return ((data ?? []) as LeaveRequest[]).filter((r) => !isTestOrDevStaff(r.outlet_staff))
     },
   })
 }

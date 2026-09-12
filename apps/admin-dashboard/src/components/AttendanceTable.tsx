@@ -1,7 +1,9 @@
 'use client'
 
-import { Pencil, Smartphone, Trash2 } from 'lucide-react'
+import { useState } from 'react'
+import { Pencil, Smartphone, Trash2, Eye, MapPin } from 'lucide-react'
 import type { AttendanceLog, AttendanceStatus } from '@/lib/types'
+import { AttendancePhotoModal, type AttendancePhotoInfo } from './modules/AttendancePhotoModal'
 
 /* ─── Badge color map ───────────────────────────────────────────────── */
 
@@ -57,6 +59,8 @@ interface Props {
 }
 
 export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
+  const [activePhoto, setActivePhoto] = useState<AttendancePhotoInfo | null>(null)
+
   if (rows.length === 0) {
     return (
       <div className="overflow-hidden rounded-2xl border border-suka-gray-200 bg-white p-8 text-center shadow-sm">
@@ -66,22 +70,25 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-suka-gray-200 bg-white shadow-sm">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-suka-gray-100 bg-suka-gray-50/60">
-              <th className="px-4 py-3 text-left font-semibold text-suka-ink">Nama</th>
-              <th className="px-4 py-3 text-left font-semibold text-suka-ink">Outlet</th>
-              <th className="px-4 py-3 text-left font-semibold text-suka-ink">Tanggal</th>
-              <th className="px-4 py-3 text-left font-semibold text-suka-ink">Clock In</th>
-              <th className="px-4 py-3 text-left font-semibold text-suka-ink">Clock Out</th>
-              <th className="px-4 py-3 text-left font-semibold text-suka-ink">Status</th>
-              <th className="px-4 py-3 text-right font-semibold text-suka-ink">Terlambat</th>
-              <th className="px-4 py-3 text-center font-semibold text-suka-ink">Aksi</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-suka-gray-100">
+    <>
+      <div className="overflow-hidden rounded-2xl border border-suka-gray-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-suka-gray-100 bg-suka-gray-50/60">
+                <th className="px-4 py-3 text-left font-semibold text-suka-ink">Nama</th>
+                <th className="px-4 py-3 text-left font-semibold text-suka-ink">Outlet</th>
+                <th className="px-4 py-3 text-left font-semibold text-suka-ink">Tanggal</th>
+                <th className="px-4 py-3 text-left font-semibold text-suka-ink">Clock In</th>
+                <th className="px-4 py-3 text-left font-semibold text-suka-ink">Clock Out</th>
+                <th className="px-4 py-3 text-left font-semibold text-suka-ink">Status</th>
+                <th className="px-4 py-3 text-right font-semibold text-suka-ink">Terlambat</th>
+                <th className="px-4 py-3 text-center font-semibold text-suka-ink">Foto Selfie</th>
+                <th className="px-4 py-3 text-center font-semibold text-suka-ink">GPS Map</th>
+                <th className="px-4 py-3 text-center font-semibold text-suka-ink">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-suka-gray-100">
             {rows.map((row) => {
               const badge = STATUS_BADGE[row.status]
               const staffName = row.outlet_staff?.name ?? '—'
@@ -136,6 +143,52 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
                     {row.late_minutes > 0 ? `${row.late_minutes} mnt` : '—'}
                   </td>
 
+                  {/* Foto Selfie */}
+                  <td className="px-4 py-3 text-center">
+                    {row.photo_url ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActivePhoto({
+                            url: row.photo_url!,
+                            title: `Presensi: ${staffName}`,
+                            staffName,
+                            outletName,
+                            timestamp: `${fmtDate(row.date)} ${fmtTime(row.clock_in)}`,
+                            actionType: 'Clock In Selfie',
+                            lat: row.lat,
+                            lng: row.lng,
+                            notes: row.notes || undefined,
+                          })
+                        }
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-xs font-bold text-amber-900 transition-colors cursor-pointer"
+                      >
+                        <Eye size={13} />
+                        <span>Lihat Foto</span>
+                      </button>
+                    ) : (
+                      <span className="text-xs text-suka-gray-400 font-medium">—</span>
+                    )}
+                  </td>
+
+                  {/* GPS Map */}
+                  <td className="px-4 py-3 text-center">
+                    {row.lat && row.lng ? (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${row.lat},${row.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold text-blue-800 transition-colors"
+                        title="Buka titik presensi di Google Maps"
+                      >
+                        <MapPin size={12} />
+                        <span>Maps</span>
+                      </a>
+                    ) : (
+                      <span className="text-xs text-suka-gray-400 font-medium">—</span>
+                    )}
+                  </td>
+
                   {/* Aksi */}
                   <td className="px-4 py-3">
                     {row.source === 'attendance' ? (
@@ -168,5 +221,7 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
         </table>
       </div>
     </div>
+    <AttendancePhotoModal photo={activePhoto} onClose={() => setActivePhoto(null)} />
+  </>
   )
 }

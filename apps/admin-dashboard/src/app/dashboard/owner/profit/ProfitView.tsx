@@ -41,6 +41,7 @@ import { useMitraInvestments } from '@/hooks/useMitraInvestments'
 import { NetProfitBreakdownModal } from '@/components/NetProfitBreakdownModal'
 import { bukuKasHref } from '@/lib/bukuKasLink'
 import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/outletOwnership'
+import { useProratedOpex } from '@/hooks/useProratedOpex'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -125,6 +126,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     queryClient.invalidateQueries({ queryKey: ['expenses'] })
     queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
     queryClient.invalidateQueries({ queryKey: ['waste'] })
+    queryClient.invalidateQueries({ queryKey: ['prorata-payroll-records'] })
+    queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
+    queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
     setLastUpdated(new Date().toISOString())
     toast.success('Memperbarui data laba rugi dari database...')
   }
@@ -137,6 +141,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['expenses'] })
         queryClient.invalidateQueries({ queryKey: ['hpp-client-calculated'] })
         queryClient.invalidateQueries({ queryKey: ['waste'] })
+        queryClient.invalidateQueries({ queryKey: ['prorata-payroll-records'] })
+        queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
+        queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
       }, 600)
     }
 
@@ -147,6 +154,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'expenses' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'petty_cash_expenses' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'waste_records' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll_records' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_financials' }, invalidate)
       .subscribe()
 
     return () => {
@@ -170,12 +179,23 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const wasteRows = useMemo(() => waste.rows.filter(r => inScope(r.outlet_id)), [waste.rows, inScope])
   // Biaya pusat (`scope === 'pusat'`) tak punya outlet_id: ia beban kantor
   // pusat, jadi ikut di tampilan gabungan & Internal, tapi tidak di Mitra.
-  const expenseRows = useMemo(
+  const rawExpenseRows = useMemo(
     () => expenses.rows.filter(r => (r.scope === 'pusat' ? scope !== 'mitra' : inScope(r.outlet_id))),
     [expenses.rows, inScope, scope],
   )
 
-  const loading = sales.loading || expenses.loading || hpp.loading || waste.loading || mitraLoading
+  const {
+    rows: expenseRows,
+    isProrated,
+    monthInfo: prorataMonthInfo,
+    loading: prorataLoading,
+  } = useProratedOpex({
+    filter: effectiveFilter,
+    rawExpenses: rawExpenseRows,
+    outlets,
+  })
+
+  const loading = sales.loading || expenses.loading || hpp.loading || waste.loading || mitraLoading || prorataLoading
   const error = sales.error || expenses.error || hpp.error || waste.error
 
   const isAllOutlets = filter.outletId === 'all'
@@ -331,12 +351,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         perKategori.set(key, (perKategori.get(key) ?? 0) + r.amount)
       })
     return [...perKategori.entries()]
-      .map(([kategori, jumlah]) => ({
-        label: CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori,
-        amount: -jumlah,
-      }))
+      .map(([kategori, jumlah]) => {
+        const isCatProrated = isProrated && ['gaji_crew_outlet', 'sewa_outlet', 'internet'].includes(kategori)
+        const baseLabel = CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori
+        const label = isCatProrated
+          ? `${baseLabel} (Prorata ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} hr)`
+          : baseLabel
+        return {
+          label,
+          amount: -jumlah,
+        }
+      })
       .sort((a, b) => a.amount - b.amount)
-  }, [expenseRows])
+  }, [expenseRows, isProrated, prorataMonthInfo])
 
   const waterfallInput = useMemo(() => ({
     grossRevenue: actualGrossRevenue,
@@ -1112,8 +1139,16 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <span className="text-base font-semibold text-rose-700">-Rp </span>
                   <CountUp end={pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)} duration={1} separator="." />
                 </h3>
-                <div className="flex items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
+                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[11px] text-suka-gray-500 font-semibold">
                   <span>{isAllOutlets ? `Outlet + Pusat` : `Beban Outlet`}</span>
+                  {isProrated && (
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
+                      title={`Beban tetap (Gaji, Sewa, Internet) diprorata ${prorataMonthInfo.overlapDays} dari ${prorataMonthInfo.totalDays} hari`}
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-600" /> Prorata {prorataMonthInfo.overlapDays}/{prorataMonthInfo.totalDays} hr
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1245,7 +1280,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   </div>
                   <div className="bg-suka-gray-50/70 rounded-2xl p-4 space-y-2.5 text-sm border border-suka-gray-100">
                     <div className="flex justify-between items-center text-rose-600">
-                      <span className="font-medium">Beban Tetap & Bulanan Outlet (Gaji, Listrik, Sewa)</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">Beban Tetap & Bulanan Outlet (Gaji, Listrik, Sewa)</span>
+                        {isProrated && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            Prorata {prorataMonthInfo.overlapDays}/{prorataMonthInfo.totalDays} hr
+                          </span>
+                        )}
+                      </div>
                       <span className="font-bold">-{rupiah(pengeluaranOutletBulanan)}</span>
                     </div>
                     <div className="flex justify-between items-center text-rose-600">

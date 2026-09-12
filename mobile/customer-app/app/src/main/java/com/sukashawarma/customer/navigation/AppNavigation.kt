@@ -259,12 +259,7 @@ fun CustomerAppRoot(container: AppContainer) {
 
             composable(Rute.ONBOARDING) {
                 OnboardingScreen(
-                    onMasuk = { navController.navigate(Rute.masuk()) },
-                    onLihatMenu = {
-                        navController.navigate(Rute.KATALOG) {
-                            popUpTo(Rute.ONBOARDING) { inclusive = true }
-                        }
-                    }
+                    onMasuk = { navController.navigate(Rute.masuk()) }
                 )
             }
 
@@ -294,11 +289,7 @@ fun CustomerAppRoot(container: AppContainer) {
                             }
                         }
                     },
-                    onLihatMenu = {
-                        navController.navigate(Rute.KATALOG) {
-                            popUpTo(Rute.ONBOARDING) { inclusive = true }
-                        }
-                    }
+                    onKembali = { navController.popBackStack() }
                 )
             }
 

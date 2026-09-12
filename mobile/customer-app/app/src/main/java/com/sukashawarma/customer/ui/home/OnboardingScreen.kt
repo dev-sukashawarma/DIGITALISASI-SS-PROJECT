@@ -27,7 +27,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -57,7 +56,6 @@ import com.sukashawarma.customer.ui.theme.SukaOrange
 @Composable
 fun OnboardingScreen(
     onMasuk: () -> Unit,
-    onLihatMenu: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -113,25 +111,6 @@ fun OnboardingScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                         }
-                    }
-
-                    OutlinedButton(
-                        onClick = onLihatMenu,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp)
-                            .bounceClick(),
-                        shape = RoundedCornerShape(25.dp),
-                        border = BorderStroke(1.5.dp, SukaBrown)
-                    ) {
-                        Text(
-                            text = "Lihat Menu Dulu",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = SukaBrown,
-                                fontSize = 14.sp
-                            )
-                        )
                     }
 
                     Text(

@@ -29,11 +29,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,7 +62,7 @@ import com.sukashawarma.customer.ui.theme.SukaTint
 fun LoginScreen(
     viewModel: LoginViewModel,
     onBerhasil: () -> Unit,
-    onLihatMenu: () -> Unit,
+    onKembali: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,7 +94,7 @@ fun LoginScreen(
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(Color.White)
-                            .bounceClick(onClick = onLihatMenu),
+                            .bounceClick(onClick = onKembali),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -321,22 +319,6 @@ fun LoginScreen(
                 }
             }
 
-            // Secondary option
-            TextButton(
-                onClick = onLihatMenu,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .bounceClick()
-            ) {
-                Text(
-                    text = "Lihat Menu Dulu (Tanpa Akun)",
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        color = SukaBrown,
-                        fontSize = 13.sp
-                    )
-                )
-            }
         }
     }
 }

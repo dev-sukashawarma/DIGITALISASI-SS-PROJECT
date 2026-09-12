@@ -11,6 +11,7 @@ type MenuRow = {
   category_id: string | null
   sort_order: number
   is_available: boolean
+  available_outlets: string[] | null
 }
 
 async function resolveOnlineCategory(admin: AdminClient, online: AdminClient, categoryId: string) {
@@ -56,6 +57,12 @@ export function toOrderOnlineMenu(row: MenuRow, onlineCategoryId: string | null)
     compare_price: row.strike_price == null ? null : Number(row.strike_price),
     is_active: true,
     sort_order: row.sort_order || 0,
+    // ID outlet admin-dashboard; Order-Online mencocokkannya ke outlets.pos_outlet_id.
+    // null/kosong = tayang di semua outlet.
+    available_outlets:
+      Array.isArray(row.available_outlets) && row.available_outlets.length > 0
+        ? row.available_outlets
+        : null,
   }
 }
 

@@ -32,12 +32,17 @@ export function useKioskControl({ userId, username, outletId }: Args) {
       config: { presence: { key: userId } },
     })
 
-    const trackSelf = () =>
-      channel.track({
+    let lastTrackTime = 0
+    const trackSelf = () => {
+      const now = Date.now()
+      if (now - lastTrackTime < 5000) return
+      lastTrackTime = now
+      return channel.track({
         username,
         device_label: deviceLabel,
         online_at: new Date().toISOString(),
-      })
+      }).catch(() => {})
+    }
 
     channel
       .on('broadcast', { event: 'force_logout' }, async ({ payload }) => {

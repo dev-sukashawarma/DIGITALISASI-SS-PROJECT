@@ -338,6 +338,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .from('petty_cash_expenses')
       .select('*')
       .eq('outlet_id', shift.outlet_id)
+      .is('deleted_at', null)
       .gte('created_at', shift.start_time)
       .lte('created_at', shift.end_time || new Date().toISOString())
       // Daftar ini ikut dijumlahkan jadi total shift, jadi baris ter-void harus

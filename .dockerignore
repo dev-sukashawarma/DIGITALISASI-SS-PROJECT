@@ -1,18 +1,14 @@
+﻿node_modules
 **/node_modules
+.next
 **/.next
 .git
-.github
-.claude
-.superpowers
-mobile
-docs
-sample-reports
-e2e-tests
-recovered_images
-Format Import Channel
-SS COGS SET
-*.sql
+.turbo
+dist
+build
+.codegraph
 *.log
-*.txt
-*.xlsx
-*.csv
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*

@@ -48,9 +48,22 @@ export default function CameraViewer({ outletId, outletName, onClose }: {
   const sendStop = useCallback((requestId: string | null) => {
     if (!requestId || stopSent.current) return
     stopSent.current = true
-    void callCamera(outletId, 'stop', requestId).catch(() => {
+    // Closing a tab can terminate an in-flight request. Retry a small number
+    // of times so a transient network failure cannot leave the POS streaming
+    // indefinitely after the viewer has gone away.
+    void (async () => {
+      const retryDelays = [0, 250, 750]
+      for (const delay of retryDelays) {
+        if (delay > 0) await new Promise((resolve) => window.setTimeout(resolve, delay))
+        try {
+          await callCamera(outletId, 'stop', requestId)
+          return
+        } catch {
+          // Keep retrying while the browser still allows keepalive requests.
+        }
+      }
       stopSent.current = false
-    })
+    })()
   }, [outletId])
 
   const stopStream = useCallback(() => {

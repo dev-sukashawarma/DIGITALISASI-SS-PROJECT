@@ -4,26 +4,23 @@ import type { Alokasi, SaldoVendor } from '@/lib/stok/alokasiVendor'
 
 type Props = {
   vendors: SaldoVendor[]              // sisa dalam satuan DISTRIBUSI
-  qtyTarget: number                   // qty baris ini dalam satuan DISTRIBUSI
   satuan: string
+  targetQty?: number                  // jumlah diminta/disetujui dalam satuan DISTRIBUSI
   alokasi: Alokasi[]                  // qty dalam satuan DISTRIBUSI
   onChange: (a: Alokasi[]) => void
   galat: string | null
   disabled?: boolean
 }
 
-export function PilihVendorBahan({ vendors, qtyTarget, satuan, alokasi, onChange, galat, disabled }: Props) {
+export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange, galat, disabled }: Props) {
   if (vendors.length <= 1) {
     return vendors[0] ? <p className="text-[11px] text-[#544437]">Vendor: <b>{vendors[0].vendor_nama}</b></p> : null
   }
   const pecah = alokasi.length > 1
   const ubahQty = (vendor_id: string, qty: number) =>
     onChange(alokasi.map((a) => (a.vendor_id === vendor_id ? { ...a, qty } : a)))
-  // Memilih satu vendor = vendor itu menanggung SELURUH qty baris. Sebelumnya
-  // memakai jumlah alokasi berjalan, yang pada hari pertama (belum ada hitung
-  // fisik -> alokasiAwal mengembalikan []) selalu 0 dan membuat baris mentok di
-  // "Jumlah X harus lebih dari 0" tanpa jalan keluar.
-  const pilihTunggal = (vendor_id: string) => onChange([{ vendor_id, qty: qtyTarget }])
+  const total = (alokasi.reduce((s, a) => s + a.qty, 0)) || targetQty || 0
+  const pilihTunggal = (vendor_id: string) => onChange([{ vendor_id, qty: targetQty || total }])
 
   return (
     <div className="mt-2 rounded-lg border border-[#d9c2b2]/60 p-2 space-y-1 text-[11px]">
@@ -51,7 +48,7 @@ export function PilihVendorBahan({ vendors, qtyTarget, satuan, alokasi, onChange
       })}
       {!disabled && (
         <button type="button" className="text-[#904d00] underline"
-          onClick={() => onChange(pecah ? alokasi.slice(0, 1).map((a) => ({ ...a, qty: qtyTarget })) : alokasi)}
+          onClick={() => onChange(pecah ? alokasi.slice(0, 1).map((a) => ({ ...a, qty: total })) : alokasi)}
           hidden={!pecah && alokasi.length === 0}>
           {pecah ? 'Satu vendor saja' : '+ pecah vendor'}
         </button>

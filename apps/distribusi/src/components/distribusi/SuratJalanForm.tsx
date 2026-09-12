@@ -569,8 +569,8 @@ export function SuratJalanForm() {
                         </div>
                         <PilihVendorBahan
                           vendors={vendorsDist(item)}
-                          qtyTarget={item.qty}
                           satuan={distUnit}
+                          targetQty={item.qty}
                           alokasi={alokasi[item.bahanId] ?? []}
                           onChange={(a) => setAlokasi((prev) => ({ ...prev, [item.bahanId]: a }))}
                           galat={galatVendor(item)}

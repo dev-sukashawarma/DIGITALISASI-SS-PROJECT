@@ -370,8 +370,8 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
               </div>
               <PilihVendorBahan
                 vendors={vendorsDist(it)}
-                qtyTarget={qtys[it.bahan_baku_id] ?? 0}
                 satuan={distUnit}
+                targetQty={qtys[it.bahan_baku_id] ?? 0}
                 alokasi={alokasi[it.bahan_baku_id] ?? []}
                 onChange={(a) => setAlokasi(prev => ({ ...prev, [it.bahan_baku_id]: a }))}
                 galat={galatVendor(it)}

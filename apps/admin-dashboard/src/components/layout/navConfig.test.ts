@@ -175,10 +175,17 @@ describe('navConfig — invarian', () => {
     }
   })
 
+  const getAppDir = () => {
+    if (existsSync(join(process.cwd(), 'src/app'))) return join(process.cwd(), 'src/app')
+    if (existsSync(join(process.cwd(), 'apps/admin-dashboard/src/app'))) return join(process.cwd(), 'apps/admin-dashboard/src/app')
+    return join(__dirname, '../../app')
+  }
+
   it('setiap href di nav punya page.tsx yang benar-benar ada', () => {
+    const appDir = getAppDir()
     const hrefs = [...new Set(ALL_ITEMS.map((i) => i.href))]
     const missing = hrefs.filter(
-      (href) => !existsSync(join(process.cwd(), 'src/app', href, 'page.tsx')),
+      (href) => !existsSync(join(appDir, href, 'page.tsx')),
     )
     expect(missing).toEqual([])
   })
@@ -220,7 +227,7 @@ describe('navConfig — invarian', () => {
     // dua-duanya: tak muncul di nav, dan file halamannya tidak ikut terhapus
     // supaya bisa dikembalikan kapan saja.
     expect(ALL_ITEMS.some((i) => i.href === '/dashboard/reports/shrinkage')).toBe(false)
-    expect(existsSync(join(process.cwd(), 'src/app/dashboard/reports/shrinkage/page.tsx'))).toBe(true)
+    expect(existsSync(join(getAppDir(), 'dashboard/reports/shrinkage/page.tsx'))).toBe(true)
   })
 
   it('Laba Rugi punya sub-menu Internal & Mitra', () => {

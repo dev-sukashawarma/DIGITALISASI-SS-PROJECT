@@ -1,15 +1,12 @@
 # Multi-stage Dockerfile for Next.js app (@suka/stok)
-# Extremely lightweight final image (~180MB) designed for low-disk VPS environments.
+# Built from the monorepo root so shared @suka packages resolve correctly.
 
-# --- Stage 1: Install dependencies ---
+# --- Stage 1: Install dependencies & build ---
 FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
-# Install python/make if needed for some node-gyp packages, though usually not needed for these apps
-# RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-
 # Copy manifests for yarn workspaces resolution
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+COPY package.json yarn.lock .npmrc* tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
@@ -43,17 +40,25 @@ ENV NEXT_PRIVATE_MAX_WORKERS=1
 WORKDIR /repo
 RUN NEXT_TURBOPACK=0 corepack enable && NEXT_TURBOPACK=0 yarn workspace @suka/stok build
 
-# --- Stage 3: Ultra-lightweight Production Runner ---
+# --- Stage 2: Ultra-lightweight Production Runner ---
 FROM node:24-bookworm-slim AS runner
 WORKDIR /repo/apps/stok
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV HOSTNAME=0.0.0.0
 
-# Server-only secrets: ARG/ENV di stage builder TIDAK ikut ke stage baru
-# (fresh FROM). Server Actions/Route Handlers baca process.env di RUNTIME,
-# jadi harus di-re-declare di sini juga, bukan cuma di builder.
+# Keep runtime environment explicit for middleware and server rendering
+ARG NEXT_PUBLIC_COOKIE_DOMAIN
+ARG NEXT_PUBLIC_PORTAL_URL
+ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
+ARG NEXT_PUBLIC_SUPABASE_URL
 ARG SUPABASE_SERVICE_ROLE_KEY
+
+ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
+ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
+ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
+ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
 
 COPY --from=builder /repo/node_modules /repo/node_modules

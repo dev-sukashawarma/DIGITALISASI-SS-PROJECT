@@ -543,12 +543,18 @@ private fun BestSellerCard(
                     .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
                     .background(SukaTint)
             ) {
-                AsyncImage(
-                    model = item.imageUrl ?: "https://lh3.googleusercontent.com/aida-public/AB6AXuA-1VF8-8QaQcQ6cmXMurD2EvPHrP2j_cotf5LxDsJhsuHPuzbmNqUIielgYlF8F6zj-wa6sSNP2qdPHdpAkVGLwdkzt2_BoWryJbpIB1MPcnS5KC7Qnsur5QBCCh423OYZcFRPeAFQjjMueVERE8RO6POhDbXSkNX2DUnw82HsiYONuRZKXQbD0T6tbEiGGpqIqxxfRtTj4c0-JjhF44ih-HJwp52RRjdcrpTccNHx45kRZYTRG7iz8v5fQipfTNnWM96x1AEo0WuL",
-                    contentDescription = item.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize()
-                )
+                // Sengaja tanpa fallback ke URL gambar mockup Stitch --
+                // disamakan dengan CatalogScreen.kt. Menu tanpa foto cukup
+                // tampil di atas latar SukaTint, bukan memakai foto menu lain
+                // sebagai penggantinya.
+                if (item.imageUrl != null) {
+                    AsyncImage(
+                        model = item.imageUrl,
+                        contentDescription = item.name,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
                 // Rank Badge
                 Box(
                     modifier = Modifier

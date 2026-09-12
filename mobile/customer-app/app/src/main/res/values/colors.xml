@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Disalin dari ui/theme/Color.kt. Splash digambar oleh sistem SEBELUM
+         Compose hidup, jadi warnanya harus ada sebagai resource XML. -->
+    <color name="suka_cream">#FFFFF7ED</color>
+    <color name="suka_brown">#FF701604</color>
+</resources>

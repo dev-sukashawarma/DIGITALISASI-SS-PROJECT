@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Tema splash. `postSplashScreenTheme` adalah tema yang dipakai Activity
+      SETELAH splash selesai — tanpa itu, aplikasi tetap memakai tema splash
+      dan action bar bawaan muncul kembali.
+    -->
+    <style name="Theme.Suka.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/suka_cream</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/logo_suka</item>
+        <item name="postSplashScreenTheme">@style/Theme.Suka.Utama</item>
+    </style>
+
+    <style name="Theme.Suka.Utama" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/suka_cream</item>
+    </style>
+</resources>

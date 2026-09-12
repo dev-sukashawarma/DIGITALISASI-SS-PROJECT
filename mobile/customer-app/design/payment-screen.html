@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pembayaran QRIS - Suka Shawarma</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              orange: '#F29744',
+              brown: '#701604',
+              cream: '#FFF8F2',
+              card: '#FFFFFF',
+              darktext: '#2D1406',
+              subtext: '#7A6B63',
+              border: '#F3E7DC',
+              surface: '#FCF3EA',
+              teal: '#00875A',
+              tealLight: '#E8F5E9'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F8EFE7;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(1.15); }
+    }
+    .pulsing-dot {
+      animation: pulse-soft 2s infinite ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-0 sm:p-4 text-[#2D1406]">
+
+  <!-- Mobile App Frame (390 x 844 proportion) -->
+  <div class="w-full max-w-[420px] min-h-screen bg-[#FFF8F2] shadow-2xl relative flex flex-col sm:rounded-[36px] overflow-hidden border border-[#F0E2D4]">
+
+    <!-- Status Bar (Android Style) -->
+    <header class="pt-3 px-6 pb-2 flex items-center justify-between text-xs font-semibold text-[#701604] select-none">
+      <span>09:41</span>
+      <div class="flex items-center space-x-2">
+        <!-- Signal -->
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+          <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 15c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z"/>
+        </svg>
+        <!-- Wifi -->
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+          <path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4zm0 3.5c3.6 0 6.89 1.45 9.3 3.82L12 18.5 2.7 11.32C5.11 8.95 8.4 7.5 12 7.5z"/>
+        </svg>
+        <!-- Battery -->
+        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+          <path d="M16 4h-1V2h-6v2H8c-.55 0-1 .45-1 1v16c0 .55.45 1 1 1h8c.55 0 1-.45 1-1V5c0-.55-.45-1-1-1zm-1 16H9V6h6v14z"/>
+        </svg>
+      </div>
+    </header>
+
+    <!-- Top App Navigation -->
+    <nav class="px-5 py-3 flex items-center justify-between border-b border-[#F5E6D8]/60 bg-[#FFF8F2]/90 backdrop-blur-md sticky top-0 z-20">
+      <a href="checkout-screen.html" class="w-10 h-10 rounded-full bg-white shadow-sm border border-[#F3E7DC] flex items-center justify-center text-[#701604] hover:bg-[#FAF0E6] transition active:scale-95" aria-label="Kembali">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+
+      <div class="text-center">
+        <h1 class="text-base font-bold text-[#701604]">Pembayaran QRIS</h1>
+        <p class="text-[11px] text-[#7A6B63]">Order-ahead & Ambil di Outlet</p>
+      </div>
+
+      <!-- Help / Support Button -->
+      <button class="w-10 h-10 rounded-full bg-white shadow-sm border border-[#F3E7DC] flex items-center justify-center text-[#701604] hover:bg-[#FAF0E6] transition active:scale-95" title="Bantuan">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+      </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 px-5 pt-3 pb-28 overflow-y-auto space-y-4">
+
+      <!-- Status Indicator & Timer Card -->
+      <section class="bg-white rounded-2xl p-4 shadow-sm border border-[#F3E7DC] text-center relative overflow-hidden">
+        <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#F29744] via-[#701604] to-[#F29744]"></div>
+
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF4EB] border border-[#FBD9BC] text-[#701604] text-xs font-semibold mb-2">
+          <span class="w-2 h-2 rounded-full bg-[#F29744] pulsing-dot"></span>
+          Menunggu Pembayaran
+        </div>
+
+        <p class="text-xs text-[#7A6B63] font-medium">Selesaikan pembayaran dalam waktu</p>
+
+        <!-- Big Countdown Timer -->
+        <div class="flex items-center justify-center gap-2.5 my-2">
+          <div class="w-8 h-8 rounded-full bg-[#FFF0E2] flex items-center justify-center text-[#F29744]">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="9"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 7v5l3 2"/>
+            </svg>
+          </div>
+          <div id="countdown-timer" class="text-3xl font-extrabold tracking-wider text-[#701604] tabular-nums">
+            14:59
+          </div>
+        </div>
+
+        <p class="text-[11px] text-[#A37358]">
+          QR Code ini otomatis kedaluwarsa setelah waktu habis.
+        </p>
+      </section>
+
+      <!-- QRIS Code Hero Card -->
+      <section class="bg-white rounded-3xl p-5 shadow-md border border-[#F3E7DC] text-center relative">
+
+        <!-- Official Indonesian QRIS Header Banner -->
+        <div class="flex items-center justify-between pb-3 border-b border-[#F5EADB] mb-4">
+          <div class="flex items-center gap-2">
+            <!-- QRIS Brand Badge -->
+            <div class="bg-[#D92D20] text-white font-black text-xs px-2.5 py-0.5 rounded tracking-wider italic">
+              QRIS
+            </div>
+            <span class="text-[10px] font-bold text-gray-700 tracking-tight leading-none text-left">
+              STANDAR PEMBAYARAN NASIONAL<br>
+              <span class="text-[9px] font-normal text-gray-500">GPN & Bank Indonesia</span>
+            </span>
+          </div>
+          <!-- GPN Logo Minimal -->
+          <div class="flex items-center gap-1 border border-gray-200 px-1.5 py-0.5 rounded bg-gray-50">
+            <span class="text-[9px] font-extrabold text-blue-800">GPN</span>
+          </div>
+        </div>
+
+        <!-- Merchant Name & Outlet -->
+        <div class="mb-4">
+          <div class="text-[11px] uppercase tracking-wider text-[#A06C4F] font-semibold">Merchant Resmi</div>
+          <h2 class="text-base font-extrabold text-[#701604] tracking-tight uppercase">
+            SUKA SHAWARMA – BOGOR PAJAJARAN
+          </h2>
+          <div class="flex items-center justify-center gap-2 mt-1">
+            <span class="text-[11px] text-[#7A6B63]">NMID: ID1024398182901</span>
+            <span class="text-gray-300">•</span>
+            <span class="inline-flex items-center gap-1 text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-full">
+              <svg class="w-3 h-3 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              Terverifikasi
+            </span>
+          </div>
+        </div>
+
+        <!-- High Contrast Sharp QR Code Graphic -->
+        <div class="bg-white p-3 rounded-2xl border-2 border-[#EAD7C5] shadow-inner inline-block mx-auto relative group">
+          <!-- QR Code Vector Pattern -->
+          <svg class="w-56 h-56 mx-auto" viewBox="0 0 220 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background -->
+            <rect width="220" height="220" fill="#FFFFFF"/>
+
+            <!-- Top Left Corner Detection Marker -->
+            <rect x="15" y="15" width="50" height="50" rx="6" stroke="#2D1406" stroke-width="8" fill="none"/>
+            <rect x="29" y="29" width="22" height="22" rx="3" fill="#701604"/>
+
+            <!-- Top Right Corner Detection Marker -->
+            <rect x="155" y="15" width="50" height="50" rx="6" stroke="#2D1406" stroke-width="8" fill="none"/>
+            <rect x="169" y="29" width="22" height="22" rx="3" fill="#701604"/>
+
+            <!-- Bottom Left Corner Detection Marker -->
+            <rect x="15" y="155" width="50" height="50" rx="6" stroke="#2D1406" stroke-width="8" fill="none"/>
+            <rect x="29" y="169" width="22" height="22" rx="3" fill="#701604"/>
+
+            <!-- Small Alignment Pattern (Bottom Right) -->
+            <rect x="160" y="160" width="30" height="30" rx="4" stroke="#2D1406" stroke-width="6" fill="none"/>
+            <rect x="170" y="170" width="10" height="10" rx="2" fill="#701604"/>
+
+            <!-- Timing Patterns -->
+            <g fill="#2D1406">
+              <rect x="75" y="20" width="8" height="8"/>
+              <rect x="91" y="20" width="8" height="8"/>
+              <rect x="107" y="20" width="8" height="8"/>
+              <rect x="123" y="20" width="8" height="8"/>
+              <rect x="139" y="20" width="8" height="8"/>
+
+              <rect x="20" y="75" width="8" height="8"/>
+              <rect x="20" y="91" width="8" height="8"/>
+              <rect x="20" y="107" width="8" height="8"/>
+              <rect x="20" y="123" width="8" height="8"/>
+              <rect x="20" y="139" width="8" height="8"/>
+            </g>
+
+            <!-- Data Modules Matrix (Realistic QR Density) -->
+            <g fill="#1F1A17">
+              <!-- Top center cluster -->
+              <rect x="75" y="40" width="8" height="8"/>
+              <rect x="99" y="40" width="16" height="8"/>
+              <rect x="123" y="40" width="8" height="8"/>
+              <rect x="139" y="40" width="8" height="8"/>
+
+              <rect x="75" y="56" width="16" height="8"/>
+              <rect x="107" y="56" width="8" height="8"/>
+              <rect x="131" y="56" width="16" height="8"/>
+
+              <!-- Mid band -->
+              <rect x="15" y="75" width="8" height="8"/>
+              <rect x="39" y="75" width="16" height="8"/>
+              <rect x="63" y="75" width="8" height="8"/>
+              <rect x="79" y="75" width="16" height="8"/>
+              <rect x="111" y="75" width="8" height="8"/>
+              <rect x="127" y="75" width="16" height="8"/>
+              <rect x="159" y="75" width="8" height="8"/>
+              <rect x="183" y="75" width="16" height="8"/>
+
+              <rect x="23" y="91" width="8" height="8"/>
+              <rect x="55" y="91" width="8" height="8"/>
+              <rect x="71" y="91" width="16" height="8"/>
+              <rect x="135" y="91" width="8" height="8"/>
+              <rect x="151" y="91" width="24" height="8"/>
+              <rect x="191" y="91" width="16" height="8"/>
+
+              <rect x="39" y="107" width="8" height="8"/>
+              <rect x="63" y="107" width="16" height="8"/>
+              <rect x="143" y="107" width="16" height="8"/>
+              <rect x="175" y="107" width="8" height="8"/>
+              <rect x="199" y="107" width="8" height="8"/>
+
+              <rect x="15" y="123" width="16" height="8"/>
+              <rect x="47" y="123" width="8" height="8"/>
+              <rect x="71" y="123" width="8" height="8"/>
+              <rect x="135" y="123" width="16" height="8"/>
+              <rect x="167" y="123" width="8" height="8"/>
+              <rect x="191" y="123" width="16" height="8"/>
+
+              <rect x="31" y="139" width="16" height="8"/>
+              <rect x="63" y="139" width="8" height="8"/>
+              <rect x="79" y="139" width="16" height="8"/>
+              <rect x="111" y="139" width="16" height="8"/>
+              <rect x="151" y="139" width="8" height="8"/>
+              <rect x="175" y="139" width="16" height="8"/>
+
+              <!-- Bottom right cluster -->
+              <rect x="75" y="155" width="16" height="8"/>
+              <rect x="107" y="155" width="8" height="8"/>
+              <rect x="123" y="155" width="24" height="8"/>
+
+              <rect x="75" y="171" width="8" height="8"/>
+              <rect x="99" y="171" width="16" height="8"/>
+              <rect x="131" y="171" width="8" height="8"/>
+
+              <rect x="83" y="187" width="16" height="8"/>
+              <rect x="115" y="187" width="8" height="8"/>
+              <rect x="139" y="187" width="16" height="8"/>
+
+              <rect x="75" y="203" width="24" height="8"/>
+              <rect x="115" y="203" width="16" height="8"/>
+              <rect x="147" y="203" width="16" height="8"/>
+              <rect x="179" y="203" width="24" height="8"/>
+            </g>
+
+            <!-- Center Brand Logo Overlay -->
+            <g>
+              <rect x="86" y="86" width="48" height="48" rx="10" fill="#FFFFFF" stroke="#F29744" stroke-width="3"/>
+              <!-- Suka Shawarma Stylized Flame / Wrap icon -->
+              <circle cx="110" cy="110" r="18" fill="#701604"/>
+              <path d="M106 103c0 2.5 1.8 3.8 1.8 5.5 0 2-1.5 3.5-3.5 3.5 3.8 4 9.7 1.5 9.7-4 0-2.8-2.2-4.5-2.2-6.5 0-1.8 1.2-3 2.2-4-2.8.2-8 3-8 5.5z" fill="#F29744"/>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Total Payment Amount Info -->
+        <div class="mt-4 pt-3 border-t border-[#F5EADB]">
+          <div class="text-[11px] text-[#7A6B63] font-medium">Total Tagihan Pembayaran</div>
+          <div class="text-2xl font-black text-[#701604] tracking-tight mt-0.5">
+            Rp 59.000
+          </div>
+          <div class="text-[10px] text-[#A06C4F] mt-0.5 font-medium">
+            Termasuk diskon promo SUKALAUNCH (-Rp 10.000)
+          </div>
+        </div>
+
+        <!-- Save QR Image Button Inside Card -->
+        <button class="mt-3.5 w-full py-2.5 px-4 rounded-xl border border-[#E8D6C6] bg-[#FFFBF8] hover:bg-[#FAF0E6] text-[#701604] text-xs font-bold inline-flex items-center justify-center gap-2 transition active:scale-[0.98]">
+          <svg class="w-4 h-4 text-[#F29744]" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+          </svg>
+          <span>Simpan Gambar QR (Unduh)</span>
+        </button>
+      </section>
+
+      <!-- Payment Verification Automatic Alert Box -->
+      <section class="bg-[#ECFDF5] border border-[#A7F3D0] rounded-2xl p-3.5 flex items-start gap-3">
+        <div class="w-7 h-7 rounded-full bg-[#10B981] text-white flex-shrink-0 flex items-center justify-center mt-0.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+        </div>
+        <div class="text-xs text-[#065F46] leading-relaxed">
+          <span class="font-bold">Verifikasi Pembayaran Otomatis:</span><br>
+          Setelah membayar, status pesanan diperbarui otomatis dalam <span class="font-bold">5–10 detik</span>. Kamu tidak perlu mengirim bukti transfer kasir.
+        </div>
+      </section>
+
+      <!-- Supported Wallets & Banks Bar -->
+      <section class="bg-white/80 backdrop-blur-sm rounded-2xl p-3 border border-[#F3E7DC]">
+        <p class="text-[10px] font-semibold text-[#8C7667] text-center mb-2 uppercase tracking-wider">
+          Menerima semua e-Wallet & Mobile Banking
+        </p>
+        <div class="flex items-center justify-center flex-wrap gap-2 text-[11px] font-bold text-[#701604]">
+          <span class="px-2.5 py-1 bg-[#FAF2EB] rounded-lg border border-[#EBD8C8]">BCA</span>
+          <span class="px-2.5 py-1 bg-[#FAF2EB] rounded-lg border border-[#EBD8C8]">Mandiri</span>
+          <span class="px-2.5 py-1 bg-[#FAF2EB] rounded-lg border border-[#EBD8C8]">GoPay</span>
+          <span class="px-2.5 py-1 bg-[#FAF2EB] rounded-lg border border-[#EBD8C8]">OVO</span>
+          <span class="px-2.5 py-1 bg-[#FAF2EB] rounded-lg border border-[#EBD8C8]">ShopeePay</span>
+          <span class="px-2.5 py-1 bg-[#FAF2EB] rounded-lg border border-[#EBD8C8]">DANA</span>
+        </div>
+      </section>
+
+      <!-- How to Pay Instructions Accordion (Panduan Pembayaran) -->
+      <section class="bg-white rounded-2xl p-4 shadow-sm border border-[#F3E7DC]">
+        <div class="flex items-center justify-between pb-3 border-b border-[#F5EADB]">
+          <div class="flex items-center gap-2">
+            <div class="w-6 h-6 rounded-md bg-[#FFF0E2] flex items-center justify-center text-[#F29744]">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <h3 class="text-xs font-bold text-[#701604]">Cara Membayar dengan QRIS</h3>
+          </div>
+          <span class="text-[10px] font-semibold text-[#F29744] bg-[#FFF5EC] px-2 py-0.5 rounded-full">4 Langkah Mudah</span>
+        </div>
+
+        <ol class="mt-3 space-y-3 text-xs text-[#4F3F35]">
+          <li class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-[#701604] text-white flex-shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5">1</span>
+            <p class="leading-snug">
+              Buka aplikasi <span class="font-semibold text-[#2D1406]">mobile banking</span> (BCA, Mandiri, Livin) atau <span class="font-semibold text-[#2D1406]">e-Wallet</span> (GoPay, OVO, ShopeePay, DANA).
+            </p>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-[#701604] text-white flex-shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5">2</span>
+            <p class="leading-snug">
+              Pilih menu <span class="font-semibold text-[#2D1406]">"Scan"</span> atau <span class="font-semibold text-[#2D1406]">"Bayar"</span> lalu arahkan kamera ke kode QR di atas (atau unggah dari galeri jika disimpan).
+            </p>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-[#701604] text-white flex-shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5">3</span>
+            <p class="leading-snug">
+              Periksa nama merchant: <span class="font-bold text-[#701604]">SUKA SHAWARMA</span> dan pastikan nominal sesuai: <span class="font-bold text-[#701604]">Rp 59.000</span>.
+            </p>
+          </li>
+          <li class="flex items-start gap-2.5">
+            <span class="w-5 h-5 rounded-full bg-[#701604] text-white flex-shrink-0 flex items-center justify-center text-[10px] font-bold mt-0.5">4</span>
+            <p class="leading-snug">
+              Masukkan <span class="font-semibold text-[#2D1406]">PIN</span> keamanan Anda dan konfirmasi pembayaran hingga selesai.
+            </p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- Order Summary Card Snippet -->
+      <section class="bg-[#FAF2EB] rounded-2xl p-3.5 border border-[#EBDAC8] text-xs space-y-1.5">
+        <div class="flex items-center justify-between text-[#856D5F]">
+          <span>No. Pesanan</span>
+          <span class="font-mono font-bold text-[#701604]">#SKA-202410-8912</span>
+        </div>
+        <div class="flex items-center justify-between text-[#856D5F]">
+          <span>Metode Ambil</span>
+          <span class="font-medium text-[#2D1406]">Self-Pickup (Bogor Pajajaran)</span>
+        </div>
+        <div class="flex items-center justify-between text-[#856D5F]">
+          <span>Estimasi Siap</span>
+          <span class="font-medium text-[#2D1406]">15–20 menit setelah lunas</span>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Bottom Fixed Actions -->
+    <footer class="absolute bottom-0 left-0 right-0 p-4 bg-white/95 backdrop-blur-md border-t border-[#F2E2D2] shadow-lg flex flex-col gap-2 z-30">
+      <!-- Primary Action CTA -->
+      <button id="verify-btn" onclick="verifyPayment()" class="w-full py-3.5 px-6 rounded-full bg-[#F29744] hover:bg-[#e08633] text-[#4A0E03] font-extrabold text-sm shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2" type="button">
+        <svg id="verify-icon" class="w-4 h-4 text-[#4A0E03]" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <span id="verify-text">Cek Status Pembayaran</span>
+      </button>
+
+      <!-- Secondary Action: Batalkan Pembayaran -->
+      <button onclick="cancelPayment()" class="w-full py-1 text-center text-xs font-semibold text-red-600 hover:text-red-700 transition" type="button">
+        Batalkan Pembayaran
+      </button>
+    </footer>
+
+  </div>
+
+  <script>
+    // 1. Live Countdown Timer (14:59 ticking down)
+    let totalSeconds = 14 * 60 + 59;
+    const timerElement = document.getElementById('countdown-timer');
+
+    setInterval(() => {
+      if (totalSeconds <= 0) return;
+      totalSeconds--;
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      timerElement.textContent = 
+        String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+    }, 1000);
+
+    // 2. Staggered Entrance Animation
+    document.addEventListener('DOMContentLoaded', () => {
+      anime.timeline({ easing: 'easeOutCubic', duration: 500 })
+        .add({
+          targets: 'main > section',
+          translateY: [20, 0],
+          opacity: [0, 1],
+          delay: anime.stagger(80)
+        });
+    });
+
+    // 3. Verify Payment with satisfying micro-interaction
+    function verifyPayment() {
+      const btn = document.getElementById('verify-btn');
+      const text = document.getElementById('verify-text');
+      const icon = document.getElementById('verify-icon');
+
+      anime({
+        targets: btn,
+        scale: [1, 0.95, 1],
+        duration: 250,
+        easing: 'spring(1, 80, 10, 0)'
+      });
+
+      text.textContent = 'Memverifikasi...';
+      icon.classList.add('animate-spin');
+
+      setTimeout(() => {
+        text.textContent = 'Lunas Terverifikasi! ✓';
+        btn.classList.remove('bg-[#F29744]');
+        btn.classList.add('bg-emerald-500', 'text-white');
+        icon.classList.remove('animate-spin');
+
+        setTimeout(() => {
+          window.location.href = 'order-success-screen.html';
+        }, 500);
+      }, 900);
+    }
+
+    function cancelPayment() {
+      if (confirm('Yakin ingin membatalkan transaksi pembayaran?')) {
+        window.location.href = 'home-screen.html';
+      }
+    }
+  </script>
+</body>
+</html>
+
+

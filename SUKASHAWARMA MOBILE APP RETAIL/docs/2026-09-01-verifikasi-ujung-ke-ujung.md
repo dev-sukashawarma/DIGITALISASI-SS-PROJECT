@@ -551,7 +551,9 @@ ada yang rusak.
 
 Kembalikan outlet tes ke keadaan semula bila tidak dipakai lagi
 (`app_enabled = false`), dan putuskan apakah ia tetap di allowlist BOM.
-Rotasi `CRON_SECRET` — nilainya pernah masuk transkrip percakapan.
+Rotasi `CRON_SECRET` — **selesai 9 September 2026.** Nilai lamanya pernah
+masuk transkrip percakapan; diganti di panel Coolify lalu di-redeploy, dan
+penjadwal `expire-drafts` tetap Success sesudahnya.
 
 ---
 
@@ -627,4 +629,125 @@ menampilkan "Menu belum terbit" dan seluruh persiapan di atas sia-sia.
 - Putuskan apakah outlet tes tetap di allowlist BOM.
 - Putuskan apakah 3 menu itu tetap `tampil_di_app` (menu bersifat global —
   begitu outlet pilot sungguhan dinyalakan, ketiganya ikut terbit di sana).
-- **Rotasi `CRON_SECRET`** — nilainya pernah masuk transkrip percakapan.
+- ~~Rotasi `CRON_SECRET`~~ — **selesai 9 September 2026** (lihat bagian
+  penjadwalan di bawah).
+
+---
+
+## Penjadwalan `expire-drafts` di Coolify (9 September 2026)
+
+> **Terpasang dan terbukti bekerja, 9 September 2026 03:40 UTC (10:40 WIB).**
+> Sapuan pertama membalas `200 {"dihanguskan":4}` -- tepat empat draft basi
+> yang selama ini menggantung di Riwayat pelanggan. Sapuan berikutnya `0`,
+> yang memang keadaan normal.
+>
+> Statusnya "Success" di Coolify sudah bermakna, bukan sekadar "perintah
+> jalan": skripnya keluar dengan kode 1 untuk respons apa pun selain 2xx,
+> jadi rahasia yang salah atau gateway yang mati akan tampil sebagai Failed.
+
+Tanpa penjadwal, draft `menunggu_bayar` yang tidak jadi dibayar tidak pernah
+berpindah status — pelanggan melihatnya menumpuk di Riwayat sebagai pesanan
+yang seolah masih berjalan. Endpointnya sudah ada dan terlindungi
+(`POST /api/cron/expire-drafts`, dibalas 401 tanpa header yang benar,
+diverifikasi di produksi), yang belum ada hanya yang memanggilnya.
+
+**Coolify → aplikasi `retail-gateway` → Scheduled Tasks → + Add**
+
+| Kolom | Isi |
+|---|---|
+| Name | `expire-drafts` |
+| Frequency | `*/5 * * * *` |
+| Container | biarkan kosong (kontainer utama app) |
+| Command | lihat di bawah |
+
+```
+node -e "fetch('http://127.0.0.1:3000/api/cron/expire-drafts',{method:'POST',headers:{authorization:'Bearer '+process.env.CRON_SECRET}}).then(async r=>{const t=await r.text();console.log(r.status,t);if(!r.ok)process.exit(1)})"
+```
+
+Tiga alasan bentuk perintahnya seperti itu:
+
+1. **`node`, bukan `curl`.** Basis image `node:24-bookworm-slim` tidak memuat
+   `curl` maupun `wget`. Perintah ber-`curl` akan gagal `command not found`
+   setiap lima menit, dan kegagalan itu mudah dikira endpointnya yang rusak.
+2. **`process.env.CRON_SECRET`, bukan nilainya diketik.** Rahasianya sudah ada
+   di lingkungan kontainer; menyalinnya ke kolom perintah menaruh satu salinan
+   lagi di tempat baru, tanpa manfaat apa pun.
+3. **`process.exit(1)` saat gagal.** Tanpa itu perintah selalu keluar dengan
+   kode 0 dan Coolify melaporkan "berhasil" meskipun jawabannya 401 atau 500 —
+   penjadwal yang tampak sehat padahal tidak pernah menghanguskan apa pun.
+
+4. **Panjangnya di bawah 255 karakter.** Kolom `command` di basis data Coolify
+   `varchar(255)`; versi pertama perintah ini 283 karakter dan ditolak dengan
+   galat INSERT mentah yang tidak menyebut panjang sama sekali. `.catch()` di
+   ujung dibuang untuk memangkasnya menjadi 226 -- aman, karena sejak Node 15
+   promise yang ditolak tanpa penangan sudah membuat proses keluar dengan kode
+   1 dengan sendirinya. Yang hilang hanya kerapian log, bukan sinyal gagalnya.
+
+**Verifikasi setelah dipasang:** jalankan sekali lewat tombol Run di Coolify,
+lalu baca lognya. Keluaran yang benar `200 {"dihanguskan":N}`. Bila `401`,
+`CRON_SECRET` di panel belum terisi atau kontainer belum di-redeploy sejak
+variabel itu ditambahkan.
+
+⚠️ Rotasi `CRON_SECRET` **setelah** penjadwal terbukti jalan, jangan sebelum —
+kalau tidak, kegagalan rotasi dan kegagalan penjadwal bercampur jadi satu
+gejala yang sama.
+(Urutan ini diikuti pada 9 September 2026; keduanya lolos.)
+
+⚠️ **Success di Coolify tidak membedakan rahasia baru dari rahasia lama.**
+Ia hanya membuktikan nilai di panel cocok dengan yang dipegang kontainer. Yang
+menentukan rotasinya benar-benar terjadi adalah **redeploy**: `CRON_SECRET`
+masuk lewat `--build-arg`, jadi kontainer yang sedang berjalan tetap memegang
+nilai lama sampai dibangun ulang. Periksa `/api/health` — nomor commit yang
+berubah adalah tanda kontainernya memang baru.
+
+---
+
+## Naskah uji sekali-pesan (disiapkan 9 September 2026)
+
+Satu pesanan sungguhan membuktikan tiga hal yang selama ini belum pernah
+diuji lewat jalur aplikasi. Diurutkan begini supaya kalau satu langkah gagal,
+langkah itu sendiri yang menunjuk penyebabnya — bukan hasil akhir yang kabur.
+
+### Prasyarat
+
+| | Yang perlu dilakukan |
+|---|---|
+| APK | Pasang build baru (jendela tunggu bayar 15 menit ada di dalamnya) |
+| `admin-dashboard` | **Redeploy** — toggle "Tampilkan di SukaShawarma APP" baru live sesudahnya |
+| Outlet | Outlet tes (`app_enabled = true`) |
+| Menu | **Ice Tea Rp8.000** — punya resep, jadi bisa membuktikan BOM |
+
+### Langkah
+
+1. **Toggle.** Admin → POS → Menu. Kolom baru **Aplikasi** di paling kanan
+   sebelum Status. Nyalakan Ice Tea, matikan menu tes lama.
+   *Yang dibuktikan:* toggle benar-benar menulis, bukan sekadar berubah warna.
+2. **Katalog.** `GET /api/v1/catalog?outlet_id=<outlet tes>` — Ice Tea muncul,
+   menu yang dimatikan hilang. **Periksa ini sebelum membuka aplikasi.**
+   Kalau katalog sudah benar tapi aplikasi belum, itu masalah cache aplikasi,
+   bukan masalah toggle; membalik urutannya membuat keduanya tertukar.
+3. **Pesan dengan catatan.** Di aplikasi, tambahkan catatan pada Ice Tea —
+   misalnya `es sedikit`. Bayar QRIS sungguhan.
+   *Yang dibuktikan:* konvensi `nama|NOTE|catatan`.
+4. **Periksa `order_items`.** `menu_item_name` harus berbunyi
+   `Ice Tea|NOTE|es sedikit`. Kalau catatannya hilang di sini, struk dapur
+   tidak akan pernah menampilkannya — dan itu kesalahan gateway, bukan POS.
+5. **Struk dapur.** Cetak dari POS. Catatan harus terbaca sebagai catatan,
+   bukan sebagai bagian dari nama menu.
+6. **Tandai `completed` di POS.** BOM hanya menyala pada status ini.
+7. **Periksa `ledger_stok`** untuk `ref_order_id` pesanan itu: harus ada baris
+   `pemakaian` **negatif** untuk tiap bahan resep Ice Tea.
+
+### Yang harus diperhatikan kalau langkah 7 kosong
+
+Urutan curiga, dari yang paling sering:
+
+1. **Outlet tes tidak ada di `global_settings.bom_automation_allowed_outlets`.**
+   Daftarnya dipisah koma dan pernah punya jebakan kutip JSONB yang membuat
+   entri pertama dan terakhir tak pernah cocok.
+2. **`external_order_id` terisi.** Trigger BOM melewati baris mana pun yang
+   punya nilai di kolom itu. `susunPayloadPos` sengaja tidak mengisinya; kalau
+   ternyata terisi, ada yang menambahkannya.
+3. **Status tidak benar-benar `completed`.**
+
+Baru setelah ketiganya bersih, curigai resepnya sendiri.

@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Akun Saya - Suka Shawarma</title>
+<!-- Google Fonts: Plus Jakarta Sans & Public Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols Outlined -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Anime.js CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+<!-- Tailwind CSS v3 -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              bg: '#FFF8F2',
+              card: '#FFFFFF',
+              border: '#F3E7DC',
+              divider: '#F6EFEA',
+              orange: '#F29744',
+              brown: '#701604',
+              text: '#2D1E18',
+              muted: '#7C6E65',
+              subtle: '#A89C94'
+            },
+            surface: '#FFFFFF',
+            'surface-variant': '#FDF4EC',
+            'on-surface': '#2D1E18',
+            'on-surface-variant': '#7C6E65',
+            primary: '#F29744',
+            'primary-deep': '#701604'
+          },
+          borderRadius: {
+            DEFAULT: "0.5rem",
+            lg: "1rem",
+            xl: "1.5rem",
+            "2xl": "1.25rem",
+            "3xl": "1.75rem",
+            full: "9999px"
+          },
+          fontFamily: {
+            headline: ["Plus Jakarta Sans", "sans-serif"],
+            display: ["Plus Jakarta Sans", "sans-serif"],
+            body: ["Plus Jakarta Sans", "sans-serif"],
+            label: ["Public Sans", "sans-serif"]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      background-color: #FFF8F2;
+      color: #2D1E18;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .material-symbols-outlined.fill {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="min-h-screen flex justify-center bg-[#FFF8F2] antialiased selection:bg-brand-orange/20 selection:text-brand-brown">
+<!-- Mobile Container (390px viewport simulation) -->
+<main class="w-full max-w-[420px] min-h-screen flex flex-col bg-[#FFF8F2] relative pb-28">
+<!-- Top Status Bar (iOS/Modern Mobile Style) -->
+<header class="w-full pt-3 px-6 pb-2 flex justify-between items-center text-xs font-semibold text-brand-text/90 select-none">
+<span class="tracking-tight text-sm font-bold">09:41</span>
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-[17px] leading-none" data-icon="signal_cellular_alt">signal_cellular_alt</span>
+<span class="material-symbols-outlined text-[17px] leading-none" data-icon="wifi">wifi</span>
+<span class="material-symbols-outlined text-[20px] leading-none rotate-90" data-icon="battery_full">battery_full</span>
+</div>
+</header>
+<!-- TopAppBar (JSON Component implementation) -->
+<section class="flex justify-between items-center w-full px-4 py-3 bg-surface shadow-sm sticky top-0 z-40">
+<a href="home-screen.html" aria-label="Kembali ke Beranda" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-variant transition-colors active:scale-95 duration-150">
+<span class="material-symbols-outlined text-xl" data-icon="arrow_back">arrow_back</span>
+</a>
+<h1 class="font-headline text-lg font-bold text-on-surface tracking-tight">Akun Saya</h1>
+<button aria-label="Pengaturan" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface hover:bg-surface-variant transition-colors active:scale-95 duration-150" type="button">
+<span class="material-symbols-outlined text-xl" data-icon="settings">settings</span>
+</button>
+</section>
+<!-- Main Content Canvas -->
+<div class="px-4 pt-4 flex flex-col space-y-5">
+<!-- Customer Profile Header Card -->
+<section class="profile-card bg-white rounded-3xl p-5 border border-brand-border shadow-[0_4px_20px_-4px_rgba(112,22,4,0.05)] transition-all">
+<div class="flex items-center space-x-4">
+<!-- Deep Roasted Brown Avatar with Edit Badge -->
+<div class="relative shrink-0">
+<div id="user-avatar" class="w-16 h-16 rounded-full bg-brand-brown text-white flex items-center justify-center font-headline font-extrabold text-xl tracking-wider ring-4 ring-orange-100/60 shadow-inner cursor-pointer">
+              AR
+            </div>
+<button id="btn-edit-photo" aria-label="Ubah foto profil" class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-brand-orange text-white flex items-center justify-center shadow-md border-2 border-white active:scale-90 transition-transform" type="button">
+<span class="material-symbols-outlined text-[13px]" data-icon="photo_camera">photo_camera</span>
+</button>
+</div>
+<!-- Name and Core Info -->
+<div class="flex-1 min-w-0">
+<div class="flex items-center space-x-1.5">
+<h2 class="font-headline font-bold text-lg text-brand-text truncate leading-tight">Ahmad Rizky</h2>
+</div>
+<p class="text-xs text-brand-muted truncate mt-0.5 font-label">ahmad.rizky@gmail.com</p>
+<span class="inline-flex items-center mt-2 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+<span class="material-symbols-outlined text-[13px] mr-1 text-emerald-600 fill" data-icon="verified" data-weight="fill" style="font-variation-settings: 'FILL' 1;">verified</span>
+              Pelanggan Setia
+            </span>
+</div>
+</div>
+<!-- WhatsApp Verified Pill Status -->
+<div class="mt-4 bg-[#DCFCE7]/70 border border-[#86EFAC]/60 rounded-xl px-3 py-2 flex items-center justify-between">
+<div class="flex items-center space-x-2 text-emerald-800">
+<span class="material-symbols-outlined text-[18px] text-[#15803D] fill" data-icon="check_circle" data-weight="fill" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div class="flex flex-col">
+<span class="text-[11px] font-semibold text-[#15803D] leading-tight font-label">WhatsApp Terverifikasi</span>
+<span class="text-[10px] text-emerald-900/80 font-medium">+62 812-3456-7890</span>
+</div>
+</div>
+<span class="text-[10px] bg-emerald-200/80 text-[#15803D] font-bold px-2 py-0.5 rounded-full font-label">AKTIF</span>
+</div>
+<!-- Quick Stats Row (Divider Hairline) -->
+<div class="mt-4 pt-3 border-t border-[#F3E7DC] grid grid-cols-2 gap-2 text-center divide-x divide-[#F3E7DC]">
+<div class="flex flex-col items-center justify-center px-2">
+<span class="font-headline font-bold text-base text-brand-brown tracking-tight">12</span>
+<span class="text-[11px] font-label text-brand-muted font-medium">Pesanan Selesai</span>
+</div>
+<div class="flex flex-col items-center justify-center px-2">
+<span class="font-headline font-semibold text-xs text-brand-text truncate max-w-full">Bogor Pajajaran</span>
+<span class="text-[11px] font-label text-brand-muted font-medium">Outlet Favorit</span>
+</div>
+</div>
+</section>
+<!-- Section 1: Pengaturan Akun -->
+<section class="profile-section">
+<h3 class="font-headline font-bold text-xs uppercase tracking-wider text-brand-muted mb-2 px-1">Pengaturan Akun</h3>
+<div class="bg-white rounded-2xl border border-brand-border overflow-hidden divide-y divide-brand-divider shadow-[0_2px_8px_-2px_rgba(112,22,4,0.03)]">
+<!-- Item 1: Informasi Pribadi -->
+<a class="flex items-center justify-between p-3.5 hover:bg-brand-bg transition-colors active:bg-orange-50/50" href="#informasi-pribadi">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-orange-50 flex items-center justify-center text-brand-orange shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="person">person</span>
+</div>
+<div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Informasi Pribadi</p>
+<p class="text-[11px] text-brand-muted font-label">Nama lengkap, tanggal lahir</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-brand-muted text-lg" data-icon="chevron_right">chevron_right</span>
+</a>
+<!-- Item 2: Nomor WhatsApp -->
+<a class="flex items-center justify-between p-3.5 hover:bg-brand-bg transition-colors active:bg-orange-50/50" href="#nomor-whatsapp">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="chat">chat</span>
+</div>
+<div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Nomor WhatsApp</p>
+<p class="text-[11px] text-brand-muted font-label">Untuk notifikasi &amp; penjemputan</p>
+</div>
+</div>
+<div class="flex items-center space-x-1.5">
+<span class="text-[11px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-label">Terhubung</span>
+<span class="material-symbols-outlined text-brand-muted text-lg" data-icon="chevron_right">chevron_right</span>
+</div>
+</a>
+<!-- Item 3: Notifikasi & Pengingat -->
+<div class="flex items-center justify-between p-3.5">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="notifications">notifications</span>
+</div>
+<div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Notifikasi &amp; Pengingat</p>
+<p class="text-[11px] text-brand-muted font-label">Info pesanan &amp; promo</p>
+</div>
+</div>
+<!-- Custom Toggle Switch (Active by default) -->
+<label class="relative inline-flex items-center cursor-pointer select-none">
+<input checked="" class="sr-only peer" id="notif-toggle" type="checkbox"/>
+<div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-orange shadow-inner"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Section 2: Bantuan & Informasi -->
+<section class="profile-section">
+<h3 class="font-headline font-bold text-xs uppercase tracking-wider text-brand-muted mb-2 px-1">Bantuan &amp; Informasi</h3>
+<div class="bg-white rounded-2xl border border-brand-border overflow-hidden divide-y divide-brand-divider shadow-[0_2px_8px_-2px_rgba(112,22,4,0.03)]">
+<!-- Item 4: Pusat Bantuan & FAQ -->
+<a class="flex items-center justify-between p-3.5 hover:bg-brand-bg transition-colors active:bg-orange-50/50" href="#bantuan">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="help_outline">help_outline</span>
+</div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Pusat Bantuan &amp; FAQ</p>
+</div>
+<span class="material-symbols-outlined text-brand-muted text-lg" data-icon="chevron_right">chevron_right</span>
+</a>
+<!-- Item 5: Hubungi Customer Care (WhatsApp) -->
+<a class="flex items-center justify-between p-3.5 hover:bg-brand-bg transition-colors active:bg-orange-50/50" href="#customer-care">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="support_agent">support_agent</span>
+</div>
+<div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Hubungi Customer Care</p>
+<span class="text-[10px] text-emerald-700 font-semibold bg-emerald-100/70 px-1.5 py-0.2 rounded font-label">Online 09:00 - 22:00</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-brand-muted text-lg" data-icon="chevron_right">chevron_right</span>
+</a>
+<!-- Item 6: Kebijakan Privasi -->
+<a class="flex items-center justify-between p-3.5 hover:bg-brand-bg transition-colors active:bg-orange-50/50" href="#kebijakan-privasi">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="shield">shield</span>
+</div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Kebijakan Privasi</p>
+</div>
+<span class="material-symbols-outlined text-brand-muted text-lg" data-icon="chevron_right">chevron_right</span>
+</a>
+<!-- Item 7: Syarat & Ketentuan Layanan -->
+<a class="flex items-center justify-between p-3.5 hover:bg-brand-bg transition-colors active:bg-orange-50/50" href="#syarat-ketentuan">
+<div class="flex items-center space-x-3">
+<div class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600 shrink-0">
+<span class="material-symbols-outlined text-lg" data-icon="article">article</span>
+</div>
+<p class="font-headline font-medium text-sm text-brand-text leading-tight">Syarat &amp; Ketentuan Layanan</p>
+</div>
+<span class="material-symbols-outlined text-brand-muted text-lg" data-icon="chevron_right">chevron_right</span>
+</a>
+</div>
+</section>
+<!-- Action: Logout Button -->
+<section class="profile-logout pt-2">
+<button id="btn-logout" class="w-full bg-white hover:bg-red-50/50 border border-red-200 active:scale-[0.99] transition-all rounded-2xl p-3.5 flex items-center justify-center space-x-2 text-red-600 font-headline font-semibold text-sm shadow-[0_2px_6px_-1px_rgba(220,38,38,0.06)]" type="button">
+<span class="material-symbols-outlined text-lg" data-icon="logout">logout</span>
+<span>Keluar dari Akun</span>
+</button>
+<!-- Version Footer -->
+<footer class="text-center mt-5 mb-2">
+<p class="text-xs font-semibold text-brand-subtle font-headline tracking-tight">Suka Shawarma Mobile v1.0.0</p>
+<p class="text-[11px] text-brand-muted/80 mt-0.5 font-label">Rasa Autentik Cepat Saji</p>
+</footer>
+</section>
+</div>
+
+<!-- Floating Toast Notification -->
+<div id="toast" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 bg-stone-900/90 backdrop-blur-md text-white px-4 py-2.5 rounded-full text-xs font-medium shadow-xl flex items-center space-x-2 pointer-events-none opacity-0 translate-y-[-10px]">
+  <span class="material-symbols-outlined text-emerald-400 text-sm" data-icon="check_circle">check_circle</span>
+  <span id="toast-msg">Pengaturan diperbarui</span>
+</div>
+
+<!-- Fixed Bottom Navigation Bar (4 Destinations from JSON Blueprint) -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface shadow-lg" style="box-shadow: 0 -4px 16px -2px rgba(112, 22, 4, 0.06);">
+<div class="max-w-[420px] w-full mx-auto flex justify-around items-center">
+<!-- Tab 1: Beranda -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-primary transition-colors active:scale-95 duration-150 group" href="home-screen.html">
+<span class="material-symbols-outlined text-[22px]" data-icon="home">home</span>
+<span class="font-label text-xs font-semibold mt-0.5">Beranda</span>
+</a>
+<!-- Tab 2: Menu -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-primary transition-colors active:scale-95 duration-150 group" href="home-screen.html#menu">
+<span class="material-symbols-outlined text-[22px]" data-icon="restaurant_menu">restaurant_menu</span>
+<span class="font-label text-xs font-semibold mt-0.5">Menu</span>
+</a>
+<!-- Tab 3: Pesanan -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:text-primary transition-colors active:scale-95 duration-150 group" href="order-history-screen.html">
+<span class="material-symbols-outlined text-[22px]" data-icon="receipt_long">receipt_long</span>
+<span class="font-label text-xs font-semibold mt-0.5">Pesanan</span>
+</a>
+<!-- Tab 4: Profil (ACTIVE - Matches "Akun Saya" context) -->
+<a class="flex flex-col items-center justify-center text-primary font-bold p-1 active:scale-95 transition-transform duration-150 relative" href="profile-screen.html">
+<span class="material-symbols-outlined text-[22px] fill" data-icon="person" data-weight="fill" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-label text-xs font-semibold mt-0.5 text-primary">Profil</span>
+<!-- Orange Dot Indicator -->
+<span class="w-1.5 h-1.5 bg-brand-orange rounded-full mt-0.5"></span>
+</a>
+</div>
+</nav>
+</main>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // 1. Staggered reveal animation on mount
+    anime({
+      targets: ['.profile-card', '.profile-section', '.profile-logout'],
+      opacity: [0, 1],
+      translateY: [24, 0],
+      delay: anime.stagger(90, { start: 100 }),
+      duration: 650,
+      easing: 'easeOutCubic'
+    });
+
+    // Toast helper
+    function showToast(message, icon = 'check_circle', colorClass = 'text-emerald-400') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = toast.querySelector('.material-symbols-outlined');
+      toastMsg.textContent = message;
+      toastIcon.textContent = icon;
+      toastIcon.className = `material-symbols-outlined ${colorClass} text-sm`;
+
+      anime.remove(toast);
+      anime({
+        targets: toast,
+        opacity: [0, 1],
+        translateY: [-10, 0],
+        duration: 350,
+        easing: 'easeOutCubic',
+        complete: () => {
+          setTimeout(() => {
+            anime({
+              targets: toast,
+              opacity: [1, 0],
+              translateY: [0, -10],
+              duration: 300,
+              easing: 'easeInCubic'
+            });
+          }, 2000);
+        }
+      });
+    }
+
+    // 2. Avatar edit photo micro-interaction
+    const editPhotoBtn = document.getElementById('btn-edit-photo');
+    const userAvatar = document.getElementById('user-avatar');
+    
+    function pulseAvatar() {
+      anime({
+        targets: userAvatar,
+        scale: [1, 1.08, 1],
+        duration: 400,
+        easing: 'spring(1, 80, 10, 0)'
+      });
+      anime({
+        targets: editPhotoBtn,
+        rotate: [0, 360],
+        duration: 500,
+        easing: 'easeOutBack'
+      });
+      showToast('Mode pilih foto profil terbuka', 'photo_camera', 'text-brand-orange');
+    }
+
+    if (editPhotoBtn) editPhotoBtn.addEventListener('click', pulseAvatar);
+    if (userAvatar) userAvatar.addEventListener('click', pulseAvatar);
+
+    // 3. Notification toggle switch feedback
+    const toggle = document.getElementById('notif-toggle');
+    if (toggle) {
+      toggle.addEventListener('change', (e) => {
+        showToast(e.target.checked ? 'Notifikasi & Pengingat Aktif' : 'Notifikasi Dinonaktifkan', e.target.checked ? 'notifications_active' : 'notifications_off', 'text-brand-orange');
+      });
+    }
+
+    // 4. Logout button micro-interaction
+    const btnLogout = document.getElementById('btn-logout');
+    if (btnLogout) {
+      btnLogout.addEventListener('click', () => {
+        anime({
+          targets: btnLogout,
+          scale: [0.95, 1],
+          duration: 300,
+          easing: 'spring(1, 80, 10, 0)'
+        });
+        showToast('Keluar akun berhasil disimulasikan', 'logout', 'text-red-400');
+        setTimeout(() => {
+          window.location.href = 'home-screen.html';
+        }, 1200);
+      });
+    }
+  });
+</script>
+</body></html>
+

@@ -30,7 +30,7 @@ export function InvestmentDialog({
   const [omzetHistoris, setOmzetHistoris] = useState<number>(0)
   const [transferHistoris, setTransferHistoris] = useState<number>(0)
   
-  const [isProfitSharingActive, setIsProfitSharingActive] = useState<boolean>(false)
+  const [isProfitSharingActive, setIsProfitSharingActive] = useState<boolean>(true)
   const [persentaseBagiHasil, setPersentaseBagiHasil] = useState<number>(50)
   const [managementFee, setManagementFee] = useState<number>(0)
 
@@ -49,7 +49,7 @@ export function InvestmentDialog({
         setCatatan(data.catatan || '')
         setOmzetHistoris(data.omzet_historis || 0)
         setTransferHistoris(data.transfer_historis || 0)
-        setIsProfitSharingActive(data.is_profit_sharing_active || false)
+        setIsProfitSharingActive(data.is_profit_sharing_active !== false)
         setPersentaseBagiHasil(data.persentase_bagi_hasil ?? 50)
         setManagementFee(data.management_fee || 0)
       }

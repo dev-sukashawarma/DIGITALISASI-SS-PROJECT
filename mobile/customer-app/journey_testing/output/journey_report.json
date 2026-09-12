@@ -1,0 +1,272 @@
+{
+  "journey": "Suka Shawarma Customer App End-to-End User Journey",
+  "results": [
+    {
+      "action": "Verify that the app is open and on the Home screen or Promo dialog",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "App is open. State detected: Home Screen."
+    },
+    {
+      "action": "Tap \"Nanti Saja\" or close button if Promo dialog is visible",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Promo dialog was already dismissed; app is on Home screen."
+    },
+    {
+      "action": "Verify that the Home screen displays the brand header \"SUKA SHAWARMA\" and tagline \"Otentik • Panggang • Gurih\"",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Brand header 'SUKA SHAWARMA' verified. Tagline present: True."
+    },
+    {
+      "action": "Verify that the outlet status banner displays \"Buka\" and active outlet name",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Outlet status banner verified (Open status & outlet detected)."
+    },
+    {
+      "action": "Verify that Best Seller menu items are displayed on Home screen",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Best seller items verified on Home screen."
+    },
+    {
+      "action": "Tap \"Ganti Outlet\" button",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 603 267"
+      ],
+      "comment": "Tapped Ganti Outlet coordinates. Center coordinates: (603, 267)."
+    },
+    {
+      "action": "Verify that the outlet picker screen is displayed with \"Pilih Outlet\"",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Outlet picker screen displayed with title and close action."
+    },
+    {
+      "action": "Tap the close button \"Tutup\" to return to Home",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 36 110"
+      ],
+      "comment": "Tapped Tutup button coordinates. Center coordinates: (36, 110)."
+    },
+    {
+      "action": "Verify that the app is back on the Home screen",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Successfully returned to Home screen."
+    },
+    {
+      "action": "Tap \"Menu\" tab in bottom navigation bar",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 283 1445"
+      ],
+      "comment": "Tapped Menu tab coordinates. Center coordinates: (283, 1445)."
+    },
+    {
+      "action": "Verify that the Menu & Katalog screen is displayed with search bar",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Menu & Katalog screen displayed with search bar."
+    },
+    {
+      "action": "Verify that category filter chips are visible",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Category filter chips are visible in catalog."
+    },
+    {
+      "action": "Tap category chip \"Original Shawarma Sapi\"",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 513 345"
+      ],
+      "comment": "Tapped Sapi category chip. Center coordinates: (513, 345)."
+    },
+    {
+      "action": "Verify that menu list is updated for selected category",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Menu list refreshed according to selected category chip."
+    },
+    {
+      "action": "Tap category chip \"Original Shawarma Ayam\"",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 185 345"
+      ],
+      "comment": "Tapped Ayam category chip. Center coordinates: (185, 345)."
+    },
+    {
+      "action": "Tap menu item \"Original Ayam Jumbo\"",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 360 850"
+      ],
+      "comment": "Tapped item card coordinates. Center coordinates: (360, 850)."
+    },
+    {
+      "action": "Verify that Detail Menu screen is displayed with product name, price, and toppings",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Detail Menu screen displayed with product info, toppings, and CTA."
+    },
+    {
+      "action": "Tap \"Tambah\" button to increase quantity",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 615 834"
+      ],
+      "comment": "Tapped '+' button coordinates. Center coordinates: (615, 834)."
+    },
+    {
+      "action": "Verify that quantity is updated to 2",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Quantity counter verified."
+    },
+    {
+      "action": "Tap \"Extra Keju\" topping option",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 360 1088"
+      ],
+      "comment": "Tapped Extra Keju coordinates. Center coordinates: (360, 1088)."
+    },
+    {
+      "action": "Tap note input field and type \"Ekstra saus toum ya\"",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 356 1058",
+        "adb shell input text \"Ekstra%ssaus%stoum%sya\""
+      ],
+      "comment": "Tapped note input coordinates. Typed 'Ekstra saus toum ya' and closed keyboard."
+    },
+    {
+      "action": "Tap \"+ Keranjang\" button to add customized item",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 562 1438"
+      ],
+      "comment": "Tapped '+ Keranjang' coordinates. Center coordinates: (562, 1438)."
+    },
+    {
+      "action": "Verify that item is added to cart and floating cart bar is visible",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Item added to cart; floating cart bar displayed with item count & total."
+    },
+    {
+      "action": "Tap \"Lihat Keranjang\" floating bar",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 533 1308"
+      ],
+      "comment": "Tapped floating cart bar coordinates. Center coordinates: (533, 1308)."
+    },
+    {
+      "action": "Verify that Keranjang Pesanan screen displays cart items, breakdown, and total",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Keranjang Pesanan screen displays items, breakdown, and total."
+    },
+    {
+      "action": "Tap \"Lanjut Pembayaran\" button",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 512 1439"
+      ],
+      "comment": "Tapped Lanjut Pembayaran coordinates. Center coordinates: (512, 1439)."
+    },
+    {
+      "action": "Verify that Ringkasan Pesanan checkout screen displays pickup details and QRIS payment method",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Ringkasan Pesanan checkout screen displayed with QRIS payment method."
+    },
+    {
+      "action": "Tap \"Kembali\" to return to Cart screen",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 68 125"
+      ],
+      "comment": "Tapped Kembali coordinates. Center coordinates: (68, 125)."
+    },
+    {
+      "action": "Tap \"Kembali\" to return to previous screen",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 68 125"
+      ],
+      "comment": "Tapped Kembali coordinates. Center coordinates: (68, 125)."
+    },
+    {
+      "action": "Tap \"Pesanan\" tab in bottom navigation bar",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 453 1445"
+      ],
+      "comment": "Tapped Pesanan tab coordinates. Center coordinates: (453, 1445)."
+    },
+    {
+      "action": "Verify that Riwayat Pesanan screen is displayed with order status filter tabs",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Riwayat Pesanan screen displayed with status tabs."
+    },
+    {
+      "action": "Tap first active order card to view order status",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 548 475"
+      ],
+      "comment": "Tapped first order card coordinates. Center coordinates: (548, 475)."
+    },
+    {
+      "action": "Verify that Status Pesanan tracking screen displays order progress stages",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Status Pesanan tracking screen displays order progress stages."
+    },
+    {
+      "action": "Tap \"Kembali\" to return to Riwayat Pesanan",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 68 125"
+      ],
+      "comment": "Tapped Kembali coordinates. Center coordinates: (68, 125)."
+    },
+    {
+      "action": "Tap \"Profil\" tab in bottom navigation bar",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 621 1445"
+      ],
+      "comment": "Tapped Profil tab coordinates. Center coordinates: (621, 1445)."
+    },
+    {
+      "action": "Verify that Profil screen displays user name \"Maulana Yusuf\" and account settings",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "Profil screen displays user profile, order stats, and settings."
+    },
+    {
+      "action": "Tap \"Beranda\" tab in bottom navigation bar",
+      "status": "PASSED",
+      "commands": [
+        "adb shell input tap 115 1445"
+      ],
+      "comment": "Tapped Beranda tab coordinates. Center coordinates: (115, 1445)."
+    },
+    {
+      "action": "Verify that the app successfully returns to Beranda Home screen",
+      "status": "PASSED",
+      "commands": [],
+      "comment": "App successfully returned to Beranda Home screen."
+    }
+  ]
+}

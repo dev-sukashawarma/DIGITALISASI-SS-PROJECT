@@ -165,3 +165,71 @@ describe('FOIL 3 tingkat — Dus > Roll > cm, 1 Dus = 48 Roll = 36.480 cm', () =
     expect(convertToDistribusiUnit(1, FOIL)).toBe(48)
   })
 })
+
+describe('Satuan Distribusi Bahan Baku Baru', () => {
+  it('GARAM: 1 Bal = 20 Pack, distribusi per pack', () => {
+    const garam = {
+      satuan: 'Bal',
+      satuan_tengah: 'Pack',
+      faktor_tengah: 20,
+      satuan_kecil: 'Gram',
+      faktor_tampilan: 5000,
+      satuan_distribusi: 'pack'
+    }
+    expect(getDistribusiFactor(garam)).toBe(20)
+    expect(convertToBaseUnit(20, garam)).toBe(1) // 20 pack = 1 Bal
+    expect(convertToDistribusiUnit(2, garam)).toBe(40) // 2 Bal = 40 pack
+  })
+
+  it('KETUMBAR: 1 Karung = 25 Kg, distribusi per kg', () => {
+    const ketumbar = {
+      satuan: 'Karung',
+      satuan_tengah: 'Kg',
+      faktor_tengah: 25,
+      satuan_kecil: 'gram',
+      faktor_tampilan: 25000,
+      satuan_distribusi: 'kg'
+    }
+    expect(getDistribusiFactor(ketumbar)).toBe(25)
+    expect(convertToBaseUnit(25, ketumbar)).toBe(1) // 25 kg = 1 Karung
+  })
+
+  it('SASA: 1 Dus = 12 Kg, distribusi per kg', () => {
+    const sasa = {
+      satuan: 'Dus',
+      satuan_tengah: 'Kg',
+      faktor_tengah: 12,
+      satuan_kecil: 'Gram',
+      faktor_tampilan: 12000,
+      satuan_distribusi: 'kg'
+    }
+    expect(getDistribusiFactor(sasa)).toBe(12)
+    expect(convertToBaseUnit(12, sasa)).toBe(1) // 12 kg = 1 Dus
+  })
+
+  it('Cling Wrap: 1 Dus = 24 Roll, distribusi per roll', () => {
+    const cling = {
+      satuan: 'Dus',
+      satuan_kecil: 'Roll',
+      faktor_tampilan: 24,
+      satuan_distribusi: 'roll'
+    }
+    expect(getDistribusiFactor(cling)).toBe(24)
+    expect(convertToBaseUnit(24, cling)).toBe(1) // 24 roll = 1 Dus
+  })
+
+  it('BAWANG PUTIH BUBUK: 1 Dus = 6 Bungkus, distribusi per bungkus / bks', () => {
+    const bp = {
+      satuan: 'Dus',
+      satuan_tengah: 'Bungkus',
+      faktor_tengah: 6,
+      satuan_kecil: 'Sachet',
+      faktor_tampilan: 432,
+      satuan_distribusi: 'bungkus'
+    }
+    expect(getDistribusiFactor(bp)).toBe(6)
+    // Toleransi sinonim bks
+    expect(getDistribusiFactor({ ...bp, satuan_distribusi: 'bks' })).toBe(6)
+  })
+})
+

@@ -47,11 +47,17 @@ export default async function RootLayout({
       .eq('is_active', true)
       .order('name');
       
-    if (initialStaff?.role === 'area_manager') {
+    if (initialStaff?.role === 'area_manager' || initialStaff?.role === 'regional_manager') {
       const { data: so } = await supabaseAdmin.from('staff_outlets').select('outlet_id').eq('staff_id', initialStaff.id);
-      if (so && so.length > 0) {
-        query = query.in('id', so.map((s: any) => s.outlet_id));
-      } else {
+      const outletIds = [
+        ...((so || []).map((s: any) => s.outlet_id)),
+        ...(initialStaff.outlet_id ? [initialStaff.outlet_id] : [])
+      ];
+      const uniqueOutletIds = Array.from(new Set(outletIds));
+
+      if (uniqueOutletIds.length > 0) {
+        query = query.in('id', uniqueOutletIds);
+      } else if (initialStaff.role === 'area_manager') {
         query = query.in('id', ['00000000-0000-0000-0000-000000000000']);
       }
     }

@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest'
 import { resolveMitraPolicy, MITRA_POLICY_SEPTEMBER_2026_CUTOFF } from './mitraPolicy'
 
 describe('resolveMitraPolicy', () => {
+  it('harus mendefinisikan konstanta cutoff September 2026', () => {
+    expect(MITRA_POLICY_SEPTEMBER_2026_CUTOFF).toBe('2026-09-01')
+  })
+
   it('harus menggunakan skema historis lama jika periode sebelum September 2026', () => {
     // Periode Agustus 2026
     const resBelumBep = resolveMitraPolicy({

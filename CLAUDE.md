@@ -769,7 +769,21 @@ Pengeluaran punya **dua scope**: **Outlet** (dibebankan ke P&L outlet) vs **Pusa
 
 ### Isu data lebih dalam + reset baseline
 - **`stok_balance` ↔ `ledger_stok` divergen** besar (KITCHEN di-seed ~9999 tanpa baris ledger; `SUM(ledger)` negatif). Akar: seeding manual **out-of-band bypass ledger** (BUKAN dari kode — audit repo bersih, tak ada penulis `stok_balance` langsung selain trigger; app hanya `.select`). Jangan re-sync ke `SUM(ledger)` (bikin KITCHEN minus).
-- **Reset baseline 2026-07-08:** semua outlet operasional diset `threshold + 5` (Kitchen id `550e8400-e29b-41d4-a716-446655440001` = `+30`) via **643 `adjustment` ledger** (bukan tulis langsung). Exclude `Kantor Pusat` & `SUKA SHAWARMA HQ` (dummy 9999). Threshold efektif = `COALESCE(outlet_reorder_point.reorder_point, bahan_baku.default_reorder_point, 10)`.
+- **Reset baseline 2026-07-08:** ⚠️ **KLAIM INI TIDAK COCOK DENGAN DATA** (dicek
+  ulang 2026-09-10). Rencananya: semua outlet operasional diset `threshold + 5`
+  (Kitchen `+30`) via 643 `adjustment` ledger. Kenyataan di DB live: pada
+  2026-07-08 hanya ada **42 baris `adjustment`, di SATU outlet — SUKA SHAWARMA
+  BNR**. Tak ada batch 643 baris di tanggal mana pun sepanjang riwayat
+  (`adjustment` terbesar: 251 baris pada 18 Agu, 209 pada 22 Jul, 137 pada
+  3 Sep). Jadi reset baseline itu **tidak pernah berjalan menyeluruh**.
+  🔴 **Dan UUID di catatan lama SALAH:** `550e8400-e29b-41d4-a716-446655440001`
+  **bukan** Kitchen — itu **SUKA SHAWARMA BNR**, sebuah outlet. Gudang Pusat
+  yang benar = `d23e11b3-23f1-4f9a-b428-cc73e1aa9b90` (`GUDANG PUSAT (HQ)`,
+  `type='office'`), sesuai yang dipakai trigger `sj_on_dikirim_kurangi_kitchen`.
+  Kedua fakta itu berdampingan dengan kenyataan bahwa **BNR adalah outlet paling
+  korup** (20 baris saldo minus, terparah −19.485, sudah dicatat "tak bisa
+  dipercaya sejak sebelum September"). Belum terbukti sebab-akibat — tapi
+  jangan pakai angka 643 atau UUID lama itu sebagai dasar apa pun. Exclude `Kantor Pusat` & `SUKA SHAWARMA HQ` (dummy 9999). Threshold efektif = `COALESCE(outlet_reorder_point.reorder_point, bahan_baku.default_reorder_point, 10)`.
 - **PLASTIK MERAH** `default_reorder_point` 1750→dikoreksi (dulu seed 50 pack, jadi 1750 pcs saat ganti satuan); di-re-baseline khusus.
 
 ### SOP (ditegakkan)
@@ -1306,7 +1320,1094 @@ Skrip: `SS COGS SET/koreksi-foil-opname-terakhir-2026-09-08.sql`, `koreksi-tutup
 - Kalisari & Cileungsi: dugaan dus tersegel tak ikut dihitung (Kalisari terima 1 dus pukul 16:01, malamnya mencatat "1 Roll"). Perlu hitung fisik ulang dengan kolom Dus baru.
 - Usul terpisah: merampingkan daftar 43 item per outlet — akar kebiasaan mengetik 0 pada item yang outletnya memang tidak pakai.
 
+## Session 2026-09-08: Outlet Tes Dikeluarkan dari Semua Perhitungan (DB + 5 app)
+
+**Status:** ✅ COMPLETED & LIVE — 4 migration applied & diverifikasi di DB live; kode
+ter-merge ke `main` lewat PR #52 dan sudah di-redeploy oleh owner.
+
+Guard finalisasi opname yang juga lahir di sesi ini dibahas di entri
+"FOIL bersatuan Dus, Gerbang Nol Opname" di atas (§3) — sesi itu yang
+merekonsiliasi keduanya, jangan ditulis dua kali di sini.
+
+### Aturan (keputusan owner)
+
+> "outlet tes hanya untuk testing oleh developer, jadi jangan masuk ke perhitungan"
+
+Berlaku untuk **semua** angka: omzet, HPP, laba, nilai persediaan, waste.
+**Kenali lewat `outlets.type = 'test'`, bukan nama** — nama bisa diubah admin kapan saja.
+**Jangan andalkan `is_active`** — outlet tes justru `is_active = true`.
+
+### Ditutup di basis data
+
+| Migration | Isi |
+|---|---|
+| `20300131000000` | `nilai_persediaan_spv` kecualikan `type` test & marketplace |
+| `20300132000000` | Helper baru `outlet_ids_terhitung()` + 6 RPC HPP/waste dialihkan ke sana |
+| `20300133000000` | `sales_summary_spv` & `menu_sales_spv` (`security_barrier` dipertahankan) |
+
+**`accessible_outlet_ids()` SENGAJA tidak diubah** — itu mengatur hak *baca*; kalau outlet
+tes dikeluarkan dari sana, developer tak bisa lagi melihat data ujinya. Aturannya "jangan
+dihitung", bukan "jangan dilihat". Untuk agregasi laporan **baru**, pakai
+`outlet_ids_terhitung()` (= `accessible_outlet_ids()` minus lokasi non-operasional).
+
+Efek terukur, tanpa efek samping: omzet total 1.679.672.213 → 1.678.792.213 (−Rp880.000,
+tepat sebesar omzet outlet tes); baris view −7 dan −26, persis seperti yang diukur sebelum
+perubahan. Halaman Nilai Persediaan sebelumnya menampilkan **Rp2,45 miliar** di kartu
+"Belum Pasti" — **Rp2,37 miliar** murni dari outlet tes; angka jujurnya Rp75,0 juta.
+
+### Ditutup di sisi klien (commit `a37cba97`)
+
+Tiap app menarik daftar outletnya sendiri — memperbaiki satu **tidak** memperbaiki yang lain
+(pola sama dengan kebocoran marketplace, Session 2026-08-05 butir 1b). `admin-dashboard` &
+`HR` sudah ditutup lebih dulu oleh `f8f01556`. Sisanya di sesi ini: `finance` (2 hook),
+`owner-dashboard` (hook + 3 halaman), `manager` (2 halaman), `distribusi`, `stok`.
+
+**⚠️ Gotcha: menyaring daftar outlet saja tidak cukup.** Halaman utama `apps/manager`
+menjumlahkan `orders` dan `stok_waste_reports` **langsung dari tabel mentah** — penyaring
+harus dipasang di tiap agregat juga, bukan cuma di dropdown-nya.
+
+**Sengaja DIBIARKAN, dengan catatan di kodenya:** OutletSwitcher app stok
+(`useOutletScope`) = pintu masuk developer untuk menguji; dan peta nama outlet di app
+`inventori` yang hanya jadi label, tak menjumlahkan uang.
+
+**Penyaring app baru** (`apps/{stok,distribusi,owner-dashboard,manager}/src/lib/outletFilters.ts`)
+memakai `TEST_OUTLET_ID` + `outlets.type`, **bukan** kecocokan potongan nama seperti berkas
+serupa di admin-dashboard/finance/HR. Hari ini hasilnya sama (diperiksa: dari 29 outlet
+hanya "outlet tes" yang kena), tetapi `type` diisi skema sedangkan nama diisi pengetik.
+
+**`type = 'office'` TIDAK bisa disaring per-type** — jenis itu memuat GUDANG PUSAT (HQ),
+gudang sungguhan & pemegang persediaan terbesar, bersama KANTOR PUSAT yang dummy.
+
+**📄 Catatan lengkap:** `docs/CATATAN-LANJUTAN-HARGA-STOK.md`
+
+### 📝 Next
+- Audit lanjutan **sudah tuntas**: `absensi`, `pos-kasir`, `inventori`, `monitoring`,
+  `sales-board`, `retail-gateway` ditelusuri, nol yang perlu ditambal.
+  ⛔ `retail-gateway` **jangan** disaring — outlet tes satu-satunya baris
+  `app_enabled = true`, menyaringnya mengosongkan kanal retail.
+- Bersih-bersih data KANTOR PUSAT (dummy, ikut terhitung di nilai persediaan Rp2,4 juta).
+
 ---
 
-**Last updated:** 2026-09-08  
+## Session 2026-09-08: Rantai Harga PO → Master → Surat Jalan, Koreksi FOIL, & Perbaikan Form
+
+**Status:** ✅ Semua perubahan DB **sudah live & diverifikasi**; kode ter-merge ke `main`.
+⚠️ **Perlu redeploy `stok` + `finance`** — perbaikan form belum aktif sampai itu.
+
+**📄 Catatan lengkap:** `docs/CATATAN-LANJUTAN-HARGA-STOK.md`
+
+### Keputusan owner yang mengikat
+
+1. **Metode basis harga DIPERTAHANKAN.** Persediaan **murni kendali internal**,
+   tidak ada pelaporan ke pihak luar → pertanyaan PSAK 14 gugur. Selisih
+   "harga terakhir" vs rata-rata tertimbang stok on-hand = **Rp257.804 (0,07%)**,
+   diukur tiga kali. **JANGAN bangun FIFO batch atau rata-rata tertimbang.**
+2. **Harga beku surat jalan:** pakai harga yang dikonfirmasi sekarang; kalau
+   audit menemukan selisih, disuntikkan belakangan.
+3. **1 September 2026 = titik mulai bersih.** 443 dari 483 baris kini sama
+   dengan master; 30 beda wajar (pembekuan memang begitu); 10 FOIL sudah benar.
+
+### Yang diperbaiki di DB (8 migration, semua applied & idempoten)
+
+`20260908150000` guard PO uji coba · `20260908160000` & `20260908210000` tandai
+satuan asli 4 baris PO (nol angka berubah) · `20260908170000`/`180000`/`190000`
+koreksi 53 baris harga beku · `20260908200000` POLYBAG Rp25.000→24.000 ·
+`20260908220000` **saldo FOIL Gudang Pusat → 1.096 Roll (−Rp413,6 juta stok hantu)**
+
+### 🔴 Pelajaran metodologis terpenting sesi ini
+
+**Membandingkan harga terhadap master TIDAK CUKUP.** Kalau satuan bahan pernah
+berubah, `qty` ikut berpindah basis — pasangan (qty, harga) bisa tetap BENAR
+meski harganya tampak salah 48×. Klasifikasi otomatis menandai 10 baris FOIL
+sebagai "salah satuan" dengan **keyakinan tertinggi**; ternyata sudah benar.
+Menjalankannya akan menambah **Rp83 juta nilai fiktif**.
+
+**Uji yang benar: apakah `qty × harga` menghasilkan rupiah yang masuk akal** —
+bukan apakah harga sebanding dengan master. Selalu periksa sisi qty dulu:
+bandingkan bentuk angka qty sebelum vs sesudah perubahan harga; kalau sama,
+basis qty tidak berpindah dan hanya harga yang tertinggal.
+
+Sepanjang hari **tiga angka besar menguap** setelah diverifikasi (Rp47 jt,
+Rp222 jt, Rp83 jt) — semuanya dari sebab yang sama. Yang benar-benar ada
+(Rp413,6 jt) justru baru ketahuan setelah **owner menyebut hitungan fisik
+1.096 Roll**. Hitungan lapangan mengalahkan analisis.
+
+### Kenapa harga beku TIDAK bisa dipulihkan dengan perkalian
+Normalisasi 3 September (`20300122000001`/`...004`) **tidak mengalikan** harga
+lama — ia **menggantinya**; nilai lama cuma kunci pengaman di `WHERE`. Jadi
+rasio harga-beku terhadap master mencampur perubahan **satuan** DAN **harga**,
+dan basis harga lama tak tercatat di mana pun. Jangan coba memulihkan periode
+Juli–Agustus dengan faktor.
+
+### Perbaikan form (⚠️ perlu redeploy)
+Tiga kekeliruan hari ini satu akar: **form meminta angka tanpa menyebut satuan
+dan tanpa menunjukkan hasilnya.**
+- `ManualEntryForm` (stok): kotak "Akan tercatat" + "Stok setelah disimpan" +
+  peringatan merah bila ≥10× stok terpasang, **dan peringatan itu ikut pindah
+  ke Daftar Item Entri** (sebelumnya menguap saat "Tambah item" ditekan —
+  ketahuan dari smoke test owner). Sengaja BUKAN modal kedua: dua peringatan
+  beruntun melatih orang menekan "lanjut".
+- `VerifikasiTerimaModal` (finance): label → **"Harga Aktual per {satuan}"**,
+  satuan ditempel di dalam kolom qty, plus baris `qty × harga = total`.
+
+### ➡️ LANJUTAN DUA-VENDOR — masalahnya OPERASIONAL, bukan biaya
+
+Insiden FOIL **adalah kasus dua-vendor**: dua PO berdekatan, barang datang tidak
+berurutan, PO vendor salah diverifikasi lalu dibatalkan, barang vendor kedua
+datang tanpa PO tersisa → masuk lewat penyesuaian manual → satuannya salah.
+**Kerusakannya dari dokumen yang kehabisan pasangan, bukan dari harga vendor.**
+
+Dua temuan pendukung (rincian di dokumen catatan):
+- Jalur PO resmi adalah **minoritas** barang masuk (32 baris `pembelian_supplier`
+  vs 151 `adjustment` sejak 1 Agu) — dan **hanya jalur PO yang punya guard**.
+- **Master supplier punya duplikat**: Pak Aziz tercatat 4× dengan 3 termin
+  berbeda (15/10/30 hari) → jatuh tempo supplier sama bisa beda 20 hari.
+  Akibatnya 4 dari 11 "bahan multi-vendor" **palsu**; yang asli cuma 7.
+
+**Urutan untuk sesi berikutnya:** (1) gabungkan duplikat supplier — analisis
+dua-vendor apa pun sebelum ini berdiri di atas data salah; (2) keputusan owner
+soal cara membatalkan penerimaan agar PO kembali terbuka; (3) baru nilai apakah
+masih perlu apa-apa lagi.
+
+### 📝 Sisa yang diparkir
+- **Redeploy `stok` + `finance`**, lalu smoke test: FOIL + `1000` satuan Dus →
+  kotak merah + baris daftar merah; PO PLASTIK MERAH → "Harga Aktual per Ikat".
+- `SPB/PO/VII/2026/021` (Altindo, 15 Agu, 2.000 Roll, Rp17,58 jt, **lunas**)
+  berstatus `diterima_lengkap` tapi **tak pernah menulis baris ledger**.
+- Periode Juli–Agustus harga beku: dibiarkan sesuai kebijakan owner.
+- Lubang keamanan **belum diperbaiki** (diverifikasi masih terbuka 8 Sep):
+  `opname_insert`/`opname_update` memakai `accessible_outlet_ids()` → role
+  `kitchen` bisa opname outlet lain. Lihat Session 2026-08-13.
+
+---
+
+## Session 2026-09-08/09: Katalog Harga Vendor — Fondasi (Tahap 0 & 1)
+
+**Status:** ✅ COMPLETED — 4 migration **applied & diverifikasi di DB live**, branch
+`feat/katalog-harga-vendor` **di-merge lokal ke `main`** (merge commit `8b41a39e`, 13 commit).
+⚠️ **Belum di-push ke `origin/main`.** Tidak perlu redeploy — modul TS baru **nol konsumen**,
+tak ada UI yang membacanya.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-08-katalog-harga-vendor-design.md`,
+`docs/superpowers/plans/2026-09-08-katalog-harga-vendor-fondasi.md`
+
+### Menjawab lanjutan dua-vendor: **lapisan referensi pembelian**, bukan perubahan metode harga
+
+Tabel `bahan_baku_supplier` menjawab "bahan X, dari vendor mana, satuan apa, harga berapa,
+kapan terakhir" — pertanyaan yang sebelumnya tak bisa dijawab sistem. Sebelumnya relasi
+vendor↔bahan hanya `supplier.bahan_baku_ids UUID[]` (daftar tanpa harga), dan form PO
+prefill `bahan.harga_beli` **global** — harga vendor terakhir siapa pun, bukan vendor yang
+sedang dipesan.
+
+**Harga master, HPP, dan nilai persediaan TIDAK disentuh** (keputusan owner 8 Sep:
+metode harga-terakhir dipertahankan; jangan bangun FIFO/WAC).
+
+| Objek | Isi |
+|---|---|
+| `bahan_baku.faktor_po` + trigger `trg_bahan_baku_faktor_po` | 52/52 bahan aktif; FOIL **760** · MIE **1** · PLASTIK BESAR **50** |
+| `supplier` | 25 → 24 (duplikat `Lettuce (Pak Aziz)` digabung) |
+| `bahan_baku_supplier` (+ `_history`) | **61 baris**; 14 siap prefill, 47 `perlu_ditinjau` |
+| `apps/admin-dashboard/src/lib/satuanPo.ts`, `katalogVendor.ts` | 23 tes, fungsi murni |
+
+### 🔴 Ranjau yang ditutup: `satuan_po` hidup tanpa faktor pendamping
+
+`bahan_baku.satuan_po` terisi 52/52 sejak `20260908155000`, tapi **nol kode membacanya** dan
+**tak ada kolom yang menyimpan konversinya**. Untuk 3 bahan `satuan_po` ≠ satuan master
+(FOIL `roll` vs `Dus` 48×, MIE `bungkus` vs `Dus` 40×, PLASTIK BESAR `pack` vs `Ikat` 5×).
+Siapa pun yang mewirekan `satuan_po` ke form PO sebagai label tanpa konversi akan
+**melipatgandakan qty ledger**. Harga sebagian terlindungi guard `20260904120000`; **qty
+tidak punya penjaga sama sekali**. `faktor_po` menutupnya, dan **sengaja mengembalikan NULL**
+(bukan 1) saat label tak dikenal — `getDistribusiFactor()` mengembalikan 1 dalam keadaan itu,
+dan untuk FOIL itu berarti diam-diam salah 48×.
+
+`docs/MASTER-SATUAN-PO-DAN-DISTRIBUSI.md` §4 dikoreksi (v1.3): dua barisnya menyatakan
+implementasi yang **belum ada** (`usePurchaseOrder.ts` memakai `satuan_po`, `useOpname.ts`
+memakai unit distribusi) — keduanya nol referensi di `grep`. Kolom Status ditambahkan.
+
+### 🔴 Pelajaran: harga PO historis memakai satuan yang berlaku SAAT ITU
+
+Seed awal mengambil `harga_terima` apa adanya. Gerbang verifikasi menangkapnya: harga FOIL
+tampak janggal. Sebabnya **bukan** salah kolom — FOIL berubah Roll→Dus **hari itu juga**
+(`20260908103000`), jadi harga PO 31 Agustus memang tercatat per Roll. Rasio ke master persis
+**48,000** (FOIL Altindo) dan **0,040 = 1/25** (POLYBAG).
+
+**Aturan yang ditetapkan: harga hanya terisi untuk PO pasca-guard 4 Sep; sisanya `harga = 0`
++ `perlu_ditinjau`.** Angka yang percaya diri tapi salah skala lebih berbahaya daripada tidak
+ada angka. Angka aslinya tidak hilang — `ref_po_id` menunjuk ke PO-nya.
+
+⚠️ **Seed memakai `bahan_baku.satuan` + `faktor_tampilan`, BUKAN `satuan_po`/`faktor_po`** —
+`harga_terima` tersimpan per satuan besar. Akibatnya **13 dari 61 baris punya
+`satuan_beli` ≠ `satuan_po`**; Tahap 3 tidak boleh mengasumsikan keduanya sama.
+
+### 🔴 Temuan review: trigger riwayat SECURITY INVOKER = semua tulisan klien gagal senyap
+
+Trigger `bbs_tulis_riwayat` semula INVOKER, sementara tabel riwayat sengaja tanpa policy
+INSERT. Karena `authenticated` tak punya `bypassrls`, **setiap INSERT/UPDATE katalog dari
+klien akan gagal `42501` dan seluruh statement di-rollback.** Tidak ketahuan saat pengujian
+karena `supabase db query --linked` terhubung sebagai `postgres`. Pola sama dengan insiden
+`ledger_stamp_saldo` (8 Juli). Diperbaiki jadi `SECURITY DEFINER SET search_path = public`.
+
+Sekalian di fix round yang sama: `REVOKE ALL FROM anon, authenticated` (default privileges
+Supabase memberi ALL ke tabel baru — GRANT di migration tidak membatasi apa pun);
+`changed_by` → `COALESCE(auth.uid(), NEW.updated_by)` (sebelumnya bisa dipalsukan klien);
+unique parsial `is_preferred` → `WHERE is_preferred AND is_active`.
+
+### ✅ Dedup supplier — SELESAI 9 Sep (`20260909100000`, applied & diverifikasi)
+
+**Keputusan owner: nama kanonik `Lettuce (Pak Aziz)` & `PT Agro Boga Utama`, tapi baris
+ber-termin berbeda DIPERTAHANKAN terpisah — "memang beda termin".** Termin berbeda =
+kesepakatan pembayaran berbeda, bukan duplikat.
+
+Premis spec ("satu-satunya duplikat tersisa") memang **salah**: Pak Aziz punya tiga baris
+(`Lettuce (Pak Aziz)` · `L:ettuce (Pak Aziz)` typo titik dua · `Bapak Aziz`) dan ketiganya
+**nomor HP yang sama** (`083876865070` = `+62 838-7686-5070`), plus `Agro Boga Utama` vs
+`PT Agro Boga Utama`, plus baris sampah `sadsad`.
+
+Yang dikerjakan: dua baris Aziz ber-tempo 15 digabung; baris tempo 30 dipertahankan; **baris
+tempo 10 yang keliru digabung oleh `20260908231000` dipulihkan apa adanya** (0 PO, jadi tak
+ada dokumen yang terganggu). Ketiganya dinamai `Lettuce (Pak Aziz) - Tempo 10/15/30` —
+**nama harus membedakan, karena salah pilih di dropdown PO menggeser jatuh tempo utang
+belasan hari.** Agro digabung (keduanya tempo 45). `sadsad` dihapus.
+
+⚠️ **Baris yang bertahan dipilih berdasarkan DATA TERBAIK, bukan namanya.** Baris bernama
+`Agro Boga Utama` memegang satu-satunya harga katalog terpercaya Agro (KENTANG Rp250.000);
+menghapusnya akan menghilangkan harga itu lewat FK CASCADE, dan **seed ulang tak bisa
+memulihkannya** karena semua PO milik baris satunya pra-guard (lahir sebagai harga 0). Jadi
+baris itu yang disimpan lalu di-rename. Diverifikasi setelah apply: harga masih Rp250.000.
+
+Hasil: **22 supplier, nol nama duplikat**; katalog 61 → **56 baris**, 14 siap prefill (tak
+berkurang), riwayat 62 (baris riwayat milik katalog yang dihapus tetap hidup — `ON DELETE
+SET NULL`, memang begitu desainnya).
+
+### 📝 Sisa yang butuh keputusan owner
+
+1. **PLASTIK BESAR: `kemasan_qty` 100 vs `faktor_tampilan` 250** (dan `faktor_konversi` 50
+   yang konsisten dengan 250). Akarnya: PLASTIK BESAR sengaja dilewati saat normalisasi harga
+   3 Sep — `20300122000001` baris 19 menulis sendiri *"belum dijawab"*, bersama SABUN,
+   SEDOTAN, TUTUP PACK. Dampak: nilai persediaan Rp545.700 vs Rp218.280 (selisih Rp327.420,
+   0,08%); **0 resep** memakainya jadi HPP tidak terpengaruh.
+2. **Termin Pak Aziz** — ketiga tempo (10/15/30) kini berdiri sendiri sesuai keputusan owner,
+   tapi belum dikonfirmasi ke supplier mana yang masih berlaku. Tempo 10 nol PO.
+
+### Tertunda (minor, tercatat saat review)
+
+`NaN` lolos `CHECK isi_satuan_kecil > 0` (Postgres: `'NaN'::numeric > 0` = true) · `btrim()`
+SQL vs `String.trim()` TS beda perlakuan `\n`/NBSP · `harga_updated_at` tak dipelihara trigger
+· DELETE katalog tak meninggalkan jejak riwayat · `DISTINCT ON` seed tanpa tiebreak final
+(**wajib** ditambahkan kalau pola disalin ke RPC prefill Tahap 3) · `bolehPrefill` tanpa guard
+`Number.isFinite`.
+
+### Tahap berikutnya (plan terpisah, belum ditulis)
+
+Layar pembanding harga antar vendor · form PO baca katalog · form terima PO pakai satuan
+vendor · `verifikasi_terima_po` menulis balik ke katalog. Layar Tahap 2 **wajib** menyaring
+`bahan_baku.is_active` dan **tidak boleh** merender `harga = 0` sebagai harga.
+
+---
+
+## Session 2026-09-09: Rekonsiliasi PO Impor Excel & Perbaikan `payment_status`
+
+**Status:** ✅ Migration `20260909120000` applied & diverifikasi. ⚠️ **Perlu redeploy `finance`.**
+
+### 🔴 Alur pelunasan PO rusak sejak 2 September — `payment_status` kehilangan `'pending'`
+
+| Migration | CHECK `purchase_order.payment_status` |
+|---|---|
+| `20260711120000` (11 Jul) | `('unpaid','pending','paid')` — cocok dengan RPC |
+| `20260902133000` (2 Sep) | ditulis ulang jadi `('unpaid','paid','lunas')` — **`pending` dibuang** |
+
+RPC `settle_purchase_order` menulis `payment_status = 'pending'`, jadi sejak 2 September
+**setiap pelunasan lewat finance dijamin gagal constraint.** Bukti di data: **nol** PO
+berstatus `pending`, **nol** PO punya `cash_transaction_id` — alur itu tak pernah
+menghasilkan apa pun. Yang ada 20 PO ber-`paid_at`, semuanya dari form manual.
+
+**`'lunas'` juga membelah pembacaan.** Form (`PODetailView`) menulis `'lunas'`;
+`usePurchasingDashboard` menghitung utang dengan `<> 'paid'`; `SupplierView` menghitung
+lunas dengan `= 'paid'`. Jadi PO yang ditandai lunas lewat form **tetap tercatat sebagai
+utang**, dan 23 PO impor bertanda `paid` tampil "Unpaid" di halaman detailnya.
+
+**Perbaikan:** constraint dikembalikan ke `('unpaid','pending','paid')` (memulihkan RPC
+sekaligus membuang `'lunas'`), 5 baris `'lunas'` → `'paid'`, badge `PODetailView` memakai
+peta `PAY_BADGE`. **Utang terbuka 456.684.305 → 419.289.025.**
+
+⚠️ **Jangan tambahkan `'lunas'` kembali ke constraint.** Kata itu lahir dari form, bukan dari
+model datanya. Kosakata resmi = `unpaid | pending | paid` (`PoPaymentStatus`, `PAY_META`,
+`settle_purchase_order`). `retail-gateway/src/lib/xendit.ts` juga memakai kata `lunas` — itu
+**domain lain** (status pembayaran Xendit), jangan ikut diseragamkan.
+
+### Rekonsiliasi 26 PO impor Excel `SPO-PO-047` (Agustus) — diparkir owner
+
+26 PO (15–27 Agu, Rp414,9 jt) ditulis **langsung ke tabel**, melewati `verifikasi_terima_po`.
+Itu satu sebab untuk dua akibat: ledger tak pernah ditulis, dan `jatuh_tempo` tak dihitung
+dari termin. **24 di antaranya nol baris ledger** (Rp367,9 jt).
+
+Dicocokkan dengan `adjustment` di Gudang Pusat (pencocokan **tak langsung** — `adjustment`
+tidak menyimpan rujukan PO; dasarnya bahan + jumlah + tanggal + catatan):
+
+| | Nilai | Porsi |
+|---|---:|---:|
+| Tertutup `adjustment` (12 bahan) | Rp 314.619.740 | 85,5% |
+| Tertutup hanya lewat `opname_selisih` (6 bahan) | Rp 26.735.000 | 7,3% |
+| Tak ada jejak (6 bahan) | Rp 26.505.055 | 7,2% |
+
+TEPUNG & CUP cocok persis sampai angka terakhir. Sisa yang benar-benar perlu ditanya ke
+gudang tinggal **Rp7.945.000** (STIKER, KETUMBAR, JINTEN) — FOIL sudah diselesaikan lewat
+hitung fisik 8 Sep, dan PRINTER THERMAL / ID CARD memang bukan bahan baku.
+
+**Keputusan owner: penyesuaian Agustus diparkir, fokus September.**
+
+⚠️ **Jebakan saat mencocokkan:** ada `pembelian_supplier` 8 September yang qty-nya persis
+sama dengan PO Agustus (JINTEN 10.000, KETUMBAR 50.000, KUNYIT 432). Itu **milik PO
+September** dari Family Suplayer — daftar belanjanya kebetulan sama. Nyaris jadi kesimpulan
+salah; selalu baca `catatan` ledger-nya, jangan cocokkan qty saja.
+
+### September bersih
+
+16 PO, **semua yang diterima menulis ledger** — nol celah. Masalah Agustus tidak berulang
+karena PO September dibuat lewat aplikasi. 5 PO masih di supplier (Rp158,1 jt).
+
+### 📝 Belum dikerjakan
+
+- **Tab "Non-Bahan Baku" di Nilai Persediaan** — sudah disetujui owner, belum digarap.
+  PRINTER THERMAL (`kategori='ASET'`) ikut terhitung **Rp4.885.072 (1,26%)** di nilai
+  persediaan; ID CARD (`PERLENGKAPAN`) saldo nol. Rencana: pisahkan di sisi aplikasi
+  (`useNilaiPersediaan` + `NilaiPersediaanBoard`), **bukan** di view — `nilai_persediaan_spv`
+  didefinisikan migration bertimestamp **2030**, jadi migration bertanggal hari ini akan
+  ditimpa diam-diam saat replay.
+- Konfirmasi ke supplier: Toko Zein `SPB/…/042` (tempo 30 atau tunai) dan Altindo
+  `SPB/…/021` (2.000 **Roll** FOIL — catatan itemnya `Satuan: ROLL`, bukan Dus).
+
+---
+
+## Session 2026-09-09: Waterfall Deduction — Bug Konversi Satuan Antar Bahan (apps/stok, DB)
+
+**Status:** ✅ Fungsi DB diperbaiki & live (migration `20260909170000`, applied 2026-09-09
+07:32:37 UTC / 14:32 WIB, terstempel di `schema_migrations`). Spec
+`docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md` dikoreksi di sesi yang sama.
+**Nol app perlu redeploy** — murni fungsi database + dokumentasi, tak ada kode aplikasi
+yang berubah.
+
+### A. Bug: sisa limpahan tak dikonversi antar satuan
+
+`process_waterfall_deduction` melacak sisa yang belum tertutup dalam **satuan besar bahan
+utama**, lalu mengalikannya dengan `faktor_tampilan` **pengganti** saat menuliskannya ke
+ledger — tanpa pernah mengoreksi bahwa kedua bahan bisa punya `faktor_tampilan` berbeda.
+
+**Bukti live:** SAOS TOMAT POUCH (utama, 12.000 g/Dus) → SAOS TOMAT KOMPAN (pengganti,
+16.500 g/Dus), rasio **1,375**. Resep 30 g memotong **41,25 g** di outlet yang POUCH-nya
+sudah habis. Order #38 "Original Sapi Jumbo" menunjukkan tanda tangan persis: `-30` di
+outlet yang POUCH-nya masih ada, `-41,25` di Beji & Depok Sukmajaya yang POUCH-nya kosong.
+
+Skala sejak 2 Agustus 2026: **2.185 baris**, total **88.003,61 g** dipotong dari KOMPAN,
+di antaranya **24.000,98 g tidak pernah benar-benar terpakai** (≈ Rp 273.000 @ Rp 11,3744/g).
+
+**Perbaikan:** sisa kini dilacak dalam **satuan kecil** — basis yang dibagikan bersama oleh
+sebuah bahan dan penggantinya (itulah syarat sebuah pasangan boleh disubstitusi). Setiap
+kali fungsi berpindah bahan, sisa dalam satuan kecil dikonversi ke skala ledger bahan
+tersebut sendiri sebelum ditulis.
+
+### B. Dua keputusan yang jangan dibuka ulang tanpa alasan baru
+
+**K1 — koreksi mundur DIBATALKAN, sengaja.** Spec awal minta koreksi ledger untuk 24.001 g
+yang terlanjur terpotong. Tidak diperlukan dan justru berbahaya: kelima outlet terdampak
+menjalankan opname hampir tiap hari, dan tiap `opname_selisih` menyetel ulang saldo ke hasil
+hitung fisik — kelebihan potongan itu tak pernah sempat menumpuk.
+
+| Outlet | Saldo kini | Koreksi terakhir |
+|---|---:|---|
+| DEPOK SUKMAJAYA | 10.093,75 | opname 8, 7, 6, 5 Sep |
+| PALEDANG | 16.500 | opname 7, 5, 4 Sep |
+| BEJI | 0 | opname 4 Sep |
+| EMPANG | 0 | opname 28 Agu |
+| KALISARI | 0 | opname 24 Agu |
+
+Menyuntikkan `adjustment` sekarang akan menambah stok hantu di atas saldo yang sudah benar.
+Baris `pemakaian` historis dibiarkan apa adanya — jejak audit, sudah diimbangi
+`opname_selisih` di sebelahnya. HPP tidak terpengaruh: `get_hpp_periode` dihitung dari
+resep × penjualan, bukan dari ledger.
+
+**K2 — utang timestamp.** Fungsi ini juga didefinisikan oleh tiga migration bertimestamp
+**2030** (`20300103000010`, `20300104000005`, `20300105000017`). Pada replay dari nol,
+ketiganya jalan paling akhir (urut nama) dan akan menimpa balik fix ini. Timestamp 2030
+**tidak dipakai** untuk fix ini karena `scripts/migration-timestamp-lint.mjs` menolak
+apa pun >2 hari ke depan (`FUTURE_WINDOW_DAYS = 2`). Ketiga migration 2030 sudah applied &
+terstempel di produksi, jadi `db push` tidak akan menjalankannya ulang — risiko terbatas
+pada environment baru dari nol. Preseden sama dengan 2026-09-07.
+
+### C. Dua temuan review yang tak dicari siapa pun
+
+1. **`SET search_path` sempat hilang di produksi.** `CREATE OR REPLACE FUNCTION` di
+   `20300105000017` diam-diam membuang `ALTER FUNCTION … SET search_path` yang ditambahkan
+   `20300104000005` — fungsi `SECURITY DEFINER` ini berjalan tanpa `search_path` terkunci
+   sejak saat itu. Migration baru memulihkannya. **Jebakan umum, layak dicatat:**
+   `CREATE OR REPLACE FUNCTION` membuang opsi `SET` level-fungsi yang ditambahkan lewat
+   `ALTER` belakangan; ia TIDAK membuang hak akses (`GRANT`/owner). Catatan kecil: header
+   migration baru menyebut `20300104000005` seolah ikut mendefinisikan fungsinya —
+   sebenarnya migration itu HANYA `ALTER FUNCTION ... SET search_path` (+ `REVOKE`), tidak
+   pernah `CREATE OR REPLACE` body-nya; yang mendefinisikan body tetap `20300103000010` lalu
+   `20300105000017`.
+2. **Klaim "bug variabel basi" — TERBUKTI SALAH, dikoreksi di review final.** Draf
+   antara sesi ini sempat menulis bahwa pengganti tanpa baris `stok_balance` meninggalkan
+   `v_is_gram`/`v_faktor` "memegang nilai iterasi sebelumnya", dan `CONTINUE WHEN NOT FOUND`
+   ditambahkan untuk menutupnya. **Itu tidak benar.** Di PL/pgSQL, `SELECT ... INTO` (tanpa
+   `STRICT`) yang tidak menemukan baris SELALU menyetel target ke `NULL` — tidak pernah
+   mempertahankan nilai sebelumnya. Kode lama (`20300105000017`) sudah menangani kasus itu
+   lewat `COALESCE(v_current_stock, 0)` dan cek `v_current_stock > 0`; `NULL` pada
+   `v_is_gram`/`v_faktor` tidak pernah membuatnya salah baca skala outlet lain.
+   `CONTINUE WHEN NOT FOUND` di fungsi yang sudah diperbaiki adalah **perbaikan
+   keterbacaan, bukan perbaikan bug** — kejelasan niat "lewati bahan yang belum pernah
+   punya baris stok", tidak menutup celah yang sebelumnya tidak ada. Klaim ini sendiri layak
+   dicatat: ia terdengar masuk akal (dan bahkan sempat lolos di draf review antara), padahal
+   salah — koreksinya baru datang di review whole-branch final.
+
+### D. Catatan untuk siapa pun yang menambah pasangan substitusi nanti
+
+`trg_process_bom_stok` membagi dengan
+`CASE WHEN faktor_tengah IS NOT NULL AND faktor_tampilan IS NOT NULL THEN faktor_tampilan
+ELSE faktor_konversi END`, sementara fungsi yang sudah diperbaiki mengalikan balik dengan
+`faktor_tampilan`. Round-trip ini eksak **hanya bila `faktor_tengah` terisi**. Keempat bahan
+di pasangan substitusi hari ini memilikinya (SAOS TOMAT POUCH 12, KOMPAN 3, SAOS CABE POUCH
+12, SAOS CABE 3), jadi konversinya eksak. Pasangan baru dengan bahan ber-`faktor_tengah NULL`
+akan round-trip tidak eksak — periksa dulu sebelum menambah.
+
+### E. Status verifikasi — jangan dinaikkan tanpa bukti baru
+
+- Fungsi terpasang, `SECURITY DEFINER`, memuat `v_sisa_kecil` & `search_path` — **diverifikasi
+  dua kali** (implementer & controller), masing-masing dengan **kontrol negatif yang benar-
+  benar memicu error**, membuktikan jalur asersi bisa gagal (bukan selalu lolos).
+- `schema_migrations` terstempel — terverifikasi.
+- **Regresi jalur mayoritas (bahan tanpa pengganti): LOLOS.** FOIL, 7 baris setelah apply,
+  empat nilai qty berbeda (−35, −40, −45, −120), semuanya sudah ada di himpunan pra-apply;
+  tak ada nilai baru muncul.
+- **Pembuktian perilaku untuk limpahan yang sudah dikoreksi: TERTUNDA.** Nol baris limpahan
+  terjadi sejak apply — kejadian ini hanya muncul saat POUCH sebuah outlet benar-benar habis.
+  Pengecekan susulan: baris `pemakaian` SAOS TOMAT KOMPAN dengan `catatan LIKE 'Penjualan%'`
+  dan `created_at > 2026-09-09T07:32:37Z` harus menunjukkan **−30 / −50 / −60**, bukan
+  −41,25 / −68,75 / −82,5.
+
+### F. Surat jalan basi FOIL — klaim di spec yang TERBUKTI SALAH
+
+Spec §6 sebelumnya menyatakan pembatalan 21 SJ basi "tidak menggeser saldo mana pun" karena
+SJ `draft`/`dikirim` belum pernah mengkredit outlet. **Separuh klaim itu salah.** Outlet
+tujuan memang belum dikredit sampai verifikasi — tapi **Gudang Pusat sebagai sumber sudah
+didebit saat SJ ditandai `dikirim`**, bukan saat verifikasi.
+
+Diverifikasi langsung: 21 SJ kandidat membawa **160 baris `ledger_stok`, seluruhnya
+`transfer_keluar` di GUDANG PUSAT**, dan ke-21 nya terdampak. Porsi FOIL kecil (−396,08 cm
+≈ 0,52 Roll); mayoritas adalah **31 bahan lain** yang ikut dalam kiriman yang sama —
+**≈ Rp 33.001.761 lintas 32 bahan** (SAPI Rp 8,2 jt, AYAM Rp 7,5 jt, KENTANG Rp 4,8 jt
+terbesar). Sebagai pembanding, 10 SJ FOIL yang sebelumnya pernah dibatalkan membawa **nol**
+baris ledger — dibatalkan saat masih `draft`, sebelum debit terjadi.
+
+**Ini bukan kerugian baru yang diciptakan oleh pembatalan** — debitnya sudah terjadi
+Juli–Agustus. Yang belum terjawab: di mana barang itu secara fisik. Kalau sudah sampai
+outlet, seharusnya di-*verifikasi*, bukan dibatalkan; kalau tidak pernah keluar gudang,
+Gudang Pusat butuh `adjustment` pembalik. Draft SQL-nya **sudah ditulis tapi sengaja
+disimpan di luar `supabase/migrations/`** — `SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql`
+— supaya `db push` siapa pun tidak bisa menerapkannya tanpa sengaja, dengan penanda
+eksplisit "belum disetujui owner" di headernya — keputusan ini milik owner. Kalau
+disetujui, kembalikan nama file aslinya `20260909180000_batalkan_sj_foil_basi.sql` dan
+pindahkan ke `supabase/migrations/` sebelum di-apply.
+
+Catatan tambahan: dua SJ FOIL 9 September yang masih `draft` pagi itu sudah berstatus
+`dikirim` saat Task 4 dijalankan — dokumen berpindah status di tengah pekerjaan. Baris
+September tetap dikecualikan dari daftar pembatalan.
+
+### G. Deployment
+
+**Nol aplikasi perlu redeploy** — seluruh pekerjaan sesi ini adalah fungsi database plus
+dokumentasi.
+
+### Artefak
+
+- Migration: `supabase/migrations/20260909170000_fix_waterfall_konversi_satuan.sql`
+  (applied); draft usulan pembatalan SJ FOIL **dipindah keluar dari `supabase/migrations/`**
+  ke `SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql` (ditulis, **belum di-apply**,
+  menunggu keputusan owner — restore nama `20260909180000_batalkan_sj_foil_basi.sql` &
+  pindah balik ke `supabase/migrations/` hanya setelah disetujui)
+- Spec: `docs/superpowers/specs/2026-09-09-foil-dua-ukuran-design.md`
+
+### 📝 Next
+
+- **Pembuktian perilaku (§E) masih tertunda** — jalankan pengecekan susulan begitu ada
+  outlet yang POUCH-nya habis lagi dan limpahan ke KOMPAN terjadi.
+- **Keputusan owner atas 21 SJ FOIL basi** (§F) — verifikasi jika barang sudah sampai
+  outlet, atau `adjustment` pembalik di Gudang Pusat jika tidak pernah keluar; draft SQL-nya
+  sudah siap di `SS COGS SET/USULAN-batalkan-sj-foil-basi-2026-09-09.sql` (di luar
+  `supabase/migrations/` dengan sengaja), tinggal menunggu izin apply — baru dipindah balik
+  & di-rename `20260909180000_batalkan_sj_foil_basi.sql` setelah disetujui.
+- **Jangan pecah FOIL dulu** (langkah 4–8 spec) — menunggu hitung fisik Gudang Pusat yang
+  memisahkan roll 7,6 m dan 5 m; hitungan itu juga menjawab pertanyaan terbuka "1 Dus
+  Altindo isi berapa roll?".
+
+## Session 2026-09-10: Auto-Verifikasi Surat Jalan & Penutupan Tunggakan
+
+**Status:** ✅ LIVE di produksi. Semua migration applied & diverifikasi ground-truth.
+**Nol app perlu redeploy** — seluruhnya perubahan database.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-10-auto-verifikasi-surat-jalan-design.md`,
+`docs/superpowers/plans/2026-09-10-auto-verifikasi-surat-jalan.md`
+**Pemantau:** `SS COGS SET/verifikasi-auto-sj-2026-09.sql`
+
+### Masalahnya: separuh kiriman tak pernah diverifikasi
+
+| Periode | SJ dibuat | Diverifikasi | Menggantung |
+|---|---:|---:|---:|
+| Agustus | 418 | 209 (50%) | 209 |
+| 1–9 September | 93 | 52 (56%) | 39 |
+
+Sebab menurut owner: lupa/malas, bukan kendala teknis. Akibatnya rantai stok
+putus sebelah — Gudang Pusat didebit saat SJ ditandai `dikirim`, outlet tak
+pernah dikredit.
+
+**Yang menahan saldo outlet tetap positif ternyata opname.** Hanya 31 baris
+`stok_balance` yang minus, 20 di antaranya BNR (korup sejak sebelum September).
+Jadi opname selama ini menambal barang yang tak pernah tercatat masuk — dan
+karena itu berhenti berfungsi sebagai pemeriksa. Owner: *"track barangnya
+berantakan sehingga angka opname pun berantakan."*
+
+**Yang hilang bukan uangnya, tapi jejaknya.**
+
+### 🔴 Alurnya ternyata DUA TAHAP — ini yang paling sering disalahpahami
+
+| Tahap | Siapa | Status jadi | Stok berubah? |
+|---|---|---|---|
+| 1. Terima barang | **Outlet** | `diterima_lengkap` | **Ya** |
+| 2. Validasi & tutup | **Pusat** | `selesai` | Tidak |
+
+`selesai` bukan hasil trigger — ia dari tombol `handleVerifyPusat` di
+`apps/distribusi/src/components/distribusi/SuratJalanDetail.tsx:242`. Yang
+menggantung macet di **tahap 1**.
+
+Auto-verifikasi sengaja **berhenti di tahap 1**. Kiriman yang ditutup sistem
+mengendap di antrean validasi Pusat — kalau ikut ditutup sampai `selesai`,
+kiriman yang tak diperiksa siapa pun justru jadi satu-satunya yang lolos tanpa
+mata manusia.
+
+### Keputusan owner
+
+| # | Keputusan |
+|---|---|
+| K1 | Tenggat = lewat hari, ditutup dini hari 02:00 WIB |
+| K2 | Antrean validasi Pusat dipegang role **`kitchen`** |
+| K3 | Mulai **11 September** (semula 14, digeser) |
+| K4 | Tunggakan ditutup **sebagai dokumen, tanpa mengubah stok** |
+| K5 | **Agustus dilewati seluruhnya** |
+
+### 🔴 Angka 72 jam di draf pertama SALAH UKUR
+
+Draf awal memakai jeda `created_at` → `updated_at` pada SJ `selesai`. Itu
+mengukur jarak sampai **Pusat menutup dokumen** (tahap 2), bukan sampai outlet
+memverifikasi (tahap 1).
+
+Diukur ulang dari `surat_jalan_item.verified_at`, 216 SJ sejak 1 Agustus:
+**98% diverifikasi di hari yang sama, 2% besoknya, NOL lebih dari itu.** Kalau
+tak diverifikasi hari itu, praktis tak akan pernah — jadi tenggat "lewat hari"
+sudah cukup, dan lebih tepat.
+
+### Batas hari = 21:00, bukan tengah malam
+
+Owner: barang tiba di outlet paling lambat 21:00. Kiriman yang ditandai dikirim
+≥21:00 berarti barangnya baru jalan malam itu. Tanpa aturan ini, kiriman 21:10
+Senin ditutup Selasa 02:00 — 5 jam kemudian, seluruhnya saat outlet tutup.
+Terdampak 21 dari 524 SJ (4%).
+
+Teknisnya: **tambah 3 jam sebelum ambil tanggalnya.** Sen 21:10 + 3j = Sel 00:10
+→ hari Selasa. Diuji: 20:00 → 14 Sep, 21:10 → 15 Sep.
+
+### ⚠️ pg_cron menjadwal dalam UTC
+
+`0 19 * * *` = 19:00 UTC = **02:00 WIB keesokan harinya**. Salah pasang menggeser
+tenggat 7 jam tanpa gejala apa pun. Q1 di skrip pemantau memeriksanya.
+
+### Batas 11 September memisahkan dua perlakuan di tempat yang benar
+
+```
+sampai 10 Sep  ->  ditutup sebagai dokumen, TANPA stok  (opname sudah menyerap)
+mulai 11 Sep   ->  auto-verifikasi, DENGAN stok         (rantai utuh sejak awal)
+```
+
+Tunggakan lama tak boleh dapat stok: barangnya sudah lama terserap opname,
+menambahkannya lagi = stok hantu ratusan juta. Kiriman baru justru harus dapat
+stok — itu gunanya fitur ini.
+
+### Yang dikerjakan
+
+| Migration | Isi |
+|---|---|
+| `20260910180000` | Kolom `auto_verified_at` + `ditutup_administratif_at` |
+| `20260910181000` | **39 SJ (1–9 Sep) `dikirim` → `selesai`**, nol baris ledger |
+| `20260910182000` | Fungsi `auto_verifikasi_surat_jalan(p_dry_run)` |
+| `20260910183000` | Geser tanggal mulai 14 → 11 Sep |
+| `20260910184000` | `cron.schedule '0 19 * * *'` |
+
+**Dua kolom penanda, sengaja dipisah:** `auto_verified_at` menambah stok,
+`ditutup_administratif_at` tidak. Digabung jadi satu kolom, perbedaan itu hilang
+selamanya.
+
+**`verified_at` sengaja TIDAK diisi** oleh auto-verifikasi — kolom itu berarti
+"diverifikasi manusia" dan jadi satu-satunya cara mengukur apakah crew makin
+tidak memverifikasi. Mengisinya merusak pengukuran itu permanen.
+
+**Nol penulis stok baru.** Fungsi hanya mengisi `qty_terima` lalu memanggil
+`finalize_surat_jalan_and_ledger` yang sudah scale-aware — kelas bug yang baru
+ditutup 9 September ada persis di penulis stok.
+
+### Verifikasi ground-truth
+
+Setiap penerapan memakai assertion `DO`-block **plus kontrol negatif** yang
+benar-benar melempar error, membuktikan kanal `exec_sql` bisa gagal — bukan
+sekadar diam.
+
+- Penutupan 39: target 39→0 · 10 Sep+ 14→14 · Agustus 180→180 · **nol baris
+  ledger lahir setelah operasi, jenis apa pun**
+- **Simulasi maju ke 16 Sep:** tanpa penjaga tanggal, **194 SJ akan tersapu**
+  (seluruhnya pra-11-Sep, termasuk 180 Agustus). Dengan penjaga: **0**. Ini yang
+  membuktikan penjaganya benar-benar menahan, bukan kebetulan nol.
+- `cron.job` terdaftar, `schedule` persis `0 19 * * *`, `active = true`
+
+### 📝 Belum selesai
+
+- ✅ **17 SJ tanggal 10 September — TUNTAS** (dicek 2026-09-11). **9 diverifikasi
+  crew** (stok masuk lewat verifikasi sungguhan) + **8 ditutup administratif**
+  tanpa stok. Sore 10 Sep masih 12 yang menggantung; semalam **4 lagi
+  diverifikasi crew** setelah owner memberi tahu outlet — pemberitahuan manusia
+  terbukti bekerja, dan itu sebabnya penutupan sengaja ditunda sampai pagi:
+  menutupnya sore itu juga akan merampas kesempatan verifikasi sungguhan.
+  Migration `20260910190000_tutup_tunggakan_sj_10_september.sql` di-apply
+  **2026-09-11 08:42 WIB** oleh sesi lain & terstempel. Guard tiga lapis membuat
+  SJ yang keburu diverifikasi otomatis terlewat. **Q6 = 0** baris stok dari
+  penutupan administratif.
+  ⚠️ Pesan commit `0bd02ab1` masih berbunyi "(belum di-apply)" — basi; ikuti
+  catatan ini.
+- ✅ **Jalan perdana cron — TERJADI & BENAR** (dicek 2026-09-11).
+  `cron.job_run_details` jobid 14: **11 Sep 02:00:00 WIB, `succeeded`, `1 row`**.
+  Nol SJ ditutup sistem — memang harus nol, belum ada kiriman tgl 11 yang lewat
+  harinya. **Q5 forward-only: 0 pelanggaran.** Sebelum dijadwalkan, dry-run
+  manual 0 diproses dan kontrol negatifnya menunjukkan **180 SJ akan tersapu
+  tanpa penjaga `c_mulai`** (seluruhnya Agustus). Hasil bukan-nol pertama baru
+  muncul setelah ada kiriman yang dibiarkan lewat harinya. `return_message` cron
+  hanya berbunyi "1 row" — jumlah yang diproses dibaca dari
+  `surat_jalan.auto_verified_at`, bukan dari log cron.
+- ⚠️ **`updated_at` bukan tanggal kirim yang stabil.** Migration `20260910181000`
+  menulis `updated_at = now()`, jadi ke-39 SJ yang ditutup administratif kini
+  ber-`updated_at` 10 Sep. Mereka aman dari fungsi auto (kena filter status +
+  penanda), tapi jangan pernah pakai `updated_at` untuk merekonstruksi tanggal
+  kirim historis — pakai `created_at`.
+- **Seberapa sering meja validasi `kitchen` dikosongkan.** Owner memilih tetap
+  di level role, bukan orang tertentu — ditanya ulang, dijawab "role kitchen
+  aja". Antreannya sudah punya tempat: dashboard `apps/distribusi`, kartu & tab
+  **"Perlu Verif"** (`page.tsx:610` & `:865`) yang menyaring persis
+  `diterima_lengkap` + `diterima_sebagian`, jadi terlihat di halaman depan tanpa
+  perlu layar baru. Yang belum ada cuma iramanya. **Sistem tidak bisa memaksa
+  ini** — kalau antrean itu tak pernah dikosongkan, bebannya cuma pindah dari 17
+  outlet ke satu meja Pusat. Q3 di skrip pemantau yang akan menunjukkannya.
+- **`handleVerifyPusat` — SUDAH DIAUDIT 2026-09-10, lebih buruk dari dugaan.**
+  Bukan sekadar "tanpa cek role di kodenya": RLS-nya sendiri terbuka lebar.
+  `surat_jalan_all` & `surat_jalan_item_all` = PERMISSIVE, `cmd=ALL`,
+  role `{public}`, `USING(true) WITH CHECK(true)`. Karena policy permissive
+  di-OR-kan, **keempat policy ber-scope di kedua tabel seluruhnya dekoratif**.
+  `anon` punya grant UPDATE di kedua tabel, dan
+  `finalize_surat_jalan_and_ledger` (SECURITY DEFINER, penulis `ledger_stok`,
+  nol cek role, tak pernah menyentuh `auth.uid()`) di-GRANT EXECUTE ke PUBLIC
+  + anon — terbukti terjangkau lewat anon key: balasannya "Surat jalan not
+  found", pesan dari **dalam badan fungsi**, bukan permission denied.
+  Dampak terburuknya bukan stok palsu, melainkan memanggilnya pada SJ
+  `dikirim` ber-`qty_terima` NULL: SJ tertutup ke `diterima_lengkap` tanpa satu
+  baris ledger pun, dan fungsinya menolak verifikasi ulang — kiriman kehilangan
+  haknya atas stok **permanen**.
+  **DIPERBAIKI & LIVE 2026-09-10** (`20260910200000_tutup_rls_surat_jalan_using_true.sql`,
+  applied + terstempel). Dua policy `USING(true)` dicabut, grant tulis `anon`
+  dicabut, EXECUTE dicabut dari PUBLIC+anon. Verifikasi ground-truth **sesudah**:
+  `qual='true'` 0 (dari 2) · `anon` UPDATE kedua tabel false · anon RPC lewat
+  PostgREST kini **401/42501 permission denied** (sebelumnya masuk badan fungsi)
+  · anon baca `surat_jalan_item` kini **200 []** (sebelumnya 200 + data nyata).
+  **Kontrol positif dijalankan** (transaksi + `ROLLBACK`, jadi nol perubahan
+  nyata): berpura-pura jadi crew asli lewat `request.jwt.claims` + `SET LOCAL
+  ROLE authenticated` → crew tetap bisa baca item & mengisi `qty_terima`
+  kirimannya sendiri, dan **nol** baris outlet lain tersentuh. Blok asersinya
+  sendiri diuji dengan kontrol negatif yang benar-benar melempar error (P0001 di
+  baris terakhir), membuktikan jalan senyap = lulus, bukan tak pernah jalan.
+  Nol bukti pernah dieksploitasi: **0** SJ berstatus diterima yang nol baris
+  ledger di seluruh riwayat (catatan: pemeriksaan itu hanya menangkap pola
+  "ditutup tanpa stok"; qty_terima yang digelembungkan akan tampak seperti
+  kiriman normal dan tak terdeteksi dari sini).
+  `ledger_stok` sengaja tak disentuh — sudah benar (hanya SELECT + INSERT
+  ber-scope, nol policy UPDATE/DELETE) dan justru jadi kontrol pembanding.
+- **36 SJ `dikirim` memuat bahan nonaktif** → sengaja dilewati fungsi auto
+  (`b.is_active = false`). **SELURUHNYA Agustus, nol September** (dicek
+  2026-09-10 — koreksi atas catatan awal yang menulis "mayoritas"): ke-36 itu
+  sudah tertahan penjaga `c_mulai` bahkan tanpa penjaga bahan-nonaktif, jadi
+  kekhawatiran "menumpuk ke depan" jauh lebih lemah dari dugaan awal. Masuk
+  aturan "Agustus dilewati" — tak perlu diapa-apakan.
+  Bahannya: FOIL (48) (DIGABUNG KE FOIL) 15 · MAYONES 6 · PLASTIK BENING 5 ·
+  SAOS TOMAT 5 · MINYAK (NONAKTIF) 3 · THERMAL STRUK 2 · TUTUP 2 · SARUNG
+  TANGAN BENING 1. Semuanya sisa **penggabungan master data**, bukan barang
+  yang benar-benar berhenti dipakai — barangnya nyata terkirim, nama masternya
+  yang pensiun.
+  **Risiko ke depan kecil tapi berkala.** Form pembuatan SJ sudah menyaring
+  `is_active = true` (`apps/distribusi/src/hooks/useBahanBaku.ts:26`), jadi SJ
+  baru tak akan pernah memuat bahan nonaktif. Yang kena hanya SJ yang **sudah
+  terbit lalu bahannya dinonaktifkan sesudahnya** — persis kasus FOIL (10 SJ
+  September memuat FOIL (48), semuanya sudah `selesai`, dibuat sebelum
+  penonaktifan 8 Sep). Setiap penggabungan master data berikutnya bisa
+  mengulangnya, dan SJ semacam itu **tak akan pernah ditutup cron** serta tak
+  muncul di mana pun kecuali sebagai angka `dilewati` yang tak dilihat siapa
+  pun. Penawar termurah = kebiasaan, bukan kode: **setiap menonaktifkan bahan,
+  sisir dulu SJ `dikirim` yang memuatnya** (pelajaran yang sama dengan "sisir
+  dokumen in-flight" saat FOIL ganti satuan Dus).
+- 6 SJ tunggakan memuat `FOIL (48)` (nonaktif). Sudah ikut ditutup tanpa stok,
+  jadi aman — tapi penjaga bahan-nonaktif di fungsi tetap perlu untuk ke depan.
+
+## Session 2026-09-09: Tab App Retail Tahap 1 (apps/admin-dashboard)
+
+**Status:** ✅ Kode selesai. ⚠️ Perlu **redeploy `admin-dashboard`**.
+
+Grup nav baru **App Retail** (OWNER/ADMIN) dengan tiga halaman: Ringkasan,
+Pengaturan Menu Aplikasi, Outlet Aplikasi. Menutup dua lubang yang sebelumnya
+hanya bisa diisi lewat SQL langsung ke tabel produksi — `menu_items.tampil_di_app`
+beserta `foto_app`/`deskripsi_app`/harga aplikasi, dan `outlets.app_enabled`
+yang bahkan tidak punya UI sama sekali padahal ia satu-satunya gerbang antara
+outlet dan pelanggan (`GET /api/v1/outlets` menyaring persis kolom itu).
+
+**Syarat keras owner: nol gangguan ke POS, web maupun native.** Ditegakkan
+sebagai pemeriksaan, bukan niat: `git diff --name-only origin/main...HEAD`
+harus nol baris di `apps/pos-kasir`, `mobile/`, `pos-admin/`, dan
+`supabase/migrations/`. **Tahap 1 nol migration.**
+
+### ⚠️ Gotcha: jangan tambahkan baris "Aplikasi" ke `sales_channels`
+Mode "Satu Harga Semua" di `MenuView.tsx` menyapu SELURUH baris `sales_channels`
+dan menulis satu harga ke tiap slug-nya. Baris "Aplikasi" di tabel itu membuat
+harga aplikasi ikut tertimpa setiap kali admin mengatur harga food apps. Slug
+`aplikasi` sengaja hidup hanya sebagai kunci di `menu_items.channel_prices`.
+
+### ⚠️ Gotcha: `channel_prices` wajib digabung, bukan ditimpa
+Satu kolom JSON memuat harga semua kanal. Menulis `{ aplikasi: ... }` polos
+menghapus harga GoFood, GrabFood, dan ShopeeFood sekaligus. Semua penulisan
+lewat `gabungHargaChannel` (`src/lib/appRetail/hargaAplikasi.ts`, ber-test).
+
+### Diketahui, sengaja dibiarkan
+Toggle & harga aplikasi masih ada juga di layar menu POS (pekerjaan pagi
+9 Sep). Mencabutnya berarti menyentuh POS — melanggar syarat di atas — jadi
+dibiarkan berdampingan. Dua tempat, satu kolom; membingungkan tapi tak bisa
+menghasilkan data yang bertengkar.
+
+**Tidak ada guard role khusus di `/dashboard/app-retail`.** `RoleContext.tsx`
+memakai allowlist untuk MITRA/LEADER/AREA_MANAGER/PURCHASING, jadi keempatnya
+terlempar dari rute ini; OWNER & ADMIN memang dituju. Tapi **`ADMIN_HR` tidak
+punya allowlist sama sekali** dan bisa membuka rute mana pun di admin-dashboard,
+termasuk halaman yang menyalakan outlet ke pelanggan. Itu **pre-existing dan
+berlaku app-wide**, bukan diciptakan tab ini. Sengaja tidak ditambal di sini:
+guard halaman berjalan di browser dan TIDAK melindungi Server Action (pelajaran
+Session 2026-07-20). Perbaikan yang benar adalah cek role DI DALAM server
+action, pola `requireOpnameApprover` — pekerjaan tersendiri, untuk semua
+halaman, bukan tambalan untuk satu rute.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-09-app-retail-tahap1-design.md`,
+`docs/superpowers/plans/2026-09-09-app-retail-tahap1.md`
+
+### Yang ditangkap review (tiga cacat, semuanya berasal dari rencana)
+
+Bukan kesalahan implementer — ketiganya disalin verbatim dari kode rencana:
+1. **Ringkasan**: `count ?? 0` membuat query gagal tak bisa dibedakan dari nol
+   sungguhan, di halaman yang tujuannya justru menjawab "kanal ini hidup atau
+   tidak". Diperbaiki: `—` + penanda galat, nol sungguhan tetap `0`.
+2. **Panel edit**: `CurrencyInput` mengirim `0` saat kolom dikosongkan, jadi
+   kolom harga menampilkan **"0"** persis di bawah kalimat "Kosong berarti ikut
+   harga kasir, bukan gratis". Diperbaiki di sisi pemanggil (`CurrencyInput`
+   dipakai bersama app lain, tidak disentuh).
+3. **Panel edit**: toggle tayang membaca prop `item` yang beku, sehingga setelah
+   klik pertama tampilannya tak pernah berubah dan klik berikutnya mengirim
+   nilai basi. Diperbaiki dengan state lokal. Halaman Outlet Aplikasi TIDAK
+   mengulang cacat ini — reviewer menelusurinya khusus.
+
+**📝 Next:** redeploy `admin-dashboard`; smoke test sebagai ADMIN (nyalakan satu
+menu, cek `GET /api/v1/catalog` ikut berubah); banner & voucher tahap berikutnya.
+- Pertimbangkan cek role di dalam server action (lihat "Diketahui, sengaja
+  dibiarkan") — berlaku untuk seluruh admin-dashboard, bukan hanya tab ini.
+
+---
+
+## Session 2026-09-10: Sapuan RLS Lintas Tabel — pola `USING(true)` masih luas
+
+**Status:** 🔴 Temuan, **belum diperbaiki**. Butuh triase owner — lingkupnya
+lintas app (HR, POS, finance), terlalu luas untuk ditutup sepihak.
+
+Lanjutan audit `handleVerifyPusat` (entri di atas). Karena `surat_jalan`
+ternyata punya policy `USING(true)` yang membatalkan seluruh perbaikan Juli,
+pola yang sama disapu ke **seluruh** tabel `public`.
+
+### Kabar baik: `orders` & `bypass_requests` SELAMAT
+Perbaikan Juli di sana **bertahan** — nol policy `USING(true)` tersisa, semua
+ber-scope `accessible_outlet_ids()`. Jadi `surat_jalan` memang kasus sial
+(punya policy `_all` liar yang tak diketahui perbaikan Juli), bukan tanda
+seluruh perbaikan Juli gagal.
+
+### 🔴 Tingkat 1 — terbuka untuk `anon` (tanpa login sama sekali)
+Policy `roles={public}` + `USING(true)`, dan `anon` punya grant tabelnya.
+Dikonfirmasi lewat HTTP nyata dengan anon key: **ada data** di
+`cancellation_requests`, `ecommerce_sales`, `order_items`.
+Berlaku juga `ecommerce_channels/entities/menu_prices/sale_items` (ALL) —
+`ecommerce_menu_prices` balas kosong **karena tabelnya memang 0 baris**, bukan
+karena tertutup; jangan salah baca itu sebagai aman.
+
+### 🔴 Tingkat 2 — terbuka untuk SIAPA PUN yang login, termasuk crew
+Policy `roles={authenticated}` + `USING(true)`. **Dibuktikan dengan menyamar
+jadi crew asli** (`request.jwt.claims` + `SET LOCAL ROLE authenticated`), di
+dalam transaksi + `ROLLBACK` — nol perubahan nyata:
+
+| Tabel | Baris yang bisa diubah crew | Artinya |
+|---|---:|---|
+| `payroll_records` | **378** | gaji seluruh karyawan |
+| `menu_outlet_prices` | **368** | harga jual per outlet |
+| `bahan_baku` | **69** | harga beli → dasar HPP |
+| `cash_advances` | **18** | kasbon |
+| `global_settings` | **9** | setelan sistem |
+| `ledger_stok` *(kontrol)* | **0** | ✅ membuktikan uji bisa nol |
+
+Baris kontrol itu yang membuat angka di atasnya bisa dipercaya — bukan artefak
+metode. Tabel lain sekelas: `leave_requests`, `discipline_records`,
+`attendance_logs`, `cash_advance_payments`, `menu_packages`, `sales_channels`,
+`order_online_*`.
+
+### Ciri khas pola ini (untuk pengenalan cepat)
+Nama policy generik peninggalan scaffold awal: *"Allow authenticated
+insert/update/delete"*, *"Enable all access for authenticated users"*,
+*"Allow all for ..."*. Kalau ketemu nama seperti itu, hampir pasti
+`USING(true)`. **`ledger_stok` adalah bukti pola ini bisa benar** — ia hanya
+punya SELECT + INSERT ber-scope, nol policy UPDATE/DELETE, jadi tertutup rapat
+walau grant tabelnya terbuka.
+
+### ⚠️ Jangan tutup massal dalam satu migration
+Tiap tabel di atas menopang app berbeda (HR, POS, finance, absensi). Mencabut
+policy tanpa tahu alur sah tiap app = mematikan fitur di produksi. Urutan yang
+disarankan: mulai dari yang taruhannya tertinggi & alurnya paling sempit
+(`payroll_records`, `bahan_baku`), satu tabel satu migration, tiap kali dengan
+**kontrol positif** (simulasi user sah + `ROLLBACK`) seperti yang dipakai di
+`20260910200000`.
+
+
+## Session 2026-09-10: Fondasi Multi-Vendor — aturan, normalisasi, detektor
+
+**Status:** ✅ LIVE (`20260910210000`, applied + terstempel + diuji perilaku).
+Nol app perlu redeploy — murni database.
+
+### Aturan fundamental (ini yang menjawab "bahan punya banyak vendor gimana")
+
+> **Vendor adalah atribut PEMBELIAN, bukan identitas BARANG.**
+> Satu-satunya hal yang memaksa sebuah bahan dipecah:
+> **isi satuan-beli yang berbeda antar vendor.**
+
+Ini **batas teknis, bukan preferensi**: stok disimpan dalam satuan terkecil, dan
+jembatan satuan-besar → satuan-kecil (`faktor_konversi`/`faktor_tampilan`) adalah
+kolom **per-bahan**. Dua nilai berbeda tidak muat di satu kolom.
+
+Harga beda, termin beda, merek beda — **tidak** memaksa pemisahan. Kalau harus
+dipecah, penamaannya mengikuti **spesifikasi** (`FOIL 5M`/`FOIL 7,6M`), **bukan
+merek** — mengikat nama ke vendor mengulang kegagalan `FOIL (48)`, dan langsung
+salah begitu vendor ganti ukuran atau ukuran sama dibeli dari vendor lain.
+
+**Bukti lapangan:** dari **15 bahan multi-vendor, hanya 1 (FOIL) yang isinya
+berbeda** (Ekadharma 760 cm/roll vs Altindo 500 cm/roll). Empat belas sisanya
+(SAPI 3 vendor, AYAM, KENTANG, dst) berjalan tanpa masalah sama sekali.
+Kekacauan FOIL bukan karena dua ukuran itu ada, tapi karena **baru ketahuan
+setelah bercampur di rak**.
+
+### Yang dibangun
+
+| | Isi |
+|---|---|
+| **Normalisasi** | `satuan_beli` → huruf kecil + trim, mengikuti `canon()` di `satuanPo.ts` supaya data & kode sepakat. 11 baris dirapikan, ragam 15 → 11. Trigger `trg_bbs_normalisasi_satuan` menjaga input berikutnya (diuji: `"  DUS  "` → `"dus"`, di dalam transaksi + ROLLBACK). |
+| **Detektor** | View `vendor_konflik_spesifikasi` (`security_invoker=true`). `tingkat`: `konflik_isi` (wajib dipecah **sebelum barang masuk**) · `beda_satuan` (wajib dilihat) · `aman`. Hasil sekarang: **14 aman, 1 konflik_isi (FOIL)**. |
+
+⚠️ **`satuan_beli` SAH berbeda dari `bahan_baku.satuan`** — FOIL dibeli per
+`roll` sedangkan masternya `Dus`. Yang dinormalkan hanya penulisannya, **jangan
+pernah** samakan katanya ke master. Efek samping: layar Katalog Harga Vendor kini
+menampilkan huruf kecil; kapitalkan di lapisan tampilan, jangan di data.
+
+### Status FOIL — pemecahan TIDAK jadi dikerjakan sekarang
+
+Hitung fisik owner 2026-09-10: **Altindo kosong, Ekadharma 928 roll**. Dan **nol
+PO FOIL berjalan** dari vendor mana pun. Jadi gudang cuma memegang satu ukuran →
+`faktor_tampilan` 36.480 (48 × 760) **sekarang benar**. Memecah hari ini berarti
+membuat bahan bersaldo nol. Masalah campur-dua-ukuran **habis terpakai sendiri**.
+
+Spec `2026-09-09-foil-dua-ukuran-design.md` **tetap berlaku**, statusnya berubah
+dari "segera dikerjakan" → **"siap dipakai saat detektor menyala"**. Pemicunya:
+keputusan membeli Altindo lagi. **Aturan urutan: pecah DULU, sebelum roll 5 m
+masuk gudang** — memecah saat gudang masih satu ukuran itu bersih; memecah
+setelah tercampur di rak adalah kekacauan yang baru saja lewat.
+
+**Selisih tersisa:** sistem 723.520 cm vs fisik 928 × 760 = 705.280 cm →
+**+18.240 cm = tepat 24 roll = tepat setengah dus** (± Rp 277.000). Angka terlalu
+bulat untuk kebetulan; belum dikoreksi, belum ditelusuri.
+
+**Harga per satuan pakai:** Ekadharma **Rp 15,20/cm** vs Altindo **Rp 17,58/cm** —
+Altindo **13,5% lebih mahal** untuk barang yang sama; harga per rollnya rendah
+semata karena rollnya lebih pendek.
+
+### (2) Penjaga di titik masuk — ✅ LIVE (`20260910220000`)
+
+`trg_cek_isi_kemasan_vendor` di `ledger_stok` BEFORE INSERT. Menolak baris
+`pembelian_supplier` ber-`ref_po_id` bila `isi_satuan_kecil` vendor itu berbeda
+dari isi turunan master untuk `satuan_beli`-nya (toleransi 0,1%, untuk pembulatan
+saja).
+
+**Ini satu-satunya penjaga di jalur PO yang MEMBLOKIR, dan bedanya bukan selera.**
+Dua penjaga lama (`PO uji coba`, `salah satuan harga`) sengaja tidak memblokir —
+mereka menahan penulisan harga master lalu mencatat penolakan di
+`bahan_baku_harga_history`; penerimaannya sendiri tetap sah karena qty-nya benar.
+Untuk **qty tidak ada jalan mundur yang aman**: `to_ledger_scale()` memakai faktor
+milik BAHAN, bukan vendor, jadi tak ada nilai yang sekaligus benar untuk saldo cm
+DAN hitungan Roll/Dus yang dilihat crew saat opname. Menulis apa pun = memilih
+siapa yang dibohongi. Jadi penjaga ini menegakkan urutan: **pecah dulu, baru
+terima.**
+
+**Dipasang sebagai trigger, bukan dengan mengubah `verifikasi_terima_po`** —
+fungsi itu ~300 baris dan memuat dua penjaga terbukti; `CREATE OR REPLACE` tak
+akan mengeluh kalau salah satunya hilang (persis cara ranjau-2030 membuang fix
+reversal BOM tanpa suara). Trigger juga menjaga jalur penulis lain, sekarang
+maupun nanti.
+
+**Diam kalau tidak bisa memastikan** (tak ada baris katalog · `isi_satuan_kecil`
+kosong · `satuan_beli` tak memetakan ke tingkat satuan mana pun, mis. PRINTER
+THERMAL `unit`). Menolak berdasarkan ketidaktahuan lebih buruk daripada tidak
+menolak.
+
+**Aman memblokir — diukur, bukan diasumsikan:** seluruh katalog aktif dicek, tiap
+baris `isi_satuan_kecil` COCOK dengan turunan master, kecuali FOIL/Altindo.
+
+**Diuji perilaku** (transaksi + `ROLLBACK`, nol perubahan nyata): Altindo **ditolak**
+dengan pesan terbaca manusia · Ekadharma **lolos** (nol alarm palsu) · jalur
+mayoritas (`adjustment`, `pembelian_supplier` tanpa PO) **tidak terganggu** —
+penting karena trigger ini duduk di tabel yang dilewati tiap potongan BOM tiap order.
+
+### 📝 Next
+- Koreksi selisih 24 roll FOIL di Gudang Pusat (opname atau `adjustment` −18.240 cm).
+- Munculkan `vendor_konflik_spesifikasi` di layar Katalog Harga Vendor — detektornya
+  masih **pasif**, harus ada yang membuka view-nya.
+
+---
+
+## Session 2026-09-10/11: App Retail Tahap 2 — Banner
+
+**Status:** ✅ Merged ke `main` lokal (merge commit `3d5c5505`), **belum di-push**.
+⚠️ **Perlu redeploy `retail-gateway` + `admin-dashboard`, dan build ulang APK
+`mobile/customer-app`.** ⚠️ **Migration `20260911100000_app_banners.sql` BELUM
+di-apply** (keputusan owner). ⚠️ **Bucket storage `app-banners` belum
+diverifikasi ada** (baca publik, nama persis itu).
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-10-app-retail-banner-design.md`,
+`docs/superpowers/plans/2026-09-10-app-retail-banner.md`
+
+Carousel & popup promo di Beranda dan tab Menu aplikasi pelanggan kini bersumber
+dari tabel `app_banners` → `GET /api/v1/banners` (tanpa cache) → halaman admin
+**Banner Aplikasi** di grup App Retail. **Penghalang rilis ditutup:** aplikasi
+dulu menjanjikan "Voucher Diskon 40%, kode SUKABARU" yang tak ada di mana pun —
+blok voucher dicabut, `PromoPopupDialog` kehilangan seluruh default-nya.
+
+### 🔴 Gotcha: timestamp migration BENTROK — diganti nama saat merge
+Banner semula `20260910220000`, **sama persis** dengan penjaga isi-kemasan
+(`20260910220000_penjaga_isi_kemasan_saat_terima_po.sql`) yang sudah LIVE dan
+terstempel. `schema_migrations` memakai versi sebagai kunci, jadi `db push`
+akan menganggap banner **sudah diterapkan dan melewatinya tanpa suara** — tabel
+tak pernah dibuat, endpoint balas 502. Diganti ke `20260911100000` (berkas belum
+di-apply, isi SQL byte-identik). **Sebelum menulis migration baru, cek
+`ls supabase/migrations | cut -c1-14 | sort | uniq -d` — dua sesi paralel sama-sama
+memilih "jam berikutnya" di hari yang sama.**
+
+### Keputusan owner
+Ketiga permukaan jadi berbasis data kecuali `SecondaryMediaBanner` (cerita
+merek, nol parameter — sengaja hardcoded) · popup sekali per banner per
+pelanggan (disimpan di HP) · ketukan dari daftar tetap `tidak_ada|menu|menu_item`,
+**bukan** URL bebas · global, tanpa lingkup outlet · aktif/nonaktif saja, tanpa
+jadwal tanggal (hindari jebakan zona waktu UTC/WIB) · gambar cadangan mockup
+Stitch di `HomeScreen.kt` (menu tanpa foto) **dibiarkan**.
+
+### Hak akses `app_banners`
+`REVOKE ALL FROM anon, authenticated` · tulis = role `admin` **persis** ·
+SELECT `TO authenticated USING(true)` — sengaja, isi banner memang publik lewat
+gateway, dan tanpa itu OWNER melihat daftar kosong yang tak bisa dibedakan dari
+galat · `anon` nol akses. FK `target_menu_item_id` **ON DELETE CASCADE**
+(SET NULL bentrok dengan CHECK → menghapus menu jadi gagal).
+
+### Yang ditangkap review akhir, tak terlihat review per-task
+`promoSlideItems` **terduplikasi** di `CatalogScreen.kt` (tab Menu) — SUKABARU
+di sana selamat dari 7 task karena inventaris spec hanya menyisir 2 berkas.
+Diperbaiki di gelombang fix bersama: fetch banner yang memblokir katalog (kini
+paralel) dan `menuRes.error` yang dibuang diam-diam di halaman admin.
+
+### ⏸ Menunggu keputusan owner
+Gelombang fix ikut mengganti gambar cadangan BestSellerCard di `CatalogScreen.kt`
+(mockup Stitch → latar `SukaTint`), sementara `HomeScreen.kt` masih mockup →
+menu tanpa foto tampil beda di dua layar. Samakan ke salah satu arah.
+
+### Ikut terbawa merge, BUKAN kerja sesi ini
+Commit `80834b9e` (2 migration koreksi waste SAPI Empang, `20260910230000` &
+`20260910231000`) disapu otomasi ke branch ini. Tidak direview di sini; status
+apply-nya tidak diketahui sesi ini.
+
+### 📝 Next
+1. Apply migration `20260911100000_app_banners.sql`, verifikasi ke katalog DB
+   (tabel + 2 policy + REVOKE).
+2. Buat/cek bucket `app-banners`.
+3. Redeploy `retail-gateway` & `admin-dashboard`; build ulang APK.
+4. Smoke test: unggah banner → muncul · nonaktifkan → hilang · tanpa banner →
+   Beranda langsung ke menu · popup sekali · ketuk `menu_item` → mendarat benar ·
+   login OWNER → daftar terbaca, simpan ditolak.
+
+---
+
+## Session 2026-09-11: Drop-Ship Sayur — Runbook Go-Live (20–21 September)
+
+**Status:** ✅ Task 1–10 selesai (subagent-driven, tiap task direview). DB sudah
+**LIVE** — 4 migration terstempel 2026-09-11: `20260911120000_drop_ship_skema`,
+`20260911121000_drop_ship_catat_terima`, `20260911122000_drop_ship_sahkan_nota`,
+`20260911123000_drop_ship_laporan`. Uji `supabase/verifikasi/drop_ship/t2/t3/t7/t7b`
+LULUS, tiap uji punya kontrol negatif yang GAGAL sesuai harapan; `pemantau.sql` 4
+kueri jalan, semua 0 baris. Kode app masih di branch
+`feat/drop-ship-sayur`, **belum merge/push/redeploy** — go-live 20–21 Sep bergantung
+pada itu terjadi lebih dulu.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-11-drop-ship-sayur-design.md` (§9),
+`docs/superpowers/plans/2026-09-11-drop-ship-sayur.md` (Task 10).
+**Runbook:** `docs/RUNBOOK-GO-LIVE-DROP-SHIP-SAYUR.md` — langkah 20 Sep sore
+(kabari outlet + opname baseline sayur wajib diisi) → 21 Sep pagi (verifikasi saldo
+`lettuce` tak minus) → pemantauan harian 21–30 Sep (`pemantau.sql` Q3=0, Q4→0) →
+30 Sep (nota pertama `NV/20260930/…` disahkan di `/stok/nota-vendor`).
+
+### Yang wajib diingat sebelum menjalankan runbook
+- **Halaman:** crew di `/stok/terima-vendor` (menu "Terima dari Vendor"); Pusat di
+  `/stok/nota-vendor` (menu "Cocokkan Nota Vendor", pengesah = purchasing/kitchen/
+  admin; owner & admin_finance hanya pantau).
+- **Migration yang menyentuh `ledger_stok` sempat deadlock dengan realtime**
+  (tabel itu ada di publication `supabase_realtime`) — migration lanjutan yang
+  menyentuh struktur `ledger_stok` wajib diterapkan per potongan + `lock_timeout`,
+  bukan satu statement besar.
+- **Temuan terbuka, belum diperbaiki:** policy `bbhh_select` salah ketik
+  `'purchase'` → purchasing tak bisa membaca `bahan_baku_harga_history`. Butuh
+  izin owner sebelum disentuh — tabel produksi di luar migration Task 1–9.
+- **Harga master sayur ikut nota** (keputusan owner, spec §9 poin 3) — ditahan
+  penjaga rasio-faktor bila tampak salah satuan, pola sama dengan penjaga FOIL.
+- **Outlet tes ikut tampil di layar nota** (sengaja — catatan yang harus disahkan
+  tak boleh disembunyikan). Catatan uji di outlet tes ke vendor Tempo 10 akan ikut
+  tersahkan kalau tidak **ditolak** dulu. Belum ada catatan uji di DB (semua uji
+  SQL berjalan dalam transaksi ROLLBACK).
+- **Smoke test browser (login sungguhan) belum pernah dijalankan** — wajib sebelum
+  20 Sep: crew outlet TES mencatat → Pusat melihat → **tolak** catatan uji. Jangan
+  sahkan nota saat uji (menulis PO utang sungguhan).
+- **Review menangkap 4 cacat sebelum live:** tanggal RPC pakai `current_date` UTC
+  (crew 00:00–07:00 WIB ditolak) → WIB; uji t7 tak menguji `tolak_terima_vendor` &
+  menghitung ledger tanpa snapshot tetap → ditambah + REPEATABLE READ; pemantau Q1
+  set-returning function di WHERE → LATERAL.
+
+### 📝 Next
+- Merge seluruh branch (Task 1–10) ke `main`, push (izin owner), redeploy `stok`.
+- Jalankan smoke test login sungguhan (§1 runbook) sebelum mengumumkan ke outlet.
+- Ikuti runbook tanggal demi tanggal; isi hasil nyata (bukan perkiraan) ke entri
+  sesi baru setelah 30 September.
+
+---
+
+**Last updated:** 2026-09-11  
 **Owner:** Dev Suka Shawarma

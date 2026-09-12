@@ -16,16 +16,33 @@ interface FormItem {
 }
 
 function getDistribusiFactor(b: any): number {
-  if (!b.satuan_distribusi || b.satuan_distribusi === b.satuan) return 1;
-  const dist = b.satuan_distribusi.toLowerCase();
-  if (dist === b.satuan_tengah?.toLowerCase() && b.faktor_tengah) return b.faktor_tengah;
-  if (dist === b.satuan_kecil?.toLowerCase() && b.faktor_tampilan) return b.faktor_tampilan;
-  
+  if (!b?.satuan_distribusi) return 1;
+  const dist = b.satuan_distribusi.toLowerCase().trim();
+  const besar = (b.satuan || '').toLowerCase().trim();
+  if (dist === besar) return 1;
+
+  const st = b.satuan_tengah?.toLowerCase().trim();
+  const sk = b.satuan_kecil?.toLowerCase().trim();
+
+  // Cocokkan ke satuan tengah (termasuk sinonim bks <-> bungkus)
+  if (st && b.faktor_tengah) {
+    if (dist === st || (dist === 'bks' && st === 'bungkus') || (dist === 'bungkus' && st === 'bks')) {
+      return b.faktor_tengah;
+    }
+  }
+
+  // Cocokkan ke satuan kecil (termasuk sinonim bks <-> bungkus)
+  if (sk && b.faktor_tampilan) {
+    if (dist === sk || (dist === 'bks' && sk === 'bungkus') || (dist === 'bungkus' && sk === 'bks')) {
+      return b.faktor_tampilan;
+    }
+  }
+
   // Implicit mapping: if dist is 'kg' and satuan_kecil is 'gram'
-  if (dist === 'kg' && b.satuan_kecil?.toLowerCase() === 'gram' && b.faktor_tampilan) {
+  if (dist === 'kg' && sk === 'gram' && b.faktor_tampilan) {
     return b.faktor_tampilan / 1000;
   }
-  
+
   return 1;
 }
 

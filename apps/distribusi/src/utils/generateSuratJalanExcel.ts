@@ -113,11 +113,21 @@ function displayItem(item: SuratJalanItem) {
   const bahan = item.bahan_baku
   const satuan = bahan?.satuan_distribusi || item.satuan || bahan?.satuan || ''
   let factor = 1
-  if (bahan?.satuan_distribusi && bahan.satuan_distribusi !== bahan.satuan) {
-    const distributionUnit = bahan.satuan_distribusi.toLowerCase()
-    if (distributionUnit === bahan.satuan_tengah?.toLowerCase() && bahan.faktor_tengah) factor = bahan.faktor_tengah
-    else if (distributionUnit === bahan.satuan_kecil?.toLowerCase() && bahan.faktor_tampilan) factor = bahan.faktor_tampilan
-    else if (distributionUnit === 'kg' && bahan.satuan_kecil?.toLowerCase() === 'gram' && bahan.faktor_tampilan) factor = bahan.faktor_tampilan / 1000
+  if (bahan?.satuan_distribusi) {
+    const distributionUnit = bahan.satuan_distribusi.toLowerCase().trim()
+    const besar = (bahan.satuan || '').toLowerCase().trim()
+    const st = bahan.satuan_tengah?.toLowerCase().trim()
+    const sk = bahan.satuan_kecil?.toLowerCase().trim()
+
+    if (distributionUnit !== besar) {
+      if (st && bahan.faktor_tengah && (distributionUnit === st || (distributionUnit === 'bks' && st === 'bungkus') || (distributionUnit === 'bungkus' && st === 'bks'))) {
+        factor = bahan.faktor_tengah
+      } else if (sk && bahan.faktor_tampilan && (distributionUnit === sk || (distributionUnit === 'bks' && sk === 'bungkus') || (distributionUnit === 'bungkus' && sk === 'bks'))) {
+        factor = bahan.faktor_tampilan
+      } else if (distributionUnit === 'kg' && sk === 'gram' && bahan.faktor_tampilan) {
+        factor = bahan.faktor_tampilan / 1000
+      }
+    }
   }
   return { name: item.nama || bahan?.nama || '-', unit: satuan, quantity: Math.round((item.qty_dikirim || 0) * factor) }
 }

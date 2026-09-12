@@ -1,6 +1,6 @@
 import type { SalesSummaryRow, SalesSource } from '@/lib/types'
 import { rupiah, pct } from '@/lib/format'
-import { Store, Globe, Gift } from 'lucide-react'
+import { Store, Globe, Gift, Smartphone } from 'lucide-react'
 
 const LABELS: Record<SalesSource, string> = {
   pos: 'POS Kasir', 
@@ -12,6 +12,7 @@ const LABELS: Record<SalesSource, string> = {
   tiktok_shop: 'TikTok Shop (Marketplace)',
   shopee_shop: 'Shopee (Marketplace)',
   endors: 'Endors',
+  app: 'SukaShawarma APP',
 }
 
 const BRAND_COLORS: Record<SalesSource, string> = {
@@ -24,6 +25,10 @@ const BRAND_COLORS: Record<SalesSource, string> = {
   tiktok_shop: '#000000',  // TikTok Black
   shopee_shop: '#ee4d2d',  // Shopee Red-Orange
   endors: '#d946ef',       // Pink/Purple
+  // Suka Brown, sama dengan entri 'app' di lib/channels.ts. SENGAJA bukan
+  // Suka Orange: warna itu sudah dipakai Order Website, dan dua kanal milik
+  // sendiri yang berwarna sama tidak bisa dibedakan di grafik.
+  app: '#701604',
 }
 
 import { getChannel } from '@/lib/channels'
@@ -80,6 +85,7 @@ const ICONS: Record<SalesSource, any> = {
     ) : <Globe className={className} style={style} />
   },
   endors: Gift,
+  app: Smartphone,
 }
 
 export function SourceBreakdown({ 
@@ -95,7 +101,10 @@ export function SourceBreakdown({
   if (isSSOnline) {
     sources = ['tiktok_shop', 'shopee_shop']
   } else if (outletId && outletId !== 'all') {
-    sources = ['pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors']
+    // 'app' WAJIB ada di sini. Cabang "semua outlet" memakai Object.keys(LABELS)
+    // sehingga kanal baru ikut sendiri, tapi daftar per-outlet ini ditulis
+    // manual -- kanal yang lupa ditambahkan hilang dari rincian tanpa galat.
+    sources = ['pos', 'online', 'gofood', 'grabfood', 'shopeefood', 'tiktok', 'endors', 'app']
   } else {
     sources = Object.keys(LABELS) as SalesSource[]
   }

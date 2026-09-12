@@ -58,6 +58,17 @@ export function ExpenseFormModal({
     setCategory(newType === 'income' ? INCOME_CATEGORIES[0] : PENGELUARAN_CATEGORIES[0])
   }
 
+  const handleCategoryChange = (newCat: ExpenseCategory) => {
+    setCategory(newCat)
+    if (newCat === 'gaji_staff_kantor' || newCat === 'pengeluaran_global') {
+      const selectedOutlet = outletsList.find(o => o.id === outletId)
+      if (selectedOutlet?.type === 'mitra') {
+        setOutletId('PUSAT')
+        toast.info('Kategori kantor pusat otomatis dialihkan ke Pusat.')
+      }
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     if (!amount || amount <= 0) {
@@ -66,6 +77,13 @@ export function ExpenseFormModal({
     }
     if (!description.trim()) {
       toast.error('Keterangan wajib diisi')
+      return
+    }
+
+    const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global' || description.toLowerCase().includes('gaji kantor')
+    const selectedOutlet = outletsList.find(o => o.id === outletId)
+    if (isOfficeCategory && selectedOutlet?.type === 'mitra') {
+      toast.error('Pengeluaran kantor pusat dilarang dialokasikan ke outlet mitra. Pilih Pusat atau outlet internal.')
       return
     }
 
@@ -143,11 +161,15 @@ export function ExpenseFormModal({
               onChange={(e) => setOutletId(e.target.value)}
             >
               {isAdmin && <option value="PUSAT">🏢 Pusat (Company-wide)</option>}
-              {outletsList.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
+              {outletsList.map((o) => {
+                const isMitra = o.type === 'mitra'
+                const isOfficeCategory = category === 'gaji_staff_kantor' || category === 'pengeluaran_global'
+                return (
+                  <option key={o.id} value={o.id} disabled={isOfficeCategory && isMitra}>
+                    {o.name} {isMitra ? (isOfficeCategory ? '(Mitra - Khusus Internal)' : '(Mitra)') : ''}
+                  </option>
+                )
+              })}
             </select>
           </label>
 
@@ -156,7 +178,7 @@ export function ExpenseFormModal({
             <select
               className={inputCls}
               value={category}
-              onChange={(e) => setCategory(e.target.value as ExpenseCategory)}
+              onChange={(e) => handleCategoryChange(e.target.value as ExpenseCategory)}
             >
               {activeCategories.map((c) => (
                 <option key={c} value={c}>

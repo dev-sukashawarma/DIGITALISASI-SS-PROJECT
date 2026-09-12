@@ -15,7 +15,7 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   const supabase = createClient(supabaseUrl, supabaseKey)
 
   for (const it of items) {
-    const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category)
+    const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category) && !it.outletId
     // Scope Pusat (company-wide) owner-only, sesuai aturan RPC upsert_expense
     // yang dilewati di sini (CLAUDE.md § Pengeluaran Outlet vs Pusat).
     if (isPusat && role !== 'owner') {

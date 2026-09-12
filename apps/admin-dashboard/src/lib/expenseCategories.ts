@@ -4,7 +4,8 @@ import { Wallet, Users, Award, UserCog, Clock, Megaphone, Star, Tag,
 export const OUTLET_CATEGORIES = [
   'pengeluaran_outlet', 'gaji_crew_outlet', 'bonus_leader', 'bonus_area_manager',
   'lembur', 'ads', 'endorsement', 'promo', 'pdam', 'pln', 'internet', 'sewa_outlet',
-  'salary', 'bahan_baku', 'transport', 'utilitas', 'lainnya'
+  'joint_expense', 'salary', 'bahan_baku', 'transport', 'utilitas', 'lainnya',
+  'bonus_crew', 'bonus_regional_manager'
 ] as const
 export const PUSAT_CATEGORIES = ['pengeluaran_global', 'gaji_staff_kantor'] as const
 export const INCOME_CATEGORIES = ['pemasukan_lain', 'modal_awal', 'setoran_owner'] as const
@@ -16,7 +17,10 @@ export type ExpenseScope = 'outlet' | 'pusat'
 export type TransactionType = 'income' | 'expense'
 
 const PUSAT_SET = new Set<string>(PUSAT_CATEGORIES)
-export function deriveScope(category: string): ExpenseScope {
+export function deriveScope(category: string, outletId?: string | null): ExpenseScope {
+  if (outletId && outletId !== 'ffffffff-ffff-ffff-ffff-ffffffffffff' && outletId !== '00000000-0000-0000-0000-000000000000') {
+    return 'outlet'
+  }
   return PUSAT_SET.has(category) ? 'pusat' : 'outlet'
 }
 
@@ -33,6 +37,7 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   pln:                { label: 'PLN',                color: '#0a7d2c', icon: Zap },
   internet:           { label: 'Internet',           color: '#0d9488', icon: Wifi },
   sewa_outlet:        { label: 'Biaya Sewa Outlet',  color: '#d97706', icon: Home },
+  joint_expense:      { label: 'Joint Expense',      color: '#dc2626', icon: Globe },
   salary:             { label: 'Salary',             color: '#8b5cf6', icon: Users },
   pengeluaran_global: { label: 'Pengeluaran Global', color: '#dc2626', icon: Globe },
   gaji_staff_kantor:  { label: 'Gaji Staff Kantor',  color: '#9f1239', icon: Building2 },
@@ -43,4 +48,6 @@ export const CATEGORY_META: Record<ExpenseCategory, { label: string; color: stri
   utilitas:           { label: 'Utilitas',           color: '#0891b2', icon: Zap },
   transport:          { label: 'Transport',          color: '#0369a1', icon: Wallet },
   lainnya:            { label: 'Lainnya',            color: '#4b5563', icon: Wallet },
+  bonus_crew:         { label: 'Bonus Crew',         color: '#b45309', icon: Award },
+  bonus_regional_manager: { label: 'Bonus Regional Manager', color: '#92400e', icon: UserCog },
 }

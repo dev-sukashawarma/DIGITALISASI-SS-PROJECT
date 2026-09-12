@@ -6,6 +6,715 @@ ulang seluruh pembahasan. Tiap butir berdiri sendiri.
 
 ---
 
+## 🛠️ PERBAIKAN FORM — menutup akar dari tiga kekeliruan sekaligus
+
+Tiga kekeliruan yang ditambal terpisah sepanjang 8 September ternyata satu akar:
+**form meminta angka tanpa menyebut satuannya, dan tak menunjukkan hasilnya
+sebelum disimpan.** ⚠️ **Perlu redeploy `stok` dan `finance`** — ini satu-satunya
+perubahan kode di rangkaian sesi ini; sisanya semua di basis data.
+
+### 1. Form penyesuaian stok (`apps/stok` ManualEntryForm)
+
+Pemilih satuan **sudah lama ada** dan default-nya satuan besar. Yang tidak ada:
+tampilan apa yang benar-benar akan tercatat. Ditambahkan kotak pratinjau di
+bawah kolom kuantitas:
+
+- **"Akan tercatat"** — hasil konversi dalam satuan majemuk yang terbaca
+- **"Stok setelah disimpan"**
+- **Peringatan merah** bila jumlahnya ≥ 10× stok terpasang, menyebutkan satuan
+  yang sedang terpilih secara eksplisit
+
+Untuk insiden FOIL: 1.000 × 36.480 = 36.480.000 berbanding stok 108.680 →
+**336×** → peringatan menyala, dan angka "48.000 Roll" terpampang sebelum
+tombol simpan ditekan.
+
+Rumusnya sengaja disalin persis dari `createDraftItemFromCurrentState` —
+pratinjau yang memakai jalur hitung sendiri akan berbohong tepat ketika paling
+dibutuhkan.
+
+#### Susulan: peringatan harus IKUT ke daftar item
+
+Ketahuan saat smoke test owner. Peringatan di area input **menguap** begitu
+tombol "Tambah item" ditekan — item pindah ke "Daftar Item Entri", kolom bahan
+ter-reset, dan yang tersisa cuma satu baris datar berhuruf kecil:
+
+```
+Penyesuaian: Penambahan 1000 Dus -> Target: 1022 Dus + 40 Roll
+```
+
+Angkanya mengerikan, nadanya tidak. Setelah itu tombol "Simpan Semua Entri"
+tanpa penghalang apa pun — **persis celah yang meloloskan insiden FOIL.**
+
+Diperbaiki: `lipatStok` dibawa serta di `DraftItem`, dan baris daftar yang
+≥10× dirender merah lengkap dengan peringatannya. Peringatannya kini bertahan
+sampai detik tombol simpan ditekan.
+
+**Sengaja BUKAN modal konfirmasi kedua.** Sesi "FOIL Dus & Gerbang Nol" sudah
+membuktikan dua peringatan beruntun justru melatih orang menekan "lanjut"
+(§3 entri CLAUDE.md-nya). Satu tanda yang menetap lebih kuat daripada dua
+tanda yang berkedip.
+
+### 2. Form terima PO (`apps/finance` VerifikasiTerimaModal)
+
+Labelnya **"Harga Aktual"** — tanpa satuan sama sekali. Itu akar kekeliruan
+PLASTIK MERAH yang berulang dua kali (Agustus & September): satuan bahannya
+Ikat, operator mengisi Rp18.000 yang merupakan harga per **Pack**.
+
+- Label → **"Harga Aktual per {satuan}"**, satuannya diberi warna aksen
+- Satuan ditempel **di dalam** kolom "Fisik Tiba Hari Ini", bukan cuma di baris
+  keterangan di atasnya — mata orang yang mengetik ada di kolomnya
+- Baris hasil: `{qty} {satuan} × {harga} = {total}`
+
+### ⚠️ Belum diuji di browser
+
+Tidak ada `.env.local` di `apps/stok` maupun `apps/finance` di lingkungan kerja
+ini, jadi dev server tak bisa dijalankan. Yang terverifikasi baru `type-check`
+(bersih di kedua app; sisa galat `useExpenses.ts` adalah baseline lama di berkas
+yang tak disentuh).
+
+**Yang perlu dilihat sekali saat smoke test:** pilih FOIL di form penyesuaian,
+ketik 1000 dengan satuan "Dus" — kotak pratinjau harus merah dan menyebut
+kelipatannya. Lalu buka satu PO PLASTIK MERAH — labelnya harus berbunyi
+"Harga Aktual per Ikat".
+
+---
+
+## ➡️ LANJUTAN DUA-VENDOR: masalahnya OPERASIONAL, bukan biaya (8 September)
+
+Ini kelanjutan pertanyaan yang membuka rangkaian sesi ini — *"bahan yang punya
+2 vendor, bagaimana menanganinya dari PO sampai outlet order supaya tidak
+tumpang tindih"*. Sisi **biaya sudah tertutup** (lihat bagian keputusan di
+bawah: selisih 0,07%, metode dipertahankan). Yang tersisa, dan yang benar-benar
+menggigit hari ini, ada di sisi **dokumen**.
+
+### Insiden FOIL Rp413,6 juta ADALAH kasus dua-vendor
+
+Rantainya (keterangan owner + jejak ledger): Ekadharma (PO 31 Agu) dan Altindo
+(PO 2 Sep) berdekatan → **barang datang tidak berurutan** → yang diverifikasi PO
+vendor yang salah → dibatalkan, dimasukkan ulang ke vendor benar → barang vendor
+kedua datang 8 Sep, **PO-nya sudah terpakai** → masuk lewat penyesuaian manual →
+di situ satuannya salah 48×.
+
+**Kerusakannya bukan dari harga vendor yang berbeda. Kerusakannya dari dokumen
+yang kehabisan pasangan.** Itu menjelaskan kenapa mengukur selisih harga
+berulang kali tak pernah menemukan apa-apa: kami mencari di tempat yang salah.
+
+### Jalur PO adalah minoritas
+
+Barang masuk Gudang Pusat sejak 1 Agustus:
+
+| Jalur | Baris | Bahan |
+|---|--:|--:|
+| `adjustment` — manual, **nol pengawal** | 151 | 38 |
+| `opname_selisih` | 120 | 48 |
+| `pembelian_supplier` — jalur PO resmi | **32** | 22 |
+
+⚠️ Sebagian dari 151 penyesuaian itu **koreksi, bukan penerimaan** (termasuk
+koreksi 8 September sendiri) — jangan dibaca sebagai "82% barang masuk liar".
+Tetapi arahnya jelas, dan yang penting: **hanya jalur `pembelian_supplier` yang
+punya** guard salah-satuan (`20260904120000`), guard PO uji coba
+(`20260908150000`), pencatatan harga ke master, dan kaitan ke utang supplier.
+Penyesuaian manual melewati semuanya.
+
+### Master supplier punya duplikat — "vendor mana" belum bisa dijawab
+
+| Yang sama, tercatat berbeda | PO | Termin |
+|---|--:|--:|
+| Bapak Aziz | 4 | 15 hari |
+| L:ettuce (Pak Aziz) | 2 | 15 hari |
+| Lettuce (Pak Aziz) | 0 | **10 hari** |
+| Lettuce (Pak Aziz) | 1 | **30 hari** |
+| Agro Boga Utama | 2 | 45 hari |
+| PT Agro Boga Utama | 3 | 45 hari |
+
+Pak Aziz tercatat **empat kali dengan tiga termin berbeda**. Ini bukan sekadar
+kotor: `verifikasi_terima_po` menghitung `jatuh_tempo = tanggal + termin_hari`
+dari record yang kebetulan dipilih — **jatuh tempo supplier yang sama bisa
+berbeda 20 hari.** Ada juga entri sampah `sadsad` (0 PO).
+
+**Akibatnya daftar "11 bahan multi-vendor" MENYESATKAN.** Empat di antaranya
+palsu — KENTANG, KULIT 25, KULIT 28, KULIT 32 sebenarnya satu vendor yang
+tercatat dua kali. Yang benar-benar dua vendor ada **tujuh**: SAPI, MINYAK,
+BAWANG, JINTEN, KUNYIT, KETUMBAR, FOIL.
+
+### 📋 Untuk sesi berikutnya — urutan yang disarankan
+
+1. **Gabungkan duplikat supplier.** Kecil dan langsung berguna: jatuh tempo jadi
+   konsisten, dan pertanyaan "vendor mana" jadi bisa dijawab. **Analisis
+   dua-vendor apa pun sebelum ini berdiri di atas data yang salah.**
+   Hati-hati: `purchase_order.supplier_id` FK + kolom denormalisasi
+   `purchase_order.supplier_nama` — keduanya harus ikut diperbarui, dan
+   pilih termin mana yang benar (owner yang tahu).
+2. **Keputusan alur (butuh owner):** ketika PO vendor salah terlanjur
+   diverifikasi, yang dibutuhkan bukan "batalkan lalu ketik manual" melainkan
+   **cara membatalkan penerimaan sehingga PO-nya kembali terbuka**, supaya
+   barang vendor kedua tetap punya pasangan dokumen. Itu perubahan alur, bukan
+   tambalan — perlu dipastikan dulu apakah begitu cara kerjanya di lapangan.
+3. Baru setelah (1) dan (2): pertimbangkan apakah masih perlu apa-apa lagi soal
+   dua-vendor. Kemungkinan besar tidak.
+
+---
+
+## 🎯 KEPUTUSAN METODE BASIS HARGA — pengukuran final 8 September
+
+Diukur ulang setelah jendela 1 September dibersihkan dan tiga baris PO ditandai
+satuannya. Dasar: **`subtotal`** (uang selalu benar) dibagi jumlah yang sudah
+dinormalkan ke satuan besar, menghormati `satuan_ad_hoc`. PO uji coba dikecualikan.
+
+| Bahan | Saldo gudang | Master | WAC on-hand | Dampak |
+|---|--:|--:|--:|--:|
+| PLASTIK 24 | 482 Pack | 13.000 | 12.415 | +Rp282.000 |
+| STIKER | 89,87 Lembar | 5.300 | 5.570 | −Rp24.265 |
+| KEJU | 5,13 Dus | 289.056 | 289.048 | +Rp41 |
+| MAYONAISE | 7 Dus | 248.004 | 248.000 | +Rp28 |
+| **Total** | | | | **+Rp257.804** |
+
+**Selisih antara "harga terakhir" dan "rata-rata tertimbang" untuk SELURUH
+persediaan = Rp257.804**, atau sekitar **0,07%** dari nilai persediaan pasti
+(±Rp359 juta). Konsisten dengan pengukuran 3 September (nol) dan pagi ini
+(Rp277.735) — tiga pengukuran independen, kesimpulan sama.
+
+**PLASTIK MERAH hilang dari daftar** setelah kedua baris PO-nya ditandai:
+rata-ratanya pas Rp90.000, sama dengan master. Itu memvalidasi cara ukurnya.
+
+### ✅ DITUTUP: saldo FOIL gudang — satu salah ketik satuan, −Rp413,6 juta
+
+Pengukuran menandai FOIL −Rp44,3 juta, tetapi **itu bukan selisih metode**.
+Saldo FOIL di Gudang Pusat **36.588.680 cm ≈ 1.003 Dus ≈ 48.143 Roll** —
+mustahil secara fisik. Asalnya:
+
+| Tipe ledger | Baris | Total cm |
+|---|--:|--:|
+| **adjustment** | 12 | **+36.231.799** |
+| pembelian_supplier | 1 | +760.000 |
+| transfer_keluar | 64 | −407.861 |
+| opname_selisih | 11 | +188 |
+
+**KOREKSI atas dugaan awal saya:** saya sempat menulis "12 baris penyesuaian
+sejak 23 Juli". Salah — hampir seluruhnya **satu baris, hari itu juga**:
+
+```
+13:47:33  EMPANG        +36.480.000 cm  "ekadharma"    <- salah outlet + satuan
+13:52:07  EMPANG        -36.480.000 cm  "salah input"  <- dibatalkan sendiri
+13:53:07  GUDANG PUSAT  +36.480.000 cm  "ekadharma"    <- diulang, satuan masih salah
+```
+
+Penerimaan **1.000 Roll** dari Ekadharma diketik "1.000" lalu dikali **36.480**
+(cm per **Dus**) alih-alih **760** (cm per **Roll**) → tercatat 48.000 Roll.
+
+**Formnya tidak salah hitung.** Satuan besar FOIL baru berubah Roll → Dus
+**pagi itu juga** (`20260908103000`), jadi form meminta Dus sementara orang
+gudang masih berpikir Roll. Operator sempat sadar salah outlet dan
+membatalkannya — tapi tidak sadar satuannya ikut berubah.
+
+**Diperbaiki** `20260908220000` — opname fisik owner **1.096 Roll**, ditulis
+lewat ledger `adjustment` (SOP: jangan `UPDATE stok_balance` langsung), delta
+dihitung saat jalan sehingga idempoten:
+
+| | cm | Roll | Dus | Nilai |
+|---|--:|--:|--:|--:|
+| Sistem | 36.588.680 | 48.143,00 | 1.002,98 | Rp423.234.742 |
+| Fisik | 832.960 | 1.096,00 | 22,83 | Rp9.635.155 |
+| **Koreksi** | **−35.755.720** | | | **−Rp413.599.586** |
+
+Uji kewarasan: saldo sebelum penyesuaian salah = 143 Roll; ditambah 1.000 Roll
+yang benar-benar datang = 1.143 Roll. Hitungan fisik 1.096 Roll — selisih 47
+Roll (≈1 Dus), wajar untuk pemakaian/kiriman yang belum tercatat.
+
+Seluruh outlet lain diperiksa dan **sehat** (0,8–110 Roll). Tidak ada PO FOIL
+menggantung, jadi koreksi ini tak akan tertimpa verifikasi susulan.
+
+### Kronologi lengkapnya (keterangan owner + jejak ledger, 8 September)
+
+Dua PO FOIL berdekatan: **Ekadharma 31 Agustus** dan **Altindo 2 September**.
+Barang **Altindo datang duluan**, tetapi saat verifikasi yang dieksekusi PO
+**Ekadharma**. Ketahuan, dibatalkan, dimasukkan ulang ke Altindo. Hari ini
+barang Ekadharma yang sungguhan datang — PO-nya sudah terpakai, jadi masuk
+lewat penyesuaian ledger.
+
+```
+02 Sep 16:02  terima PO Ekadharma        +1.000 Roll   <- barangnya Altindo
+02 Sep 16:04  adjustment "salah vendor"  -1.000 Roll   <- dibatalkan
+02 Sep 16:04  adjustment ke FOIL (48)    +1.000 Roll   <- dipindah ke vendor benar
+03 Sep 13:45  terima PO Altindo          +1.000 Roll
+03 Sep 13:46  adjustment "double input"  -1.000 Roll   <- dobelnya dibatalkan
+03 Sep 15:53  penggabungan FOIL(48)->FOIL  ±672 Roll
+08 Sep 13:53  adjustment "ekadharma"    +48.000 Roll   <- SATUAN SALAH
+08 Sep 14:21  koreksi opname fisik      -47.047 Roll
+```
+
+**Tiga kekeliruan pertama ditangkap dan dibalik dengan catatan yang jelas.**
+Yang keempat lolos justru karena satu-satunya yang tak bisa dilihat siapa pun:
+satuan FOIL berubah pagi itu, dan tak ada layar yang menunjukkan hasil
+konversinya. **Ini bukan soal kedisiplinan orang gudang — disiplinnya terbukti
+bagus. Alatnya yang tidak memberi tahu.**
+
+### 🅿️ DIPARKIR (keputusan owner 8 September: "nanti dulu")
+
+**`SPB/PO/VII/2026/021` — Altindo, 15 Agustus, 2.000 Roll, Rp17.582.400, LUNAS.**
+Statusnya `diterima_lengkap` tetapi **tidak pernah menulis satu baris pun ke
+`ledger_stok`**. Stoknya tak pernah dikreditkan lewat jalur penerimaan; kalau
+barangnya memang masuk, ia baru muncul lewat opname/penyesuaian belakangan.
+
+Tidak mendesak: hitungan fisik 8 September sudah jadi acuan dan opname memang
+mekanisme pelurusnya. Tapi kalau suatu saat ditanya "ke mana 2.000 Roll bulan
+Agustus", jejak penerimaannya memang tidak ada di ledger. Perlu ditelusuri
+bersama pola PO lain yang juga tak menulis ledger (`036`, `039` — lihat
+bagian PO di atas).
+
+⚠️ **Perangkapnya masih terpasang.** Siapa pun yang memasukkan FOIL dalam Roll
+lewat form penyesuaian akan kena 48× lagi. Itu pekerjaan berikutnya: label
+form harus menyebut satuan bahannya secara eksplisit — sama persis dengan
+akar masalah pengisian harga per-Pack di form terima PO.
+
+### ✅ DIPUTUSKAN 8 September: metode sekarang DIPERTAHANKAN
+
+**Keputusan owner:** ditanya apakah persediaan dilaporkan ke pihak luar
+(pajak/audit) atau murni kendali internal —
+
+> "murni kendali internal"
+
+Dengan itu **pertanyaan PSAK 14 gugur.** Satu-satunya alasan tersisa untuk
+pindah metode adalah kepatuhan pelaporan eksternal, dan itu tidak ada. Dari
+sisi akurasi selisihnya 0,07% — tidak ada yang perlu diperbaiki.
+
+**Jangan bangun FIFO batch atau rata-rata tertimbang.** Ukur ulang HANYA kalau:
+
+1. Mulai ada pelaporan persediaan ke pihak luar, atau
+2. Muncul bahan berperputaran lambat yang stok dua vendornya menumpuk
+   bersamaan. Sampai 8 September belum pernah terjadi: stok on-hand tiap bahan
+   selalu ditutupi satu vendor saja.
+
+**Ini juga menutup pertanyaan yang membuka rangkaian sesi ini** — "bahan dengan
+2 vendor, bagaimana menanganinya dari PO sampai outlet order supaya tidak
+tumpang tindih". Jawabannya: **tidak perlu mekanisme khusus.** Perputaran
+barang cukup cepat sehingga stok vendor lama habis sebelum vendor baru datang,
+dan dampaknya ke HPP terukur nol tiga kali berturut-turut.
+
+Yang lebih layak digarap lebih dulu, karena benar-benar menggeser angka:
+saldo FOIL gudang di atas, dan **form terima PO** yang labelnya generik
+sehingga operator berulang kali mengisi harga per sub-satuan (dua kali untuk
+PLASTIK MERAH, dua bulan berbeda).
+
+---
+
+## 📏 PENGUKURAN ULANG 8 SEPTEMBER — metode basis harga
+
+Mengukur ulang selisih **harga master vs rata-rata tertimbang stok yang benar-benar
+ada** di Gudang Pusat (FIFO mundur dari penerimaan PO terbaru sampai menutupi saldo).
+Menggantikan pengukuran 3 September.
+
+| Bahan | Saldo | Master | WAC on-hand | Rasio | Dampak |
+|---|---:|---:|---:|---:|---:|
+| PLASTIK MERAH | 51,80 Ikat | 90.000 | 18.000 | **5,00×** | Rp3.729.600 |
+| POLYBAG | 5,67 Pack | 25.000 | 600.000 | **0,04×** | −Rp3.258.333 |
+| FOIL | 5,98 Dus | 421.978 | 11.554 | **36,52×** | Rp2.453.991 |
+| PLASTIK 24 | 502 Pack | 13.000 | 12.398 | 1,05× | Rp302.000 |
+| STIKER | 89,87 Lembar | 5.300 | 5.570 | 0,95× | −Rp24.265 |
+| MAYONAISE / KEJU / KUNYIT | — | — | — | 1,00× | ≤ Rp72 (pembulatan) |
+
+**Tiga yang terbesar BUKAN selisih metode — itu salah basis satuan di baris PO lama:**
+
+- **FOIL** master per **Dus**, `harga_terima` diisi per **Roll**. Buktinya pas:
+  421.977,6 ÷ 48 (`faktor_tengah`) = **8.791,2** — persis salah satu nilai
+  `harga_terima` yang tercatat.
+- **PLASTIK MERAH** master per **Ikat**, diisi per **Pack** (faktor 5).
+- **POLYBAG** master per **Pack**, diisi per **Bal** (≈25).
+
+**Selisih metode yang sungguhan hanya dua: PLASTIK 24 +Rp302.000 dan STIKER
+−Rp24.265 — bersih Rp277.735 untuk SELURUH nilai persediaan.**
+
+### Temuan pokok: masalah dua-vendor masih belum ada
+
+Untuk **setiap** bahan, stok yang ada di Gudang Pusat ditutupi oleh **satu vendor
+saja** (`jml_vendor_menutupi_saldo = 1`, tanpa kecuali). Sama seperti 3 September:
+perputaran cukup cepat sehingga stok vendor lama habis sebelum vendor baru datang.
+
+### Metode yang benar-benar berjalan sekarang
+
+`verifikasi_terima_po` menimpa `bahan_baku_harga.harga_beli` dengan `harga_terima`
+tiap penerimaan → **"harga pembelian terakhir"**, yang **bukan** metode yang diakui
+PSAK 14 (yang diakui: FIFO dan rata-rata tertimbang).
+
+Tapi lebih tepatnya bahkan bukan itu: **STIKER** punya master 5.300 sementara
+satu-satunya `harga_terima` yang pernah tercatat 5.570 — masternya diketik manual,
+bukan dari PO. Jadi metode nyatanya adalah **"harga apa pun yang terakhir diketik"**,
+campuran penerimaan PO dan suntingan manual.
+
+### Risiko terbuka yang ternyata SUDAH ditutup
+
+Catatan 3 September menandai jalur penerimaan PO sebagai risiko belum-diaudit.
+Sudah ditutup orang lain sehari kemudian: **"GUARD SALAH SATUAN (2026-09-04)"** di
+`verifikasi_terima_po` menolak `harga_terima` yang rasionya terhadap master persis
+sama dengan salah satu faktor konversi bahan (toleransi 1%), mencatatnya sebagai
+`DITOLAK` di `bahan_baku_harga_history` alih-alih menimpa master. Sudah menolak 1×.
+
+⚠️ **Guard itu tidak menangkap POLYBAG.** Rasionya ≈25, sedangkan faktor POLYBAG yang
+terdaftar hanya 9 — angka 25 ("1 bal = 25 pak", catatan owner) tak ada di kolom
+faktor mana pun. Guard hanya sekuat data faktor bahannya.
+
+### Urutan yang benar kalau mau pindah metode
+
+Dari 51 baris PO berharga, **42 dibuat sebelum guard ada**. Rata-rata tertimbang
+dihitung **dari riwayat pembelian** — jadi menerapkannya di atas riwayat yang basis
+satuannya campur akan menghasilkan angka yang **lebih buruk** daripada metode
+sekarang. Bersih-bersih basis satuan 42 baris itu adalah prasyarat, bukan pekerjaan
+sesudahnya.
+
+---
+
+## 🔗 RANTAI HARGA: PO → master → surat jalan (8 September)
+
+**Terkonfirmasi di kode:** `SuratJalanForm.tsx:177` menulis
+`qty_dikirim = convertToBaseUnit(qty, bahan)` = `qty ÷ getDistribusiFactor(b)`,
+dan faktor itu menurunkan dari `satuan_distribusi` ke `satuan`. Jadi
+**`qty_dikirim` disimpan dalam satuan besar** — sesuai catatan sesi FOIL-Dus.
+
+**Rantainya:** `verifikasi_terima_po` menimpa `bahan_baku_harga.harga_beli` →
+trigger `fill_harga_snapshot` menyalinnya APA ADANYA ke
+`surat_jalan_item.harga_snapshot` saat SJ dibuat. Tidak ada kode app yang
+menulis kolom itu; trigger satu-satunya pengisi. Snapshot **beku**: memperbaiki
+baris PO tidak mengubahnya.
+
+Semua **2.626** baris SJ punya snapshot (18 Juli–8 September).
+
+### Konsekuensinya: snapshot mewarisi basis master saat itu
+
+`harga_beli` baru dinormalkan ke satuan besar pada 3 September
+(`20300122000000`/`20300122000001`). Snapshot yang dibekukan sebelum itu
+memakai basis lama yang campur, sementara `qty_dikirim` selalu satuan besar —
+jadi `qty × snapshot` pada baris-baris itu tidak sebanding.
+
+Pemisahan kasar (rasio snapshot terhadap master kini):
+
+| Kelompok | Nilai beku |
+|---|---:|
+| Rasio ≥ 3× — hampir pasti beda basis | ~Rp24,2 juta |
+| Rasio 1,5–3× — ambigu, didominasi AYAM | ~Rp97,7 juta |
+
+⚠️ **Angka itu perkiraan kasar, jangan dikutip sebagai kerugian.** Pemisah yang
+dipakai (rasio cocok dengan faktor konversi) mewarisi kelemahan yang sama dengan
+GUARD SALAH SATUAN: **kalau harganya ikut bergerak, rasionya tidak lagi mendarat
+persis di faktor**. KENTANG 24.000 (rasio 10,42) jelas per-Pack tapi lolos ke
+kelompok "harga lama" hanya karena bukan tepat 10,00. Pemisah yang benar butuh
+master per-tanggal, dan `bahan_baku_harga_history` tidak lengkap.
+
+### Yang terbukti tanpa keraguan
+
+**PO uji coba menulis harga ke master produksi.** Riwayat mencatat AYAM
+51.000 → **35.000** pada 28 Agustus dari PO bernama
+`TEST/PO/PARTIAL/1787895628258`, kembali ke 53.500 pada 1 September. **22 baris
+surat jalan** bertanggal 29 Agu–1 Sep membekukan harga tes itu, senilai
+**Rp19.950.000**. Pola yang sama dengan kebocoran outlet tes, lewat pintu
+berbeda: **jalur PO belum punya penyaring dokumen uji coba.**
+
+### ✅ Ditutup 8 September: satuan asli dua baris PO FOIL ditandai
+
+Migration `20260908160000_tandai_satuan_baris_po_foil.sql` — **applied &
+diverifikasi**. `satuan_ad_hoc = 'Roll'` diisi pada dua baris itu.
+**Nol angka diubah**: qty 2.000/1.000, harga 8.791,2/11.554, dan subtotal
+Rp17.582.400/Rp11.554.000 identik sebelum dan sesudah. Utang supplier tidak
+bergerak (po_payable_spv memakai `subtotal`).
+
+Keputusan owner: **menandai, bukan menskala** — menskala ke Dus akan membuat
+dokumen tidak cocok lagi dengan faktur supplier yang menyebut 2.000 Roll, dan
+memasukkan pecahan berulang (2.000/48) ke dokumen pembelian.
+
+Aman karena inert: semua pembaca `satuan_ad_hoc` memakainya sebagai **cadangan**
+setelah `bahan_baku.satuan`, dan kedua baris punya `bahan_baku_id`
+(`COALESCE(b.satuan, poi.satuan_ad_hoc, …)` di `verifikasi_terima_po`;
+`bahan_baku?.satuan || satuan_ad_hoc` di PODetailView, KitchenVerifikasiModal;
+VerifikasiTerimaModal hanya memakainya untuk baris ad-hoc). Diuji idempoten:
+dijalankan dua kali, yang kedua nol baris.
+
+`PO/KITCHEN/20260902/0001` sengaja tidak disentuh — memakai bahan lama
+"FOIL (48) (DIGABUNG KE FOIL)" yang satuannya memang masih Roll.
+
+**Masih terbuka:** PLASTIK MERAH (butuh catatan pembayaran ke Pak Aji untuk
+memastikan 50 Pack atau 50 Ikat) dan POLYBAG (master datanya sendiri ditahan).
+
+### ⚠️ KOREKSI: "4 baris PO salah" ternyata keliru — uangnya sudah benar
+
+Diperiksa 8 September, dan ini membatalkan cara saya membingkainya sebelumnya.
+`subtotal` keempat baris = `qty × harga` **persis**, dan rupiahnya benar:
+
+| PO | Baris | qty × harga | subtotal | Status uang |
+|---|---|---|---|---|
+| SPB/PO/VII/2026/021 | FOIL | 2.000 × 8.791,2 | Rp17.582.400 | benar (2.000 **Roll**) |
+| PO/KITCHEN/20260831/0002 | FOIL | 1.000 × 11.554 | Rp11.554.000 | benar (1.000 **Roll**), ada faktur |
+| SPB/PO/VII/2026/039 | POLYBAG | 2 × 600.000 | Rp1.200.000 | benar (2 **Bal**) |
+| SPB/PO/VII/2026/036 | PLASTIK MERAH | 50 × 18.000 | Rp900.000 | **ambigu** |
+
+Yang salah **hanya label satuannya**, bukan uangnya. Dan `po_payable_spv.total`
+memakai kolom `subtotal` yang tersimpan, bukan `qty × harga` — jadi utang ke
+supplier tidak bergantung pada qty/harga sama sekali.
+
+**Dua baris FOIL bukan kesalahan operator.** Saat dibuat (15 & 31 Agustus)
+satuan FOIL memang **Roll**, jadi labelnya benar pada waktunya. Baru menjadi
+salah ketika migration `20260908103000` mengubah satuan FOIL ke Dus tanpa
+menskala ulang riwayat PO. Sesi itu menskala 26 baris surat jalan yang masih
+berjalan, tetapi riwayat PO tidak ikut — memang di luar lingkupnya.
+
+**PLASTIK MERAH ambigu dan butuh manusia:** 50 Pack @18.000 (= 10 Ikat, uang
+Rp900.000 tetap) atau 50 Ikat @90.000 (uang jadi Rp4.500.000)? `paid_amount`
+NULL, tidak ada faktur terlampir, dan PO ini tidak pernah menulis ledger — tidak
+ada bukti stok untuk menengahi. Hanya catatan pembayaran ke Pak Aji yang bisa.
+
+**POLYBAG jangan disentuh dulu:** master datanya sendiri masih ditahan — catatan
+owner "1 bal = 25 pak" bertentangan dengan faktor terdaftar (9). Menskala
+memakai angka yang belum disepakati akan menambah kekacauan.
+
+**Dampak nyata hari ini: nol.** Uang benar, ledger benar, dan tak ada laporan
+yang membaca `qty_terima` sebagai satuan besar. Satu-satunya yang terganggu
+adalah perhitungan rata-rata tertimbang di masa depan — metode yang belum
+diputuskan.
+
+### ✅ Ditutup 8 September: PO uji coba tak boleh menulis harga master
+
+Migration `20260908150000_guard_harga_master_po_uji_coba.sql` — **applied &
+diverifikasi di DB live**. Memakai ulang jalur penolakan milik guard salah
+satuan (`20260904120000`): master tidak ditimpa, sebabnya dicatat di
+`bahan_baku_harga_history` supaya terlihat.
+
+Pola dijangkarkan di **awal** nomor PO: `^(test|dummy|coba|demo)[/_-]`.
+Diuji langsung ke 50 PO nyata — 49 lolos, 1 (`TEST/…`) ditolak. Pemisah
+`[/_-]` mencegah salah tangkap: `TESTINDO/PO/2026/1`, `PO/TESTIMONI/2026/01`,
+dan `SPB/PROTEST/2026/7` semuanya **lolos**.
+
+Verifikasi pasca-terap (`pg_get_functiondef`): guard baru terpasang, guard salah
+satuan lama utuh, `to_ledger_scale` utuh, `can_manage_po` utuh,
+`prosecdef = true`.
+
+**Sengaja TIDAK diubah:** PO uji coba tetap menulis `ledger_stok`. Ruang lingkup
+perubahan ini hanya harga; menghentikan pergerakan stoknya keputusan terpisah
+yang belum diambil.
+
+**Riwayat migration sengaja tidak di-stempel** (`migration repair` tidak
+dijalankan). Menulis ke tabel riwayat DB bersama tanpa persetujuan pernah jadi
+insiden di proyek ini (Session 2026-07-14). Isinya `CREATE OR REPLACE`, jadi
+`db push` berikutnya menerapkannya ulang dengan aman. Keputusan stempel = owner.
+
+### ✅ 1 September ditetapkan sebagai titik mulai bersih (8 September)
+
+Migration `20260908170000_koreksi_harga_beku_surat_jalan_sejak_1sep.sql` —
+applied & diverifikasi. **Hanya 9 baris disentuh.**
+
+| Bahan | Baris | Sebelum | Sesudah |
+|---|--:|---|---|
+| AYAM | 6 | Rp35.000 (harga dari PO uji coba) | Rp53.500 |
+| CUP | 2 | Rp1.780 (per pcs) | Rp44.500 (×25, per Pack) |
+| KERTAS STRUK | 1 | Rp1.600 (per roll) | Rp16.000 (×10, per pack) |
+
+Dikalikan faktornya, bukan diganti master hari ini — supaya tingkat harga saat
+pengiriman tetap terjaga. Diuji idempoten (jalan kedua = nol baris).
+
+Keadaan jendela 1–8 September sebelum koreksi: 478 baris, **386 sudah bersih**
+(Rp176 jt), 35 baris harga beda tapi satuan benar (pembekuan yang memang
+bekerja — SAPI 100.000, FOIL lama 11.554: JANGAN disentuh), 57 baris tersangka.
+
+### ✅ 1 SEPTEMBER 2026 = TITIK MULAI BERSIH (selesai 8 September)
+
+Keadaan akhir jendela 1–8 September, **483 baris surat jalan**:
+
+| Keadaan | Baris |
+|---|--:|
+| Harga beku = master (bersih) | **443** |
+| Harga beku beda wajar — **ini normal**, memang guna pembekuan | 30 |
+| FOIL — sudah benar, sengaja tak disentuh | 10 |
+
+Tidak ada lagi baris yang menunggu keputusan.
+
+Tiga migration menutupnya: `20260908170000` (AYAM/CUP/KERTAS STRUK, 9 baris),
+`20260908180000` (kedua saos, 9 baris), `20260908190000` (5 bahan sisa, 35
+baris). Ketiganya idempoten dan sudah diuji dijalankan dua kali.
+
+**Kebijakan yang dipakai (keputusan owner):** *"pakai B, nanti kalau setelah
+audit ada perubahan harga nanti inject saja perubahan harganya."* Harga yang
+dikonfirmasi hari ini jadi dasar; selisih dari audit disuntikkan belakangan.
+
+### ✅ POLYBAG & PLASTIK MERAH — dua gantungan terakhir ditutup
+
+Keterangan owner 8 September: *"polybag 1 bal harganya 600.000 isi 25 pack,
+1 pack 24.000, plastik merah 50 pack"*. Migration `20260908200000`, idempoten.
+
+**⚠️ Harga POLYBAG diubah Rp25.000 → Rp24.000 per Pack — mengganti angka yang
+sebelumnya sudah dikonfirmasi.** Migration `20300122000003` (3 September)
+menetapkan Rp25.000 dan menyebutnya "jawaban konfirmasi". Yang baru dipakai
+karena punya dua penopang, bukan sekadar ingatan: Rp600.000 ÷ 25 = Rp24.000
+tanpa sisa, dan PO `SPB/PO/VII/2026/039` mencatat 2 × Rp600.000 = Rp1.200.000
+(= 2 Bal). Rp25.000 kemungkinan pembulatan saat konfirmasi lisan.
+
+8 baris surat jalan POLYBAG di jendela September ikut diseragamkan ke 24.000
+(termasuk 6 baris yang tadinya 25.000), mengikuti kebijakan yang sama.
+
+**Struktur satuan TIDAK diubah.** "Bal" adalah kemasan pembelian (25 Pack),
+bukan tingkat operasional. Keputusan 3 September tetap: POLYBAG hanya Pack dan
+Pcs. Menambah tingkat di atas Pack akan mengulang persoalan FOIL — dokumen
+historis berpindah arti diam-diam.
+
+**Dua baris PO ditandai satuannya, nol angka berubah** (pola yang sama dengan
+dua baris FOIL di `20260908160000`):
+
+| PO | Tercatat | Sebenarnya | Uang |
+|---|---|---|---|
+| SPB/PO/VII/2026/039 | 2 "Pack" | 2 **Bal** (= 50 Pack) | Rp1.200.000 tetap |
+| SPB/PO/VII/2026/036 | 50 "Ikat" | 50 **Pack** (= 10 Ikat) | Rp900.000 tetap |
+
+PLASTIK MERAH terbukti konsisten sendiri: master Rp90.000/Ikat dengan 1 Ikat =
+5 Pack berarti Rp18.000/Pack — persis `harga_terima`-nya. Jadi masternya benar,
+hanya labelnya yang keliru.
+
+### ⚠️ KENAPA HARGA BEKU TIDAK BISA DIPULIHKAN DENGAN PERKALIAN
+
+Temuan ini membatalkan kolom "faktor" yang sempat saya sodorkan. **Normalisasi
+3 September tidak mengalikan harga lama — ia menggantinya.** Nilai lama hanya
+kunci pengaman:
+
+```sql
+UPDATE bahan_baku_harga SET harga_beli = 248004, kemasan_qty = 12000
+  WHERE nama = 'MAYONAISE' AND harga_beli = 23706;
+```
+
+248.004 tidak dihitung dari 23.706. Batch pertama menyatakannya terang-terangan:
+`KEJU  Rp12.044 per Pack  10.850 -> 289.056  10 -> 240` — basis keju yang benar
+Rp12.044/Pack (×24 = 289.056), sementara yang beku 10.850. Itu bukan soal
+satuan, memang harga yang lebih lama.
+
+**Rasio harga-beku terhadap master mencampur perubahan SATUAN dan perubahan
+HARGA sekaligus**, dan basis harga lama tidak tercatat di mana pun — tidak di
+master, tidak di riwayat, tidak di migration. Tidak ada perkalian yang
+memulihkannya. Bukti pergerakan harga nyata: normalisasi menetapkan SAOS TOMAT
+POUCH ke 140.004, hari ini 141.000 — berubah oleh PO 31 Agustus (80 Dus @
+141.000).
+
+**Kedua saos berhasil bukan karena metode menemukan faktornya, melainkan karena
+owner menyebutkan harganya.**
+
+### ✅ SAOS CABE & SAOS SAMYANG — 9 baris terakhir, dari keterangan owner
+
+Migration `20260908180000` — applied & idempoten. SAOS CABE 7 baris
+Rp14.179 → **Rp244.002** (21 baris September kini seragam); SAOS SAMYANG
+2 baris Rp14.774 → **Rp280.000** (6 baris seragam).
+
+Dasarnya keterangan owner 8 September: *"saos cabe per dus = 244000, saos
+samyang per dus = 280000"*. Dipakai 244.002 bukan 244.000 supaya seragam dengan
+14 baris September lain (selisih Rp14 total).
+
+**KOREKSI klaim saya sebelumnya:** saya menulis bahwa "isi kemasan 4 bahan belum
+terdaftar benar". **Itu salah.** Faktornya lengkap — SAOS CABE 1 Dus = 3 Kompan
+= 16.500 g; SAOS SAMYANG 1 Dus = 5 Kg. Yang tidak lengkap adalah **daftar
+kandidat faktor di kueri saya**: saya tak pernah menguji **kg per satuan besar**
+(`faktor_tampilan / 1000`), padahal `satuan_distribusi` kedua bahan itu 'kg' dan
+`getDistribusiFactor` di kode punya aturan khusus persis untuk itu.
+
+Untuk SAOS CABE faktornya 16,5 kg/Dus → 244.002/16,5 = 14.788, dekat dengan
+harga beku 14.179. SAOS SAMYANG tetap tak terjelaskan dari data (rasio 18,95
+sementara 1 Dus = 5 Kg) — hanya keterangan owner yang menutupnya.
+
+### Sisa jendela 1 September: 35 baris, semua LOLOS uji sisi-qty
+
+Bentuk angka qty sama di kedua sisi perubahan harga — tak ada lompatan seperti
+FOIL. Faktor yang cocok, dengan daftar kandidat yang sudah diperbaiki:
+
+| Bahan | Baris | Harga beku | Faktor | Tersirat per satuan besar | Master kini |
+|---|--:|--:|--:|--:|--:|
+| MAYONAISE | 14 | 23.706 /kg | ×12 kg/Dus | 284.472 | 248.004 |
+| SAOS TOMAT POUCH | 7 | 10.613 /kg | ×12 kg/Dus | 127.356 | 141.000 |
+| PAPER WRAP | 10 | 160 /pcs | ×5.000 pcs/Ikat | 800.000 | 925.000 |
+| KEJU | 2 | 10.850 /pack | ×24 pack/Dus | 260.400 | 289.056 |
+| PLASTIK MERAH | 2 | 23.500 /pack | ×5 pack/Ikat | 117.500 | 90.000 |
+
+Semua tersiratnya dalam jarak wajar dari master (0,77–1,16×) — konsisten dengan
+pergerakan harga biasa, bukan salah faktor. **Tetap menunggu konfirmasi harga
+per satuan besar dari owner**, mengikuti cara yang sama seperti kedua saos.
+
+FOIL (10 baris) dan POLYBAG (2) tetap di luar: yang pertama sudah benar, yang
+kedua master datanya ditahan.
+
+### 🚨 NYARIS SALAH: FOIL 10 baris — tampak salah 48×, ternyata benar
+
+Sepuluh baris FOIL (3–8 September) membeku di Rp8.791,2 sementara master kini
+Rp421.977,6. Klasifikasi otomatis menandainya "salah satuan" dengan keyakinan
+**tertinggi** (sisa rasio pas 1,00). Kalau dijalankan, harganya dikalikan 48
+sementara qty tetap Roll → **+Rp83 juta nilai fiktif**.
+
+Yang menyelamatkan: **qty bernilai 48 muncul empat kali** — persis faktor
+bahannya. 48 Dus foil ke satu outlet dalam sehari itu mustahil. Saat surat
+jalan itu dibuat satuan FOIL masih Roll, jadi `qty_dikirim` JUGA dalam Roll.
+Pasangannya konsisten: 48 Roll × 8.791,2 = Rp421.977,6 = tepat 1 Dus.
+
+**Kesalahan metodologis yang sama untuk keempat kalinya di sesi ini:**
+membandingkan satu sisi tanpa memeriksa sisi lainnya. Membandingkan harga
+terhadap master TIDAK CUKUP — untuk tiap bahan yang satuannya pernah berubah,
+qty ikut berpindah basis.
+
+**Uji yang benar: apakah `qty × harga` menghasilkan rupiah yang masuk akal**,
+bukan apakah harga sebanding dengan master.
+
+⚠️ **Karena itu angka "481 baris / Rp381,9 juta" di bagian bahan keputusan di
+atas TIDAK BISA DIPERCAYA** — ia dihitung dengan pemisah yang cacat ini, dan
+setidaknya 74 baris FOIL di dalamnya adalah positif palsu. Perlu dihitung ulang
+dengan uji sisi-qty sebelum dipakai untuk keputusan apa pun.
+
+### Sisa pekerjaan di jendela 1 September
+
+- **Terhalang master data:** SAOS CABE (7 baris) & SAOS SAMYANG (2) — isi
+  kemasannya belum terdaftar di `bahan_baku`, jadi tak ada faktor sah. Ini
+  **salah hari ini juga**, bukan cuma soal riwayat.
+- **Menunggu pemeriksaan sisi qty:** MAYONAISE (14), SAOS TOMAT POUCH (7),
+  KEJU (2), PLASTIK MERAH (2), PAPER WRAP (10).
+
+### Bahan keputusan: nasib 2.626 snapshot surat jalan
+
+Metode pemisahan (8 September, menggantikan pemisah sebelumnya yang cacat):
+untuk tiap (bahan, nilai snapshot), cari faktor `f` dari kandidat
+{1, faktor_tengah, faktor_tampilan, faktor_konversi, tampilan/tengah} yang
+membuat `snapshot × f` **paling dekat** ke master. Sisa rasionya jadi ukuran
+keyakinan. Ini tidak menuntut rasio mendarat persis di faktor, sehingga tidak
+runtuh saat harga ikut bergerak — kelemahan pemisah sebelumnya dan juga
+kelemahan GUARD SALAH SATUAN.
+
+| Kelompok | Grup | Baris | Nilai apa adanya | Kalau diskala |
+|---|--:|--:|--:|--:|
+| Basis sub-satuan (f > 1) | 14 | 481 | Rp20,9 jt | Rp381,9 jt |
+| Tidak terjelaskan | 6 | 162 | Rp2,3 jt | — |
+| Basis benar (f = 1) | 45 | 1.983 | Rp937,6 jt | tak berubah |
+
+**Basis sub-satuan** — snapshot per sub-satuan sementara `qty_dikirim` satuan
+besar. Keyakinan per grup dari sisa rasio: **kuat** (≈1,00) KENTANG 25.000,
+FOIL 8.791, KERTAS STRUK, BAWANG, CUP, KENTANG 24.000; **lemah** (harga ikut
+bergerak) MAYONAISE 1,15, FOIL 11.957/11.554 1,36/1,31, PLASTIK MERAH 1,31,
+KEJU 0,90, SAOS TOMAT POUCH 0,90, PAPER WRAP 0,86.
+
+⚠️ **PAPER WRAP perlu dilihat manusia**: 37 baris, nilai apa adanya Rp8.176
+menjadi Rp40,9 juta kalau diskala (f = 5.000). Lonjakan sebesar itu dari angka
+sekecil itu patut dicurigai — mungkin masternya sendiri (Rp925.000/Ikat) yang
+salah, bukan snapshotnya.
+
+**Tidak terjelaskan** — tak ada faktor terdaftar yang mendekatkan snapshot ke
+master. Uangnya kecil (Rp2,3 jt) tetapi diagnostik: menandakan **faktor kemasan
+bahan itu belum terdaftar benar**. SAOS CABE butuh ~16, SAOS SAMYANG ~19,
+PLASTIK MERAH ~450, STIKER ~13 — tak satu pun ada di kolom faktornya.
+
+### Tidak ada jendela historis yang bersih
+
+Perubahan satuan FOIL (8 September) membuat 10 baris SJ tertanggal 3–8
+September ikut tidak sebanding — jadi bahkan periode sesudah normalisasi 3
+September pun tidak bersih. Batas bersih yang jujur adalah **sejak hari ini ke
+depan**, dan hanya bertahan kalau setiap perubahan satuan berikutnya ikut
+menskala dokumen historisnya.
+
+### Meredakan: belum ada laporan yang salah hari ini
+
+`harga_snapshot` hanya dibaca `hpp_nilai_stok_harian_spv` dan
+`hpp_barang_masuk_harian_spv`, yang memberi makan `get_hpp_periode` — dan itu
+**dorman** (produksi memakai `menu_items.hpp_override`). Jadi tidak ada angka
+yang sedang salah di layar. Tapi view itulah yang menyala kalau HPP dinamis atau
+rata-rata tertimbang dinyalakan — snapshot berbasis campur akan langsung jadi
+masalah saat itu.
+
+---
+
 ## ⛔ ATURAN — "outlet tes" JANGAN masuk perhitungan apa pun
 
 **Keputusan owner, 8 September 2026:**
@@ -77,6 +786,24 @@ butir 1b). Ditelusuri satu per satu, bukan ditebak:
 | stok | `lib/queries/monitoring.ts` `fetchOutletsList` | ✅ disaring |
 | stok | `hooks/useOutletScope.tsx` (OutletSwitcher) | ⬜ **sengaja dibiarkan** |
 | inventori | peta nama outlet di laporan inventaris | ⬜ sengaja dibiarkan |
+| absensi | dropdown Pengaturan (konfigurasi, bukan hitungan) | ⬜ sengaja dibiarkan |
+| pos-kasir | seluruhnya pencarian per-id | — bersih |
+| monitoring | dashboard kamera | — bukan uang |
+| sales-board | view `sales_board_outlets` = `type IN ('outlet','mitra')` | — sudah aman lewat allowlist |
+| retail-gateway | `/api/v1/outlets` menyaring `app_enabled` | ⛔ **JANGAN disaring** — lihat di bawah |
+
+**⛔ retail-gateway: jangan tergoda menambahkan penyaring `type='test'` di sana.**
+Diperiksa 8 September: `outlet tes` adalah **satu-satunya** baris dengan
+`app_enabled = true` di seluruh tabel `outlets` — nol outlet asli. Daftar outlet
+publik kanal retail memang sedang berisi persis satu outlet uji, karena kanalnya
+belum dirilis. Memasang penyaring di sana akan mengosongkan kanal itu sama
+sekali, bukan membersihkan laporan.
+
+**Catatan kecil di luar topik** (`apps/pos-kasir`): `orders/manual` dan
+`orders/walk-in` punya fallback outlet default
+`.from('outlets').select('id').limit(1).single()` **tanpa `ORDER BY`** — Postgres
+bebas mengembalikan baris mana pun. Hari ini kebetulan "SS BACKUP", bukan outlet
+tes, jadi bukan kebocoran; tetapi itu order sungguhan yang bisa nyasar outlet.
 
 **Dua yang sengaja dibiarkan, dan alasannya:**
 

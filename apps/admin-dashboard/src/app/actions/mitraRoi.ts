@@ -5,6 +5,7 @@ import { cookies } from 'next/headers'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { cleanItemName } from '@/lib/order-item-name'
 import { fetchAllPages } from '@/lib/fetchAllPages'
+import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -96,6 +97,17 @@ export async function getMitraRoiStats(outletId: string | 'all', allowedOutletId
   }
 }
 
+export interface MitraMonthlyProfitItem {
+  monthKey: string
+  monthLabel: string
+  netProfit: number
+  mitraShare: number
+  profitSharingPct: number
+  managementFee: number
+  isTransferred: boolean
+  isClosed: boolean
+}
+
 export interface MitraRealtimeBepItem {
   outletId: string
   modalInvestasi: number
@@ -120,6 +132,7 @@ export interface MitraRealtimeBepItem {
   roiPct: number
   bepPercentage: number
   isBep: boolean
+  monthlyBreakdown: MitraMonthlyProfitItem[]
 }
 
 export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Promise<Record<string, MitraRealtimeBepItem>> {
@@ -231,7 +244,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     const acc: Record<string, WindowFin> = {}
     const bump = (oid: string) => (acc[oid] ||= emptyFin())
 
-    const [rpcRes, pettyRows, monthlyRows, wasteRes] = await Promise.all([
+    const [rpcRes, pettyRows, monthlyRows, wasteRes, settlementsRes] = await Promise.all([
       supabase.rpc('get_mitra_orders_summary', {
         p_outlet_ids: mitraOutletIds,
         p_from: `${from}T00:00:00.000+07:00`,
@@ -249,7 +262,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .order('id', { ascending: true })),
       fetchAllPages<any>(() => supabase
         .from('expenses')
-        .select('id, amount, outlet_id')
+        .select('id, amount, outlet_id, category')
         .in('outlet_id', mitraOutletIds)
         // `type='out'` tidak pernah dipakai pengeluaran sungguhan -- akibatnya
         // pengeluaran bulanan (gaji, listrik, sewa) tak pernah ikut ke OPEX di
@@ -259,7 +272,36 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         .gte('expense_date', from)
         .lte('expense_date', to)
         .order('id', { ascending: true })),
-      supabase.rpc('get_waste_periode', { p_from: from, p_to: to })
+      supabase.rpc('get_waste_periode', { p_from: from, p_to: to }).then(async res => {
+        let data = (res.data || []).filter((r: any) => mitraOutletIds.includes(r.outlet_id))
+        if (!data || data.length === 0) {
+          const { data: directReports } = await supabase
+            .from('stok_waste_reports')
+            .select('outlet_id, qty, bahan_baku_id')
+            .in('outlet_id', mitraOutletIds)
+            .eq('status', 'APPROVED')
+            .gte('created_at', `${from}T00:00:00+07:00`)
+            .lte('created_at', `${to}T23:59:59+07:00`)
+          if (directReports && directReports.length > 0) {
+            const { data: prices } = await supabase.from('bahan_baku_harga').select('bahan_baku_id, harga_beli')
+            const pMap = new Map((prices || []).map((p: any) => [p.bahan_baku_id, Number(p.harga_beli) || 0]))
+            const sumMap = new Map<string, number>()
+            for (const dr of directReports) {
+              const h = pMap.get(dr.bahan_baku_id) || 0
+              sumMap.set(dr.outlet_id, (sumMap.get(dr.outlet_id) || 0) + ((Number(dr.qty) || 0) * h))
+            }
+            data = Array.from(sumMap.entries()).map(([outlet_id, nilai_waste]) => ({ outlet_id, nilai_waste }))
+          }
+        }
+        return { data }
+      }),
+      supabase
+        .from('platform_settlements')
+        .select('outlet_id, platform, omzet_kotor, promo_merchant, commission')
+        .in('outlet_id', mitraOutletIds)
+        .eq('platform', 'tiktokgo')
+        .gte('tanggal', from)
+        .lte('tanggal', to)
     ])
 
     const { data: rpcData, error: rpcError } = rpcRes
@@ -269,6 +311,34 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         a.grossRevenue += Number(row.gross_revenue) || 0
         a.totalDeductions += Number(row.deductions) || 0
         a.totalCogs += Number(row.cogs) || 0
+      }
+
+      if (!isAugust2026Period(from, to)) {
+        const settlements = (settlementsRes as any)?.data || []
+        if (settlements.length > 0) {
+          const settlementByOutlet = new Map<string, { gross: number; deductions: number }>()
+          for (const s of settlements) {
+            const oid = s.outlet_id
+            const ok = Number(s.omzet_kotor) || 0
+            const pm = Number(s.promo_merchant) || 0
+            const cm = Number(s.commission) || 0
+            const sGross = Math.max(0, ok - pm)
+            const sDed = cm
+            const cur = settlementByOutlet.get(oid) || { gross: 0, deductions: 0 }
+            cur.gross += sGross
+            cur.deductions += sDed
+            settlementByOutlet.set(oid, cur)
+          }
+
+          for (const [oid, sData] of settlementByOutlet.entries()) {
+            const rpcTkRow = rpcData.find((r: any) => r.outlet_id === oid && r.channel_group === 'tiktok')
+            const oldTkGross = Number(rpcTkRow?.gross_revenue) || 0
+            const oldTkDed = Number(rpcTkRow?.deductions) || 0
+            const a = bump(oid)
+            a.grossRevenue += (sData.gross - oldTkGross)
+            a.totalDeductions += (sData.deductions - oldTkDed)
+          }
+        }
       }
     } else {
       // Cadangan bila RPC tak tersedia: hitung dari order mentah, jendela sama.
@@ -303,12 +373,39 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       }
     }
 
-    for (const r of [...pettyRows, ...monthlyRows]) {
+    const auditedOutlets = new Set<string>()
+    for (const r of monthlyRows) {
+      if (r.outlet_id && ['pengeluaran_outlet', 'bahan_baku', 'transport', 'utilitas', 'operasional'].includes(r.category)) {
+        auditedOutlets.add(r.outlet_id)
+      }
+    }
+
+    for (const r of pettyRows) {
+      if (r.outlet_id && !auditedOutlets.has(r.outlet_id)) {
+        bump(r.outlet_id).opex += Number(r.amount) || 0
+      }
+    }
+    for (const r of monthlyRows) {
       if (r.outlet_id) bump(r.outlet_id).opex += Number(r.amount) || 0
     }
     for (const w of (wasteRes.data || [])) {
       if (mitraOutletIds.includes(w.outlet_id)) bump(w.outlet_id).waste += Number(w.nilai_waste) || 0
     }
+
+    if (isAugust2026Period(from, to)) {
+      for (const oid of mitraOutletIds) {
+        const closing = getMitraAugustClosing(oid)
+        if (closing) {
+          const a = bump(oid)
+          a.grossRevenue = closing.totals.grossRevenue
+          a.totalDeductions = closing.totals.totalDeductions
+          a.totalCogs = closing.totals.totalCogs
+          a.opex = closing.totals.totalOpex
+          a.waste = closing.totals.totalWaste
+        }
+      }
+    }
+
     return acc
   }
 
@@ -345,6 +442,8 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
     let waste = 0
     let managementFee = 0
     let akrualBelumDitransfer = 0
+    const monthlyBreakdown: MitraMonthlyProfitItem[] = []
+    const curMonthKey = todayWib().slice(0, 7)
 
     months.forEach((m, idx) => {
       const w = monthlyAgg[idx][oid]
@@ -365,11 +464,30 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       waste += w.waste
       managementFee += fee
 
-      if (m.key >= mulaiAkru && sharingActive && laba > 0) {
-        akrualBelumDitransfer += Math.round((laba * p.profitSharingPct) / 100)
+      const isTransferred = m.key < mulaiAkru
+      let monthMitraShare = 0
+      if (sharingActive && laba > 0) {
+        monthMitraShare = Math.round((laba * p.profitSharingPct) / 100)
+        if (!isTransferred) {
+          akrualBelumDitransfer += monthMitraShare
+        }
       }
-    })
 
+      const [yr, mo] = m.key.split('-')
+      const monthNames = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+      const monthLabel = `${monthNames[Number(mo)] || m.key} ${yr}`
+
+      monthlyBreakdown.push({
+        monthKey: m.key,
+        monthLabel,
+        netProfit: laba,
+        mitraShare: monthMitraShare,
+        profitSharingPct: p.profitSharingPct,
+        managementFee: fee,
+        isTransferred,
+        isClosed: m.key < curMonthKey
+      })
+    })
 
     const netProfit = grossRevenue - totalDeductions - totalCogs - opex - waste - managementFee
     const mitraShare = akrualBelumDitransfer
@@ -399,7 +517,8 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       sisaModal,
       roiPct,
       bepPercentage,
-      isBep
+      isBep,
+      monthlyBreakdown
     }
   }
 

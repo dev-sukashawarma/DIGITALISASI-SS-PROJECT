@@ -185,6 +185,76 @@ class CartStoreTest {
         assertEquals(1, k.isi().size)
     }
 
+    @Test
+    fun `menambah item dengan topping menyimpan sub-item dan menghitung subtotal gabungan`() {
+        val k = keranjang()
+        val toppings = listOf(
+            CartTopping("top-keju", "Extra Keju", 7000),
+            CartTopping("top-kentang", "Extra Kentang", 9000)
+        )
+        k.tambah("m1", "Shawarma Ayam", 25000, 2, null, toppings)
+
+        assertEquals(1, k.isi().size)
+        assertEquals(2, k.isi()[0].toppings.size)
+        // (25.000 + 7.000 + 9.000) * 2 = 82.000
+        assertEquals(82000L, k.subtotal())
+    }
+
+    @Test
+    fun `menghapus topping dari baris mengurangi subtotal secara presisi`() {
+        val k = keranjang()
+        val toppings = listOf(
+            CartTopping("top-keju", "Extra Keju", 7000),
+            CartTopping("top-kentang", "Extra Kentang", 9000)
+        )
+        k.tambah("m1", "Shawarma Ayam", 25000, 1, null, toppings)
+        assertEquals(41000L, k.subtotal())
+
+        k.hapusTopping(0, "top-kentang")
+        assertEquals(1, k.isi()[0].toppings.size)
+        assertEquals("top-keju", k.isi()[0].toppings[0].menuItemId)
+        // (25.000 + 7.000) * 1 = 32.000
+        assertEquals(32000L, k.subtotal())
+    }
+
+    @Test
+    fun `menambah item yang sama dengan topping yang sama menggabungkan jumlahnya`() {
+        val k = keranjang()
+        val toppings = listOf(CartTopping("top-keju", "Extra Keju", 7000))
+        k.tambah("m1", "Shawarma", 25000, 1, null, toppings)
+        k.tambah("m1", "Shawarma", 25000, 2, null, toppings)
+
+        assertEquals(1, k.isi().size)
+        assertEquals(3, k.isi()[0].jumlah)
+        assertEquals(1, k.isi()[0].toppings.size)
+        assertEquals(96000L, k.subtotal())
+    }
+
+    @Test
+    fun `menambah item yang sama dengan topping berbeda menjadi baris terpisah`() {
+        val k = keranjang()
+        val top1 = listOf(CartTopping("top-keju", "Extra Keju", 7000))
+        val top2 = listOf(CartTopping("top-kentang", "Extra Kentang", 9000))
+        k.tambah("m1", "Shawarma", 25000, 1, null, top1)
+        k.tambah("m1", "Shawarma", 25000, 1, null, top2)
+
+        assertEquals(2, k.isi().size)
+        assertEquals("top-keju", k.isi()[0].toppings[0].menuItemId)
+        assertEquals("top-kentang", k.isi()[1].toppings[0].menuItemId)
+    }
+
+    @Test
+    fun `hapusMenuItem menghapus sub-item topping yang cocok dari baris pesanan`() {
+        val k = keranjang()
+        val toppings = listOf(CartTopping("top-keju", "Extra Keju", 7000))
+        k.tambah("m1", "Shawarma", 25000, 1, null, toppings)
+
+        k.hapusMenuItem("top-keju")
+        assertEquals(1, k.isi().size)
+        assertEquals(0, k.isi()[0].toppings.size)
+        assertEquals(25000L, k.subtotal())
+    }
+
     private class PenyimpanPalsu : CartPersistence {
         var isi: String? = null
         override fun muat(): String? = isi

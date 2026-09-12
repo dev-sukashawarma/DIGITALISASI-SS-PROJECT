@@ -10,6 +10,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.patch
 import io.ktor.client.request.post
 import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
@@ -37,7 +38,7 @@ sealed class GatewayResult<out T> {
  * ke Supabase langsung, tidak ada service-role key di aplikasi ini.
  *
  * Menyisipkan `Authorization: Bearer <token>` dari [SessionStore] untuk semua
- * endpoint KECUALI `auth/google`, `catalog`, dan `outlets`.
+ * endpoint KECUALI `auth/google`, `catalog`, `outlets`, dan `banners`.
  */
 class GatewayClient(
     private val sessionStore: SessionStore,
@@ -109,6 +110,15 @@ class GatewayClient(
         }
     }
 
+    suspend fun banners(): GatewayResult<BannersResponse> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/banners")
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
     suspend fun checkoutValidate(
         request: CheckoutValidateRequest
     ): GatewayResult<CheckoutValidateResponse> {
@@ -154,6 +164,85 @@ class GatewayClient(
                 sisipkanOtorisasi()
             }
             hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun getNotifications(category: String? = null): GatewayResult<NotificationListResponse> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/notifications") {
+                sisipkanOtorisasi()
+                if (category != null && category != "all") {
+                    parameter("category", category)
+                }
+            }
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun markNotificationRead(notificationId: String? = null, markAll: Boolean = false): GatewayResult<Unit> {
+        return try {
+            val response = client.post("$baseUrl/api/v1/notifications") {
+                contentType(ContentType.Application.Json)
+                sisipkanOtorisasi()
+                setBody(MarkNotificationReadRequest(notificationId = notificationId, markAll = markAll))
+            }
+            if (response.status.isSuccess()) {
+                GatewayResult.Sukses(Unit)
+            } else {
+                val body = runCatching { response.bodyAsText() }.getOrNull()
+                GatewayResult.Gagal(petakanGalat(response.status.value, body))
+            }
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun registerFcmToken(request: FcmTokenRequest): GatewayResult<Unit> {
+        return try {
+            val response = client.post("$baseUrl/api/v1/customer/fcm-token") {
+                contentType(ContentType.Application.Json)
+                sisipkanOtorisasi()
+                setBody(request)
+            }
+            if (response.status.isSuccess()) {
+                GatewayResult.Sukses(Unit)
+            } else {
+                val body = runCatching { response.bodyAsText() }.getOrNull()
+                GatewayResult.Gagal(petakanGalat(response.status.value, body))
+            }
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun getNotificationPreferences(): GatewayResult<NotificationPreferencesResponse> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/customer/notification-preferences") {
+                sisipkanOtorisasi()
+            }
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun updateNotificationPreferences(request: UpdateNotificationPreferencesRequest): GatewayResult<Unit> {
+        return try {
+            val response = client.patch("$baseUrl/api/v1/customer/notification-preferences") {
+                contentType(ContentType.Application.Json)
+                sisipkanOtorisasi()
+                setBody(request)
+            }
+            if (response.status.isSuccess()) {
+                GatewayResult.Sukses(Unit)
+            } else {
+                val body = runCatching { response.bodyAsText() }.getOrNull()
+                GatewayResult.Gagal(petakanGalat(response.status.value, body))
+            }
         } catch (e: Exception) {
             GatewayResult.Gagal(GatewayError.Jaringan(e))
         }

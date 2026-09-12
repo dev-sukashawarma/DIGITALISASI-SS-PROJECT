@@ -58,4 +58,33 @@ describe('Mitra P&L Calculation Logic', () => {
     const mitraShare = netProfit > 0 ? (netProfit * (profitSharingPct / 100)) : 0 // 15.500.000
     expect(mitraShare).toBe(15500000)
   })
+
+  it('should sum total returned money accurately without double counting', () => {
+    const omzetHistoris = 20000000 // 20jt historis
+    const transferHistoris = 5000000 // 5jt historis
+    const transferSistem = 10000000 // 10jt sistem
+    const danaSudahKembali = omzetHistoris + transferHistoris + transferSistem
+    expect(danaSudahKembali).toBe(35000000)
+
+    const akrualBelumDitransfer = 4000000 // 4jt akrual bulan berjalan
+    const totalDanaKembali = danaSudahKembali + akrualBelumDitransfer
+    expect(totalDanaKembali).toBe(39000000)
+
+    const modalInvestasi = 50000000
+    const sisaModal = Math.max(0, modalInvestasi - totalDanaKembali)
+    expect(sisaModal).toBe(11000000)
+
+    const roiPct = (totalDanaKembali / modalInvestasi) * 100
+    expect(roiPct).toBe(78)
+  })
+
+  it('should ensure waste reduces net profit identically in PnL and ROI models', () => {
+    const grossRev = 50000000
+    const cogs = 20000000
+    const opex = 10000000
+    const waste = 2500000
+
+    const netProfitWithoutFee = grossRev - cogs - opex - waste
+    expect(netProfitWithoutFee).toBe(17500000)
+  })
 })

@@ -39,7 +39,7 @@ export async function bulkUpdateMitraInvestmentsAction(data: { outlet_id: string
       tanggal_mulai: ex?.tanggal_mulai || new Date().toISOString(),
       catatan: ex?.catatan || null,
       transfer_historis: ex?.transfer_historis || 0,
-      is_profit_sharing_active: ex?.is_profit_sharing_active ?? false,
+      is_profit_sharing_active: ex?.is_profit_sharing_active !== false,
       persentase_bagi_hasil: ex?.persentase_bagi_hasil ?? 50,
       management_fee: ex?.management_fee ?? 0
     }

@@ -20,6 +20,9 @@ class AppContainer(context: Context) {
     val outletStore: OutletStore by lazy { OutletStore(appContext) }
     val cartStore: CartStore by lazy { CartStore.persisten(appContext) }
     val orderAttemptStore: OrderAttemptStore by lazy { OrderAttemptStore(appContext) }
+    val notificationStore: com.sukashawarma.customer.data.NotificationStore by lazy {
+        com.sukashawarma.customer.data.NotificationStore(appContext)
+    }
     private val gateway: GatewayClient by lazy { GatewayClient(sessionStore) }
     val repository: Repository by lazy { Repository(gateway) }
 }

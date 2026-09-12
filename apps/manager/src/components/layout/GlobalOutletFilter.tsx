@@ -32,8 +32,7 @@ export default function GlobalOutletFilter({ outlets }: { outlets: { id: string;
   const rawLabel = selected === 'all' ? 'Semua Outlet' : (selectedOutlet?.name ?? 'Outlet');
   const shortLabel = formatShortOutletName(rawLabel);
 
-  // Staff yang terikat ke 1 outlet tidak perlu filter
-  if (outletStaff?.role === 'regional_manager') return null;
+  // Staff yang terikat ke <= 1 outlet tidak perlu filter
   if (!outlets || outlets.length <= 1) return null;
 
   const handleSelect = (val: string) => {

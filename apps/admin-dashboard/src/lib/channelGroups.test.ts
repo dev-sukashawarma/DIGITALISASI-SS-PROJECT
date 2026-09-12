@@ -18,6 +18,10 @@ describe('groupChannel', () => {
     expect(groupChannel('pos')).toBe('offline')
   })
 
+  it('groups app (SukaShawarma APP) as its own group, not offline', () => {
+    expect(groupChannel('app')).toBe('app')
+  })
+
   it('falls back to offline for an unrecognized sales_source', () => {
     expect(groupChannel('totally_unknown_value')).toBe('offline')
   })

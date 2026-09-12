@@ -65,6 +65,27 @@ data class CatalogResponse(
     val items: List<MenuItemDto>
 )
 
+// `urutan` sengaja TIDAK dideklarasikan di sini: urutan carousel sudah
+// dibawa oleh urutan array JSON-nya sendiri, dan `Json { ignoreUnknownKeys
+// = true }` (GatewayClient) membuang field itu dengan aman.
+@Serializable
+data class BannerDto(
+    val id: String,
+    val badge: String? = null,
+    val judul: String,
+    val subjudul: String? = null,
+    @SerialName("teks_tombol") val teksTombol: String? = null,
+    @SerialName("gambar_url") val gambarUrl: String? = null,
+    val aksi: String = "tidak_ada",
+    @SerialName("target_menu_item_id") val targetMenuItemId: String? = null
+)
+
+@Serializable
+data class BannersResponse(
+    val carousel: List<BannerDto> = emptyList(),
+    val popup: BannerDto? = null
+)
+
 @Serializable
 data class CartItemPayload(
     @SerialName("menu_item_id") val menuItemId: String,
@@ -151,3 +172,48 @@ data class OrderDetailDto(
 data class OrdersListResponse(
     val orders: List<OrderDetailDto>
 )
+
+@Serializable
+data class NotificationDto(
+    val id: String,
+    @SerialName("customer_id") val customerId: String? = null,
+    @SerialName("order_id") val orderId: String? = null,
+    val type: String,
+    val title: String,
+    val body: String,
+    @SerialName("is_read") val isRead: Boolean = false,
+    @SerialName("created_at") val createdAt: String
+)
+
+@Serializable
+data class NotificationListResponse(
+    val notifications: List<NotificationDto> = emptyList(),
+    @SerialName("unread_count") val unreadCount: Int = 0
+)
+
+@Serializable
+data class MarkNotificationReadRequest(
+    @SerialName("notification_id") val notificationId: String? = null,
+    @SerialName("mark_all") val markAll: Boolean = false
+)
+
+@Serializable
+data class FcmTokenRequest(
+    @SerialName("fcm_token") val fcmToken: String,
+    @SerialName("device_info") val deviceInfo: String? = null,
+    @SerialName("notify_order_status") val notifyOrderStatus: Boolean = true,
+    @SerialName("notify_promotions") val notifyPromotions: Boolean = true
+)
+
+@Serializable
+data class NotificationPreferencesResponse(
+    @SerialName("notify_order_status") val notifyOrderStatus: Boolean = true,
+    @SerialName("notify_promotions") val notifyPromotions: Boolean = true
+)
+
+@Serializable
+data class UpdateNotificationPreferencesRequest(
+    @SerialName("notify_order_status") val notifyOrderStatus: Boolean? = null,
+    @SerialName("notify_promotions") val notifyPromotions: Boolean? = null
+)
+

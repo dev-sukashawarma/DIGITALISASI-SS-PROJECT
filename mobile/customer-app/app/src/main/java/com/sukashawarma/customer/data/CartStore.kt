@@ -12,6 +12,13 @@ const val JUMLAH_MAKS_PER_ITEM = 99
 const val PANJANG_MAKS_CATATAN = 200
 
 @Serializable
+data class CartTopping(
+    val menuItemId: String,
+    val nama: String,
+    val hargaSatuan: Long
+)
+
+@Serializable
 data class CartLine(
     val menuItemId: String,
     val nama: String,
@@ -23,7 +30,8 @@ data class CartLine(
      */
     val hargaSatuan: Long,
     val jumlah: Int,
-    val catatan: String? = null
+    val catatan: String? = null,
+    val toppings: List<CartTopping> = emptyList()
 )
 
 @Serializable
@@ -88,23 +96,23 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
     /**
      * Menambahkan item.
      *
-     * Baris digabung hanya bila id DAN catatannya sama. Catatan berbeda =
-     * instruksi dapur berbeda, jadi harus jadi baris sendiri; menggabungkannya
-     * akan membuat salah satu catatan hilang diam-diam.
+     * Baris digabung hanya bila id, catatan, DAN topping-nya sama persis.
+     * Topping berbeda atau catatan berbeda = pesanan berbeda.
      */
     fun tambah(
         menuItemId: String,
         nama: String,
         hargaSatuan: Long,
         jumlah: Int,
-        catatan: String?
+        catatan: String?,
+        toppings: List<CartTopping> = emptyList()
     ) {
         val catatanBersih = rapikanCatatan(catatan)
         val tambahan = jumlah.coerceIn(1, JUMLAH_MAKS_PER_ITEM)
 
         val baris = isi.baris.toMutableList()
         val posisi = baris.indexOfFirst {
-            it.menuItemId == menuItemId && it.catatan == catatanBersih
+            it.menuItemId == menuItemId && it.catatan == catatanBersih && it.toppings == toppings
         }
 
         if (posisi >= 0) {
@@ -119,7 +127,8 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
                     nama = nama,
                     hargaSatuan = hargaSatuan,
                     jumlah = tambahan,
-                    catatan = catatanBersih
+                    catatan = catatanBersih,
+                    toppings = toppings
                 )
             )
         }
@@ -146,6 +155,17 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
         tulis()
     }
 
+    /** Menghapus sub-item topping tertentu dari suatu baris pesanan. */
+    fun hapusTopping(index: Int, toppingMenuItemId: String) {
+        val baris = isi.baris.toMutableList()
+        if (index !in baris.indices) return
+        val lama = baris[index]
+        val toppingsBaru = lama.toppings.filterNot { it.menuItemId == toppingMenuItemId }
+        baris[index] = lama.copy(toppings = toppingsBaru)
+        isi = isi.copy(baris = baris)
+        tulis()
+    }
+
     fun hapus(index: Int) {
         val baris = isi.baris.toMutableList()
         if (index !in baris.indices) return
@@ -155,7 +175,7 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
     }
 
     /**
-     * Membuang semua baris untuk satu menu.
+     * Membuang semua baris untuk satu menu (baik sebagai item utama maupun sebagai topping).
      *
      * Dipakai saat gateway melaporkan item habis atau sudah tidak ada. Satu
      * menu bisa menempati beberapa baris (catatan berbeda), jadi menghapus
@@ -163,12 +183,17 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
      * dengan keluhan yang sama persis.
      */
     fun hapusMenuItem(menuItemId: String) {
-        isi = isi.copy(baris = isi.baris.filterNot { it.menuItemId == menuItemId })
+        val barisBaru = isi.baris
+            .filterNot { it.menuItemId == menuItemId }
+            .map { line ->
+                line.copy(toppings = line.toppings.filterNot { it.menuItemId == menuItemId })
+            }
+        isi = isi.copy(baris = barisBaru)
         tulis()
     }
 
     /**
-     * Menyetel harga satu menu ke harga terbaru dari gateway.
+     * Menyetel harga satu menu ke harga terbaru dari gateway (baik sebagai item utama maupun topping).
      *
      * Menerima harga baru adalah keputusan pelanggan, bukan sesuatu yang boleh
      * terjadi diam-diam: aplikasi memanggil ini hanya setelah harga barunya
@@ -176,8 +201,12 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
      */
     fun perbaruiHarga(menuItemId: String, hargaBaru: Long) {
         isi = isi.copy(
-            baris = isi.baris.map {
-                if (it.menuItemId == menuItemId) it.copy(hargaSatuan = hargaBaru) else it
+            baris = isi.baris.map { line ->
+                val mainUpdated = if (line.menuItemId == menuItemId) line.copy(hargaSatuan = hargaBaru) else line
+                val toppingsUpdated = mainUpdated.toppings.map { top ->
+                    if (top.menuItemId == menuItemId) top.copy(hargaSatuan = hargaBaru) else top
+                }
+                mainUpdated.copy(toppings = toppingsUpdated)
             }
         )
         tulis()
@@ -190,7 +219,10 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
         tulis()
     }
 
-    fun subtotal(): Long = isi.baris.sumOf { it.hargaSatuan * it.jumlah }
+    fun subtotal(): Long = isi.baris.sumOf { line ->
+        val hargaPerPorsi = line.hargaSatuan + line.toppings.sumOf { it.hargaSatuan }
+        hargaPerPorsi * line.jumlah
+    }
 
     fun jumlahPorsi(): Int = isi.baris.sumOf { it.jumlah }
 

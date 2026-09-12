@@ -109,7 +109,7 @@ export interface Outlet {
   address: string | null
   lat: number
   lng: number
-  type: 'pusat' | 'cabang' | 'franchise'
+  type: 'pusat' | 'cabang' | 'franchise' | 'mitra' | 'office' | 'outlet'
   is_active: boolean
   bank_name?: string | null
   bank_account_number?: string | null

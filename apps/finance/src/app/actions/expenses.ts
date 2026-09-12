@@ -20,13 +20,25 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   const supabase = getServiceSupabase()
 
   for (const it of items) {
-    const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category)
+    const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category) && !it.outletId
     // Scope Pusat (company-wide) owner-only, sesuai aturan RPC upsert_expense
     // yang dilewati di sini (CLAUDE.md § Pengeluaran Outlet vs Pusat).
     if (isPusat && role !== 'owner') {
       throw new Error('Forbidden: pengeluaran scope Pusat hanya boleh diisi owner')
     }
     const outletId = isPusat ? null : it.outletId
+
+    if (outletId) {
+      const { data: targetOutlet } = await supabase
+        .from('outlets')
+        .select('name, type')
+        .eq('id', outletId)
+        .maybeSingle()
+
+      if (targetOutlet?.type === 'mitra' && ['gaji_staff_kantor', 'pengeluaran_global'].includes(it.category)) {
+        throw new Error(`Pengeluaran ${it.category} dilarang dialokasikan ke outlet mitra (${targetOutlet.name}).`)
+      }
+    }
 
     // Insert directly using service role to bypass RLS and trigger issues
     // We explicitly set payment_source = 'transfer_pusat' to avoid the cash_drawer open shift trigger
@@ -59,6 +71,32 @@ export async function createSingleExpenseAction(input: {
 }) {
   try {
     const supabase = getServiceSupabase()
+
+    if (input.outletId) {
+      const { data: targetOutlet } = await supabase
+        .from('outlets')
+        .select('name, type')
+        .eq('id', input.outletId)
+        .maybeSingle()
+
+      if (targetOutlet?.type === 'mitra') {
+        const cat = (input.category || '').toLowerCase()
+        const desc = (input.description || '').toLowerCase()
+        if (
+          cat === 'gaji_staff_kantor' ||
+          cat === 'pengeluaran_global' ||
+          desc.includes('gaji kantor') ||
+          desc.includes('staf kantor') ||
+          desc.includes('staff kantor') ||
+          desc.includes('kantor pusat')
+        ) {
+          return {
+            success: false,
+            error: `Pengeluaran gaji staf kantor / kantor pusat dilarang dialokasikan ke outlet mitra (${targetOutlet.name}). Harap alokasikan ke Pusat atau outlet internal.`
+          }
+        }
+      }
+    }
 
     const isPusat = !input.outletId
     const dbCategory = isPusat ? 'pengeluaran_global' : input.category

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Suka Shawarma - Riwayat Pesanan</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              orange: '#F29744',
+              orangeHover: '#e08332',
+              orangeLight: '#FFF2E6',
+              brown: '#701604',
+              brownLight: '#8C2208',
+              cream: '#FFF8F2',
+              bgLight: '#FAF4EF',
+              surface: '#FFFFFF',
+              dark: '#1E140F',
+              muted: '#7B6E66',
+              border: '#EFE7E0'
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          boxShadow: {
+            'soft': '0 8px 24px -4px rgba(112, 22, 4, 0.06), 0 2px 6px -1px rgba(112, 22, 4, 0.03)',
+            'nav': '0 -4px 20px -2px rgba(112, 22, 4, 0.05)',
+            'active-card': '0 10px 30px -4px rgba(242, 151, 68, 0.18), 0 3px 10px -2px rgba(112, 22, 4, 0.04)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom scrollbar hiding */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Touch ripple & tap highlights */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+  </style>
+</head>
+<body class="bg-[#F6EFE9] font-sans antialiased text-brand-dark min-h-screen flex justify-center items-start sm:py-6">
+
+  <!-- Mobile Frame Container (Approx 390px x 844px device viewport) -->
+  <div class="w-full max-w-[412px] bg-brand-cream min-h-screen relative flex flex-col shadow-2xl sm:rounded-[36px] overflow-hidden border border-[#E9DFD5]/80">
+
+    <!-- Top Status Bar & App Bar Area -->
+    <header class="sticky top-0 z-30 bg-brand-cream/95 backdrop-blur-md pt-3 pb-3 px-5 border-b border-brand-border/60 transition-colors">
+      <!-- Modern Mobile Status Bar -->
+      <div class="flex justify-between items-center text-xs font-semibold text-brand-dark mb-3 px-1 tracking-tight">
+        <span class="text-[13px] font-bold">09:41</span>
+        <div class="flex items-center space-x-1.5 text-brand-dark">
+          <!-- Signal Icon -->
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L12 22l7.03-4.39C20.26 16.07 21 14.12 21 12c0-4.97-4.03-9-9-9zm0 2c3.87 0 7 3.13 7 7 0 1.48-.46 2.85-1.25 4L12 19.38 6.25 16C5.46 14.85 5 13.48 5 12c0-3.87 3.13-7 7-7z"/>
+          </svg>
+          <!-- Wifi Icon -->
+          <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+            <path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98A16.88 16.88 0 0 0 12 4zm0 3.2c3.5 0 6.69 1.34 9.1 3.53L12 19.78 2.9 10.73C5.31 8.54 8.5 7.2 12 7.2z"/>
+          </svg>
+          <!-- Battery Icon -->
+          <div class="w-5 h-2.5 border border-brand-dark rounded-sm p-0.5 flex items-center">
+            <div class="w-full h-full bg-brand-dark rounded-xs"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Navigation App Bar -->
+      <div class="flex justify-between items-center">
+        <div>
+          <h1 class="text-xl font-extrabold text-brand-brown tracking-tight">Riwayat Pesanan</h1>
+          <p class="text-[11px] font-medium text-brand-muted mt-0.5">Pantau status & pesan ulang menu favoritmu</p>
+        </div>
+        <!-- Search Action Button -->
+        <button class="w-10 h-10 rounded-full bg-white border border-brand-border/80 flex items-center justify-center text-brand-brown hover:bg-brand-orangeLight transition-all active:scale-95 shadow-sm" aria-label="Cari Pesanan">
+          <svg class="w-5 h-5 text-brand-brown" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="7"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Horizontal Status Filter Tabs -->
+      <div class="flex items-center space-x-2 overflow-x-auto no-scrollbar pt-3.5 pb-1">
+        <!-- Tab: Semua (Active) -->
+        <button class="px-4 py-2 rounded-full bg-brand-orange text-white text-xs font-bold shadow-md shadow-brand-orange/30 shrink-0 transition-transform active:scale-95 flex items-center space-x-1.5">
+          <span>Semua</span>
+        </button>
+        <!-- Tab: Sedang Berjalan -->
+        <button class="px-3.5 py-2 rounded-full bg-white text-brand-dark text-xs font-semibold border border-brand-border hover:border-brand-orange/50 shrink-0 flex items-center space-x-1.5 shadow-sm active:scale-95 transition-all">
+          <span>Sedang Berjalan</span>
+          <span class="w-4 h-4 rounded-full bg-brand-orange text-white text-[10px] font-bold flex items-center justify-center">1</span>
+        </button>
+        <!-- Tab: Selesai -->
+        <button class="px-4 py-2 rounded-full bg-white text-brand-muted text-xs font-medium border border-brand-border hover:border-brand-orange/50 shrink-0 shadow-sm active:scale-95 transition-all">
+          <span>Selesai</span>
+        </button>
+        <!-- Tab: Dibatalkan -->
+        <button class="px-4 py-2 rounded-full bg-white text-brand-muted text-xs font-medium border border-brand-border hover:border-brand-orange/50 shrink-0 shadow-sm active:scale-95 transition-all">
+          <span>Dibatalkan</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Main Content -->
+    <main class="flex-1 px-4 pt-3.5 pb-24 space-y-5 overflow-y-auto">
+
+      <!-- 1. Active Order Highlight Card (Pesanan Berjalan) -->
+      <section aria-labelledby="active-order-heading">
+        <div class="flex items-center justify-between mb-2 px-1">
+          <div class="flex items-center space-x-2">
+            <span class="w-2 h-2 rounded-full bg-brand-orange animate-pulse"></span>
+            <h2 id="active-order-heading" class="text-xs font-extrabold uppercase tracking-wider text-brand-brown">
+              Pesanan Sedang Diproses
+            </h2>
+          </div>
+          <span class="text-[11px] font-semibold text-brand-orange">Est. Selesai ~8 mnt</span>
+        </div>
+
+        <div class="bg-white rounded-[22px] p-4 border-2 border-brand-orange/45 shadow-active-card relative overflow-hidden">
+          <!-- Ambient decorative corner glow -->
+          <div class="absolute -top-12 -right-12 w-28 h-28 bg-brand-orange/15 rounded-full blur-xl pointer-events-none"></div>
+
+          <!-- Top Meta Row -->
+          <div class="flex items-start justify-between gap-2 border-b border-brand-border/70 pb-3">
+            <div>
+              <div class="flex items-center space-x-2 mb-1">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-brand-brown border border-amber-200/80">
+                  Sedang Dibuat di Dapur 🔥
+                </span>
+                <span class="text-[11px] font-bold text-brand-muted">#SS-8842</span>
+              </div>
+              <h3 class="text-sm font-bold text-brand-brown flex items-center gap-1.5 mt-1">
+                <svg class="w-3.5 h-3.5 text-brand-orange shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"></path>
+                </svg>
+                <span>Suka Shawarma – Bogor Pajajaran</span>
+              </h3>
+            </div>
+
+            <!-- Digital Pickup Code Pill -->
+            <div class="text-right bg-brand-orangeLight/80 border border-brand-orange/30 px-3 py-1.5 rounded-xl shrink-0">
+              <span class="block text-[9px] font-semibold text-brand-brown tracking-wider uppercase">Kode Pickup</span>
+              <span class="text-base font-extrabold text-brand-brown tracking-widest font-mono">4827</span>
+            </div>
+          </div>
+
+          <!-- Order Items Breakdown -->
+          <div class="py-3 space-y-2 text-xs">
+            <div class="flex justify-between items-start">
+              <div class="flex items-start space-x-2">
+                <span class="font-bold text-brand-brown bg-brand-orangeLight px-1.5 py-0.5 rounded text-[11px]">1x</span>
+                <div>
+                  <p class="font-semibold text-brand-dark">Classic Chicken Shawarma</p>
+                  <p class="text-[11px] text-brand-muted">Reguler • Garlic Original (+Mozzarella)</p>
+                </div>
+              </div>
+              <span class="font-semibold text-brand-dark">Rp 30.000</span>
+            </div>
+
+            <div class="flex justify-between items-start">
+              <div class="flex items-start space-x-2">
+                <span class="font-bold text-brand-brown bg-brand-orangeLight px-1.5 py-0.5 rounded text-[11px]">1x</span>
+                <div>
+                  <p class="font-semibold text-brand-dark">Combo Kenyang Original</p>
+                  <p class="text-[11px] text-brand-muted">Shawarma Wrap + Fries + Es Lemon Tea</p>
+                </div>
+              </div>
+              <span class="font-semibold text-brand-dark">Rp 38.000</span>
+            </div>
+          </div>
+
+          <!-- Total & Status Row -->
+          <div class="pt-2.5 border-t border-brand-border/80 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] uppercase font-semibold text-brand-muted tracking-wider block">Total Pembayaran</span>
+              <div class="flex items-baseline space-x-2">
+                <span class="text-sm font-extrabold text-brand-brown">Rp 59.000</span>
+                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">QRIS Lunas</span>
+              </div>
+            </div>
+
+            <!-- Primary Action Button: Lihat Status Langsung -->
+            <a href="order-status-screen.html" class="px-4 py-2.5 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-white text-xs font-bold flex items-center space-x-1.5 shadow-md shadow-brand-orange/25 active:scale-95 transition-all">
+              <span>Lihat Status</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. Past Orders List (Riwayat Pesanan Selesai) -->
+      <section aria-labelledby="past-orders-heading" class="space-y-3.5">
+        <div class="flex items-center justify-between px-1 pt-1">
+          <h2 id="past-orders-heading" class="text-sm font-extrabold text-brand-brown">
+            Pesanan Sebelumnya
+          </h2>
+          <span class="text-xs font-semibold text-brand-muted">Bulan Ini (2)</span>
+        </div>
+
+        <!-- Order Card 1: #SS-7719 -->
+        <article class="bg-white rounded-[22px] p-4 border border-brand-border shadow-soft transition-all hover:border-brand-orange/40 hover:shadow-md">
+          <!-- Header Card -->
+          <div class="flex items-center justify-between pb-3 border-b border-brand-border/60">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-brand-brown">#SS-7719</span>
+                <span class="text-[11px] text-brand-muted">• 7 Sept 2026, 13:15 WIB</span>
+              </div>
+              <p class="text-xs font-medium text-brand-muted mt-0.5 flex items-center gap-1">
+                <svg class="w-3 h-3 text-brand-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                </svg>
+                <span>Suka Shawarma – Empang Bogor</span>
+              </p>
+            </div>
+            <!-- Status Badge -->
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <svg class="w-3 h-3 mr-1 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+              </svg>
+              Selesai
+            </span>
+          </div>
+
+          <!-- Items Detail -->
+          <div class="py-3 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-start space-x-2.5 pr-2">
+                <!-- Thumbnail Placeholder or icon -->
+                <div class="w-10 h-10 rounded-xl bg-brand-orangeLight/60 border border-brand-orange/20 overflow-hidden shrink-0 flex items-center justify-center">
+                  <img src="https://lh3.googleusercontent.com/aida/AEtjO1V6KGbjlTCABYuMcaZfjUrt7zn4C9O5kPi2gwnI3ZOPrIVQy6486w3nunqhyNCB6qT14P-ALcS4DdvrG_0QfrhUuS2k_JwmGndB3o9hcx9ytJI56yZcBElo2JMpRxL1pb07SVyRfbnBsjTG4wytDd-lRu-768oa3AGhnuFFplsHGJ8uT_1zPAf6tM5f4YHp4Hp0pp_p0QKrdFTCmdX2f3u8QuGooSTRKFvBidF68TkE0pCP8M7Wai_wl_Dg" alt="Beef Shawarma" class="w-full h-full object-cover" onerror="this.style.display='none'">
+                  <span class="text-xs font-bold text-brand-brown">🌯</span>
+                </div>
+                <div>
+                  <h4 class="font-bold text-brand-dark leading-tight">2x Beef Shawarma Supreme</h4>
+                  <p class="text-[11px] text-brand-muted mt-0.5">Extra Tahini Creamy, Acar & Tomat Segar</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-1 pl-12">
+              <div>
+                <h4 class="font-medium text-brand-dark">1x Es Kopi Rempah Dingin</h4>
+                <p class="text-[11px] text-brand-muted">Less Sugar (50%)</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer (Total & Pesan Lagi Button) -->
+          <div class="pt-3 border-t border-brand-border/70 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] uppercase font-semibold text-brand-muted tracking-wider block">Total Belanja</span>
+              <span class="text-sm font-extrabold text-brand-brown">Rp 82.000</span>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <button class="px-3 py-2 rounded-full border border-brand-border text-brand-muted hover:text-brand-dark text-xs font-semibold active:scale-95 transition-all">
+                Detail
+              </button>
+              <!-- 1-Click Pesan Lagi Button -->
+              <button class="px-4 py-2 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-brand-orange/30 active:scale-95 transition-all">
+                <!-- Reorder Icon -->
+                <svg class="w-3.5 h-3.5 stroke-white" fill="none" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"></path>
+                </svg>
+                <span>Pesan Lagi</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Order Card 2: #SS-6520 -->
+        <article class="bg-white rounded-[22px] p-4 border border-brand-border shadow-soft transition-all hover:border-brand-orange/40 hover:shadow-md">
+          <!-- Header Card -->
+          <div class="flex items-center justify-between pb-3 border-b border-brand-border/60">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-bold text-brand-brown">#SS-6520</span>
+                <span class="text-[11px] text-brand-muted">• 28 Ags 2026, 18:40 WIB</span>
+              </div>
+              <p class="text-xs font-medium text-brand-muted mt-0.5 flex items-center gap-1">
+                <svg class="w-3 h-3 text-brand-muted" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                </svg>
+                <span>Suka Shawarma – Bogor Pajajaran</span>
+              </p>
+            </div>
+            <!-- Status Badge -->
+            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <svg class="w-3 h-3 mr-1 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+              </svg>
+              Selesai
+            </span>
+          </div>
+
+          <!-- Items Detail -->
+          <div class="py-3 space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <div class="flex items-start space-x-2.5 pr-2">
+                <!-- Thumbnail -->
+                <div class="w-10 h-10 rounded-xl bg-brand-orangeLight/60 border border-brand-orange/20 overflow-hidden shrink-0 flex items-center justify-center">
+                  <img src="https://lh3.googleusercontent.com/aida/AEtjO1WGc7yXsTH7Q2HiHhro3ZHWeMVWyE5rOeLoQKeery539b8tulI15hljKMSvv_dRRAUS7nPC8hCSMXLO21eEK_pxMQcbs54lQ9m8jZZPS7pLmWzmb8citeQCQqIMdOfKKhyIt9rpgbxfuya9pxh11vlvd3pMSculTWpBdknLFf2gapvIzGgwplnroB9B9KenbhxcsEGUoVR2riL5nQwxHoe-zVOQX0k7lKXXM9Nz1i1d3YAh9vk-XRChk35y" alt="Combo Kenyang" class="w-full h-full object-cover" onerror="this.style.display='none'">
+                  <span class="text-xs font-bold text-brand-brown">🍟</span>
+                </div>
+                <div>
+                  <h4 class="font-bold text-brand-dark leading-tight">1x Combo Kenyang Original</h4>
+                  <p class="text-[11px] text-brand-muted mt-0.5">Shawarma Wrap + Fries + Es Lemon Tea</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs pt-1 pl-12">
+              <div>
+                <h4 class="font-medium text-brand-dark">1x Garlic Fries Gurih</h4>
+                <p class="text-[11px] text-brand-muted">Ukuran Medium • Dipping Toum</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card Footer -->
+          <div class="pt-3 border-t border-brand-border/70 flex items-center justify-between">
+            <div>
+              <span class="text-[10px] uppercase font-semibold text-brand-muted tracking-wider block">Total Belanja</span>
+              <span class="text-sm font-extrabold text-brand-brown">Rp 53.000</span>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <button class="px-3 py-2 rounded-full border border-brand-border text-brand-muted hover:text-brand-dark text-xs font-semibold active:scale-95 transition-all">
+                Detail
+              </button>
+              <!-- 1-Click Pesan Lagi Button -->
+              <button class="px-4 py-2 rounded-full bg-brand-orange hover:bg-brand-orangeHover text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm shadow-brand-orange/30 active:scale-95 transition-all">
+                <svg class="w-3.5 h-3.5 stroke-white" fill="none" stroke-width="2.2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"></path>
+                </svg>
+                <span>Pesan Lagi</span>
+              </button>
+            </div>
+          </div>
+        </article>
+
+        <!-- Help / Support Prompt Card -->
+        <div class="bg-brand-orangeLight/60 rounded-2xl p-3.5 border border-brand-orange/25 flex items-center justify-between mt-2">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-full bg-brand-orange/20 flex items-center justify-center text-brand-brown">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+            </div>
+            <div>
+              <p class="text-xs font-bold text-brand-brown">Ada kendala dengan pesananmu?</p>
+              <p class="text-[11px] text-brand-muted">Hubungi Layanan Bantuan Suka Care</p>
+            </div>
+          </div>
+          <button class="text-xs font-bold text-brand-orange hover:underline px-2 py-1">
+            Bantuan
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- 5. Fixed Bottom Navigation Bar (Elevated White Dock) -->
+    <nav class="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-brand-border px-6 py-2.5 shadow-nav flex justify-between items-center z-40">
+      <!-- Nav Item 1: Beranda -->
+      <a href="home-screen.html" class="flex flex-col items-center justify-center text-brand-muted hover:text-brand-orange transition-colors group">
+        <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"></path>
+        </svg>
+        <span class="text-[10px] font-semibold mt-1">Beranda</span>
+      </a>
+
+      <!-- Nav Item 2: Menu -->
+      <a href="home-screen.html" class="flex flex-col items-center justify-center text-brand-muted hover:text-brand-orange transition-colors group">
+        <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"></path>
+        </svg>
+        <span class="text-[10px] font-semibold mt-1">Menu</span>
+      </a>
+
+      <!-- Nav Item 3: Pesanan (ACTIVE) -->
+      <a href="order-history-screen.html" class="flex flex-col items-center justify-center text-brand-orange relative">
+        <div class="relative">
+          <svg class="w-5 h-5 stroke-brand-orange" fill="none" stroke-width="2.2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"></path>
+          </svg>
+          <span class="absolute -top-1 -right-1 w-2 h-2 bg-brand-orange rounded-full ring-2 ring-white"></span>
+        </div>
+        <span class="text-[10px] font-bold mt-1 text-brand-orange">Pesanan</span>
+        <!-- Active indicator dot -->
+        <span class="w-1 h-1 bg-brand-orange rounded-full mt-0.5"></span>
+      </a>
+
+      <!-- Nav Item 4: Profil -->
+      <a href="profile-screen.html" class="flex flex-col items-center justify-center text-brand-muted hover:text-brand-orange transition-colors group">
+        <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"></path>
+        </svg>
+        <span class="text-[10px] font-semibold mt-1">Profil</span>
+      </a>
+    </nav>
+
+    <!-- Bottom Indicator Pill for Mobile Device -->
+    <div class="absolute bottom-1 left-1/2 -translate-x-1/2 w-32 h-1 bg-brand-dark/20 rounded-full z-50 pointer-events-none"></div>
+
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      anime.timeline({ easing: 'easeOutCubic', duration: 500 })
+        .add({
+          targets: 'main > section',
+          translateY: [20, 0],
+          opacity: [0, 1],
+          delay: anime.stagger(80)
+        });
+    });
+  </script>
+</body>
+</html>
+
+

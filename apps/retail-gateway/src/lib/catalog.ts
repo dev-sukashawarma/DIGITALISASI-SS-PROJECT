@@ -44,6 +44,40 @@ function bacaKategori(mentah: unknown): { nama: string | null; urut: number | nu
  * Menurunkan baris mentah menjadi bentuk yang dikonsumsi aplikasi.
  * Kolom khusus app menang atas kolom kasir; kalau kosong, jatuh ke kolom kasir.
  */
+/** Kunci harga aplikasi di `menu_items.channel_prices`. */
+const SLUG_HARGA_APLIKASI = 'aplikasi'
+
+/**
+ * Harga yang berlaku di aplikasi.
+ *
+ * Aplikasi boleh punya harga sendiri (keputusan owner 2026-09-09), disimpan
+ * di `channel_prices.aplikasi` oleh dashboard admin. Kalau tidak diisi,
+ * berlaku harga kasir.
+ *
+ * Nilai 0 dan string kosong DIANGGAP tidak diisi, bukan "gratis". Kolom itu
+ * ditulis oleh formulir yang menyimpan angka sebagai string dan mengosongkan
+ * kolomnya jadi `''`; memperlakukan 0 sebagai harga sungguhan berarti satu
+ * kolom yang dibersihkan admin membuat menu bisa dipesan tanpa bayar.
+ *
+ * `channel_prices` juga diterima dalam bentuk string JSON. Proyek ini punya
+ * riwayat kolom TEXT yang menyimpan JSON berlapis (`global_settings.value`),
+ * dan menebak salah arah di sini berarti harga aplikasi diam-diam diabaikan.
+ */
+export function hargaAplikasi(mentah: unknown, hargaKasir: number): number {
+  let obj: unknown = mentah
+  if (typeof obj === 'string') {
+    try { obj = JSON.parse(obj) } catch { return hargaKasir }
+  }
+  if (typeof obj !== 'object' || obj === null) return hargaKasir
+
+  const nilai = (obj as Baris)[SLUG_HARGA_APLIKASI]
+  if (nilai === null || nilai === undefined || nilai === '') return hargaKasir
+
+  const harga = Number(nilai)
+  if (!Number.isFinite(harga) || harga <= 0) return hargaKasir
+  return harga
+}
+
 export function bersihkanKatalog(rows: unknown[]): MenuApp[] {
   const hasil: MenuApp[] = []
 
@@ -64,7 +98,12 @@ export function bersihkanKatalog(rows: unknown[]): MenuApp[] {
       name: r.name,
       description:
         (r.deskripsi_app as string | null) ?? (r.description as string | null) ?? null,
-      price: harga,
+      // Harga aplikasi, jatuh ke harga kasir bila tak diisi. Fungsi ini juga
+      // dipakai validasi checkout, jadi angka yang tampil di katalog dan
+      // angka yang ditagih SELALU berasal dari sumber yang sama -- kalau
+      // dipisah, selisih sekecil apa pun muncul sebagai `keranjang_berubah`
+      // tepat di titik pembayaran.
+      price: hargaAplikasi(r.channel_prices, harga),
       image_url: (r.foto_app as string | null) ?? (r.image_url as string | null) ?? null,
       // Gagal-tertutup. Ketersediaan yang tidak diketahui diperlakukan sebagai
       // habis: menyembunyikan item yang sebenarnya ada masih bisa diperbaiki
@@ -115,7 +154,7 @@ export async function ambilKatalog(
   const { data, error } = await db
     .from('menu_items')
     .select(
-      'id, name, description, deskripsi_app, price, image_url, foto_app, is_available, category_id, sort_order, categories(name, sort_order)'
+      'id, name, description, deskripsi_app, price, channel_prices, image_url, foto_app, is_available, category_id, sort_order, categories(name, sort_order)'
     )
     // `menu_items` di sistem ini CAMPURAN, dan keduanya harus terbit:
     //

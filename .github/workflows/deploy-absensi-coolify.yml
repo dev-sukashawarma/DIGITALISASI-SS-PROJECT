@@ -1,4 +1,5 @@
 name: Build & Deploy Absensi (GHCR to Coolify)
+# Manual deploy trigger: attendance native integration.
 
 on:
   push:

@@ -26,7 +26,7 @@ function parseMoney(value: string) {
 
 function moneyInput(value: string) {
   const digits = value.replace(/\D/g, '')
-  return digits ? Number(digits).toLocaleString('id-ID') : ''
+  return digits !== '' ? Number(digits).toLocaleString('id-ID') : ''
 }
 
 function dateTime(value: string | null) {
@@ -48,26 +48,41 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
   const [selectedOutletId, setSelectedOutletId] = useState('')
   const [targetBalance, setTargetBalance] = useState('')
   const [note, setNote] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
   const [isPending, startTransition] = useTransition()
+
+  // Local state to ensure immediate UI feedback when adjustments are saved
+  const [currentBalances, setCurrentBalances] = useState<Record<string, number>>(balances)
+  const [localHistory, setLocalHistory] = useState<PettyCashHistory[]>(history)
+
+  // Sync with server props on revalidation
+  useEffect(() => {
+    setCurrentBalances(balances)
+  }, [balances])
+
+  useEffect(() => {
+    setLocalHistory(history)
+  }, [history])
 
   const selectedOutlet = outlets.find((outlet) => outlet.id === selectedOutletId) ?? null
   const selectedShift = shifts.find((shift) => shift.outlet_id === selectedOutletId) ?? null
   const hasActiveShift = selectedShift?.status === 'open'
-  const selectedBalance = selectedOutletId ? balances[selectedOutletId] ?? 0 : 0
+  const selectedBalance = selectedOutletId ? currentBalances[selectedOutletId] ?? 0 : 0
   const selectedHistory = useMemo(
-    () => history.filter((row) => row.outlet_id === selectedOutletId),
-    [history, selectedOutletId]
+    () => localHistory.filter((row) => row.outlet_id === selectedOutletId),
+    [localHistory, selectedOutletId]
   )
 
   useEffect(() => {
-    if (!selectedOutlet) {
+    if (!selectedOutletId) {
       setTargetBalance('')
       setNote('')
       return
     }
-    setTargetBalance(moneyInput(String(selectedBalance)))
+    const currentBal = currentBalances[selectedOutletId] ?? 0
+    setTargetBalance(moneyInput(String(currentBal)))
     setNote('')
-  }, [selectedOutlet, selectedBalance])
+  }, [selectedOutletId])
 
   useEffect(() => {
     if (!selectedOutletId) return
@@ -94,7 +109,7 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
-    if (!selectedOutlet) return
+    if (!selectedOutlet || isSaving) return
 
     const target = parseMoney(targetBalance)
     if (note.trim().length < 5) {
@@ -112,18 +127,69 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
     )
     if (!confirmed) return
 
-    startTransition(async () => {
-      const result = await adjustPettyCashBalance({ outletId: selectedOutlet.id, targetBalance: target, note })
+    try {
+      setIsSaving(true)
+      const result = await adjustPettyCashBalance({ outletId: selectedOutlet.id, targetBalance: target, note: note.trim() })
       if (!result.success) {
         toast.error(result.error)
         return
       }
-      toast.success(result.result.application_mode === 'active_shift'
+
+      const newTarget = result.result?.target_balance ?? target
+      const balanceBefore = result.result?.balance_before ?? selectedBalance
+      const adjustmentAmount = result.result?.adjustment_amount ?? (newTarget - balanceBefore)
+      const applicationMode = result.result?.application_mode || (hasActiveShift ? 'active_shift' : 'next_shift_opening')
+      const isModeActiveShift = applicationMode === 'active_shift'
+
+      // 1. Update local balances immediately for instant UI update
+      setCurrentBalances((prev) => ({
+        ...prev,
+        [selectedOutlet.id]: newTarget,
+      }))
+
+      // 2. Update input field to new balance and reset note
+      setTargetBalance(moneyInput(String(newTarget)))
+      setNote('')
+
+      // 3. Immediately prepend the new adjustment to history list
+      const newHistoryRow: PettyCashHistory = {
+        id: result.result?.adjustment_id || `adj-${Date.now()}`,
+        outlet_id: selectedOutlet.id,
+        shift_id: selectedShift?.id || null,
+        application_mode: applicationMode,
+        status: isModeActiveShift ? 'applied' : 'pending',
+        balance_before: balanceBefore,
+        target_balance: newTarget,
+        adjustment_amount: adjustmentAmount,
+        note: note.trim(),
+        created_by: '',
+        created_at: new Date().toISOString(),
+        admin_name: 'Admin',
+      }
+
+      setLocalHistory((prev) => {
+        const updated = isModeActiveShift
+          ? prev
+          : prev.map((item) =>
+              item.outlet_id === selectedOutlet.id && item.status === 'pending'
+                ? { ...item, status: 'superseded' as const }
+                : item
+            )
+        return [newHistoryRow, ...updated.filter((h) => h.id !== newHistoryRow.id)]
+      })
+
+      toast.success(isModeActiveShift
         ? 'Saldo shift aktif berhasil disesuaikan'
         : 'Penyesuaian akan dipakai saat shift berikutnya dibuka')
-      setNote('')
-      router.refresh()
-    })
+
+      startTransition(() => {
+        router.refresh()
+      })
+    } catch (err: any) {
+      toast.error(err?.message || 'Gagal menyimpan penyesuaian')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -200,9 +266,9 @@ export default function PettyCashBalanceView({ outlets, shifts, balances, histor
                 <span className="mt-1 block text-xs font-medium text-slate-400">Wajib diisi, minimal 5 karakter.</span>
               </label>
 
-              <button type="submit" disabled={isPending} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-suka-brown px-5 py-3.5 text-sm font-black text-white transition hover:bg-suka-brown/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
-                {isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                {isPending ? 'Menyimpan...' : 'Simpan Penyesuaian'}
+              <button type="submit" disabled={isSaving || isPending} className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-suka-brown px-5 py-3.5 text-sm font-black text-white transition hover:bg-suka-brown/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto">
+                {isSaving || isPending ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                {isSaving || isPending ? 'Menyimpan...' : 'Simpan Penyesuaian'}
               </button>
             </form>
 

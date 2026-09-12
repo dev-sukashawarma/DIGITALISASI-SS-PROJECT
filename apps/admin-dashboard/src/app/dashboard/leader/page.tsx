@@ -147,28 +147,29 @@ export default async function LeaderDashboardPage() {
         .from('petty_cash_topups')
         .select('amount')
         .eq('outlet_id', primaryOutletId)
-        .eq('status', 'completed')
-        .gte('created_at', shift.start_time)
+        .in('status', ['completed', 'approved', 'approved_by_finance', 'forwarded_by_leader'])
+        .or(`created_at.gte.${shift.start_time},completed_at.gte.${shift.start_time},leader_forwarded_at.gte.${shift.start_time}`)
 
       const { data: expenses } = await supabase
         .from('petty_cash_expenses')
         .select('amount')
         .eq('outlet_id', primaryOutletId)
         .gte('created_at', shift.start_time)
-        // Rumus saldo di bawah meniru get_petty_cash_balance(); RPC itu menyaring
-        // baris ter-void, jadi di sini harus sama agar saldonya tidak berbeda.
         .is('deleted_at', null)
 
       const totalTopups = (topups || []).reduce((sum, t) => sum + Number(t.amount), 0)
       const totalExpenses = (expenses || []).reduce((sum, e) => sum + Number(e.amount), 0)
 
       sisaPettyCash = Number(shift.starting_petty_cash) + totalTopups - totalExpenses
-      const { data: sharedBalance, error: sharedBalanceError } = await supabase.rpc('get_petty_cash_balance', {
-        p_outlet_id: primaryOutletId,
-      })
-      if (!sharedBalanceError) sisaPettyCash = Number(sharedBalance) || 0
-      if (sisaPettyCash < 150000) isPettyCashHampirHabis = true
     }
+
+    const { data: sharedBalance, error: sharedBalanceError } = await supabase.rpc('get_petty_cash_balance', {
+      p_outlet_id: primaryOutletId,
+    })
+    if (!sharedBalanceError && sharedBalance !== null) {
+      sisaPettyCash = Number(sharedBalance) || 0
+    }
+    if (sisaPettyCash < 150000) isPettyCashHampirHabis = true
 
     const { count: stok } = await supabase
       .from('inventory_batches')

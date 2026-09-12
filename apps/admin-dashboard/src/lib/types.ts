@@ -176,6 +176,10 @@ export interface AttendanceLog {
   status: AttendanceStatus
   late_minutes: number
   notes: string | null
+  /** Data audit dari tabel attendance tidak boleh diubah lewat form manual HR. */
+  source?: 'attendance' | 'attendance_logs'
+  clock_in_source?: 'web' | 'native'
+  clock_out_source?: 'web' | 'native'
   created_at?: string
   updated_at?: string
   outlet_staff?: { name: string; role: string }

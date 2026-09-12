@@ -842,6 +842,8 @@ export async function getAttendanceReportData(
     gps_lng_in: number | null
     gps_lat_out: number | null
     gps_lng_out: number | null
+    clock_in_source: 'web' | 'native'
+    clock_out_source: 'web' | 'native'
     status: string
     late_minutes: number
     out_status: string | null
@@ -874,6 +876,8 @@ export async function getAttendanceReportData(
         gps_lng_in: null,
         gps_lat_out: null,
         gps_lng_out: null,
+        clock_in_source: 'web',
+        clock_out_source: 'web',
         status: 'hadir',
         late_minutes: 0,
         out_status: null,
@@ -886,6 +890,7 @@ export async function getAttendanceReportData(
     if (r.type === 'in') {
       item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.raw_photo_in = r.selfie_url || null
+      item.clock_in_source = r.source === 'native' ? 'native' : 'web'
       if (r.gps_lat) item.gps_lat_in = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_in = Number(r.gps_lng)
       if (r.status === 'telat_toleransi') {
@@ -898,6 +903,7 @@ export async function getAttendanceReportData(
     } else if (r.type === 'out') {
       item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.raw_photo_out = r.selfie_url || null
+      item.clock_out_source = r.source === 'native' ? 'native' : 'web'
       if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
       if (r.gps_lng) item.gps_lng_out = Number(r.gps_lng)
       item.out_status = r.status || 'tepat'
@@ -958,8 +964,10 @@ export async function getAttendanceReportData(
       stealth_photo_out_url: signedOut,
       gps_lat_in: item.gps_lat_in,
       gps_lng_in: item.gps_lng_in,
+      clock_in_source: item.clock_in_source,
       gps_lat_out: item.gps_lat_out,
       gps_lng_out: item.gps_lng_out,
+      clock_out_source: item.clock_out_source,
     }
   })
 

@@ -12,7 +12,8 @@ import {
   Building2,
   UserCheck,
   ImageOff,
-  LogOut
+  LogOut,
+  Smartphone
 } from 'lucide-react'
 import type { Outlet } from '@/lib/types'
 import { StealthPhotoModal, type StealthPhotoInfo } from './StealthPhotoModal'
@@ -36,8 +37,10 @@ export interface AttendanceRecordExt {
   stealth_photo_out_url?: string | null
   gps_lat_in?: number | null
   gps_lng_in?: number | null
+  clock_in_source?: 'web' | 'native'
   gps_lat_out?: number | null
   gps_lng_out?: number | null
+  clock_out_source?: 'web' | 'native'
 }
 
 interface AttendanceReportViewProps {
@@ -246,6 +249,9 @@ export function AttendanceReportView({
                         <div className="font-mono font-bold text-slate-800 text-sm">
                           {row.clock_in ? row.clock_in.slice(0, 5) : '-'}
                         </div>
+                        {row.clock_in_source === 'native' && (
+                          <Smartphone size={14} className="text-blue-600" aria-label="Absen dari aplikasi native" title="Absen dari aplikasi native" />
+                        )}
                         {row.gps_lat_in && row.gps_lng_in && (
                           <a
                             href={`https://www.google.com/maps?q=${row.gps_lat_in},${row.gps_lng_in}`}
@@ -299,6 +305,9 @@ export function AttendanceReportView({
                         <div className="font-mono font-bold text-slate-800 text-sm">
                           {row.clock_out ? row.clock_out.slice(0, 5) : '-'}
                         </div>
+                        {row.clock_out_source === 'native' && (
+                          <Smartphone size={14} className="text-blue-600" aria-label="Absen dari aplikasi native" title="Absen dari aplikasi native" />
+                        )}
                         {row.gps_lat_out && row.gps_lng_out && (
                           <a
                             href={`https://www.google.com/maps?q=${row.gps_lat_out},${row.gps_lng_out}`}

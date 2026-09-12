@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, StatusPill, EmptyState } from "@suka/design-system";
-import { LogIn, LogOut, ClipboardList, Download, Store, User, ChevronRight, X } from "lucide-react";
+import { LogIn, LogOut, ClipboardList, Download, Store, User, ChevronRight, X, Smartphone } from "lucide-react";
 import { createClient } from "@/lib/supabase";
 import { useAuth } from '@suka/auth';
 import { PageHeader } from "@/components/PageHeader";
@@ -30,6 +30,7 @@ type Row = {
   delay_minutes?: number | null;
   telat_menit?: number | null;
   is_manual_button?: boolean;
+  source?: "web" | "native";
 };
 
 type StaffSummary = {
@@ -464,6 +465,11 @@ export default function RekapPage() {
                                       Manual
                                     </span>
                                   )}
+                                  {day.in?.source === "native" && (
+                                    <span title="Absen dari aplikasi native" className="flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded">
+                                      <Smartphone size={11} /> Native
+                                    </span>
+                                  )}
                                 </div>
                             </div>
                           </div>
@@ -505,6 +511,11 @@ export default function RekapPage() {
                                   {day.out?.is_manual_button && (
                                     <span className="flex items-center gap-1 text-[9px] font-bold text-amber-700 bg-amber-100 border border-amber-200 px-1.5 py-0.5 rounded">
                                       Manual
+                                    </span>
+                                  )}
+                                  {day.out?.source === "native" && (
+                                    <span title="Absen dari aplikasi native" className="flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded">
+                                      <Smartphone size={11} /> Native
                                     </span>
                                   )}
                                 </div>

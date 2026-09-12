@@ -1,6 +1,6 @@
 'use client'
 
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Smartphone, Trash2 } from 'lucide-react'
 import type { AttendanceLog, AttendanceStatus } from '@/lib/types'
 
 /* ─── Badge color map ───────────────────────────────────────────────── */
@@ -108,12 +108,18 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
 
                   {/* Clock In */}
                   <td className="px-4 py-3 tabular-nums text-suka-gray-600">
-                    {fmtTime(row.clock_in)}
+                    <span className="inline-flex items-center gap-1.5">
+                      {fmtTime(row.clock_in)}
+                      {row.clock_in_source === 'native' && <span title="Absen dari aplikasi native"><Smartphone size={14} className="text-blue-600" /></span>}
+                    </span>
                   </td>
 
                   {/* Clock Out */}
                   <td className="px-4 py-3 tabular-nums text-suka-gray-600">
-                    {fmtTime(row.clock_out)}
+                    <span className="inline-flex items-center gap-1.5">
+                      {fmtTime(row.clock_out)}
+                      {row.clock_out_source === 'native' && <span title="Absen dari aplikasi native"><Smartphone size={14} className="text-blue-600" /></span>}
+                    </span>
                   </td>
 
                   {/* Status Badge */}
@@ -132,6 +138,9 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
 
                   {/* Aksi */}
                   <td className="px-4 py-3">
+                    {row.source === 'attendance' ? (
+                      <span className="block text-center text-xs text-suka-gray-400">Terekam otomatis</span>
+                    ) : (
                     <div className="flex items-center justify-center gap-1">
                       <button
                         type="button"
@@ -150,6 +159,7 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
                         <Trash2 size={15} />
                       </button>
                     </div>
+                    )}
                   </td>
                 </tr>
               )

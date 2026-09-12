@@ -332,6 +332,9 @@ export async function POST(req: Request) {
       status,
       telat_menit,
       is_manual_button: body.is_manual_button || false,
+      // Jalur normal adalah web. Namun antrean offline Super App menggunakan
+      // endpoint ini saat kembali online dan membawa penanda asalnya.
+      source: body.source === "native" ? "native" : "web",
     }, { onConflict: "id", ignoreDuplicates: true });
 
     if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });

@@ -97,6 +97,17 @@ export function SuratJalanForm() {
   // dipilih pengirim per bahan (satuan DISTRIBUSI, sama dengan kolom qty).
   const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
   const [alokasi, setAlokasi] = useState<Record<string, Alokasi[]>>({})
+  /**
+   * Daftar vendor sudah PASTI untuk daftar muatan saat ini. Selama false,
+   * `saldoVendor` kosong sehingga SEMUA bahan tampak satu-vendor dan form akan
+   * menulis baris TANPA `vendor_id` -- yang ditolak penjaga `sj_vendor_on_dikirim`
+   * saat dikirim, menghasilkan surat jalan yang tak pernah bisa berangkat.
+   * Gagalnya kelihatan (banner + toast) dan submit ditahan; ini terjangkau tanpa
+   * gangguan jaringan sama sekali karena `isPusatSender` memuat `admin_hr`
+   * sedangkan daftar role di RPC tidak (sengaja TIDAK dilebarkan di sini).
+   */
+  const [vendorsLoaded, setVendorsLoaded] = useState(true)
+  const [vendorError, setVendorError] = useState<string | null>(null)
 
   const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
 
@@ -121,16 +132,24 @@ export function SuratJalanForm() {
     const bahanIds = items.map((it) => it.bahanId)
     if (bahanIds.length === 0) {
       setSaldoVendor({})
+      setVendorError(null)
+      setVendorsLoaded(true)
       return
     }
     let active = true
+    setVendorsLoaded(false)
     const supabase = createSupabaseBrowserClient()
     supabase
       .rpc('saldo_vendor_gudang', { p_bahan_ids: bahanIds })
       .then(({ data, error }: { data: any[] | null; error: any }) => {
         if (!active) return
         if (error) {
+          // JANGAN diam: tanpa daftar vendor, form akan menulis baris tanpa
+          // vendor_id dan surat jalannya mati di penjaga saat dikirim.
           console.error('Gagal memuat saldo vendor', error)
+          setSaldoVendor({})
+          setVendorError(error?.message || 'Daftar vendor Gudang Pusat gagal dimuat')
+          setVendorsLoaded(false) // gerbang submit tetap menahan
           return
         }
         const grouped: Record<string, SaldoVendor[]> = {}
@@ -144,6 +163,8 @@ export function SuratJalanForm() {
           })
         }
         setSaldoVendor(grouped)
+        setVendorError(null)
+        setVendorsLoaded(true)
       })
     return () => {
       active = false
@@ -274,6 +295,14 @@ export function SuratJalanForm() {
     }
     if (items.length === 0) {
       toast.error('Tambahkan minimal 1 item barang yang akan dikirim')
+      return
+    }
+    if (!vendorsLoaded) {
+      toast.error(
+        vendorError
+          ? `Daftar vendor Gudang Pusat gagal dimuat: ${vendorError}. Muat ulang halaman sebelum membuat surat jalan.`
+          : 'Sedang memuat daftar vendor Gudang Pusat. Tunggu sebentar lalu coba lagi.'
+      )
       return
     }
     if (adaGalatVendor) {
@@ -540,6 +569,7 @@ export function SuratJalanForm() {
                         </div>
                         <PilihVendorBahan
                           vendors={vendorsDist(item)}
+                          qtyTarget={item.qty}
                           satuan={distUnit}
                           alokasi={alokasi[item.bahanId] ?? []}
                           onChange={(a) => setAlokasi((prev) => ({ ...prev, [item.bahanId]: a }))}
@@ -552,11 +582,19 @@ export function SuratJalanForm() {
               )}
             </div>
 
+            {!vendorsLoaded && items.length > 0 && (
+              <div className="rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-[11px] font-semibold text-red-800">
+                {vendorError
+                  ? `🔴 Daftar vendor Gudang Pusat gagal dimuat (${vendorError}). Surat jalan tidak bisa dibuat sekarang — tanpa daftar ini barisnya tersimpan tanpa vendor dan kiriman akan ditolak saat dikirim. Muat ulang halaman.`
+                  : '⏳ Memuat daftar vendor Gudang Pusat…'}
+              </div>
+            )}
+
             {/* Action Buttons */}
             <div className="flex gap-3 border-t border-suka-brown/10 pt-5">
               <button
                 type="submit"
-                disabled={submitting || items.length === 0 || !outletId || adaGalatVendor}
+                disabled={submitting || items.length === 0 || !outletId || adaGalatVendor || !vendorsLoaded}
                 className="flex-1 py-3.5 bg-suka-brown hover:bg-suka-ink active:scale-[0.98] text-white font-extrabold uppercase tracking-wider text-xs shadow-md rounded-xl transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Membuat Surat Jalan...' : `Simpan & Lanjut TTD (${items.length} Item)`}

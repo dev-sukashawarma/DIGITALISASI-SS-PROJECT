@@ -1,6 +1,6 @@
 // Alokasi vendor per bahan saat menyiapkan surat jalan.
 // Spec: docs/superpowers/specs/2026-09-11-saldo-vendor-gudang-design.md §4.3-4.4.
-// SALINAN IDENTIK di apps/distribusi/src/lib/alokasiVendor.ts — ubah keduanya.
+// SALINAN IDENTIK di apps/stok/src/lib/stok/alokasiVendor.ts — ubah keduanya.
 // Penjaga sebenarnya ada di DB (sj_vendor_on_dikirim); ini hanya untuk UI.
 export type SaldoVendor = { vendor_id: string; vendor_nama: string; sisa: number; aktif: boolean }
 export type Alokasi = { vendor_id: string; qty: number }

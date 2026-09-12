@@ -5,6 +5,7 @@ import type { Alokasi, SaldoVendor } from '@/lib/alokasiVendor'
 
 type Props = {
   vendors: SaldoVendor[]              // sisa dalam satuan DISTRIBUSI
+  qtyTarget: number                   // qty baris ini dalam satuan DISTRIBUSI
   satuan: string
   alokasi: Alokasi[]                  // qty dalam satuan DISTRIBUSI
   onChange: (a: Alokasi[]) => void
@@ -12,15 +13,18 @@ type Props = {
   disabled?: boolean
 }
 
-export function PilihVendorBahan({ vendors, satuan, alokasi, onChange, galat, disabled }: Props) {
+export function PilihVendorBahan({ vendors, qtyTarget, satuan, alokasi, onChange, galat, disabled }: Props) {
   if (vendors.length <= 1) {
     return vendors[0] ? <p className="text-[11px] text-suka-gray-500">Vendor: <b>{vendors[0].vendor_nama}</b></p> : null
   }
   const pecah = alokasi.length > 1
   const ubahQty = (vendor_id: string, qty: number) =>
     onChange(alokasi.map((a) => (a.vendor_id === vendor_id ? { ...a, qty } : a)))
-  const pilihTunggal = (vendor_id: string, total: number) => onChange([{ vendor_id, qty: total }])
-  const total = alokasi.reduce((s, a) => s + a.qty, 0)
+  // Memilih satu vendor = vendor itu menanggung SELURUH qty baris. Sebelumnya
+  // memakai jumlah alokasi berjalan, yang pada hari pertama (belum ada hitung
+  // fisik -> alokasiAwal mengembalikan []) selalu 0 dan membuat baris mentok di
+  // "Jumlah X harus lebih dari 0" tanpa jalan keluar.
+  const pilihTunggal = (vendor_id: string) => onChange([{ vendor_id, qty: qtyTarget }])
 
   return (
     <div className="mt-2 rounded-lg border border-suka-brown/15 p-2 space-y-1 text-[11px]">
@@ -34,7 +38,7 @@ export function PilihVendorBahan({ vendors, satuan, alokasi, onChange, galat, di
                 onChange={(e) => onChange(e.target.checked ? [...alokasi, { vendor_id: v.vendor_id, qty: 0 }] : alokasi.filter((x) => x.vendor_id !== v.vendor_id))} />
             ) : (
               <input type="radio" disabled={disabled || habis} checked={!!a}
-                onChange={() => pilihTunggal(v.vendor_id, total)} />
+                onChange={() => pilihTunggal(v.vendor_id)} />
             )}
             <span className="flex-1">{v.vendor_nama}</span>
             <span className="text-suka-gray-500">{v.aktif ? `sisa ${v.sisa} ${satuan}` : 'belum dihitung'}{habis ? ' · habis' : ''}</span>
@@ -48,7 +52,7 @@ export function PilihVendorBahan({ vendors, satuan, alokasi, onChange, galat, di
       })}
       {!disabled && (
         <button type="button" className="text-suka-orange underline"
-          onClick={() => onChange(pecah ? alokasi.slice(0, 1).map((a) => ({ ...a, qty: total })) : alokasi)}
+          onClick={() => onChange(pecah ? alokasi.slice(0, 1).map((a) => ({ ...a, qty: qtyTarget })) : alokasi)}
           hidden={!pecah && alokasi.length === 0}>
           {pecah ? 'Satu vendor saja' : '+ pecah vendor'}
         </button>

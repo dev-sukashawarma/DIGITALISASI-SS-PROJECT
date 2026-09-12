@@ -21,6 +21,13 @@ interface VendorInfo {
   vendor_nama: string;
 }
 
+/**
+ * Gudang Pusat (HQ) -- satu-satunya outlet yang memegang saldo per vendor.
+ * Dikunci ke id, bukan ke nama: `GUDANG SS ONLINE` juga memuat kata "GUDANG".
+ * Sumber yang sama dipakai `gudang_pusat_id()` di DB.
+ */
+const GUDANG_PUSAT_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90';
+
 const TIMEOUT_MS = 60000;
 async function withTimeout<T>(promise: Promise<T>, ms: number, actionName: string): Promise<T> {
   let timer: NodeJS.Timeout;
@@ -84,7 +91,15 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     queryKey: ['monitoring', 'outlets'],
     queryFn: fetchOutletsList,
   });
+  // `isGudang` (berbasis nama) HANYA untuk menyaring bahan bersumber Gudang
+  // Pusat di daftar opname -- semantiknya sengaja tetap longgar.
   const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
+  // Fitur hitung per-vendor HANYA milik Gudang Pusat, dikunci ke id: outlet lain
+  // yang namanya memuat "GUDANG" (mis. GUDANG SS ONLINE) akan merender sub-baris
+  // vendor lalu ditolak `simpan_hitung_vendor` ('Opname bukan milik Gudang
+  // Pusat'), dan karena `saveVendorHitung` melempar, Simpan Draft MAUPUN
+  // Finalisasi ikut gagal total.
+  const isGudangPusat = outletId === GUDANG_PUSAT_ID;
 
   const [inputs, setInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -307,14 +322,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
    *    sampai daftar ini pasti, supaya bahan multi-vendor tak kejebak angka
    *    gabungan lama tanpa sub-baris (Task 8 fix round 1, temuan Penting).
    * 2. `handleSaveDraft`/`handleFinalizeClick` -- menahan Simpan/Finalisasi
-   *    selama `isGudang && !vendorsLoaded`, supaya bahan yang "akan ketahuan"
+   *    selama `isGudangPusat && !vendorsLoaded`, supaya bahan yang "akan ketahuan"
    *    multi-vendor tak sempat tersimpan lewat jalur biasa di jendela waktu
    *    sebelum RPC selesai (temuan Minor).
    */
   const [vendorsLoaded, setVendorsLoaded] = useState(false);
 
   useEffect(() => {
-    if (!isGudang) {
+    if (!isGudangPusat) {
       setVendorsByBahan({});
       setVendorsLoaded(true); // tak relevan untuk outlet non-Gudang
       return;
@@ -349,7 +364,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isGudang, relevantBahanIdsKey]);
+  }, [isGudangPusat, relevantBahanIdsKey]);
 
   /**
    * Terapkan resumedInputs HANYA setelah `vendorsLoaded` -- lihat komentar di
@@ -546,7 +561,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
    * apa adanya -- bukan ditelan di sini.
    */
   async function saveVendorHitung(opnameId: string) {
-    if (!isGudang || Object.keys(vendorsByBahan).length === 0) return;
+    if (!isGudangPusat || Object.keys(vendorsByBahan).length === 0) return;
     const items = buildVendorItemsToSave();
     const supabase = createClient();
     const { error } = await supabase.rpc('simpan_hitung_vendor', { p_opname_id: opnameId, p_items: items });
@@ -554,7 +569,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }
 
   async function handleSaveDraft() {
-    if (isGudang && !vendorsLoaded) {
+    if (isGudangPusat && !vendorsLoaded) {
       showToast('🔴 Sedang memuat daftar vendor Gudang Pusat. Tunggu sebentar lalu coba lagi.', 'warning');
       return;
     }
@@ -649,7 +664,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }
 
   function handleFinalizeClick() {
-    if (isGudang && !vendorsLoaded) {
+    if (isGudangPusat && !vendorsLoaded) {
       showToast('🔴 Sedang memuat daftar vendor Gudang Pusat. Tunggu sebentar lalu coba lagi.', 'warning');
       return;
     }

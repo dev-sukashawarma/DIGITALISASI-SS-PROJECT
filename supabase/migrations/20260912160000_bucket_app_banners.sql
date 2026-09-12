@@ -1,4 +1,4 @@
--- 20260912100000_bucket_app_banners.sql
+-- 20260912160000_bucket_app_banners.sql
 --
 -- Membuat bucket storage `app-banners` untuk gambar banner aplikasi pelanggan.
 -- Melengkapi 20260911100000_app_banners.sql: tabelnya sudah ada, tempat

@@ -102,3 +102,35 @@ export function totalSubVendor(
   const total = filled.reduce((acc, input) => acc + singleVendorBesar(input, b), 0)
   return { total, sebagian: false }
 }
+
+/**
+ * Saring hasil resume draft server-side (`fetchTodayDraft`), membuang bahan
+ * yang diketahui multi-vendor.
+ *
+ * Kenapa: resume server-side saat ini hanya memulihkan angka gabungan lama
+ * dari `opname_item.catatan` -- ia TIDAK memulihkan sub-baris per vendor
+ * (`opname_item_vendor` disimpan terpisah, lihat Task 8 report §"Deviasi").
+ * Kalau angka gabungan itu tetap diterapkan untuk bahan yang (ternyata)
+ * multi-vendor, badge "Terisi" menyala padahal `subInputs`-nya kosong --
+ * `simpan_hitung_vendor` lalu dikirim TANPA baris untuk bahan itu sama
+ * sekali, dan tak ada gerbang lain yang menangkapnya (kosong-semua di
+ * subInputs tidak beda dari "belum disentuh"). Bahan multi-vendor harus
+ * mulai dari nol saat resume, bukan dari total lama yang tak punya rincian.
+ *
+ * Panggil ini HANYA setelah daftar bahan multi-vendor (`vendorsByBahan`
+ * di OpnameForm) diketahui PASTI (`vendorsLoaded`) -- daftar yang belum
+ * lengkap akan gagal menyaring bahan yang sebenarnya multi-vendor tapi belum
+ * ketahuan.
+ */
+export function filterResumableInputs<T>(
+  resumed: Record<string, T>,
+  multiVendorBahanIds: Iterable<string>
+): Record<string, T> {
+  const skip = new Set(multiVendorBahanIds)
+  const next: Record<string, T> = {}
+  for (const [id, value] of Object.entries(resumed)) {
+    if (skip.has(id)) continue
+    next[id] = value
+  }
+  return next
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { totalSubVendor, singleVendorBesar, type SubVendorInput } from './opnameVendor'
+import { totalSubVendor, singleVendorBesar, filterResumableInputs, type SubVendorInput } from './opnameVendor'
 
 // Angka FOIL nyata (CLAUDE.md sesi 2026-09-08/2026-09-10): 1 Dus = 48 Roll,
 // 1 Roll = 760 cm -> faktor_tengah=48, faktor_tampilan=36.480 (48*760).
@@ -73,5 +73,43 @@ describe('totalSubVendor — kosong/sebagian/lengkap', () => {
   it('bahan satuan tunggal, lengkap 2 vendor -> total sum langsung', () => {
     const sub: Record<string, SubVendorInput> = { v1: { besar: '3' }, v2: { besar: '4' } }
     expect(totalSubVendor(sub, sederhana)).toEqual({ total: 7, sebagian: false })
+  })
+})
+
+// Fix round 1 (review): resume draft server-side (`fetchTodayDraft`) tak boleh
+// menyeed `inputs` untuk bahan yang (ternyata) multi-vendor -- total lama itu
+// tak punya rincian per vendor di baliknya, dan `simpan_hitung_vendor` akan
+// dikirim TANPA baris untuk bahan itu (kosong-semua di subInputs), padahal
+// badge "Terisi" sudah menyala. Dipanggil HANYA setelah daftar vendor
+// multi-vendor bahan (vendorsByBahan) diketahui pasti -- lihat OpnameForm.tsx.
+describe('filterResumableInputs — cegah resume seed bahan multi-vendor', () => {
+  it('tidak ada bahan multi-vendor -> semua resumed input lolos apa adanya', () => {
+    const resumed = { sapi: { besar: '5' }, ayam: { besar: '2' } }
+    expect(filterResumableInputs(resumed, [])).toEqual(resumed)
+  })
+
+  it('bahan multi-vendor di-strip, bahan biasa tetap lolos', () => {
+    const resumed = { sapi: { besar: '5' }, ayam: { besar: '2' }, gula: { besar: '1' } }
+    // SAPI & AYAM multi-vendor (Task 1 fixtures); GULA bukan.
+    expect(filterResumableInputs(resumed, ['sapi', 'ayam'])).toEqual({ gula: { besar: '1' } })
+  })
+
+  it('semua bahan resumed multi-vendor -> hasil kosong', () => {
+    const resumed = { sapi: { besar: '5' } }
+    expect(filterResumableInputs(resumed, ['sapi'])).toEqual({})
+  })
+
+  it('resumed kosong -> tetap kosong, apa pun daftar multi-vendornya', () => {
+    expect(filterResumableInputs({}, ['sapi'])).toEqual({})
+  })
+
+  it('id multi-vendor yang tak ada di resumed tidak memunculkan apa-apa', () => {
+    const resumed = { gula: { besar: '1' } }
+    expect(filterResumableInputs(resumed, ['sapi', 'ayam'])).toEqual({ gula: { besar: '1' } })
+  })
+
+  it('menerima Set maupun array sebagai daftar id multi-vendor', () => {
+    const resumed = { sapi: { besar: '5' }, gula: { besar: '1' } }
+    expect(filterResumableInputs(resumed, new Set(['sapi']))).toEqual({ gula: { besar: '1' } })
   })
 })

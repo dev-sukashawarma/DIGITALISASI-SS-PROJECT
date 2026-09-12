@@ -10,7 +10,7 @@ import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import { isSuspiciousZero } from '@/lib/stok/zeroGuard';
-import { totalSubVendor, singleVendorBesar, type SubVendorInput } from '@/lib/stok/opnameVendor';
+import { totalSubVendor, singleVendorBesar, filterResumableInputs, type SubVendorInput } from '@/lib/stok/opnameVendor';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
@@ -172,6 +172,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   const [draftChecked, setDraftChecked] = useState(false);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
 
+  /**
+   * Hasil resume yang sudah didapat dari server tapi BELUM diterapkan ke
+   * `inputs` -- ditahan sampai daftar bahan multi-vendor (`vendorsByBahan`)
+   * diketahui pasti (`vendorsLoaded`). Lihat efek "Terapkan resumedInputs..."
+   * di bawah untuk alasannya (Task 8 fix round 1, temuan Penting).
+   */
+  const [pendingResumedInputs, setPendingResumedInputs] = useState<Record<string, { besar?: string; tengah?: string; kecil?: string }> | null>(null);
+
   useEffect(() => {
     if (draftChecked || isBahanLoading) return;
     let cancelled = false;
@@ -203,7 +211,11 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
             }
           }
           if (Object.keys(resumedInputs).length > 0) {
-            setInputs(prev => Object.keys(prev).length > 0 ? prev : resumedInputs);
+            // JANGAN setInputs langsung di sini -- lihat efek di bawah.
+            // Resume server-side belum memulihkan sub-baris per vendor, jadi
+            // menerapkan angka gabungan lama untuk bahan yang (ternyata)
+            // multi-vendor akan menjebak angka itu tanpa rincian di baliknya.
+            setPendingResumedInputs(resumedInputs);
             if (Object.keys(resumedTargets).length > 0) {
               setTargets(prev => Object.keys(prev).length > 0 ? prev : resumedTargets);
             }
@@ -285,18 +297,36 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   // dengan >=2 vendor induk yang dikelompokkan di sini; bahan 1-vendor tak
   // masuk map ini sama sekali, sehingga jadi penanda "bukan multi-vendor".
   const [vendorsByBahan, setVendorsByBahan] = useState<Record<string, VendorInfo[]>>({});
+  /**
+   * True hanya setelah `vendorsByBahan` DIKETAHUI PASTI benar (RPC selesai
+   * tanpa galat, atau memang tidak relevan -- outlet non-Gudang / tak ada
+   * bahan). Selama false, `vendorsByBahan` tetap `{}` yang AMBIGU: bisa
+   * berarti "sudah dicek, memang tak ada bahan multi-vendor" atau "belum
+   * dicek sama sekali". Dua konsumen bergantung pada bedanya:
+   * 1. Efek "Terapkan resumedInputs..." di bawah -- menahan resume draft
+   *    sampai daftar ini pasti, supaya bahan multi-vendor tak kejebak angka
+   *    gabungan lama tanpa sub-baris (Task 8 fix round 1, temuan Penting).
+   * 2. `handleSaveDraft`/`handleFinalizeClick` -- menahan Simpan/Finalisasi
+   *    selama `isGudang && !vendorsLoaded`, supaya bahan yang "akan ketahuan"
+   *    multi-vendor tak sempat tersimpan lewat jalur biasa di jendela waktu
+   *    sebelum RPC selesai (temuan Minor).
+   */
+  const [vendorsLoaded, setVendorsLoaded] = useState(false);
 
   useEffect(() => {
     if (!isGudang) {
       setVendorsByBahan({});
+      setVendorsLoaded(true); // tak relevan untuk outlet non-Gudang
       return;
     }
     const ids = relevantBahan.map((b) => b.id);
     if (ids.length === 0) {
       setVendorsByBahan({});
+      setVendorsLoaded(true); // tak ada bahan untuk dicek
       return;
     }
     let active = true;
+    setVendorsLoaded(false);
     const supabase = createClient();
     supabase
       .rpc('saldo_vendor_gudang', { p_bahan_ids: ids })
@@ -304,7 +334,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         if (!active) return;
         if (error) {
           console.error('Gagal memuat vendor bahan multi-vendor', error);
-          return;
+          return; // vendorsLoaded TETAP false -> gerbang Simpan/Finalisasi tetap menahan
         }
         const grouped: Record<string, VendorInfo[]> = {};
         for (const row of data || []) {
@@ -313,12 +343,30 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           list.push({ vendor_id: row.vendor_id, vendor_nama: row.vendor_nama });
         }
         setVendorsByBahan(grouped);
+        setVendorsLoaded(true);
       });
     return () => {
       active = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGudang, relevantBahanIdsKey]);
+
+  /**
+   * Terapkan resumedInputs HANYA setelah `vendorsLoaded` -- lihat komentar di
+   * `pendingResumedInputs`/`vendorsLoaded` di atas. Bahan yang ternyata
+   * multi-vendor di-strip lewat `filterResumableInputs` (bukan diterapkan lalu
+   * dikoreksi): resume server-side tak membawa sub-baris per vendor sama
+   * sekali, jadi bahan itu harus mulai dari nol saat resume, bukan dari total
+   * lama yang tak punya rincian di baliknya.
+   */
+  useEffect(() => {
+    if (!pendingResumedInputs || !vendorsLoaded) return;
+    const filtered = filterResumableInputs(pendingResumedInputs, Object.keys(vendorsByBahan));
+    if (Object.keys(filtered).length > 0) {
+      setInputs(prev => Object.keys(prev).length > 0 ? prev : filtered);
+    }
+    setPendingResumedInputs(null);
+  }, [pendingResumedInputs, vendorsLoaded, vendorsByBahan]);
 
   // Pastikan setiap vendor bahan multi-vendor punya kunci di subInputs (biar
   // "kosong semua" vs "sebagian" bisa dibedakan sebelum user mengetik apa
@@ -506,6 +554,10 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }
 
   async function handleSaveDraft() {
+    if (isGudang && !vendorsLoaded) {
+      showToast('🔴 Sedang memuat daftar vendor Gudang Pusat. Tunggu sebentar lalu coba lagi.', 'warning');
+      return;
+    }
     if (sebagianVendorIds.length > 0) {
       showToast(`🔴 ${sebagianVendorIds.length} bahan multi-vendor belum diisi lengkap. Isi semua vendornya atau kosongkan semuanya.`, 'warning');
       return;
@@ -597,6 +649,10 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }
 
   function handleFinalizeClick() {
+    if (isGudang && !vendorsLoaded) {
+      showToast('🔴 Sedang memuat daftar vendor Gudang Pusat. Tunggu sebentar lalu coba lagi.', 'warning');
+      return;
+    }
     if (sebagianVendorIds.length > 0) {
       showToast(`🔴 ${sebagianVendorIds.length} bahan multi-vendor belum diisi lengkap. Isi semua vendornya atau kosongkan semuanya.`, 'warning');
       return;

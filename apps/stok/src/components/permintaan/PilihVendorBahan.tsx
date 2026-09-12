@@ -5,21 +5,22 @@ import type { Alokasi, SaldoVendor } from '@/lib/stok/alokasiVendor'
 type Props = {
   vendors: SaldoVendor[]              // sisa dalam satuan DISTRIBUSI
   satuan: string
+  targetQty?: number                  // jumlah diminta/disetujui dalam satuan DISTRIBUSI
   alokasi: Alokasi[]                  // qty dalam satuan DISTRIBUSI
   onChange: (a: Alokasi[]) => void
   galat: string | null
   disabled?: boolean
 }
 
-export function PilihVendorBahan({ vendors, satuan, alokasi, onChange, galat, disabled }: Props) {
+export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange, galat, disabled }: Props) {
   if (vendors.length <= 1) {
     return vendors[0] ? <p className="text-[11px] text-[#544437]">Vendor: <b>{vendors[0].vendor_nama}</b></p> : null
   }
   const pecah = alokasi.length > 1
   const ubahQty = (vendor_id: string, qty: number) =>
     onChange(alokasi.map((a) => (a.vendor_id === vendor_id ? { ...a, qty } : a)))
-  const pilihTunggal = (vendor_id: string, total: number) => onChange([{ vendor_id, qty: total }])
-  const total = alokasi.reduce((s, a) => s + a.qty, 0)
+  const total = (alokasi.reduce((s, a) => s + a.qty, 0)) || targetQty || 0
+  const pilihTunggal = (vendor_id: string) => onChange([{ vendor_id, qty: total }])
 
   return (
     <div className="mt-2 rounded-lg border border-[#d9c2b2]/60 p-2 space-y-1 text-[11px]">
@@ -33,7 +34,7 @@ export function PilihVendorBahan({ vendors, satuan, alokasi, onChange, galat, di
                 onChange={(e) => onChange(e.target.checked ? [...alokasi, { vendor_id: v.vendor_id, qty: 0 }] : alokasi.filter((x) => x.vendor_id !== v.vendor_id))} />
             ) : (
               <input type="radio" disabled={disabled || habis} checked={!!a}
-                onChange={() => pilihTunggal(v.vendor_id, total)} />
+                onChange={() => pilihTunggal(v.vendor_id)} />
             )}
             <span className="flex-1">{v.vendor_nama}</span>
             <span className="text-[#544437]/70">{v.aktif ? `sisa ${v.sisa} ${satuan}` : 'belum dihitung'}{habis ? ' · habis' : ''}</span>

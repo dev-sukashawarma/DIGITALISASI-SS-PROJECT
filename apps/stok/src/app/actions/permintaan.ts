@@ -230,14 +230,23 @@ export async function buatPermintaan(
 export async function approvePermintaan(
   permintaanId: string,
   items: ApproveItemInput[]
-): Promise<void> {
-  await requirePermintaanApprover()
-  const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('approve_permintaan_svc', {
-    p_permintaan_id: permintaanId,
-    p_items: items,
-  })
-  if (error) throw new Error(error.message)
+): Promise<{ error?: string }> {
+  try {
+    await requirePermintaanApprover()
+    const supabase = makeServiceClient()
+    const { error } = await supabase.rpc('approve_permintaan_svc', {
+      p_permintaan_id: permintaanId,
+      p_items: items,
+    })
+    if (error) {
+      console.error('[approvePermintaan] RPC approve_permintaan_svc gagal:', error)
+      return { error: error.message }
+    }
+    return {}
+  } catch (err: any) {
+    console.error('[approvePermintaan] Action gagal:', err)
+    return { error: err.message || String(err) }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -247,14 +256,23 @@ export async function approvePermintaan(
 export async function tolakPermintaan(
   permintaanId: string,
   alasan: string
-): Promise<void> {
-  await requirePermintaanApprover()
-  const supabase = makeServiceClient()
-  const { error } = await supabase.rpc('tolak_permintaan_svc', {
-    p_permintaan_id: permintaanId,
-    p_alasan: alasan,
-  })
-  if (error) throw new Error(error.message)
+): Promise<{ error?: string }> {
+  try {
+    await requirePermintaanApprover()
+    const supabase = makeServiceClient()
+    const { error } = await supabase.rpc('tolak_permintaan_svc', {
+      p_permintaan_id: permintaanId,
+      p_alasan: alasan,
+    })
+    if (error) {
+      console.error('[tolakPermintaan] RPC tolak_permintaan_svc gagal:', error)
+      return { error: error.message }
+    }
+    return {}
+  } catch (err: any) {
+    console.error('[tolakPermintaan] Action gagal:', err)
+    return { error: err.message || String(err) }
+  }
 }
 
 // ---------------------------------------------------------------------------

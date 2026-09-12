@@ -163,11 +163,17 @@ export function usePermintaanActions() {
   }
 
   const approve = async (permintaanId: string, items: ApproveItemInput[]) => {
-    await approvePermintaan(permintaanId, items)
+    const res = await approvePermintaan(permintaanId, items)
+    if (res?.error) {
+      throw new Error(res.error)
+    }
   }
 
   const tolak = async (permintaanId: string, alasan: string) => {
-    await tolakPermintaan(permintaanId, alasan)
+    const res = await tolakPermintaan(permintaanId, alasan)
+    if (res?.error) {
+      throw new Error(res.error)
+    }
   }
 
   return { buat, approve, tolak }

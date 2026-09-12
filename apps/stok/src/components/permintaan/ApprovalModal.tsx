@@ -371,6 +371,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
               <PilihVendorBahan
                 vendors={vendorsDist(it)}
                 satuan={distUnit}
+                targetQty={qtys[it.bahan_baku_id] ?? 0}
                 alokasi={alokasi[it.bahan_baku_id] ?? []}
                 onChange={(a) => setAlokasi(prev => ({ ...prev, [it.bahan_baku_id]: a }))}
                 galat={galatVendor(it)}

@@ -27,8 +27,8 @@ BEGIN
   EXECUTE 'RESET ROLE';
 
   -- (c) finalisasi (qty_fisik item = 21 Blok dalam skala gudang) → sisa Djafafood 12, Pak Aziz 9, SAPI aktif
-  INSERT INTO opname_item (opname_id, bahan_baku_id, qty_fisik, qty_system, selisih)
-  VALUES (v_op, v_sapi, 21 * v_f, 21 * v_f, 0);
+  INSERT INTO opname_item (opname_id, bahan_baku_id, qty_fisik, qty_system)
+  VALUES (v_op, v_sapi, 21 * v_f, 21 * v_f);
   UPDATE opname SET status = 'finalized' WHERE id = v_op;
   v_sisa := public.sisa_vendor_gudang(v_sapi, v_dj) / v_f;
   IF v_sisa <> 12 THEN RAISE EXCEPTION 'GAGAL (c): sisa Djafafood %', v_sisa; END IF;

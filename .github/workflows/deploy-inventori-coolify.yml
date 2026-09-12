@@ -85,7 +85,7 @@ jobs:
         run: |
           echo "Waiting 15s for Coolify container restart..."
           sleep 15
-          APP_URL="https://inventori.sukashawarma.tech"
+          APP_URL="https://inventori.sukashawarma.com"
           echo "Probing $APP_URL..."
           for i in {1..8}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$APP_URL" || true)

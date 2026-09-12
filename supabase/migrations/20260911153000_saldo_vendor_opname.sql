@@ -32,7 +32,9 @@ BEGIN
   END IF;
   -- Tiap bahan yang dikirim wajib memuat SEMUA vendor induknya, tak lebih tak kurang.
   FOR r IN
-    SELECT (x->>'bahan_baku_id')::uuid AS bahan, array_agg(public.vendor_induk((x->>'vendor_id')::uuid) ORDER BY 1) AS vendor
+    SELECT (x->>'bahan_baku_id')::uuid AS bahan,
+           array_agg(public.vendor_induk((x->>'vendor_id')::uuid)
+                     ORDER BY public.vendor_induk((x->>'vendor_id')::uuid)) AS vendor
       FROM jsonb_array_elements(p_items) x GROUP BY 1
   LOOP
     IF r.vendor IS DISTINCT FROM (SELECT array_agg(v ORDER BY v) FROM public.vendor_bahan(r.bahan) v) THEN

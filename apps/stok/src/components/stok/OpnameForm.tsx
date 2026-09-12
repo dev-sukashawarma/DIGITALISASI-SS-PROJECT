@@ -10,8 +10,16 @@ import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
 import { isSuspiciousZero } from '@/lib/stok/zeroGuard';
+import { totalSubVendor, singleVendorBesar, type SubVendorInput } from '@/lib/stok/opnameVendor';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
+import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
+
+/** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
+interface VendorInfo {
+  vendor_id: string;
+  vendor_nama: string;
+}
 
 const TIMEOUT_MS = 60000;
 async function withTimeout<T>(promise: Promise<T>, ms: number, actionName: string): Promise<T> {
@@ -108,12 +116,31 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     return '';
   });
 
+  /**
+   * Hitung fisik per vendor untuk bahan multi-vendor di Gudang Pusat (spec
+   * §4.5). Kunci luar = bahan_baku_id, kunci dalam = vendor_id (vendor
+   * induk, sama seperti yang dikembalikan `saldo_vendor_gudang`).
+   *
+   * Draft lama (sebelum fitur ini ada) tidak punya field `vendor` sama
+   * sekali -- `JSON.parse(saved).vendor` jatuh ke `undefined` lalu `|| {}`,
+   * jadi tetap terbaca tanpa error.
+   */
+  const [subInputs, setSubInputs] = useState<Record<string, Record<string, SubVendorInput>>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`opname_draft_${outletId}`);
+        if (saved) return JSON.parse(saved).vendor || {};
+      } catch {}
+    }
+    return {};
+  });
+
   // Auto-save ke localStorage tiap kali input berubah
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({ inputs, targets, notes }));
+      localStorage.setItem(`opname_draft_${outletId}`, JSON.stringify({ inputs, targets, notes, vendor: subInputs }));
     }
-  }, [inputs, targets, notes, outletId]);
+  }, [inputs, targets, notes, subInputs, outletId]);
   const [busy, setBusy] = useState(false);
   const [showUnfilledModal, setShowUnfilledModal] = useState(false);
   /**
@@ -223,6 +250,19 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     }));
   };
 
+  const handleSubVendorChange = (bahanId: string, vendorId: string, level: 'besar' | 'tengah' | 'kecil', value: string) => {
+    setSubInputs(prev => ({
+      ...prev,
+      [bahanId]: {
+        ...(prev[bahanId] || {}),
+        [vendorId]: {
+          ...(prev[bahanId]?.[vendorId] || {}),
+          [level]: value,
+        },
+      },
+    }));
+  };
+
   const relevantBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
       const kat = b.kategori?.toUpperCase();
@@ -236,6 +276,121 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       return true;
     });
   }, [bahanBaku, isGudang]);
+
+  const relevantBahanIdsKey = useMemo(() => relevantBahan.map((b) => b.id).sort().join(','), [relevantBahan]);
+
+  // Vendor per bahan multi-vendor di Gudang Pusat -- SENGAJA tanpa `sisa`:
+  // opname adalah hitung buta, angka sistem tidak boleh terlihat sebelum
+  // dihitung (lihat brief Task 8 & isSuspiciousZero di atas). Hanya bahan
+  // dengan >=2 vendor induk yang dikelompokkan di sini; bahan 1-vendor tak
+  // masuk map ini sama sekali, sehingga jadi penanda "bukan multi-vendor".
+  const [vendorsByBahan, setVendorsByBahan] = useState<Record<string, VendorInfo[]>>({});
+
+  useEffect(() => {
+    if (!isGudang) {
+      setVendorsByBahan({});
+      return;
+    }
+    const ids = relevantBahan.map((b) => b.id);
+    if (ids.length === 0) {
+      setVendorsByBahan({});
+      return;
+    }
+    let active = true;
+    const supabase = createClient();
+    supabase
+      .rpc('saldo_vendor_gudang', { p_bahan_ids: ids })
+      .then(({ data, error }: { data: any[] | null; error: any }) => {
+        if (!active) return;
+        if (error) {
+          console.error('Gagal memuat vendor bahan multi-vendor', error);
+          return;
+        }
+        const grouped: Record<string, VendorInfo[]> = {};
+        for (const row of data || []) {
+          if (!row.multi) continue; // bahan 1-vendor tidak perlu sub-baris
+          const list = grouped[row.bahan_baku_id] || (grouped[row.bahan_baku_id] = []);
+          list.push({ vendor_id: row.vendor_id, vendor_nama: row.vendor_nama });
+        }
+        setVendorsByBahan(grouped);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGudang, relevantBahanIdsKey]);
+
+  // Pastikan setiap vendor bahan multi-vendor punya kunci di subInputs (biar
+  // "kosong semua" vs "sebagian" bisa dibedakan sebelum user mengetik apa
+  // pun), tanpa menimpa isian yang sudah ada (mis. dari draft localStorage).
+  useEffect(() => {
+    setSubInputs((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const [bahanId, vendors] of Object.entries(vendorsByBahan)) {
+        const current = next[bahanId] || {};
+        let bahanChanged = false;
+        const merged = { ...current };
+        for (const v of vendors) {
+          if (!(v.vendor_id in merged)) {
+            merged[v.vendor_id] = {};
+            bahanChanged = true;
+          }
+        }
+        if (bahanChanged) {
+          next[bahanId] = merged;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [vendorsByBahan]);
+
+  // Baris utama bahan multi-vendor = jumlah sub-baris (read-only). Disinkron
+  // ke `inputs` supaya seluruh pipa lama (buildItemsToSave, calculateTotalFisik,
+  // filledCount, dst) tetap jalan tanpa diduplikasi -- lihat singleVendorBesar:
+  // total (satuan besar, pecahan) dikali faktor_tampilan == totalKecilSum yang
+  // sama persis dipakai simpan_hitung_vendor per vendor.
+  useEffect(() => {
+    setInputs((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const bahanId of Object.keys(vendorsByBahan)) {
+        const b = bahanBaku.find((x) => x.id === bahanId);
+        if (!b) continue;
+        const sub = subInputs[bahanId] || {};
+        const { total } = totalSubVendor(sub, b);
+        if (total !== null) {
+          const val = String(total);
+          if (next[bahanId]?.besar !== val || next[bahanId]?.tengah !== undefined || next[bahanId]?.kecil !== undefined) {
+            next[bahanId] = { besar: val };
+            changed = true;
+          }
+        } else if (next[bahanId] !== undefined) {
+          delete next[bahanId];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vendorsByBahan, subInputs, bahanBaku]);
+
+  /**
+   * Bahan multi-vendor yang sebagian vendornya terisi, sebagian belum --
+   * keadaan yang WAJIB diblokir (spec §4.5): RPC `simpan_hitung_vendor` pun
+   * menolak kiriman yang tak memuat semua vendor induk sebuah bahan.
+   */
+  const sebagianVendorIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const bahanId of Object.keys(vendorsByBahan)) {
+      const b = bahanBaku.find((x) => x.id === bahanId);
+      if (!b) continue;
+      const sub = subInputs[bahanId] || {};
+      if (totalSubVendor(sub, b).sebagian) ids.push(bahanId);
+    }
+    return ids;
+  }, [vendorsByBahan, subInputs, bahanBaku]);
 
   const filledCount = useMemo(() => {
     return relevantBahan.filter((b) => {
@@ -310,10 +465,55 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
       });
   }
 
+  /**
+   * Payload untuk RPC `simpan_hitung_vendor`: satu baris per (bahan, vendor)
+   * bahan multi-vendor yang SUDAH lengkap (semua vendornya terisi). Bahan
+   * kosong-semua atau sebagian sengaja tak masuk sini -- yang kosong berarti
+   * "belum dihitung, lewati" (perilaku lama); yang sebagian sudah diblokir
+   * lebih dulu oleh `sebagianVendorIds` sebelum fungsi ini dipanggil.
+   */
+  function buildVendorItemsToSave(): { bahan_baku_id: string; vendor_id: string; qty_besar: number }[] {
+    const items: { bahan_baku_id: string; vendor_id: string; qty_besar: number }[] = [];
+    for (const [bahanId, vendors] of Object.entries(vendorsByBahan)) {
+      const b = bahanBaku.find((x) => x.id === bahanId);
+      if (!b) continue;
+      const sub = subInputs[bahanId] || {};
+      const { total } = totalSubVendor(sub, b);
+      if (total === null) continue;
+      for (const v of vendors) {
+        const inp = sub[v.vendor_id] || {};
+        items.push({ bahan_baku_id: bahanId, vendor_id: v.vendor_id, qty_besar: singleVendorBesar(inp, b) });
+      }
+    }
+    return items;
+  }
+
+  /**
+   * Simpan hitungan per vendor ke `opname_item_vendor` (RPC
+   * `simpan_hitung_vendor`, Task 4) -- trigger di DB yang mengubahnya jadi
+   * mutasi `hitung_fisik` per vendor baru jalan SAAT FINALISASI, jadi ini
+   * WAJIB dipanggil sebelum `finalize()`. Gagal (mis. RPC menolak karena
+   * sebagian vendor belum lengkap, atau bukan staff Gudang Pusat) harus
+   * melempar supaya pemanggilnya menghentikan proses & menampilkan pesan RPC
+   * apa adanya -- bukan ditelan di sini.
+   */
+  async function saveVendorHitung(opnameId: string) {
+    if (!isGudang || Object.keys(vendorsByBahan).length === 0) return;
+    const items = buildVendorItemsToSave();
+    const supabase = createClient();
+    const { error } = await supabase.rpc('simpan_hitung_vendor', { p_opname_id: opnameId, p_items: items });
+    if (error) throw new Error(error.message || 'Gagal menyimpan hitungan per vendor');
+  }
+
   async function handleSaveDraft() {
+    if (sebagianVendorIds.length > 0) {
+      showToast(`🔴 ${sebagianVendorIds.length} bahan multi-vendor belum diisi lengkap. Isi semua vendornya atau kosongkan semuanya.`, 'warning');
+      return;
+    }
     setBusy(true);
     try {
       const opname = await withTimeout(createOrReuseDraft(outletId, 'harian', createdBy, notes), TIMEOUT_MS, 'membuat draft');
+      await withTimeout(saveVendorHitung(opname.id), TIMEOUT_MS, 'menyimpan hitungan vendor');
       const itemsToSave = buildItemsToSave(opname.id);
 
       if (itemsToSave.length === 0) {
@@ -397,6 +597,10 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }
 
   function handleFinalizeClick() {
+    if (sebagianVendorIds.length > 0) {
+      showToast(`🔴 ${sebagianVendorIds.length} bahan multi-vendor belum diisi lengkap. Isi semua vendornya atau kosongkan semuanya.`, 'warning');
+      return;
+    }
     if (filledCount === 0) {
       showToast('🔴 Belum ada item yang diinput.', 'warning');
       return;
@@ -412,6 +616,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     setBusy(true);
     try {
       const opname = await withTimeout(createOrReuseDraft(outletId, 'harian', createdBy, notes), TIMEOUT_MS, 'membuat draft');
+      await withTimeout(saveVendorHitung(opname.id), TIMEOUT_MS, 'menyimpan hitungan vendor');
       const itemsToSave = buildItemsToSave(opname.id);
 
       if (itemsToSave.length === 0) {
@@ -581,6 +786,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           const isSaved = inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined;
           const hasTarget = isKitchen && (tgt.besar !== undefined || tgt.tengah !== undefined || tgt.kecil !== undefined);
 
+          // Bahan multi-vendor (>=2 vendor induk) di Gudang Pusat -- hitung
+          // PER VENDOR, bukan satu angka gabungan (spec §4.5). `sisa`/stok
+          // sistem TIDAK ditampilkan di sini -- hitung buta dipertahankan.
+          const vendorList = vendorsByBahan[b.id];
+          const isMultiVendor = !!vendorList && vendorList.length >= 2;
+          const sub = subInputs[b.id] || {};
+          const vendorTotal = isMultiVendor ? totalSubVendor(sub, b) : null;
+
           return (
             <div
               key={b.id}
@@ -621,64 +834,148 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
               </div>
 
               {/* Input Fisik Crew */}
-              <div className="mt-4">
-                <span className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider">
-                  Stok Fisik Crew
-                </span>
-                <div className="mt-1.5 flex flex-wrap gap-2 items-center justify-end">
-                  {/* Input untuk Satuan Besar */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan}</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                      placeholder="0"
-                      value={inp.besar ?? ''}
-                      onChange={(e) => handleInputChange(b.id, 'besar', e.target.value)}
-                    />
+              {isMultiVendor ? (
+                <div className="mt-4 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider">
+                      Hitung Fisik per Vendor
+                    </span>
+                    <span className="text-xs font-black text-[#701604] flex-shrink-0">
+                      {vendorTotal?.total !== null && vendorTotal?.total !== undefined
+                        ? `Total: ${vendorTotal.total.toFixed(2)} ${b.satuan}`
+                        : vendorTotal?.sebagian
+                          ? '⚠️ belum lengkap'
+                          : 'Total: —'}
+                    </span>
                   </div>
-                  
-                  {/* Input untuk Satuan Tengah */}
-                  {b.satuan_tengah && (
-                    <>
-                      <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
-                      <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_tengah}</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                          placeholder="0"
-                          value={inp.tengah ?? ''}
-                          onChange={(e) => handleInputChange(b.id, 'tengah', e.target.value)}
-                        />
-                      </div>
-                    </>
+
+                  {vendorTotal?.sebagian && (
+                    <p className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-1.5 leading-relaxed">
+                      ⚠️ Isi hitungan untuk SEMUA vendor bahan ini, atau kosongkan semuanya kalau belum dihitung.
+                    </p>
                   )}
 
-                  {/* Input untuk Satuan Kecil */}
-                  {b.satuan_kecil && (
-                    <>
-                      <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
-                      <div className="flex flex-col items-center">
-                        <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_kecil}</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min={0}
-                          className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-                          placeholder="0"
-                          value={inp.kecil ?? ''}
-                          onChange={(e) => handleInputChange(b.id, 'kecil', e.target.value)}
-                        />
+                  {(vendorList || []).map((v) => {
+                    const vInp = sub[v.vendor_id] || {};
+                    return (
+                      <div key={v.vendor_id} className="border border-[#d9c2b2]/40 rounded-lg p-2.5 bg-[#faf2e9]/25">
+                        <p className="text-[10px] font-bold text-[#701604]/80 mb-1.5 truncate" title={v.vendor_nama}>
+                          {v.vendor_nama}
+                        </p>
+                        <div className="flex flex-wrap gap-2 items-center justify-end">
+                          <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan}</span>
+                            <input
+                              type="number"
+                              inputMode="decimal"
+                              min={0}
+                              className="w-14 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                              placeholder="0"
+                              value={vInp.besar ?? ''}
+                              onChange={(e) => handleSubVendorChange(b.id, v.vendor_id, 'besar', e.target.value)}
+                            />
+                          </div>
+
+                          {b.satuan_tengah && (
+                            <>
+                              <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                              <div className="flex flex-col items-center">
+                                <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_tengah}</span>
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  min={0}
+                                  className="w-14 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                                  placeholder="0"
+                                  value={vInp.tengah ?? ''}
+                                  onChange={(e) => handleSubVendorChange(b.id, v.vendor_id, 'tengah', e.target.value)}
+                                />
+                              </div>
+                            </>
+                          )}
+
+                          {b.satuan_kecil && (
+                            <>
+                              <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                              <div className="flex flex-col items-center">
+                                <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_kecil}</span>
+                                <input
+                                  type="number"
+                                  inputMode="decimal"
+                                  min={0}
+                                  className="w-14 text-center bg-white border border-[#d9c2b2]/45 rounded-lg font-extrabold text-xs text-[#701604] py-1 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                                  placeholder="0"
+                                  value={vInp.kecil ?? ''}
+                                  onChange={(e) => handleSubVendorChange(b.id, v.vendor_id, 'kecil', e.target.value)}
+                                />
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </>
-                  )}
+                    );
+                  })}
                 </div>
-              </div>
+              ) : (
+                <div className="mt-4">
+                  <span className="text-[9px] font-bold text-[#544437]/50 uppercase tracking-wider">
+                    Stok Fisik Crew
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap gap-2 items-center justify-end">
+                    {/* Input untuk Satuan Besar */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={0}
+                        className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                        placeholder="0"
+                        value={inp.besar ?? ''}
+                        onChange={(e) => handleInputChange(b.id, 'besar', e.target.value)}
+                      />
+                    </div>
+
+                    {/* Input untuk Satuan Tengah */}
+                    {b.satuan_tengah && (
+                      <>
+                        <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_tengah}</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                            placeholder="0"
+                            value={inp.tengah ?? ''}
+                            onChange={(e) => handleInputChange(b.id, 'tengah', e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+
+                    {/* Input untuk Satuan Kecil */}
+                    {b.satuan_kecil && (
+                      <>
+                        <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_kecil}</span>
+                          <input
+                            type="number"
+                            inputMode="decimal"
+                            min={0}
+                            className="w-16 text-center bg-[#faf2e9]/30 border border-[#d9c2b2]/45 rounded-lg font-extrabold text-sm text-[#701604] py-1.5 shadow-inner focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                            placeholder="0"
+                            value={inp.kecil ?? ''}
+                            onChange={(e) => handleInputChange(b.id, 'kecil', e.target.value)}
+                          />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Input Target — hanya untuk role kitchen */}
               {isKitchen && (

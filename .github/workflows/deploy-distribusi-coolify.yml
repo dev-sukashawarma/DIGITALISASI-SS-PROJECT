@@ -31,6 +31,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node.js for Quality Gate
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build internal packages
+        run: |
+          yarn workspace @suka/auth build
+          yarn workspace @suka/design-system build
+
+      - name: Pre-flight Automated Tests (Unit & Logic)
+        run: yarn workspace @suka/distribusi test
+
+      - name: Pre-flight Type-Check
+        run: yarn workspace @suka/distribusi type-check
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -80,3 +100,21 @@ jobs:
           else
             echo "COOLIFY_API_TOKEN is not set, skipping Coolify trigger."
           fi
+
+      - name: Verify Live Service Health (Smoke Test)
+        run: |
+          echo "Waiting 15s for Coolify container restart..."
+          sleep 15
+          APP_URL="https://distribusi.sukashawarma.tech"
+          echo "Probing $APP_URL..."
+          for i in {1..8}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$APP_URL" || true)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "307" ] || [ "$STATUS" = "401" ]; then
+              echo "✅ Distribusi is LIVE and healthy (HTTP $STATUS)!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "⚠️ Service did not return healthy HTTP status within timeout."
+          exit 1

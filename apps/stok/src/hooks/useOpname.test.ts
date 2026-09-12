@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { getEffectiveTodayWIB } from './useOpname'
+import { getEffectiveTodayWIB } from '../lib/stok/opnameDate'
 
 describe('getEffectiveTodayWIB', () => {
   const JATIWARINGIN_ID = '550e8400-e29b-41d4-a716-446655440010'

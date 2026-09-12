@@ -22,10 +22,16 @@ jobs:
         run: |
           yarn workspace @suka/auth build
           yarn workspace @suka/design-system build
-      - name: Type-check
+      - name: Type-check Admin Dashboard
         run: yarn workspace @suka/admin-dashboard type-check
-      - name: Test
-        run: yarn workspace @suka/admin-dashboard test
+      - name: Run Core Apps Automated Unit Tests
+        run: |
+          yarn workspace @suka/admin-dashboard test
+          yarn workspace @suka/stok test
+          yarn workspace @suka/distribusi test
+          yarn workspace @suka/finance test
+          yarn workspace @suka/absensi test
+          yarn workspace @suka/inventori test
 
   migration-timestamp-lint:
     name: Migration timestamps sane

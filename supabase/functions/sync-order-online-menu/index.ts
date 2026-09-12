@@ -48,6 +48,12 @@ serve(async (req) => {
           id: row.id, category_id: categoryId, name: row.name, description: row.description,
           photo_url: row.image_url, base_price: Number(row.price), compare_price: row.strike_price == null ? null : Number(row.strike_price),
           is_active: true, sort_order: row.sort_order || 0,
+          // Harus sama persis dengan toOrderOnlineMenu() di
+          // apps/admin-dashboard/src/app/dashboard/pos-admin/menu/order-online-sync.ts —
+          // jalur ini adalah retry-nya, jadi kalau field di sana bertambah, tambahkan di sini juga.
+          available_outlets: Array.isArray(row.available_outlets) && row.available_outlets.length > 0
+            ? row.available_outlets
+            : null,
         }, { onConflict: "id" });
         if (error) throw error;
         await admin.from("menu_items").update({ order_online_sync_status: "synced", order_online_sync_error: null, order_online_sync_updated_at: new Date().toISOString() }).eq("id", row.id);

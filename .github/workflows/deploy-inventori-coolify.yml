@@ -45,7 +45,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/inventori
+          images: ghcr.io/dev-sukashawarma/digitalisasi-ss-project/inventori
           tags: |
             type=raw,value=latest
             type=sha,format=short
@@ -63,14 +63,17 @@ jobs:
           build-args: |
             NEXT_PUBLIC_COOKIE_DOMAIN=${{ secrets.NEXT_PUBLIC_COOKIE_DOMAIN || '.sukashawarma.com' }}
             NEXT_PUBLIC_PORTAL_URL=${{ secrets.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com' }}
-            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://auth.sukashawarma.com' }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Trigger Coolify Webhook (Pull & Restart on VPS)
-        if: ${{ secrets.COOLIFY_INVENTORI_DEPLOY_WEBHOOK != '' }}
         env:
           DEPLOY_WEBHOOK: ${{ secrets.COOLIFY_INVENTORI_DEPLOY_WEBHOOK }}
         run: |
-          echo "Triggering Coolify webhook..."
-          curl --fail --show-error --silent --location --request POST "$DEPLOY_WEBHOOK"
-          echo "Coolify webhook triggered successfully!"
+          if [ -n "$DEPLOY_WEBHOOK" ]; then
+            echo "Triggering Coolify webhook..."
+            curl --fail --show-error --silent --location --request POST "$DEPLOY_WEBHOOK"
+            echo "Coolify webhook triggered successfully!"
+          else
+            echo "COOLIFY_INVENTORI_DEPLOY_WEBHOOK is not set, skipping webhook trigger."
+          fi

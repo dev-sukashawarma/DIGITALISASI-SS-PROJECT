@@ -32,7 +32,7 @@ ENV RAYON_NUM_THREADS=1
 ENV UV_THREADPOOL_SIZE=1
 ENV NEXT_PRIVATE_MAX_WORKERS=1
 
-RUN corepack enable && yarn workspace @suka/inventori build --webpack
+RUN corepack enable && yarn workspace @suka/inventori build
 
 FROM node:24-bookworm-slim AS runner
 WORKDIR /repo/apps/inventori
@@ -52,7 +52,7 @@ ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/inventori/node_modules /repo/apps/inventori/node_modules/
+COPY --from=builder /repo/apps/inventori/node_module[s] /repo/apps/inventori/node_modules/
 COPY --from=builder /repo/apps/inventori/package.json ./package.json
 COPY --from=builder /repo/apps/inventori/.next ./.next
 

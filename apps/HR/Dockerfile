@@ -6,7 +6,7 @@ FROM node:24-bookworm-slim AS builder
 WORKDIR /repo
 
 # Copy manifests for yarn workspaces resolution
-COPY package.json yarn.lock .npmrc tsconfig.json ./
+COPY package.json yarn.lock .npmrc* tsconfig.json ./
 COPY packages/auth/package.json packages/auth/package.json
 COPY packages/design-system/package.json packages/design-system/package.json
 COPY packages/realtime/package.json packages/realtime/package.json
@@ -69,7 +69,7 @@ ENV WAHA_SESSION=$WAHA_SESSION
 ENV WAHA_API_KEY=$WAHA_API_KEY
 
 COPY --from=builder /repo/node_modules /repo/node_modules
-COPY --from=builder /repo/apps/HR/node_modules /repo/apps/HR/node_modules/
+COPY --from=builder /repo/apps/HR/node_module[s] /repo/apps/HR/node_modules/
 COPY --from=builder /repo/apps/HR/package.json ./package.json
 COPY --from=builder /repo/apps/HR/.next ./.next
 COPY --from=builder /repo/apps/HR/public ./public

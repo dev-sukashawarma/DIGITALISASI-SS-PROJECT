@@ -8433,12 +8433,12 @@ jsonc-parser@^3.3.1:
 
 jspdf-autotable@^5.0.8:
   version "5.0.8"
-  resolved "https://registry.npmjs.org/jspdf-autotable/-/jspdf-autotable-5.0.8.tgz"
+  resolved "https://registry.yarnpkg.com/jspdf-autotable/-/jspdf-autotable-5.0.8.tgz#b010dab34caf5eff60bbcd09a36d0608dc0a84ae"
   integrity sha512-Hy05N86yBO7CXBrnSLOge7i1ZYpKH2DjQ94iybaP7vBhSInjvRBgDc99ngKzSbSO8Jc98ZCally8I6n0tj2RJQ==
 
 jspdf@^4.2.1:
   version "4.2.1"
-  resolved "https://registry.npmjs.org/jspdf/-/jspdf-4.2.1.tgz"
+  resolved "https://registry.yarnpkg.com/jspdf/-/jspdf-4.2.1.tgz#6ba0d263999313f91f369ee80ecf235046b2acd8"
   integrity sha512-YyAXyvnmjTbR4bHQRLzex3CuINCDlQnBqoSYyjJwTP2x9jDLuKDzy7aKUl0hgx3uhcl7xzg32agn5vlie6HIlQ==
   dependencies:
     "@babel/runtime" "^7.28.6"
@@ -11070,9 +11070,9 @@ run-parallel@^1.1.9:
   dependencies:
     queue-microtask "^1.2.2"
 
-rxjs@*:
+rxjs@^7.5.2:
   version "7.8.2"
-  resolved "https://registry.npmjs.org/rxjs/-/rxjs-7.8.2.tgz"
+  resolved "https://registry.yarnpkg.com/rxjs/-/rxjs-7.8.2.tgz#955bc473ed8af11a002a2be52071bf475638607b"
   integrity sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==
   dependencies:
     tslib "^2.1.0"

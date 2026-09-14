@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, Button, Input } from '@suka/design-system'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
@@ -9,6 +9,11 @@ import { createClient } from '@/lib/supabase'
 import { submitWasteReport } from '@/app/actions/waste'
 import { formatTriUnitSaldoAdaptive, convertBesarToGram } from '@/lib/format/compositeUnit'
 import { WASTE_REASONS, isValidWasteReason } from '@/lib/wasteReasons'
+import { PilihVendorBahan } from '@/components/permintaan/PilihVendorBahan'
+import { alokasiAwal, type Alokasi, type SaldoVendor } from '@/lib/stok/alokasiVendor'
+import {
+  GUDANG_PUSAT_ID, alokasiEfektif, validasiPenyesuaianVendor, itemRpcPenyesuaian,
+} from '@/lib/stok/penyesuaianVendor'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -42,12 +47,14 @@ export interface DraftItem {
    * undefined bila stok awal 0 (rasio tak bermakna).
    */
   lipatStok?: number
+  /** Pembagian per vendor (satuan BESAR, positif). Hanya bahan multi-vendor di Gudang Pusat. */
+  vendorAlokasi?: Alokasi[]
 }
 
 export function ManualEntryForm({ outletId, createdBy }: { outletId: string; createdBy: string }) {
   const router = useRouter()
   const { bahanBaku } = useBahanBaku()
-  const { addManualBatch } = useLedgerActions()
+  const { addManualBatch, addPenyesuaianVendor } = useLedgerActions()
   const { balances } = useStokBalance(outletId)
 
   // Current selector state
@@ -69,6 +76,33 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   // Draft list for multiple items
   const [draftItems, setDraftItems] = useState<DraftItem[]>([])
 
+  // Vendor untuk bahan multi-vendor di Gudang Pusat. Penyesuaian/transfer keluar
+  // tanpa vendor ditolak DB (migration 20260914100000), jadi form wajib memilih.
+  const isGudangPusat = outletId === GUDANG_PUSAT_ID
+  const pakaiVendor = isGudangPusat && tipe !== 'waste'
+  const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
+  const [vendorGagal, setVendorGagal] = useState<string | null>(null)
+  const [alokasi, setAlokasi] = useState<Alokasi[]>([])
+
+  useEffect(() => {
+    setAlokasi([])
+    if (!isGudangPusat || !bahanBakuId || saldoVendor[bahanBakuId]) return
+    let batal = false
+    setVendorGagal(null)
+    createClient()
+      .rpc('saldo_vendor_gudang', { p_bahan_ids: [bahanBakuId] })
+      .then(({ data, error }) => {
+        if (batal) return
+        if (error) { setVendorGagal(error.message); return }
+        const rows = ((data ?? []) as { vendor_id: string; vendor_nama: string; sisa: number | null; aktif: boolean }[])
+          .map(r => ({ vendor_id: r.vendor_id, vendor_nama: r.vendor_nama, sisa: Number(r.sisa ?? 0), aktif: r.aktif }))
+        setSaldoVendor(prev => ({ ...prev, [bahanBakuId]: rows }))
+      })
+    return () => { batal = true }
+    // saldoVendor sengaja tak jadi dependensi: cukup dimuat sekali per bahan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isGudangPusat, bahanBakuId])
+
   const selectedBahan = bahanBaku.find(b => b.id === bahanBakuId)
   const bal = balances.find(b => b.bahan_baku_id === bahanBakuId)
   const existingSaldo = bal?.saldo ?? 0
@@ -76,7 +110,31 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   const needsReason = tipe === 'adjustment' || tipe === 'waste'
   const qtyNum = Number(qty)
 
-  const isCurrentValid = Boolean(bahanBakuId) && qty !== '' && !isNaN(qtyNum) && qtyNum > 0
+  const isQtyValid = Boolean(bahanBakuId) && qty !== '' && !isNaN(qtyNum) && qtyNum > 0
+
+  const qtyBesar = (() => {
+    if (!selectedBahan || !isQtyValid) return 0
+    if (selectedUnitType === 'kecil' && selectedBahan.faktor_tampilan) return qtyNum / selectedBahan.faktor_tampilan
+    if (selectedUnitType === 'tengah' && selectedBahan.faktor_tengah) return qtyNum / selectedBahan.faktor_tengah
+    return qtyNum
+  })()
+  const arahVendor = tipe === 'adjustment' && adjDirection === 'in' ? 'masuk' : 'keluar'
+  const vendorsBahan = pakaiVendor && bahanBakuId ? saldoVendor[bahanBakuId] : undefined
+  const vendorBelumSiap = pakaiVendor && Boolean(bahanBakuId) && (vendorGagal !== null || vendorsBahan === undefined)
+  const butuhVendor = (vendorsBahan?.length ?? 0) >= 2
+  const alokasiNow = alokasiEfektif(qtyBesar, alokasi)
+  const galatVendor = butuhVendor && isQtyValid
+    ? validasiPenyesuaianVendor(qtyBesar, arahVendor, alokasiNow, vendorsBahan!)
+    : null
+
+  // Pengurangan: pilih otomatis vendor yang sisanya cukup. Penambahan: wajib dipilih manual.
+  useEffect(() => {
+    if (!butuhVendor || alokasi.length > 0 || arahVendor !== 'keluar' || !(qtyBesar > 0)) return
+    const awal = alokasiAwal(qtyBesar, vendorsBahan!)
+    if (awal.length) setAlokasi(awal)
+  }, [butuhVendor, arahVendor, qtyBesar, alokasi.length, vendorsBahan])
+
+  const isCurrentValid = isQtyValid && !vendorBelumSiap && galatVendor === null
 
   // Pratinjau hasil sebelum disimpan. Pemilih satuan sudah lama ada di form
   // ini; yang TIDAK ada adalah tampilan apa yang benar-benar akan tercatat.
@@ -201,7 +259,8 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         summaryText: text,
         catatanItem: catatan,
         adjDirection,
-        lipatStok
+        lipatStok,
+        vendorAlokasi: butuhVendor ? alokasiNow : undefined,
       }
     } else {
       // Waste/transfer_keluar sama-sama butuh finalQtyLedgerScale (bukan
@@ -223,7 +282,8 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         summaryText: text,
         catatanItem: catatan,
         wasteReason: tipe === 'waste' ? wasteReason : undefined,
-        lipatStok
+        lipatStok,
+        vendorAlokasi: butuhVendor && tipe === 'transfer_keluar' ? alokasiNow : undefined,
       }
     }
   }
@@ -243,10 +303,15 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       return
     }
 
+    if (newItem.vendorAlokasi?.length && vendorsBahan) {
+      const nama = (id: string) => vendorsBahan.find(v => v.vendor_id === id)?.vendor_nama ?? id
+      newItem.summaryText += ` · Vendor: ${newItem.vendorAlokasi.map(a => `${nama(a.vendor_id)} ${a.qty}`).join(', ')}`
+    }
     setDraftItems(prev => [...prev, newItem])
     setBahanBakuId('')
     setQty('')
     setFile(null)
+    setAlokasi([])
     setErrorMsg(null)
   }
 
@@ -332,8 +397,22 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
         }
       }
 
-      if (nonWasteItems.length > 0) {
-        const batchPayload = nonWasteItems.map(item => ({
+      const vendorItems = nonWasteItems.filter(i => i.vendorAlokasi?.length)
+      const biasaItems = nonWasteItems.filter(i => !i.vendorAlokasi?.length)
+
+      if (vendorItems.length > 0) {
+        await addPenyesuaianVendor(vendorItems.flatMap(item =>
+          itemRpcPenyesuaian(
+            item.bahanBakuId,
+            item.tipe as 'adjustment' | 'transfer_keluar',
+            item.tipe === 'adjustment' && item.adjDirection === 'in' ? 'masuk' : 'keluar',
+            item.vendorAlokasi!,
+            item.catatanItem || catatan,
+          )))
+      }
+
+      if (biasaItems.length > 0) {
+        const batchPayload = biasaItems.map(item => ({
           bahanBakuId: item.bahanBakuId,
           tipe: item.tipe,
           qtyAbs: Math.abs(item.delta ?? item.finalQty ?? 0),
@@ -497,6 +576,31 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
             </div>
           )}
         </div>
+      )}
+
+      {pakaiVendor && bahanBakuId && selectedBahan && (
+        vendorGagal ? (
+          <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl">
+            Gagal memuat vendor: {vendorGagal}. Muat ulang halaman sebelum menyimpan.
+          </p>
+        ) : vendorsBahan === undefined ? (
+          <p className="text-[11px] font-medium text-[#544437]/60">Memuat vendor…</p>
+        ) : butuhVendor ? (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-bold text-[#544437]/75 uppercase tracking-wide">
+              {arahVendor === 'masuk' ? 'Vendor barang masuk' : 'Dipotong dari vendor'}
+            </label>
+            <PilihVendorBahan
+              vendors={vendorsBahan}
+              satuan={selectedBahan.satuan}
+              targetQty={qtyBesar}
+              alokasi={alokasiNow}
+              onChange={setAlokasi}
+              galat={isQtyValid ? galatVendor : null}
+              abaikanSisa={arahVendor === 'masuk'}
+            />
+          </div>
+        ) : null
       )}
 
       {tipe === 'waste' && bahanBakuId && (

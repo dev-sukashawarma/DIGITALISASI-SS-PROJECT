@@ -5,7 +5,6 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 import { gabungHargaChannel } from '@/lib/appRetail/hargaAplikasi'
 import { periksaBanner, type InputBanner } from '@/lib/appRetail/bannerForm'
-import { periksaSplash, barisSplash, type InputSplash } from '@/lib/appRetail/splashForm'
 
 async function getSupabase() {
   const cookieStore = await cookies()
@@ -34,7 +33,6 @@ function segarkan() {
   revalidatePath('/dashboard/app-retail/menu')
   revalidatePath('/dashboard/app-retail/outlet')
   revalidatePath('/dashboard/app-retail/banner')
-  revalidatePath('/dashboard/app-retail/splash')
 }
 
 /**
@@ -200,33 +198,6 @@ export async function hapusBanner(id: string) {
   pastikanTerubah(
     data,
     'Banner tidak terhapus — akun ini belum berhak mengubah pengaturan aplikasi.',
-  )
-  segarkan()
-}
-
-/**
- * Menyimpan splash aplikasi. Hanya UPDATE: barisnya tunggal dan sudah ada
- * sejak migration, jadi tak pernah ada INSERT dari sini.
- *
- * Kebijakan tulisnya menuntut role `admin` persis. OWNER bisa membuka halaman
- * tapi tulisannya menghasilkan nol baris, dan nol baris BUKAN error di
- * PostgREST, jadi wajib `pastikanTerubah`.
- */
-export async function simpanSplash(input: InputSplash) {
-  const galat = periksaSplash(input)
-  if (galat) throw new Error(galat)
-
-  const supabase = await getSupabase()
-  const { data, error } = await supabase
-    .from('app_splash_setting')
-    .update(barisSplash(input))
-    .eq('id', true)
-    .select('id')
-
-  if (error) throw new Error(error.message)
-  pastikanTerubah(
-    data as unknown as { id: string }[] | null,
-    'Splash tidak tersimpan — akun ini belum berhak mengubah pengaturan aplikasi.',
   )
   segarkan()
 }

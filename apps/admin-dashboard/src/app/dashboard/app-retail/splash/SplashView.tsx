@@ -4,10 +4,10 @@ import { useState } from 'react'
 import Image from 'next/image'
 import { AlertTriangle, Loader2, Smartphone } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { simpanSplash } from '../actions'
 import { kompresGambarBanner } from '@/lib/appRetail/kompresGambar'
 import {
   PILIHAN_DURASI_MS,
+  barisSplash,
   periksaSplash,
   type InputSplash,
 } from '@/lib/appRetail/splashForm'
@@ -66,7 +66,24 @@ export default function SplashView(props: {
     setPesan(null)
     setSibuk(true)
     try {
-      await simpanSplash(form)
+      // Update LANGSUNG dari browser, bukan lewat server action. Di produksi
+      // (14 Sep 2026) klik Simpan yang memanggil server action membuat tab
+      // terkunci total dan tak satu pun baris sampai ke basis data, sementara
+      // unggah gambar -- yang juga memanggil Supabase dari browser -- berjalan
+      // normal. Keamanan tak berkurang: RLS app_splash_update_admin hanya
+      // mengizinkan role `admin`, dan itu sudah diuji (crew 0 baris).
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('app_splash_setting')
+        .update(barisSplash(form))
+        .eq('id', true)
+        .select('id')
+      if (error) throw new Error(error.message)
+      // Nol baris BUKAN error di PostgREST: OWNER bisa membaca halaman ini,
+      // tapi tulisannya ditolak RLS tanpa suara.
+      if (!data || data.length === 0) {
+        throw new Error('Splash tidak tersimpan — akun ini belum berhak mengubah pengaturan aplikasi.')
+      }
       setTersimpan(form)
       setPesan('Tersimpan. Pelanggan melihat splash baru mulai pembukaan aplikasi BERIKUTNYA.')
     } catch (e) {

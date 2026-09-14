@@ -172,7 +172,7 @@ fun MenuCard(
                         val addInteraction = remember { MutableInteractionSource() }
                         Box(
                             modifier = Modifier
-                                .size(44.dp)
+                                .size(48.dp)
                                 .clickable(
                                     interactionSource = addInteraction,
                                     indication = null,

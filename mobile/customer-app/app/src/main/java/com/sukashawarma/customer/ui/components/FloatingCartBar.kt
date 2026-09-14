@@ -51,12 +51,12 @@ fun FloatingCartBar(
         border = BorderStroke(1.dp, Color(0xFF8A1D07))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -96,7 +96,7 @@ fun FloatingCartBar(
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(SukaOrange)
-                    .padding(horizontal = 12.dp, vertical = 7.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

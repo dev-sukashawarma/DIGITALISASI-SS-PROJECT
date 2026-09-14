@@ -91,7 +91,7 @@ fun HomeBrandHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Baris 1: Logo Brand, Nama Brand & Aksi Kanan (Notif & Avatar)
@@ -131,7 +131,7 @@ fun HomeBrandHeader(
                                 text = "Otentik • Panggang • Gurih",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = SukaOrange,
-                                    fontSize = 9.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
@@ -140,16 +140,25 @@ fun HomeBrandHeader(
 
                     // Aksi Kanan: Lonceng Notifikasi & Avatar Profil
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
+                        // Masing-masing kini punya area sentuh 48dp, jadi jarak
+                        // antar keduanya tak perlu ditambah lagi.
+                        horizontalArrangement = Arrangement.spacedBy(0.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        // Area sentuh 48dp (standar Material); lingkaran yang
+                        // terlihat 36dp.
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(48.dp)
+                                .bounceClick(scaleDown = 0.92f) { onBukaNotifikasi() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.12f))
-                                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)), CircleShape)
-                                .bounceClick(scaleDown = 0.92f) { onBukaNotifikasi() },
+                                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.2f)), CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -162,20 +171,26 @@ fun HomeBrandHeader(
                                 Box(
                                     modifier = Modifier
                                         .align(Alignment.TopEnd)
-                                        .padding(top = 5.dp, end = 5.dp)
+                                        .padding(top = 4.dp, end = 4.dp)
                                         .size(6.dp)
                                         .clip(CircleShape)
                                         .background(SukaOrange)
                                 )
                             }
                         }
+                        }
 
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(SukaOrange)
+                                .size(48.dp)
                                 .bounceClick(scaleDown = 0.94f) { onBukaProfil() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(SukaOrange),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -183,9 +198,10 @@ fun HomeBrandHeader(
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SukaInk,
-                                    fontSize = 11.sp
+                                    fontSize = 12.sp
                                 )
                             )
+                        }
                         }
                     }
                 }
@@ -203,7 +219,7 @@ fun HomeBrandHeader(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 10.dp, vertical = 7.dp),
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -230,7 +246,7 @@ fun HomeBrandHeader(
                             Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
                                         text = namaOutlet,
@@ -251,7 +267,7 @@ fun HomeBrandHeader(
                                     Text(
                                         text = if (buka) "Buka" else "Tutup",
                                         style = MaterialTheme.typography.labelSmall.copy(
-                                            fontSize = 9.sp,
+                                            fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (buka) SukaGreen else SukaMuted
                                         )
@@ -260,7 +276,7 @@ fun HomeBrandHeader(
                                 Text(
                                     text = if (buka) "Siap saji dalam 15–20 menit" else "Tidak menerima pesanan",
                                     style = MaterialTheme.typography.bodySmall.copy(
-                                        fontSize = 10.sp,
+                                        fontSize = 11.sp,
                                         color = SukaMuted
                                     )
                                 )
@@ -339,7 +355,7 @@ fun MenuBrandHeader(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp),
+                        .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -374,7 +390,7 @@ fun MenuBrandHeader(
                                 text = "Pilihan Shawarma Otentik",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = SukaOrange,
-                                    fontSize = 9.sp,
+                                    fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             )
@@ -383,7 +399,7 @@ fun MenuBrandHeader(
 
                     // Aksi Kanan: Outlet Selector Chip & Profil
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         // Pill Outlet
@@ -395,7 +411,7 @@ fun MenuBrandHeader(
                                 .bounceClick(scaleDown = 0.96f) { onGantiOutlet() }
                         ) {
                             Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
@@ -425,10 +441,15 @@ fun MenuBrandHeader(
                         // Avatar
                         Box(
                             modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(SukaOrange)
+                                .size(48.dp)
                                 .bounceClick(scaleDown = 0.94f) { onBukaProfil() },
+                            contentAlignment = Alignment.Center
+                        ) {
+                        Box(
+                            modifier = Modifier
+                                .size(36.dp)
+                                .clip(CircleShape)
+                                .background(SukaOrange),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -436,9 +457,10 @@ fun MenuBrandHeader(
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SukaInk,
-                                    fontSize = 11.sp
+                                    fontSize = 12.sp
                                 )
                             )
+                        }
                         }
                     }
                 }
@@ -447,7 +469,7 @@ fun MenuBrandHeader(
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp)
+                        .padding(horizontal = 16.dp)
                         .height(42.dp),
                     shape = RoundedCornerShape(12.dp),
                     color = Color.White,
@@ -599,7 +621,7 @@ fun PageBrandHeader(
                             text = subjudul,
                             style = MaterialTheme.typography.bodySmall.copy(
                                 color = SukaOrange,
-                                fontSize = 10.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
                             ),
                             maxLines = 1,

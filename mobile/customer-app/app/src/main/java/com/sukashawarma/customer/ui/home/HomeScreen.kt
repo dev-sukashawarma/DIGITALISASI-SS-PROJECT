@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -233,6 +234,9 @@ private fun HomeContentList(
         if (bannerCarousel.isNotEmpty()) {
             item(key = "home-promo-carousel") {
                 BannerCarousel(
+                    // Jarak dari lengkungan kepala halaman; tanpa ini banner
+                    // yang mentok tepi menempel ke kartu outlet.
+                    modifier = Modifier.padding(top = 12.dp),
                     slides = bannerCarousel,
                     onKetuk = onKetukBanner
                 )
@@ -244,7 +248,7 @@ private fun HomeContentList(
             item(key = "home-best-sellers") {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Section Header
                     Row(
@@ -267,16 +271,17 @@ private fun HomeContentList(
                                 text = "Paling dicari & favorit pelanggan",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = SukaMuted,
-                                    fontSize = 10.sp
+                                    fontSize = 11.sp
                                 )
                             )
                         }
 
                         Row(
                             modifier = Modifier
+                                .heightIn(min = 48.dp)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable { onBukaMenu() }
-                                .padding(vertical = 3.dp, horizontal = 4.dp),
+                                .padding(horizontal = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
@@ -302,7 +307,7 @@ private fun HomeContentList(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         bestSellerItems.take(2).forEachIndexed { index, item ->
                             val rank = index + 1
@@ -384,24 +389,24 @@ private fun BestSellerCard(
                 // Rank Badge
                 Box(
                     modifier = Modifier
-                        .padding(6.dp)
+                        .padding(8.dp)
                         .clip(RoundedCornerShape(6.dp))
                         .background(SukaBrown.copy(alpha = 0.88f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
                 ) {
                     Text(
                         text = "Best Seller #$rank",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = Color.White,
-                            fontSize = 8.sp
+                            fontSize = 11.sp
                         )
                     )
                 }
             }
 
             Column(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 // Rating
@@ -414,14 +419,14 @@ private fun BestSellerCard(
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = SukaOrange,
-                            fontSize = 9.sp
+                            fontSize = 11.sp
                         )
                     )
                     Text(
                         text = "($reviewCount)",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = SukaMuted,
-                            fontSize = 9.sp
+                            fontSize = 11.sp
                         )
                     )
                 }
@@ -442,7 +447,7 @@ private fun BestSellerCard(
                         text = it,
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = SukaMuted,
-                            fontSize = 9.sp
+                            fontSize = 11.sp
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
@@ -465,19 +470,29 @@ private fun BestSellerCard(
                         )
                     )
 
+                    // Tombol sungguhan (dulu hanya hiasan tanpa aksi). Membuka
+                    // detail menu, sama seperti "+" di MenuCard, karena topping
+                    // & catatan dipilih di sana. Area sentuh 48dp, lingkaran 32dp.
                     Box(
                         modifier = Modifier
-                            .size(26.dp)
-                            .clip(CircleShape)
-                            .background(SukaOrange),
+                            .size(48.dp)
+                            .bounceClick(scaleDown = 0.9f) { onKlik(item) },
                         contentAlignment = Alignment.Center
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.Add,
-                            contentDescription = "Tambah",
-                            tint = SukaInk,
-                            modifier = Modifier.size(14.dp)
-                        )
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(SukaOrange),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Add,
+                                contentDescription = "Tambah " + item.name,
+                                tint = SukaInk,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -516,14 +531,14 @@ private fun SecondaryMediaBanner(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
                         .background(SukaOrange.copy(alpha = 0.25f))
-                        .padding(horizontal = 7.dp, vertical = 3.dp)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
                     Text(
                         text = "⭐ JAMINAN KUALITAS SUKA",
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.ExtraBold,
                             color = SukaOrange,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             letterSpacing = 0.5.sp
                         )
                     )
@@ -638,7 +653,7 @@ private fun ExploreMenuCtaCard(
                 modifier = Modifier
                     .clip(RoundedCornerShape(12.dp))
                     .background(SukaOrange)
-                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

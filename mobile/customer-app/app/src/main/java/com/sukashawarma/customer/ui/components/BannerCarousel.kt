@@ -51,10 +51,10 @@ const val RASIO_BANNER = 2f
 /**
  * Carousel banner selebar layar: gambar mengisi seluruh kartu.
  *
- * SATU komponen untuk Beranda maupun tab Menu. Sebelumnya kedua layar punya
- * salinan sendiri-sendiri, dan salinan kedua itulah yang membuat voucher palsu
- * SUKABARU selamat dari tujuh task perbaikan. Mengubah tampilan banner cukup
- * di sini.
+ * Hanya tampil di Beranda. Tab Menu (MenuScreen) tidak punya carousel.
+ * CatalogScreen juga memanggil komponen ini, tapi layar itu tidak dipasang di
+ * navigasi mana pun (Rute.KATALOG hanyalah alias "beranda"), jadi tidak pernah
+ * terlihat pelanggan.
  *
  * Dipanggil hanya saat [slides] tidak kosong.
  */
@@ -118,21 +118,21 @@ fun BannerCarousel(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     if (!slide.badge.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(SukaOrange)
-                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                                .padding(horizontal = 8.dp, vertical = 2.dp),
                         ) {
                             Text(
                                 text = slide.badge,
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SukaInk,
-                                    fontSize = 9.sp,
+                                    fontSize = 11.sp,
                                 ),
                             )
                         }
@@ -163,10 +163,10 @@ fun BannerCarousel(
                     if (!slide.teksTombol.isNullOrBlank()) {
                         Box(
                             modifier = Modifier
-                                .padding(top = 3.dp)
+                                .padding(top = 4.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(SukaOrange)
-                                .padding(horizontal = 10.dp, vertical = 4.dp),
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
                         ) {
                             Text(
                                 text = slide.teksTombol,
@@ -181,7 +181,7 @@ fun BannerCarousel(
         }
 
         Row(
-            modifier = Modifier.padding(top = 6.dp),
+            modifier = Modifier.padding(top = 8.dp),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {

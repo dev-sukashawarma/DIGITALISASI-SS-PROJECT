@@ -1,6 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { alokasiEfektif, validasiPenyesuaianVendor, itemRpcPenyesuaian } from './penyesuaianVendor'
+import { alokasiEfektif, validasiPenyesuaianVendor, itemRpcPenyesuaian, bolehPenyesuaianVendor } from './penyesuaianVendor'
 import type { SaldoVendor } from './alokasiVendor'
+
+describe('bolehPenyesuaianVendor', () => {
+  it('kitchen, purchasing, admin, owner boleh', () => {
+    for (const r of ['kitchen', 'purchasing', 'admin', 'owner']) expect(bolehPenyesuaianVendor(r)).toBe(true)
+  })
+  it('role lain & kosong tidak boleh', () => {
+    for (const r of ['crew', 'spv', 'regional_manager', 'admin_finance', 'finance', 'admin_hr', 'developer', '', null, undefined])
+      expect(bolehPenyesuaianVendor(r)).toBe(false)
+  })
+})
 
 const dj: SaldoVendor = { vendor_id: 'dj', vendor_nama: 'Djafafood', sisa: 3, aktif: true }
 const az: SaldoVendor = { vendor_id: 'az', vendor_nama: 'Pak Aziz', sisa: 0, aktif: true }

@@ -48,11 +48,10 @@ export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange
           </label>
         )
       })}
-      {!disabled && (
+      {!disabled && pecah && (
         <button type="button" className="text-[#904d00] underline"
-          onClick={() => onChange(pecah ? alokasi.slice(0, 1).map((a) => ({ ...a, qty: total })) : alokasi)}
-          hidden={!pecah && alokasi.length === 0}>
-          {pecah ? 'Satu vendor saja' : '+ pecah vendor'}
+          onClick={() => onChange(alokasi.slice(0, 1).map((a) => ({ ...a, qty: total })))}>
+          Satu vendor saja
         </button>
       )}
       {!pecah && alokasi.length > 0 && !disabled && (

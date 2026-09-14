@@ -7,6 +7,13 @@ export const GUDANG_PUSAT_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'
 
 export type ArahPenyesuaian = 'masuk' | 'keluar'
 
+/** SAMA dengan daftar role di RPC catat_penyesuaian_gudang_vendor (migration 20260914110000). */
+export const ROLE_PENYESUAIAN_VENDOR = ['kitchen', 'purchasing', 'admin', 'owner'] as const
+
+export function bolehPenyesuaianVendor(role: string | null | undefined): boolean {
+  return (ROLE_PENYESUAIAN_VENDOR as readonly string[]).includes(role ?? '')
+}
+
 export type ItemRpcPenyesuaian = {
   bahan_baku_id: string
   vendor_id: string

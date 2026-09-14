@@ -12,8 +12,9 @@ import { WASTE_REASONS, isValidWasteReason } from '@/lib/wasteReasons'
 import { PilihVendorBahan } from '@/components/permintaan/PilihVendorBahan'
 import { alokasiAwal, type Alokasi, type SaldoVendor } from '@/lib/stok/alokasiVendor'
 import {
-  GUDANG_PUSAT_ID, alokasiEfektif, validasiPenyesuaianVendor, itemRpcPenyesuaian,
+  GUDANG_PUSAT_ID, alokasiEfektif, validasiPenyesuaianVendor, itemRpcPenyesuaian, bolehPenyesuaianVendor,
 } from '@/lib/stok/penyesuaianVendor'
+import { useAuth } from '@suka/auth'
 
 const TIPE_OPTIONS = [
   { value: 'waste', label: 'Waste (buang)' },
@@ -78,6 +79,8 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
 
   // Vendor untuk bahan multi-vendor di Gudang Pusat. Penyesuaian/transfer keluar
   // tanpa vendor ditolak DB (migration 20260914100000), jadi form wajib memilih.
+  const { outletStaff } = useAuth()
+  const bolehVendor = bolehPenyesuaianVendor(outletStaff?.role as string | undefined)
   const isGudangPusat = outletId === GUDANG_PUSAT_ID
   const pakaiVendor = isGudangPusat && tipe !== 'waste'
   const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
@@ -120,12 +123,21 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
   })()
   const arahVendor = tipe === 'adjustment' && adjDirection === 'in' ? 'masuk' : 'keluar'
   const vendorsBahan = pakaiVendor && bahanBakuId ? saldoVendor[bahanBakuId] : undefined
-  const vendorBelumSiap = pakaiVendor && Boolean(bahanBakuId) && (vendorGagal !== null || vendorsBahan === undefined)
+  // Role yang tak berhak memang tak bisa membaca saldo vendor (RPC menolak).
+  // Untuk mereka kegagalan muat tidak mengunci form — bahan satu-vendor tetap
+  // bisa dicatat, bahan multi-vendor ditolak DB dengan pesan jelas.
+  const vendorBelumSiap = pakaiVendor && Boolean(bahanBakuId) &&
+    (bolehVendor ? (vendorGagal !== null || vendorsBahan === undefined) : (vendorsBahan === undefined && vendorGagal === null))
   const butuhVendor = (vendorsBahan?.length ?? 0) >= 2
+  const vendorTakBerhak = butuhVendor && !bolehVendor
   const alokasiNow = alokasiEfektif(qtyBesar, alokasi)
   const galatVendor = butuhVendor && isQtyValid
     ? validasiPenyesuaianVendor(qtyBesar, arahVendor, alokasiNow, vendorsBahan!)
     : null
+
+  // Ganti arah/tipe = pilihan vendor lama tidak berlaku (jangan sampai barang
+  // masuk diam-diam tercatat ke vendor yang tadi terpilih untuk pengurangan).
+  useEffect(() => { setAlokasi([]) }, [arahVendor, tipe])
 
   // Pengurangan: pilih otomatis vendor yang sisanya cukup. Penambahan: wajib dipilih manual.
   useEffect(() => {
@@ -134,7 +146,7 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
     if (awal.length) setAlokasi(awal)
   }, [butuhVendor, arahVendor, qtyBesar, alokasi.length, vendorsBahan])
 
-  const isCurrentValid = isQtyValid && !vendorBelumSiap && galatVendor === null
+  const isCurrentValid = isQtyValid && !vendorBelumSiap && !vendorTakBerhak && galatVendor === null
 
   // Pratinjau hasil sebelum disimpan. Pemilih satuan sudah lama ada di form
   // ini; yang TIDAK ada adalah tampilan apa yang benar-benar akan tercatat.
@@ -579,7 +591,12 @@ export function ManualEntryForm({ outletId, createdBy }: { outletId: string; cre
       )}
 
       {pakaiVendor && bahanBakuId && selectedBahan && (
-        vendorGagal ? (
+        vendorTakBerhak ? (
+          <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl">
+            {selectedBahan.nama} punya lebih dari satu vendor. Penyesuaian bahan ini di Gudang Pusat
+            hanya untuk kitchen, purchasing, admin, atau owner.
+          </p>
+        ) : vendorGagal && !bolehVendor ? null : vendorGagal ? (
           <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-3 rounded-xl">
             Gagal memuat vendor: {vendorGagal}. Muat ulang halaman sebelum menyimpan.
           </p>

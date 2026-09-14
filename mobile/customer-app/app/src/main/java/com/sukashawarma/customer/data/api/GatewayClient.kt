@@ -16,6 +16,8 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
+import io.ktor.http.HttpHeaders
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
@@ -23,6 +25,9 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 
 private const val TIMEOUT_MS = 15_000L
+
+/** Batas ukuran gambar splash yang mau disimpan. Admin sudah mengecilkannya saat unggah. */
+const val BATAS_GAMBAR_SPLASH_BYTE = 5 * 1024 * 1024
 
 /**
  * Amplop hasil panggilan gateway: sukses membawa data, gagal membawa
@@ -38,7 +43,7 @@ sealed class GatewayResult<out T> {
  * ke Supabase langsung, tidak ada service-role key di aplikasi ini.
  *
  * Menyisipkan `Authorization: Bearer <token>` dari [SessionStore] untuk semua
- * endpoint KECUALI `auth/google`, `catalog`, `outlets`, dan `banners`.
+ * endpoint KECUALI `auth/google`, `catalog`, `outlets`, `banners`, dan `splash`.
  */
 class GatewayClient(
     private val sessionStore: SessionStore,
@@ -116,6 +121,36 @@ class GatewayClient(
             hasil(response)
         } catch (e: Exception) {
             GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun splash(): GatewayResult<SplashDto> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/splash")
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    /**
+     * Mengunduh gambar splash. Mengembalikan null untuk apa pun yang bukan
+     * gambar sungguhan: status gagal, tipe bukan `image/`, berkas kosong, atau
+     * melebihi [BATAS_GAMBAR_SPLASH_BYTE]. Tanpa header otorisasi: gambarnya
+     * publik, dan token sesi tak boleh ikut terkirim ke alamat yang ditentukan
+     * isi basis data.
+     */
+    suspend fun unduhGambarSplash(url: String): ByteArray? {
+        if (!url.startsWith("https://")) return null
+        return try {
+            val response = client.get(url)
+            if (!response.status.isSuccess()) return null
+            val tipe = response.headers[HttpHeaders.ContentType].orEmpty()
+            if (!tipe.startsWith("image/")) return null
+            val byte = response.readRawBytes()
+            if (byte.isEmpty() || byte.size > BATAS_GAMBAR_SPLASH_BYTE) null else byte
+        } catch (e: Exception) {
+            null
         }
     }
 

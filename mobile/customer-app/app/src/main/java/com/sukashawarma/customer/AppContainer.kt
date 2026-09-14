@@ -6,6 +6,7 @@ import com.sukashawarma.customer.data.OrderAttemptStore
 import com.sukashawarma.customer.data.OutletStore
 import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.SessionStore
+import com.sukashawarma.customer.data.SplashStore
 import com.sukashawarma.customer.data.api.GatewayClient
 
 /**
@@ -20,6 +21,7 @@ class AppContainer(context: Context) {
     val outletStore: OutletStore by lazy { OutletStore(appContext) }
     val cartStore: CartStore by lazy { CartStore.persisten(appContext) }
     val orderAttemptStore: OrderAttemptStore by lazy { OrderAttemptStore(appContext) }
+    val splashStore: SplashStore by lazy { SplashStore(appContext) }
     val notificationStore: com.sukashawarma.customer.data.NotificationStore by lazy {
         com.sukashawarma.customer.data.NotificationStore(appContext)
     }

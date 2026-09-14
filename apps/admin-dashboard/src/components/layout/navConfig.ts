@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Users, Store, Activity,
   CalendarClock, CalendarHeart, Banknote,
   PieChart, DollarSign, Target, BellRing, Tags, Wallet, BookOpen,
-  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal,
+  Package, FileText, Settings, ShoppingCart, Truck, TrendingDown, Printer, Table2, HeartHandshake, Camera, type LucideIcon, MessageSquare, ArrowRightLeft, UploadCloud, UserCheck, Percent, ClipboardList, Smartphone, GalleryHorizontal, ImagePlus,
   CalendarDays, FileCheck, AlertTriangle, Award, Coins
 } from 'lucide-react'
 
@@ -161,6 +161,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/app-retail/menu', label: 'Pengaturan Menu Aplikasi', shortLabel: 'Menu App', icon: Tags, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/outlet', label: 'Outlet Aplikasi', shortLabel: 'Outlet App', icon: Store, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/banner', label: 'Banner Aplikasi', shortLabel: 'Banner App', icon: GalleryHorizontal, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/app-retail/splash', label: 'Splash Aplikasi', shortLabel: 'Splash App', icon: ImagePlus, roles: ['OWNER', 'ADMIN'] },
     ],
   },
   {

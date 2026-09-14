@@ -80,6 +80,13 @@ data class BannerDto(
     @SerialName("target_menu_item_id") val targetMenuItemId: String? = null
 )
 
+/** Pengaturan splash aplikasi dari `GET /api/v1/splash`. `gambarUrl` null = pakai gambar bawaan APK. */
+@Serializable
+data class SplashDto(
+    @SerialName("gambar_url") val gambarUrl: String? = null,
+    @SerialName("durasi_ms") val durasiMs: Int = 3000
+)
+
 @Serializable
 data class BannersResponse(
     val carousel: List<BannerDto> = emptyList(),

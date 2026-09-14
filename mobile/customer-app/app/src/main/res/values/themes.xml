@@ -6,7 +6,7 @@
       dan action bar bawaan muncul kembali.
     -->
     <style name="Theme.Suka.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/suka_cream</item>
+        <item name="windowSplashScreenBackground">@color/suka_brown</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/logo_suka</item>
         <item name="postSplashScreenTheme">@style/Theme.Suka.Utama</item>
     </style>

@@ -12,6 +12,7 @@ import com.sukashawarma.customer.data.api.OrderDetailDto
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
+import com.sukashawarma.customer.data.api.SplashDto
 
 /**
  * Satu-satunya pintu data aplikasi. Semua layar lewat sini, dan sini hanya
@@ -40,6 +41,10 @@ class Repository(private val gateway: GatewayClient) {
         }
 
     suspend fun banners(): GatewayResult<BannersResponse> = gateway.banners()
+
+    suspend fun splash(): GatewayResult<SplashDto> = gateway.splash()
+
+    suspend fun unduhGambarSplash(url: String): ByteArray? = gateway.unduhGambarSplash(url)
 
     suspend fun katalog(outletId: String): GatewayResult<List<MenuItemDto>> =
         when (val hasil = gateway.catalog(outletId)) {

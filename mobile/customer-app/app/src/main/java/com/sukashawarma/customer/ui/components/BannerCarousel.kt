@@ -83,10 +83,10 @@ fun BannerCarousel(
             val slide = slides[page]
             Box(
                 modifier = Modifier
+                    // Mentok sampai tepi layar: tanpa jarak kiri-kanan dan
+                    // tanpa sudut membulat (keputusan owner 2026-09-14).
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
                     .aspectRatio(RASIO_BANNER)
-                    .clip(RoundedCornerShape(18.dp))
                     // Latar cokelat terlihat selama gambar dimuat atau bila
                     // banner tak punya gambar, jadi kartu tak pernah putih kosong.
                     .background(SukaBrown)
@@ -117,7 +117,7 @@ fun BannerCarousel(
                 Column(
                     modifier = Modifier
                         .align(Alignment.BottomStart)
-                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
                     if (!slide.badge.isNullOrBlank()) {

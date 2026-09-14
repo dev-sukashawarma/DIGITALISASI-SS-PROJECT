@@ -31,10 +31,10 @@ export default function AppTile({ label, url, desc }: Props) {
     }
     if (key.includes('absensi')) return {
       icon: <Clock size={24} strokeWidth={2.25} />,
-      chip: 'bg-gradient-to-br from-suka-orange to-amber-500',
-      hover: 'hover:border-suka-orange/30 hover:shadow-suka-orange/10',
-      accentText: 'group-hover:text-suka-orange',
-      glow: 'bg-suka-orange/15',
+      chip: 'bg-gradient-to-br from-sky-500 to-blue-600',
+      hover: 'hover:border-blue-500/30 hover:shadow-blue-500/10',
+      accentText: 'group-hover:text-blue-600',
+      glow: 'bg-blue-500/15',
     }
     if (key.includes('distribusi')) return {
       icon: <Truck size={24} strokeWidth={2.25} />,

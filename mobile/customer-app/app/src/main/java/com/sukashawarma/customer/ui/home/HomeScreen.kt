@@ -63,6 +63,7 @@ import com.sukashawarma.customer.ui.components.HomeBrandHeader
 import com.sukashawarma.customer.ui.components.RangkaBeranda
 import com.sukashawarma.customer.ui.components.OutletHeader
 import com.sukashawarma.customer.ui.components.PromoPopupDialog
+import com.sukashawarma.customer.ui.components.BannerCarousel
 import com.sukashawarma.customer.ui.components.bounceClick
 import com.sukashawarma.customer.ui.format.rupiah
 import com.sukashawarma.customer.ui.menu.CatalogViewModel
@@ -231,7 +232,7 @@ private fun HomeContentList(
         // menu tanpa ruang kosong.
         if (bannerCarousel.isNotEmpty()) {
             item(key = "home-promo-carousel") {
-                PromoMediaCarousel(
+                BannerCarousel(
                     slides = bannerCarousel,
                     onKetuk = onKetukBanner
                 )
@@ -334,181 +335,6 @@ private fun HomeContentList(
             ExploreMenuCtaCard(
                 onBukaMenu = onBukaMenu
             )
-        }
-    }
-}
-
-/**
- * Multi-Slide Promo Media Carousel ala Stitch Design System -- isi slide
- * kini seluruhnya berasal dari banner gateway, bukan lagi data hardcoded.
- * Dipanggil hanya saat [slides] tidak kosong (lihat HomeContentList).
- */
-@Composable
-private fun PromoMediaCarousel(
-    slides: List<BannerDto>,
-    onKetuk: (BannerDto) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val pagerState = rememberPagerState(pageCount = { slides.size })
-
-    // Auto advance slide secara berkala
-    LaunchedEffect(pagerState, slides.size) {
-        while (true) {
-            delay(4500)
-            if (!pagerState.isScrollInProgress && slides.size > 1) {
-                val next = (pagerState.currentPage + 1) % slides.size
-                pagerState.animateScrollToPage(next)
-            }
-        }
-    }
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        HorizontalPager(
-            state = pagerState,
-            modifier = Modifier.fillMaxWidth()
-        ) { page ->
-            val slide = slides[page]
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .bounceClick(scaleDown = 0.98f) { onKetuk(slide) },
-                shape = RoundedCornerShape(18.dp),
-                color = SukaBrown,
-                shadowElevation = 4.dp,
-                border = BorderStroke(1.dp, Color(0xFF8A1D07).copy(alpha = 0.5f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        if (!slide.badge.isNullOrBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(SukaOrange)
-                                    .padding(horizontal = 7.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = slide.badge,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = SukaInk,
-                                        fontSize = 9.sp
-                                    )
-                                )
-                            }
-                        }
-
-                        Text(
-                            text = slide.judul,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color(0xFFFFF4EB),
-                                fontSize = 15.sp,
-                                lineHeight = 19.sp
-                            )
-                        )
-
-                        if (!slide.subjudul.isNullOrBlank()) {
-                            Text(
-                                text = slide.subjudul,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFFFFF4EB).copy(alpha = 0.85f),
-                                    fontSize = 10.sp,
-                                    lineHeight = 13.sp
-                                ),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        if (!slide.teksTombol.isNullOrBlank()) {
-                            Spacer(modifier = Modifier.height(1.dp))
-
-                            Button(
-                                onClick = { onKetuk(slide) },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = SukaOrange,
-                                    contentColor = SukaInk
-                                ),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 3.dp),
-                                modifier = Modifier.bounceClick()
-                            ) {
-                                Text(
-                                    text = slide.teksTombol,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 11.sp
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(11.dp)
-                                )
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(10.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .size(80.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(Color(0xFF8A1D07))
-                            .border(BorderStroke(1.5.dp, SukaOrange.copy(alpha = 0.5f)), RoundedCornerShape(14.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (slide.gambarUrl != null) {
-                            AsyncImage(
-                                model = slide.gambarUrl,
-                                contentDescription = slide.judul,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        // Animated Pagination Dot Indicators
-        Row(
-            modifier = Modifier.padding(top = 4.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            repeat(slides.size) { index ->
-                val isSelected = pagerState.currentPage == index
-                val width by animateDpAsState(
-                    targetValue = if (isSelected) 18.dp else 5.dp,
-                    animationSpec = tween(durationMillis = 250),
-                    label = "pagerDotWidth"
-                )
-                val dotColor by animateColorAsState(
-                    targetValue = if (isSelected) SukaOrange else SukaBorder.copy(alpha = 0.8f),
-                    animationSpec = tween(durationMillis = 250),
-                    label = "pagerDotColor"
-                )
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 2.dp)
-                        .height(5.dp)
-                        .width(width)
-                        .clip(CircleShape)
-                        .background(dotColor)
-                )
-            }
         }
     }
 }

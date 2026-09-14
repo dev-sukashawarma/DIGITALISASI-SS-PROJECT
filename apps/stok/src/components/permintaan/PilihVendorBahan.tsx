@@ -10,9 +10,11 @@ type Props = {
   onChange: (a: Alokasi[]) => void
   galat: string | null
   disabled?: boolean
+  /** true = sisa tidak membatasi pilihan (mis. penyesuaian barang masuk). */
+  abaikanSisa?: boolean
 }
 
-export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange, galat, disabled }: Props) {
+export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange, galat, disabled, abaikanSisa }: Props) {
   if (vendors.length <= 1) {
     return vendors[0] ? <p className="text-[11px] text-[#544437]">Vendor: <b>{vendors[0].vendor_nama}</b></p> : null
   }
@@ -25,7 +27,7 @@ export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange
   return (
     <div className="mt-2 rounded-lg border border-[#d9c2b2]/60 p-2 space-y-1 text-[11px]">
       {vendors.map((v) => {
-        const habis = v.aktif && v.sisa <= 0
+        const habis = !abaikanSisa && v.aktif && v.sisa <= 0
         const a = alokasi.find((x) => x.vendor_id === v.vendor_id)
         return (
           <label key={v.vendor_id} className={`flex items-center gap-2 ${habis ? 'opacity-50' : ''}`}>
@@ -55,7 +57,7 @@ export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange
       )}
       {!pecah && alokasi.length > 0 && !disabled && (
         <button type="button" className="ml-2 text-[#904d00] underline"
-          onClick={() => onChange([...alokasi, ...vendors.filter((v) => v.vendor_id !== alokasi[0].vendor_id && !(v.aktif && v.sisa <= 0)).slice(0, 1).map((v) => ({ vendor_id: v.vendor_id, qty: 0 }))])}>
+          onClick={() => onChange([...alokasi, ...vendors.filter((v) => v.vendor_id !== alokasi[0].vendor_id && (abaikanSisa || !(v.aktif && v.sisa <= 0))).slice(0, 1).map((v) => ({ vendor_id: v.vendor_id, qty: 0 }))])}>
           + pecah vendor
         </button>
       )}

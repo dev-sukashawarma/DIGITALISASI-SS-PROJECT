@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import { useRealtimeInvalidate } from '@suka/realtime'
 import type { LedgerTipe, LedgerTransaksiSummary, LedgerTransaksiDetailRow } from '@/types/stok'
+import type { ItemRpcPenyesuaian } from '@/lib/stok/penyesuaianVendor'
 
 const PAGE_SIZE = 50
 
@@ -192,7 +193,15 @@ export function useLedgerActions() {
     if (error) throw new Error(error.message)
   }, [])
 
-  return { addManual, addManualBatch }
+  // Penyesuaian/transfer keluar bahan multi-vendor di Gudang Pusat: ledger +
+  // saldo vendor ditulis bersama di DB (migration 20260914100000).
+  const addPenyesuaianVendor = useCallback(async (items: ItemRpcPenyesuaian[]) => {
+    if (!items.length) return
+    const { error } = await supabase.rpc('catat_penyesuaian_gudang_vendor', { p_items: items })
+    if (error) throw new Error(error.message)
+  }, [])
+
+  return { addManual, addManualBatch, addPenyesuaianVendor }
 }
 
 export function useOrderDetails(orderId: string | null, enabled: boolean) {

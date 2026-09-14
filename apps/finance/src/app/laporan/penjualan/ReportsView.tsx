@@ -515,8 +515,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
 
     let qSettlements = supabase.from('platform_settlements').select('*')
-    if (!selectedOutlets.includes('all')) {
-      qSettlements = qSettlements.in('outlet_id', selectedOutlets)
+    if (isSSOnlineSelected) {
+      // SS Online bukan outlet sungguhan: 'ss-online' bukan UUID, jadi dulu query ini
+      // selalu gagal. Settlement-nya disimpan di outlet virtual marketplace.
+      const ids = Array.from(marketplaceOutletIds)
+      qSettlements = qSettlements.in('outlet_id', ids.length > 0 ? ids : ['00000000-0000-0000-0000-000000000000'])
+    } else if (!selectedOutlets.includes('all')) {
+      qSettlements = qSettlements.in('outlet_id', selectedOutlets.filter(id => id !== 'ss-online'))
     }
     if (dateStrRange.from) {
       qSettlements = qSettlements.gte('tanggal', dateStrRange.from)
@@ -544,7 +549,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     setMenuItems(menuItemsData ?? [])
     setSettlements(settlementsData ?? [])
     setLoading(false)
-  }, [range, selectedOutlets, customStartDate, customEndDate, dateStrRange])
+  }, [range, selectedOutlets, customStartDate, customEndDate, dateStrRange, marketplaceOutletIds])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
 
@@ -795,40 +800,46 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let settlementDateRange = ''
     let hasSettlementData = false
 
-    // Kartu settlement hanya boleh tampil bila ada data settlement yang DIUNGGAH
-    // (keputusan owner 2026-09-14). Tanpa itu kartu menampilkan Rp 0 yang terlihat
-    // seperti fakta, atau angka turunan yang bukan settlement sungguhan.
+    // Kartu settlement hanya tampil bila ada data settlement yang DIUNGGAH — aturan
+    // SAMA untuk TikTok GO dan SS Online (keputusan owner 2026-09-14). Tanpa unggahan
+    // kartu disembunyikan: Rp 0 terlihat seperti fakta, dan angka turunan dari impor
+    // pesanan (`raw_data.net_settlement`) bukan settlement.
     //
-    // SS Online (TikTok Shop, Shopee Shop) sengaja belum ditampilkan sama sekali:
-    // angka `raw_data.net_settlement` dari impor pesanan marketplace bukan hasil
-    // unggah settlement, dan halaman unggah (/dashboard/platform-settlement) baru
-    // mendukung food delivery. Kartu SS Online kembali setelah jalur unggahnya ada.
-    if (!isSSOnlineSelected && (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok'))) {
-      const relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
+    // SS Online disimpan di `platform_settlements` dengan platform `tiktok_shop` /
+    // `shopee_shop` dan outlet_id = outlet virtual marketplace (migration
+    // 20260914180500). Pengunggahnya belum ada — begitu ada baris, kartu muncul sendiri.
+    const SS_ONLINE_PLATFORMS = ['tiktok_shop', 'shopee_shop']
+    let relevantSettlements: any[] = []
+    if (isSSOnlineSelected) {
+      const platforms = selectedChannels.includes('all')
+        ? SS_ONLINE_PLATFORMS
+        : SS_ONLINE_PLATFORMS.filter(p => selectedChannels.includes(p))
+      relevantSettlements = settlements.filter(s => platforms.includes(s.platform))
+    } else if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
+      relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
+    }
+
+    if (relevantSettlements.length > 0) {
+      hasSettlementData = true
       totalSettlement = relevantSettlements.reduce((sum, s) => {
         return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
       }, 0)
       totalRealAdmin = relevantSettlements.reduce((sum, s) => sum + (Number(s.commission) || 0), 0)
-      hasSettlementData = relevantSettlements.length > 0
 
-      if (relevantSettlements.length > 0) {
-        const dates = relevantSettlements.map(s => s.tanggal).filter(Boolean).sort()
-        if (dates.length > 0) {
-          const minDate = dates[0]
-          const maxDate = dates[dates.length - 1]
-          
-          const formatDateStr = (d: string) => {
-            const [y, m, day] = d.split('-')
-            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
-            return `${day} ${months[parseInt(m) - 1]} ${y}`
-          }
+      const dates = relevantSettlements.map(s => s.tanggal).filter(Boolean).sort()
+      if (dates.length > 0) {
+        const minDate = dates[0]
+        const maxDate = dates[dates.length - 1]
 
-          if (minDate === maxDate) {
-            settlementDateRange = formatDateStr(minDate)
-          } else {
-            settlementDateRange = `${formatDateStr(minDate)} - ${formatDateStr(maxDate)}`
-          }
+        const formatDateStr = (d: string) => {
+          const [y, m, day] = d.split('-')
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des']
+          return `${day} ${months[parseInt(m) - 1]} ${y}`
         }
+
+        settlementDateRange = minDate === maxDate
+          ? formatDateStr(minDate)
+          : `${formatDateStr(minDate)} - ${formatDateStr(maxDate)}`
       }
     }
 
@@ -853,7 +864,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       settlementDateRange,
       hasSettlementData
     }
-  }, [orders, shifts, selectedChannels, hppRows, menuItemByNameMap, settlements])
+  }, [orders, shifts, selectedChannels, hppRows, menuItemByNameMap, settlements, isSSOnlineSelected])
 
   const selectedOutletName = selectedOutlets.includes('all') 
       ? 'Semua Cabang' 
@@ -1632,7 +1643,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                     </p>
                     <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
                     <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                      Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)
+                      {isSSOnlineSelected
+                        ? 'Omzet Kotor - Promo - Biaya Platform'
+                        : 'Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)'}
                     </p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
@@ -1652,7 +1665,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                       </p>
                       <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
                       <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                        Platform commission + Creator commission + WHT
+                        {isSSOnlineSelected ? 'Total biaya platform' : 'Platform commission + Creator commission + WHT'}
                       </p>
                       {analytics.settlementDateRange && (
                         <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">

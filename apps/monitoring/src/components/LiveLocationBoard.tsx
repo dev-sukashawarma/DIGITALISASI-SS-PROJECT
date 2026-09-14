@@ -36,6 +36,7 @@ import {
   type TrailFilterResult,
   type TrailPoint,
 } from '@/lib/liveLocation'
+import { snapTrailToRoads } from '@/lib/roadSnap'
 
 // Leaflet menyentuh `window` saat import, jadi peta wajib client-only.
 const LiveLocationMap = dynamic(() => import('./LiveLocationMap'), {
@@ -64,6 +65,10 @@ export default function LiveLocationBoard() {
   const [fitNonce, setFitNonce] = useState(0)
   const [showTrail, setShowTrail] = useState(false)
   const [trail, setTrail] = useState<TrailPoint[]>([])
+  const [roadPositions, setRoadPositions] = useState<[number, number][]>([])
+  const [roadDistanceKm, setRoadDistanceKm] = useState<number>(0)
+  const [isRoadSnapped, setIsRoadSnapped] = useState<boolean>(false)
+  const [isSnapping, setIsSnapping] = useState<boolean>(false)
   const [now, setNow] = useState(() => Date.now())
 
   // Dipakai handler realtime supaya tidak perlu ikut dependency state.
@@ -140,11 +145,37 @@ export default function LiveLocationBoard() {
           setStaff((current) =>
             current.map((item) => (item.outletStaffId === merged.outletStaffId ? merged : item)),
           )
+          // Jika staff ini sedang dipilih dan jejak aktif, tambahkan titik secara realtime ke jejak
+          if (row.lat !== undefined && row.lng !== undefined) {
+            setSelectedId((currId) => {
+              if (currId === row.outlet_staff_id) {
+                setTrail((prevTrail) => [
+                  ...prevTrail,
+                  {
+                    lat: Number(row.lat),
+                    lng: Number(row.lng),
+                    recordedAt: row.recorded_at,
+                    accuracyM: row.accuracy_m === null ? null : Number(row.accuracy_m),
+                    isMock: Boolean(row.is_mock),
+                  },
+                ])
+              }
+              return currId
+            })
+          }
           setNow(Date.now())
         },
       )
       .subscribe()
+
+    // Polling cadangan berkala setiap 30 detik untuk memastikan data peta tetap sinkron
+    // bila websocket sempat drop atau browser tab mengalami pembatasan latar belakang.
+    const pollTimer = window.setInterval(() => {
+      void loadInitial()
+    }, 30_000)
+
     return () => {
+      window.clearInterval(pollTimer)
       void supabase.removeChannel(channel)
     }
   }, [hydrateRow, loadInitial, supabase])
@@ -190,6 +221,42 @@ export default function LiveLocationBoard() {
   // Jejak mentah tidak pernah digambar langsung: satu fix Wi-Fi yang meleset 170 m sudah
   // cukup membuat garis melesat keluar jalan dan kembali lagi.
   const cleaned: TrailFilterResult = useMemo(() => cleanTrail(trail), [trail])
+
+  // Selaraskan jejak staff terpilih ke jalan raya via OSRM
+  useEffect(() => {
+    if (!showTrail || !selectedId || trail.length < 2) {
+      setRoadPositions([])
+      setRoadDistanceKm(0)
+      setIsRoadSnapped(false)
+      setIsSnapping(false)
+      return
+    }
+
+    // Tampilkan segera titik bersih selagi proses snapping ke jalan berjalan
+    const basicPoints = cleaned.points.map((p): [number, number] => [p.lat, p.lng])
+    setRoadPositions(basicPoints)
+
+    let cancelled = false
+    setIsSnapping(true)
+
+    void (async () => {
+      try {
+        const snap = await snapTrailToRoads(trail)
+        if (cancelled) return
+        setRoadPositions(snap.positions)
+        setRoadDistanceKm(snap.distanceKm)
+        setIsRoadSnapped(snap.isSnapped)
+      } catch (err) {
+        console.warn('snapTrailToRoads error:', err)
+      } finally {
+        if (!cancelled) setIsSnapping(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [cleaned.points, selectedId, showTrail, trail])
 
   const outlets = useMemo(() => {
     const seen = new Map<string, string>()
@@ -295,6 +362,7 @@ export default function LiveLocationBoard() {
                   focusNonce={focusNonce}
                   fitNonce={fitNonce}
                   trail={cleaned.points}
+                  roadPositions={roadPositions}
                   showTrail={showTrail}
                   onSelect={setSelectedId}
                 />
@@ -320,13 +388,31 @@ export default function LiveLocationBoard() {
                   <Route size={14} /> Tampilkan jejak
                 </button>
                 {showTrail && selected && (
-                  <span className="pointer-events-none rounded-lg bg-slate-900/85 px-2.5 py-1 text-[10px] font-semibold text-white">
-                    {cleaned.points.length > 1
-                      ? `${cleaned.points.length} titik · ${TRAIL_WINDOW_HOURS} jam terakhir` +
-                        (droppedTotal(cleaned.dropped) > 0 ? ` · ${droppedTotal(cleaned.dropped)} disaring` : '')
-                      : trail.length > 0
-                        ? `Staff tidak berpindah · ${trail.length} titik di satu tempat`
-                        : `Belum ada jejak ${TRAIL_WINDOW_HOURS} jam terakhir`}
+                  <span className="pointer-events-none flex items-center gap-1.5 rounded-lg bg-slate-900/90 px-3 py-1.5 text-[10px] font-semibold text-white shadow-md">
+                    {isRoadSnapped ? (
+                      <>
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
+                        <span>
+                          {roadDistanceKm > 0 ? `${roadDistanceKm} km · ` : ''}Mengikuti rute jalan raya
+                          {isSnapping ? ' (menyinkronkan…)' : ''}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          className={`h-2 w-2 shrink-0 rounded-full ${isSnapping ? 'bg-amber-400 animate-pulse' : 'bg-slate-400'}`}
+                        />
+                        <span>
+                          {cleaned.points.length > 1
+                            ? `${cleaned.points.length} titik · ${TRAIL_WINDOW_HOURS} jam terakhir` +
+                              (droppedTotal(cleaned.dropped) > 0 ? ` · ${droppedTotal(cleaned.dropped)} disaring` : '')
+                            : trail.length > 0
+                              ? `Staff tidak berpindah · ${trail.length} titik di satu tempat`
+                              : `Belum ada jejak ${TRAIL_WINDOW_HOURS} jam terakhir`}
+                          {isSnapping ? ' · menyelaraskan jalan…' : ''}
+                        </span>
+                      </>
+                    )}
                   </span>
                 )}
               </div>

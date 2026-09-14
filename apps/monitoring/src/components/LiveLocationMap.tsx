@@ -150,6 +150,8 @@ export type LiveLocationMapProps = {
   /** Berubah setiap kali user menekan "Fit semua". */
   fitNonce: number
   trail: TrailPoint[]
+  /** Rute koordinat yang telah diselaraskan ke jalan raya nyata via OSRM */
+  roadPositions?: [number, number][]
   showTrail: boolean
   /** Klik pin: memilih staff di sidebar tanpa ikut menerbangkan peta. */
   onSelect: (staffId: string) => void
@@ -162,6 +164,7 @@ export default function LiveLocationMap({
   focusNonce,
   fitNonce,
   trail,
+  roadPositions,
   showTrail,
   onSelect,
 }: LiveLocationMapProps) {
@@ -211,10 +214,10 @@ export default function LiveLocationMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focusNonce, focusedId])
 
-  const trailPositions = useMemo<[number, number][]>(
-    () => trail.map((point) => [point.lat, point.lng]),
-    [trail],
-  )
+  const trailPositions = useMemo<[number, number][]>(() => {
+    if (roadPositions && roadPositions.length > 0) return roadPositions
+    return trail.map((point) => [point.lat, point.lng])
+  }, [roadPositions, trail])
 
   return (
     <MapContainer
@@ -232,7 +235,30 @@ export default function LiveLocationMap({
       />
 
       {showTrail && trailPositions.length > 1 && (
-        <Polyline positions={trailPositions} pathOptions={{ color: '#ea580c', weight: 4, opacity: 0.75 }} />
+        <>
+          {/* Garis outline jalan raya agar kontras dan mudah dibaca di atas peta */}
+          <Polyline
+            positions={trailPositions}
+            pathOptions={{
+              color: '#9a3412',
+              weight: 7,
+              opacity: 0.35,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+          {/* Garis utama rute jalan */}
+          <Polyline
+            positions={trailPositions}
+            pathOptions={{
+              color: '#ea580c',
+              weight: 4.5,
+              opacity: 0.95,
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          />
+        </>
       )}
 
       {staff.map((item) => {

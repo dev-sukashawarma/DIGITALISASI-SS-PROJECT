@@ -479,11 +479,12 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
           </span>
         </button>
 
-        {/* 9 Category Groups */}
+        {/* 10 Category Groups */}
         {CATEGORY_GROUPS.map((cat) => {
           const count = categoryCountMap[cat.id] || 0
           const isSelected = selectedCategory === cat.id
           const isTikTok = cat.id === 'tiktok'
+          const isEcommerce = cat.id === 'ecommerce'
 
           return (
             <button
@@ -493,10 +494,14 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                 isSelected
                   ? isTikTok
                     ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-rose-500/30 scale-[1.02]'
-                    : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-amber-500/30 scale-[1.02]'
+                    : isEcommerce
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/30 scale-[1.02]'
+                      : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-amber-500/30 scale-[1.02]'
                   : isTikTok
                     ? 'bg-rose-50/70 text-rose-700 border-rose-200 hover:bg-rose-100/80'
-                    : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+                    : isEcommerce
+                      ? 'bg-teal-50/70 text-teal-700 border-teal-200 hover:bg-teal-100/80'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
               }`}
             >
               <span className="text-sm">{cat.icon}</span>
@@ -507,7 +512,9 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                     ? 'bg-white/20 text-white'
                     : isTikTok
                       ? 'bg-rose-200/60 text-rose-800'
-                      : 'bg-gray-100 text-gray-600'
+                      : isEcommerce
+                        ? 'bg-teal-200/60 text-teal-800'
+                        : 'bg-gray-100 text-gray-600'
                 }`}
               >
                 {count}
@@ -725,11 +732,18 @@ export default function HppDashboardView({ items, channels }: HppDashboardViewPr
                 const isFirstOfCategory = !prevRow || prevRow.categoryId !== row.categoryId
                 const showCategoryHeader = sortField === 'default' && isFirstOfCategory && selectedCategory === 'all' && !searchQuery.trim()
                 const isTikTokRow = row.categoryId === 'tiktok'
+                const isEcommerceRow = row.categoryId === 'ecommerce'
 
                 return (
                   <React.Fragment key={row.id}>
                     {showCategoryHeader && (
-                      <tr className={`${isTikTokRow ? 'bg-gradient-to-r from-pink-50/80 via-rose-50/40 to-transparent border-t-2 border-b border-rose-200' : 'bg-gradient-to-r from-amber-50/80 via-orange-50/30 to-transparent border-t-2 border-b border-amber-200/60'}`}>
+                      <tr className={`${
+                        isTikTokRow 
+                          ? 'bg-gradient-to-r from-pink-50/80 via-rose-50/40 to-transparent border-t-2 border-b border-rose-200' 
+                          : isEcommerceRow
+                            ? 'bg-gradient-to-r from-teal-50/80 via-emerald-50/40 to-transparent border-t-2 border-b border-teal-200'
+                            : 'bg-gradient-to-r from-amber-50/80 via-orange-50/30 to-transparent border-t-2 border-b border-amber-200/60'
+                      }`}>
                         <td colSpan={10} className="px-5 py-3">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2.5">

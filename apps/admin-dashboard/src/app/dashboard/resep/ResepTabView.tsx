@@ -100,6 +100,7 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
               const count = bomCategoryCountMap[cat.id] || 0
               const isSelected = bomCategory === cat.id
               const isTikTok = cat.id === 'tiktok'
+              const isEcommerce = cat.id === 'ecommerce'
 
               return (
                 <button
@@ -109,10 +110,14 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
                     isSelected
                       ? isTikTok
                         ? 'bg-gradient-to-r from-pink-500 to-rose-600 text-white border-transparent shadow-rose-500/30'
-                        : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-amber-500/30'
+                        : isEcommerce
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white border-transparent shadow-emerald-500/30'
+                          : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white border-transparent shadow-amber-500/30'
                       : isTikTok
                         ? 'bg-rose-50/70 text-rose-700 border-rose-200 hover:bg-rose-100/80'
-                        : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
+                        : isEcommerce
+                          ? 'bg-teal-50/70 text-teal-700 border-teal-200 hover:bg-teal-100/80'
+                          : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:text-gray-900'
                   }`}
                 >
                   <span className="text-sm">{cat.icon}</span>
@@ -123,7 +128,9 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
                         ? 'bg-white/20 text-white'
                         : isTikTok
                           ? 'bg-rose-200/60 text-rose-800'
-                          : 'bg-gray-100 text-gray-600'
+                          : isEcommerce
+                            ? 'bg-teal-200/60 text-teal-800'
+                            : 'bg-gray-100 text-gray-600'
                     }`}
                   >
                     {count}
@@ -175,11 +182,18 @@ export default function ResepTabView({ menuWithBOM, hppItems, channels }: ResepT
                     const isFirstOfCategory = !prevRow || prevRow.categoryId !== menu.categoryId
                     const showCategoryHeader = isFirstOfCategory && bomCategory === 'all' && !bomSearch.trim()
                     const isTikTok = menu.categoryId === 'tiktok'
+                    const isEcommerce = menu.categoryId === 'ecommerce'
 
                     return (
                       <React.Fragment key={menu.id}>
                         {showCategoryHeader && (
-                          <tr className={`${isTikTok ? 'bg-gradient-to-r from-pink-50/80 via-rose-50/40 to-transparent border-t-2 border-b border-rose-200' : 'bg-gradient-to-r from-amber-50/80 via-orange-50/30 to-transparent border-t-2 border-b border-amber-200/60'}`}>
+                          <tr className={`${
+                            isTikTok 
+                              ? 'bg-gradient-to-r from-pink-50/80 via-rose-50/40 to-transparent border-t-2 border-b border-rose-200' 
+                              : isEcommerce
+                                ? 'bg-gradient-to-r from-teal-50/80 via-emerald-50/40 to-transparent border-t-2 border-b border-teal-200'
+                                : 'bg-gradient-to-r from-amber-50/80 via-orange-50/30 to-transparent border-t-2 border-b border-amber-200/60'
+                          }`}>
                             <td colSpan={5} className="px-6 py-2.5">
                               <div className="flex items-center gap-2">
                                 <span className="text-base">{menu.categoryIcon}</span>

@@ -109,6 +109,16 @@ export const CATEGORY_GROUPS: CategoryGroupMeta[] = [
     badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
     borderAccent: 'border-l-rose-500',
   },
+  {
+    id: 'ecommerce',
+    name: 'E-Commerce (SS Online & Marketplace)',
+    shortName: 'E-Commerce',
+    order: 95,
+    icon: '🛒',
+    color: 'from-teal-600 to-emerald-700',
+    badgeBg: 'bg-teal-50 text-teal-800 border-teal-200',
+    borderAccent: 'border-l-teal-500',
+  },
 ]
 
 export function getMenuCategoryGroup(menu: {
@@ -126,7 +136,15 @@ export function getMenuCategoryGroup(menu: {
   const isPkg = !!(menu.isPackage || menu.is_package)
   const nameLower = (menu.name || '').toLowerCase()
 
-  // 1. TikTok Series check (dedicated live promo & tiktokgo menus)
+  // 1. E-Commerce check (dedicated SS Online, marketplace & online menus)
+  const isEcommerceCat = catName.toLowerCase().includes('e-commerce') || catName.toLowerCase().includes('ecommerce')
+  const isEcommerceName = nameLower.includes('(online)') || nameLower.includes('e-commerce') || nameLower.includes('ecommerce')
+
+  if (isEcommerceCat || isEcommerceName) {
+    return CATEGORY_GROUPS.find((c) => c.id === 'ecommerce')!
+  }
+
+  // 2. TikTok Series check (dedicated live promo & tiktokgo menus)
   const isTiktokExclusive = channels.length === 1 && (channels[0] === 'tiktokgo' || channels[0] === 'tiktok')
   const isTiktokBestSeller = nameLower.startsWith('best seller') && channels.includes('tiktokgo')
   const isTiktokCombo =

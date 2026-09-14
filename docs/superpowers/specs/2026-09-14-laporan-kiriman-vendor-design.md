@@ -29,7 +29,7 @@ keterangan vendor.
 - `surat_jalan_item`: `qty_dikirim`, `qty_terima` (satuan **besar**), `harga_snapshot`
   (per satuan besar), `vendor_id` (vendor induk, FK `surat_jalan_item_vendor_id_fkey`).
 - Sejak 12 Sep: 188 baris SJ non-draft (dikirim 59, selesai 129), 158 bervendor. **Baris bahan multi-vendor
-  semuanya bervendor**; yang kosong adalah bahan satu-vendor.
+  semuanya bervendor**; yang kosong (30 baris 12–14 Sep: HAND GLOVE, KERTAS STRUK, PAPER WRAP, SAOS CABE, TUM, TUTUP PACK) adalah bahan yang BELUM punya vendor di katalog — fallback katalog hari ini tak terpakai, disiapkan untuk bahan yang kelak punya tepat satu vendor.
 - Nama vendor tampil = `supplier.nama` tanpa akhiran " - Tempo N" (grup Pak Aziz),
   pola sama dengan `saldo_vendor_gudang`.
 

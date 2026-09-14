@@ -1,0 +1,222 @@
+import { describe, it, expect } from 'vitest'
+import {
+  formatTriUnitSaldoFromGram,
+  formatCompositeSaldoFromGram,
+  formatTriUnitSaldoAdaptive,
+  formatCompositeSaldoAdaptive,
+  decomposeTriUnitRaw,
+  getDistribusiFactor,
+  convertToBaseUnit,
+  convertToDistribusiUnit,
+} from './compositeUnit'
+
+describe('formatTriUnitSaldoFromGram — dekomposisi dari satuan kecil (gram) ke atas', () => {
+  it('SAPI: 8553.755 gram -> 4 Blok + 553.75 Gram (BUKAN 8553 Blok)', () => {
+    expect(formatTriUnitSaldoFromGram(8553.755, 'Blok', 'Kg', 2, 'Gram', 2000)).toBe(
+      '4 Blok + 553.75 Gram'
+    )
+  })
+
+  it('KENTANG (Cimanggu): 4284.545 gram -> 0 Dus + 4 Kg + 284.55 Gram (BUKAN 4284 Dus)', () => {
+    expect(formatTriUnitSaldoFromGram(4284.545, 'Dus', 'Kg', 10, 'Gram', 10000)).toBe(
+      '4 Kg + 284.55 Gram'
+    )
+  })
+
+  it('MINYAK SAYUR (Cimanggu): 5999.875 gram -> 5 "Kg" + 999.88 ml (BUKAN 5999 kompan)', () => {
+    expect(formatTriUnitSaldoFromGram(5999.875, 'kompan', 'Kg', 16, 'Gram', 16000)).toBe(
+      '5 Kg + 999.88 Gram'
+    )
+  })
+
+  it('KENTANG (Gudang Pusat): 202500 gram -> 20 Dus + 2 Kg + 500 Gram (BUKAN 202500 Dus)', () => {
+    expect(formatTriUnitSaldoFromGram(202500, 'Dus', 'Kg', 10, 'Gram', 10000)).toBe(
+      '20 Dus + 2 Kg + 500 Gram'
+    )
+  })
+
+  it('SAOS TOMAT POUCH (Gudang Pusat): 156000 gram -> tepat 13 Dus, tanpa sisa', () => {
+    expect(formatTriUnitSaldoFromGram(156000, 'Dus', 'Kg', 12, 'Gram', 12000)).toBe('13 Dus')
+  })
+
+  it('nilai negatif (defisit) tetap konsisten arah tandanya', () => {
+    expect(formatTriUnitSaldoFromGram(-4.05, 'Pack', null, null, 'Lembar', 20)).toBe(
+      '-4.05 Lembar'
+    )
+  })
+
+  it('tanpa satuan_tengah (2-tingkat), delegasi ke formatCompositeSaldoFromGram', () => {
+    expect(formatTriUnitSaldoFromGram(4444.635, 'Kg', null, null, 'Gram', 1000)).toBe(
+      '4 Kg + 444.64 Gram'
+    )
+  })
+})
+
+describe('formatCompositeSaldoFromGram — dekomposisi 2 tingkat dari gram', () => {
+  it('AYAM (Cimanggu): 4444.635 gram -> 4 Kg + 444.64 Gram', () => {
+    expect(formatCompositeSaldoFromGram(4444.635, 'Kg', 'Gram', 1000)).toBe('4 Kg + 444.64 Gram')
+  })
+
+  it('tanpa faktor (bahan 1 tingkat), fallback apa adanya', () => {
+    expect(formatCompositeSaldoFromGram(5.5, 'Bal', null, null)).toBe('5.5 Bal')
+  })
+})
+
+describe('formatTriUnitSaldoAdaptive — pemilih berdasar saldo_is_gram', () => {
+  it('saldo_is_gram=true -> dekomposisi dari gram (kasus SAPI)', () => {
+    expect(
+      formatTriUnitSaldoAdaptive(8553.755, true, 'Blok', 'Kg', 2, 'Gram', 2000)
+    ).toBe('4 Blok + 553.75 Gram')
+  })
+
+  it('saldo_is_gram=false -> TETAP pakai dekomposisi besar-scale lama (kasus legacy "outlet tes" KENTANG 2.5)', () => {
+    expect(
+      formatTriUnitSaldoAdaptive(2.5, false, 'Dus', 'Kg', 10, 'Gram', 10000)
+    ).toBe('2 Dus 5 Kg')
+  })
+})
+
+describe('decomposeTriUnitRaw — versi angka mentah untuk tabel 3-kolom (SPVTable/CrewList)', () => {
+  it('saldo_is_gram=true: SAPI 8553.755 gram -> {large:4, medium:0, small:553.75} (BUKAN large:8553)', () => {
+    expect(decomposeTriUnitRaw(8553.755, true, 'Kg', 2, 'Gram', 2000)).toEqual({
+      large: 4,
+      medium: 0,
+      small: 553.75,
+    })
+  })
+
+  it('saldo_is_gram=true: KENTANG (Gudang Pusat) 202500 gram -> {large:20, medium:2, small:500}', () => {
+    expect(decomposeTriUnitRaw(202500, true, 'Kg', 10, 'Gram', 10000)).toEqual({
+      large: 20,
+      medium: 2,
+      small: 500,
+    })
+  })
+
+  it('saldo_is_gram=false: legacy 2.5 (Dus) -> {large:2, medium:5, small:0} (tak berubah dari perilaku lama)', () => {
+    expect(decomposeTriUnitRaw(2.5, false, 'Kg', 10, 'Gram', 10000)).toEqual({
+      large: 2,
+      medium: 5,
+      small: 0,
+    })
+  })
+})
+
+describe('formatCompositeSaldoAdaptive — pemilih berdasar saldo_is_gram (2-tingkat)', () => {
+  it('saldo_is_gram=true -> dekomposisi dari gram', () => {
+    expect(formatCompositeSaldoAdaptive(4444.635, true, 'Kg', 'Gram', 1000)).toBe(
+      '4 Kg + 444.64 Gram'
+    )
+  })
+
+  it('saldo_is_gram=false -> dekomposisi besar-scale lama', () => {
+    expect(formatCompositeSaldoAdaptive(2.5, false, 'Kg', 'Gram', 1000)).toBe('2 Kg + 500 Gram')
+  })
+})
+
+const FOIL = {
+  satuan: 'Dus',
+  satuan_tengah: 'Roll',
+  faktor_tengah: 48,
+  satuan_kecil: 'cm',
+  faktor_tampilan: 36480,
+  satuan_distribusi: 'roll',
+}
+
+describe('FOIL 3 tingkat — Dus > Roll > cm, 1 Dus = 48 Roll = 36.480 cm', () => {
+  it('Empang: 57005 cm -> 1 Dus + 27 Roll + 5 cm', () => {
+    expect(
+      formatTriUnitSaldoFromGram(57005, FOIL.satuan, FOIL.satuan_tengah, FOIL.faktor_tengah, FOIL.satuan_kecil, FOIL.faktor_tampilan)
+    ).toBe('1 Dus + 27 Roll + 5 cm')
+  })
+
+  it('kelipatan pas: 72960 cm -> 2 Dus, tanpa sisa', () => {
+    expect(
+      formatTriUnitSaldoFromGram(72960, FOIL.satuan, FOIL.satuan_tengah, FOIL.faktor_tengah, FOIL.satuan_kecil, FOIL.faktor_tampilan)
+    ).toBe('2 Dus')
+  })
+
+  it('kurang dari sedus: 20525 cm -> 27 Roll + 5 cm (tanpa baris Dus)', () => {
+    expect(
+      formatTriUnitSaldoFromGram(20525, FOIL.satuan, FOIL.satuan_tengah, FOIL.faktor_tengah, FOIL.satuan_kecil, FOIL.faktor_tampilan)
+    ).toBe('27 Roll + 5 cm')
+  })
+
+  it('satuan_distribusi "roll" memetakan ke satuan tengah, bukan satuan besar', () => {
+    expect(getDistribusiFactor(FOIL)).toBe(48)
+  })
+
+  it('surat jalan 48 Roll = 1 Dus dalam satuan basis', () => {
+    expect(convertToBaseUnit(48, FOIL)).toBe(1)
+  })
+
+  it('tampilan permintaan: 1 Dus di basis ditampilkan kembali sebagai 48 Roll', () => {
+    expect(convertToDistribusiUnit(1, FOIL)).toBe(48)
+  })
+})
+
+describe('Satuan Distribusi Bahan Baku Baru', () => {
+  it('GARAM: 1 Bal = 20 Pack, distribusi per pack', () => {
+    const garam = {
+      satuan: 'Bal',
+      satuan_tengah: 'Pack',
+      faktor_tengah: 20,
+      satuan_kecil: 'Gram',
+      faktor_tampilan: 5000,
+      satuan_distribusi: 'pack'
+    }
+    expect(getDistribusiFactor(garam)).toBe(20)
+    expect(convertToBaseUnit(20, garam)).toBe(1)
+    expect(convertToDistribusiUnit(2, garam)).toBe(40)
+  })
+
+  it('KETUMBAR: 1 Karung = 25 Kg, distribusi per kg', () => {
+    const ketumbar = {
+      satuan: 'Karung',
+      satuan_tengah: 'Kg',
+      faktor_tengah: 25,
+      satuan_kecil: 'gram',
+      faktor_tampilan: 25000,
+      satuan_distribusi: 'kg'
+    }
+    expect(getDistribusiFactor(ketumbar)).toBe(25)
+    expect(convertToBaseUnit(25, ketumbar)).toBe(1)
+  })
+
+  it('SASA: 1 Dus = 12 Kg, distribusi per kg', () => {
+    const sasa = {
+      satuan: 'Dus',
+      satuan_tengah: 'Kg',
+      faktor_tengah: 12,
+      satuan_kecil: 'Gram',
+      faktor_tampilan: 12000,
+      satuan_distribusi: 'kg'
+    }
+    expect(getDistribusiFactor(sasa)).toBe(12)
+    expect(convertToBaseUnit(12, sasa)).toBe(1)
+  })
+
+  it('Cling Wrap: 1 Dus = 24 Roll, distribusi per roll', () => {
+    const cling = {
+      satuan: 'Dus',
+      satuan_kecil: 'Roll',
+      faktor_tampilan: 24,
+      satuan_distribusi: 'roll'
+    }
+    expect(getDistribusiFactor(cling)).toBe(24)
+    expect(convertToBaseUnit(24, cling)).toBe(1)
+  })
+
+  it('BAWANG PUTIH BUBUK: 1 Dus = 6 Bungkus, distribusi per bungkus / bks', () => {
+    const bp = {
+      satuan: 'Dus',
+      satuan_tengah: 'Bungkus',
+      faktor_tengah: 6,
+      satuan_kecil: 'Sachet',
+      faktor_tampilan: 432,
+      satuan_distribusi: 'bungkus'
+    }
+    expect(getDistribusiFactor(bp)).toBe(6)
+    expect(getDistribusiFactor({ ...bp, satuan_distribusi: 'bks' })).toBe(6)
+  })
+})

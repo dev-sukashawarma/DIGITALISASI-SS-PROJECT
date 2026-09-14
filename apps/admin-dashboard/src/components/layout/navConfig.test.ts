@@ -91,6 +91,7 @@ const BASELINE_ROUTES: Record<Role, string[]> = {
     '/dashboard/reports/pos',
     '/dashboard/reports/target-harian',
     '/dashboard/resep',
+    '/dashboard/stok-monitoring',
     '/dashboard/system-health',
   ],
   OWNER: [

@@ -109,6 +109,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Package,
     roles: ['ADMIN'],
     items: [
+      { href: '/dashboard/stok-monitoring', label: 'Monitoring Stok', shortLabel: 'Stok', icon: Activity, roles: ['ADMIN'] },
       { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['ADMIN'] },
       { href: '/dashboard/resep', label: 'Manajemen Resep', shortLabel: 'Resep', icon: BookOpen, roles: ['ADMIN'] },
       { href: '/dashboard/opname', label: 'Detail Opname Outlet', shortLabel: 'Opname', icon: ClipboardList, roles: ['ADMIN'] },

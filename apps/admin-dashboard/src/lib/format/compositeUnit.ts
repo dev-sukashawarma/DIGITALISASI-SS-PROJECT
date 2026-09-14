@@ -1,0 +1,392 @@
+/**
+ * Format saldo (running balance) sebagai "N {satuan} + M {satuan_kecil}".
+ * Kalau satuanKecil/faktorTampilan tidak ada, fallback ke "{qty} {satuan}".
+ *
+ * Untuk nilai negatif (defisit stok), gunakan Math.trunc agar whole dan
+ * remainder konsisten bertanda negatif — mis. -33.1 pcs → "-33 pcs - 0.3 kg"
+ * (bukan "-34 pcs + 2.7 kg" dari Math.floor yang membingungkan secara visual).
+ */
+function round2(num: number): number {
+  return Math.round(num * 100) / 100;
+}
+
+export function formatCompositeSaldo(
+  qty: number,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null,
+  multiline: boolean = false
+): string {
+  if (!satuanKecil || !faktorTampilan) {
+    // Fallback tanpa tanda '+': saldo = total absolut, beda dari delta (pergerakan bertanda).
+    return `${round2(qty)} ${satuan}`
+  }
+
+  // Gunakan Math.trunc (bukan Math.floor) agar whole selalu bertanda sama dengan qty.
+  // Math.floor(-33.1) = -34 (berbeda arah), Math.trunc(-33.1) = -33 (sama arah).
+  let whole = Math.trunc(qty)
+  const remainderRaw = (qty - whole) * faktorTampilan
+  let remainder = Math.round(remainderRaw * 100) / 100
+
+  // Floating-point drift: mis. qty = 2.9999999999 → remainder bisa jadi persis faktorTampilan.
+  // Carry ke whole, bukan negatif ke bawah.
+  if (Math.abs(remainder) >= faktorTampilan) {
+    whole += Math.sign(remainder)
+    remainder = 0
+  }
+
+  const absRemainder = Math.abs(remainder)
+  if (absRemainder === 0) {
+    return `${whole} ${satuan}`
+  }
+  
+  if (whole === 0) {
+    return `${remainder < 0 ? '-' : ''}${absRemainder} ${satuanKecil}`
+  }
+
+  const separator = remainder < 0 ? '-' : '+'
+  const joiner = multiline ? `\n${separator} ` : ` ${separator} `
+  return `${whole} ${satuan}${joiner}${absRemainder} ${satuanKecil}`
+}
+
+export function formatTriUnitSaldo(
+  qty: number,
+  satuanBesar: string,
+  satuanTengah?: string | null,
+  faktorTengah?: number | null,
+  satuanKecil?: string | null,
+  faktorTampilan?: number | null,
+  multiline: boolean = false
+): string {
+  const joiner = multiline ? '\n' : ' '
+
+  if (!satuanKecil || !faktorTampilan) {
+    if (satuanTengah && faktorTengah) {
+      let whole = Math.trunc(qty)
+      const remainderRaw = (qty - whole) * faktorTengah
+      let remainder = Math.round(remainderRaw * 100) / 100
+      
+      if (Math.abs(remainder) >= faktorTengah) {
+        whole += Math.sign(remainder)
+        remainder = 0
+      }
+      
+      const parts = []
+      if (whole !== 0 || remainder === 0) parts.push(`${whole} ${satuanBesar}`)
+      if (remainder !== 0) parts.push(`${Math.abs(remainder)} ${satuanTengah}`)
+      return (qty < 0 ? "-" : "") + parts.join(joiner)
+    }
+    return `${round2(qty)} ${satuanBesar}`
+  }
+
+  if (satuanTengah && faktorTengah) {
+    let sisaBesar = Math.abs(qty)
+    let besar = Math.trunc(sisaBesar)
+    
+    const sisaTengahRaw = (sisaBesar - besar) * faktorTengah
+    let tengah = Math.trunc(sisaTengahRaw)
+    
+    const faktorKecilPerTengah = faktorTampilan / faktorTengah
+    const sisaKecilRaw = (sisaTengahRaw - tengah) * faktorKecilPerTengah
+    let kecil = Math.round(sisaKecilRaw * 100) / 100
+
+    if (Math.abs(kecil) >= faktorKecilPerTengah) {
+      tengah += Math.sign(kecil)
+      kecil = 0
+    }
+    if (Math.abs(tengah) >= faktorTengah) {
+      besar += Math.sign(tengah)
+      tengah = 0
+    }
+
+    const parts = []
+    const sign = qty < 0 ? '-' : ''
+    if (multiline) {
+      if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${sign}${besar} ${satuanBesar}`)
+      if (tengah !== 0) parts.push(`${sign}${tengah} ${satuanTengah}`)
+      if (kecil !== 0) parts.push(`${sign}${kecil} ${satuanKecil}`)
+      return parts.join(joiner)
+    } else {
+      if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
+      if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)
+      if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+      return (qty < 0 ? '-' : '') + parts.join(joiner)
+    }
+  }
+
+  return formatCompositeSaldo(qty, satuanBesar, satuanKecil, faktorTampilan, multiline)
+}
+
+export function formatCompositeDelta(
+  qty: number,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null
+): string {
+  if (!satuanKecil || !faktorTampilan) {
+    return `${qty > 0 ? '+' : ''}${round2(qty)} ${satuan}`
+  }
+  const converted = Math.round(qty * faktorTampilan * 100) / 100
+  return `${converted > 0 ? '+' : ''}${converted} ${satuanKecil}`
+}
+
+export function formatCompositeDeltaFromGram(
+  qty: number,
+  satuan: string,
+  satuanKecil: string | null
+): string {
+  const rounded = round2(qty)
+  const unit = satuanKecil ?? satuan
+  return `${rounded > 0 ? '+' : ''}${rounded} ${unit}`
+}
+
+export function formatCompositeDeltaAdaptive(
+  qty: number,
+  saldoIsGram: boolean,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null
+): string {
+  return saldoIsGram
+    ? formatCompositeDeltaFromGram(qty, satuan, satuanKecil)
+    : formatCompositeDelta(qty, satuan, satuanKecil, faktorTampilan)
+}
+
+export function combineOpnameInput(
+  containers: number,
+  remainder: number,
+  faktorTampilan: number
+): number {
+  return containers + remainder / faktorTampilan
+}
+
+export function getDistribusiFactor(b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
+  if (!b.satuan_distribusi) return 1;
+  const dist = b.satuan_distribusi.toLowerCase().trim();
+  const besar = (b.satuan || '').toLowerCase().trim();
+  if (dist === besar) return 1;
+
+  const st = b.satuan_tengah?.toLowerCase().trim();
+  const sk = b.satuan_kecil?.toLowerCase().trim();
+
+  // Cocokkan ke satuan tengah (termasuk sinonim bks <-> bungkus)
+  if (st && b.faktor_tengah) {
+    if (dist === st || (dist === 'bks' && st === 'bungkus') || (dist === 'bungkus' && st === 'bks')) {
+      return b.faktor_tengah;
+    }
+  }
+
+  // Cocokkan ke satuan kecil (termasuk sinonim bks <-> bungkus)
+  if (sk && b.faktor_tampilan) {
+    if (dist === sk || (dist === 'bks' && sk === 'bungkus') || (dist === 'bungkus' && sk === 'bks')) {
+      return b.faktor_tampilan;
+    }
+  }
+
+  // Implicit mapping: if dist is 'kg' and satuan_kecil is 'gram'
+  if (dist === 'kg' && sk === 'gram' && b.faktor_tampilan) {
+    return b.faktor_tampilan / 1000;
+  }
+
+  return 1;
+}
+
+export function convertToBaseUnit(qtyDistribusi: number, b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
+  const factor = getDistribusiFactor(b);
+  return qtyDistribusi / factor;
+}
+
+export function convertGramToBesar(qtyGram: number, b: { satuan_kecil?: string | null; faktor_tampilan?: number | null }): number {
+  if (b.satuan_kecil && b.faktor_tampilan) return qtyGram / b.faktor_tampilan
+  return qtyGram
+}
+
+export function convertBesarToGram(qtyBesar: number, b: { satuan_kecil?: string | null; faktor_tampilan?: number | null }): number {
+  if (b.satuan_kecil && b.faktor_tampilan) return qtyBesar * b.faktor_tampilan
+  return qtyBesar
+}
+
+export function formatCompositeSaldoFromGram(
+  totalKecil: number,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null,
+  multiline: boolean = false
+): string {
+  if (!satuanKecil || !faktorTampilan) {
+    return `${round2(totalKecil)} ${satuan}`
+  }
+
+  const sign = totalKecil < 0 ? '-' : ''
+  const remaining = Math.abs(totalKecil)
+
+  const besar = Math.trunc(remaining / faktorTampilan)
+  const kecil = round2(remaining - besar * faktorTampilan)
+
+  const separator = sign === '-' ? ' - ' : ' + '
+  const joiner = multiline ? `\n${separator.trimStart()}` : separator
+  const parts: string[] = []
+  if (besar !== 0 || kecil === 0) parts.push(`${besar} ${satuan}`)
+  if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+  return sign + parts.join(joiner)
+}
+
+export function formatTriUnitSaldoFromGram(
+  totalKecil: number,
+  satuanBesar: string,
+  satuanTengah?: string | null,
+  faktorTengah?: number | null,
+  satuanKecil?: string | null,
+  faktorTampilan?: number | null,
+  multiline: boolean = false
+): string {
+  if (!satuanTengah || !faktorTengah) {
+    return formatCompositeSaldoFromGram(totalKecil, satuanBesar, satuanKecil ?? null, faktorTampilan ?? null, multiline)
+  }
+  if (!satuanKecil || !faktorTampilan) {
+    return formatCompositeSaldoFromGram(totalKecil, satuanBesar, null, null, multiline)
+  }
+
+  const sign = totalKecil < 0 ? '-' : ''
+  const remaining = Math.abs(totalKecil)
+
+  const kecilPerBesar = faktorTampilan
+  const kecilPerTengah = faktorTampilan / faktorTengah
+
+  const besar = Math.trunc(remaining / kecilPerBesar)
+  const sisaSetelahBesar = remaining - besar * kecilPerBesar
+  const tengah = Math.trunc(sisaSetelahBesar / kecilPerTengah)
+  const kecil = round2(sisaSetelahBesar - tengah * kecilPerTengah)
+
+  const separator = sign === '-' ? ' - ' : ' + '
+  const joiner = multiline ? `\n${separator.trimStart()}` : separator
+  const parts: string[] = []
+  if (besar !== 0 || (tengah === 0 && kecil === 0)) parts.push(`${besar} ${satuanBesar}`)
+  if (tengah !== 0) parts.push(`${tengah} ${satuanTengah}`)
+  if (kecil !== 0) parts.push(`${kecil} ${satuanKecil}`)
+  return sign + parts.join(joiner)
+}
+
+export function formatCompositeSaldoAdaptive(
+  qty: number,
+  saldoIsGram: boolean,
+  satuan: string,
+  satuanKecil: string | null,
+  faktorTampilan: number | null,
+  multiline: boolean = false
+): string {
+  return saldoIsGram
+    ? formatCompositeSaldoFromGram(qty, satuan, satuanKecil, faktorTampilan, multiline)
+    : formatCompositeSaldo(qty, satuan, satuanKecil, faktorTampilan, multiline)
+}
+
+export interface TriUnitBreakdown {
+  large: number
+  medium: number
+  small: number
+}
+
+export function decomposeTriUnitRaw(
+  qty: number,
+  saldoIsGram: boolean,
+  satuanTengah: string | null | undefined,
+  faktorTengah: number | null | undefined,
+  satuanKecil: string | null | undefined,
+  faktorTampilan: number | null | undefined
+): TriUnitBreakdown {
+  let large = qty
+  let medium = 0
+  let small = 0
+
+  if (saldoIsGram) {
+    const remaining = Math.abs(qty)
+    const sign = qty < 0 ? -1 : 1
+
+    if (satuanTengah && faktorTengah && satuanKecil && faktorTampilan) {
+      const kecilPerBesar = faktorTampilan
+      const kecilPerTengah = faktorTampilan / faktorTengah
+      const besar = Math.trunc(remaining / kecilPerBesar)
+      const sisa = remaining - besar * kecilPerBesar
+      const tengahVal = Math.trunc(sisa / kecilPerTengah)
+      const kecilVal = Math.round((sisa - tengahVal * kecilPerTengah) * 100) / 100
+      large = besar * sign
+      medium = tengahVal
+      small = kecilVal
+    } else if (satuanKecil && faktorTampilan) {
+      const besar = Math.trunc(remaining / faktorTampilan)
+      const kecilVal = Math.round((remaining - besar * faktorTampilan) * 100) / 100
+      large = besar * sign
+      small = kecilVal
+    }
+    return { large, medium, small }
+  }
+
+  if (satuanTengah && faktorTengah) {
+    let whole = Math.trunc(qty)
+    let remainderBesar = qty - whole
+    large = whole
+
+    if (satuanKecil && faktorTampilan) {
+      let totalSmall = remainderBesar * faktorTampilan
+      totalSmall = Math.round(totalSmall * 100) / 100
+
+      let smallPerMedium = faktorTampilan / faktorTengah
+
+      let totalMedium = Math.trunc(totalSmall / smallPerMedium)
+      let remSmall = totalSmall - totalMedium * smallPerMedium
+
+      if (Math.abs(remSmall) >= smallPerMedium) {
+        totalMedium += Math.sign(remSmall)
+        remSmall = 0
+      }
+
+      if (Math.abs(totalMedium) >= faktorTengah) {
+        large += Math.sign(totalMedium)
+        totalMedium = 0
+      }
+
+      medium = Math.abs(totalMedium)
+      small = Math.abs(Math.round(remSmall * 100) / 100)
+    } else {
+      let rawMedium = remainderBesar * faktorTengah
+      let remMedium = Math.round(rawMedium * 100) / 100
+      if (Math.abs(remMedium) >= faktorTengah) {
+        large += Math.sign(remMedium)
+        remMedium = 0
+      }
+      medium = Math.abs(remMedium)
+    }
+  } else if (satuanKecil && faktorTampilan) {
+    let whole = Math.trunc(qty)
+    const remainderRaw = (qty - whole) * faktorTampilan
+    let remainder = Math.round(remainderRaw * 100) / 100
+    if (Math.abs(remainder) >= faktorTampilan) {
+      whole += Math.sign(remainder)
+      remainder = 0
+    }
+    large = whole
+    small = Math.abs(remainder)
+  }
+
+  return { large, medium, small }
+}
+
+export function formatTriUnitSaldoAdaptive(
+  qty: number,
+  saldoIsGram: boolean,
+  satuanBesar: string,
+  satuanTengah?: string | null,
+  faktorTengah?: number | null,
+  satuanKecil?: string | null,
+  faktorTampilan?: number | null,
+  multiline: boolean = false
+): string {
+  return saldoIsGram
+    ? formatTriUnitSaldoFromGram(qty, satuanBesar, satuanTengah, faktorTengah, satuanKecil, faktorTampilan, multiline)
+    : formatTriUnitSaldo(qty, satuanBesar, satuanTengah, faktorTengah, satuanKecil, faktorTampilan, multiline)
+}
+
+export function convertToDistribusiUnit(qtyBase: number, b: { satuan: string; satuan_tengah?: string | null; faktor_tengah?: number | null; satuan_kecil?: string | null; faktor_tampilan?: number | null; satuan_distribusi?: string | null }): number {
+  const factor = getDistribusiFactor(b);
+  return qtyBase * factor;
+}

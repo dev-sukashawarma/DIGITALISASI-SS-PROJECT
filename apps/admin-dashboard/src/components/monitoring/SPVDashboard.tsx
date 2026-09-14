@@ -1,0 +1,532 @@
+'use client';
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { SPVTable } from './SPVTable';
+import { MonitoringDetailModal } from './MonitoringDetailModal';
+import { TransferModal } from './TransferModal';
+import { SPVTabs, type SPVTabId } from './SPVTabs';
+import {
+  useSPVMonitoringData,
+  useLeaderMonitoringData,
+  useWasteToday,
+  useMonitoringRealtime
+} from '@/hooks/useMonitoringData';
+import type { MonitoringItem } from '@/lib/types/monitoring';
+import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
+import { useAuth } from '@suka/auth';
+import { Skeleton } from '@suka/design-system';
+import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { updateThresholdAction } from '@/app/actions/threshold';
+import { fetchOutletsList } from '@/lib/queries/monitoring';
+import { toast } from 'sonner';
+
+const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jakarta' | 'Depok' | 'Bekasi' | 'Tangerang' | 'Developer' => {
+  const name = outletName.toUpperCase();
+  
+  if (
+    name.includes('GLOBAL OUTLET') || 
+    name.includes('GLOBAL SYSTEM') || 
+    name.includes('OUTLET TES') || 
+    name.includes('OUTLET TEST') || 
+    name.includes('SHOOPE') || 
+    name.includes('SHOPEE') || 
+    name.includes('TITKOSHOP') || 
+    name.includes('TIKTOK') || 
+    name.includes('TIKTOKSHOP') || 
+    name.includes('TIKTOK SHOP')
+  ) {
+    return 'Developer';
+  }
+
+  if (name.includes('BNR')) return 'Bogor';
+  if (name.includes('GUDANG PUSAT') || name.includes('KANTOR PUSAT')) return 'Central Kitchen';
+  if (name.includes('KITCHEN (PUSAT)')) return 'Bogor';
+  if (name.includes('KITCHEN')) return 'Central Kitchen';
+  
+  if (name.includes('PEKAYON') || name.includes('JATIASIH') || name.includes('JATIWARINGIN') || name.includes('JATIWANGIN')) return 'Bekasi';
+  if (name.includes('CIRENDEU')) return 'Tangerang';
+  if (
+    name.includes('CIBINONG') || 
+    name.includes('CISEENG') || 
+    name.includes('CITAYAM') || 
+    name.includes('DRAMAGA') || 
+    name.includes('EMPANG') || 
+    name.includes('CIMANGGU') || 
+    name.includes('CIBUBUR') || 
+    name.includes('PAJAJARAN') || 
+    name.includes('PAJA JARAN') || 
+    name.includes('PALEDANG') || 
+    name.includes('CICURUG') || 
+    name.includes('SENTUL') || 
+    name.includes('CILEUNGSI')
+  ) {
+    return 'Bogor';
+  }
+  if (name.includes('DEPOK') || name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('WANGAN')) return 'Depok';
+  if (name.includes('TEBET') || name.includes('KALISARI') || name.includes('JAGAKARSA')) return 'Jakarta';
+  
+  return 'Jakarta';
+};
+
+export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[] } = {}) {
+  const router = useRouter();
+  useMonitoringRealtime();
+  
+  const [activeTab, setActiveTab] = useState<SPVTabId>('overview');
+  const [selectedItem, setSelectedItem] = useState<MonitoringItem | null>(null);
+  const [selectedOutletId, setSelectedOutletId] = useState<string | null>(null);
+  const [transferItem, setTransferItem] = useState<MonitoringItem | null>(null);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState<'all' | 'below' | 'warning' | 'ok'>('all');
+  const [localThresholdOverrides, setLocalThresholdOverrides] = useState<Record<string, number>>({});
+
+  const { outletStaff } = useAuth();
+  const isOwner = outletStaff?.role === 'owner';
+
+  const isLeaderScoped = !!allowedOutletIds;
+  const spvQuery = useSPVMonitoringData(!isLeaderScoped);
+  const leaderQuery = useLeaderMonitoringData(isLeaderScoped);
+  const { data, isLoading } = isLeaderScoped ? leaderQuery : spvQuery;
+
+  const wasteTodayQuery = useWasteToday();
+  const { data: allOutlets = [] } = useQuery({
+    queryKey: ['outlets_list_monitoring'],
+    queryFn: fetchOutletsList,
+    staleTime: 60000,
+  });
+
+  const wasteToday = useMemo(() => {
+    const raw = wasteTodayQuery.data?.entries || [];
+    if (!allowedOutletIds) return raw;
+    return raw.filter(entry => allowedOutletIds.includes(entry.outlet_id));
+  }, [wasteTodayQuery.data?.entries, allowedOutletIds]);
+
+  const outletWasteCount = useMemo(() => {
+    if (!selectedOutletId) return 0;
+    return wasteToday.filter(w => w.outlet_id === selectedOutletId).length;
+  }, [wasteToday, selectedOutletId]);
+
+  const items = useMemo(() => {
+    const originalItems = (data?.items || []).filter(
+      (item) => {
+        if (item.outlet_name.toUpperCase().includes('KANTOR PUSAT')) return false;
+        return !allowedOutletIds || allowedOutletIds.includes(item.outlet_id);
+      }
+    );
+    return originalItems.map(item => {
+      const overrideKey = `${item.outlet_id}-${item.bahan_baku_id}`;
+      if (localThresholdOverrides[overrideKey] !== undefined) {
+        const customVal = localThresholdOverrides[overrideKey];
+        let newStatus = item.status;
+        if (item.current_qty < customVal / 2) {
+          newStatus = 'below';
+        } else if (item.current_qty < customVal) {
+          newStatus = 'warning';
+        } else {
+          newStatus = 'ok';
+        }
+        return {
+          ...item,
+          threshold: customVal,
+          status: newStatus,
+        };
+      }
+      return item;
+    });
+  }, [data?.items, localThresholdOverrides, allowedOutletIds]);
+
+  const criticalAlertItems = useMemo(() => {
+    return items.filter(it => it.status === 'below');
+  }, [items]);
+
+  const totalNotificationCount = criticalAlertItems.length;
+
+  const currentOutletItems = useMemo(() => {
+    if (!selectedOutletId) return [];
+    return items.filter(item => item.outlet_id === selectedOutletId);
+  }, [items, selectedOutletId]);
+
+  const criticalCount = useMemo(() => {
+    return currentOutletItems.filter(item => item.status === 'below').length;
+  }, [currentOutletItems]);
+
+  const warningCount = useMemo(() => {
+    return currentOutletItems.filter(item => item.status === 'warning').length;
+  }, [currentOutletItems]);
+
+  const okCount = useMemo(() => {
+    return currentOutletItems.filter(item => item.status === 'ok').length;
+  }, [currentOutletItems]);
+
+  const healthScore = useMemo(() => {
+    const total = currentOutletItems.length;
+    if (total === 0) return 100;
+    return Math.round((okCount / total) * 100);
+  }, [currentOutletItems, okCount]);
+
+  const outlets = useMemo(() => {
+    const outletMap: Record<string, {
+      outlet_id: string;
+      outlet_name: string;
+      region: string;
+      items: typeof items;
+      kritisCount: number;
+      menipisCount: number;
+      status: 'below' | 'warning' | 'ok';
+    }> = {};
+
+    for (const outlet of allOutlets) {
+      if ((outlet.nama || '').toUpperCase().includes('KANTOR PUSAT')) continue;
+      if (allowedOutletIds && !allowedOutletIds.includes(outlet.id)) continue;
+      
+      outletMap[outlet.id] = {
+        outlet_id: outlet.id,
+        outlet_name: outlet.nama,
+        region: getOutletRegion(outlet.nama),
+        items: [],
+        kritisCount: 0,
+        menipisCount: 0,
+        status: 'ok',
+      };
+    }
+
+    for (const item of items) {
+      if (item.outlet_name.toUpperCase().includes('KANTOR PUSAT')) continue;
+      if (allowedOutletIds && !allowedOutletIds.includes(item.outlet_id)) continue;
+
+      if (!outletMap[item.outlet_id]) {
+        outletMap[item.outlet_id] = {
+          outlet_id: item.outlet_id,
+          outlet_name: item.outlet_name,
+          region: getOutletRegion(item.outlet_name),
+          items: [],
+          kritisCount: 0,
+          menipisCount: 0,
+          status: 'ok',
+        };
+      }
+      const o = outletMap[item.outlet_id];
+      o.items.push(item);
+      if (item.status === 'below') {
+        o.kritisCount++;
+        o.status = 'below';
+      } else if (item.status === 'warning') {
+        o.menipisCount++;
+        if (o.status !== 'below') {
+          o.status = 'warning';
+        }
+      }
+    }
+
+    const outletList = Object.values(outletMap).sort((a, b) => {
+      return a.outlet_name.localeCompare(b.outlet_name);
+    });
+
+    const regionMap: Record<string, typeof outletList> = {};
+    for (const outlet of outletList) {
+      if (!regionMap[outlet.region]) {
+        regionMap[outlet.region] = [];
+      }
+      regionMap[outlet.region].push(outlet);
+    }
+
+    return { byOutlet: outletList, byRegion: regionMap };
+  }, [items, allOutlets, allowedOutletIds]);
+
+  const visibleOutlets = useMemo(() => {
+    return outlets.byOutlet;
+  }, [outlets.byOutlet]);
+
+  useEffect(() => {
+    if (visibleOutlets.length > 0 && !selectedOutletId) {
+      let defaultOutletId = visibleOutlets[0].outlet_id;
+      const gudang = visibleOutlets.find(o => o.outlet_name.toUpperCase().includes('GUDANG'));
+      if (gudang) {
+        defaultOutletId = gudang.outlet_id;
+      }
+      setSelectedOutletId(defaultOutletId);
+    }
+  }, [visibleOutlets, selectedOutletId]);
+
+  const handleRestockRequest = (item: MonitoringItem) => {
+    toast.info(`Permintaan Pengisian Ulang: ${item.item_name} untuk ${item.outlet_name}`);
+  };
+
+  const handleTransferConfirm = (sourceOutletId: string, qty: number) => {
+    if (!transferItem) return;
+    const sourceOutletName = visibleOutlets.find(o => o.outlet_id === sourceOutletId)?.outlet_name || 'Outlet Asal';
+    toast.success(`Transfer Stok Berhasil: ${qty} unit ${transferItem.item_name} dipindahkan dari ${sourceOutletName} ke ${transferItem.outlet_name}`);
+    setTransferItem(null);
+  };
+
+  const handleThresholdChange = async (outletId: string, bahanBakuId: string, value: number) => {
+    const overrideKey = `${outletId}-${bahanBakuId}`;
+    setLocalThresholdOverrides(prev => ({
+      ...prev,
+      [overrideKey]: value
+    }));
+    
+    try {
+      await updateThresholdAction(outletId, bahanBakuId, value);
+      toast.success(`Batas minimum diperbarui menjadi ${value}`);
+      if (isLeaderScoped) {
+        leaderQuery.refetch();
+      } else {
+        spvQuery.refetch();
+      }
+    } catch (error) {
+      console.error('Failed to update threshold:', error);
+      toast.error('Gagal menyimpan batas minimum. Silakan coba lagi.');
+      setLocalThresholdOverrides(prev => {
+        const next = { ...prev };
+        delete next[overrideKey];
+        return next;
+      });
+    }
+  };
+
+  const renderNotificationBell = () => {
+    return (
+      <div className="relative">
+        <button
+          onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+          className="text-suka-brown/70 hover:text-suka-orange p-2 rounded-2xl transition-colors relative flex items-center justify-center hover:bg-suka-cream/50 cursor-pointer"
+          title="Notifikasi Stok Kritis"
+        >
+          <Bell className="w-5 h-5" />
+          {totalNotificationCount > 0 && (
+            <span className="absolute top-0.5 right-0.5 bg-red-600 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center font-bold border-2 border-white">
+              {totalNotificationCount}
+            </span>
+          )}
+        </button>
+        
+        {isNotificationOpen && (
+          <div className="absolute right-0 mt-3 w-80 bg-white border border-suka-brown/15 rounded-2xl shadow-xl z-50 p-4 space-y-3 text-sm animate-in fade-in zoom-in-95 duration-150">
+            <h4 className="font-black text-xs text-suka-brown tracking-wider uppercase border-b border-suka-brown/10 pb-2 flex justify-between items-center">
+              <span>Notifikasi Stok Kritis ({totalNotificationCount})</span>
+            </h4>
+            <div className="max-h-[280px] overflow-y-auto space-y-2 pr-1">
+              {totalNotificationCount === 0 ? (
+                <p className="text-xs text-suka-brown/50 italic text-center py-6 font-medium">
+                  Tidak ada stok kritis saat ini
+                </p>
+              ) : (
+                criticalAlertItems.map((alert) => (
+                  <div key={`${alert.outlet_id}-${alert.bahan_baku_id}`} className="p-2.5 bg-red-50/70 border border-red-200 rounded-xl flex items-start gap-2">
+                    <span className="text-xs">🚨</span>
+                    <div className="flex-1">
+                      <p className="text-xs font-black text-red-950 uppercase tracking-wide">{alert.item_name}</p>
+                      <p className="text-[10px] text-red-800 font-medium">
+                        Stok kritis di {alert.outlet_name.replace('SUKA SHAWARMA ', '')} ({formatCompositeSaldoAdaptive(alert.current_qty, alert.saldo_is_gram, alert.satuan, alert.satuan_kecil, alert.faktor_tampilan)})
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex flex-col text-suka-brown w-full space-y-4">
+      {/* Top Header Card */}
+      <div className="bg-white rounded-2xl border border-suka-brown/10 p-4 sm:p-5 flex items-center justify-between shadow-xs">
+        <div>
+          <h1 className="font-display text-xl sm:text-2xl text-suka-brown tracking-tight">
+            Monitoring Stok Bahan Baku
+          </h1>
+          <p className="text-[11px] text-suka-brown/60 font-bold uppercase tracking-wider mt-0.5">
+            Real-Time Balance & Multi-Unit Inventory Control
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => { isLeaderScoped ? leaderQuery.refetch() : spvQuery.refetch(); }}
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-suka-cream/50 hover:bg-suka-cream text-suka-brown border border-suka-brown/10 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-3.5 h-3.5 text-suka-orange" />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          {renderNotificationBell()}
+        </div>
+      </div>
+
+      {/* SPV Navigation Tabs */}
+      <div className="bg-white rounded-2xl border border-suka-brown/10 shadow-xs overflow-hidden">
+        <SPVTabs
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            if (tab === 'budget_outlet') {
+              router.push('/dashboard/budget-outlet');
+            } else if (tab === 'harga_bahan') {
+              router.push('/dashboard/bahan-baku');
+            } else if (tab === 'po_inbound') {
+              router.push('/dashboard/pembelian');
+            } else {
+              setActiveTab(tab);
+              if (tab === 'alerts') {
+                setFilterStatus('below');
+              } else if (tab === 'overview') {
+                setFilterStatus('all');
+              }
+            }
+          }}
+          alertCount={criticalCount}
+          showPOInbound={true}
+        />
+
+        {/* Toolbar & Filter Bar */}
+        <div className="p-4 md:p-6 bg-white border-t border-suka-brown/10 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            {/* Region-Grouped Outlet Select */}
+            <div className="flex items-center gap-2 flex-1 max-w-md">
+              <div className="relative w-full flex items-center bg-suka-cream/40 border border-suka-brown/15 rounded-2xl px-3 py-2 hover:border-suka-orange transition-colors">
+                <Store className="w-4 h-4 text-suka-orange shrink-0 mr-2" />
+                <select
+                  value={selectedOutletId || ''}
+                  onChange={(e) => setSelectedOutletId(e.target.value)}
+                  className="w-full bg-transparent text-xs font-black text-suka-brown outline-none cursor-pointer pr-2 font-sans"
+                >
+                  {['Central Kitchen', 'Bogor', 'Jakarta', 'Depok', 'Bekasi', 'Tangerang', 'Developer'].map((region) => {
+                    const regionOutlets = outlets.byRegion[region] || [];
+                    if (regionOutlets.length === 0) return null;
+                    return (
+                      <optgroup key={region} label={`📍 ${region.toUpperCase()}`}>
+                        {regionOutlets.map((o) => {
+                          const cleanName = o.outlet_name.replace('SUKA SHAWARMA ', '').toUpperCase();
+                          const alertBadge = o.status === 'below' ? ` (🚨 ${o.kritisCount} Kritis)` : o.status === 'warning' ? ` (⚠️ ${o.menipisCount})` : '';
+                          return (
+                            <option key={o.outlet_id} value={o.outlet_id}>
+                              {cleanName}{alertBadge}
+                            </option>
+                          );
+                        })}
+                      </optgroup>
+                    );
+                  })}
+                </select>
+              </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/40" />
+              <input
+                type="text"
+                placeholder="Cari nama bahan baku..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-8 py-2 bg-suka-cream/40 border border-suka-brown/10 rounded-2xl text-xs font-bold text-suka-brown focus:outline-none focus:border-suka-orange placeholder:text-suka-brown/40"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-suka-brown/40 hover:text-suka-brown cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter Status Pills & Stats */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-suka-brown/5">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+              {[
+                { id: 'all', label: 'Semua Bahan', count: currentOutletItems.length },
+                { id: 'below', label: '🚨 Kritis', count: criticalCount },
+                { id: 'warning', label: '⚠️ Menipis', count: warningCount },
+                { id: 'ok', label: '✅ Aman', count: okCount },
+              ].map((btn) => {
+                const isActive = filterStatus === btn.id;
+                return (
+                  <button
+                    key={btn.id}
+                    onClick={() => setFilterStatus(btn.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-suka-brown text-white shadow-xs'
+                        : 'bg-suka-cream/40 text-suka-brown/70 hover:bg-suka-cream hover:text-suka-brown'
+                    }`}
+                  >
+                    <span>{btn.label}</span>
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-black/5 text-suka-brown/70'
+                    }`}>
+                      {btn.count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-4 text-xs font-bold text-suka-brown/70">
+              {outletWasteCount > 0 && (
+                <span className="flex items-center gap-1 text-suka-brown/70 bg-suka-cream/60 px-2 py-1 rounded-lg border border-suka-brown/10">
+                  <Trash2 className="w-3.5 h-3.5" /> {outletWasteCount} waste hari ini
+                </span>
+              )}
+              <span className="text-emerald-700 flex items-center gap-1 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Health: {healthScore}%
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Table Content */}
+        <div className="p-4 md:p-6 border-t border-suka-brown/10">
+          {isLoading && !data ? (
+            <div className="p-6 space-y-6">
+              <Skeleton className="h-8 w-64 rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-2xl" />
+              <Skeleton className="h-96 w-full rounded-2xl" />
+            </div>
+          ) : (
+            <SPVTable
+              items={items}
+              tab="overview"
+              selectedOutletId={selectedOutletId || undefined}
+              searchTerm={searchTerm}
+              filterStatus={filterStatus}
+              hideFilters={true}
+              onRowClick={setSelectedItem}
+              onThresholdChange={isOwner ? undefined : handleThresholdChange}
+              onRestockRequest={isOwner ? undefined : handleRestockRequest}
+              onTransferRequest={isOwner ? undefined : setTransferItem}
+              loading={isLoading && !data}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Detail Modal */}
+      {selectedItem && (
+        <MonitoringDetailModal
+          item={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          isOpen={!!selectedItem}
+        />
+      )}
+
+      {/* Transfer Stock Modal */}
+      {!isOwner && (
+        <TransferModal
+          item={transferItem}
+          allInventory={items}
+          isOpen={!!transferItem}
+          onClose={() => setTransferItem(null)}
+          onConfirm={handleTransferConfirm}
+        />
+      )}
+    </div>
+  );
+}

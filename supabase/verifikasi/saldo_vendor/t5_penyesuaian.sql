@@ -6,7 +6,7 @@ DO $$
 DECLARE
   v_kitchen uuid; v_crew uuid; v_sapi uuid; v_ayam uuid; v_az uuid; v_dj uuid;
   v_sisa_az numeric; v_f numeric; v_n int; v_total_sebelum numeric; v_total_sesudah numeric;
-  v_ok boolean;
+  v_ok boolean; v_purch uuid;
 BEGIN
   SELECT id INTO v_sapi FROM bahan_baku WHERE nama='SAPI' AND is_active;
   SELECT id INTO v_ayam FROM bahan_baku WHERE nama='AYAM' AND is_active;
@@ -14,6 +14,7 @@ BEGIN
   SELECT public.vendor_induk(id) INTO v_dj FROM supplier WHERE nama ILIKE 'Djafafood%' LIMIT 1;
   SELECT id INTO v_kitchen FROM outlet_staff WHERE role='kitchen' AND status='active' LIMIT 1;
   SELECT id INTO v_crew FROM outlet_staff WHERE role='crew' AND status='active' LIMIT 1;
+  SELECT id INTO v_purch FROM outlet_staff WHERE role='purchasing' AND status='active' LIMIT 1;
   IF v_sapi IS NULL OR v_ayam IS NULL OR v_az IS NULL OR v_dj IS NULL OR v_kitchen IS NULL OR v_crew IS NULL THEN
     RAISE EXCEPTION 'GAGAL: fixture tidak lengkap';
   END IF;
@@ -91,6 +92,11 @@ BEGIN
   EXCEPTION WHEN insufficient_privilege THEN v_ok := true;
   END;
   IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (f): crew bisa memakai RPC'; END IF;
+
+  -- (f2) purchasing boleh (keputusan owner 2026-09-14, migration 20260914110000)
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_purch, 'role','authenticated')::text, true);
+  PERFORM public.catat_penyesuaian_gudang_vendor(jsonb_build_array(jsonb_build_object(
+    'bahan_baku_id', v_sapi, 'vendor_id', v_dj, 'tipe','adjustment', 'qty_besar', 1, 'catatan','UJI t5 purchasing')));
 
   RESET ROLE;
   -- (g) outlet lain: adjustment SAPI tanpa vendor lolos (penjaga hanya Gudang Pusat)

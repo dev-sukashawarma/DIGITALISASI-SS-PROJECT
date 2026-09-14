@@ -31,8 +31,8 @@ export async function createOutlet(values: OutletFormValues) {
     type: values.type,
     is_active: values.is_active,
     marquee_warning_threshold: values.marquee_warning_threshold,
-    open_hour: values.open_hour || null,
-    close_hour: values.close_hour || null,
+    open_hour: values.open_hour || '14:00',
+    close_hour: values.close_hour || '22:00',
   })
   
   if (primaryError) throw new Error(primaryError.message)
@@ -50,8 +50,8 @@ export async function createOutlet(values: OutletFormValues) {
         lng: values.lng || null,
         type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned', // match order online schema
         is_active: values.is_active,
-        open_hour: values.open_hour || null,
-        close_hour: values.close_hour || null,
+        open_hour: values.open_hour || '14:00',
+        close_hour: values.close_hour || '22:00',
       })
       
       if (secondaryError) {
@@ -80,8 +80,8 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
     type: values.type,
     is_active: values.is_active,
     marquee_warning_threshold: values.marquee_warning_threshold,
-    open_hour: values.open_hour || null,
-    close_hour: values.close_hour || null,
+    open_hour: values.open_hour || '14:00',
+    close_hour: values.close_hour || '22:00',
     updated_at: new Date().toISOString(),
   }
   
@@ -102,8 +102,8 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
           lng: values.lng || null,
           type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
           is_active: values.is_active,
-          open_hour: values.open_hour || null,
-          close_hour: values.close_hour || null,
+          open_hour: values.open_hour || '14:00',
+          close_hour: values.close_hour || '22:00',
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)

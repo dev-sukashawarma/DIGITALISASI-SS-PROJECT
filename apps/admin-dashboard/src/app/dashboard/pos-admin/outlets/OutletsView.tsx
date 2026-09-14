@@ -26,7 +26,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
   const [address, setAddress] = useState('')
   const [phone, setPhone] = useState('')
   const [type, setType] = useState('owned')
-  const [openHour, setOpenHour] = useState('13:00')
+  const [openHour, setOpenHour] = useState('14:00')
   const [closeHour, setCloseHour] = useState('22:00')
   const [isActive, setIsActive] = useState(true)
   const [inactiveReason, setInactiveReason] = useState('')
@@ -63,7 +63,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       setAddress(outlet.address || '')
       setPhone(outlet.phone || '')
       setType(outlet.type || 'owned')
-      setOpenHour(outlet.open_hour ? outlet.open_hour.substring(0, 5) : '13:00')
+      setOpenHour(outlet.open_hour ? outlet.open_hour.substring(0, 5) : '14:00')
       setCloseHour(outlet.close_hour ? outlet.close_hour.substring(0, 5) : '22:00')
       setIsActive(outlet.is_active)
       setInactiveReason(outlet.inactive_reason || '')
@@ -73,7 +73,7 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
       setAddress('')
       setPhone('')
       setType('owned')
-      setOpenHour('13:00')
+      setOpenHour('14:00')
       setCloseHour('22:00')
       setIsActive(true)
       setInactiveReason('')
@@ -92,8 +92,8 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         address,
         phone,
         type,
-        open_hour: openHour + ':00',
-        close_hour: closeHour + ':00',
+        open_hour: (openHour || '14:00') + ':00',
+        close_hour: (closeHour || '22:00') + ':00',
         is_active: isActive,
         inactive_reason: !isActive ? inactiveReason : null
       })
@@ -103,10 +103,10 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         fetch('/api/admin/outlets/sync-to-online', { method: 'POST', body: JSON.stringify({ action: 'upsert', outlet: result.data }) })
           .then(res => { if (!res.ok) throw new Error('Sync failed') })
           .catch(e => toast.error('Gagal sinkronisasi ke online: ' + e.message))
-        toast.success('Cabang berhasil diupdate')
+        toast.success('Cabang berhasil diperbarui')
       } else {
         console.error('Update outlet error:', result.error)
-        toast.error('Gagal mengupdate cabang: ' + result.error)
+        toast.error('Gagal memperbarui cabang: ' + result.error)
       }
     } else {
       const result = await upsertOutlet({
@@ -114,8 +114,8 @@ export default function OutletsView({ initialOutlets }: OutletsViewProps) {
         address,
         phone,
         type,
-        open_hour: openHour + ':00',
-        close_hour: closeHour + ':00',
+        open_hour: (openHour || '14:00') + ':00',
+        close_hour: (closeHour || '22:00') + ':00',
         is_active: isActive,
         inactive_reason: !isActive ? inactiveReason : null
       })

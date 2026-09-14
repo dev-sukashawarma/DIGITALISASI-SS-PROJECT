@@ -11,7 +11,7 @@ const inputCls =
 
 const EMPTY: OutletFormValues = {
   name: '', slug: '', address: '', lat: NaN, lng: NaN, type: 'outlet', is_active: true, marquee_warning_threshold: 7,
-  open_hour: '13:00', close_hour: '22:00'
+  open_hour: '14:00', close_hour: '22:00'
 }
 
 export function OutletForm({
@@ -108,12 +108,12 @@ export function OutletForm({
 
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Jam Buka</span>
-        <input type="time" className={inputCls} value={v.open_hour || ''} onChange={(e) => set({ open_hour: e.target.value })} />
+        <input type="time" className={inputCls} value={v.open_hour || '14:00'} onChange={(e) => set({ open_hour: e.target.value })} />
       </label>
 
       <label className="text-sm">
         <span className="mb-1 block font-medium text-suka-ink">Jam Tutup</span>
-        <input type="time" className={inputCls} value={v.close_hour || ''} onChange={(e) => set({ close_hour: e.target.value })} />
+        <input type="time" className={inputCls} value={v.close_hour || '22:00'} onChange={(e) => set({ close_hour: e.target.value })} />
       </label>
 
       <label className="flex items-center gap-2 text-sm">

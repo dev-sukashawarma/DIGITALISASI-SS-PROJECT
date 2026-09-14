@@ -73,11 +73,16 @@ export async function resolveUserId(
     const claims = session?.access_token
       ? await verifyAccessToken(session.access_token, jwtSecret)
       : null
-    return claims?.sub ?? null
+    if (claims?.sub) {
+      return claims.sub
+    }
+    // Jika JWT kedaluwarsa (>1 jam) atau invalid, fallback ke getUser()
+    // agar token otomatis di-refresh oleh @supabase/ssr via refresh token.
   }
-  if (process.env.NODE_ENV === 'production') {
+  if (process.env.NODE_ENV === 'production' && !jwtSecret) {
     console.warn('[perf] SUPABASE_JWT_SECRET unset in production — falling back to slow network getUser() per request')
   }
   const { data: { user } } = await supabase.auth.getUser()
   return user?.id ?? null
 }
+

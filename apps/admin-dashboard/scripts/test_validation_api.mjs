@@ -5,7 +5,15 @@ import path from 'path'
 // Load .env.local
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
 
-const API_KEY = process.env.VALIDATION_API_KEY || 'hermes_secret_123'
+// Key WAJIB dari env. Dulu ada nilai cadangan yang ditanam di sini, dan karena repo
+// ini publik, nilai itu ikut terbuka — endpoint settlement menulis ke DB pakai
+// service role. Nilai lama itu masih ada di riwayat git: yang menutupnya adalah
+// rotasi VALIDATION_API_KEY di panel Coolify, bukan perubahan file ini.
+const API_KEY = process.env.VALIDATION_API_KEY
+if (!API_KEY) {
+  console.error('VALIDATION_API_KEY belum di-set. Isi di apps/admin-dashboard/.env.local lalu jalankan ulang.')
+  process.exit(1)
+}
 const BASE_URL = 'http://127.0.0.1:3005'
 
 // Get yesterday's date to ensure we have data, or today's date

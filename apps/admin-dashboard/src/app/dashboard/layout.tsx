@@ -11,7 +11,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="flex h-[100dvh] w-full overflow-hidden bg-[#FDF9F3] lg:bg-[#4A1713] relative">
       {/* Decorative Glow - Kept strictly inside by overflow-hidden */}
-      <div className="absolute bottom-[-10rem] left-[-10rem] w-[30rem] h-[30rem] bg-suka-orange/20 blur-[120px] rounded-full pointer-events-none z-0" />
+      <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+        <div className="absolute bottom-[-10rem] left-[-10rem] w-[30rem] h-[30rem] bg-suka-orange/20 blur-[120px] rounded-full" />
+      </div>
       <CommandMenu />
       <RealtimeMount />
       <Sidebar />

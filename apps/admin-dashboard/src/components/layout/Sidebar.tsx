@@ -2,7 +2,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowLeft, ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { useRole } from './RoleContext'
@@ -16,6 +16,8 @@ export const Sidebar = () => {
   const { pendingCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
   const { signOut } = useAuth()
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const activeItemRef = useRef<HTMLAnchorElement>(null)
 
   const handleLogout = async () => {
     await signOut()
@@ -51,10 +53,36 @@ export const Sidebar = () => {
     }
   }, [activeGroupTitle])
 
+  // Scroll active item smoothly into view if it is not visible or when group opens
+  useEffect(() => {
+    if (activeItemRef.current) {
+      activeItemRef.current.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+    }
+  }, [pathname, openDoor])
+
+  // Forward wheel events anywhere on aside (e.g. over logo header or logout footer) to scrollable container
+  const handleWheel = (e: React.WheelEvent) => {
+    if (!scrollRef.current) return
+    if (!scrollRef.current.contains(e.target as Node)) {
+      scrollRef.current.scrollTop += e.deltaY
+    }
+  }
+
+  const scrollToTop = () => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
-    <aside className="hidden w-[260px] shrink-0 bg-transparent text-white lg:flex lg:flex-col print:hidden z-40 relative">
-      <div className="p-6 pb-2 text-center flex flex-col items-center justify-center">
-        <div className="w-14 h-14 mb-2 rounded-full overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10">
+    <aside 
+      onWheel={handleWheel}
+      className="hidden w-[260px] h-full min-h-0 shrink-0 bg-transparent text-white lg:flex lg:flex-col print:hidden z-40 relative select-none"
+    >
+      <div 
+        onClick={scrollToTop}
+        className="p-6 pb-2 text-center flex flex-col items-center justify-center cursor-pointer group shrink-0"
+        title="Klik untuk scroll ke atas"
+      >
+        <div className="w-14 h-14 mb-2 rounded-full overflow-hidden flex items-center justify-center bg-white/5 shadow-inner border border-white/10 group-hover:scale-105 transition-transform">
           <img src="/logo.png" alt="Suka Shawarma Logo" className="w-full h-full object-cover" />
         </div>
         <div className="text-lg font-extrabold text-white tracking-tight leading-tight">
@@ -65,7 +93,10 @@ export const Sidebar = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1.5 text-sm">
+      <div 
+        ref={scrollRef}
+        className="flex-1 min-h-0 overflow-y-auto py-4 px-3 space-y-1.5 text-sm custom-sidebar-scrollbar overscroll-contain"
+      >
         {groups.map((group) => {
           const DoorIcon = group.icon
           const isOpen = openDoor === group.title
@@ -102,6 +133,7 @@ export const Sidebar = () => {
                           <div key={href}>
                             <div className="flex items-center">
                               <Link
+                                ref={active ? activeItemRef : undefined}
                                 href={href}
                                 onClick={() => hasChildren && setOpenSub(href)}
                                 className={`group flex flex-1 items-center gap-3 rounded-xl ml-2 ${hasChildren ? 'mr-0' : 'mr-2'} px-3 py-2 font-semibold transition-all active:scale-95 ${
@@ -138,6 +170,7 @@ export const Sidebar = () => {
                                   const subActive = isItemActive(subHref, pathname)
                                   return (
                                     <Link
+                                      ref={subActive ? activeItemRef : undefined}
                                       key={subHref}
                                       href={subHref}
                                       className={`group flex items-center gap-2.5 rounded-lg mx-1 px-2.5 py-1.5 font-semibold transition-all active:scale-95 ${

@@ -9,6 +9,7 @@ import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
 import { isApproverRole, canCatatTerimaVendor, canLihatNotaVendor } from '@/lib/stok/approver'
+import { canLihatKirimanVendor } from '@/lib/stok/kirimanVendor'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
 import {
@@ -87,6 +88,8 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // Cocokkan Nota Vendor (pengesah) -- Task 8, ditunda dari Task 6 (ruling R1).
   // RPC memeriksa ulang peran; ini hanya menentukan tampil-tidaknya menu.
   const canLihatNota = canLihatNotaVendor(role)
+  // Laporan Kiriman per Vendor -- RPC memeriksa ulang peran (spec 2026-09-14).
+  const canLihatKiriman = canLihatKirimanVendor(role)
 
   // 1. Pending Approvals Permintaan
   const { permintaan } = useApprovalList(isApprover)
@@ -167,6 +170,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 label: 'Nilai Persediaan',
                 href: '/stok/nilai-persediaan',
                 icon: Wallet,
+              },
+            ]
+          : []),
+        ...(canLihatKiriman
+          ? [
+              {
+                label: 'Kiriman per Vendor',
+                href: '/stok/kiriman-vendor',
+                icon: Truck,
               },
             ]
           : []),

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useSuratJalanDetail } from '@/hooks/useSuratJalanDetail'
+import { labelNamaBahan } from '@/lib/labelVendor'
 import { ReceiptSignatureStep } from './ReceiptSignatureStep'
 import {
   ArrowLeft,
@@ -137,6 +138,9 @@ export function VerifikasiForm({ id }: { id: string }) {
       }
     })
   }, [data])
+
+  // Bahan yang dipecah beberapa vendor diberi nama vendor (spec 2026-09-14 §4.5).
+  const labelBahan = useMemo(() => labelNamaBahan(items), [items])
 
   // Hydrate verifications: restore draft dari localStorage
   useEffect(() => {
@@ -617,7 +621,7 @@ export function VerifikasiForm({ id }: { id: string }) {
                   {v?.foto_preview ? (
                     <img
                       src={v.foto_preview}
-                      alt={item.bahan_baku?.nama}
+                      alt={labelBahan[item.id] ?? item.bahan_baku?.nama}
                       className="w-12 h-12 rounded-xl object-cover shrink-0 border border-suka-brown/15 shadow-xs"
                     />
                   ) : (
@@ -627,7 +631,7 @@ export function VerifikasiForm({ id }: { id: string }) {
                   )}
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-extrabold text-suka-ink uppercase tracking-wide truncate">
-                      {item.bahan_baku?.nama}
+                      {labelBahan[item.id] ?? item.bahan_baku?.nama}
                     </p>
                     {isTidakSesuai && v?.catatan && (
                       <p className="text-[10px] text-red-600 mt-0.5 font-semibold truncate">
@@ -713,7 +717,7 @@ export function VerifikasiForm({ id }: { id: string }) {
           </div>
 
           <h2 className="text-lg sm:text-xl font-black text-suka-ink uppercase tracking-tight leading-tight">
-            {currentItem?.bahan_baku?.nama}
+            {currentItem ? (labelBahan[currentItem.id] ?? currentItem.bahan_baku?.nama) : null}
           </h2>
 
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#fff8f1] p-4 rounded-2xl border border-suka-orange/20">

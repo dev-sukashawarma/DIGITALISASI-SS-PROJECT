@@ -9,10 +9,12 @@ BEGIN
   SELECT public.vendor_induk(id) INTO v_dj FROM supplier WHERE nama ILIKE 'Djafafood%';
   SELECT id INTO v_az FROM supplier WHERE nama='Lettuce (Pak Aziz) - Tempo 10';
   SELECT id INTO v_outlet FROM outlets WHERE type='test' LIMIT 1;
-  -- titik awal: aktifkan SAPI (Djafafood 3 Blok, Pak Aziz 4 Blok) lewat mutasi langsung sebagai postgres
+  -- titik awal: SETEL sisa SAPI jadi Djafafood 3 Blok, Pak Aziz 4 Blok lewat mutasi
+  -- langsung sebagai postgres. Ditulis sebagai DELTA terhadap sisa yang sudah ada
+  -- (sejak baseline 12 Sep 2026 sisa produksi tak lagi nol), jadi uji tak basi.
   INSERT INTO stok_vendor_gudang_mutasi (bahan_baku_id, vendor_id, qty, sumber, catatan) VALUES
-    (v_sapi, v_dj, public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 3), 'hitung_fisik', 'UJI'),
-    (v_sapi, v_az, public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 4), 'hitung_fisik', 'UJI');
+    (v_sapi, v_dj, public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 3) - public.sisa_vendor_gudang(v_sapi, v_dj), 'hitung_fisik', 'UJI'),
+    (v_sapi, v_az, public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 4) - public.sisa_vendor_gudang(v_sapi, v_az), 'hitung_fisik', 'UJI');
 
   -- Titik awal harga: katalog Djafafood SAPI dibuat tak-sepele (isi_satuan_kecil
   -- 500 vs faktor_tampilan 2000) supaya (b) benar-benar menguji KONVERSI, bukan

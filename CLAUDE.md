@@ -2543,5 +2543,72 @@ preseden repo (situasi sama, 2026-09-09): **didokumentasikan, bukan di-rename**.
 
 ---
 
-**Last updated:** 2026-09-12  
+## Session 2026-09-14: Saldo Vendor Gudang — Penyesuaian per Vendor, Laporan Kiriman, Kunci Sisa
+
+**Status:** ✅ LIVE. Semua migration applied + terverifikasi katalog + terstempel.
+App `stok` & `distribusi` sudah redeploy (commit `9c6f34a5`, `219f1f35`, `1cd77a46`).
+Uji `supabase/verifikasi/saldo_vendor/t1–t6` dan `kiriman_vendor/t1_laporan` **LULUS**,
+tiap uji dijalankan dulu sebelum migration (gagal) sebagai kontrol negatif.
+
+### 1. Penyesuaian & transfer keluar Gudang Pusat wajib pilih vendor
+Celah: `adjustment`/`transfer_keluar` manual (form Entri Manual, ditulis langsung dari
+browser) mengurangi stok total tapi tidak saldo vendor → buku vendor bergeser tiap
+kitchen menyesuaikan (SAPI −28, KENTANG −6,5 sejak baseline 12 Sep). Waste Gudang
+Pusat = 0 kejadian di September, sengaja di luar cakupan.
+
+| Migration | Isi |
+|---|---|
+| `20260914100000_penyesuaian_gudang_vendor` | Sumber mutasi `penyesuaian`; RPC `catat_penyesuaian_gudang_vendor(p_items jsonb)` tulis ledger + mutasi bersamaan (1 vendor = 1 baris ledger), pengurangan > sisa ditolak; **constraint trigger DEFERRED** `trg_cek_penyesuaian_gudang_bervendor` menolak baris adjustment/transfer_keluar tanpa rujukan dokumen untuk bahan multi-vendor di Gudang Pusat yang tak punya mutasi `penyesuaian` sepadan (menutup tab lama & skrip SQL) |
+| `20260914110000_penyesuaian_vendor_izinkan_purchasing` | Role RPC: kitchen, **purchasing**, admin, owner (keputusan owner) |
+| `20260914170000_kunci_sisa_vendor` | `pg_advisory_xact_lock(hashtext('svgm:<bahan>:<vendor>'))` di `sj_vendor_on_dikirim` DAN RPC penyesuaian, semua pasangan dikunci di muka urut `bahan::text, vendor::text` — sebelumnya dua SJ dikirim bersamaan bisa sama-sama lolos cek sisa |
+
+Form (`ManualEntryForm.tsx`): pemilih vendor tampil berdasar **outlet = Gudang Pusat**,
+bukan role; role di luar `ROLE_PENYESUAIAN_VENDOR` (`lib/stok/penyesuaianVendor.ts`,
+WAJIB sama dengan RPC) melihat keterangan & tombol terkunci untuk bahan multi-vendor.
+Bahan satu-vendor tak terkunci walau saldo vendor tak terbaca (crew Gudang Pusat).
+Ganti arah/tipe mengosongkan pilihan vendor.
+
+### ⚠️ Gotcha yang tertangkap uji
+- **Constraint trigger deferred + `SET CONSTRAINTS ALL IMMEDIATE`** di sesi pemanggil
+  membuat penjaga memeriksa baris ledger SEBELUM mutasinya tertulis → RPC menulis
+  mutasi DULU dengan `v_ledger := gen_random_uuid()`, baru ledger ber-id itu.
+  `SET CONSTRAINTS ALL IMMEDIATE` berlaku sampai akhir transaksi — dalam uji, setel
+  kembali `DEFERRED` sesudahnya.
+- **Subquery fixture di bawah `SET LOCAL ROLE authenticated` kena RLS** → id kosong →
+  uji gagal dengan pesan yang tampak seperti bug produk. Ambil semua id fixture
+  SEBELUM berganti peran.
+- Uji lama yang mengandaikan gudang "belum pernah dihitung" (T1, T3) basi setelah
+  baseline — kini relatif (delta terhadap sisa berjalan).
+
+### 2. Laporan Kiriman per Vendor (`/stok/kiriman-vendor`)
+Spec `docs/superpowers/specs/2026-09-14-laporan-kiriman-vendor-design.md`, plan
+`docs/superpowers/plans/2026-09-14-laporan-kiriman-vendor.md`. Migration
+`20260914160000_laporan_kiriman_vendor`: `_kiriman_vendor_baris` (internal, satu sumber
+aturan) + RPC `laporan_kiriman_vendor_rincian` (berhalaman, `total_count`) & `_rekap`
+(vendor×bahan×outlet, tanpa outlet tes). Role: kitchen, purchasing, admin, owner,
+admin_finance, spv, regional_manager. Rentang ≤ 93 hari. Status draft/dibatalkan
+dilewati. Vendor NULL → vendor tunggal katalog bertanda "(katalog)", selain itu
+"Belum tercatat". Data vendor mulai 12 Sep 2026.
+
+**Fakta yang mengoreksi spec:** baris SJ tanpa vendor BUKAN bahan satu-vendor, tapi
+bahan yang **belum punya vendor di katalog** — HAND GLOVE, KERTAS STRUK, PAPER WRAP,
+SAOS CABE, TUM, TUTUP PACK (± Rp 6,7 jt untuk 12–14 Sep).
+
+Distribusi `VerifikasiForm`: bahan yang dipecah vendor tampil `NAMA · Vendor`
+(`lib/labelVendor.ts`).
+
+### 📝 Next
+- **Opname Gudang Pusat 11 bahan** (PLASTIK MERAH, KENTANG, JINTEN, MAYONAISE, FOIL,
+  MINYAK, VACUUM JUMBO, KETUMBAR, SAOS TOMAT POUCH, SAOS SAMYANG, POLYBAG) untuk
+  mengoreksi stok total ke fisik — buku vendor sudah benar sejak baseline.
+- Isi vendor katalog 6 bahan di atas (menunggu owner).
+- Uji login sungguhan: Entri Manual Gudang Pusat, Kiriman per Vendor, label verifikasi.
+- Drop-ship sayur go-live 20–21 Sep — uji login sungguhan runbook belum dijalankan.
+- Terbuka: `sj_vendor_on_dikirim` menilai ulang sisa bila SJ yang sudah pernah
+  `dikirim` kembali ke status lain lalu dikirim lagi (mutasi lama `ON CONFLICT DO
+  NOTHING`, cek sisa bisa menolak palsu). Belum pernah terjadi; tidak diperbaiki.
+
+---
+
+**Last updated:** 2026-09-14  
 **Owner:** Dev Suka Shawarma

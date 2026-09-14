@@ -22,18 +22,30 @@ BEGIN
   IF v_n <> 2 OR NOT public.bahan_multi_vendor(v_sapi) THEN RAISE EXCEPTION 'GAGAL (b): SAPI vendor induk = %', v_n; END IF;
   -- (c) AYAM tak lagi multi (Dunia Plastik dinonaktifkan)
   IF public.bahan_multi_vendor(v_ayam) THEN RAISE EXCEPTION 'GAGAL (c): AYAM masih multi-vendor'; END IF;
-  -- (d) belum aktif sebelum hitung fisik
-  IF public.bahan_vendor_aktif(v_sapi) THEN RAISE EXCEPTION 'GAGAL (d): SAPI sudah aktif tanpa hitung fisik'; END IF;
+  -- (d) aktif TEPAT bila ada hitung fisik (sejak baseline 12 Sep 2026 SAPI aktif;
+  --     uji ini tak lagi mengandaikan gudang belum pernah dihitung)
+  IF public.bahan_vendor_aktif(v_sapi) IS DISTINCT FROM EXISTS (
+       SELECT 1 FROM stok_vendor_gudang_mutasi WHERE bahan_baku_id = v_sapi AND sumber = 'hitung_fisik') THEN
+    RAISE EXCEPTION 'GAGAL (d): status aktif SAPI tak sesuai keberadaan hitung fisik'; END IF;
+  -- (d2) bahan tanpa hitung fisik tidak aktif (dalam transaksi: hapus hitung fisik SAPI)
+  DELETE FROM stok_vendor_gudang_mutasi WHERE bahan_baku_id = v_sapi AND sumber = 'hitung_fisik';
+  IF public.bahan_vendor_aktif(v_sapi) THEN RAISE EXCEPTION 'GAGAL (d2): SAPI aktif tanpa hitung fisik'; END IF;
 
-  -- (e) kitchen: RPC saldo memuat 2 baris SAPI, sisa 0, multi=true
+  -- (e) kitchen: RPC saldo memuat 2 baris SAPI, multi=true, belum aktif, sisa = buku vendor
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_kitchen,'role','authenticated')::text, true);
   EXECUTE 'SET LOCAL ROLE authenticated';
-  SELECT count(*) INTO v_n FROM public.saldo_vendor_gudang(ARRAY[v_sapi]) s WHERE s.multi AND s.sisa = 0 AND NOT s.aktif;
+  SELECT count(*) INTO v_n FROM public.saldo_vendor_gudang(ARRAY[v_sapi]) s
+   WHERE s.multi AND NOT s.aktif
+     AND s.sisa = public.sisa_vendor_gudang(v_sapi, s.vendor_id) / public.to_ledger_scale(public.gudang_pusat_id(), v_sapi, 1);
   IF v_n <> 2 THEN RAISE EXCEPTION 'GAGAL (e): saldo SAPI baris=%', v_n; END IF;
-  -- (f) koreksi +5 Blok Djafafood → sisa 5
-  PERFORM public.koreksi_saldo_vendor(v_sapi, v_dj, 5, 'uji');
+  -- (f) koreksi +5 Blok Djafafood → sisa naik 5
   SELECT sisa INTO r FROM public.saldo_vendor_gudang(ARRAY[v_sapi]) s WHERE s.vendor_id = v_dj;
-  IF r.sisa <> 5 THEN RAISE EXCEPTION 'GAGAL (f): sisa % bukan 5', r.sisa; END IF;
+  v_n := NULL;
+  DECLARE v_awal numeric := r.sisa; BEGIN
+    PERFORM public.koreksi_saldo_vendor(v_sapi, v_dj, 5, 'uji');
+    SELECT sisa INTO r FROM public.saldo_vendor_gudang(ARRAY[v_sapi]) s WHERE s.vendor_id = v_dj;
+    IF r.sisa - v_awal <> 5 THEN RAISE EXCEPTION 'GAGAL (f): sisa naik % bukan 5', r.sisa - v_awal; END IF;
+  END;
   -- (g) koreksi tanpa catatan ditolak
   v_ok := false;
   BEGIN PERFORM public.koreksi_saldo_vendor(v_sapi, v_dj, 1, ' '); EXCEPTION WHEN check_violation THEN v_ok := true; END;

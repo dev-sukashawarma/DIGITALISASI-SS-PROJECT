@@ -8,6 +8,7 @@ import { fetchAllPages } from '@/lib/fetchAllPages'
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
+import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -188,13 +189,16 @@ export async function getMitraComprehensivePnl(
       p_from: fromStart.toISOString(),
       p_to: toEnd.toISOString()
     }),
-    supabase
-      .from('platform_settlements')
-      .select('outlet_id, platform, omzet_kotor, promo_merchant, commission, tanggal')
-      .in('outlet_id', targetOutletIds)
-      .eq('platform', 'tiktokgo')
-      .gte('tanggal', filter.from)
-      .lte('tanggal', filter.to)
+    // Lihat PAKAI_SETTLEMENT_TIKTOK: data settlement TikTok GO berisi baris kembar.
+    PAKAI_SETTLEMENT_TIKTOK
+      ? supabase
+          .from('platform_settlements')
+          .select('outlet_id, platform, omzet_kotor, promo_merchant, commission, tanggal')
+          .in('outlet_id', targetOutletIds)
+          .eq('platform', 'tiktokgo')
+          .gte('tanggal', filter.from)
+          .lte('tanggal', filter.to)
+      : Promise.resolve({ data: [] as any[] })
   ])
 
   const profile = profileRes.data
@@ -284,7 +288,7 @@ export async function getMitraComprehensivePnl(
     }
 
     // 5c. Otomasi Settlement Platform (TikTok Go) dari platform_settlements untuk periode berjalan / umum
-    if (!isAugust2026Period(filter.from, filter.to) && settlements && settlements.length > 0) {
+    if (PAKAI_SETTLEMENT_TIKTOK && !isAugust2026Period(filter.from, filter.to) && settlements && settlements.length > 0) {
       const settlementByOutlet = new Map<string, { gross: number; deductions: number }>()
       for (const s of settlements) {
         const oid = s.outlet_id

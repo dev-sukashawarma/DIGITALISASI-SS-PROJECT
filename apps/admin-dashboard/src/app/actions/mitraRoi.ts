@@ -6,6 +6,7 @@ import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { cleanItemName } from '@/lib/order-item-name'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
+import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -295,13 +296,16 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         }
         return { data }
       }),
-      supabase
-        .from('platform_settlements')
-        .select('outlet_id, platform, omzet_kotor, promo_merchant, commission')
-        .in('outlet_id', mitraOutletIds)
-        .eq('platform', 'tiktokgo')
-        .gte('tanggal', from)
-        .lte('tanggal', to)
+      // Lihat PAKAI_SETTLEMENT_TIKTOK: data settlement TikTok GO berisi baris kembar.
+      PAKAI_SETTLEMENT_TIKTOK
+        ? supabase
+            .from('platform_settlements')
+            .select('outlet_id, platform, omzet_kotor, promo_merchant, commission')
+            .in('outlet_id', mitraOutletIds)
+            .eq('platform', 'tiktokgo')
+            .gte('tanggal', from)
+            .lte('tanggal', to)
+        : Promise.resolve({ data: [] as any[] })
     ])
 
     const { data: rpcData, error: rpcError } = rpcRes
@@ -313,7 +317,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         a.totalCogs += Number(row.cogs) || 0
       }
 
-      if (!isAugust2026Period(from, to)) {
+      if (PAKAI_SETTLEMENT_TIKTOK && !isAugust2026Period(from, to)) {
         const settlements = (settlementsRes as any)?.data || []
         if (settlements.length > 0) {
           const settlementByOutlet = new Map<string, { gross: number; deductions: number }>()

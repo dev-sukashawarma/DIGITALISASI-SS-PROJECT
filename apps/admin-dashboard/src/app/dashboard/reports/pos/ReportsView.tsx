@@ -921,22 +921,23 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let totalSettlement = 0
     let totalRealAdmin = 0
     let settlementDateRange = ''
+    let hasSettlementData = false
 
-    if (isSSOnlineSelected) {
-      totalSettlement = completed.reduce((sum, o) => {
-        const net = Number((o as any).raw_data?.net_settlement)
-        return sum + (isNaN(net) ? 0 : net)
-      }, 0)
-      totalRealAdmin = completed.reduce((sum, o) => {
-        const potongan = Number((o as any).discount_amount) || Number((o as any).raw_data?.total_potongan) || 0
-        return sum + potongan
-      }, 0)
-    } else if (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) {
+    // Kartu settlement hanya boleh tampil bila ada data settlement yang DIUNGGAH
+    // (keputusan owner 2026-09-14). Tanpa itu kartu menampilkan Rp 0 yang terlihat
+    // seperti fakta, atau angka turunan yang bukan settlement sungguhan.
+    //
+    // SS Online (TikTok Shop, Shopee Shop) sengaja belum ditampilkan sama sekali:
+    // angka `raw_data.net_settlement` dari impor pesanan marketplace bukan hasil
+    // unggah settlement, dan halaman unggah (/dashboard/platform-settlement) baru
+    // mendukung food delivery. Kartu SS Online kembali setelah jalur unggahnya ada.
+    if (!isSSOnlineSelected && (selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok'))) {
       const relevantSettlements = settlements.filter(s => selectedChannels.includes(s.platform) || (s.platform === 'tiktokgo' && selectedChannels.includes('tiktok')) || (s.platform === 'tiktok' && selectedChannels.includes('tiktokgo')))
       totalSettlement = relevantSettlements.reduce((sum, s) => {
         return sum + (Number(s.omzet_kotor) || 0) - (Number(s.promo_merchant) || 0) - (Number(s.commission) || 0)
       }, 0)
       totalRealAdmin = relevantSettlements.reduce((sum, s) => sum + (Number(s.commission) || 0), 0)
+      hasSettlementData = relevantSettlements.length > 0
 
       if (relevantSettlements.length > 0) {
         const dates = relevantSettlements.map(s => s.tanggal).filter(Boolean).sort()
@@ -978,7 +979,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       grossProfit,
       totalSettlement,
       totalRealAdmin,
-      settlementDateRange
+      settlementDateRange,
+      hasSettlementData
     }
   }, [orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, settlements])
 
@@ -1728,7 +1730,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
           </div>
 
-          {(isSSOnlineSelected || selectedChannels.includes('tiktokgo') || selectedChannels.includes('tiktok')) && (
+          {analytics.hasSettlementData && (
             <>
               <div className="my-8 border-t border-gray-200 dark:border-gray-700/50" />
               <div className="mb-4">
@@ -1744,13 +1746,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                      {isSSOnlineSelected ? 'Total Settlement (Uang Cair)' : 'Total Settlement'}
+                      Total Settlement
                     </p>
                     <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalSettlement)}</p>
                     <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
-                      {isSSOnlineSelected
-                        ? 'Uang Bersih yang Masuk ke Saldo Toko / Rekening Bank (Omset - Potongan Kas)'
-                        : 'Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)'}
+                      Omzet Kotor - Promo Merchant - (Platform comm. + Creator comm. + WHT)
                     </p>
                     {analytics.settlementDateRange && (
                       <p className="text-xs text-white/80 font-medium flex items-center gap-1.5 bg-white/10 w-fit px-2.5 py-1 rounded-full">
@@ -1761,8 +1761,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   </div>
                 </div>
 
-                {/* 6. Admin Settlement (Conditional) */}
-                {!isSSOnlineSelected && (
+                {/* 6. Admin Settlement */}
                   <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                     <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                     <div className="relative z-10">
@@ -1781,7 +1780,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                       )}
                     </div>
                   </div>
-                )}
               </div>
             </>
           )}

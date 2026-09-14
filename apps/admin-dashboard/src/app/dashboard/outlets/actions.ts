@@ -92,9 +92,34 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
   // 2. Update secondary (Order Online might not have this outlet yet if it's an old one)
   if (orderOnline) {
     try {
-      // Try to update first
-      const { error: secondaryError } = await orderOnline.from('outlets')
-        .update({
+      const { data: existing } = await orderOnline.from('outlets')
+        .select('id, slug')
+        .or(`pos_outlet_id.eq.${id},id.eq.${id}`)
+        .maybeSingle()
+
+      if (existing) {
+        const { error: secondaryError } = await orderOnline.from('outlets')
+          .update({
+            name: values.name,
+            slug: existing.slug || values.slug,
+            address: values.address || '-',
+            lat: values.lat || null,
+            lng: values.lng || null,
+            type: values.type === 'owned' || values.type === 'partner' ? values.type : 'owned',
+            is_active: values.is_active,
+            open_hour: values.open_hour || '14:00',
+            close_hour: values.close_hour || '22:00',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+
+        if (secondaryError) {
+          console.error("Failed to sync outlet update to order online", secondaryError)
+        }
+      } else {
+        await orderOnline.from('outlets').insert({
+          id: id,
+          pos_outlet_id: id,
           name: values.name,
           slug: values.slug,
           address: values.address || '-',
@@ -106,13 +131,6 @@ export async function updateOutlet(id: string, values: OutletFormValues) {
           close_hour: values.close_hour || '22:00',
           updated_at: new Date().toISOString(),
         })
-        .eq('id', id)
-        
-      // If we use upsert, we might need all required fields, but update is safer.
-      // If it doesn't exist, we just ignore it since it's an old outlet not synced? 
-      // Actually, let's upsert it so it becomes available in Order Online!
-      if (secondaryError) {
-         console.error("Failed to sync outlet update to order online", secondaryError)
       }
     } catch (err) {
       console.error("Order Online connection failed", err)
@@ -130,7 +148,9 @@ export async function softDeleteOutlet(id: string) {
   
   if (orderOnline) {
     try {
-      await orderOnline.from('outlets').update({ is_active: false, updated_at: new Date().toISOString() }).eq('id', id)
+      await orderOnline.from('outlets')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .or(`pos_outlet_id.eq.${id},id.eq.${id}`)
     } catch(err) { console.warn(err) }
   }
 }
@@ -145,7 +165,10 @@ export async function hardDeleteOutlet(id: string) {
   
   if (orderOnline) {
     try {
-      await orderOnline.from('outlets').delete().eq('id', id)
+      await orderOnline.from('outlets')
+        .delete()
+        .or(`pos_outlet_id.eq.${id},id.eq.${id}`)
     } catch(err) { console.warn(err) }
   }
 }
+

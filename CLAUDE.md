@@ -2580,9 +2580,23 @@ fungsi HPP yang membacanya.
    Sentul, Cileungsi — dibuat 17–31 Jul dengan bendera mati, 3.676 order
    September tak pernah memotong stok). Pamulang → `type='mitra'` ditahan
    sampai dampak `get_owner_dashboard_summary` (markup 1,1×) dikonfirmasi.
-7. **Pengerasan ikut sekalian:** drop `po_on_verified` zombie; `get_waste_breakdown`/
-   `_incidents`/`_summary_v2` → pembagi `kemasan_qty` (bukan `get_waste_periode`,
-   itu tetap); `fill_harga_snapshot` idem.
+7. **Pengerasan ikut sekalian** (migration `20260915210000`) — tapi ground-truth
+   di DB live BERBEDA dari dugaan awal task brief: `po_on_verified` **SUDAH
+   TIDAK ADA** sama sekali (0 baris `pg_proc`/`pg_trigger`) — `DROP FUNCTION IF
+   EXISTS` dipertahankan murni sebagai dokumentasi + jaga-jaga andai ditulis
+   ulang lagi (pola ranjau-2030), bukan penghapusan aktif. Dari tiga fungsi
+   waste, **hanya `get_waste_breakdown` yang diubah** ke pembagi `kemasan_qty`;
+   `get_waste_incidents` & `get_waste_summary_v2` **sudah benar sejak
+   `20300132000000`** dan sengaja TIDAK disalin ulang (hindari risiko salah
+   ketik pada fungsi yang sudah benar). `get_waste_periode` tetap tak disentuh.
+   `fill_harga_snapshot`: konversi katalog → satuan besar pakai `kemasan_qty`.
+   ⚠️ Semua 6 migration sesi ini sengaja ditaruh di pita jam 20:00–23:35 (bukan
+   10:00/11:00 seperti draf awal) karena dev paralel sudah menstempel
+   `20260915100000` & `20260915110000` di DB bersama hari yang sama —
+   **sebelum memilih timestamp, cek dulu** `SELECT version FROM
+   supabase_migrations.schema_migrations WHERE version LIKE '2026MMDD%'`, lalu
+   **verifikasi stempel dengan SELECT setelah apply** (jangan percaya exit
+   code saja — `ON CONFLICT DO NOTHING` di beberapa jalur stempel gagal senyap).
 8. **Sumber kuantitas:** aktual dari `ledger_stok` (`pemakaian` + `adjustment`
    pembalik void), sadar skala `saldo_is_gram`; teoritis dari resep × qty
    terjual untuk periode tanpa baris pemakaian.
@@ -2603,10 +2617,11 @@ serupa tapi minor (1 resep, 5 outlet).
 - **Q1** (selisih teoritis-dinamis vs override, top): mayoritas outlet mitra
   −13% s/d −31% (teoritis-dinamis LEBIH RENDAH dari override) — mis. MITRA
   CIBINONG Original Sapi Jumbo −24,9%, Original Ayam Jumbo −31,3%.
-- **Q2** (porsi sumber harga, 7 hari terakhir): kebanyakan outlet 75–91%
-  `kiriman`; JAGAKARSA/JATIWARINGIN/BNR masih 100% `master` (belum ada SJ
-  terverifikasi dalam jendela ini); nol `drop_ship` & nol `tidak_ada` di
-  seluruh outlet yang tercek.
+- **Q2** (porsi sumber harga, 7 hari terakhir, 20 outlet dengan aktivitas dalam
+  jendela ini): `pct_kiriman` **17–91%** di 17 outlet (terendah DEPOK
+  SUKMAJAYA 17%, tertinggi CIMANGGU/DRAMAGA 91%); JAGAKARSA/JATIWARINGIN/BNR
+  masih 100% `master` (0% kiriman — belum ada SJ terverifikasi dalam jendela
+  ini); nol `drop_ship` & nol `tidak_ada` di seluruh 20 outlet yang tercek.
 - **Q3** (aktual vs teoritis bulan berjalan): outlet lama umumnya aktual >
   teoritis 5–20% (substitusi waterfall & pemakaian nyata > resep bersih).
   **Tiga outlet BOM-baru** menunjukkan pola sebaliknya drastis — MITRA CICURUG

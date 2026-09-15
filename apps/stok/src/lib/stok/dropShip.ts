@@ -31,3 +31,23 @@ export function hitungSelisihNota(totalCrew: number, totalNota: number): { selis
   const persen = totalNota > 0 ? Math.abs(selisih) / totalNota * 100 : (selisih === 0 ? 0 : 100)
   return { selisih, persen, perluCatatan: persen > BATAS_SELISIH_PERSEN }
 }
+
+// Bahan yang boleh dicatat terima langsung dari vendor di outlet. Penjaga
+// sebenarnya ada di RPC (bahan_baku.drop_ship, migration 20260915110000);
+// ini hanya menyaring pilihan di form. 2026-09-15: hanya Sayur (lettuce).
+export function bahanDropShip<T extends { nama: string; drop_ship?: boolean | null }>(bahan: T[]): T[] {
+  return bahan.filter((b) => b.drop_ship === true).sort((a, b) => a.nama.localeCompare(b.nama))
+}
+
+const LABEL_HARI = ['Hari ini', 'Kemarin', '2 hari lalu', '3 hari lalu']
+
+// Pilihan tanggal terima: hari ini s/d 3 hari lalu -- SAMA dengan batas RPC
+// catat_terima_vendor. `hariIni` = tanggal WIB 'YYYY-MM-DD' (kosong = belum siap).
+export function pilihanTanggalTerima(hariIni: string): { value: string; label: string }[] {
+  if (!hariIni) return []
+  return LABEL_HARI.map((label, i) => {
+    const d = new Date(`${hariIni}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() - i)
+    return { value: d.toISOString().slice(0, 10), label }
+  })
+}

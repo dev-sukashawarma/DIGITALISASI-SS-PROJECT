@@ -19,18 +19,21 @@ export type RingkasanBaris = {
 
 export type VendorDropShip = { id: string; nama: string; termin_hari: number | null }
 
-// Vendor drop-ship = supplier dengan katalog aktif di bahan_baku_supplier (Task 0/1).
-// Tidak menyaring is_active di sisi klien karena baris katalog nonaktif = vendor
-// yang tak lagi dipakai; join menyaringnya lewat keberadaan baris.
+// Vendor drop-ship = supplier dengan katalog AKTIF untuk bahan ber-penanda
+// bahan_baku.drop_ship (2026-09-15: hanya sayur -> Lettuce (Pak Aziz) - Tempo 10).
+// Sebelumnya semua supplier berkatalog ikut tampil (~22), padahal nota drop-ship
+// hanya bermakna untuk vendor yang mengantar langsung ke outlet.
 export function useVendorDropShip() {
   return useQuery<VendorDropShip[]>({
-    queryKey: ['nota-vendor', 'vendor'],
+    queryKey: ['nota-vendor', 'vendor', 'drop-ship'],
     queryFn: async () => {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('supplier')
-        .select('id, nama, termin_hari, bahan_baku_supplier!inner(id)')
+        .select('id, nama, termin_hari, bahan_baku_supplier!inner(id, is_active, bahan_baku!inner(drop_ship))')
         .eq('is_active', true)
+        .eq('bahan_baku_supplier.is_active', true)
+        .eq('bahan_baku_supplier.bahan_baku.drop_ship', true)
         .order('nama')
       if (error) throw new Error(error.message)
       const seen = new Set<string>()

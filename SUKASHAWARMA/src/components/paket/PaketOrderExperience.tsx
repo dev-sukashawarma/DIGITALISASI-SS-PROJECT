@@ -49,6 +49,12 @@ const IconClose = () => (
   </svg>
 );
 
+const IconChevronRight = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 function QtyControl({
   id,
   name,
@@ -140,6 +146,14 @@ export default function PaketOrderExperience() {
   );
   const cartCount = shawarmaTotal + drinkTotal;
 
+  // Bar keranjang full-width menempel di bawah — kasih ruang biar tidak menutupi footer
+  useEffect(() => {
+    document.body.style.paddingBottom = cartCount > 0 && !cartOpen ? "72px" : "";
+    return () => {
+      document.body.style.paddingBottom = "";
+    };
+  }, [cartCount, cartOpen]);
+
   // Kalau total shawarma berkurang, potong kelebihan minuman supaya tidak pernah melebihi
   useEffect(() => {
     if (drinkTotal > shawarmaTotal) {
@@ -167,7 +181,8 @@ export default function PaketOrderExperience() {
   const includeDrinks = paket === "B";
   const grandSubtotal = shawarmaPrice.subtotal + (includeDrinks ? drinkPrice.subtotal : 0);
   const hasMissingPrice = shawarmaPrice.hasMissing || (includeDrinks && drinkPrice.hasMissing);
-  const grandAfterDiscount = grandSubtotal * (1 - DISCOUNT_RATE);
+  const qualifiesForDiscount = shawarmaTotal >= MIN_PCS;
+  const grandAfterDiscount = qualifiesForDiscount ? grandSubtotal * (1 - DISCOUNT_RATE) : grandSubtotal;
 
   const buildMessage = () => {
     const lines = [
@@ -186,7 +201,11 @@ export default function PaketOrderExperience() {
       `Paket: ${paket === "A" ? "A (Shawarma saja)" : `B (Total Minuman: ${drinkTotal} pcs)`}`
     );
     if (!hasMissingPrice && grandSubtotal > 0) {
-      lines.push(`Estimasi Total (setelah diskon 15%): ${formatIDR(grandAfterDiscount)}`);
+      lines.push(
+        qualifiesForDiscount
+          ? `Estimasi Total (setelah diskon 15%): ${formatIDR(grandAfterDiscount)}`
+          : `Estimasi Total: ${formatIDR(grandSubtotal)}`
+      );
     }
     lines.push(``, `Mohon info ketersediaan tanggal dan konfirmasi total harga. Terima kasih.`);
     return lines.join("\n");
@@ -217,7 +236,7 @@ export default function PaketOrderExperience() {
               Susun Pesanan Kamu
             </h2>
             <p className="text-[#111111]/60 max-w-lg mx-auto mb-4">
-              Atur jumlah tiap menu sesuka hati. Total akan muncul di keranjang, minimal 50 pcs shawarma.
+              Atur jumlah tiap menu sesuka hati, mau 10, 20, atau lebih juga bebas. Pesan 50 pcs shawarma ke atas otomatis dapat diskon 15%.
             </p>
             <p className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-[#111111]/45">
               <span><span className="font-semibold text-[#111111]/70">Paket A</span> tanpa minuman</span>
@@ -276,17 +295,26 @@ export default function PaketOrderExperience() {
         {cartCount > 0 && !cartOpen && (
           <motion.button
             type="button"
-            initial={{ opacity: 0, y: 20, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            transition={{ type: "spring", stiffness: 320, damping: 26 }}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
             onClick={() => setCartOpen(true)}
-            className="fixed bottom-6 right-5 z-50 flex items-center gap-2.5 pl-5 pr-6 py-3.5 rounded-full
-                       bg-[#6E1A10] text-white shadow-[0_8px_28px_rgba(110,26,16,0.45)]
+            aria-label={`Buka keranjang, ${cartCount} pcs dipilih`}
+            className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between
+                       px-5 sm:px-8 py-4
+                       bg-[#6E1A10] text-white shadow-[0_-4px_24px_rgba(0,0,0,0.18)]
                        hover:bg-[#5a1509] transition-colors duration-150"
           >
-            <IconCart />
-            <span className="font-semibold text-sm">{cartCount} pcs dipilih</span>
+            <div className="flex items-center gap-3">
+              <IconCart />
+              <span className="w-px h-6 bg-white/25" />
+              <span className="min-w-[24px] h-6 px-1.5 flex items-center justify-center
+                                rounded-full bg-[#FE7108] text-white text-xs font-bold leading-none">
+                {cartCount}
+              </span>
+            </div>
+            <IconChevronRight />
           </motion.button>
         )}
       </AnimatePresence>
@@ -352,12 +380,12 @@ export default function PaketOrderExperience() {
                     <span>{shawarmaTotal} pcs</span>
                   </div>
 
-                  {shawarmaTotal < MIN_PCS ? (
-                    <p className="text-xs text-red-600 text-center mb-1">
-                      Minimal pesan {MIN_PCS} pcs shawarma ({MIN_PCS - shawarmaTotal} lagi)
+                  {shawarmaTotal < MIN_PCS && (
+                    <p className="text-xs text-[#FE7108] text-center mb-3 font-medium">
+                      Tambah {MIN_PCS - shawarmaTotal} pcs lagi buat dapat diskon 15%
                     </p>
-                  ) : (
-                    <>
+                  )}
+                  <>
                       <p className="text-sm font-semibold text-[#111111] mb-3">Pilih Paket</p>
                       <div className="grid grid-cols-2 gap-3 mb-2">
                         {(["A", "B"] as const).map((p) => (
@@ -388,7 +416,7 @@ export default function PaketOrderExperience() {
                             </span>
                           </div>
                           <p className="text-xs text-[#111111]/45 mb-3">
-                            Wajib total {shawarmaTotal} pcs (1:1 dengan shawarma) — bebas campur rasa.
+                            Wajib total {shawarmaTotal} pcs (1:1 dengan shawarma), bebas campur rasa.
                           </p>
                           <div className="space-y-3">
                             {drinkItems.map((item) => {
@@ -435,19 +463,26 @@ export default function PaketOrderExperience() {
                       {paket && (
                         <div className="border-t border-black/[0.08] pt-3 mt-4 mb-5 text-sm">
                           {!hasMissingPrice && grandSubtotal > 0 ? (
-                            <>
-                              <div className="flex justify-between text-[#111111]/60">
-                                <span>Subtotal</span>
+                            qualifiesForDiscount ? (
+                              <>
+                                <div className="flex justify-between text-[#111111]/60">
+                                  <span>Subtotal</span>
+                                  <span>{formatIDR(grandSubtotal)}</span>
+                                </div>
+                                <div className="flex justify-between font-bold text-[#111111] mt-1">
+                                  <span>Setelah diskon 15%</span>
+                                  <span>{formatIDR(grandAfterDiscount)}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="flex justify-between font-bold text-[#111111]">
+                                <span>Total</span>
                                 <span>{formatIDR(grandSubtotal)}</span>
                               </div>
-                              <div className="flex justify-between font-bold text-[#111111] mt-1">
-                                <span>Setelah diskon 15%</span>
-                                <span>{formatIDR(grandAfterDiscount)}</span>
-                              </div>
-                            </>
+                            )
                           ) : (
                             <p className="text-xs text-[#111111]/40">
-                              Harga sebagian menu belum tersedia — total final dikonfirmasi tim kami.
+                              Harga sebagian menu belum tersedia, total final dikonfirmasi tim kami.
                             </p>
                           )}
                         </div>
@@ -494,10 +529,9 @@ export default function PaketOrderExperience() {
                         </p>
                       ) : null}
                       <p className="text-center text-xs text-[#111111]/40 mt-3">
-                        Harga di atas belum termasuk ongkir — lihat Ketentuan Pemesanan.
+                        Harga di atas belum termasuk ongkir, lihat Ketentuan Pemesanan.
                       </p>
                     </>
-                  )}
                 </>
               )}
             </motion.div>

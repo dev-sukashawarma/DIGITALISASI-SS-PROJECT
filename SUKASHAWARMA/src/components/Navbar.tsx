@@ -10,7 +10,7 @@ interface NavbarProps {
 const navLinks = [
   { label: "Beranda", href: "/" },
   { label: "Menu", href: "/menu" },
-  { label: "Paket", href: "/paket" },
+  { label: "Big Order", href: "/paket" },
   { label: "Lokasi", href: "/locations" },
   { label: "Kemitraan", href: "/kemitraan" },
 ];

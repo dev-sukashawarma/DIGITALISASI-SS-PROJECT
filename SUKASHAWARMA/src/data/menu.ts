@@ -172,7 +172,7 @@ export const menuItems: MenuItem[] = [
     name: "Es Tea",
     category: "minuman",
     description: undefined,
-    price: 15000,
+    price: 8000,
     image: "/menus/ES TEA.png",
   },
   {
@@ -180,7 +180,7 @@ export const menuItems: MenuItem[] = [
     name: "Orange Juice",
     category: "minuman",
     description: undefined,
-    price: 15000,
+    price: 8000,
     image: "/menus/ORANGE.png",
   },
 ];

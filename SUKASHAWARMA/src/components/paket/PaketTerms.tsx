@@ -37,7 +37,7 @@ export default function PaketTerms() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="flex flex-col gap-6">
           {/* Pembayaran */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -79,7 +79,7 @@ export default function PaketTerms() {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.5, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
-            className="bg-white rounded-2xl p-6 sm:p-7 border border-black/[0.06] md:col-span-2"
+            className="bg-white rounded-2xl p-6 sm:p-7 border border-black/[0.06]"
           >
             <h3 className="font-bold text-[#111111] mb-4">Biaya Pengiriman</h3>
             <div className="grid grid-cols-3 gap-3">

@@ -68,6 +68,8 @@ export default function LiveLocationBoard() {
   const [roadPositions, setRoadPositions] = useState<[number, number][]>([])
   const [roadDistanceKm, setRoadDistanceKm] = useState<number>(0)
   const [isRoadSnapped, setIsRoadSnapped] = useState<boolean>(false)
+  const [isStationary, setIsStationary] = useState<boolean>(false)
+  const [stationaryRadiusM, setStationaryRadiusM] = useState<number>(0)
   const [isSnapping, setIsSnapping] = useState<boolean>(false)
   const [now, setNow] = useState(() => Date.now())
 
@@ -228,6 +230,8 @@ export default function LiveLocationBoard() {
       setRoadPositions([])
       setRoadDistanceKm(0)
       setIsRoadSnapped(false)
+      setIsStationary(false)
+      setStationaryRadiusM(0)
       setIsSnapping(false)
       return
     }
@@ -246,6 +250,8 @@ export default function LiveLocationBoard() {
         setRoadPositions(snap.positions)
         setRoadDistanceKm(snap.distanceKm)
         setIsRoadSnapped(snap.isSnapped)
+        setIsStationary(Boolean(snap.isStationary))
+        setStationaryRadiusM(snap.stationaryRadiusM ?? 0)
       } catch (err) {
         console.warn('snapTrailToRoads error:', err)
       } finally {
@@ -364,6 +370,8 @@ export default function LiveLocationBoard() {
                   trail={cleaned.points}
                   roadPositions={roadPositions}
                   showTrail={showTrail}
+                  isStationary={isStationary}
+                  stationaryRadiusM={stationaryRadiusM}
                   onSelect={setSelectedId}
                 />
               </div>
@@ -389,7 +397,15 @@ export default function LiveLocationBoard() {
                 </button>
                 {showTrail && selected && (
                   <span className="pointer-events-none flex items-center gap-1.5 rounded-lg bg-slate-900/90 px-3 py-1.5 text-[10px] font-semibold text-white shadow-md">
-                    {isRoadSnapped ? (
+                    {isStationary ? (
+                      <>
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-sky-400" />
+                        <span>
+                          Staff di lokasi · {trail.length} titik {TRAIL_WINDOW_HOURS} jam terakhir
+                          {stationaryRadiusM > 0 ? ` (radius ~${stationaryRadiusM} m)` : ''}
+                        </span>
+                      </>
+                    ) : isRoadSnapped && roadPositions.length > 1 ? (
                       <>
                         <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400" />
                         <span>
@@ -407,7 +423,7 @@ export default function LiveLocationBoard() {
                             ? `${cleaned.points.length} titik · ${TRAIL_WINDOW_HOURS} jam terakhir` +
                               (droppedTotal(cleaned.dropped) > 0 ? ` · ${droppedTotal(cleaned.dropped)} disaring` : '')
                             : trail.length > 0
-                              ? `Staff tidak berpindah · ${trail.length} titik di satu tempat`
+                              ? `Staff di lokasi · ${trail.length} titik di satu tempat`
                               : `Belum ada jejak ${TRAIL_WINDOW_HOURS} jam terakhir`}
                           {isSnapping ? ' · menyelaraskan jalan…' : ''}
                         </span>

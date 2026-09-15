@@ -40,7 +40,7 @@ export const TRAIL_MAX_ACCURACY_M = 50
 /** Tidak ada staff outlet yang berpindah secepat ini; kalau terjadi, titiknya palsu/rusak. */
 export const TRAIL_MAX_SPEED_KMH = 120
 /** Pergeseran di bawah ini masih dalam derau GPS saat orang berdiri diam. */
-export const TRAIL_MIN_STEP_M = 5
+export const TRAIL_MIN_STEP_M = 15
 
 export type TrailFilterResult = {
   points: TrailPoint[]
@@ -187,6 +187,11 @@ export type StaffStatus = 'bergerak' | 'diam' | 'offline'
 export function statusOf(staff: StaffLocation, now: number): StaffStatus {
   const age = now - new Date(staff.recordedAt).getTime()
   if (!Number.isFinite(age) || age > STALE_AFTER_MS) return 'offline'
+  // Validasi kecepatan fisik: Kecepatan di bawah 0.6 m/s (~2.16 km/j) adalah derau GPS atau orang duduk/berdiri.
+  // Jangan tandai 'bergerak' bila kecepatan riilnya mendekati 0 km/j walau flag sensor perangkat sempat menyala.
+  if (staff.speedMps !== null && Number.isFinite(staff.speedMps) && staff.speedMps < 0.6) {
+    return 'diam'
+  }
   return staff.isMoving ? 'bergerak' : 'diam'
 }
 

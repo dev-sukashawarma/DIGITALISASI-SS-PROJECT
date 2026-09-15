@@ -153,8 +153,109 @@ export type LiveLocationMapProps = {
   /** Rute koordinat yang telah diselaraskan ke jalan raya nyata via OSRM */
   roadPositions?: [number, number][]
   showTrail: boolean
+  isStationary?: boolean
+  stationaryRadiusM?: number
   /** Klik pin: memilih staff di sidebar tanpa ikut menerbangkan peta. */
   onSelect: (staffId: string) => void
+}
+
+type StaffMarkerItemProps = {
+  item: StaffLocation
+  now: number
+  selected: boolean
+  onSelect: (staffId: string) => void
+  onRegister: (staffId: string, marker: L.Marker | null) => void
+}
+
+function StaffMarkerItem({
+  item,
+  now,
+  selected,
+  onSelect,
+  onRegister,
+}: StaffMarkerItemProps) {
+  const markerRef = useRef<L.Marker | null>(null)
+  const status = statusOf(item, now)
+  const color = STATUS_COLOR[status]
+
+  // Sinkronkan lat/lng langsung ke Leaflet instance saat koordinat diperbarui secara realtime
+  useEffect(() => {
+    if (markerRef.current) {
+      markerRef.current.setLatLng([item.lat, item.lng])
+    }
+  }, [item.lat, item.lng])
+
+  return (
+    <Fragment>
+      {item.accuracyM !== null && item.accuracyM > 0 && (
+        <Circle
+          center={[item.lat, item.lng]}
+          radius={item.accuracyM}
+          pathOptions={{ color, fillColor: color, fillOpacity: 0.1, weight: 1, opacity: 0.4 }}
+        />
+      )}
+      <Marker
+        position={[item.lat, item.lng]}
+        icon={staffIcon({
+          name: item.staffName,
+          color,
+          mock: item.isMock,
+          selected,
+          moving: status === 'bergerak',
+          photoUrl: usablePhotoUrl(item.refPhotoUrl),
+          heading: status === 'offline' ? null : headingBucket(item.headingDeg),
+        })}
+        zIndexOffset={selected ? 1000 : 0}
+        riseOnHover
+        eventHandlers={{ click: () => onSelect(item.outletStaffId) }}
+        ref={(instance) => {
+          markerRef.current = instance
+          onRegister(item.outletStaffId, instance)
+        }}
+      >
+        <Tooltip direction="top" offset={[0, -20]} opacity={1} className="staff-tooltip">
+          <b>{item.staffName}</b> · {STATUS_LABEL[status]} · {relativeTime(item.recordedAt, now)}
+        </Tooltip>
+        <Popup>
+          <div className="min-w-[200px] space-y-2 font-sans">
+            <div>
+              <p className="text-sm font-extrabold text-slate-900">{item.staffName}</p>
+              <p className="text-[11px] font-semibold text-slate-500">
+                {roleLabel(item.role)} · {item.outletName ?? 'Tanpa outlet'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <span
+                className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
+                style={{ background: color }}
+              >
+                {STATUS_LABEL[status]}
+              </span>
+              {item.isMock && (
+                <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
+                  Lokasi palsu
+                </span>
+              )}
+            </div>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-600">
+              <dt className="font-semibold text-slate-400">Akurasi</dt>
+              <dd className="text-right font-semibold">{accuracyText(item.accuracyM)}</dd>
+              <dt className="font-semibold text-slate-400">Kecepatan</dt>
+              <dd className="text-right font-semibold">{speedKmh(item.speedMps)}</dd>
+              <dt className="font-semibold text-slate-400">Baterai</dt>
+              <dd className="text-right font-semibold">{batteryText(item.batteryPct, item.isCharging)}</dd>
+              <dt className="font-semibold text-slate-400">Update</dt>
+              <dd className="text-right font-semibold">{relativeTime(item.recordedAt, now)}</dd>
+            </dl>
+            <p className="flex items-start gap-1.5 border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
+              <Smartphone size={12} className="mt-px shrink-0 text-slate-400" />
+              <span className="break-words">{item.deviceName ?? 'Perangkat tidak diketahui'}</span>
+            </p>
+          </div>
+        </Popup>
+      </Marker>
+    </Fragment>
+  )
 }
 
 export default function LiveLocationMap({
@@ -166,6 +267,8 @@ export default function LiveLocationMap({
   trail,
   roadPositions,
   showTrail,
+  isStationary,
+  stationaryRadiusM,
   onSelect,
 }: LiveLocationMapProps) {
   const mapRef = useRef<L.Map | null>(null)
@@ -215,9 +318,17 @@ export default function LiveLocationMap({
   }, [focusNonce, focusedId])
 
   const trailPositions = useMemo<[number, number][]>(() => {
+    if (isStationary) return []
     if (roadPositions && roadPositions.length > 0) return roadPositions
     return trail.map((point) => [point.lat, point.lng])
-  }, [roadPositions, trail])
+  }, [isStationary, roadPositions, trail])
+
+  const focusedStaff = staff.find((s) => s.outletStaffId === focusedId)
+
+  const handleRegisterMarker = useCallback((staffId: string, marker: L.Marker | null) => {
+    if (marker) markersRef.current.set(staffId, marker)
+    else markersRef.current.delete(staffId)
+  }, [])
 
   return (
     <MapContainer
@@ -233,6 +344,21 @@ export default function LiveLocationMap({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         maxZoom={19}
       />
+
+      {/* Tampilan radius area jika staff hanya diam di lokasi */}
+      {showTrail && isStationary && focusedStaff && (
+        <Circle
+          center={[focusedStaff.lat, focusedStaff.lng]}
+          radius={Math.max(stationaryRadiusM ?? 30, 25)}
+          pathOptions={{
+            color: '#0284c7',
+            fillColor: '#38bdf8',
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: '4, 4',
+          }}
+        />
+      )}
 
       {showTrail && trailPositions.length > 1 && (
         <>
@@ -261,82 +387,16 @@ export default function LiveLocationMap({
         </>
       )}
 
-      {staff.map((item) => {
-        const status = statusOf(item, now)
-        const color = STATUS_COLOR[status]
-        const selected = item.outletStaffId === focusedId
-        return (
-          <Fragment key={item.outletStaffId}>
-            {item.accuracyM !== null && item.accuracyM > 0 && (
-              <Circle
-                center={[item.lat, item.lng]}
-                radius={item.accuracyM}
-                pathOptions={{ color, fillColor: color, fillOpacity: 0.1, weight: 1, opacity: 0.4 }}
-              />
-            )}
-            <Marker
-              position={[item.lat, item.lng]}
-              icon={staffIcon({
-                name: item.staffName,
-                color,
-                mock: item.isMock,
-                selected,
-                moving: status === 'bergerak',
-                photoUrl: usablePhotoUrl(item.refPhotoUrl),
-                heading: status === 'offline' ? null : headingBucket(item.headingDeg),
-              })}
-              zIndexOffset={selected ? 1000 : 0}
-              riseOnHover
-              eventHandlers={{ click: () => onSelect(item.outletStaffId) }}
-              ref={(instance) => {
-                if (instance) markersRef.current.set(item.outletStaffId, instance)
-                else markersRef.current.delete(item.outletStaffId)
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -20]} opacity={1} className="staff-tooltip">
-                <b>{item.staffName}</b> · {STATUS_LABEL[status]} · {relativeTime(item.recordedAt, now)}
-              </Tooltip>
-              <Popup>
-                <div className="min-w-[200px] space-y-2 font-sans">
-                  <div>
-                    <p className="text-sm font-extrabold text-slate-900">{item.staffName}</p>
-                    <p className="text-[11px] font-semibold text-slate-500">
-                      {roleLabel(item.role)} · {item.outletName ?? 'Tanpa outlet'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    <span
-                      className="rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white"
-                      style={{ background: color }}
-                    >
-                      {STATUS_LABEL[status]}
-                    </span>
-                    {item.isMock && (
-                      <span className="rounded-full bg-rose-600 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white">
-                        Lokasi palsu
-                      </span>
-                    )}
-                  </div>
-                  <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-slate-600">
-                    <dt className="font-semibold text-slate-400">Akurasi</dt>
-                    <dd className="text-right font-semibold">{accuracyText(item.accuracyM)}</dd>
-                    <dt className="font-semibold text-slate-400">Kecepatan</dt>
-                    <dd className="text-right font-semibold">{speedKmh(item.speedMps)}</dd>
-                    <dt className="font-semibold text-slate-400">Baterai</dt>
-                    <dd className="text-right font-semibold">{batteryText(item.batteryPct, item.isCharging)}</dd>
-                    <dt className="font-semibold text-slate-400">Update</dt>
-                    <dd className="text-right font-semibold">{relativeTime(item.recordedAt, now)}</dd>
-                  </dl>
-                  <p className="flex items-start gap-1.5 border-t border-slate-100 pt-2 text-[10px] font-semibold text-slate-500">
-                    <Smartphone size={12} className="mt-px shrink-0 text-slate-400" />
-                    <span className="break-words">{item.deviceName ?? 'Perangkat tidak diketahui'}</span>
-                  </p>
-                </div>
-              </Popup>
-            </Marker>
-          </Fragment>
-        )
-      })}
+      {staff.map((item) => (
+        <StaffMarkerItem
+          key={item.outletStaffId}
+          item={item}
+          now={now}
+          selected={item.outletStaffId === focusedId}
+          onSelect={onSelect}
+          onRegister={handleRegisterMarker}
+        />
+      ))}
     </MapContainer>
   )
 }

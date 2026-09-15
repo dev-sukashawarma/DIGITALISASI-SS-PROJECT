@@ -2785,6 +2785,7 @@ serupa tapi minor (1 resep, 5 outlet).
     sama.
 - `useSalesHourlyRaw` masih rawan cap 1.000 baris (Session 2026-09-07) — **tak
   terkait** sesi ini, jangan digabung.
+- ✅ **PLASTIK BESAR — DITUTUP 2026-09-15** (`20260915236000`, applied+terstempel): `kemasan_qty` 100 → 250 (sepakat dengan faktor Ikat/Pack 5/Lembar 50). Harga Rp6.000 dikonfirmasi owner **angka uji**, sengaja dibiarkan sampai PO pertama menimpanya. Kini **nol** bahan aktif dengan `kemasan_qty ≠ faktor_tampilan`, jadi penjaga katalog `234000` tak menahan bahan mana pun.
 - ✅ **SAUS CABE/SAOS CABE — DITUTUP 2026-09-15** (`20260915235000_gabung_saus_cabe_tomat_ke_saos`, applied+terstempel). Akar: `20260914130000` menambah bahan hantu SAUS CABE/SAUS TOMAT (kg, tanpa harga/faktor) ke resep tanpa membuang baris SAOS lama → 28 resep offline memotong saus 2×, 11 resep Online tak memotong saus sungguhan. Gramasi baru dipindahkan ke SAOS CABE & SAOS TOMAT POUCH (41 baris resep masing-masing), hantu dinonaktifkan+rename. Pelajaran: `trg_process_bom_stok` TIDAK menyaring `bahan_baku.is_active` — menonaktifkan bahan tidak menghentikan potongan BOM; baris resepnya yang harus dipindah.
 ---
 

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Info, RefreshCw } from 'lucide-react'
 import { useOutletScope } from '@/hooks/useOutletScope'
 import { useHPPDinamis } from '@/hooks/useHPPDinamis'
@@ -25,8 +25,18 @@ function hariIni(): string {
 export function HPPDinamisPanel() {
   const { boundOutlets, selectedOutletId } = useOutletScope()
   const [outletId, setOutletId] = useState<string | null>(selectedOutletId)
-  const [from, setFrom] = useState(awalBulan())
-  const [to, setTo] = useState(hariIni())
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+
+  useEffect(() => {
+    if (outletId == null && selectedOutletId) setOutletId(selectedOutletId)
+  }, [selectedOutletId, outletId])
+
+  useEffect(() => {
+    setFrom(awalBulan())
+    setTo(hariIni())
+  }, [])
+
   const { data, isLoading, isFetching, error, refetch } = useHPPDinamis(outletId, from, to)
 
   const ringkas = useMemo(() => (data ? ringkasHppDinamis(data.menu, data.bahan) : null), [data])
@@ -42,6 +52,7 @@ export function HPPDinamisPanel() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select
+            aria-label="Pilih outlet"
             className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm"
             value={outletId ?? ''}
             onChange={(e) => setOutletId(e.target.value || null)}
@@ -51,9 +62,9 @@ export function HPPDinamisPanel() {
               <option key={o.id} value={o.id}>{o.name}</option>
             ))}
           </select>
-          <input type="date" className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <input type="date" aria-label="Tanggal mulai" className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm" value={from} onChange={(e) => setFrom(e.target.value)} />
           <span className="text-xs text-suka-brown/50">s/d</span>
-          <input type="date" className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
+          <input type="date" aria-label="Tanggal akhir" className="rounded-lg border border-suka-brown/20 px-2 py-1.5 text-sm" value={to} onChange={(e) => setTo(e.target.value)} />
           <button type="button" onClick={() => refetch()} className="rounded-lg border border-suka-brown/20 p-2" aria-label="Muat ulang">
             <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
           </button>
@@ -68,7 +79,7 @@ export function HPPDinamisPanel() {
       )}
 
       {!outletId && <p className="mt-6 text-sm text-suka-brown/60">Pilih outlet untuk mulai.</p>}
-      {error && <p className="mt-6 text-sm text-red-700">{(error as Error).message}</p>}
+      {error && <p className="mt-6 text-sm text-red-700">{error instanceof Error ? error.message : String(error)}</p>}
       {outletId && isLoading && <p className="mt-6 text-sm text-suka-brown/60">Menghitung…</p>}
 
       {data && ringkas && (

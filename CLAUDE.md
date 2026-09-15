@@ -2785,7 +2785,7 @@ serupa tapi minor (1 resep, 5 outlet).
     sama.
 - `useSalesHourlyRaw` masih rawan cap 1.000 baris (Session 2026-09-07) — **tak
   terkait** sesi ini, jangan digabung.
-- Merge master data `SAUS CABE`/`SAOS CABE` (temuan Task 1) — keputusan owner.
+- ✅ **SAUS CABE/SAOS CABE — DITUTUP 2026-09-15** (`20260915235000_gabung_saus_cabe_tomat_ke_saos`, applied+terstempel). Akar: `20260914130000` menambah bahan hantu SAUS CABE/SAUS TOMAT (kg, tanpa harga/faktor) ke resep tanpa membuang baris SAOS lama → 28 resep offline memotong saus 2×, 11 resep Online tak memotong saus sungguhan. Gramasi baru dipindahkan ke SAOS CABE & SAOS TOMAT POUCH (41 baris resep masing-masing), hantu dinonaktifkan+rename. Pelajaran: `trg_process_bom_stok` TIDAK menyaring `bahan_baku.is_active` — menonaktifkan bahan tidak menghentikan potongan BOM; baris resepnya yang harus dipindah.
 ---
 
 **Last updated:** 2026-09-15  

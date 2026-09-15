@@ -31,12 +31,12 @@
 
 | Path | Tanggung jawab |
 |---|---|
-| `supabase/migrations/20260915100000_nyalakan_bom_tiga_outlet.sql` | `is_bom_enabled=true` Cicurug/Sentul/Cileungsi + pre-check stok_balance |
-| `supabase/migrations/20260915101000_pamulang_type_mitra.sql` | `type='mitra'` MITRA PAMULANG (apply setelah laporan dampak disetujui owner) |
-| `supabase/migrations/20260915110000_pengerasan_harga.sql` | DROP `po_on_verified`; waste `hpp_kecil` → `kemasan_qty`; `fill_harga_snapshot` → `kemasan_qty` |
-| `supabase/migrations/20260915120000_harga_bahan_efektif.sql` | fungsi harga bertingkat + `can_view_hpp_dinamis()` |
-| `supabase/migrations/20260915130000_katalog_tulis_dari_po.sql` | `katalog_tulis_dari_po()` + `verifikasi_terima_po` memanggilnya saat guard lolos |
-| `supabase/migrations/20260915140000_rpc_hpp_dinamis.sql` | `get_hpp_dinamis_bahan`, `get_hpp_dinamis_menu` |
+| `supabase/migrations/20260915200000_nyalakan_bom_tiga_outlet.sql` | `is_bom_enabled=true` Cicurug/Sentul/Cileungsi + pre-check stok_balance |
+| `supabase/migrations/20260915201000_pamulang_type_mitra.sql` | `type='mitra'` MITRA PAMULANG (apply setelah laporan dampak disetujui owner) |
+| `supabase/migrations/20260915210000_pengerasan_harga.sql` | DROP `po_on_verified`; waste `hpp_kecil` → `kemasan_qty`; `fill_harga_snapshot` → `kemasan_qty` |
+| `supabase/migrations/20260915220000_harga_bahan_efektif.sql` | fungsi harga bertingkat + `can_view_hpp_dinamis()` |
+| `supabase/migrations/20260915230000_katalog_tulis_dari_po.sql` | `katalog_tulis_dari_po()` + `verifikasi_terima_po` memanggilnya saat guard lolos |
+| `supabase/migrations/20260915233000_rpc_hpp_dinamis.sql` | `get_hpp_dinamis_bahan`, `get_hpp_dinamis_menu` |
 | `supabase/verifikasi/hpp_dinamis/t0_prasyarat.sql` … `t4_rpc.sql` | uji SQL per migration |
 | `apps/stok/src/lib/stok/hppDinamis.ts` (+ `.test.ts`) | fungsi murni: ringkasan, porsi sumber, selisih %, label |
 | `apps/stok/src/app/actions/hppDinamis.ts` | server action memanggil 2 RPC lewat client ber-cookie (gate RPC berlaku) |
@@ -51,8 +51,8 @@
 ### Task 1: Prasyarat data — nyalakan BOM tiga outlet, koreksi tipe Pamulang
 
 **Files:**
-- Create: `supabase/migrations/20260915100000_nyalakan_bom_tiga_outlet.sql`
-- Create: `supabase/migrations/20260915101000_pamulang_type_mitra.sql`
+- Create: `supabase/migrations/20260915200000_nyalakan_bom_tiga_outlet.sql`
+- Create: `supabase/migrations/20260915201000_pamulang_type_mitra.sql`
 - Create: `supabase/verifikasi/hpp_dinamis/t0_prasyarat.sql`
 
 **Interfaces:**
@@ -79,7 +79,7 @@ Expected: `sb_bahan_resep` mendekati `bahan_resep_total` (≥ 40). Catat `baris_
 - [ ] **Step 2: Tulis migration nyalakan BOM**
 
 ```sql
--- supabase/migrations/20260915100000_nyalakan_bom_tiga_outlet.sql
+-- supabase/migrations/20260915200000_nyalakan_bom_tiga_outlet.sql
 -- Spec: docs/superpowers/specs/2026-09-15-hpp-dinamis-harga-kiriman-design.md §5.1
 -- Tiga outlet mitra dibuat 17-31 Jul 2026 dengan is_bom_enabled=false (semua
 -- outlet lain true, termasuk Pamulang 8 Sep). 3.676 order September mereka
@@ -131,7 +131,7 @@ Expected: sedikitnya markup HPP 1,1× di `get_owner_dashboard_summary` (baris ~1
 - [ ] **Step 4: Tulis migration Pamulang**
 
 ```sql
--- supabase/migrations/20260915101000_pamulang_type_mitra.sql
+-- supabase/migrations/20260915201000_pamulang_type_mitra.sql
 -- Spec §5.2. MITRA PAMULANG (dibuat 2026-09-08) tercatat type='outlet'.
 -- Konfirmasi owner 2026-09-15: "pamulang itu mitra".
 -- JANGAN di-apply sebelum laporan dampak (Task 1 Step 3) disetujui owner.
@@ -151,9 +151,9 @@ COMMIT;
 
 ```bash
 cd "D:/MIT/CLAUDE CODE PROJECT/SS DIGITAL PROJECT"
-supabase db query --linked -f supabase/migrations/20260915100000_nyalakan_bom_tiga_outlet.sql
-supabase db query --linked -f supabase/migrations/20260915101000_pamulang_type_mitra.sql
-supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915100000','nyalakan_bom_tiga_outlet'),('20260915101000','pamulang_type_mitra') ON CONFLICT (version) DO NOTHING"
+supabase db query --linked -f supabase/migrations/20260915200000_nyalakan_bom_tiga_outlet.sql
+supabase db query --linked -f supabase/migrations/20260915201000_pamulang_type_mitra.sql
+supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915200000','nyalakan_bom_tiga_outlet'),('20260915201000','pamulang_type_mitra') ON CONFLICT (version) DO NOTHING"
 supabase db query --linked "SELECT name, type, is_bom_enabled FROM outlets WHERE name IN ('MITRA CICURUG','MITRA SENTUL','MITRA CILEUNGSI','MITRA PAMULANG')"
 ```
 Expected: 3 outlet `is_bom_enabled=true`; Pamulang `type=mitra`.
@@ -169,7 +169,7 @@ Expected: ≥1 baris per outlet yang sudah ada order. Kalau setelah 1 hari kerja
 - [ ] **Step 7: Commit**
 
 ```bash
-git add supabase/migrations/20260915100000_nyalakan_bom_tiga_outlet.sql supabase/migrations/20260915101000_pamulang_type_mitra.sql
+git add supabase/migrations/20260915200000_nyalakan_bom_tiga_outlet.sql supabase/migrations/20260915201000_pamulang_type_mitra.sql
 git commit -m "fix(db): nyalakan BOM Cicurug/Sentul/Cileungsi, Pamulang type=mitra
 
 Tiga outlet mitra dibuat Juli 2026 dengan is_bom_enabled=false; 3.676 order
@@ -183,7 +183,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 2: Pengerasan — zombie `po_on_verified`, pembagi waste & snapshot ke `kemasan_qty`
 
 **Files:**
-- Create: `supabase/migrations/20260915110000_pengerasan_harga.sql`
+- Create: `supabase/migrations/20260915210000_pengerasan_harga.sql`
 - Create: `supabase/verifikasi/hpp_dinamis/t1_pengerasan.sql`
 - Read: `supabase/migrations/20300132000000_laporan_kecualikan_outlet_tes.sql:232-450` (badan `get_waste_breakdown`, `get_waste_incidents`, `get_waste_summary_v2`), `supabase/migrations/20260912100000_fix_harga_snapshot_satuan_vendor.sql:40-71` (`fill_harga_snapshot`)
 
@@ -211,7 +211,7 @@ Expected: `po_on_verified_ada=1`, `trigger_po_on_verified_ada=0`. Catat ketiga a
 Struktur file (badan fungsi waste disalin persis dari `20300132000000` — jangan menulis ulang dari ingatan):
 
 ```sql
--- supabase/migrations/20260915110000_pengerasan_harga.sql
+-- supabase/migrations/20260915210000_pengerasan_harga.sql
 -- Spec §6. Tiga hal:
 -- (1) DROP po_on_verified(): zombie dari 20300105000017, tanpa guard PO uji &
 --     salah satuan; triggernya di-drop 20260828114500. Kalau dipasang ulang
@@ -317,8 +317,8 @@ Catatan: bila KEJU tidak punya baris waste pada rentang itu, `v_kecil_baru` NULL
 - [ ] **Step 4: Apply migration**
 
 ```bash
-supabase db query --linked -f supabase/migrations/20260915110000_pengerasan_harga.sql
-supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915110000','pengerasan_harga') ON CONFLICT (version) DO NOTHING"
+supabase db query --linked -f supabase/migrations/20260915210000_pengerasan_harga.sql
+supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915210000','pengerasan_harga') ON CONFLICT (version) DO NOTHING"
 ```
 Expected: tanpa error (asersi di dalam file diam).
 
@@ -333,7 +333,7 @@ Expected: `waste_periode_agu`, `waste_periode_sep` **identik** dengan Step 1 (20
 - [ ] **Step 6: Commit**
 
 ```bash
-git add supabase/migrations/20260915110000_pengerasan_harga.sql supabase/verifikasi/hpp_dinamis/t1_pengerasan.sql
+git add supabase/migrations/20260915210000_pengerasan_harga.sql supabase/verifikasi/hpp_dinamis/t1_pengerasan.sql
 git commit -m "fix(db): drop zombie po_on_verified, seragamkan pembagi hpp_kecil & snapshot ke kemasan_qty
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -344,7 +344,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 3: `harga_bahan_efektif()` + `can_view_hpp_dinamis()`
 
 **Files:**
-- Create: `supabase/migrations/20260915120000_harga_bahan_efektif.sql`
+- Create: `supabase/migrations/20260915220000_harga_bahan_efektif.sql`
 - Create: `supabase/verifikasi/hpp_dinamis/t2_harga_efektif.sql`
 
 **Interfaces:**
@@ -364,7 +364,7 @@ Expected: kenali nilai "ditolak"-nya (mis. `ditolak`/`rejected`). Pakai nilai it
 - [ ] **Step 2: Tulis migration**
 
 ```sql
--- supabase/migrations/20260915120000_harga_bahan_efektif.sql
+-- supabase/migrations/20260915220000_harga_bahan_efektif.sql
 -- Spec §2 (harga bertingkat) & §7. Harga diselesaikan saat DIBACA.
 BEGIN;
 
@@ -508,8 +508,8 @@ ROLLBACK;
 - [ ] **Step 4: Apply + stempel + uji**
 
 ```bash
-supabase db query --linked -f supabase/migrations/20260915120000_harga_bahan_efektif.sql
-supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915120000','harga_bahan_efektif') ON CONFLICT (version) DO NOTHING"
+supabase db query --linked -f supabase/migrations/20260915220000_harga_bahan_efektif.sql
+supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915220000','harga_bahan_efektif') ON CONFLICT (version) DO NOTHING"
 supabase db query --linked -f supabase/verifikasi/hpp_dinamis/t2_harga_efektif.sql
 ```
 Expected: t2 berakhir `HASIL T2: LULUS`.
@@ -517,7 +517,7 @@ Expected: t2 berakhir `HASIL T2: LULUS`.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add supabase/migrations/20260915120000_harga_bahan_efektif.sql supabase/verifikasi/hpp_dinamis/t2_harga_efektif.sql
+git add supabase/migrations/20260915220000_harga_bahan_efektif.sql supabase/verifikasi/hpp_dinamis/t2_harga_efektif.sql
 git commit -m "feat(db): harga_bahan_efektif bertingkat (kiriman > drop-ship > riwayat > master) + gate HPP dinamis
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -528,7 +528,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 4: PO memberi makan katalog vendor
 
 **Files:**
-- Create: `supabase/migrations/20260915130000_katalog_tulis_dari_po.sql`
+- Create: `supabase/migrations/20260915230000_katalog_tulis_dari_po.sql`
 - Create: `supabase/verifikasi/hpp_dinamis/t3_katalog_po.sql`
 - Read: `supabase/migrations/20260908150000_guard_harga_master_po_uji_coba.sql:29-317` (badan `verifikasi_terima_po` — **pendefinisi terakhir**, sudah dicek: tidak ada file bernomor lebih besar yang mendefinisikannya ulang; cek lagi dengan `grep -ln "FUNCTION public.verifikasi_terima_po" supabase/migrations/* | sort | tail -1`)
 
@@ -539,7 +539,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - [ ] **Step 1: Tulis migration**
 
 ```sql
--- supabase/migrations/20260915130000_katalog_tulis_dari_po.sql
+-- supabase/migrations/20260915230000_katalog_tulis_dari_po.sql
 -- Spec §3. Katalog = "harga terakhir per vendor". Hanya ditulis bila kedua
 -- guard verifikasi_terima_po lolos (PO uji coba, salah satuan) — sama seperti
 -- master. Harga disimpan per satuan_beli katalog (FOIL: roll, bukan Dus).
@@ -689,8 +689,8 @@ Kolom `purchase_order`/`purchase_order_item` yang NOT NULL mungkin lebih banyak 
 - [ ] **Step 3: Apply + stempel + uji**
 
 ```bash
-supabase db query --linked -f supabase/migrations/20260915130000_katalog_tulis_dari_po.sql
-supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915130000','katalog_tulis_dari_po') ON CONFLICT (version) DO NOTHING"
+supabase db query --linked -f supabase/migrations/20260915230000_katalog_tulis_dari_po.sql
+supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915230000','katalog_tulis_dari_po') ON CONFLICT (version) DO NOTHING"
 supabase db query --linked -f supabase/verifikasi/hpp_dinamis/t3_katalog_po.sql
 supabase db query --linked "SELECT count(*) FROM bahan_baku_supplier WHERE sumber='po' AND ref_po_id IS NOT NULL AND harga_updated_at > now() - interval '5 minutes'"
 ```
@@ -699,7 +699,7 @@ Expected: t3 `HASIL T3: LULUS`; kueri terakhir **0** (ROLLBACK benar-benar membu
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/20260915130000_katalog_tulis_dari_po.sql supabase/verifikasi/hpp_dinamis/t3_katalog_po.sql
+git add supabase/migrations/20260915230000_katalog_tulis_dari_po.sql supabase/verifikasi/hpp_dinamis/t3_katalog_po.sql
 git commit -m "feat(db): verifikasi PO menulis harga ke katalog vendor bila guard lolos
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
@@ -710,7 +710,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 ### Task 5: RPC `get_hpp_dinamis_bahan` & `get_hpp_dinamis_menu`
 
 **Files:**
-- Create: `supabase/migrations/20260915140000_rpc_hpp_dinamis.sql`
+- Create: `supabase/migrations/20260915233000_rpc_hpp_dinamis.sql`
 - Create: `supabase/verifikasi/hpp_dinamis/t4_rpc.sql`
 
 **Interfaces:**
@@ -733,7 +733,7 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - [ ] **Step 1: Tulis migration**
 
 ```sql
--- supabase/migrations/20260915140000_rpc_hpp_dinamis.sql
+-- supabase/migrations/20260915233000_rpc_hpp_dinamis.sql
 -- Spec §2 (grain), §7. Harga diselesaikan saat dibaca; ledger tidak disentuh.
 BEGIN;
 
@@ -946,17 +946,17 @@ ROLLBACK;
 - [ ] **Step 3: Apply + stempel + uji + ukur waktu**
 
 ```bash
-supabase db query --linked -f supabase/migrations/20260915140000_rpc_hpp_dinamis.sql
-supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915140000','rpc_hpp_dinamis') ON CONFLICT (version) DO NOTHING"
+supabase db query --linked -f supabase/migrations/20260915233000_rpc_hpp_dinamis.sql
+supabase db query --linked "INSERT INTO supabase_migrations.schema_migrations (version, name) VALUES ('20260915233000','rpc_hpp_dinamis') ON CONFLICT (version) DO NOTHING"
 supabase db query --linked -f supabase/verifikasi/hpp_dinamis/t4_rpc.sql
 supabase db query --linked "EXPLAIN ANALYZE SELECT * FROM get_hpp_dinamis_bahan((SELECT id FROM outlets WHERE name='SUKA SHAWARMA EMPANG'), '2026-09-01','2026-09-14')"
 ```
-Expected: t4 `HASIL T4: LULUS`. EXPLAIN ANALYZE total < 3 detik untuk 14 hari Empang (≈22.700 baris pemakaian → ≈600 pasangan bahan×hari → 600 panggilan `harga_bahan_efektif`). Kalau > 3 detik: tambah index `CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_sji_bahan_sj ON surat_jalan_item(bahan_baku_id, surat_jalan_id)` dan `ix_ledger_outlet_order_created ON ledger_stok(outlet_id, created_at) WHERE ref_order_id IS NOT NULL` sebagai migration terpisah `20260915141000`.
+Expected: t4 `HASIL T4: LULUS`. EXPLAIN ANALYZE total < 3 detik untuk 14 hari Empang (≈22.700 baris pemakaian → ≈600 pasangan bahan×hari → 600 panggilan `harga_bahan_efektif`). Kalau > 3 detik: tambah index `CREATE INDEX CONCURRENTLY IF NOT EXISTS ix_sji_bahan_sj ON surat_jalan_item(bahan_baku_id, surat_jalan_id)` dan `ix_ledger_outlet_order_created ON ledger_stok(outlet_id, created_at) WHERE ref_order_id IS NOT NULL` sebagai migration terpisah `20260915233500`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add supabase/migrations/20260915140000_rpc_hpp_dinamis.sql supabase/verifikasi/hpp_dinamis/t4_rpc.sql
+git add supabase/migrations/20260915233000_rpc_hpp_dinamis.sql supabase/verifikasi/hpp_dinamis/t4_rpc.sql
 git commit -m "feat(db): RPC get_hpp_dinamis_bahan (aktual, ledger pemakaian) & get_hpp_dinamis_menu (teoritis)
 
 Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"

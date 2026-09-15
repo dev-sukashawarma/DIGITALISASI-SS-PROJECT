@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { keSatuanBesar, perluKonfirmasiJumlah, hitungSelisihNota, BATAS_SELISIH_PERSEN } from './dropShip'
+import { keSatuanBesar, perluKonfirmasiJumlah, hitungSelisihNota, BATAS_SELISIH_PERSEN, bahanDropShip, pilihanTanggalTerima } from './dropShip'
 
 const sayur = { faktor_tengah: null, faktor_tampilan: 1000 } // kg, kecil = gram
 
@@ -34,4 +34,28 @@ describe('hitungSelisihNota', () => {
   })
   it('di bawah ambang tidak wajib', () => expect(hitungSelisihNota(100.3, 100).perluCatatan).toBe(false))
   it('ambang sama dengan SQL', () => expect(BATAS_SELISIH_PERSEN).toBe(0.5))
+})
+
+// 2026-09-15: drop-ship hanya bahan ber-penanda (sekarang hanya sayur).
+describe('bahanDropShip', () => {
+  it('hanya bahan drop_ship, urut nama', () => {
+    expect(bahanDropShip([
+      { id: 'b', nama: 'SAPI', drop_ship: false },
+      { id: 's', nama: 'Sayur (lettuce)', drop_ship: true },
+      { id: 'x', nama: 'AYAM' },
+      { id: 't', nama: 'Tomat', drop_ship: true },
+    ]).map((b) => b.id)).toEqual(['s', 't'])
+  })
+})
+
+describe('pilihanTanggalTerima', () => {
+  it('hari ini s/d 3 hari lalu (batas RPC), berlabel', () => {
+    expect(pilihanTanggalTerima('2026-09-01')).toEqual([
+      { value: '2026-09-01', label: 'Hari ini' },
+      { value: '2026-08-31', label: 'Kemarin' },
+      { value: '2026-08-30', label: '2 hari lalu' },
+      { value: '2026-08-29', label: '3 hari lalu' },
+    ])
+  })
+  it('kosong bila tanggal belum siap', () => expect(pilihanTanggalTerima('')).toEqual([]))
 })

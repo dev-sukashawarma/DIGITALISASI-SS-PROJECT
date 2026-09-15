@@ -2,10 +2,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input } from '@suka/design-system'
 import { toast } from 'sonner'
+import { Leaf, Truck, Camera } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { useInfoTerimaVendor, useCatatTerimaVendor } from '@/hooks/useTerimaVendor'
-import { keSatuanBesar, perluKonfirmasiJumlah } from '@/lib/stok/dropShip'
+import { bahanDropShip, keSatuanBesar, perluKonfirmasiJumlah, pilihanTanggalTerima } from '@/lib/stok/dropShip'
 
 type Tingkat = 'besar' | 'tengah' | 'kecil'
 
@@ -17,14 +18,20 @@ function rupiah(n: number) {
 // saat render -- new Date()/Date.now() dipanggil saat render sebuah komponen
 // client bisa beda antara render server & hydrate client (React #310 pernah
 // meruntuhkan produksi stok karena pola serupa).
-function tanggalWIB(offsetHari: number): string {
-  return new Date(Date.now() + 7 * 3600 * 1000 - offsetHari * 86400000).toISOString().slice(0, 10)
+function hariIniWIB(): string {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10)
 }
+
+const pilih =
+  'w-full flex h-11 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-sm text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]'
+const label = 'block text-[11px] font-bold text-[#544437] uppercase tracking-wide mb-1.5'
 
 type Props = { outletId: string }
 
 export function TerimaVendorForm({ outletId }: Props) {
-  const { bahanBaku } = useBahanBaku()
+  const { bahanBaku, loading: bahanLoading } = useBahanBaku()
+  // Hanya bahan drop-ship (2026-09-15: hanya sayur). RPC menolak bahan lain.
+  const daftarBahan = useMemo(() => bahanDropShip(bahanBaku), [bahanBaku])
 
   const [bahanId, setBahanId] = useState('')
   const [supplierId, setSupplierId] = useState('')
@@ -34,19 +41,25 @@ export function TerimaVendorForm({ outletId }: Props) {
   const [file, setFile] = useState<File | null>(null)
   const [konfirmasi, setKonfirmasi] = useState(false)
 
-  // Tanggal terima -- default hari ini WIB, batas RPC hari ini s/d 3 hari lalu.
+  // Tanggal terima -- default hari ini WIB, pilihan s/d 3 hari lalu (batas RPC).
   // Kosong sampai mount (client-only) supaya render pertama server & client sama.
+  const [hariIni, setHariIni] = useState('')
   const [tanggal, setTanggal] = useState('')
-  const [minTanggal, setMinTanggal] = useState('')
-  const [maxTanggal, setMaxTanggal] = useState('')
   useEffect(() => {
-    setTanggal(tanggalWIB(0))
-    setMinTanggal(tanggalWIB(3))
-    setMaxTanggal(tanggalWIB(0))
+    const t = hariIniWIB()
+    setHariIni(t)
+    setTanggal(t)
   }, [])
+  const pilihanTanggal = useMemo(() => pilihanTanggalTerima(hariIni), [hariIni])
 
-  const bahan = bahanBaku.find((b) => b.id === bahanId) ?? null
-  const { data: vendors = [] } = useInfoTerimaVendor(bahanId || null)
+  // Satu bahan drop-ship (kasus sekarang) langsung terpilih.
+  useEffect(() => {
+    if (daftarBahan.length === 1 && bahanId !== daftarBahan[0].id) setBahanId(daftarBahan[0].id)
+    if (bahanId && !daftarBahan.some((b) => b.id === bahanId)) setBahanId('')
+  }, [daftarBahan, bahanId])
+
+  const bahan = daftarBahan.find((b) => b.id === bahanId) ?? null
+  const { data: vendors = [], isLoading: vendorLoading } = useInfoTerimaVendor(bahanId || null)
   const vendorTerpilih = vendors.find((v) => v.supplier_id === supplierId) ?? null
   const vendor = vendorTerpilih ?? (vendors.length === 1 ? vendors[0] : null)
   const catat = useCatatTerimaVendor()
@@ -90,7 +103,7 @@ export function TerimaVendorForm({ outletId }: Props) {
       return
     }
     if (!bahan || !vendor || !(qtyBesar > 0)) {
-      toast.error('Lengkapi bahan, vendor, dan jumlah')
+      toast.error('Lengkapi jumlah yang diterima')
       return
     }
     if (!tanggal) {
@@ -124,153 +137,183 @@ export function TerimaVendorForm({ outletId }: Props) {
         catatan: catatan || undefined,
         fotoUrl,
       })
-      toast.success(`Tercatat ${qtyBesar.toLocaleString('id-ID')} ${bahan.satuan} — stok outlet sudah bertambah`)
+      toast.success(`Tercatat ${qtyBesar.toLocaleString('id-ID')} ${bahan.satuan} ${bahan.nama} — stok outlet sudah bertambah`)
       resetSetelahSimpan()
     } catch (err) {
       toast.error((err as Error).message)
     }
   }
 
+  if (!bahanLoading && daftarBahan.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl p-5 border border-[#d9c2b2]/50 text-center">
+        <p className="text-sm font-bold text-[#544437]">Belum ada bahan yang dikirim langsung vendor ke outlet.</p>
+      </div>
+    )
+  }
+
   return (
-    <form onSubmit={submit} className="bg-white rounded-2xl p-5 border border-[#d9c2b2]/50 space-y-4">
-      <div>
-        <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Bahan</label>
-        <select
-          value={bahanId}
-          onChange={(e) => {
-            setBahanId(e.target.value)
-            setSupplierId('')
-            setTingkat('besar')
-            setQty('')
-            setKonfirmasi(false)
-          }}
-          className="w-full flex h-10 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-xs text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-        >
-          <option value="">Pilih bahan…</option>
-          {bahanBaku.map((b) => (
-            <option key={b.id} value={b.id}>{b.nama}</option>
-          ))}
-        </select>
-      </div>
-
-      {bahanId && vendors.length === 0 && (
-        <p className="text-xs font-semibold text-red-600">
-          Bahan ini tidak punya vendor kiriman langsung. Minta Pusat mendaftarkannya di Katalog Harga Vendor.
-        </p>
-      )}
-
-      {vendors.length > 1 && (
-        <div>
-          <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Vendor</label>
-          <select
-            value={supplierId}
-            onChange={(e) => setSupplierId(e.target.value)}
-            className="w-full flex h-10 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-xs text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-          >
-            <option value="">Pilih vendor…</option>
-            {vendors.map((v) => (
-              <option key={v.supplier_id} value={v.supplier_id}>{v.supplier_nama}</option>
-            ))}
-          </select>
+    <form onSubmit={submit} className="bg-white rounded-2xl border border-[#d9c2b2]/50 overflow-hidden">
+      {/* Bahan & vendor */}
+      <div className="bg-[#f3faf3] border-b border-[#d9c2b2]/40 px-5 py-4 flex items-start gap-3">
+        <div className="w-10 h-10 shrink-0 rounded-xl bg-[#0a7d2c]/10 text-[#0a7d2c] flex items-center justify-center">
+          <Leaf size={20} />
         </div>
-      )}
-      {vendor && vendors.length === 1 && (
-        <p className="text-xs text-[#544437]">Vendor: <span className="font-bold">{vendor.supplier_nama}</span></p>
-      )}
+        <div className="min-w-0 flex-1 space-y-2">
+          {daftarBahan.length > 1 ? (
+            <select
+              value={bahanId}
+              onChange={(e) => {
+                setBahanId(e.target.value)
+                setSupplierId('')
+                setTingkat('besar')
+                setQty('')
+                setKonfirmasi(false)
+              }}
+              className={pilih}
+            >
+              <option value="">Pilih bahan…</option>
+              {daftarBahan.map((b) => (
+                <option key={b.id} value={b.id}>{b.nama}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-base font-extrabold text-[#1e1b15] leading-tight">{bahan?.nama ?? 'Memuat…'}</p>
+          )}
 
-      {bahan && vendor && (
-        <>
-          <div>
-            <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Tanggal terima</label>
-            <Input
-              type="date"
-              value={tanggal}
-              min={minTanggal}
-              max={maxTanggal}
-              onChange={(e) => setTanggal(e.target.value)}
-              disabled={!tanggal}
+          {bahanId && !vendorLoading && vendors.length === 0 && (
+            <p className="text-xs font-semibold text-red-600">
+              Bahan ini belum punya vendor. Minta Pusat mendaftarkannya di Katalog Harga Vendor.
+            </p>
+          )}
+          {vendors.length > 1 && (
+            <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={pilih}>
+              <option value="">Pilih vendor…</option>
+              {vendors.map((v) => (
+                <option key={v.supplier_id} value={v.supplier_id}>{v.supplier_nama}</option>
+              ))}
+            </select>
+          )}
+          {vendor && vendors.length === 1 && (
+            <p className="text-xs text-[#544437] flex items-center gap-1.5">
+              <Truck size={13} className="shrink-0" />
+              <span className="truncate">Diantar oleh <span className="font-bold">{vendor.supplier_nama}</span></span>
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="p-5 space-y-5">
+        {bahan && vendor && (
+          <>
+            <div>
+              <span className={label}>Tanggal diterima</span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {pilihanTanggal.map((p) => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setTanggal(p.value)}
+                    className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+                      tanggal === p.value
+                        ? 'bg-[#701604] border-[#701604] text-white'
+                        : 'bg-white border-[#d9c2b2]/60 text-[#544437] hover:bg-[#fff8f1]'
+                    }`}
+                  >
+                    {p.label}
+                    <span className={`block text-[10px] font-semibold ${tanggal === p.value ? 'text-white/75' : 'text-[#544437]/60'}`}>
+                      {p.value.slice(8, 10)}/{p.value.slice(5, 7)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <span className={label}>Jumlah diterima</span>
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  step="any"
+                  min="0"
+                  value={qty}
+                  onChange={(e) => setQty(e.target.value)}
+                  placeholder="Misal: 5"
+                  className="flex-1 h-11 text-base font-bold"
+                />
+                <select
+                  value={tingkat}
+                  onChange={(e) => setTingkat(e.target.value as Tingkat)}
+                  className="flex h-11 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-sm text-[#1e1b15] font-bold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
+                >
+                  <option value="besar">{bahan.satuan}</option>
+                  {bahan.satuan_tengah && bahan.faktor_tengah ? <option value="tengah">{bahan.satuan_tengah}</option> : null}
+                  {bahan.satuan_kecil && bahan.faktor_tampilan ? <option value="kecil">{bahan.satuan_kecil}</option> : null}
+                </select>
+              </div>
+              <p className="text-[10px] text-[#544437]/60 mt-1 font-medium">
+                Isi sesuai timbangan saat barang datang. Harga tidak perlu diisi — dikunci sistem dari katalog vendor.
+              </p>
+            </div>
+
+            {konversiError && <p className="text-xs font-semibold text-red-600">{konversiError}</p>}
+
+            {qtyBesar > 0 && !konversiError && (
+              <div className={`rounded-xl p-3 text-sm space-y-1 ${butuhKonfirmasi ? 'bg-red-50 border border-red-300' : 'bg-[#f7f0ea]'}`}>
+                <div className="flex justify-between gap-3">
+                  <span className="text-[#544437]">Stok outlet bertambah</span>
+                  <b>+{qtyBesar.toLocaleString('id-ID', { maximumFractionDigits: 3 })} {bahan.satuan}</b>
+                </div>
+                <div className="flex justify-between gap-3">
+                  <span className="text-[#544437]">Nilai (harga terkunci)</span>
+                  <b>{rupiah(nilai)}</b>
+                </div>
+                {butuhKonfirmasi && (
+                  <label className="flex items-start gap-2 mt-2 text-red-700 text-xs font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={konfirmasi}
+                      onChange={(e) => setKonfirmasi(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    Jumlah ini jauh di atas biasanya. Saya sudah cek satuannya ({bahan.satuan}, bukan{' '}
+                    {bahan.satuan_kecil ?? bahan.satuan_tengah ?? 'satuan lain'}) dan jumlahnya benar.
+                  </label>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <div>
+          <span className={label}>Catatan (opsional)</span>
+          <Input value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Misal: dikirim jam 6 pagi" />
+        </div>
+
+        <div>
+          <span className={label}>Foto bukti terima (opsional)</span>
+          <label className="flex items-center gap-2 h-11 px-3 rounded-xl border border-dashed border-[#d9c2b2] bg-[#fffaf5] text-xs font-semibold text-[#544437] cursor-pointer">
+            <Camera size={16} className="shrink-0 text-[#904d00]" />
+            <span className="truncate">{file ? file.name : 'Ambil foto timbangan / nota antar'}</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+              className="sr-only"
             />
-          </div>
+          </label>
+        </div>
 
-          <div>
-            <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Jumlah diterima</label>
-            <div className="flex gap-2">
-              <Input
-                type="number"
-                inputMode="decimal"
-                step="any"
-                min="0"
-                value={qty}
-                onChange={(e) => setQty(e.target.value)}
-                placeholder="Misal: 5"
-                className="flex-1"
-              />
-              <select
-                value={tingkat}
-                onChange={(e) => setTingkat(e.target.value as Tingkat)}
-                className="flex h-10 border border-[#d9c2b2]/60 bg-white px-3 py-2 text-xs text-[#1e1b15] font-semibold rounded-xl focus:outline-none focus:ring-1 focus:ring-[#f29744] focus:border-[#f29744]"
-              >
-                <option value="besar">{bahan.satuan}</option>
-                {bahan.satuan_tengah && bahan.faktor_tengah ? <option value="tengah">{bahan.satuan_tengah}</option> : null}
-                {bahan.satuan_kecil && bahan.faktor_tampilan ? <option value="kecil">{bahan.satuan_kecil}</option> : null}
-              </select>
-            </div>
-          </div>
-
-          {konversiError && (
-            <p className="text-xs font-semibold text-red-600">{konversiError}</p>
-          )}
-
-          {qtyBesar > 0 && !konversiError && (
-            <div className={`rounded-xl p-3 text-sm space-y-1 ${butuhKonfirmasi ? 'bg-red-50 border border-red-300' : 'bg-[#f7f0ea]'}`}>
-              <div className="flex justify-between">
-                <span className="text-[#544437]">Akan tercatat</span>
-                <b>{qtyBesar.toLocaleString('id-ID')} {bahan.satuan}</b>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#544437]">Nilai (harga terkunci)</span>
-                <b>{rupiah(nilai)}</b>
-              </div>
-              {butuhKonfirmasi && (
-                <label className="flex items-start gap-2 mt-2 text-red-700 text-xs font-semibold">
-                  <input
-                    type="checkbox"
-                    checked={konfirmasi}
-                    onChange={(e) => setKonfirmasi(e.target.checked)}
-                    className="mt-0.5"
-                  />
-                  Jumlah ini jauh di atas biasanya. Saya sudah cek satuannya ({bahan.satuan}, bukan{' '}
-                  {bahan.satuan_kecil ?? bahan.satuan_tengah ?? 'satuan lain'}) dan jumlahnya benar.
-                </label>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      <div>
-        <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Catatan (opsional)</label>
-        <Input value={catatan} onChange={(e) => setCatatan(e.target.value)} placeholder="Misal: dikirim jam 6 pagi" />
+        <Button
+          type="submit"
+          disabled={catat.isPending || !(qtyBesar > 0) || !vendor || !!konversiError}
+          className="w-full h-12 bg-[#701604] hover:bg-[#571003] text-white rounded-xl font-bold text-sm shadow-sm"
+        >
+          {catat.isPending ? 'Menyimpan…' : 'Catat Terima'}
+        </Button>
       </div>
-
-      <div>
-        <label className="block text-xs font-bold text-[#544437] uppercase tracking-wide mb-1">Foto bukti terima (opsional)</label>
-        <Input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
-        <p className="text-[10px] text-[#544437]/60 mt-1 font-medium">Harga tidak perlu diisi — sudah dikunci sistem dari katalog vendor.</p>
-      </div>
-
-      <Button
-        type="submit"
-        disabled={catat.isPending || !(qtyBesar > 0) || !vendor || !!konversiError}
-        className="w-full bg-[#701604] hover:bg-[#571003] text-white rounded-xl font-bold text-xs shadow-sm"
-      >
-        {catat.isPending ? 'Menyimpan…' : 'Catat Terima'}
-      </Button>
     </form>
   )
 }

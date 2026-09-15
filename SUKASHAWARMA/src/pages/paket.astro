@@ -1,0 +1,23 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
+import PaketHero from '@/components/paket/PaketHero';
+import PaketOrderExperience from '@/components/paket/PaketOrderExperience';
+import PaketTerms from '@/components/paket/PaketTerms';
+
+const title = "Paket Acara";
+const description = "Pesan Suka Shawarma untuk acara dalam jumlah besar — Paket A (shawarma) atau Paket B (shawarma + minuman), minimal 50 pcs diskon 15%.";
+---
+
+<Layout title={title} description={description}>
+  <Navbar client:load pathname={Astro.url.pathname} />
+
+  <main>
+    <PaketHero client:visible />
+    <PaketOrderExperience client:visible />
+    <PaketTerms client:visible />
+  </main>
+
+  <Footer client:idle />
+</Layout>

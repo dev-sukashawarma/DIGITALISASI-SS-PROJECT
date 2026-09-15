@@ -17,6 +17,8 @@ export interface BahanBaku {
   satuan_kecil: SatuanKecil | null
   faktor_tampilan: number | null
   satuan_distribusi?: string | null
+  /** true = boleh dicatat terima langsung dari vendor di outlet (drop-ship). */
+  drop_ship?: boolean
 }
 export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe

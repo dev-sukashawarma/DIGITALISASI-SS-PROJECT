@@ -2545,12 +2545,26 @@ preseden repo (situasi sama, 2026-09-09): **didokumentasikan, bukan di-rename**.
 
 ## Session 2026-09-15: HPP Dinamis berbasis Harga Kiriman (DB + apps/stok)
 
-**Status:** ✅ DB LIVE — 5 migration applied & terstempel:
+**Status:** ✅ DB LIVE — 6 migration applied & terstempel:
 `20260915200000_nyalakan_bom_tiga_outlet`, `20260915210000_pengerasan_harga`,
 `20260915220000_harga_bahan_efektif`, `20260915230000_katalog_tulis_dari_po`,
-`20260915233000_rpc_hpp_dinamis`. `20260915201000_pamulang_type_mitra`
+`20260915233000_rpc_hpp_dinamis`,
+`20260915234000_katalog_tulis_dari_po_konsisten_penjaga`. `20260915201000_pamulang_type_mitra`
 **DITULIS, BELUM di-apply** — menunggu OK owner. Kode `apps/stok` di branch
 `feat/hpp-dinamis-harga-kiriman`, ⚠️ **belum merge/push/redeploy**.
+
+**Gelombang fix final review (2026-09-15):** `katalog_tulis_dari_po` (cabang
+INSERT) bisa membuat baris `bahan_baku_supplier` yang langsung ditolak
+`cek_isi_kemasan_vendor` pada penerimaan PO berikutnya untuk pasangan bahan-
+vendor yang sama — PLASTIK BESAR (`kemasan_qty` 100 vs `faktor_tampilan` 250,
+pertanyaan terbuka ke owner sejak normalisasi 3 September) satu-satunya bahan
+yang divergen hari ini. Migration `20260915234000` menahan pembuatan baris
+itu (diam, konsisten dengan filosofi "diam kalau tidak bisa memastikan") +
+membetulkan urutan aritmetika cabang UPDATE (kalikan dulu baru bagi). `t3_katalog_po.sql`
+ditambah kasus (g) yang membuktikannya (LULUS). Sekalian: panel HPP Dinamis
+kini merender `—` untuk selisih ketika resep ada tapi `hpp_teoritis_unit` null
+(sebelumnya tampil "-100%"), dan `periodeSebelumSnapshot` tak lagi memicu
+banner "sebelum snapshot" saat kolom tanggal masih kosong.
 
 **Spec/plan:** `docs/superpowers/specs/2026-09-15-hpp-dinamis-harga-kiriman-design.md`,
 `docs/superpowers/plans/2026-09-15-hpp-dinamis-harga-kiriman.md`
@@ -2643,6 +2657,18 @@ serupa tapi minor (1 resep, 5 outlet).
 - Keputusan owner: nyalakan `20260915201000` (Pamulang → mitra) atau tidak.
 - Kolom HPP dinamis di Profit (`apps/admin-dashboard`) — **sesi terpisah**,
   sengaja tak disentuh di sini (Global Constraint plan ini).
+- **Deferred dari final review (belum dikerjakan):**
+  - `<select>` outlet di panel HPP Dinamis tak bisa dikosongkan lagi setelah
+    dipilih sekali — efek sinkronisasi `useEffect` yang menimpa pilihan
+    kosong balik ke outlet pertama.
+  - Guard scope di `get_hpp_dinamis_menu`/`get_hpp_dinamis_bahan` memakai
+    `p_outlet NOT IN (SELECT ...)` — rapuh terhadap NULL (`NOT IN` dengan
+    subquery yang mengandung NULL selalu UNKNOWN, bukan TRUE/FALSE). Ganti ke
+    `NOT EXISTS` pada sentuhan berikutnya ke fungsi ini.
+  - Test gap yang belum ditulis: tier-1 (kiriman) mengalahkan tier-3 (master
+    historis) yang lebih baru, filter `IS DISTINCT FROM` pada tier-3, dan
+    tiebreak `resep_terpilih` saat lebih dari satu resep aktif untuk menu yang
+    sama.
 - `useSalesHourlyRaw` masih rawan cap 1.000 baris (Session 2026-09-07) — **tak
   terkait** sesi ini, jangan digabung.
 - Merge master data `SAUS CABE`/`SAOS CABE` (temuan Task 1) — keputusan owner.

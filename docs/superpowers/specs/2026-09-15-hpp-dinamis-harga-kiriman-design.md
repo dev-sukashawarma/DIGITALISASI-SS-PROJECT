@@ -7,6 +7,10 @@
 di-apply, menunggu keputusan owner atas laporan dampak di `task-1-report.md`.
 Kode `apps/stok` di branch `feat/hpp-dinamis-harga-kiriman`, belum
 merge/push/redeploy. Lihat entri sesi CLAUDE.md untuk baseline pemantau.
+**Gelombang fix final review (2026-09-15):** migration `20260915234000`
+(applied & terstempel) menahan `katalog_tulis_dari_po` membuat baris yang
+langsung ditolak `cek_isi_kemasan_vendor` (PLASTIK BESAR, `kemasan_qty` 100 vs
+`faktor_tampilan` 250) + membetulkan urutan aritmetika cabang UPDATE.
 **Lingkup app:** DB (Supabase), `apps/stok` (papan HPP Menu)
 **Tidak disentuh:** `apps/admin-dashboard`, `apps/finance`, `apps/manager`, mitra P&L, `hpp_override`, trigger BOM
 
@@ -142,9 +146,13 @@ dipilih gudang. Kecuali satu hal: pembagi dari `faktor_tampilan` diseragamkan ke
 | Objek | Jenis | Catatan |
 |---|---|---|
 | `harga_bahan_efektif(p_outlet uuid, p_bahan uuid, p_tanggal date)` | fn SQL STABLE, `RETURNS (harga_besar numeric, harga_kecil numeric, sumber_harga text, ref_id uuid, ref_tanggal date)` | §2 tingkat 1–4 |
-| `get_hpp_dinamis_menu(p_outlet uuid, p_from date, p_to date)` | RPC SECURITY DEFINER, scope `outlet_ids_terhitung()` ∩ `accessible_outlet_ids()`, role gate = `canViewVendorPrices` (kitchen/purchasing/admin_finance/admin/owner/spv/regional_manager/leader/area_manager) | per menu: qty terjual, hpp_override, hpp_aktual, hpp_teoritis, sumber_hpp |
+| `get_hpp_dinamis_menu(p_outlet uuid, p_from date, p_to date)` | RPC SECURITY DEFINER, scope `outlet_ids_terhitung()` ∩ `accessible_outlet_ids()`, role gate = `canViewVendorPrices` (kitchen/purchasing/admin_finance/admin/owner/spv/regional_manager/leader/area_manager/developer) — ditegakkan di `AppSidebar.tsx`, bukan di dalam RPC (RPC hanya menyaring outlet) | per menu: qty terjual, hpp_override, hpp_aktual, hpp_teoritis, sumber_hpp |
 | `get_hpp_dinamis_bahan(p_outlet, p_from, p_to)` | RPC, gate sama | per bahan: qty pemakaian (satuan kecil), harga_kecil, nilai, sumber_harga, ref SJ |
-| `get_hpp_dinamis_ringkas(p_outlet, p_from, p_to)` | RPC | porsi `sumber_harga`, total aktual vs teoritis vs override |
+
+Ringkasan (porsi `sumber_harga`, total aktual vs teoritis vs override) **tidak
+punya RPC sendiri** — dihitung di klien oleh `ringkasHppDinamis()`
+(`apps/stok/src/lib/stok/hppDinamis.ts`) dari hasil dua RPC di atas. Tidak ada
+`get_hpp_dinamis_ringkas` di DB.
 
 Semua `SET search_path = public`, EXECUTE dicabut dari PUBLIC/anon, GRANT ke
 `authenticated`. Harga **diselesaikan saat dibaca**: tidak ada kolom harga di

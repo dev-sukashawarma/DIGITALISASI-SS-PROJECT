@@ -19,27 +19,51 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     const supabase = createSupabaseBrowserClient()
-    let email = identifier.trim()
-    if (!email.includes('@')) {
+    const cleanId = identifier.trim()
+    const cleanPassword = password.trim()
+    let authData: any = null
+    let authError: any = null
+
+    if (cleanId.includes('@')) {
+      const res = await supabase.auth.signInWithPassword({ email: cleanId, password: cleanPassword })
+      authData = res.data
+      authError = res.error
+    } else {
+      // Username login: resolve potential email aliases
       const { data: staffMatch } = await supabase
         .from('outlet_staff')
-        .select('email')
-        .eq('username', email)
+        .select('email, username')
+        .ilike('username', cleanId)
         .maybeSingle()
-      if (staffMatch?.email) {
-        email = staffMatch.email
-      } else {
-        email = `${email}@outlet.local`
+
+      const rawUser = staffMatch?.username || cleanId
+      const candidateEmails = [
+        `${rawUser.toLowerCase()}@ss.com`,
+        staffMatch?.email,
+        `${rawUser.toLowerCase()}@outlet.local`,
+      ].filter(Boolean) as string[]
+
+      const uniqueCandidates = Array.from(new Set(candidateEmails))
+
+      for (const candidate of uniqueCandidates) {
+        const res = await supabase.auth.signInWithPassword({ email: candidate, password: cleanPassword })
+        if (!res.error && res.data?.user) {
+          authData = res.data
+          authError = null
+          break
+        }
+        authError = res.error
       }
     }
-    const cleanPassword = password.trim()
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: cleanPassword })
-    if (error) {
+
+    if (authError || !authData?.user) {
       setLoading(false)
       const hint = !identifier.includes('@') ? ' Jika Anda admin/owner/leader/regional manager, gunakan email lengkap.' : ''
       setError(`Email atau kata sandi salah.${hint}`)
       return
     }
+
+    const data = authData
 
     // Verifikasi status staff sebelum masuk — akun nonaktif/cuti tidak boleh lanjut
     const { staff, error: staffError } = await getOutletStaff(supabase, data.user.id)

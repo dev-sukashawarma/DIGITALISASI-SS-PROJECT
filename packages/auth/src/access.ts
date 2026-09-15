@@ -8,14 +8,14 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   spv: ['absensi', 'stok', 'distribusi', 'pos-kasir', 'admin-dashboard', 'finance', 'manager'],
   regional_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'pos-kasir'],
   kitchen: ['stok', 'distribusi'],
-  leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'admin-dashboard'],
+  leader: ['pos-kasir', 'absensi', 'stok', 'distribusi', 'admin-dashboard', 'finance'],
   crew: ['absensi', 'pos-kasir', 'stok', 'distribusi'],
   kiosk: ['pos-kasir'],
   mitra: ['admin-dashboard'],
   staff_pusat: ['absensi'],
   admin_finance: ['finance', 'stok'],
-  area_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi'],
-  purchasing: ['finance', 'stok'],
+  area_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'admin-dashboard', 'finance'],
+  purchasing: ['admin-dashboard', 'finance', 'stok', 'distribusi'],
   developer: ['admin-dashboard', 'HR', 'monitoring', 'stok'],
 }
 

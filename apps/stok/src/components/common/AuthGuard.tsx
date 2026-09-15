@@ -9,16 +9,16 @@ import { useAuth } from '@suka/auth'
  * Renders children only once a session + outletStaff profile is loaded.
  */
 export function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth()
+  const { session, loading, outletStaff } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && !session) {
+    if (!loading && !session && !outletStaff) {
       router.replace('/login')
     }
-  }, [loading, session, router])
+  }, [loading, session, outletStaff, router])
 
-  if (loading) {
+  if (loading && !outletStaff) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <p className="text-gray-500">Memuat…</p>
@@ -26,7 +26,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     )
   }
 
-  if (!session) {
+  if (!session && !outletStaff) {
     return null
   }
 

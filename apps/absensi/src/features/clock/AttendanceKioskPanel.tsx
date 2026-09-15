@@ -18,6 +18,7 @@ import { PermissionModal } from "@/components/PermissionModal";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
+import { pilihOutletTerdekat } from "@/lib/attendance/pilihOutletTerdekat";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
 
@@ -59,7 +60,7 @@ export function AttendanceKioskPanel() {
   const [modelError, setModelError] = useState<string | null>(null);
   const [outletName, setOutletName] = useState<string>("");
 
-  type AssignedOutlet = { id: string; name: string; lat: number | null; lng: number | null; distanceM?: number | null };
+  type AssignedOutlet = { id: string; name: string; lat: number | null; lng: number | null; type?: string | null; distanceM?: number | null };
 
   // Leader / Multi-outlet Support — Seamless Auto-Detect
   const [assignedOutlets, setAssignedOutlets] = useState<AssignedOutlet[]>([]);
@@ -117,17 +118,12 @@ export function AttendanceKioskPanel() {
           (pos) => {
             if (!isMounted) return;
             const deviceLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            let closestOutletId = list[0]?.id;
-            let minDistance = Infinity;
+            // Jarak seri (outlet tes menyalin koordinat BNR) → outlet operasional didahulukan.
+            const closestOutletId = pilihOutletTerdekat(list, deviceLoc) ?? list[0]?.id;
 
             const updatedList = list.map((out) => {
               if (out.lat !== null && out.lng !== null) {
-                const dist = haversineMeters({ lat: out.lat, lng: out.lng }, deviceLoc);
-                if (dist < minDistance) {
-                  minDistance = dist;
-                  closestOutletId = out.id;
-                }
-                return { ...out, distanceM: dist };
+                return { ...out, distanceM: haversineMeters({ lat: out.lat, lng: out.lng }, deviceLoc) };
               }
               return out;
             });

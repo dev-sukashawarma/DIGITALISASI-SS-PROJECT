@@ -14,12 +14,12 @@ export async function GET(req: Request) {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const admin = createClient(supabaseUrl, serviceKey);
 
-    const list: { id: string; name: string; lat: number | null; lng: number | null }[] = [];
+    const list: { id: string; name: string; lat: number | null; lng: number | null; type: string | null }[] = [];
 
     // 1. Fetch assigned outlets from staff_outlets table
     const { data: soData, error: soErr } = await admin
       .from("staff_outlets")
-      .select("outlet_id, outlets!staff_outlets_outlet_id_fkey(id, name, lat, lng)")
+      .select("outlet_id, outlets!staff_outlets_outlet_id_fkey(id, name, lat, lng, type)")
       .eq("staff_id", staffId);
 
     if (soErr) {
@@ -35,6 +35,7 @@ export async function GET(req: Request) {
             name: item.name,
             lat: item.lat !== null ? Number(item.lat) : null,
             lng: item.lng !== null ? Number(item.lng) : null,
+            type: item.type ?? null,
           });
         }
       });
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
       if (assignedIds.length > 0) {
         const { data: outletRows } = await admin
           .from("outlets")
-          .select("id, name, lat, lng")
+          .select("id, name, lat, lng, type")
           .in("id", assignedIds);
 
         (outletRows || []).forEach((item: any) => {
@@ -61,6 +62,7 @@ export async function GET(req: Request) {
               name: item.name,
               lat: item.lat !== null ? Number(item.lat) : null,
               lng: item.lng !== null ? Number(item.lng) : null,
+              type: item.type ?? null,
             });
           }
         });
@@ -70,7 +72,7 @@ export async function GET(req: Request) {
     // 2. Fetch primary outlet from outlet_staff and staff role
     const { data: staffRoleData } = await admin
       .from("outlet_staff")
-      .select("role, outlet_id, outlets!outlet_staff_outlet_id_fkey(id, name, lat, lng)")
+      .select("role, outlet_id, outlets!outlet_staff_outlet_id_fkey(id, name, lat, lng, type)")
       .eq("id", staffId)
       .maybeSingle();
 
@@ -81,7 +83,7 @@ export async function GET(req: Request) {
       if (!primaryOutlet) {
         const { data: fallbackOutlet } = await admin
           .from("outlets")
-          .select("id, name, lat, lng")
+          .select("id, name, lat, lng, type")
           .eq("id", staffRoleData.outlet_id)
           .maybeSingle();
         primaryOutlet = fallbackOutlet;
@@ -93,6 +95,7 @@ export async function GET(req: Request) {
           name: primaryOutlet.name,
           lat: primaryOutlet.lat !== null ? Number(primaryOutlet.lat) : null,
           lng: primaryOutlet.lng !== null ? Number(primaryOutlet.lng) : null,
+          type: primaryOutlet.type ?? null,
         });
       }
     }
@@ -102,7 +105,7 @@ export async function GET(req: Request) {
       if (list.length <= 1) {
         const { data: allOutlets } = await admin
           .from("outlets")
-          .select("id, name, lat, lng")
+          .select("id, name, lat, lng, type")
           .eq("is_active", true)
           .order("name");
 
@@ -114,6 +117,7 @@ export async function GET(req: Request) {
                 name: item.name,
                 lat: item.lat !== null ? Number(item.lat) : null,
                 lng: item.lng !== null ? Number(item.lng) : null,
+                type: item.type ?? null,
               });
             }
           });

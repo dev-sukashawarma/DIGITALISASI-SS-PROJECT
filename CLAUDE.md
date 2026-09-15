@@ -2543,5 +2543,96 @@ preseden repo (situasi sama, 2026-09-09): **didokumentasikan, bukan di-rename**.
 
 ---
 
-**Last updated:** 2026-09-12  
+## Session 2026-09-15: HPP Dinamis berbasis Harga Kiriman (DB + apps/stok)
+
+**Status:** ✅ DB LIVE — 5 migration applied & terstempel:
+`20260915200000_nyalakan_bom_tiga_outlet`, `20260915210000_pengerasan_harga`,
+`20260915220000_harga_bahan_efektif`, `20260915230000_katalog_tulis_dari_po`,
+`20260915233000_rpc_hpp_dinamis`. `20260915201000_pamulang_type_mitra`
+**DITULIS, BELUM di-apply** — menunggu OK owner. Kode `apps/stok` di branch
+`feat/hpp-dinamis-harga-kiriman`, ⚠️ **belum merge/push/redeploy**.
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-15-hpp-dinamis-harga-kiriman-design.md`,
+`docs/superpowers/plans/2026-09-15-hpp-dinamis-harga-kiriman.md`
+
+### Masalah
+HPP hidup di dua sistem yang tak saling kenal, keduanya statis: `hpp_override`
+(diketik manual, dipakai Owner Dashboard/Profit/Finance/Mitra) vs
+`get_hpp_periode` (resep × harga master "hari ini", nol UI). Sepuluh menu
+Online tanpa override → COGS nol. `surat_jalan_item.harga_snapshot` (911 baris
+Sep) & `vendor_id` sudah menyimpan harga vendor kiriman per outlet tapi tak ada
+fungsi HPP yang membacanya.
+
+### Keputusan owner (grilling 10 pertanyaan, ringkas)
+1. **Definisi:** HPP outlet mengikuti harga kiriman gudang yang benar-benar
+   sampai ke outlet itu — bukan angka global per bahan.
+2. **Harga campur:** kiriman terverifikasi **terakhir** ke outlet pada/sebelum
+   T. Bukan FIFO/WAC (konsisten keputusan 2026-07-01/09-03/09-08).
+3. **Harga bertingkat** (`harga_bahan_efektif`): kiriman → drop-ship → master
+   historis → master sekarang → `tidak_ada` (0, tampil sebagai peringatan).
+4. **Fase 1 = berdampingan, bukan pengganti.** Pelaporan tetap `hpp_override`
+   di admin-dashboard/finance/manager/mitra — nol perubahan di app-app itu.
+   Satu permukaan baru: panel "HPP Dinamis" di `/stok/hpp-menu`.
+5. **Alur harga vendor:** `verifikasi_terima_po` menulis `harga_terima` ke
+   katalog `bahan_baku_supplier` hanya bila kedua guard lolos (PO uji coba,
+   salah satuan); katalog tetap bisa disunting manual, berlaku ke depan saja.
+6. **Prasyarat:** nyalakan `is_bom_enabled` untuk 3 outlet mitra (Cicurug,
+   Sentul, Cileungsi — dibuat 17–31 Jul dengan bendera mati, 3.676 order
+   September tak pernah memotong stok). Pamulang → `type='mitra'` ditahan
+   sampai dampak `get_owner_dashboard_summary` (markup 1,1×) dikonfirmasi.
+7. **Pengerasan ikut sekalian:** drop `po_on_verified` zombie; `get_waste_breakdown`/
+   `_incidents`/`_summary_v2` → pembagi `kemasan_qty` (bukan `get_waste_periode`,
+   itu tetap); `fill_harga_snapshot` idem.
+8. **Sumber kuantitas:** aktual dari `ledger_stok` (`pemakaian` + `adjustment`
+   pembalik void), sadar skala `saldo_is_gram`; teoritis dari resep × qty
+   terjual untuk periode tanpa baris pemakaian.
+9. **Grain:** baris `pemakaian` per order, bukan per menu — aktual hanya ada
+   di tingkat outlet & bahan; tingkat menu selalu teoritis (resep × harga
+   efektif × qty terjual).
+10. **Skala wajib** (bukan opsional) — semua harga per satuan besar, pembagi
+    kanonik `kemasan_qty`.
+
+### Temuan untuk owner (di luar plan)
+Resep global merujuk bahan **`SAUS CABE`** (id berbeda dari **`SAOS CABE`**
+yang benar-benar dikirim gudang, 25 SJ ke 3 outlet vs 0 SJ ke `SAUS CABE`) →
+potongan BOM jatuh ke bahan yang tak pernah dikirim; 10 dari 18 outlet ber-baris
+`SAUS CABE` sudah minus. Kandidat merge master data atau ganti resep. AQUA
+serupa tapi minor (1 resep, 5 outlet).
+
+### Baseline pemantau (`SS COGS SET/pemantau-hpp-dinamis-2026-09.sql`, dijalankan sebagai role `kitchen`)
+- **Q1** (selisih teoritis-dinamis vs override, top): mayoritas outlet mitra
+  −13% s/d −31% (teoritis-dinamis LEBIH RENDAH dari override) — mis. MITRA
+  CIBINONG Original Sapi Jumbo −24,9%, Original Ayam Jumbo −31,3%.
+- **Q2** (porsi sumber harga, 7 hari terakhir): kebanyakan outlet 75–91%
+  `kiriman`; JAGAKARSA/JATIWARINGIN/BNR masih 100% `master` (belum ada SJ
+  terverifikasi dalam jendela ini); nol `drop_ship` & nol `tidak_ada` di
+  seluruh outlet yang tercek.
+- **Q3** (aktual vs teoritis bulan berjalan): outlet lama umumnya aktual >
+  teoritis 5–20% (substitusi waterfall & pemakaian nyata > resep bersih).
+  **Tiga outlet BOM-baru** menunjukkan pola sebaliknya drastis — MITRA CICURUG
+  aktual 116.754 vs teoritis 24,1 juta, MITRA SENTUL aktual 648.829 vs
+  teoritis 11,8 juta, MITRA CILEUNGSI aktual NULL (nol baris ledger) vs
+  teoritis 46,9 juta — **diharapkan**: BOM baru dinyalakan migration ini juga,
+  ledger `pemakaian` belum sempat terkumpul.
+- **Q4** (bahan resep tanpa harga sama sekali): **1 baris — `SAUS CABE`**,
+  persis temuan di atas; bukan bug pengerasan, itu bahan yang memang tak
+  pernah dikirim/dibeli.
+- **Q5** (katalog vendor terisi dari PO): **35 dari_po, 43 perlu_ditinjau, 60
+  total** — naik dari 0 sebelum Task 4 (sudah terbukti hidup lewat penerimaan
+  PO KEJU/Silaris selama pengujian).
+
+### 📝 Next
+- Merge branch, push, **redeploy `stok`** — panel HPP Dinamis belum live.
+- Owner memantau papan sebulan → keputusan terpisah apakah mengganti laporan
+  `hpp_override` di app lain dengan HPP dinamis.
+- Keputusan owner: nyalakan `20260915201000` (Pamulang → mitra) atau tidak.
+- Kolom HPP dinamis di Profit (`apps/admin-dashboard`) — **sesi terpisah**,
+  sengaja tak disentuh di sini (Global Constraint plan ini).
+- `useSalesHourlyRaw` masih rawan cap 1.000 baris (Session 2026-09-07) — **tak
+  terkait** sesi ini, jangan digabung.
+- Merge master data `SAUS CABE`/`SAOS CABE` (temuan Task 1) — keputusan owner.
+
+---
+
+**Last updated:** 2026-09-15  
 **Owner:** Dev Suka Shawarma

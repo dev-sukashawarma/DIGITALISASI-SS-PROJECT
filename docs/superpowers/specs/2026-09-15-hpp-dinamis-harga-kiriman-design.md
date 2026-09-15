@@ -1,7 +1,12 @@
 # HPP Dinamis berbasis Harga Kiriman Gudang — Design Spec
 
 **Tanggal:** 2026-09-15
-**Status:** Disepakati lewat sesi grilling (10 pertanyaan), belum dieksekusi
+**Status:** ✅ Dieksekusi — 5/6 migration applied & terstempel di DB live
+(`20260915200000`, `20260915210000`, `20260915220000`, `20260915230000`,
+`20260915233000`); `20260915201000` (Pamulang → `type='mitra'`) ditulis, BELUM
+di-apply, menunggu keputusan owner atas laporan dampak di `task-1-report.md`.
+Kode `apps/stok` di branch `feat/hpp-dinamis-harga-kiriman`, belum
+merge/push/redeploy. Lihat entri sesi CLAUDE.md untuk baseline pemantau.
 **Lingkup app:** DB (Supabase), `apps/stok` (papan HPP Menu)
 **Tidak disentuh:** `apps/admin-dashboard`, `apps/finance`, `apps/manager`, mitra P&L, `hpp_override`, trigger BOM
 

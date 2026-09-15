@@ -29,9 +29,14 @@ const FUNCTION_URL = "/api/submit-attendance";
  *   dengan descriptor staff ini (akun yang sedang login). Wajah orang lain ditolak
  *   walau ter-enroll. Dipakai di panel absen pribadi (AttendanceKioskPanel).
  *   Bila kosong → MODE 1:N (kiosk bersama: kenali siapa pun yang ter-enroll).
+ * @param options.shiftKe Shift yang sudah dipilih sebelum scan (panel pribadi memilih
+ *   di awal). Bila diisi, modal pilih shift tidak ditanyakan lagi setelah wajah
+ *   dikenali. Bila kosong di outlet dua shift → modal muncul setelah identifikasi
+ *   (kiosk bersama, identitas baru diketahui setelah scan).
  */
-export function useClockKiosk(outletId: string, options?: { lockToStaffId?: string }) {
+export function useClockKiosk(outletId: string, options?: { lockToStaffId?: string; shiftKe?: ShiftKe | null }) {
   const lockToStaffId = options?.lockToStaffId;
+  const presetShiftKe = options?.shiftKe ?? undefined;
   const supabase = createClient();
   const queue = useAttendanceQueue();
 
@@ -482,10 +487,11 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
       setWho({ id: foundId, name: foundName });
       setAction(next);
-      shiftKeRef.current = undefined;
+      shiftKeRef.current = presetShiftKe;
 
-      // Outlet dua shift: crew wajib memilih shift sebelum absen masuk.
-      if (next === "in") {
+      // Outlet dua shift: crew wajib memilih shift sebelum absen masuk
+      // (kecuali sudah dipilih di awal lewat options.shiftKe).
+      if (next === "in" && !presetShiftKe) {
         const opsi = await loadShiftOptions();
         if (opsi) {
           setShiftChoices(opsi);
@@ -500,7 +506,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     } finally {
       busyRef.current = false;
     }
-  }, [phase, outletId, decideAction, matchMode, lockToStaffId]);
+  }, [phase, outletId, decideAction, matchMode, lockToStaffId, presetShiftKe]);
 
   /** Dipanggil per-frame saat phase liveness; selesaikan saat lulus. */
   const livenessRef = useRef<ReturnType<typeof createLivenessDetector> | null>(null);
@@ -723,8 +729,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         setPhase("result"); scheduleReset(3500); return;
       }
 
-      shiftKeRef.current = undefined;
-      if (nextAction === "in") {
+      shiftKeRef.current = presetShiftKe;
+      if (nextAction === "in" && !presetShiftKe) {
         const opsi = await loadShiftOptions();
         if (opsi) {
           pendingManualRef.current = { staffId, staffName };

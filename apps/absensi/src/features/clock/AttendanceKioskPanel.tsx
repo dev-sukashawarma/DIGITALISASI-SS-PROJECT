@@ -19,6 +19,7 @@ import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
 import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
 import { pilihOutletTerdekat } from "@/lib/attendance/pilihOutletTerdekat";
+import { shiftOptions, namaShift, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
 
@@ -55,6 +56,10 @@ export function AttendanceKioskPanel() {
   const [jamMasuk, setJamMasuk] = useState<string | null>(null);
   const [jamKeluar, setJamKeluar] = useState<string | null>(null);
   const [absenWindowMode, setAbsenWindowMode] = useState<"auto" | "manual">("auto");
+  // Outlet dua shift: opsi shift outlet aktif & pilihan crew (dipilih saat halaman dibuka).
+  const [opsiShift, setOpsiShift] = useState<ShiftOption[] | null>(null);
+  const [shiftDipilih, setShiftDipilih] = useState<ShiftKe | null>(null);
+  const [historyReady, setHistoryReady] = useState(false);
   const [nowMinutes, setNowMinutes] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
@@ -74,7 +79,7 @@ export function AttendanceKioskPanel() {
 
   // Kiosk Integration — MODE 1:1: panel pribadi, kunci ke akun yang login.
   const supabase = createClient();
-  const kiosk = useClockKiosk(activeOutletId, { lockToStaffId: outletStaff?.id });
+  const kiosk = useClockKiosk(activeOutletId, { lockToStaffId: outletStaff?.id, shiftKe: shiftDipilih });
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const loopRef = useRef<number | null>(null);
   const router = useRouter();
@@ -164,16 +169,21 @@ export function AttendanceKioskPanel() {
     if (!activeOutletId) return;
 
     // Initial Load for activeOutletId
+    // Pilihan shift milik outlet sebelumnya tak berlaku di outlet baru.
+    setShiftDipilih(null);
+    setOpsiShift(null);
     kiosk.loadCandidates();
     kiosk.flushQueue();
     loadRecords();
 
     const fetchConfig = () => {
       Promise.all([
-        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode").eq("outlet_id", activeOutletId).maybeSingle(),
+        supabase.from("outlet_attendance_config").select("jam_masuk,jam_keluar,absen_window_mode,pilih_shift_aktif,shift2_jam_masuk,shift2_jam_keluar").eq("outlet_id", activeOutletId).maybeSingle(),
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]).then(([local, global]) => {
-        let data = local.data;
+        // Pilihan shift hanya ada di config khusus outlet, bukan aturan pusat.
+        setOpsiShift(shiftOptions(local.data));
+        let data: any = local.data;
         if (!data && global.data?.value) {
           try {
             data = typeof global.data.value === "string" ? JSON.parse(global.data.value) : global.data.value;
@@ -262,6 +272,7 @@ export function AttendanceKioskPanel() {
       .then(({ data }) => {
         setRecords(data || []);
         setLoadingHistory(false);
+        setHistoryReady(true);
       });
   }
 
@@ -281,7 +292,8 @@ export function AttendanceKioskPanel() {
   // Outlet dua shift: jam kerja hari ini mengikuti shift yang dipilih saat absen
   // masuk, bukan jam outlet. records urut terbaru dulu → find = absen masuk terakhir.
   const todayIn = todayRecords.find(r => r.type === "in");
-  const jamMasukHariIni = todayIn?.shift_jam_masuk?.slice(0, 5) ?? jamMasuk;
+  const shiftTerpilih = opsiShift?.find((o) => o.ke === shiftDipilih) ?? null;
+  const jamMasukHariIni = todayIn?.shift_jam_masuk?.slice(0, 5) ?? shiftTerpilih?.jam_masuk ?? jamMasuk;
   const jamKeluarHariIni = todayIn?.shift_jam_keluar?.slice(0, 5) ?? jamKeluar;
 
   function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
@@ -309,6 +321,11 @@ export function AttendanceKioskPanel() {
     ? dayjs().tz("Asia/Jakarta").startOf("day").add(toMin(jamMasuk) - 60, "minute").format("HH:mm")
     : null;
 
+  // Modal pilih shift tampil begitu halaman dibuka (sebelum scan) bila outlet dua shift
+  // dan belum absen masuk hari ini. Menunggu riwayat termuat agar tak muncul sesaat
+  // untuk crew yang sebenarnya sudah absen.
+  const perluPilihShift = !!opsiShift && historyReady && !hasIn && !hasOut && isOutletOpen && shiftDipilih === null;
+
   useEffect(() => { 
     if (clockInWindowOpen) {
       loadFaceModels()
@@ -321,7 +338,8 @@ export function AttendanceKioskPanel() {
     function loop() {
       const v = videoRef.current;
       // Jangan jalankan deteksi wajah jika outlet ditutup, model belum siap, atau di luar window absen
-      if (v && v.readyState >= 2 && isOutletOpen && modelsReady && clockInWindowOpen) {
+      // ...dan jeda selama crew belum memilih shift (hindari scan di balik modal).
+      if (v && v.readyState >= 2 && isOutletOpen && modelsReady && clockInWindowOpen && !perluPilihShift) {
         if (kiosk.phase === "idle") kiosk.tick(v);
         else if (kiosk.phase === "liveness") kiosk.runLiveness(v);
       }
@@ -329,15 +347,23 @@ export function AttendanceKioskPanel() {
     }
     loop();
     return () => { if (loopRef.current) clearTimeout(loopRef.current); };
-  }, [kiosk.phase, kiosk.tick, kiosk.runLiveness, isOutletOpen, modelsReady, clockInWindowOpen]);
+  }, [kiosk.phase, kiosk.tick, kiosk.runLiveness, isOutletOpen, modelsReady, clockInWindowOpen, perluPilihShift]);
 
   if (!outletStaff) return <div className="p-8 flex justify-center"><Spinner /></div>;
 
   return (
     <div className="max-w-md mx-auto space-y-4">
       {/* Permission Onboarding Modal & Mandatory Gate */}
+      {perluPilihShift && opsiShift && (
+        <PilihShiftModal
+          choices={opsiShift}
+          staffName={outletStaff.name}
+          onPilih={setShiftDipilih}
+        />
+      )}
+
       <PermissionModal
-        isOpen={kiosk.permissionState !== "granted"}
+        isOpen={!perluPilihShift && kiosk.permissionState !== "granted"}
         permissionState={kiosk.permissionState}
         onRequestPermissions={kiosk.requestPermissions}
         errorMessage={kiosk.permissionError}
@@ -471,6 +497,25 @@ export function AttendanceKioskPanel() {
           </Card>
         </div>
       )}
+
+          {shiftTerpilih && !hasIn && (
+            <div className="flex items-center justify-between gap-3 rounded-2xl border border-suka-orange/30 bg-orange-50/70 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-suka-brown/70">{namaShift(shiftTerpilih.jam_masuk)}</p>
+                <p className="text-lg font-black tabular-nums leading-tight text-suka-ink">
+                  {shiftTerpilih.jam_masuk} – {shiftTerpilih.jam_keluar}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShiftDipilih(null)}
+                disabled={kiosk.phase === "liveness" || kiosk.phase === "submitting"}
+                className="shrink-0 min-h-[44px] rounded-xl border border-suka-orange/40 bg-white px-4 text-sm font-extrabold text-suka-brown active:bg-orange-100 disabled:opacity-50"
+              >
+                Ubah
+              </button>
+            </div>
+          )}
 
           {/* Camera (Absen) - POSISI ATAS */}
           <Card className={`relative overflow-hidden p-0 rounded-3xl flex flex-col justify-between border transition-all duration-500 shadow-lg ${

@@ -14,6 +14,7 @@ export type AttendancePayload = {
   ts_client: string;
   from_queue: boolean;
   is_manual_button?: boolean;
+  shift_ke?: 1 | 2;           // Wajib saat absen masuk di outlet dengan pilihan dua shift
 };
 
 export type SubmitResult =

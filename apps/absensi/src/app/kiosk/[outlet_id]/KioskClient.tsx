@@ -7,6 +7,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useAuth } from '@suka/auth';
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
+import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
 
 export function KioskClient({ outlet_id }: { outlet_id: string }) {
   const kiosk = useClockKiosk(outlet_id);
@@ -41,6 +42,14 @@ export function KioskClient({ outlet_id }: { outlet_id: string }) {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      {kiosk.phase === "pilih_shift" && kiosk.shiftChoices && (
+        <PilihShiftModal
+          choices={kiosk.shiftChoices}
+          staffName={kiosk.who?.name}
+          onPilih={kiosk.pilihShift}
+          onBatal={kiosk.batalPilihShift}
+        />
+      )}
       <Card className="w-full max-w-md p-6 space-y-6 shadow-xl border-t-4 border-t-suka-orange">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold text-suka-brown flex items-center justify-center gap-2">

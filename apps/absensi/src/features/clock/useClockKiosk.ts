@@ -13,9 +13,10 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
+import { shiftOptions, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
 
-export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "liveness" | "submitting" | "result";
+export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "pilih_shift" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
 
 type StaffRow = { id: string; name: string; face_descriptor: number[] | null; allow_manual_button: boolean };
@@ -336,6 +337,24 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const busyRef = useRef(false);
 
+  // Pilihan dua shift: opsi yang ditawarkan di modal, shift yang dipilih, dan
+  // absen manual yang tertunda menunggu pilihan. Ref dipakai agar doSubmit yang
+  // tertangkap closure lama tetap membaca pilihan terbaru.
+  const [shiftChoices, setShiftChoices] = useState<ShiftOption[] | null>(null);
+  const shiftKeRef = useRef<ShiftKe | undefined>(undefined);
+  const pendingManualRef = useRef<{ staffId: string; staffName: string } | null>(null);
+
+  /** Opsi shift outlet ini (null = outlet satu shift). Dibaca segar tiap absen masuk. */
+  async function loadShiftOptions(): Promise<ShiftOption[] | null> {
+    if (!outletId) return null;
+    const { data } = await supabase
+      .from("outlet_attendance_config")
+      .select("jam_masuk, jam_keluar, pilih_shift_aktif, shift2_jam_masuk, shift2_jam_keluar")
+      .eq("outlet_id", outletId)
+      .maybeSingle();
+    return shiftOptions(data);
+  }
+
   /** Muat descriptor staff ter-enroll. */
   const loadCandidates = useCallback(async () => {
     if (!outletId) return;
@@ -463,6 +482,18 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
       setWho({ id: foundId, name: foundName });
       setAction(next);
+      shiftKeRef.current = undefined;
+
+      // Outlet dua shift: crew wajib memilih shift sebelum absen masuk.
+      if (next === "in") {
+        const opsi = await loadShiftOptions();
+        if (opsi) {
+          setShiftChoices(opsi);
+          setPhase("pilih_shift");
+          return;
+        }
+      }
+
       setChallenge(pickChallenge());
       setPhase("identified");
       setTimeout(() => setPhase("liveness"), 900); // jeda salam "Halo, Nama"
@@ -643,6 +674,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       selfie_path: null,
       ts_client: new Date().toISOString(),
       from_queue: false,
+      shift_ke: shiftKeRef.current,
     };
 
     if (!navigator.onLine) {
@@ -691,45 +723,94 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         setPhase("result"); scheduleReset(3500); return;
       }
 
-      setPhase("submitting");
-      const id = crypto.randomUUID();
-      const payload: AttendancePayload & { outlet_id: string } = {
-        id,
-        outlet_id: outletId,
-        outlet_staff_id: staffId,
-        type: nextAction,
-        gps_lat: deviceCoords?.lat ?? null,
-        gps_lng: deviceCoords?.lng ?? null,
-        gps_accuracy: deviceAccuracy ?? null,
-        is_mock: (deviceAccuracy === 1.0 || deviceAccuracy === 0.0),
-        match_distance: 0,
-        selfie_path: null,
-        ts_client: new Date().toISOString(),
-        from_queue: false,
-        is_manual_button: true,
-      };
-
-      if (!navigator.onLine) {
-        queue.enqueue(payload, "");
-        postToNative({ type: "haptic", style: "success" });
-        setResult({ ok: true, message: nextAction === "in" ? "Selamat bekerja! (Offline)" : "Hati-hati di jalan! (Offline)" });
-        setPhase("result"); scheduleReset(2500); return;
+      shiftKeRef.current = undefined;
+      if (nextAction === "in") {
+        const opsi = await loadShiftOptions();
+        if (opsi) {
+          pendingManualRef.current = { staffId, staffName };
+          setWho({ id: staffId, name: staffName });
+          setAction("in");
+          setShiftChoices(opsi);
+          setPhase("pilih_shift");
+          return;
+        }
       }
 
-      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token')
-        ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token
-        : null;
-      const token = authHeaderToken || anonKey;
-      const res = await submitAttendance(payload, { functionUrl: FUNCTION_URL, anonKey: token });
-      postToNative({ type: "haptic", style: res.ok ? "success" : "error" });
-      setResult(res.ok
-        ? { ok: true, message: nextAction === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
-        : { ok: false, message: gagalText(res.reason) });
-      setPhase("result"); scheduleReset(res.ok ? 2500 : 1000);
+      await kirimManual(staffId, nextAction);
     } finally {
       busyRef.current = false;
     }
+  }
+
+  /** Kirim absen manual (tanpa kamera) setelah semua gerbang & pilihan shift lolos. */
+  async function kirimManual(staffId: string, nextAction: "in" | "out") {
+    setPhase("submitting");
+    const id = crypto.randomUUID();
+    const payload: AttendancePayload & { outlet_id: string } = {
+      id,
+      outlet_id: outletId,
+      outlet_staff_id: staffId,
+      type: nextAction,
+      gps_lat: deviceCoords?.lat ?? null,
+      gps_lng: deviceCoords?.lng ?? null,
+      gps_accuracy: deviceAccuracy ?? null,
+      is_mock: (deviceAccuracy === 1.0 || deviceAccuracy === 0.0),
+      match_distance: 0,
+      selfie_path: null,
+      ts_client: new Date().toISOString(),
+      from_queue: false,
+      is_manual_button: true,
+      shift_ke: shiftKeRef.current,
+    };
+
+    if (!navigator.onLine) {
+      queue.enqueue(payload, "");
+      postToNative({ type: "haptic", style: "success" });
+      setResult({ ok: true, message: nextAction === "in" ? "Selamat bekerja! (Offline)" : "Hati-hati di jalan! (Offline)" });
+      setPhase("result"); scheduleReset(2500); return;
+    }
+
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const authHeaderToken = typeof window !== 'undefined' && localStorage.getItem('supabase-auth-token')
+      ? JSON.parse(localStorage.getItem('supabase-auth-token') || '{}')?.session?.access_token
+      : null;
+    const token = authHeaderToken || anonKey;
+    const res = await submitAttendance(payload, { functionUrl: FUNCTION_URL, anonKey: token });
+    postToNative({ type: "haptic", style: res.ok ? "success" : "error" });
+    setResult(res.ok
+      ? { ok: true, message: nextAction === "in" ? "Selamat bekerja!" : "Hati-hati di jalan!" }
+      : { ok: false, message: gagalText(res.reason) });
+    setPhase("result"); scheduleReset(res.ok ? 2500 : 1000);
+  }
+
+  /** Crew memilih shift di modal → lanjut ke liveness (kamera) atau kirim (manual). */
+  async function pilihShift(ke: ShiftKe) {
+    if (phase !== "pilih_shift") return;
+    shiftKeRef.current = ke;
+    setShiftChoices(null);
+    const manual = pendingManualRef.current;
+    if (manual) {
+      pendingManualRef.current = null;
+      if (busyRef.current) return;
+      busyRef.current = true;
+      try {
+        await kirimManual(manual.staffId, "in");
+      } finally {
+        busyRef.current = false;
+      }
+      return;
+    }
+    setChallenge(pickChallenge());
+    setPhase("liveness");
+  }
+
+  /** Batal dari modal pilih shift — kembali ke layar awal tanpa mencatat absen. */
+  function batalPilihShift() {
+    pendingManualRef.current = null;
+    shiftKeRef.current = undefined;
+    setShiftChoices(null);
+    setPhase(locationLockedRef.current ? "idle" : "locating");
+    setWho(null);
   }
 
   // Bersihkan Geolocation Watcher saat komponen unmount
@@ -750,6 +831,9 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       setPhase(locationLockedRef.current ? "idle" : "locating");
       setWho(null); setChallenge(null); setResult(null);
       setServerDescriptor(null);
+      setShiftChoices(null);
+      shiftKeRef.current = undefined;
+      pendingManualRef.current = null;
       livenessRef.current = null;
       livenessWarningStartRef.current = null;
     }, delay);
@@ -765,7 +849,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
            loadCandidates, tick, runLiveness, flushQueue, isOnline: queue.isOnline, pending: queue.pending,
            checkLocation, gpsDistance, deviceCoords, deviceAccuracy,
            permissionState, permissionError, requestPermissions,
-           matchMode, setMatchMode, doSubmitManual };
+           matchMode, setMatchMode, doSubmitManual,
+           shiftChoices, pilihShift, batalPilihShift };
 }
 
 function gagalText(reason: string): string {
@@ -777,6 +862,7 @@ function gagalText(reason: string): string {
     terlambat_alpha: "Lewat Batas Waktu (Alpha)",
     too_early_in: "Belum waktunya absen masuk",
     too_early_out: "Belum waktunya absen pulang",
+    shift_required: "Pilih shift dulu sebelum absen masuk",
     gps_accuracy_low: "Akurasi GPS terlalu rendah — aktifkan Lokasi Akurat",
     shift_not_closed: "Shift kasir belum ditutup",
     unfinished_orders: "Masih ada pesanan yang belum selesai di outlet ini",

@@ -17,6 +17,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { PermissionModal } from "@/components/PermissionModal";
 import { loadFaceModels } from "@/lib/face/recognizer";
 import { useClockKiosk } from "@/features/clock/useClockKiosk";
+import { PilihShiftModal } from "@/features/clock/PilihShiftModal";
 import { triggerSuccessFeedback, triggerErrorFeedback } from "@/utils/haptics";
 import { formatDistanceMeters, haversineMeters } from "@/lib/gps";
 
@@ -28,6 +29,8 @@ type AttendanceRecord = {
   ts_server: string;
   status: string;
   telat_menit?: number | null;
+  shift_jam_masuk?: string | null;
+  shift_jam_keluar?: string | null;
 };
 
 function calculateDelayMinutes(tsServer: string, jamMasuk: string): number {
@@ -256,7 +259,7 @@ export function AttendanceKioskPanel() {
     setLoadingHistory(true);
     supabase
       .from("attendance")
-      .select("id, type, ts_server, status, telat_menit")
+      .select("id, type, ts_server, status, telat_menit, shift_jam_masuk, shift_jam_keluar")
       .eq("outlet_staff_id", outletStaff.id)
       .order("ts_server", { ascending: false })
       .limit(30)
@@ -279,6 +282,12 @@ export function AttendanceKioskPanel() {
   const hasIn = todayRecords.some(r => r.type === "in");
   const hasOut = todayRecords.some(r => r.type === "out");
 
+  // Outlet dua shift: jam kerja hari ini mengikuti shift yang dipilih saat absen
+  // masuk, bukan jam outlet. records urut terbaru dulu → find = absen masuk terakhir.
+  const todayIn = todayRecords.find(r => r.type === "in");
+  const jamMasukHariIni = todayIn?.shift_jam_masuk?.slice(0, 5) ?? jamMasuk;
+  const jamKeluarHariIni = todayIn?.shift_jam_keluar?.slice(0, 5) ?? jamKeluar;
+
   function toMin(t: string) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 
   const isManual = absenWindowMode === "manual";
@@ -290,14 +299,14 @@ export function AttendanceKioskPanel() {
   const clockInWindowOpen = hasOut
     ? false                                                              // shift selesai
     : hasIn
-      ? (!jamKeluar || nowMinutes >= toMin(jamKeluar) - 30)             // clock-out window (absen pulang tetap dibatasi)
+      ? (!jamKeluarHariIni || nowMinutes >= toMin(jamKeluarHariIni) - 30)             // clock-out window (absen pulang tetap dibatasi)
       : isManual
         ? isOutletOpen                                                  // manual clock-in window
         : true;                                                         // auto clock-in window (selalu terbuka untuk absen masuk)
 
   // Label jam kamera akan buka lagi (untuk overlay "sedang bekerja")
-  const clockOutWindowLabel = jamKeluar
-    ? dayjs().tz("Asia/Jakarta").startOf("day").add(toMin(jamKeluar) - 30, "minute").format("HH:mm")
+  const clockOutWindowLabel = jamKeluarHariIni
+    ? dayjs().tz("Asia/Jakarta").startOf("day").add(toMin(jamKeluarHariIni) - 30, "minute").format("HH:mm")
     : null;
   // Label jam kamera buka untuk clock-in
   const windowOpenLabel = (!isManual && jamMasuk)
@@ -337,6 +346,15 @@ export function AttendanceKioskPanel() {
         onRequestPermissions={kiosk.requestPermissions}
         errorMessage={kiosk.permissionError}
       />
+
+      {kiosk.phase === "pilih_shift" && kiosk.shiftChoices && (
+        <PilihShiftModal
+          choices={kiosk.shiftChoices}
+          staffName={kiosk.who?.name}
+          onPilih={kiosk.pilihShift}
+          onBatal={kiosk.batalPilihShift}
+        />
+      )}
 
       {/* Compact Header */}
       <div className="flex items-center justify-between px-1">
@@ -797,9 +815,9 @@ export function AttendanceKioskPanel() {
           <h2 className="font-bold text-suka-ink flex items-center gap-2 text-sm sm:text-base">
             <Clock size={18} className="text-suka-orange" /> Riwayat Absensi Terakhir
           </h2>
-          {jamMasuk && (
+          {jamMasukHariIni && (
             <span className="text-[10px] bg-suka-cream border border-suka-orange/20 text-suka-brown font-bold px-2.5 py-1 rounded-full">
-              Target: {jamMasuk}
+              Target: {jamMasukHariIni.slice(0, 5)}
             </span>
           )}
         </div>
@@ -807,7 +825,8 @@ export function AttendanceKioskPanel() {
           {loadingHistory ? (
             <div className="p-10 flex justify-center"><Spinner /></div>
           ) : records.map(r => {
-            const delay = r.telat_menit ?? ((r.status === 'telat' && r.type === 'in' && jamMasuk) ? calculateDelayMinutes(r.ts_server, jamMasuk) : null);
+            const targetMasuk = r.shift_jam_masuk?.slice(0, 5) ?? jamMasuk;
+            const delay = r.telat_menit ?? ((r.status === 'telat' && r.type === 'in' && targetMasuk) ? calculateDelayMinutes(r.ts_server, targetMasuk) : null);
             const isLate = r.status === 'telat';
             
             return (

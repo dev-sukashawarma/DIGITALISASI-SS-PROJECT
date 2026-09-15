@@ -8,6 +8,7 @@ import {
   calculateSpeedKmH, 
   MAX_REASONABLE_SPEED_KMH 
 } from "@/lib/gps";
+import { shiftOptions, isShiftKe } from "@/lib/attendance/shift";
 
 export async function POST(req: Request) {
   try {
@@ -230,11 +231,21 @@ export async function POST(req: Request) {
       }
     }
 
-    let { data: cfg } = await admin
+    let { data: cfg, error: cfgError }: { data: any; error: any } = await admin
       .from("outlet_attendance_config")
-      .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode")
+      .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode,pilih_shift_aktif,shift2_jam_masuk,shift2_jam_keluar")
       .eq("outlet_id", body.outlet_id)
       .maybeSingle();
+    if (cfgError) {
+      // Kolom pilihan shift belum ada (kode ter-deploy sebelum migration
+      // 20260915100000). Jangan jatuh ke jam pusat untuk outlet berjam khusus —
+      // ulangi dengan kolom lama.
+      ({ data: cfg } = await admin
+        .from("outlet_attendance_config")
+        .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode")
+        .eq("outlet_id", body.outlet_id)
+        .maybeSingle());
+    }
 
     if (!cfg) {
       const { data: globalRow } = await admin
@@ -255,6 +266,49 @@ export async function POST(req: Request) {
 
     if (!cfg) return NextResponse.json({ ok: false, reason: "config_missing" }, { status: 500 });
 
+    // ── Pilihan dua shift (toggle per outlet) ──────────────────────────────
+    // Absen masuk: crew wajib memilih shift; jam shift itu dibekukan di baris
+    // attendance. Absen pulang: dinilai terhadap shift dari absen masuk orang
+    // itu sendiri, bukan jam outlet — crew pagi pulang 17:00, crew siang 22:00.
+    // Client hanya mengirim nomor shift (1/2); jamnya diambil dari config di
+    // server supaya tak bisa dikarang.
+    let jamMasukEfektif: string = cfg.jam_masuk;
+    let jamKeluarEfektif: string = cfg.jam_keluar || "17:00";
+    let shiftCols: { shift_jam_masuk: string; shift_jam_keluar: string } | null = null;
+    const opsiShift = shiftOptions(cfg);
+    if (opsiShift) {
+      if (body.type === "out") {
+        const { data: lastIn } = await admin
+          .from("attendance")
+          .select("shift_jam_masuk, shift_jam_keluar")
+          .eq("outlet_staff_id", body.outlet_staff_id)
+          .eq("type", "in")
+          .neq("status", "alpha")
+          .gte("ts_server", new Date(Date.now() - 20 * 3600_000).toISOString())
+          .order("ts_server", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastIn?.shift_jam_masuk && lastIn?.shift_jam_keluar) {
+          shiftCols = { shift_jam_masuk: lastIn.shift_jam_masuk.slice(0, 5), shift_jam_keluar: lastIn.shift_jam_keluar.slice(0, 5) };
+        }
+      }
+      if (!shiftCols) {
+        const dipilih = isShiftKe(body.shift_ke) ? opsiShift.find((o) => o.ke === body.shift_ke) : undefined;
+        if (dipilih) {
+          shiftCols = { shift_jam_masuk: dipilih.jam_masuk, shift_jam_keluar: dipilih.jam_keluar };
+        } else if (body.type === "in") {
+          return NextResponse.json({ ok: false, reason: "shift_required" }, { status: 200 });
+        }
+        // Absen pulang tanpa jejak shift (mis. absen masuk terjadi sebelum toggle
+        // dinyalakan): jangan kunci crew di outlet — nilai terhadap jam outlet.
+      }
+      if (shiftCols) {
+        jamMasukEfektif = shiftCols.shift_jam_masuk;
+        jamKeluarEfektif = shiftCols.shift_jam_keluar;
+      }
+    }
+    // ───────────────────────────────────────────────────────────────────────
+
     const tsServer = new Date().toISOString();
     const basis = body.from_queue ? body.ts_client : tsServer;
 
@@ -272,7 +326,7 @@ export async function POST(req: Request) {
     if ((cfg.absen_window_mode ?? "auto") === "auto") {
       // Absen masuk tidak ditutup sebelum buka outlet (diperbolehkan absen masuk kapan saja)
       if (body.type === "out") {
-        const windowOpen = toTotalMinutes(cfg.jam_keluar || "17:00") - 30;
+        const windowOpen = toTotalMinutes(jamKeluarEfektif) - 30;
         if (nowMinutes < windowOpen) {
           return NextResponse.json({ ok: false, reason: "too_early_out" }, { status: 200 });
         }
@@ -283,7 +337,7 @@ export async function POST(req: Request) {
     let telat_menit: number | null = null;
     
     if (body.type === "out") {
-      const [hOut, mOut] = (cfg.jam_keluar || "17:00").split(":").map(Number);
+      const [hOut, mOut] = jamKeluarEfektif.split(":").map(Number);
       const deadlineOut = new Date(local);
       deadlineOut.setHours(hOut, mOut, 0, 0);
       
@@ -298,7 +352,7 @@ export async function POST(req: Request) {
         status = "tepat";
       }
     } else {
-      const [h, m] = cfg.jam_masuk.split(":").map(Number);
+      const [h, m] = jamMasukEfektif.split(":").map(Number);
       
       const expectedTime = new Date(local);
       expectedTime.setHours(h, m, 0, 0);
@@ -335,6 +389,9 @@ export async function POST(req: Request) {
       // Jalur normal adalah web. Namun antrean offline Super App menggunakan
       // endpoint ini saat kembali online dan membawa penanda asalnya.
       source: body.source === "native" ? "native" : "web",
+      // Hanya dikirim bila outlet memakai pilihan shift, agar outlet lain tak
+      // bergantung pada kolom baru.
+      ...(shiftCols ?? {}),
     }, { onConflict: "id", ignoreDuplicates: true });
 
     if (error) return NextResponse.json({ ok: false, reason: "insert_failed", detail: error.message }, { status: 500 });

@@ -17,7 +17,13 @@ type Config = {
   toleransi_menit: number;
   is_active?: boolean;
   absen_window_mode: "auto" | "manual";
+  // Hanya untuk jam khusus cabang: crew wajib memilih salah satu dari dua shift.
+  pilih_shift_aktif?: boolean;
+  shift2_jam_masuk?: string;
+  shift2_jam_keluar?: string;
 };
+
+const SHIFT2_DEFAULT = { shift2_jam_masuk: "13:00", shift2_jam_keluar: "22:00" };
 
 type Outlet = {
   id: string;
@@ -171,14 +177,43 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
   };
 
   // Helper UI component for config form
-  const ConfigFormFields = ({ config, setConfig }: { config: Config, setConfig: (c: Config) => void }) => (
+  const ConfigFormFields = ({ config, setConfig, denganPilihanShift = false }: { config: Config, setConfig: (c: Config) => void, denganPilihanShift?: boolean }) => (
     <div className="space-y-5">
+      {denganPilihanShift && (
+        <div className={`rounded-2xl border-2 p-4 transition-all ${config.pilih_shift_aktif ? "border-orange-500 bg-orange-50/50" : "border-slate-200 bg-slate-50"}`}>
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-0.5">
+              <p className="text-sm font-black text-slate-900">Crew Pilih Shift Sebelum Absen</p>
+              <p className="text-[11px] text-slate-500 leading-snug">
+                Untuk cabang dengan dua jam kerja. Crew wajib memilih shift sebelum absen masuk.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={!!config.pilih_shift_aktif}
+              aria-label="Crew pilih shift sebelum absen"
+              onClick={() => setConfig({
+                ...config,
+                pilih_shift_aktif: !config.pilih_shift_aktif,
+                shift2_jam_masuk: config.shift2_jam_masuk || SHIFT2_DEFAULT.shift2_jam_masuk,
+                shift2_jam_keluar: config.shift2_jam_keluar || SHIFT2_DEFAULT.shift2_jam_keluar,
+              })}
+              className={`relative inline-flex h-8 w-14 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ${config.pilih_shift_aktif ? "bg-orange-500" : "bg-slate-300"}`}
+            >
+              <span className={`pointer-events-none m-1 inline-block h-6 w-6 transform rounded-full bg-white shadow-md transition duration-200 ${config.pilih_shift_aktif ? "translate-x-6" : "translate-x-0"}`} />
+            </button>
+          </div>
+          <input type="hidden" name="pilih_shift_aktif" value={config.pilih_shift_aktif ? "true" : "false"} />
+        </div>
+      )}
+
       {/* Jam kerja Shift */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
             <Clock size={14} className="text-orange-500" />
-            Rentang Shift Kerja
+            {denganPilihanShift && config.pilih_shift_aktif ? "Shift 1" : "Rentang Shift Kerja"}
           </label>
           <span className="text-[11px] text-slate-500 font-medium">Format 24 Jam (WIB)</span>
         </div>
@@ -208,6 +243,42 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             />
           </div>
         </div>
+
+        {denganPilihanShift && config.pilih_shift_aktif && (
+          <div className="space-y-3 pt-2">
+            <label className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Clock size={14} className="text-orange-500" />
+              Shift 2
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
+                <label className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-emerald-700 uppercase tracking-wider">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" /> Jam Masuk
+                </label>
+                <input
+                  type="time" name="shift2_jam_masuk" required
+                  value={config.shift2_jam_masuk || ""}
+                  onChange={(e) => setConfig({ ...config, shift2_jam_masuk: e.target.value })}
+                  className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+                />
+              </div>
+              <div className="rounded-2xl border-2 border-slate-200 p-3.5 bg-slate-50/70 focus-within:border-orange-500 focus-within:bg-white transition-all">
+                <label className="mb-1 flex items-center gap-1.5 text-[11px] font-extrabold text-rose-700 uppercase tracking-wider">
+                  <span className="h-2 w-2 rounded-full bg-rose-500" /> Jam Pulang
+                </label>
+                <input
+                  type="time" name="shift2_jam_keluar" required
+                  value={config.shift2_jam_keluar || ""}
+                  onChange={(e) => setConfig({ ...config, shift2_jam_keluar: e.target.value })}
+                  className="w-full bg-transparent text-xl sm:text-2xl font-black text-slate-900 outline-none"
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Crew akan melihat pilihan: <strong className="text-slate-800">{config.jam_masuk} – {config.jam_keluar}</strong> atau <strong className="text-slate-800">{config.shift2_jam_masuk} – {config.shift2_jam_keluar}</strong>
+            </p>
+          </div>
+        )}
 
         {/* Quick Shift Presets */}
         <div className="flex items-center gap-2 pt-1 overflow-x-auto pb-1 text-xs">
@@ -450,7 +521,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
             </div>
             <div className="flex items-center gap-2">
               <button 
-                onClick={() => { setModalMode("add"); setNewOutletConfig({ ...globalConfig, is_active: true }); setIsModalOpen(true); }} 
+                onClick={() => { setModalMode("add"); setNewOutletConfig({ ...globalConfig, is_active: true, pilih_shift_aktif: false, ...SHIFT2_DEFAULT }); setIsModalOpen(true); }} 
                 className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-orange-600 hover:bg-orange-700 text-white rounded-xl shadow-md shadow-orange-600/15 transition-all"
               >
                 <Plus size={14} /> Tambah Khusus
@@ -485,6 +556,11 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                       <div>
                         <p className="font-extrabold text-slate-900 text-sm">{outlet?.name || 'Cabang Tidak Dikenal'}</p>
                         <span className="text-[10px] text-slate-500 font-semibold">Toleransi: {cfg.toleransi_menit}m</span>
+                        {cfg.pilih_shift_aktif && (
+                          <span className="ml-1.5 px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-orange-100 text-orange-800 border border-orange-200">
+                            2 Shift
+                          </span>
+                        )}
                       </div>
                       <div className="flex gap-1">
                         <button 
@@ -497,6 +573,9 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                               toleransi_menit: cfg.toleransi_menit || 0,
                               absen_window_mode: cfg.absen_window_mode || "auto",
                               is_active: outlet?.is_active ?? true,
+                              pilih_shift_aktif: !!cfg.pilih_shift_aktif,
+                              shift2_jam_masuk: cfg.shift2_jam_masuk?.slice(0, 5) || SHIFT2_DEFAULT.shift2_jam_masuk,
+                              shift2_jam_keluar: cfg.shift2_jam_keluar?.slice(0, 5) || SHIFT2_DEFAULT.shift2_jam_keluar,
                             });
                             setIsModalOpen(true);
                           }}
@@ -518,12 +597,16 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="rounded-xl bg-white border border-slate-200/80 p-2.5">
-                        <span className="text-[10px] text-slate-500 font-bold block mb-0.5">Jam Masuk</span>
-                        <strong className="text-slate-900 font-black text-sm">{cfg.jam_masuk?.slice(0,5)}</strong>
+                        <span className="text-[10px] text-slate-500 font-bold block mb-0.5">{cfg.pilih_shift_aktif ? "Shift 1" : "Jam Masuk"}</span>
+                        <strong className="text-slate-900 font-black text-sm">
+                          {cfg.pilih_shift_aktif ? `${cfg.jam_masuk?.slice(0,5)} – ${cfg.jam_keluar?.slice(0,5)}` : cfg.jam_masuk?.slice(0,5)}
+                        </strong>
                       </div>
                       <div className="rounded-xl bg-white border border-slate-200/80 p-2.5">
-                        <span className="text-[10px] text-slate-500 font-bold block mb-0.5">Jam Pulang</span>
-                        <strong className="text-slate-900 font-black text-sm">{cfg.jam_keluar?.slice(0,5)}</strong>
+                        <span className="text-[10px] text-slate-500 font-bold block mb-0.5">{cfg.pilih_shift_aktif ? "Shift 2" : "Jam Pulang"}</span>
+                        <strong className="text-slate-900 font-black text-sm">
+                          {cfg.pilih_shift_aktif ? `${cfg.shift2_jam_masuk?.slice(0,5)} – ${cfg.shift2_jam_keluar?.slice(0,5)}` : cfg.jam_keluar?.slice(0,5)}
+                        </strong>
                       </div>
                     </div>
                   </div>
@@ -586,7 +669,7 @@ export default function PengaturanClient({ initialGlobalConfig, initialOutlets, 
                 )}
               </div>
 
-              <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} />
+              <ConfigFormFields config={newOutletConfig} setConfig={setNewOutletConfig} denganPilihanShift />
 
               <input type="hidden" name="is_active" value={newOutletConfig.is_active ? "true" : "false"} />
             </div>

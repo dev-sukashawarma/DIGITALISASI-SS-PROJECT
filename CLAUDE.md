@@ -2663,7 +2663,7 @@ Kedua `ReportsView.tsx` identik logikanya — ubah keduanya bersamaan.
 `20260915200000_nyalakan_bom_tiga_outlet`, `20260915210000_pengerasan_harga`,
 `20260915220000_harga_bahan_efektif`, `20260915230000_katalog_tulis_dari_po`,
 `20260915233000_rpc_hpp_dinamis`,
-`20260915234000_katalog_tulis_dari_po_konsisten_penjaga`. `20260915201000_pamulang_type_mitra`
+`20260915234000_katalog_tulis_dari_po_konsisten_penjaga`. ✅ `20260915201000_pamulang_type_mitra` **di-apply & terstempel 2026-09-15 sore atas konfirmasi owner** (Pamulang kini `type=mitra`).
 **DITULIS, BELUM di-apply** — menunggu OK owner. Kode `apps/stok` di branch
 `feat/hpp-dinamis-harga-kiriman`, ⚠️ **belum merge/push/redeploy**.
 

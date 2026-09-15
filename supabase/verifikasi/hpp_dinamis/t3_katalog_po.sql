@@ -1,8 +1,17 @@
 -- supabase/verifikasi/hpp_dinamis/t3_katalog_po.sql
 -- Harapan: "HASIL T3: LULUS ..."
+-- PERINGATAN: skrip ini mem-BEGIN sebuah transaksi dan mengakhirinya dengan
+-- ROLLBACK di baris paling bawah -- ia mengasumsikan seluruh baris yang
+-- dibuat (termasuk INSERT PO nyata `TEST/PO/T3` beserta item & ledger-nya
+-- di kasus (e)) hilang lagi begitu blok ini selesai. AMAN hanya selama
+-- dijalankan lewat kanal yang benar-benar membungkusnya dalam satu transaksi
+-- (mis. `supabase db query --linked -f`). Jangan pernah jalankan lewat kanal
+-- yang memisah setiap statement menjadi transaksi sendiri (auto-commit per
+-- baris) -- itu akan membiarkan data uji ini menetap di DB produksi.
 BEGIN;
 DO $$
 DECLARE v_foil uuid; v_eka uuid; v_kentang uuid; v_agro uuid; v_kitchen uuid;
+        v_plastik_besar uuid; v_meyer uuid;
         v_po uuid; v_poi uuid; v_isi numeric; v_harga_katalog numeric; v_harga_master numeric;
         v_n int; v_ok boolean; v_n_hist int;
 BEGIN
@@ -11,7 +20,10 @@ BEGIN
   SELECT s.id INTO v_eka FROM supplier s WHERE s.nama ILIKE 'Ekadharma%' LIMIT 1;
   SELECT s.id INTO v_agro FROM supplier s WHERE s.nama ILIKE '%Agro Boga%' LIMIT 1;
   SELECT id INTO v_kitchen FROM outlet_staff WHERE role='kitchen' AND status='active' LIMIT 1;
-  IF v_foil IS NULL OR v_eka IS NULL OR v_kentang IS NULL OR v_agro IS NULL OR v_kitchen IS NULL THEN
+  SELECT id INTO v_plastik_besar FROM bahan_baku WHERE nama='PLASTIK BESAR';
+  SELECT id INTO v_meyer FROM supplier s WHERE s.nama ILIKE '%Meyer Proteindo%' LIMIT 1;
+  IF v_foil IS NULL OR v_eka IS NULL OR v_kentang IS NULL OR v_agro IS NULL OR v_kitchen IS NULL
+     OR v_plastik_besar IS NULL OR v_meyer IS NULL THEN
     RAISE EXCEPTION 'GAGAL: fixture'; END IF;
 
   -- (a) FOIL/Ekadharma: satuan_beli 'roll' (isi 760), master Dus (kemasan_qty 36480).
@@ -60,6 +72,19 @@ BEGIN
   EXCEPTION WHEN raise_exception THEN v_ok := true; END;
   IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (f): kontrol negatif'; END IF;
 
-  RAISE EXCEPTION 'HASIL T3: LULUS (FOIL per roll, KENTANG apa adanya, pasangan baru, riwayat, PO uji ditolak, kontrol negatif)';
+  -- (g) PLASTIK BESAR/Meyer: tak ada baris katalog sama sekali (fixture).
+  --     satuan master 'Ikat', kemasan_qty 100 vs faktor_tampilan 250 -- cabang
+  --     INSERT akan menulis isi_satuan_kecil=100 untuk satuan_beli='ikat',
+  --     yang langsung ditolak cek_isi_kemasan_vendor pada penerimaan
+  --     berikutnya. Guard baru harus menahan pembuatan barisnya: nol baris.
+  SELECT count(*) INTO v_n FROM bahan_baku_supplier
+   WHERE bahan_baku_id=v_plastik_besar AND supplier_id=v_meyer;
+  IF v_n <> 0 THEN RAISE EXCEPTION 'GAGAL (g): fixture sudah punya baris katalog, tak bisa diuji'; END IF;
+  PERFORM public.katalog_tulis_dari_po(v_plastik_besar, v_meyer, 25000, NULL);
+  SELECT count(*) INTO v_n FROM bahan_baku_supplier
+   WHERE bahan_baku_id=v_plastik_besar AND supplier_id=v_meyer;
+  IF v_n <> 0 THEN RAISE EXCEPTION 'GAGAL (g): baris PLASTIK BESAR/Meyer dibuat, harusnya ditahan guard'; END IF;
+
+  RAISE EXCEPTION 'HASIL T3: LULUS (FOIL per roll, KENTANG apa adanya, pasangan baru, riwayat, PO uji ditolak, kontrol negatif, PLASTIK BESAR ditahan guard)';
 END $$;
 ROLLBACK;

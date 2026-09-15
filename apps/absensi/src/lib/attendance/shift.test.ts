@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { shiftOptions, namaShift, isShiftKe } from "./shift";
+import { shiftOptions, namaShift, isShiftKe, isShiftPenutup } from "./shift";
 
 const bnr = {
   jam_masuk: "08:00:00",
@@ -46,5 +46,29 @@ describe("isShiftKe", () => {
     expect(isShiftKe("1")).toBe(false);
     expect(isShiftKe(3)).toBe(false);
     expect(isShiftKe(undefined)).toBe(false);
+  });
+});
+
+describe("isShiftPenutup", () => {
+  const opsi = shiftOptions(bnr);
+
+  it("shift yang pulang paling akhir (22:00) = penutup", () => {
+    expect(isShiftPenutup(opsi, "22:00")).toBe(true);
+    expect(isShiftPenutup(opsi, "22:00:00")).toBe(true);
+  });
+
+  it("shift yang pulang lebih awal (17:00) bukan penutup", () => {
+    expect(isShiftPenutup(opsi, "17:00")).toBe(false);
+  });
+
+  it("outlet satu shift atau tanpa jejak shift → dianggap penutup (aturan lama)", () => {
+    expect(isShiftPenutup(null, "17:00")).toBe(true);
+    expect(isShiftPenutup(opsi, null)).toBe(true);
+  });
+
+  it("shift lewat tengah malam (18:00–02:00) lebih akhir daripada 10:00–22:00", () => {
+    const malam = shiftOptions({ jam_masuk: "10:00", jam_keluar: "22:00", pilih_shift_aktif: true, shift2_jam_masuk: "18:00", shift2_jam_keluar: "02:00" });
+    expect(isShiftPenutup(malam, "02:00")).toBe(true);
+    expect(isShiftPenutup(malam, "22:00")).toBe(false);
   });
 });

@@ -8,7 +8,7 @@ import {
   calculateSpeedKmH, 
   MAX_REASONABLE_SPEED_KMH 
 } from "@/lib/gps";
-import { shiftOptions, isShiftKe } from "@/lib/attendance/shift";
+import { shiftOptions, isShiftKe, isShiftPenutup } from "@/lib/attendance/shift";
 
 export async function POST(req: Request) {
   try {
@@ -203,34 +203,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, reason: "selfie_path_mismatch" }, { status: 403 });
     }
 
-    // Blokir absen pulang selama shift kasir (laci) outlet ini masih terbuka.
-    // Shift adalah state milik OUTLET, bukan staf tertentu — berlaku untuk siapa
-    // pun yang absen pulang di outlet ini. Tidak ada bypass.
-    if (body.type === "out") {
-      const { data: openShift } = await admin
-        .from("shifts")
-        .select("id")
-        .eq("outlet_id", body.outlet_id)
-        .eq("status", "open")
-        .maybeSingle();
-      if (openShift) {
-        return NextResponse.json({ ok: false, reason: "shift_not_closed" }, { status: 200 });
-      }
-
-      // Blokir absen pulang selama masih ada pesanan yang belum selesai di outlet
-      // ini. Sama seperti shift: state milik OUTLET, berlaku untuk siapa pun yang
-      // absen pulang di outlet ini, tidak ada bypass.
-      const { data: unfinishedOrders } = await admin
-        .from("orders")
-        .select("id")
-        .eq("outlet_id", body.outlet_id)
-        .in("status", ["pending", "preparing", "ready"])
-        .limit(1);
-      if (unfinishedOrders && unfinishedOrders.length > 0) {
-        return NextResponse.json({ ok: false, reason: "unfinished_orders" }, { status: 200 });
-      }
-    }
-
     let { data: cfg, error: cfgError }: { data: any; error: any } = await admin
       .from("outlet_attendance_config")
       .select("jam_masuk,jam_keluar,toleransi_menit,radius_m,absen_window_mode,pilih_shift_aktif,shift2_jam_masuk,shift2_jam_keluar")
@@ -308,6 +280,34 @@ export async function POST(req: Request) {
       }
     }
     // ───────────────────────────────────────────────────────────────────────
+
+    // Blokir absen pulang selama shift kasir (laci) outlet ini masih terbuka atau
+    // masih ada pesanan belum selesai. Keduanya state milik OUTLET, jadi hanya
+    // crew yang MENUTUP outlet yang wajib menunggu: di outlet dua shift itu shift
+    // yang pulang paling akhir (mis. 22:00). Crew shift pagi (17:00) boleh pulang
+    // walau outlet masih jualan. Outlet satu shift / absen tanpa jejak shift →
+    // tetap berlaku untuk siapa pun (aturan lama).
+    if (body.type === "out" && isShiftPenutup(opsiShift, shiftCols?.shift_jam_keluar)) {
+      const { data: openShift } = await admin
+        .from("shifts")
+        .select("id")
+        .eq("outlet_id", body.outlet_id)
+        .eq("status", "open")
+        .maybeSingle();
+      if (openShift) {
+        return NextResponse.json({ ok: false, reason: "shift_not_closed" }, { status: 200 });
+      }
+
+      const { data: unfinishedOrders } = await admin
+        .from("orders")
+        .select("id")
+        .eq("outlet_id", body.outlet_id)
+        .in("status", ["pending", "preparing", "ready"])
+        .limit(1);
+      if (unfinishedOrders && unfinishedOrders.length > 0) {
+        return NextResponse.json({ ok: false, reason: "unfinished_orders" }, { status: 200 });
+      }
+    }
 
     const tsServer = new Date().toISOString();
     const basis = body.from_queue ? body.ts_client : tsServer;

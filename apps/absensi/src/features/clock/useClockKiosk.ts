@@ -13,7 +13,7 @@ import { submitAttendance } from "@/lib/attendance/submit";
 import { useAttendanceQueue } from "@/lib/attendance/useAttendanceQueue";
 import type { AttendancePayload } from "@/lib/attendance/types";
 import { postToNative } from "@suka/design-system";
-import { shiftOptions, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
+import { shiftOptions, isShiftPenutup, type ShiftKe, type ShiftOption } from "@/lib/attendance/shift";
 import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAcceptable, formatDistanceMeters } from "@/lib/gps";
 
 export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "pilih_shift" | "liveness" | "submitting" | "result";
@@ -360,6 +360,27 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     return shiftOptions(data);
   }
 
+  /**
+   * Apakah staff ini wajib menunggu penutupan outlet (checklist tutup & laci kasir)
+   * sebelum absen pulang. Di outlet dua shift hanya shift yang pulang paling akhir;
+   * aturan yang sama ditegakkan ulang di server (api/submit-attendance).
+   */
+  async function wajibTutupOutlet(staffId: string): Promise<boolean> {
+    const opsi = await loadShiftOptions();
+    if (!opsi) return true;
+    const { data } = await supabase
+      .from("attendance")
+      .select("shift_jam_keluar")
+      .eq("outlet_staff_id", staffId)
+      .eq("type", "in")
+      .neq("status", "alpha")
+      .gte("ts_server", new Date(Date.now() - 20 * 3600_000).toISOString())
+      .order("ts_server", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return isShiftPenutup(opsi, (data as { shift_jam_keluar: string | null } | null)?.shift_jam_keluar);
+  }
+
   /** Muat descriptor staff ter-enroll. */
   const loadCandidates = useCallback(async () => {
     if (!outletId) return;
@@ -469,20 +490,21 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         return;
       }
 
-      // Gate absen pulang: checklist penutupan (fase "tutup") wajib selesai dulu.
-      if (next === "out" && !(await isClosingChecklistDone())) {
-        setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
-        setPhase("result");
-        scheduleReset(3500);
-        return;
-      }
-
-      // Gate absen pulang: shift kasir (laci) outlet ini wajib sudah ditutup.
-      if (next === "out" && !(await isShiftClosed())) {
-        setResult({ ok: false, message: "Shift kasir outlet ini belum ditutup (Petty Cash). Tidak bisa absen pulang." });
-        setPhase("result");
-        scheduleReset(3500);
-        return;
+      // Gate absen pulang (hanya crew yang menutup outlet — lihat wajibTutupOutlet):
+      // checklist penutupan wajib selesai & shift kasir (laci) wajib sudah ditutup.
+      if (next === "out" && (await wajibTutupOutlet(foundId))) {
+        if (!(await isClosingChecklistDone())) {
+          setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
+          setPhase("result");
+          scheduleReset(3500);
+          return;
+        }
+        if (!(await isShiftClosed())) {
+          setResult({ ok: false, message: "Shift kasir outlet ini belum ditutup (Petty Cash). Tidak bisa absen pulang." });
+          setPhase("result");
+          scheduleReset(3500);
+          return;
+        }
       }
 
       setWho({ id: foundId, name: foundName });
@@ -720,13 +742,15 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         setPhase("result"); scheduleReset(2500); return;
       }
       
-      if (nextAction === "out" && !(await isClosingChecklistDone())) {
-        setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
-        setPhase("result"); scheduleReset(3500); return;
-      }
-      if (nextAction === "out" && !(await isShiftClosed())) {
-        setResult({ ok: false, message: "Shift kasir outlet ini belum ditutup (Petty Cash). Tidak bisa absen pulang." });
-        setPhase("result"); scheduleReset(3500); return;
+      if (nextAction === "out" && (await wajibTutupOutlet(staffId))) {
+        if (!(await isClosingChecklistDone())) {
+          setResult({ ok: false, message: "Checklist penutupan belum selesai. Tidak bisa absen pulang." });
+          setPhase("result"); scheduleReset(3500); return;
+        }
+        if (!(await isShiftClosed())) {
+          setResult({ ok: false, message: "Shift kasir outlet ini belum ditutup (Petty Cash). Tidak bisa absen pulang." });
+          setPhase("result"); scheduleReset(3500); return;
+        }
       }
 
       shiftKeRef.current = presetShiftKe;

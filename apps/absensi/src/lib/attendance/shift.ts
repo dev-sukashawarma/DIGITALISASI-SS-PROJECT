@@ -40,6 +40,31 @@ export function namaShift(jamMasuk: string): string {
   return "Shift Malam";
 }
 
+/** Menit jam pulang; shift yang pulang lewat tengah malam (keluar < masuk) dihitung hari berikutnya. */
+function menitPulang(jamMasuk: string, jamKeluar: string): number {
+  const menit = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+  const keluar = menit(jamKeluar);
+  return keluar < menit(jamMasuk) ? keluar + 24 * 60 : keluar;
+}
+
+/**
+ * Apakah crew dengan jam pulang `jamKeluarShift` adalah shift PENUTUP outlet —
+ * shift yang pulang paling akhir. Hanya shift penutup yang wajib menunggu laci
+ * kasir ditutup, pesanan selesai, dan checklist penutupan; crew shift pagi boleh
+ * pulang walau outlet masih buka.
+ *
+ * Outlet satu shift (opsi null) atau absen tanpa jejak shift → true (aturan lama:
+ * semua yang absen pulang dianggap menutup).
+ */
+export function isShiftPenutup(opsi: ShiftOption[] | null, jamKeluarShift: string | null | undefined): boolean {
+  if (!opsi || !jamKeluarShift) return true;
+  const jam = hhmm(jamKeluarShift);
+  const milik = opsi.find((o) => o.jam_keluar === jam);
+  if (!milik) return true;
+  const terakhir = Math.max(...opsi.map((o) => menitPulang(o.jam_masuk, o.jam_keluar)));
+  return menitPulang(milik.jam_masuk, milik.jam_keluar) === terakhir;
+}
+
 export function isShiftKe(v: unknown): v is ShiftKe {
   return v === 1 || v === 2;
 }

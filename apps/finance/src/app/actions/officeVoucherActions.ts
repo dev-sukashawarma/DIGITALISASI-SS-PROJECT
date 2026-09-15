@@ -1,6 +1,5 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
 import {
   type OfficeDivision,
   deserializeVoucherFromRow,
@@ -9,13 +8,7 @@ import {
   type OfficeVoucher
 } from '@/lib/officeVoucher'
 import { type ExpenseCategory } from '@/lib/expenseCategories'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-
-function getServiceSupabase() {
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export async function getOfficeVouchersAction(filterMonth?: string): Promise<OfficeVoucher[]> {
   const supabase = getServiceSupabase()

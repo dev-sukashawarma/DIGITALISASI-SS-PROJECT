@@ -1,15 +1,8 @@
 'use server'
 
-import { createClient } from '@supabase/supabase-js'
 import { requireRole } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-
-function getServiceSupabase() {
-  return createClient(supabaseUrl, supabaseServiceKey)
-}
+import { getServiceSupabase } from '@/lib/supabase-service'
 
 export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   // Server Action = endpoint POST publik; ini melewati RPC upsert_expense

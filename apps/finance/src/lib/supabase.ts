@@ -1,8 +1,5 @@
-import { createClient as createServerClient } from '@supabase/supabase-js'
 import { createSupabaseBrowserClient } from '@suka/auth'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+import { getServiceSupabase } from './supabase-service'
 
 // Client-side Supabase instance.
 // PENTING: delegasi ke factory @suka/auth (createSupabaseBrowserClient) yang memakai
@@ -12,5 +9,4 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 export const createClient = () => createSupabaseBrowserClient()
 
 // Server-side (API routes) — service role. Semua tulis kas WAJIB lewat RPC maker-checker.
-export const createServerSupabaseClient = () =>
-  createServerClient(supabaseUrl, supabaseServiceKey)
+export const createServerSupabaseClient = () => getServiceSupabase()

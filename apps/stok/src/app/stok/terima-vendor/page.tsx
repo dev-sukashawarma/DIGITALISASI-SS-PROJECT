@@ -23,6 +23,12 @@ const STATUS_LABEL: Record<string, string> = {
   ditolak: 'Ditolak',
 }
 
+const STATUS_WARNA: Record<string, string> = {
+  dicatat: 'bg-amber-50 text-amber-800',
+  disahkan: 'bg-emerald-50 text-emerald-700',
+  ditolak: 'bg-red-50 text-red-700',
+}
+
 export default function TerimaVendorPage() {
   const { outletStaff } = useAuth()
   const [rentang] = useState(() => ({ dari: tanggalWIB(6), sampai: tanggalWIB(0) }))
@@ -79,7 +85,7 @@ export default function TerimaVendorPage() {
               Terima dari Vendor
             </h1>
             <p className="text-[10px] text-suka-brown/60 font-bold uppercase tracking-wider mt-0.5">
-              Catat kiriman langsung vendor (mis. sayur Pak Aziz)
+              Catat sayur yang diantar langsung vendor ke outlet
             </p>
           </div>
           <UserAvatarDropdown />
@@ -94,13 +100,20 @@ export default function TerimaVendorPage() {
               {baris.map((b) => (
                 <li
                   key={b.id}
-                  className="bg-white rounded-xl p-3 border border-[#d9c2b2]/40 flex items-center justify-between text-sm gap-2"
+                  className="bg-white rounded-xl px-3 py-2.5 border border-[#d9c2b2]/40 flex items-center justify-between gap-3"
                 >
-                  <span className="min-w-0 truncate">
-                    {b.tanggal_terima} · {b.bahan_nama} · {b.qty.toLocaleString('id-ID')} {b.satuan}
-                  </span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[#1e1b15] truncate">
+                      {b.qty.toLocaleString('id-ID', { maximumFractionDigits: 3 })} {b.satuan} · {b.bahan_nama}
+                    </p>
+                    <p className="text-[11px] text-[#544437]/70 truncate">
+                      {b.tanggal_terima.slice(8, 10)}/{b.tanggal_terima.slice(5, 7)} · {b.supplier_nama}
+                    </p>
+                  </div>
                   <span className="flex gap-2 items-center shrink-0">
-                    <span className="text-xs text-[#544437]/80">{STATUS_LABEL[b.status] ?? b.status}</span>
+                    <span className={`text-[10px] font-extrabold uppercase tracking-wide px-2 py-1 rounded-lg ${STATUS_WARNA[b.status] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {STATUS_LABEL[b.status] ?? b.status}
+                    </span>
                     {b.status === 'dicatat' && (
                       <button
                         type="button"
@@ -113,7 +126,11 @@ export default function TerimaVendorPage() {
                   </span>
                 </li>
               ))}
-              {baris.length === 0 && <li className="text-xs text-gray-500">Belum ada catatan.</li>}
+              {baris.length === 0 && (
+                <li className="text-xs text-gray-500 bg-white rounded-xl p-4 border border-dashed border-[#d9c2b2]/60 text-center">
+                  Belum ada catatan 7 hari terakhir.
+                </li>
+              )}
             </ul>
           </section>
         </main>

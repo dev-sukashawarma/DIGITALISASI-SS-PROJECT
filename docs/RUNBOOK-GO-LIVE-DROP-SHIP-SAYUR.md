@@ -18,8 +18,18 @@
 | Migration DB `20260911122000_drop_ship_sahkan_nota` | ✅ LIVE & terstempel |
 | Migration DB `20260911123000_drop_ship_laporan` (view `nilai_masuk_drop_ship_harian`) | ✅ LIVE & terstempel |
 | Skrip `supabase/verifikasi/drop_ship/pemantau.sql` | ✅ 4 kueri jalan di DB live, semua 0 baris (wajar sebelum go-live) |
-| Kode app (`apps/stok`): halaman crew & Pusat, hook, predikat peran | Ada di branch `feat/drop-ship-sayur`, **belum merge ke `main`, belum push, belum redeploy** |
-| Smoke test browser (login sungguhan) | **Belum dijalankan** — wajib sebelum 20 September |
+| Kode app (`apps/stok`): halaman crew & Pusat, hook, predikat peran | ✅ **Sudah di `main` & live** (dicek 15 Sep 2026) — butir "merge/push/redeploy" di §1 sudah terpenuhi |
+| Smoke test browser (login sungguhan) | **Sebagian** — ada 1 catatan uji di outlet tes (11 Sep, 2 kg sayur, status `ditolak`). Alur Pusat (nota) & mode pantau owner belum terbukti — jalankan ulang §1 setelah redeploy 15 Sep |
+| **Hanya sayur** (keputusan owner 15 Sep 2026) | ✅ Migration `20260915110000_drop_ship_hanya_bahan_bertanda`: penanda `bahan_baku.drop_ship`, hanya **Sayur (lettuce)** menyala. `catat_terima_vendor` & `info_terima_vendor` **menolak bahan lain** (sebelumnya crew bisa mencatat mis. SAPI dari Pak Aziz dan stok outlet bertambah tanpa surat jalan). Form crew hanya menampilkan sayur; daftar vendor di halaman nota hanya vendor sayur. Uji `supabase/verifikasi/drop_ship/t8_hanya_sayur.sql` LULUS |
+
+**Cek kesiapan 15 Sep 2026 (DB live):** bucket foto `drop-ship` ada · harga terkunci sayur
+Rp 22.000/kg (dari harga master; katalog vendor masih Rp 0 `perlu_ditinjau`) · termin
+Tempo 10 = 10 hari · pengesah & penolak = purchasing/kitchen/admin · **4 outlet saldo
+sayur minus** (opname baseline 20 malam yang menormalkannya) · 75 `adjustment` sayur
+manual sejak 1 Sep (harus menurun ke 0 setelah 21 Sep, Q4 pemantau).
+
+Menambah bahan drop-ship kelak: `UPDATE bahan_baku SET drop_ship = true WHERE nama = '…'`
+**dan** pastikan bahan itu punya baris katalog vendor aktif — tanpa perubahan kode.
 
 Karena bagian database dan bagian kode belum berjalan bersamaan, **jangan
 mengumumkan ke outlet sebelum §1 selesai** — kalau kode belum live di

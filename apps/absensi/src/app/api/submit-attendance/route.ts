@@ -238,7 +238,7 @@ export async function POST(req: Request) {
       .maybeSingle();
     if (cfgError) {
       // Kolom pilihan shift belum ada (kode ter-deploy sebelum migration
-      // 20260915100000). Jangan jatuh ke jam pusat untuk outlet berjam khusus —
+      // 20260915110000). Jangan jatuh ke jam pusat untuk outlet berjam khusus —
       // ulangi dengan kolom lama.
       ({ data: cfg } = await admin
         .from("outlet_attendance_config")

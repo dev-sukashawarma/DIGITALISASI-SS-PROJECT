@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { computeBoard, type BoardStaff, type BoardRecord } from '@/features/board/board';
+import { computeBoard, type BoardStaff, type BoardRecord, type BoardConfig } from '@/features/board/board';
 
 export async function GET(request: Request) {
   const supabaseService = createClient(
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
       supabaseService
         .from('attendance')
-        .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit, is_manual_button')
+        .select('outlet_staff_id, type, status, ts_server, selfie_url, telat_menit, is_manual_button, shift_jam_masuk, shift_jam_keluar')
         .eq('outlet_id', outlet_id)
         .gte('ts_server', `${date}T00:00:00+07:00`)
         .lte('ts_server', `${date}T23:59:59+07:00`),
@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
       supabaseService
         .from('outlet_attendance_config')
-        .select('jam_masuk, jam_keluar, toleransi_menit')
+        .select('jam_masuk, jam_keluar, toleransi_menit, pilih_shift_aktif, shift2_jam_masuk')
         .eq('outlet_id', outlet_id)
         .maybeSingle(),
 
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     });
 
     const staffList = Array.from(activeStaffMap.values());
-    let cfg = localCfgRes.data;
+    let cfg: BoardConfig | null = localCfgRes.data;
     if (!cfg && globalCfgRes.data?.value) {
       try {
         cfg = typeof globalCfgRes.data.value === 'string' ? JSON.parse(globalCfgRes.data.value) : globalCfgRes.data.value;

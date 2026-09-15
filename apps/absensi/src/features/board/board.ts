@@ -14,12 +14,16 @@ export type BoardRecord = {
   selfie_url?: string | null;
   telat_menit?: number | null;
   is_manual_button?: boolean | null;
+  shift_jam_masuk?: string | null;
+  shift_jam_keluar?: string | null;
 };
 
 export type BoardConfig = {
   jam_masuk: string;
   jam_keluar?: string;
   toleransi_menit: number;
+  pilih_shift_aktif?: boolean | null;
+  shift2_jam_masuk?: string | null;
 };
 
 export type BoardState = "masuk" | "telat" | "telat_toleransi" | "keluar" | "belum" | "alpha" | "lebih_awal" | "pulang_telat";
@@ -63,7 +67,13 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
   }
 
   const now = new Date();
-  const [h, m] = config.jam_masuk.split(":").map(Number);
+  // Outlet dua shift: yang belum absen baru dianggap alpha setelah shift
+  // TERAKHIR lewat batas — crew siang tak boleh tercap alpha di pagi hari.
+  const jamMasukTerakhir =
+    config.pilih_shift_aktif && config.shift2_jam_masuk && config.shift2_jam_masuk.slice(0, 5) > config.jam_masuk.slice(0, 5)
+      ? config.shift2_jam_masuk
+      : config.jam_masuk;
+  const [h, m] = jamMasukTerakhir.split(":").map(Number);
   const deadline = new Date();
   deadline.setHours(h, m + config.toleransi_menit, 0, 0);
   const isPastDeadline = now.getTime() > deadline.getTime();
@@ -79,8 +89,9 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
       if (outRec.status === "pulang_telat") state = "pulang_telat";
       
       let delay_minutes = null;
-      if (config.jam_keluar && (state === "lebih_awal" || state === "pulang_telat")) {
-        delay_minutes = outRec.telat_menit ?? Math.abs(calculateDelayMinutes(outRec.ts_server, config.jam_keluar));
+      const targetKeluar = outRec.shift_jam_keluar ?? config.jam_keluar;
+      if (targetKeluar && (state === "lebih_awal" || state === "pulang_telat")) {
+        delay_minutes = outRec.telat_menit ?? Math.abs(calculateDelayMinutes(outRec.ts_server, targetKeluar));
       }
       return { id: s.id, name: s.name, role: s.role, state, time: jam(outRec.ts_server), selfie_url: outRec.selfie_url || null, delay_minutes, is_manual_button: outRec.is_manual_button || false };
     }    
@@ -88,7 +99,7 @@ export function computeBoard(staff: BoardStaff[], records: BoardRecord[], config
       let state: BoardState = "masuk";
       if (inRec.status === "telat") state = "telat";
       if (inRec.status === "telat_toleransi") state = "telat_toleransi";
-      const delay_minutes = (state === "telat" || state === "telat_toleransi") ? (inRec.telat_menit ?? calculateDelayMinutes(inRec.ts_server, config.jam_masuk)) : null;
+      const delay_minutes = (state === "telat" || state === "telat_toleransi") ? (inRec.telat_menit ?? calculateDelayMinutes(inRec.ts_server, inRec.shift_jam_masuk ?? config.jam_masuk)) : null;
       return { id: s.id, name: s.name, role: s.role, state, time: jam(inRec.ts_server), selfie_url: inRec.selfie_url || null, delay_minutes, is_manual_button: inRec.is_manual_button || false };
     }
     

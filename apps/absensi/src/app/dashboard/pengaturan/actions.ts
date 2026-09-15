@@ -105,14 +105,27 @@ export async function saveOutletException(formData: FormData) {
 
   if (!outlet_id) throw new Error("Pilih outlet terlebih dahulu");
 
+  const pilih_shift_aktif = formData.get("pilih_shift_aktif") === "true";
+  const shift2_jam_masuk = (formData.get("shift2_jam_masuk") as string | null) || null;
+  const shift2_jam_keluar = (formData.get("shift2_jam_keluar") as string | null) || null;
+  if (pilih_shift_aktif) {
+    if (!shift2_jam_masuk || !shift2_jam_keluar) throw new Error("Isi jam masuk dan jam pulang Shift 2");
+    if (shift2_jam_masuk === jam_masuk && shift2_jam_keluar === jam_keluar) {
+      throw new Error("Shift 2 sama persis dengan Shift 1 — ubah jamnya atau matikan pilihan shift");
+    }
+  }
+
   const { error: errConfig } = await supabaseAdmin
     .from("outlet_attendance_config")
-    .upsert({ 
-      outlet_id, 
-      jam_masuk, 
-      jam_keluar, 
-      toleransi_menit, 
-      absen_window_mode 
+    .upsert({
+      outlet_id,
+      jam_masuk,
+      jam_keluar,
+      toleransi_menit,
+      absen_window_mode,
+      pilih_shift_aktif,
+      // Jam Shift 2 tetap disimpan walau toggle dimatikan, agar tak perlu diketik ulang.
+      ...(shift2_jam_masuk && shift2_jam_keluar ? { shift2_jam_masuk, shift2_jam_keluar } : {}),
     });
   
   if (errConfig) throw new Error(errConfig.message);

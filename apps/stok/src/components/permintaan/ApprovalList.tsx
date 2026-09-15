@@ -9,9 +9,23 @@ import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
 import type { BahanBaku } from '@/types/stok'
 import { ApprovalModal } from './ApprovalModal'
 import { BudgetBadge } from './BudgetBadge'
+import { usePendingReturForOutlet } from '@/hooks/useRetur'
+import { PackageCheck } from 'lucide-react'
 
 interface Props {
   canApprove?: boolean
+}
+
+function ReturPendingBadge({ outletId }: { outletId: string }) {
+  const { data: pendingReturs = [] } = usePendingReturForOutlet(outletId)
+  if (!pendingReturs || pendingReturs.length === 0) return null
+
+  return (
+    <span className="text-[10px] font-black bg-purple-100 text-purple-900 px-2 py-0.5 rounded-md border border-purple-200 flex items-center gap-1">
+      <PackageCheck className="w-3 h-3 text-purple-700" />
+      Ada {pendingReturs.length} Pengganti Retur
+    </span>
+  )
 }
 
 function ApprovalCardBudget({ outletId, items, bahanBakuMap }: {
@@ -103,6 +117,7 @@ export function ApprovalList({ canApprove = true }: Props) {
                       Potensi Omzet: Rp {omzetKotor.toLocaleString('id-ID')}
                     </span>
                   )}
+                  <ReturPendingBadge outletId={p.outlet_id} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">

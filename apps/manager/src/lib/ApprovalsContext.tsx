@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { getVoidOrders } from '../app/actions/cancellations'
 import { getPendingWasteReports } from '../app/actions/waste'
+import { getPendingReturRequests, type ReturApprovalItem } from '../app/actions/retur'
 import { createSupabaseBrowserClient } from '@suka/auth'
 
 export type VoidRequest = {
@@ -27,17 +28,23 @@ export type VoidRequest = {
 interface ApprovalsContextType {
   pendingRequests: VoidRequest[]
   pendingWasteCount: number
+  pendingReturRequests: ReturApprovalItem[]
+  pendingReturCount: number
   loading: boolean
   refreshApprovals: () => Promise<void>
   refreshWasteCount: () => Promise<void>
+  refreshReturApprovals: () => Promise<void>
 }
 
 const ApprovalsContext = createContext<ApprovalsContextType>({
   pendingRequests: [],
   pendingWasteCount: 0,
+  pendingReturRequests: [],
+  pendingReturCount: 0,
   loading: true,
   refreshApprovals: async () => {},
   refreshWasteCount: async () => {},
+  refreshReturApprovals: async () => {},
 })
 
 export const useApprovals = () => useContext(ApprovalsContext)
@@ -46,6 +53,7 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
   const [supabase] = useState(() => createSupabaseBrowserClient())
   const [pendingRequests, setPendingRequests] = useState<VoidRequest[]>([])
   const [pendingWasteCount, setPendingWasteCount] = useState<number>(0)
+  const [pendingReturRequests, setPendingReturRequests] = useState<ReturApprovalItem[]>([])
   const [loading, setLoading] = useState(true)
 
   const refreshApprovals = useCallback(async () => {
@@ -72,13 +80,25 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
+  const refreshReturApprovals = useCallback(async () => {
+    try {
+      const res = await getPendingReturRequests()
+      if (res.success && res.data) {
+        setPendingReturRequests(res.data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch pending retur approvals', err)
+    }
+  }, [])
+
   useEffect(() => {
     refreshApprovals()
     refreshWasteCount()
+    refreshReturApprovals()
 
     if (!supabase) return
 
-    // Subscribe to realtime changes in cancellation_requests and stok_waste_reports tables
+    // Subscribe to realtime changes in cancellation_requests, stok_waste_reports, and retur_stok tables
     const channel = supabase
       .channel('manager-approvals')
       .on(
@@ -95,21 +115,31 @@ export function ApprovalsProvider({ children }: { children: React.ReactNode }) {
           refreshWasteCount()
         }
       )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'retur_stok' },
+        () => {
+          refreshReturApprovals()
+        }
+      )
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [refreshApprovals, refreshWasteCount, supabase])
+  }, [refreshApprovals, refreshWasteCount, refreshReturApprovals, supabase])
 
   return (
     <ApprovalsContext.Provider
       value={{
         pendingRequests,
         pendingWasteCount,
+        pendingReturRequests,
+        pendingReturCount: pendingReturRequests.length,
         loading,
         refreshApprovals,
         refreshWasteCount,
+        refreshReturApprovals,
       }}
     >
       {children}

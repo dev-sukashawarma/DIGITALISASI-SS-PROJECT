@@ -11,6 +11,10 @@ import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
 import { convertToDistribusiUnit, convertToBaseUnit, convertGramToBesar, formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
 import { PilihVendorBahan } from './PilihVendorBahan'
 import { alokasiAwal, validasiAlokasi, type Alokasi, type SaldoVendor } from '@/lib/stok/alokasiVendor'
+import { usePendingReturForOutlet } from '@/hooks/useRetur'
+import { verifikasiKitchenDanBuatSJ } from '@/app/actions/retur'
+import { PackageCheck } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Props {
   permintaan: PermintaanWithItems
@@ -24,6 +28,16 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
   const { approve, tolak } = usePermintaanActions()
   const { bahanBaku } = useBahanBaku()
   const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Ambil tiket retur tertunda untuk outlet ini (status: diterima_kitchen)
+  const { data: pendingReturs = [] } = usePendingReturForOutlet(permintaan.outlet_id)
+  const [selectedRetursToInclude, setSelectedRetursToInclude] = useState<string[]>([])
+
+  useEffect(() => {
+    if (pendingReturs && pendingReturs.length > 0) {
+      setSelectedRetursToInclude(pendingReturs.map((r: any) => r.id))
+    }
+  }, [pendingReturs])
 
   // qty_disetujui state keyed by bahan_baku_id (in distribusi unit)
   const [qtys, setQtys] = useState<Record<string, number>>({})
@@ -196,6 +210,29 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
         }
       })
       await approve(permintaan.id, items)
+
+      // Terbitkan Surat Jalan Pengganti untuk tiket retur yang dipilih secara otomatis
+      if (selectedRetursToInclude.length > 0) {
+        for (const returId of selectedRetursToInclude) {
+          const rItem = pendingReturs.find((r: any) => r.id === returId)
+          if (rItem) {
+            const verifiedItems = (rItem.items ?? []).map((it: any) => ({
+              id: it.id,
+              qty_diterima_kitchen: it.qty_diterima_kitchen ?? it.qty_klaim,
+            }))
+            await verifikasiKitchenDanBuatSJ(
+              returId,
+              verifiedItems,
+              `Digabung bersama pengiriman reguler #${permintaan.id.slice(0, 6).toUpperCase()}`,
+              true
+            )
+          }
+        }
+        toast.success(
+          `Permintaan disetujui & ${selectedRetursToInclude.length} Surat Jalan Pengganti Retur berhasil diterbitkan!`
+        )
+      }
+
       onDone()
     } catch (err: any) {
       setErrorMsg(err.message || String(err))
@@ -397,6 +434,70 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
           </div>
           <BudgetBadge status={budgetStatus} projectedAdd={liveEstimate.totalNilai} />
         </div>
+
+        {/* Banner Penggantian Retur yang Disertakan */}
+        {pendingReturs && pendingReturs.length > 0 && (
+          <div className="p-3.5 bg-purple-50 rounded-2xl border border-purple-200 text-xs space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <PackageCheck className="w-4 h-4 text-purple-700 shrink-0" />
+                <span className="font-bold text-purple-950">
+                  Ada {pendingReturs.length} Penggantian Retur untuk Outlet Ini!
+                </span>
+              </div>
+              <span className="text-[10px] font-bold bg-purple-200/80 text-purple-900 px-2 py-0.5 rounded-full">
+                Gabung Rute
+              </span>
+            </div>
+            <p className="text-[11px] text-purple-900/85 leading-relaxed">
+              Fisik retur telah ditimbang di Kitchen. Centang di bawah untuk otomatis menerbitkan Surat Jalan Pengganti (Rp 0) bersamaan dengan pengiriman ini:
+            </p>
+            <div className="space-y-2">
+              {pendingReturs.map((r: any) => {
+                const isSelected = selectedRetursToInclude.includes(r.id)
+                return (
+                  <label
+                    key={r.id}
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-white border-purple-300 ring-1 ring-purple-400/40 shadow-2xs'
+                        : 'bg-white/60 border-purple-100 hover:border-purple-200'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedRetursToInclude((prev) => [...prev, r.id])
+                        } else {
+                          setSelectedRetursToInclude((prev) => prev.filter((id) => id !== r.id))
+                        }
+                      }}
+                      className="mt-0.5 text-purple-700 rounded focus:ring-purple-600 cursor-pointer"
+                    />
+                    <div className="min-w-0 flex-1 text-[11px]">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-purple-900">{r.nomor_retur}</span>
+                        <span className="text-[10px] text-gray-500">
+                          {new Date(r.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                      <div className="font-semibold text-gray-800 mt-0.5">
+                        {r.items?.map((it: any) => `${it.bahan_baku?.nama ?? 'Bahan'}: ${it.qty_diterima_kitchen ?? it.qty_klaim} ${it.bahan_baku?.satuan ?? ''}`).join(', ')}
+                      </div>
+                      {r.catatan_kitchen && (
+                        <p className="text-[10px] text-gray-500 italic mt-0.5">
+                          &ldquo;{r.catatan_kitchen}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  </label>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Alasan */}
         <div>

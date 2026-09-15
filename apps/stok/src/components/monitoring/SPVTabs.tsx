@@ -2,17 +2,27 @@
 
 import React from 'react';
 
-export type SPVTabId = 'overview' | 'alerts' | 'approval' | 'waste_approval' | 'po_inbound' | 'harga_bahan' | 'budget_outlet';
+export type SPVTabId = 
+  | 'overview' 
+  | 'alerts' 
+  | 'approval' 
+  | 'retur_approval' 
+  | 'waste_approval' 
+  | 'po_inbound' 
+  | 'harga_bahan' 
+  | 'budget_outlet';
 
 interface SPVTabsProps {
   activeTab: SPVTabId;
   onTabChange: (tab: SPVTabId) => void;
   alertCount: number;
   approvalCount: number;
+  returApprovalCount?: number;
   wasteApprovalCount?: number;
   poInboundCount?: number;
   readOnlyTabs?: boolean;
   showPOInbound?: boolean;
+  showReturApproval?: boolean;
 }
 
 export function SPVTabs({ 
@@ -20,15 +30,18 @@ export function SPVTabs({
   onTabChange, 
   alertCount, 
   approvalCount, 
+  returApprovalCount,
   wasteApprovalCount, 
   poInboundCount, 
   readOnlyTabs = false,
-  showPOInbound = false 
+  showPOInbound = false,
+  showReturApproval = false,
 }: SPVTabsProps) {
   const allTabs: { id: SPVTabId; label: string; count: number | null }[] = [
     { id: 'overview', label: 'Overview Stok', count: null },
     { id: 'alerts', label: 'Peringatan Stok', count: alertCount },
     { id: 'approval', label: 'Approval Permintaan', count: approvalCount },
+    ...(showReturApproval ? [{ id: 'retur_approval' as SPVTabId, label: 'Approval Retur', count: returApprovalCount || 0 }] : []),
     { id: 'budget_outlet', label: 'Plafon & Belanja Outlet', count: null },
     { id: 'waste_approval', label: 'Approval Waste', count: wasteApprovalCount || 0 },
     ...(showPOInbound ? [{ id: 'po_inbound' as SPVTabId, label: 'Penerimaan PO Supplier', count: poInboundCount || 0 }] : []),

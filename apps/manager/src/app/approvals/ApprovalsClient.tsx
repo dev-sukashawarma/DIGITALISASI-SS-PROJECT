@@ -1,10 +1,12 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle, Building2, ChevronDown, ShieldAlert, KeyRound } from 'lucide-react';
+import { Check, X, Clock, Loader2, AlertTriangle, Search, XCircle, Building2, ChevronDown, ShieldAlert, KeyRound, RotateCcw } from 'lucide-react';
 import { processVoidOrder } from '../actions/cancellations';
 import { searchCompletedOrders, forceCancelCompletedOrder, getMyOutletsForVoid } from '../actions/orderVoid';
 import { processBypassRequest, getBypassRequests, type BypassRequestItem } from '../actions/bypass';
+import { processReturApproval, type ReturApprovalItem } from '../actions/retur';
+import PendingReturTab from './PendingReturTab';
 import { useApprovals } from '../../lib/ApprovalsContext';
 import { PeriodFilter, PeriodValue } from '../../components/PeriodFilter';
 import { presetRange } from '../../lib/period';
@@ -40,16 +42,69 @@ const getTimeAgo = (dateString: string) => {
 
 export default function ApprovalsClient({ 
   initialRequests,
-  initialBypassRequests = []
+  initialBypassRequests = [],
+  initialReturRequests = []
 }: { 
   initialRequests: any[];
   initialBypassRequests?: BypassRequestItem[];
+  initialReturRequests?: ReturApprovalItem[];
 }) {
-  const { pendingRequests: requests, refreshApprovals } = useApprovals()
+  const {
+    pendingRequests: requests,
+    refreshApprovals,
+    pendingReturRequests,
+    refreshReturApprovals,
+    loading: approvalsLoading,
+  } = useApprovals()
   const [bypassRequests, setBypassRequests] = useState<BypassRequestItem[]>(initialBypassRequests)
   const [loadingIds, setLoadingIds] = useState<string[]>([])
-  const [tab, setTab] = useState<'pending' | 'bypass' | 'completed'>('pending')
+  const [tab, setTab] = useState<'pending' | 'bypass' | 'retur' | 'completed'>('pending')
   const [period, setPeriod] = useState<PeriodValue>(presetRange('today'))
+
+  const returList = pendingReturRequests.length > 0 || initialReturRequests.length === 0 ? pendingReturRequests : initialReturRequests
+
+  // Sync tab from URL query params (e.g. ?tab=retur)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const tabParam = params.get('tab')
+      if (tabParam === 'retur') {
+        setTab('retur')
+      } else if (tabParam === 'bypass') {
+        setTab('bypass')
+      } else if (tabParam === 'completed') {
+        setTab('completed')
+      }
+    }
+  }, [])
+
+  const handleApproveRetur = async (id: string, note?: string) => {
+    try {
+      const res = await processReturApproval(id, true, note)
+      if (res.success) {
+        toast.success('Pengajuan retur berhasil disetujui!')
+        await refreshReturApprovals()
+      } else {
+        toast.error(res.error || 'Gagal menyetujui retur')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan')
+    }
+  }
+
+  const handleRejectRetur = async (id: string, note: string) => {
+    try {
+      const res = await processReturApproval(id, false, note)
+      if (res.success) {
+        toast.success('Pengajuan retur ditolak dan dialihkan ke waste.')
+        await refreshReturApprovals()
+      } else {
+        toast.error(res.error || 'Gagal menolak retur')
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Terjadi kesalahan')
+    }
+  }
 
   const [myOutlets, setMyOutlets] = useState<OutletOption[]>([])
   const [outletsLoaded, setOutletsLoaded] = useState(false)
@@ -234,6 +289,21 @@ export default function ApprovalsClient({
           {bypassRequests.length > 0 && (
             <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${tab === 'bypass' ? 'bg-white/25 text-white' : 'bg-amber-500/10 text-amber-600'}`}>
               {bypassRequests.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setTab('retur')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-2 ${
+            tab === 'retur' ? 'bg-amber-800 text-white shadow-sm shadow-amber-800/20' : 'text-suka-gray-500 hover:text-suka-brown hover:bg-suka-cream/40'
+          }`}
+        >
+          <RotateCcw size={14} className={tab === 'retur' ? 'text-white' : 'text-amber-700'} />
+          Retur Bahan
+          {returList.length > 0 && (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${tab === 'retur' ? 'bg-white/25 text-white' : 'bg-red-500 text-white'}`}>
+              {returList.length}
             </span>
           )}
         </button>
@@ -434,6 +504,33 @@ export default function ApprovalsClient({
           </div>
         )}
       </div>
+      )}
+
+      {/* Tab Retur Bahan */}
+      {tab === 'retur' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl shadow-[0_2px_12px_rgba(44,24,16,0.02)] border border-suka-brown/5 overflow-hidden">
+            <div className="p-4 border-b border-suka-brown/5 bg-suka-cream/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h3 className="font-bold text-suka-brown">Antrean Persetujuan Retur &amp; Refund Bahan Baku</h3>
+                <p className="text-[11px] text-suka-gray-500 font-medium mt-0.5">
+                  Pengembalian bahan baku sensitif (Ayam, Sapi, Kulit) dengan penggantian fisik 100% dari Central Kitchen
+                </p>
+              </div>
+              <span className="bg-amber-100 text-amber-900 text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-widest shadow-sm w-fit">
+                {returList.length} Menunggu
+              </span>
+            </div>
+            <div className="p-4 sm:p-6">
+              <PendingReturTab
+                items={returList}
+                loading={approvalsLoading}
+                onApprove={handleApproveRetur}
+                onReject={handleRejectRetur}
+              />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Tab 3: Pesanan Selesai */}

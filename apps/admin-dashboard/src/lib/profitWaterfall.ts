@@ -17,6 +17,8 @@ export interface WaterfallStep {
   kind: WaterfallKind
   /** Porsi terhadap omzet kotor, dalam persen. 0 bila belum ada penjualan. */
   pctOfGross: number
+  /** Label kustom untuk persentase jika basisnya bukan omzet kotor saat ini (misal 3% Gross Mitra). */
+  pctLabel?: string
   /** Penjelasan singkat, ditampilkan di bawah label. */
   hint?: string
   /**
@@ -44,6 +46,10 @@ export interface WaterfallInput {
   includeCentral: boolean
   /** Rincian per kategori untuk baris beban bulanan outlet. */
   opexMonthlyBreakdown?: WaterfallDetail[]
+  /** Pendapatan management fee dari mitra (khusus scope internal). */
+  managementFeeIncome?: number
+  /** Potongan management fee pusat (khusus scope mitra). */
+  managementFeeExpense?: number
 }
 
 export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
@@ -51,14 +57,16 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     grossRevenue, deductions, hpp, waste,
     opexMonthly, opexPettyCash, centralExpense, includeCentral,
     opexMonthlyBreakdown,
+    managementFeeIncome = 0,
+    managementFeeExpense = 0,
   } = input
 
   const pct = (n: number) => (grossRevenue > 0 ? (n / grossRevenue) * 100 : 0)
 
-  const netRevenue = grossRevenue - deductions
+  const netRevenue = grossRevenue - deductions + managementFeeIncome
   const labaKotor = netRevenue - hpp
   const opex = opexMonthly + opexPettyCash + (includeCentral ? centralExpense : 0)
-  const labaBersih = labaKotor - waste - opex
+  const labaBersih = labaKotor - waste - opex - managementFeeExpense
 
   const steps: WaterfallStep[] = [
     {
@@ -77,6 +85,15 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       kind: 'deduction',
       pctOfGross: pct(-deductions),
     },
+    ...(managementFeeIncome > 0 ? [{
+      key: 'fee_manajemen_mitra',
+      label: 'Pendapatan Management Fee Mitra (3%)',
+      hint: `Fee pengelolaan 3% dari omzet kotor kemitraan (setara ${pct(managementFeeIncome).toFixed(1)}% terhadap omzet internal)`,
+      amount: managementFeeIncome,
+      kind: 'base' as const,
+      pctOfGross: pct(managementFeeIncome),
+      pctLabel: '3% Gross Mitra',
+    }] : []),
     {
       key: 'pendapatan_bersih',
       label: 'Pendapatan Bersih',
@@ -125,6 +142,17 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       pctOfGross: pct(-opexPettyCash),
     },
   ]
+
+  if (managementFeeExpense > 0) {
+    steps.push({
+      key: 'fee_manajemen_pusat',
+      label: 'Management Fee Pusat (3%)',
+      hint: 'Fee 3% dari omzet kotor disetor ke kantor pusat',
+      amount: -managementFeeExpense,
+      kind: 'deduction',
+      pctOfGross: pct(-managementFeeExpense),
+    })
+  }
 
   if (includeCentral) {
     steps.push({

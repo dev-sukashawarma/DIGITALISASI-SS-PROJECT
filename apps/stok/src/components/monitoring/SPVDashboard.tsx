@@ -18,12 +18,13 @@ import { formatCompositeSaldoAdaptive } from '@/lib/format/compositeUnit';
 import { useAuth } from '@suka/auth';
 import { useApprovalList } from '@/hooks/usePermintaan';
 import { Skeleton } from '@suka/design-system';
-import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store } from 'lucide-react';
+import { RefreshCw, Search, X, Bell, CheckCircle2, Trash2, Store, RotateCcw } from 'lucide-react';
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown';
 import { fetchPendingWasteReports } from '@/app/actions/waste';
 import { useQuery } from '@tanstack/react-query';
 import { updateThresholdAction } from '@/app/actions/threshold';
 import { useOutletScope } from '@/hooks/useOutletScope';
+import { useDaftarRetur } from '@/hooks/useRetur';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jakarta' | 'Depok' | 'Bekasi' | 'Tangerang' | 'Developer' => {
   const name = outletName.toUpperCase();
@@ -117,6 +118,21 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     refetchInterval: 30000
   });
 
+  // Pending retur refund approvals hook (AM/RM/Admin/Owner)
+  const isManagerRole = ['area_manager', 'regional_manager', 'spv', 'admin', 'owner', 'developer'].includes(outletStaff?.role ?? '');
+  const { returs: allReturs = [] } = useDaftarRetur(
+    isManagerRole ? { status: 'diajukan' } : undefined
+  );
+  const pendingReturList = useMemo(() => {
+    if (!isManagerRole) return [];
+    return allReturs.filter((r) => {
+      if (r.status !== 'diajukan') return false;
+      if (allowedOutletIds && !allowedOutletIds.includes(r.outlet_id)) return false;
+      return true;
+    });
+  }, [allReturs, isManagerRole, allowedOutletIds]);
+  const pendingReturCount = pendingReturList.length;
+
   const wasteToday = useMemo(() => {
     const raw = wasteTodayQuery.data?.entries || [];
     if (!allowedOutletIds) return raw;
@@ -165,7 +181,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
     return items.filter(it => it.status === 'below');
   }, [items]);
 
-  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length + (pendingWaste?.length || 0);
+  const totalNotificationCount = criticalAlertItems.length + pendingApprovals.length + (pendingWaste?.length || 0) + pendingReturCount;
 
   // Stats computations for the selected outlet
   const currentOutletItems = useMemo(() => {
@@ -378,6 +394,28 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
                       </div>
                     </div>
                   ))}
+
+                  {pendingReturList.map((retur) => (
+                    <div
+                      key={retur.id}
+                      onClick={() => {
+                        setIsNotificationOpen(false);
+                        router.push('/stok/refund?tab=manager');
+                      }}
+                      className="p-2.5 bg-amber-50/90 border border-amber-300/80 rounded-xl flex items-start gap-2 cursor-pointer hover:bg-amber-100/90 transition-colors"
+                    >
+                      <span className="text-xs">🔄</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-black text-amber-950 uppercase tracking-wide">Persetujuan Retur</p>
+                          <span className="text-[9px] bg-amber-200 text-amber-900 font-bold px-1.5 py-0.2 rounded-full">AM/RM</span>
+                        </div>
+                        <p className="text-[10px] text-amber-800 font-medium mt-0.5">
+                          {retur.nomor_retur} • {retur.outlets?.name ?? 'Outlet'} ({retur.items?.length || 0} item)
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </>
               )}
             </div>
@@ -427,6 +465,8 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         onTabChange={(tab) => {
           if (tab === 'approval') {
             router.push('/stok/permintaan');
+          } else if (tab === 'retur_approval') {
+            router.push('/stok/refund?tab=manager');
           } else if (tab === 'waste_approval') {
             router.push('/stok/waste/approval');
           } else if (tab === 'po_inbound') {
@@ -444,12 +484,45 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         }}
         alertCount={criticalCount}
         approvalCount={pendingApprovals.length}
+        returApprovalCount={pendingReturCount}
         wasteApprovalCount={pendingWaste?.length ?? 0}
         showPOInbound={true}
+        showReturApproval={isManagerRole}
       />
 
       {/* Main Content Area - 100% Full-Width Clean Workspace */}
       <div className="flex-1 flex flex-col overflow-y-auto">
+        {/* Manager Retur Approval Alert Banner */}
+        {isManagerRole && pendingReturCount > 0 && (
+          <div className="mx-4 md:mx-6 mt-4 p-4 bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border-2 border-amber-300/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <RotateCcw className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="text-xs font-black text-amber-950 flex items-center gap-2">
+                  <span>Persetujuan Retur Bahan Baku ({pendingReturCount} Tiket)</span>
+                  <span className="bg-amber-600 text-white text-[9px] font-black px-2 py-0.5 rounded-full animate-pulse">
+                    Menunggu AM/RM
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-900/85 font-medium mt-0.5">
+                  Terdapat pengajuan retur barang core (Sapi, Ayam, Kulit) dari outlet yang menunggu verifikasi bukti timbangan oleh Manager.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => router.push('/stok/refund?tab=manager')}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-xs transition-all shrink-0 cursor-pointer flex items-center justify-center gap-2 active:scale-95"
+            >
+              <span>Review & Setujui</span>
+              <span className="bg-white/25 text-white text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                {pendingReturCount}
+              </span>
+            </button>
+          </div>
+        )}
+
         {activeTab === 'budget_outlet' ? (
           <BudgetOutletTabContent />
         ) : isLoading && !data ? (

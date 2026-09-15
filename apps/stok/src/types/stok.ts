@@ -4,6 +4,7 @@ export type Kategori = 'FOOD & BEVERAGE'|'PACKAGING'|'OPERASIONAL'|'BUMBU'|'ASET
 export type LedgerTipe =
   | 'terima_kiriman' | 'pemakaian' | 'waste' | 'adjustment'
   | 'opname_selisih' | 'transfer_keluar' | 'transfer_masuk' | 'waste_pending'
+  | 'pembelian_supplier' | 'retur_ke_pusat' | 'terima_retur_outlet' | 'retur_ke_vendor'
 export type OpnameTipe = 'harian'|'mingguan'|'ad_hoc'
 export type OpnameStatus = 'draft'|'pending_approval'|'finalized'|'rejected'
 export type StokLevel = 'aman'|'menipis'|'kritis'|'unknown'
@@ -19,6 +20,7 @@ export interface BahanBaku {
   satuan_distribusi?: string | null
   /** true = boleh dicatat terima langsung dari vendor di outlet (drop-ship). */
   drop_ship?: boolean
+  is_refundable?: boolean
 }
 export interface Opname {
   id: string; outlet_id: string; tanggal: string; tipe: OpnameTipe

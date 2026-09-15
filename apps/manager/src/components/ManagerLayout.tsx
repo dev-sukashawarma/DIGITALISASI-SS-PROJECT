@@ -61,7 +61,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
   const [inventoriUrl, setInventoriUrl] = useState(
     process.env.NEXT_PUBLIC_APP_URL_INVENTORI || 'https://inventori.sukashawarma.com',
   )
-  const { pendingRequests, pendingWasteCount } = useApprovals()
+  const { pendingRequests, pendingWasteCount, pendingReturCount = 0 } = useApprovals()
 
   const brand = "SS"
   const brandAccent = "Manager"
@@ -140,7 +140,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
               <div className="space-y-0.5">
                 {group.items.map(({ href, label, icon: Icon, appKey }) => {
                   const active = currentNavPath === href
-                  const count = href === '/approvals' ? pendingRequests.length : href === '/waste' ? pendingWasteCount : 0
+                  const count = href === '/approvals' ? (pendingRequests.length + pendingReturCount) : href === '/waste' ? pendingWasteCount : 0
                   const targetHref = appKey === 'inventori' ? inventoriUrl : href
 
                   return (
@@ -251,7 +251,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
             {PRIMARY_NAV_ITEMS.map(({ href, label, icon: Icon }) => {
               const active = currentNavPath === href
               const isApproval = href === '/approvals'
-              const count = isApproval ? pendingRequests.length : 0
+              const count = isApproval ? (pendingRequests.length + pendingReturCount) : 0
 
               return (
                 <Link
@@ -358,7 +358,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
                     <div className="grid grid-cols-2 gap-2">
                       {group.items.map(({ href, label, icon: Icon, appKey }) => {
                         const active = currentNavPath === href
-                        const count = href === '/approvals' ? pendingRequests.length : href === '/waste' ? pendingWasteCount : 0
+                        const count = href === '/approvals' ? (pendingRequests.length + pendingReturCount) : href === '/waste' ? pendingWasteCount : 0
                         const targetHref = appKey === 'inventori' ? inventoriUrl : href
 
                         return (

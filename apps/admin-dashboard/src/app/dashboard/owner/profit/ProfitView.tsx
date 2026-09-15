@@ -9,7 +9,7 @@ import { useSalesDaily } from '@/hooks/useSalesDaily'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useHpp } from '@/hooks/useHpp'
 import { useWaste } from '@/hooks/useWaste'
-import { computeProfit, computeCompanyProfit } from '@/lib/profit'
+import { computeCompanyProfit } from '@/lib/profit'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { rupiah } from '@/lib/format'
 import { PageHeader, StatTilesSkeleton } from '@/components/ui'
@@ -44,6 +44,7 @@ import { isInScope, mitraOutletIds, SCOPE_LABEL, type ProfitScope } from '@/lib/
 import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
+import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -138,6 +139,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.refetchQueries({ queryKey: ['prorata-staff-financials'] }),
         queryClient.refetchQueries({ queryKey: ['prorata-rollover-expenses'] }),
         queryClient.refetchQueries({ queryKey: ['prorata-crew-bonus'] }),
+        queryClient.refetchQueries({ queryKey: ['mitra-investments'] }),
+        queryClient.refetchQueries({ queryKey: ['outlets'] }),
       ])
       setLastUpdated(new Date().toISOString())
       toast.success('Memperbarui data laba rugi dari database...')
@@ -162,6 +165,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         queryClient.invalidateQueries({ queryKey: ['prorata-staff-financials'] })
         queryClient.invalidateQueries({ queryKey: ['prorata-rollover-expenses'] })
         queryClient.invalidateQueries({ queryKey: ['prorata-crew-bonus'] })
+        queryClient.invalidateQueries({ queryKey: ['mitra-investments'] })
+        queryClient.invalidateQueries({ queryKey: ['outlets'] })
       }, 600)
     }
 
@@ -174,6 +179,8 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'waste_records' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payroll_records' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_financials' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mitra_investments' }, invalidate)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'outlets' }, invalidate)
       .subscribe()
 
     return () => {
@@ -218,11 +225,54 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
   const isAllOutlets = filter.outletId === 'all'
 
-  // Calculations (Filter out any test outlet)
-  const actualGrossRevenue = useMemo(
+  // Perhitungan Management Fee Kemitraan (3% Gross Sales untuk outlet belum BEP per Sept 2026)
+  const managementFeeData = useMemo(() => {
+    let totalMitraFee = 0
+    let grossMitraBelumBep = 0
+    const perOutletFee = new Map<string, { gross: number; fee: number; pct: number; isBep: boolean }>()
+
+    for (const [oid, inv] of Object.entries(mitraInvestments)) {
+      const outletSales = sales.rows.filter(r => r.outlet_id === oid && !isTestOutlet(r.outlet_id))
+      const gross = outletSales.reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0)
+
+      const policy = resolveMitraPolicy({
+        periodFrom: effectiveFilter.from,
+        isBep: Boolean(inv.isBep),
+        legacyProfitSharingPct: inv.persentase_bagi_hasil,
+        legacyManagementFee: inv.management_fee,
+      })
+
+      const fee = policy.managementFeePct > 0 ? Math.round((gross * policy.managementFeePct) / 100) : 0
+      if (policy.managementFeePct > 0) {
+        grossMitraBelumBep += gross
+      }
+      perOutletFee.set(oid, { gross, fee, pct: policy.managementFeePct, isBep: Boolean(inv.isBep) })
+      totalMitraFee += fee
+    }
+
+    return {
+      totalMitraFee,
+      grossMitraBelumBep,
+      perOutletFee,
+    }
+  }, [mitraInvestments, sales.rows, effectiveFilter.from])
+
+  // Omzet penjualan outlet (sebelum ditambahkan management fee)
+  const actualGrossSales = useMemo(
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0), 0), 
     [salesRows]
   )
+
+  // Penerimaan Management Fee oleh Kantor Pusat (khusus scope internal)
+  const managementFeeReceived = scope === 'internal' && isAllOutlets ? managementFeeData.totalMitraFee : 0
+  
+  // Pembayaran Management Fee ke Pusat oleh Kemitraan (khusus scope mitra)
+  const managementFeeExpense = scope === 'mitra' 
+    ? (isAllOutlets ? managementFeeData.totalMitraFee : (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0))
+    : 0
+
+  // Omzet Kotor Total: Sesuai instruksi owner, management fee dari mitra ditambahkan ke revenue internal
+  const actualGrossRevenue = actualGrossSales + managementFeeReceived
 
   const totalPotongan = useMemo(
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0), 
@@ -257,13 +307,19 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     [wasteRows]
   )
   
-  const { netRevenue, labaKotor, labaBersih, marginKotor } = computeProfit(actualGrossRevenue, totalDeductions, totalHpp, pengeluaranOutlet, totalWaste)
+  // Pendapatan bersih: Gross - Potongan (sudah termasuk Management Fee Mitra pada scope internal)
+  const netRevenue = actualGrossRevenue - totalDeductions
+  const labaKotor = netRevenue - totalHpp
+  const marginKotor = actualGrossRevenue > 0 ? (labaKotor / actualGrossRevenue) * 100 : 0
+  
+  // Laba bersih outlet: untuk mitra, dipotong management fee pusat
+  const labaBersih = labaKotor - pengeluaranOutlet - totalWaste - managementFeeExpense
   
   const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
   const displayMargin = netRevenue > 0 ? (displayLaba / netRevenue) * 100 : 0
 
-  const totalBiaya = totalDeductions + totalHpp + totalWaste + pengeluaranOutlet + (isAllOutlets ? pengeluaranPusat : 0)
+  const totalBiaya = totalDeductions + totalHpp + totalWaste + pengeluaranOutlet + managementFeeExpense + (isAllOutlets ? pengeluaranPusat : 0)
 
   // Cost proportions
   const pctHpp = netRevenue > 0 ? Math.min(100, Math.round((totalHpp / netRevenue) * 100)) : 0
@@ -312,9 +368,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const grossRev = val.omzet
         const netRev = val.omzet - val.deductions
         const labaKotor = grossRev - val.hpp - val.deductions
-        const net = labaKotor - val.expense - val.waste
+        const feeInfo = managementFeeData.perOutletFee.get(id)
+        const isMitraOutlet = mitraIds.has(id)
+        const mgmtFee = isMitraOutlet ? (feeInfo?.fee ?? 0) : 0
+        const mgmtFeePct = isMitraOutlet ? (feeInfo?.pct ?? 0) : 0
+        const isBep = Boolean(feeInfo?.isBep)
+        const net = labaKotor - val.expense - val.waste - mgmtFee
         const margin = grossRev > 0 ? (net / grossRev) * 100 : 0
-        const totalCost = val.deductions + val.hpp + val.waste + val.expense
+        const totalCost = val.deductions + val.hpp + val.waste + val.expense + mgmtFee
         return { 
           id, 
           name: val.name, 
@@ -324,6 +385,10 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           expense: val.expense, 
           hpp: val.hpp, 
           waste: val.waste, 
+          mgmtFee,
+          mgmtFeePct,
+          isBep,
+          isMitra: isMitraOutlet,
           labaKotor, 
           net, 
           margin,
@@ -336,7 +401,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         if (sortBy === 'omzet') return b.netRev - a.netRev
         return b.net - a.net
       })
-  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy])
+  }, [salesRows, expenseRows, hppRows, wasteRows, outlets, sortBy, managementFeeData, mitraIds])
 
   const filteredOutlets = useMemo(() => {
     if (!outletSearch.trim()) return outletBreakdown
@@ -372,8 +437,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       .map(([kategori, jumlah]) => {
         const isCatProrated = isProrated && (PRORATED_CATEGORIES as readonly string[]).includes(kategori)
         const baseLabel = CATEGORY_META[kategori as keyof typeof CATEGORY_META]?.label ?? kategori
+        const prorataSuffix = prorataMonthInfo.overlapDays === 1
+          ? `Beban 1 Hari · 1/${prorataMonthInfo.totalDays} bln`
+          : `Beban ${prorataMonthInfo.overlapDays} Hari · ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln`
         const label = isCatProrated
-          ? `${baseLabel} (Prorata ${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} hr)`
+          ? `${baseLabel} (${prorataSuffix})`
           : baseLabel
         return {
           label,
@@ -384,7 +452,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   }, [expenseRows, isProrated, prorataMonthInfo])
 
   const waterfallInput = useMemo(() => ({
-    grossRevenue: actualGrossRevenue,
+    grossRevenue: actualGrossSales,
     deductions: totalDeductions,
     hpp: totalHpp,
     waste: totalWaste,
@@ -393,10 +461,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     centralExpense: pengeluaranPusat,
     includeCentral,
     opexMonthlyBreakdown,
+    managementFeeIncome: managementFeeReceived,
+    managementFeeExpense: managementFeeExpense,
   }), [
-    actualGrossRevenue, totalDeductions, totalHpp, totalWaste,
+    actualGrossSales, totalDeductions, totalHpp, totalWaste,
     pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
-    opexMonthlyBreakdown,
+    opexMonthlyBreakdown, managementFeeReceived, managementFeeExpense,
   ])
 
   const handleExportCSV = () => {
@@ -417,8 +487,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const omzetHistoris = Number(inv?.omzet_historis) || 0
         const transferHistoris = Number(inv?.transfer_historis) || 0
         const profitMitraSebelumnya = omzetHistoris + transferHistoris
-        const bagiHasilPct = inv?.persentase_bagi_hasil !== undefined ? Number(inv.persentase_bagi_hasil) : (isMitra ? 50 : 0)
-        const mgmtFeePct = Number(inv?.management_fee) || 0
+        const policy = resolveMitraPolicy({
+          periodFrom: effectiveFilter.from,
+          isBep: Boolean(inv?.isBep),
+          legacyProfitSharingPct: inv?.persentase_bagi_hasil,
+          legacyManagementFee: inv?.management_fee,
+        })
+        const bagiHasilPct = isMitra ? policy.profitSharingPct : 0
+        const mgmtFeePct = isMitra ? policy.managementFeePct : 0
         const categoryLabel = isMitra ? `Mitra (Bagi Hasil ${bagiHasilPct}% | Mgmt Fee ${mgmtFeePct}%)` : 'Outlet Pusat'
 
         // 1. Group sales by channel
@@ -629,8 +705,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const omzetHistoris = Number(inv?.omzet_historis) || 0
         const transferHistoris = Number(inv?.transfer_historis) || 0
         const profitMitraSebelumnya = omzetHistoris + transferHistoris
-        const bagiHasilPct = inv?.persentase_bagi_hasil !== undefined ? Number(inv.persentase_bagi_hasil) : (isMitra ? 50 : 0)
-        const mgmtFeePct = Number(inv?.management_fee) || 0
+        const policy = resolveMitraPolicy({
+          periodFrom: effectiveFilter.from,
+          isBep: Boolean(inv?.isBep),
+          legacyProfitSharingPct: inv?.persentase_bagi_hasil,
+          legacyManagementFee: inv?.management_fee,
+        })
+        const bagiHasilPct = isMitra ? policy.profitSharingPct : 0
+        const mgmtFeePct = isMitra ? policy.managementFeePct : 0
 
         // 1. Group sales by channel
         const channels = {
@@ -1097,7 +1179,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
               <div className="flex justify-between items-start pl-2">
                 <div>
                   <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Omzet Penjualan (Kotor)</p>
-                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">Pemasukan kotor sebelum potongan</p>
+                  <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">
+                    {managementFeeReceived > 0 ? 'Omzet outlet + penerimaan fee mitra' : 'Pemasukan kotor sebelum potongan'}
+                  </p>
                 </div>
                 <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600">
                   <TrendingUp className="w-5 h-5" />
@@ -1108,10 +1192,15 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <span className="text-base font-semibold">Rp </span>
                   <CountUp end={actualGrossRevenue} duration={1} separator="." />
                 </h3>
-                <div className="flex items-center gap-2 mt-1.5">
+                <div className="flex flex-wrap items-center gap-2 mt-1.5">
                   <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
                     Net Masuk: {rupiah(actualGrossRevenue - totalDeductions)}
                   </span>
+                  {managementFeeReceived > 0 && (
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200" title="Termasuk pendapatan Management Fee 3% dari kemitraan">
+                      +Fee Mitra {rupiah(managementFeeReceived)}
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1162,9 +1251,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   {isProrated && (
                     <span
                       className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-800 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-300/70 shadow-2xs"
-                      title={`Beban tetap (Gaji, Sewa, Internet) diprorata ${prorataMonthInfo.overlapDays} dari ${prorataMonthInfo.totalDays} hari`}
+                      title={`Beban tetap (Gaji, Sewa, Internet) dialokasikan proporsional: ${prorataMonthInfo.overlapDays} hari dari total ${prorataMonthInfo.totalDays} hari bulan ini`}
                     >
-                      <Sparkles className="w-3 h-3 text-amber-600" /> Prorata {prorataMonthInfo.overlapDays}/{prorataMonthInfo.totalDays} hr
+                      <Sparkles className="w-3 h-3 text-amber-600" />
+                      {prorataMonthInfo.overlapDays === 1
+                        ? `Beban 1 Hari (1/${prorataMonthInfo.totalDays} bln)`
+                        : `Beban ${prorataMonthInfo.overlapDays} Hari (${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln)`}
                     </span>
                   )}
                 </div>
@@ -1250,7 +1342,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <div className="bg-suka-gray-50/70 rounded-2xl p-4 space-y-2.5 text-sm border border-suka-gray-100">
                     <div className="flex justify-between items-center">
                       <span className="font-medium text-suka-gray-600">Omzet Kotor Penjualan (Gross Sales)</span>
-                      <span className="font-bold text-suka-brown">{rupiah(actualGrossRevenue)}</span>
+                      <span className="font-bold text-suka-brown">{rupiah(actualGrossSales)}</span>
                     </div>
                     {/* Selalu tampil, termasuk saat Rp 0 -- baris yang
                         muncul-hilang bikin pembaca mengira datanya tidak ada. */}
@@ -1258,6 +1350,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <span>Potongan Merchant</span>
                       <span className="font-semibold">-{rupiah(totalDeductions)}</span>
                     </div>
+                    {managementFeeReceived > 0 && (
+                      <div className="flex justify-between items-center text-xs text-blue-700 pl-4 border-l-2 border-blue-400 bg-blue-50/50 py-1 pr-2 rounded-r-lg">
+                        <span className="font-semibold">Pendapatan Management Fee Mitra (3% Gross Mitra)</span>
+                        <span className="font-bold">+{rupiah(managementFeeReceived)}</span>
+                      </div>
+                    )}
                     <div className="pt-2 border-t border-suka-gray-200 flex justify-between items-center font-bold">
                       <span className="text-suka-brown">Pendapatan Bersih (Net Revenue)</span>
                       <span className="text-emerald-700 font-black text-base">{rupiah(netRevenue)}</span>
@@ -1312,6 +1410,29 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <span className="font-medium">Biaya Kas Kecil Operasional (Petty Cash)</span>
                       <span className="font-bold">-{rupiah(pengeluaranOutletPettyCash)}</span>
                     </div>
+                    {managementFeeExpense > 0 ? (
+                      <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300 bg-rose-50/40 py-1.5 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Management Fee ke Kantor Pusat (3% Gross Mitra Belum BEP)</span>
+                          <span className="text-[10px] text-rose-500 block font-normal">
+                            {isAllOutlets 
+                              ? `Dipotong 3% hanya dari 9 outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet sudah BEP (${rupiah(actualGrossSales - managementFeeData.grossMitraBelumBep)}) bebas fee`
+                              : `Dipotong 3% dari omzet kotor outlet`}
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">-{rupiah(managementFeeExpense)}</span>
+                      </div>
+                    ) : scope === 'mitra' && !isAllOutlets ? (
+                      <div className="flex justify-between items-center text-xs text-emerald-700 pl-4 border-l-2 border-emerald-400 bg-emerald-50/50 py-1.5 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Management Fee ke Kantor Pusat (0% · Bebas Fee)</span>
+                          <span className="text-[10px] text-emerald-600 block font-normal">
+                            Outlet ini telah mencapai status Balik Modal (BEP). Bebas potongan management fee.
+                          </span>
+                        </div>
+                        <span className="font-bold text-xs shrink-0 text-emerald-700">Rp 0</span>
+                      </div>
+                    ) : null}
                     {isAllOutlets && pengeluaranPusat > 0 && (
                       <div className="flex justify-between items-center text-rose-600">
                         <span className="font-medium">Beban Operasional Kantor Pusat (Manajemen)</span>
@@ -1491,6 +1612,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <th className="py-3.5 px-4 text-right">HPP</th>
                       <th className="py-3.5 px-4 text-right">Waste</th>
                       <th className="py-3.5 px-4 text-right">OPEX</th>
+                      <th className="py-3.5 px-4 text-right">Fee Mgmt</th>
                       <th className="py-3.5 px-4 text-right">Laba Bersih</th>
                       <th className="py-3.5 px-4 text-center">Margin</th>
                     </tr>
@@ -1498,7 +1620,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   <tbody className="divide-y divide-suka-gray-100 font-medium text-suka-ink">
                     {filteredOutlets.length === 0 ? (
                       <tr>
-                        <td colSpan={9} className="py-8 text-center text-suka-gray-400">
+                        <td colSpan={10} className="py-8 text-center text-suka-gray-400">
                           Tidak ditemukan outlet yang cocok dengan pencarian.
                         </td>
                       </tr>
@@ -1520,7 +1642,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                               {index + 1}
                             </td>
                             <td className="py-3.5 px-4 font-bold text-suka-ink">
-                              {row.name.replace('SUKA SHAWARMA ', '')}
+                              <div className="flex items-center gap-1.5">
+                                <span>{row.name.replace('SUKA SHAWARMA ', '')}</span>
+                                {row.isMitra && (
+                                  <span className="text-[9px] px-1.5 py-0.5 rounded font-bold uppercase bg-blue-50 text-blue-600 border border-blue-200">
+                                    Mitra
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3.5 px-4 text-right text-suka-brown font-bold">
                               {rupiah(row.omzet)}
@@ -1536,6 +1665,21 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                             </td>
                             <td className="py-3.5 px-4 text-right text-rose-500">
                               -{rupiah(row.expense)}
+                            </td>
+                            <td className="py-3.5 px-4 text-right">
+                              {row.isMitra ? (
+                                row.mgmtFee > 0 ? (
+                                  <span className="text-xs font-semibold text-rose-500" title={`Management Fee ${row.mgmtFeePct}% dari Gross Sales`}>
+                                    -{rupiah(row.mgmtFee)}
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] font-semibold text-suka-gray-400" title="Sudah Balik Modal (BEP) - Fee 0%">
+                                    0% (BEP)
+                                  </span>
+                                )
+                              ) : (
+                                <span className="text-xs text-suka-gray-300">-</span>
+                              )}
                             </td>
                             <td className={`py-3.5 px-4 text-right font-black ${isProfit ? 'text-emerald-700' : 'text-rose-600'}`}>
                               {rupiah(row.net)}

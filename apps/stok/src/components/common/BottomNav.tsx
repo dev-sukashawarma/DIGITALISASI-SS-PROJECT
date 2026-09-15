@@ -25,7 +25,9 @@ import {
   Trash2,
   X,
   ChevronRight,
+  RotateCcw,
 } from 'lucide-react'
+import { usePendingReturBadge } from '@/hooks/useRetur'
 
 export function BottomNav() {
   const pathname = usePathname()
@@ -75,8 +77,18 @@ export function BottomNav() {
   // 4. Pending Mutasi Antar Outlet (Realtime)
   const { badgeCount: pendingMutasiCount } = useMutasiBadge(outletStaff?.outlet_id)
 
+  // 5. Pending Retur & Refund (AM/RM approval, Kitchen verification)
+  const { badgeCount: pendingReturCount } = usePendingReturBadge(role, outletStaff?.outlet_id ?? undefined)
+
   // Secondary drawer items for "Lainnya"
   const kitchenAdminMoreItems = [
+    {
+      href: '/stok/refund',
+      icon: RotateCcw,
+      label: 'Retur & Refund Bahan',
+      desc: 'Verifikasi timbang & penerbitan SJ pengganti',
+      badge: pendingReturCount,
+    },
     {
       href: '/stok/budget-outlet',
       icon: Wallet,
@@ -141,6 +153,13 @@ export function BottomNav() {
 
   const leaderMoreItems = [
     {
+      href: '/stok/refund',
+      icon: RotateCcw,
+      label: 'Retur & Refund Bahan',
+      desc: 'Persetujuan & riwayat retur bahan core',
+      badge: pendingReturCount,
+    },
+    {
       href: '/stok/budget-outlet',
       icon: Wallet,
       label: 'Plafon & Belanja',
@@ -179,6 +198,13 @@ export function BottomNav() {
 
   const crewMoreItems = [
     {
+      href: '/stok/refund',
+      icon: RotateCcw,
+      label: 'Retur & Refund Bahan',
+      desc: 'Pengajuan ganti fisik ayam, sapi, kulit',
+      badge: pendingReturCount,
+    },
+    {
       href: '/stok/ledger',
       icon: BookOpen,
       label: 'Buku Ledger Stok',
@@ -215,7 +241,10 @@ export function BottomNav() {
         icon: MoreHorizontal,
         label: 'Lainnya',
         isMore: true,
-        badge: (pendingWasteCount > 0 ? pendingWasteCount : 0) + (pendingMutasiCount > 0 ? pendingMutasiCount : 0),
+        badge:
+          (pendingWasteCount > 0 ? pendingWasteCount : 0) +
+          (pendingMutasiCount > 0 ? pendingMutasiCount : 0) +
+          (pendingReturCount > 0 ? pendingReturCount : 0),
       },
     ]
   } else if (isLeaderOrSPV) {
@@ -233,7 +262,9 @@ export function BottomNav() {
         icon: MoreHorizontal,
         label: 'Lainnya',
         isMore: true,
-        badge: pendingMutasiCount > 0 ? pendingMutasiCount : undefined,
+        badge:
+          (pendingMutasiCount > 0 ? pendingMutasiCount : 0) +
+          (pendingReturCount > 0 ? pendingReturCount : 0),
       },
     ]
   } else {
@@ -246,7 +277,9 @@ export function BottomNav() {
         icon: MoreHorizontal,
         label: 'Lainnya',
         isMore: true,
-        badge: pendingMutasiCount > 0 ? pendingMutasiCount : undefined,
+        badge:
+          (pendingMutasiCount > 0 ? pendingMutasiCount : 0) +
+          (pendingReturCount > 0 ? pendingReturCount : 0),
       },
     ]
   }

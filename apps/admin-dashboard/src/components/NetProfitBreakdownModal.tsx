@@ -132,7 +132,7 @@ export function NetProfitBreakdownModal({
                       {negative ? '-' : ''}{rupiah(Math.abs(step.amount))}
                     </span>
                     <span className="block text-[11px] font-medium text-suka-gray-400">
-                      {step.pctOfGross.toFixed(1)}%
+                      {step.pctLabel ?? `${step.pctOfGross.toFixed(1)}%`}
                     </span>
                   </span>
                 </div>

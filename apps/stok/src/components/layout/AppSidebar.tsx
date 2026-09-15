@@ -30,7 +30,9 @@ import {
   Store,
   Wallet,
   Receipt,
+  RotateCcw,
 } from 'lucide-react'
+import { usePendingReturBadge } from '@/hooks/useRetur'
 
 function formatRp(n: number) {
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`
@@ -124,6 +126,9 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
 
   // 4. Pending Actionable Mutasi Antar Outlet (Realtime)
   const { badgeCount: pendingMutasiCount } = useMutasiBadge(targetOutletId)
+
+  // 5. Pending Retur & Refund Bahan
+  const { badgeCount: pendingReturCount } = usePendingReturBadge(role, outletStaff?.outlet_id ?? undefined)
 
   const handleLogout = async () => {
     await signOut()
@@ -227,6 +232,13 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
           label: 'Stok Opname',
           href: '/stok/opname',
           icon: FileSpreadsheet,
+        },
+        {
+          label: 'Retur & Refund Bahan',
+          href: '/stok/refund',
+          icon: RotateCcw,
+          badge: pendingReturCount > 0 ? `${pendingReturCount}` : undefined,
+          badgeColor: 'bg-amber-600 text-white',
         },
         {
           label: 'Waste',

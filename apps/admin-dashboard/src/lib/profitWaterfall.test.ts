@@ -141,3 +141,51 @@ describe('rincian Beban Bulanan Outlet', () => {
     ).toBeUndefined()
   })
 })
+
+describe('management fee di waterfall', () => {
+  it('menambahkan fee_manajemen_mitra dan menaikkan laba bersih saat ada managementFeeIncome', () => {
+    const feeIncome = 3_000_000
+    const steps = buildProfitWaterfall({ ...INPUT, managementFeeIncome: feeIncome })
+    
+    const feeStep = steps.find((s) => s.key === 'fee_manajemen_mitra')
+    expect(feeStep).toBeDefined()
+    expect(feeStep?.amount).toBe(feeIncome)
+
+    const baseTotal = buildProfitWaterfall(INPUT).find((s) => s.kind === 'total')!.amount
+    const withFeeTotal = steps.find((s) => s.kind === 'total')!.amount
+    expect(withFeeTotal).toBe(baseTotal + feeIncome)
+
+    // Running sum check
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+
+  it('mengurangi fee_manajemen_pusat dan memotong laba bersih saat ada managementFeeExpense', () => {
+    const feeExpense = 2_500_000
+    const steps = buildProfitWaterfall({ ...INPUT, managementFeeExpense: feeExpense, includeCentral: false })
+    
+    const feeStep = steps.find((s) => s.key === 'fee_manajemen_pusat')
+    expect(feeStep).toBeDefined()
+    expect(feeStep?.amount).toBe(-feeExpense)
+
+    const baseTotal = buildProfitWaterfall({ ...INPUT, includeCentral: false }).find((s) => s.kind === 'total')!.amount
+    const withFeeTotal = steps.find((s) => s.kind === 'total')!.amount
+    expect(withFeeTotal).toBe(baseTotal - feeExpense)
+
+    // Running sum check
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
+})

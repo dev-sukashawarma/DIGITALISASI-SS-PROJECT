@@ -2647,8 +2647,12 @@ Kedua `ReportsView.tsx` identik logikanya — ubah keduanya bersamaan.
 - Uploader settlement SS Online (TikTok Shop & Shopee) — menunggu contoh file Seller Center.
 - Input biaya bulanan September sebelum menghitung transfer 10 Oktober.
 - ⚠️ Timestamp kembar di `main`: `20260912140000_allow_zero_price_menu_items.sql` &
-  `20260912140000_update_surat_jalan_item_vendor.sql` — salah satunya dilewati `db push`
-  tanpa suara; perlu dicek apakah keduanya benar-benar terpasang di DB.
+  `20260912140000_update_surat_jalan_item_vendor.sql`. Dicek 2026-09-15: **kedua objeknya
+  sudah ada di DB** (diterapkan manual), tapi versi `20260912140000` **nol stempel** di
+  `schema_migrations`. 🔴 Jangan `db push` sebelum dibereskan: backfill di berkas kedua
+  menyasar **semua** SJ `draft` ber-`vendor_id` NULL (bukan hanya draft 12 Sep), jadi
+  menjalankannya ulang akan mengisi vendor pada draft hari itu tanpa pilihan kitchen.
+  Perbaikan (rename salah satu + stempel) menunggu pemilik berkas / owner.
 
 ---
 

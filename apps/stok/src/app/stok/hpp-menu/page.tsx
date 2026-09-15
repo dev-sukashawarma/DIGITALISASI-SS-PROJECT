@@ -3,6 +3,7 @@
 import React from 'react'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { HPPMenuBoard } from '@/components/hpp/HPPMenuBoard'
+import { HPPDinamisPanel } from '@/components/hpp/HPPDinamisPanel'
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 
 export default function HPPMenuPage() {
@@ -28,6 +29,7 @@ export default function HPPMenuPage() {
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6 lg:p-8 max-w-7xl mx-auto w-full">
           <HPPMenuBoard />
+          <HPPDinamisPanel />
         </main>
       </div>
     </AppLayout>

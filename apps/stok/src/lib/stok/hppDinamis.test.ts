@@ -19,6 +19,11 @@ describe('selisihPct', () => {
 describe('periodeSebelumSnapshot', () => {
   it('true sebelum 1 Sep 2026', () => { expect(periodeSebelumSnapshot('2026-08-31')).toBe(true) })
   it('false mulai 1 Sep 2026', () => { expect(periodeSebelumSnapshot('2026-09-01')).toBe(false) })
+  it('false bila from kosong', () => {
+    expect(periodeSebelumSnapshot('')).toBe(false)
+    expect(periodeSebelumSnapshot(null)).toBe(false)
+    expect(periodeSebelumSnapshot(undefined)).toBe(false)
+  })
 })
 
 describe('ringkasHppDinamis', () => {

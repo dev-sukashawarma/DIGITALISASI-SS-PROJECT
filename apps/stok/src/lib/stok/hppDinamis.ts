@@ -60,8 +60,8 @@ export function selisihPct(nilai: number, acuan: number): number | null {
   return ((nilai - acuan) / acuan) * 100
 }
 
-export function periodeSebelumSnapshot(from: string): boolean {
-  return from < TANGGAL_MULAI_SNAPSHOT
+export function periodeSebelumSnapshot(from: string | null | undefined): boolean {
+  return !!from && from < TANGGAL_MULAI_SNAPSHOT
 }
 
 const n = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)

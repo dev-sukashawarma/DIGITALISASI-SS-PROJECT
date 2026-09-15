@@ -116,7 +116,7 @@ export function HPPDinamisPanel() {
                     <td className="pr-3 text-right">{m.qty_terjual}</td>
                     <td className="pr-3 text-right">{rp(m.hpp_override_unit)}</td>
                     <td className="pr-3 text-right">{rp(m.hpp_teoritis_unit)}</td>
-                    <td className="pr-3 text-right">{m.punya_resep ? pct(selisihPct(m.hpp_teoritis_unit ?? 0, m.hpp_override_unit)) : '—'}</td>
+                    <td className="pr-3 text-right">{m.punya_resep && m.hpp_teoritis_unit != null ? pct(selisihPct(m.hpp_teoritis_unit, m.hpp_override_unit)) : '—'}</td>
                     <td className="pr-3 text-right">{rp(m.hpp_override_total)}</td>
                     <td className="text-right">{rp(m.hpp_teoritis_total)}</td>
                   </tr>

@@ -2646,13 +2646,14 @@ Kedua `ReportsView.tsx` identik logikanya — ubah keduanya bersamaan.
 - Redeploy `admin-dashboard` & `finance`; rotasi `VALIDATION_API_KEY`; matikan jadwal Hermes.
 - Uploader settlement SS Online (TikTok Shop & Shopee) — menunggu contoh file Seller Center.
 - Input biaya bulanan September sebelum menghitung transfer 10 Oktober.
-- ⚠️ Timestamp kembar di `main`: `20260912140000_allow_zero_price_menu_items.sql` &
-  `20260912140000_update_surat_jalan_item_vendor.sql`. Dicek 2026-09-15: **kedua objeknya
-  sudah ada di DB** (diterapkan manual), tapi versi `20260912140000` **nol stempel** di
-  `schema_migrations`. 🔴 Jangan `db push` sebelum dibereskan: backfill di berkas kedua
-  menyasar **semua** SJ `draft` ber-`vendor_id` NULL (bukan hanya draft 12 Sep), jadi
-  menjalankannya ulang akan mengisi vendor pada draft hari itu tanpa pilihan kitchen.
-  Perbaikan (rename salah satu + stempel) menunggu pemilik berkas / owner.
+- ✅ **Timestamp kembar `20260912140000` — DIBERESKAN 2026-09-15.** Dua berkas berbagi
+  versi itu (`allow_zero_price_menu_items` & `update_surat_jalan_item_vendor`); kedua
+  objeknya sudah diterapkan manual tapi versi itu **nol stempel**, jadi `db push` berikutnya
+  akan menjalankan ulang backfill yang menyasar **semua** SJ `draft` ber-`vendor_id` NULL.
+  Berkas vendor di-rename → `20260912140500` (berkas menu dipertahankan: di-commit lebih dulu
+  dan dirujuk docs). Sebelum menstempel, badan fungsi live dibandingkan dengan berkas:
+  **identik** (beda md5 awal hanya CRLF). Keduanya distempel; asersi lolos (grant anon
+  ditolak, authenticated boleh) + kontrol negatif gagal sesuai harapan.
 
 ---
 

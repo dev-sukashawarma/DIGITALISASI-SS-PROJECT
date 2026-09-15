@@ -2610,5 +2610,47 @@ Distribusi `VerifikasiForm`: bahan yang dipecah vendor tampil `NAMA · Vendor`
 
 ---
 
-**Last updated:** 2026-09-14  
+## Session 2026-09-14: Bagi Hasil Mitra, Saklar Settlement TikTok, & Kartu Settlement
+
+**Status:** ✅ Merged & pushed ke `origin/main` (`dac015b3`, `66180afa`, `f483f04a`,
+`36ee4010`). Migration `20260914180500` applied & terstempel. ⚠️ **Perlu redeploy
+`admin-dashboard` + `finance`**, dan **rotasi `VALIDATION_API_KEY`** di Coolify.
+
+### 1. Saklar `PAKAI_SETTLEMENT_TIKTOK = false` (dashboard mitra)
+Commit `84536a49` membuat omzet TikTok GO mitra diambil dari `platform_settlements`.
+Pengisinya (`hermes_api_inject`) mengirim ulang snapshot yang sama dengan `tanggal`
+baru tiap ~3 hari (Cibubur: 9 baris kembar Rp 7.441.000) → omzet & bagi hasil
+membengkak tanpa HPP pendamping. Saklar di `apps/admin-dashboard/src/lib/mitraSettlementTiktok.ts`,
+dipakai bersama `mitraPnl.ts` + `mitraRoi.ts`. **Agustus tidak berubah** (closing audit,
+dicek per outlet: total 104.188.151 sebelum = sesudah). Nyalakan lagi hanya untuk bulan
+tertutup dengan settlement hasil unggah lengkap.
+
+### 2. Hermes dihentikan, 184 baris dihapus
+Keputusan owner: settlement ditarik bulanan lewat halaman unggah
+`/dashboard/platform-settlement`, bukan injector. 184 baris `hermes_api_inject`
+dihapus by-id setelah dicadangkan **di luar repo**
+(`cadangan-db/cadangan-platform_settlements-2026-09-14.json`). Nol dependensi DB.
+🔴 `VALIDATION_API_KEY` sempat ditanam sebagai fallback di
+`apps/admin-dashboard/scripts/test_validation_api.mjs` (repo publik) — kini wajib
+dari env, tapi nilai lama masih di riwayat git: **yang menutupnya hanya rotasi.**
+
+### 3. Kartu Settlement di Rangkuman Penjualan (admin-dashboard & finance)
+Kartu Settlement + Admin Settlement kini **tersembunyi kecuali ada baris settlement**
+untuk filter terpilih — berlaku sama untuk TikTok GO dan SS Online. Query SS Online
+dulu selalu gagal (`'ss-online'` bukan UUID) → kini pakai id outlet marketplace.
+Migration `20260914180500` memperluas CHECK `platform_settlements.platform` dengan
+`tiktok_shop`/`shopee_shop` (0 baris; diuji: ditolak sebelum, lolos sesudah).
+Kedua `ReportsView.tsx` identik logikanya — ubah keduanya bersamaan.
+
+### 📝 Next
+- Redeploy `admin-dashboard` & `finance`; rotasi `VALIDATION_API_KEY`; matikan jadwal Hermes.
+- Uploader settlement SS Online (TikTok Shop & Shopee) — menunggu contoh file Seller Center.
+- Input biaya bulanan September sebelum menghitung transfer 10 Oktober.
+- ⚠️ Timestamp kembar di `main`: `20260912140000_allow_zero_price_menu_items.sql` &
+  `20260912140000_update_surat_jalan_item_vendor.sql` — salah satunya dilewati `db push`
+  tanpa suara; perlu dicek apakah keduanya benar-benar terpasang di DB.
+
+---
+
+**Last updated:** 2026-09-15  
 **Owner:** Dev Suka Shawarma

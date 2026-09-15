@@ -1,4 +1,4 @@
-﻿-- supabase/migrations/20260915100000_nyalakan_bom_tiga_outlet.sql
+﻿-- supabase/migrations/20260915200000_nyalakan_bom_tiga_outlet.sql
 -- Spec: docs/superpowers/specs/2026-09-15-hpp-dinamis-harga-kiriman-design.md §5.1
 -- Tiga outlet mitra dibuat 17-31 Jul 2026 dengan is_bom_enabled=false (semua
 -- outlet lain true, termasuk Pamulang 8 Sep). 3.676 order September mereka

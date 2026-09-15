@@ -3,8 +3,8 @@
 -- koreksi tipe Pamulang. Jalankan satu query per giliran, read-only.
 
 -- Q1: status is_bom_enabled & type ketiga outlet + Pamulang (harus selalu
--- true/true/true untuk ketiganya setelah 20260915100000 diterapkan;
--- Pamulang type tetap 'outlet' sampai 20260915101000 di-apply terpisah
+-- true/true/true untuk ketiganya setelah 20260915200000 diterapkan;
+-- Pamulang type tetap 'outlet' sampai 20260915201000 di-apply terpisah
 -- setelah owner OK).
 SELECT name, type, is_bom_enabled
 FROM outlets

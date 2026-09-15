@@ -1,4 +1,4 @@
--- supabase/migrations/20260915101000_pamulang_type_mitra.sql
+-- supabase/migrations/20260915201000_pamulang_type_mitra.sql
 -- Spec §5.2. MITRA PAMULANG (dibuat 2026-09-08) tercatat type='outlet'.
 -- Konfirmasi owner 2026-09-15: "pamulang itu mitra".
 -- JANGAN di-apply sebelum laporan dampak (Task 1 Step 3) disetujui owner.

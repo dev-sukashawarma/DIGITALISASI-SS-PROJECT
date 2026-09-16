@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import Pagination from '@/components/dashboard/Pagination'
 import {
   Clapperboard,
   Plus,
@@ -218,6 +219,15 @@ export default function ContentMetricsView({
   const [outletFilter, setOutletFilter] = useState('')
   const [sortBy, setSortBy] = useState<'views' | 'reach' | 'ebr' | 'er' | 'engagement' | 'date'>('views')
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // Reset to page 1 whenever filters or sort change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, adsFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter, sortBy])
+
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [editingContent, setEditingContent] = useState<SerializedInternalContent | null>(null)
@@ -344,6 +354,16 @@ export default function ContentMetricsView({
         return 0
       })
   }, [processedContents, search, adsFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter, sortBy])
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const startIndex = (safeCurrentPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, filtered.length)
+
+  const paginatedContents = useMemo(() => {
+    return filtered.slice(startIndex, endIndex)
+  }, [filtered, startIndex, endIndex])
 
   // Aggregate stats
   const totalContents = processedContents.length
@@ -1165,7 +1185,7 @@ export default function ContentMetricsView({
                   </td>
                 </tr>
               ) : (
-                filtered.map((item, idx) => {
+                paginatedContents.map((item, idx) => {
                   const pillarConfig = PILLARS[item.pillar] || PILLARS.Promo
                   const platformConfig = PLATFORMS[item.platform] || PLATFORMS.TIKTOK
                   const formatConfig = FORMATS[item.format] || FORMATS.VIDEO
@@ -1176,7 +1196,7 @@ export default function ContentMetricsView({
                       <td className="py-4 px-4 sm:px-6">
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                            #{idx + 1}
+                            #{startIndex + idx + 1}
                           </div>
                           <div className="min-w-0 max-w-xs">
                             <div className="font-bold text-[#1A1715] flex items-center gap-1.5">

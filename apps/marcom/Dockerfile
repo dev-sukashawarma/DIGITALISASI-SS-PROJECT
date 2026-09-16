@@ -3,18 +3,21 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install OpenSSL and certificates required by Prisma
+# Install OpenSSL and ca-certificates for Prisma
 RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
-# Copy package definitions
-COPY package.json ./
+# Enable pnpm via corepack
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Install dependencies (ignoring scripts first, then prisma generate)
-RUN npm install --ignore-scripts
+# Copy package definitions and lockfile
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies using pnpm
+RUN pnpm install --frozen-lockfile
 
 # Copy Prisma schema and generate client
 COPY prisma ./prisma/
-RUN npx prisma generate
+RUN pnpm prisma generate
 
 # Copy the rest of the application source code
 COPY . .
@@ -25,7 +28,7 @@ ENV NODE_ENV=production
 ENV DOCKER_BUILD=true
 
 # Build Next.js application
-RUN npm run build
+RUN pnpm run build
 
 # Stage 2: Production Runner
 FROM node:20-slim AS runner
@@ -34,6 +37,7 @@ WORKDIR /app
 
 # Install runtime dependencies (OpenSSL for Prisma, curl for healthcheck/cron)
 RUN apt-get update -y && apt-get install -y openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 ENV NODE_ENV=production
 ENV PORT=3999
@@ -51,4 +55,4 @@ COPY --from=builder /app/prisma ./prisma
 EXPOSE 3999
 
 # Start Next.js server
-CMD ["npm", "run", "start"]
+CMD ["pnpm", "run", "start"]

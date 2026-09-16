@@ -2384,9 +2384,18 @@ pada itu terjadi lebih dulu.
   (tabel itu ada di publication `supabase_realtime`) — migration lanjutan yang
   menyentuh struktur `ledger_stok` wajib diterapkan per potongan + `lock_timeout`,
   bukan satu statement besar.
-- **Temuan terbuka, belum diperbaiki:** policy `bbhh_select` salah ketik
-  `'purchase'` → purchasing tak bisa membaca `bahan_baku_harga_history`. Butuh
-  izin owner sebelum disentuh — tabel produksi di luar migration Task 1–9.
+- ✅ **Klaim "penghalang `bbhh_select`" TERBUKTI SALAH** (dicek ke DB live
+  2026-09-16). `bbhh_select` sudah memakai `'purchasing'` sejak 11 Sep, dan
+  disimulasikan dengan staf purchasing sungguhan: ia **bisa** membaca supplier
+  (25), katalog (61), riwayat katalog (123), riwayat harga (20); crew 0.
+  **Nol penghalang go-live dari sisi ini.** Yang benar-benar ada: 5 policy
+  vendor memuat nama role MATI `'purchase'` + `'finance'` (0 baris
+  `outlet_staff`, status apa pun) berdampingan dengan `'purchasing'` yang
+  benar — jadi tak pernah cocok dengan siapa pun, murni teks menyesatkan.
+  Dibersihkan `20260916100000` (applied+terstempel, perilaku diverifikasi
+  identik sebelum & sesudah). `'finance'` masih tersisa di 5 policy domain
+  lain (petty cash ×2, cancellation_requests, inbound_outbound ×2) — sengaja
+  tak disentuh, sama-sama mati.
 - **Harga master sayur ikut nota** (keputusan owner, spec §9 poin 3) — ditahan
   penjaga rasio-faktor bila tampak salah satuan, pola sama dengan penjaga FOIL.
 - **Outlet tes ikut tampil di layar nota** (sengaja — catatan yang harus disahkan

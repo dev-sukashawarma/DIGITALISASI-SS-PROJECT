@@ -30,14 +30,31 @@ export async function getCurrentUser(): Promise<AppUser | null> {
       const userCount = await prisma.user.count()
       const initialRole = userCount === 0 ? 'ADMIN' : 'MARCOM'
 
+      let resolvedName = authUser.user_metadata?.full_name || null
+      if (!resolvedName) {
+        try {
+          const { data: staffData } = await supabase
+            .from('outlet_staff')
+            .select('name')
+            .eq('id', authUser.id)
+            .maybeSingle()
+          if (staffData?.name) {
+            resolvedName = staffData.name
+          }
+        } catch (_) {
+          // ignore if outlet_staff query fails
+        }
+      }
+
       dbUser = await prisma.user.create({
         data: {
           email: authUser.email,
-          name: authUser.user_metadata?.full_name || authUser.email.split('@')[0],
+          name: resolvedName || authUser.email.split('@')[0],
           role: initialRole,
         },
       })
     }
+
 
     return {
       id: dbUser.id,

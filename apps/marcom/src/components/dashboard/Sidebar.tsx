@@ -20,6 +20,7 @@ import {
   CalendarDays,
   ChevronDown,
   DollarSign,
+  ExternalLink,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 
@@ -318,16 +319,33 @@ export default function Sidebar({ user }: SidebarProps) {
             </div>
           </div>
 
+          <a
+            href={
+              typeof window !== 'undefined' &&
+              (window.location.hostname.includes('localhost') || window.location.hostname.includes('127.0.0.1'))
+                ? 'http://localhost:3010'
+                : (process.env.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com')
+            }
+            className="w-full flex items-center justify-between px-3 py-1.5 mb-1.5 rounded-lg text-xs font-medium text-amber-200/90 hover:text-amber-100 hover:bg-amber-500/10 transition-colors border border-amber-500/20"
+          >
+            <div className="flex items-center space-x-2">
+              <Flame className="w-3.5 h-3.5 text-amber-400" />
+              <span>Portal Aplikasi</span>
+            </div>
+            <ExternalLink className="w-3 h-3 text-amber-400/70" />
+          </a>
+
           <form action={signOut}>
             <button
               type="submit"
-              className="w-full flex items-center justify-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium text-stone-400 hover:text-stone-100 hover:bg-stone-800/80 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-3 py-1.5 rounded-lg text-xs font-medium text-stone-400 hover:text-stone-100 hover:bg-stone-800/80 transition-colors cursor-pointer"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>Keluar Akun</span>
             </button>
           </form>
         </div>
+
       </aside>
     </>
   )

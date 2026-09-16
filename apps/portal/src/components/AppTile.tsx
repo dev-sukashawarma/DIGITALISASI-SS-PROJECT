@@ -1,4 +1,4 @@
-import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, ArrowUpRight, Wallet } from 'lucide-react'
+import { Package, Clock, Truck, ShoppingBag, BarChart3, Settings, Shield, ArrowUpRight, Wallet, Megaphone } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 interface Props {
@@ -71,6 +71,14 @@ export default function AppTile({ label, url, desc }: Props) {
       accentText: 'group-hover:text-emerald-700',
       glow: 'bg-emerald-600/15',
     }
+    if (key.includes('marcom') || key.includes('marketing') || key.includes('influencer')) return {
+      icon: <Megaphone size={24} strokeWidth={2.25} />,
+      chip: 'bg-gradient-to-br from-[#E8590C] to-[#9C3106]',
+      hover: 'hover:border-orange-500/30 hover:shadow-orange-500/10',
+      accentText: 'group-hover:text-orange-600',
+      glow: 'bg-orange-500/15',
+    }
+
     return {
       icon: <Shield size={24} strokeWidth={2.25} />,
       chip: 'bg-gradient-to-br from-suka-orange to-suka-brown',

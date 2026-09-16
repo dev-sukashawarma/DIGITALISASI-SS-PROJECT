@@ -27,6 +27,7 @@ export type AppName =
   | 'manager'
   | 'monitoring'
   | 'HR'
+  | 'marcom'
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 

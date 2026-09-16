@@ -257,6 +257,10 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
   }
 
   // 3. Hitung baseline per kategori untuk setiap outlet
+  const durationDesc = monthInfo.overlapDays === 1
+    ? `Beban 1 Hari · 1/${monthInfo.totalDays} bln`
+    : `Beban ${monthInfo.overlapDays} Hari · ${monthInfo.overlapDays}/${monthInfo.totalDays} bln`
+
   const proratedRows: ExpenseRow[] = []
   let totalGajiBulanan = 0
   let totalGajiProrata = 0
@@ -334,7 +338,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         category: 'gaji_crew_outlet',
         scope: 'outlet',
         amount: proratedGaji,
-        description: `Prorata Gaji Crew (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        description: `Prorata Gaji Crew (${durationDesc})`,
         expense_date: filter.to,
         period_month: monthInfo.firstDay,
         source: 'monthly',
@@ -371,7 +375,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         category: 'sewa_outlet',
         scope: 'outlet',
         amount: proratedSewa,
-        description: `Prorata Sewa Outlet (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        description: `Prorata Sewa Outlet (${durationDesc})`,
         expense_date: filter.to,
         period_month: monthInfo.firstDay,
         source: 'monthly',
@@ -408,7 +412,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         category: 'internet',
         scope: 'outlet',
         amount: proratedInternet,
-        description: `Prorata Internet (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        description: `Prorata Internet (${durationDesc})`,
         expense_date: filter.to,
         period_month: monthInfo.firstDay,
         source: 'monthly',
@@ -460,7 +464,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         category: 'bonus_crew',
         scope: 'outlet',
         amount: proratedCrewBonus,
-        description: `Prorata Bonus Crew (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        description: `Prorata Bonus Crew (${durationDesc})`,
         expense_date: filter.to,
         period_month: monthInfo.firstDay,
         source: 'monthly',
@@ -511,7 +515,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         category: 'bonus_area_manager',
         scope: 'outlet',
         amount: proratedAmBonus,
-        description: `Prorata Bonus Area Manager (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        description: `Prorata Bonus Area Manager (${durationDesc})`,
         expense_date: filter.to,
         period_month: monthInfo.firstDay,
         source: 'monthly',
@@ -562,7 +566,7 @@ export function calculateProratedExpenses(input: CalculateProrataInput): Prorate
         category: 'bonus_regional_manager',
         scope: 'outlet',
         amount: proratedRmBonus,
-        description: `Prorata Bonus Regional Manager (${monthInfo.overlapDays}/${monthInfo.totalDays} hr)`,
+        description: `Prorata Bonus Regional Manager (${durationDesc})`,
         expense_date: filter.to,
         period_month: monthInfo.firstDay,
         source: 'monthly',

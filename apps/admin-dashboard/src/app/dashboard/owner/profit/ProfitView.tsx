@@ -1400,7 +1400,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         <span className="font-medium">Beban Tetap & Bulanan Outlet (Gaji, Listrik, Sewa)</span>
                         {isProrated && (
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
-                            Prorata {prorataMonthInfo.overlapDays}/{prorataMonthInfo.totalDays} hr
+                            {prorataMonthInfo.overlapDays === 1
+                              ? `Beban 1 Hari (1/${prorataMonthInfo.totalDays} bln)`
+                              : `Beban ${prorataMonthInfo.overlapDays} Hari (${prorataMonthInfo.overlapDays}/${prorataMonthInfo.totalDays} bln)`}
                           </span>
                         )}
                       </div>

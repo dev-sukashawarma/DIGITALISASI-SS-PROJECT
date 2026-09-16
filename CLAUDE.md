@@ -2823,6 +2823,20 @@ serupa tapi minor (1 resep, 5 outlet).
   `get_mitra_item_hpp_base` sudah menjumlahkan `hpp_override` komponen untuk
   paket. Pembanding baru: SHAWARMA DUO COMBO dinamis Rp28.537/porsi vs komponen
   override Rp31.000.
+- ⏸️ **Menu "Original Ayam Reguler" harga Rp 1 — SENGAJA DILEWATI** (owner,
+  dikonfirmasi dua kali: 15 & 16 Sep). `price = 1`, `hpp_override` 9.000,
+  `is_available = true`, masih terjual — jadi ia selalu muncul di puncak daftar
+  food cost (900.000%) dan membuat rata-rata rasio override/harga tak terpakai.
+  **Jangan diangkat lagi tanpa owner yang memulai.** Saring `price > 1` kalau
+  menghitung agregat food cost.
+- ℹ️ **Patokan override menu utama konservatif, dan itu disengaja** (terukur
+  16 Sep): food cost menurut override 60–71% (Best Seller Mix Jumbo 71,1% ·
+  Original Ayam Jumbo 63,2% · Original Sapi Sedang 61,1%), sementara HPP dinamis
+  13–33% lebih rendah → food cost riil ≈ 45–55%. Selisih itu = bantalan patokan,
+  bukan kesalahan. Topping (Extra Kentang 38,9% · Extra Keju 50%) justru yang
+  paling sehat. ⚠️ Dugaan sesi ini bahwa override Rp 3.500 kedua topping = harga
+  jual yang nyasar ke kolom HPP **TERBUKTI SALAH** — harga jualnya 9.000 & 7.000;
+  **nol** menu aktif yang `hpp_override = price`. Ditarik, jangan diulang.
 - ✅ **Extra Kentang 20 → 50 gram** (`20260916120000`, applied+terstempel 16 Sep,
   konfirmasi owner). Ketahuan dari panel HPP Dinamis pada smoke test pertamanya:
   dinamis Rp 291/porsi vs override Rp 3.500 = **−91,7%**, jauh di luar pola menu

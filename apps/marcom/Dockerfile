@@ -13,10 +13,11 @@ RUN npm install -g pnpm@11.3.0
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install all dependencies WITH lifecycle scripts
-# pnpm 11 respects "pnpm.onlyBuiltDependencies" in package.json (already contains prisma & friends)
-# This ensures Prisma engine binaries (.so.node) are downloaded properly for Linux
-RUN pnpm install --frozen-lockfile
+# Install dependencies, skip lifecycle scripts to avoid ERR_PNPM_IGNORED_BUILDS
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# Explicitly generate Prisma client and download Linux engine binary
+RUN pnpm prisma generate
 
 # Copy the rest of the application source code
 COPY . .

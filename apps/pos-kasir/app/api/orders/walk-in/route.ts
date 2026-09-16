@@ -17,6 +17,7 @@ interface WalkInItem {
   parent_id?: string
   cartItemId?: string
   package_choices?: Record<string, string>
+  unit_price?: number
 }
 
 interface WalkInPayload {
@@ -24,6 +25,7 @@ interface WalkInPayload {
   customer_name?: string
   amount_received?: number // wajib untuk cash
   is_endorse?: boolean
+  pos_endorsement_id?: string
   items: WalkInItem[]
   client_order_id?: string
 }
@@ -173,7 +175,7 @@ export async function POST(request: Request) {
     let unitPrice = hasBuyGetPromo
       ? menuItem.price
       : calculateItemPrice(menuItem.price, menuItem.id, activePromos as BasePromo[], baseSubtotal)
-    if (body.is_endorse) {
+    if (body.is_endorse || reqItem.unit_price === 0) {
       unitPrice = 0
     }
 
@@ -329,6 +331,23 @@ export async function POST(request: Request) {
         console.error(`[PROMO LIMIT EXCEEDED] Order ${order.id} pakai promo ${promoId} melebihi usage_limit — usage TIDAK bertambah, diskon SUDAH diterapkan di order ini. Perlu rekonsiliasi manual.`)
         await supabaseService.from('outlet_promos').update({ is_active: false }).eq('id', promoId)
       }
+    }
+  }
+
+  // ── Update status klaim endorsement jika pesanan berasal dari klaim visit KOL ──
+  if (body.pos_endorsement_id) {
+    try {
+      await supabaseService
+        .from('pos_endorsements')
+        .update({
+          status: 'CLAIMED',
+          claimed_at: new Date().toISOString(),
+          order_id: order.id,
+          pos_order_number: order.order_number,
+        })
+        .eq('id', body.pos_endorsement_id)
+    } catch (endorseErr) {
+      console.error('Gagal memperbarui status pos_endorsements:', endorseErr)
     }
   }
 

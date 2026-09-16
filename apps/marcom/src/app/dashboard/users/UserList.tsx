@@ -133,13 +133,13 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm text-stone-600">
-            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="px-6 py-4">Nama Pengguna</th>
-                <th className="px-6 py-4">Alamat Email</th>
-                <th className="px-6 py-4">Role Saat Ini</th>
-                <th className="px-6 py-4">Terdaftar Sejak</th>
-                <th className="px-6 py-4 text-right">Aksi</th>
+                <th className="px-6 py-4 whitespace-nowrap">Nama Pengguna</th>
+                <th className="px-6 py-4 whitespace-nowrap">Alamat Email</th>
+                <th className="px-6 py-4 whitespace-nowrap">Role Saat Ini</th>
+                <th className="px-6 py-4 whitespace-nowrap">Terdaftar Sejak</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -147,7 +147,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
                 const isSelf = u.id === currentUserId
 
                 return (
-                  <tr key={u.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                  <tr key={u.id} className="hover:bg-amber-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/20 flex items-center justify-center font-extrabold text-xs">

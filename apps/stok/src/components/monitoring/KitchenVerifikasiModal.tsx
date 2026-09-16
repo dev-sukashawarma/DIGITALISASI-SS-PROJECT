@@ -5,6 +5,9 @@ import { X, CheckCircle, PackageCheck, AlertCircle, Camera, CheckCircle2, Extern
 import { Spinner } from '@suka/design-system'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { convertGramToBesar } from '@/lib/format/compositeUnit'
+import { GUDANG_PUSAT_ID } from '@/lib/stok/penyesuaianVendor'
+import { cekTerima, stokSetelahTerima, pesanWarning } from '@/lib/stok/terimaGuard'
 
 const supabase = createSupabaseBrowserClient()
 
@@ -71,6 +74,55 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
     }
   })
 
+  const bahanIds: string[] = React.useMemo(
+    () => (poDetail?.items ?? []).map((it: any) => it.bahan_baku_id).filter(Boolean),
+    [poDetail]
+  )
+
+  // Stok berjalan Gudang Pusat. Tujuan utamanya menampilkan AKIBAT penerimaan
+  // ke stok di tiap baris -- peringatan hanya efek sampingnya. Form ini dulu
+  // tidak pernah menunjukkan akibat apa pun, dan itulah yang membuat salah
+  // input 16 Sep 2026 lolos tanpa terasa.
+  const { data: stokGudang } = useQuery({
+    queryKey: ['stok-gudang-po', poId, bahanIds],
+    enabled: bahanIds.length > 0,
+    queryFn: async () => {
+      const { data, error: sErr } = await supabase
+        .from('stok_balance')
+        .select('bahan_baku_id, saldo, saldo_is_gram, bahan_baku(faktor_tampilan, satuan_kecil)')
+        .eq('outlet_id', GUDANG_PUSAT_ID)
+        .in('bahan_baku_id', bahanIds)
+      if (sErr) throw sErr
+      const map: Record<string, number> = {}
+      for (const row of (data ?? []) as any[]) {
+        const saldo = Number(row.saldo || 0)
+        map[row.bahan_baku_id] = row.saldo_is_gram
+          ? convertGramToBesar(saldo, row.bahan_baku ?? {})
+          : saldo
+      }
+      return map
+    }
+  })
+
+  // null = belum diketahui (query belum selesai / bahan belum punya baris
+  // saldo). Sengaja tidak dipukul rata jadi 0 -- lihat terimaGuard.ts.
+  const stokBesar = (bahanBakuId?: string): number | null => {
+    if (!bahanBakuId || !stokGudang) return null
+    return bahanBakuId in stokGudang ? stokGudang[bahanBakuId] : null
+  }
+
+  const barisBerperingatan = items
+    .map((it) => ({
+      it,
+      warnings: cekTerima({
+        qtyDatang: Number(it.qty_datang || 0),
+        qtyPesan: Number(it.qty_pesan || 0),
+        qtyTerimaSebelumnya: Number(it.qty_terima_sebelumnya || 0),
+        stokGudangBesar: stokBesar(it.bahan_baku_id)
+      })
+    }))
+    .filter((x) => x.warnings.length > 0)
+
   // Initialize item states
   useEffect(() => {
     if (poDetail?.items) {
@@ -104,6 +156,25 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault()
     if (isSubmitting) return
+
+    // Gerbang konfirmasi. Sengaja SATU dialog untuk semua baris: dua peringatan
+    // beruntun melatih orang menekan "lanjut" (pelajaran gerbang nol opname).
+    if (barisBerperingatan.length > 0) {
+      const rincian = barisBerperingatan
+        .map(
+          (p) =>
+            `- ${p.it.nama_item}: ${p.it.qty_datang} ${p.it.satuan}` +
+            '\n  ' +
+            p.warnings.map((w) => pesanWarning(w, p.it.satuan)).join('\n  ')
+        )
+        .join('\n\n')
+      const lanjut = window.confirm(
+        'PERIKSA LAGI SEBELUM DISIMPAN\n\n' +
+          rincian +
+          '\n\nPenerimaan yang sudah tersimpan TIDAK BISA dikurangi lewat aplikasi; koreksinya harus manual di database.\n\nTetap simpan?'
+      )
+      if (!lanjut) return
+    }
 
     setIsSubmitting(true)
     setErrorMsg(null)
@@ -244,7 +315,15 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
 
                     {items.map((it, idx) => {
                       const totalAkumulasi = (Number(it.qty_terima_sebelumnya || 0) + Number(it.qty_datang || 0))
-                      
+                      const stokSekarang = stokBesar(it.bahan_baku_id)
+                      const stokNanti = stokSetelahTerima(stokSekarang, Number(it.qty_datang || 0))
+                      const warnings = cekTerima({
+                        qtyDatang: Number(it.qty_datang || 0),
+                        qtyPesan: Number(it.qty_pesan || 0),
+                        qtyTerimaSebelumnya: Number(it.qty_terima_sebelumnya || 0),
+                        stokGudangBesar: stokSekarang
+                      })
+
                       return (
                         <div key={it.id} className="p-4 bg-suka-cream/20 border border-suka-brown/10 rounded-2xl space-y-3">
                           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -313,6 +392,21 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                                 className="w-full px-3 py-2 text-xs font-black text-suka-brown bg-white border border-suka-brown/20 rounded-xl focus:outline-none focus:border-suka-orange"
                                 required
                               />
+                              <div className="text-[10px] font-bold text-suka-brown/60 mt-1">
+                                Stok Gudang:{' '}
+                                {stokSekarang === null ? (
+                                  <span className="text-suka-brown/40">belum termuat</span>
+                                ) : (
+                                  <>
+                                    <span className="tabular-nums">{stokSekarang}</span>
+                                    <span className="mx-1">&rarr;</span>
+                                    <span className={`tabular-nums font-black ${warnings.length > 0 ? 'text-red-600' : 'text-suka-brown'}`}>
+                                      {stokNanti}
+                                    </span>{' '}
+                                    {it.satuan}
+                                  </>
+                                )}
+                              </div>
                             </div>
 
                             <div>
@@ -342,6 +436,19 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
                               />
                             </div>
                           </div>
+
+                          {warnings.length > 0 && (
+                            <div className="flex gap-2 p-3 bg-red-50 border border-red-200 rounded-xl">
+                              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                              <div className="space-y-1">
+                                {warnings.map((w, wi) => (
+                                  <p key={wi} className="text-[11px] font-bold text-red-700 leading-snug">
+                                    {pesanWarning(w, it.satuan)}
+                                  </p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}

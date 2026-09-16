@@ -74,7 +74,7 @@ export default function Sidebar({ user }: SidebarProps) {
       name: 'Budget Outlet',
       href: '/dashboard/budget',
       icon: DollarSign,
-      badge: 'Baru',
+      badge: null,
     },
     {
       name: 'Database KOL',
@@ -86,19 +86,19 @@ export default function Sidebar({ user }: SidebarProps) {
       name: 'Endorsements',
       href: '/dashboard/endorsements',
       icon: Video,
-      badge: 'Live',
+      badge: null,
     },
     {
       name: 'Ads & Paid Traffic',
       href: '/dashboard/ads',
       icon: Megaphone,
-      badge: 'Multi-Akun',
+      badge: null,
     },
     {
       name: 'Konten Planner',
       href: '/dashboard/content-planner',
       icon: Clapperboard,
-      badge: 'Baru',
+      badge: null,
       children: [
         {
           name: 'Rencana Konten',
@@ -110,7 +110,7 @@ export default function Sidebar({ user }: SidebarProps) {
           name: 'Metrik Data',
           href: '/dashboard/content-planner/metrik-data',
           icon: BarChart3,
-          badge: '168 Post',
+          badge: null,
         },
       ],
     },
@@ -121,7 +121,7 @@ export default function Sidebar({ user }: SidebarProps) {
       name: 'Akses & Role',
       href: '/dashboard/users',
       icon: ShieldCheck,
-      badge: 'Admin',
+      badge: null,
     })
   }
 
@@ -132,20 +132,20 @@ export default function Sidebar({ user }: SidebarProps) {
       {/* Mobile Topbar */}
       <div className="lg:hidden flex items-center justify-between bg-[#1C1917] text-stone-100 border-b border-stone-800 px-4 py-3 sticky top-0 z-30 shadow-xs">
         <div className="flex items-center space-x-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#D9480F] to-[#B83808] flex items-center justify-center text-white font-black text-sm shadow-sm">
-            <Flame className="w-4 h-4 text-amber-200 fill-amber-200" />
+          <div className="w-8 h-8 rounded-lg bg-stone-900 border border-stone-800 flex items-center justify-center p-0.5 shadow-sm overflow-hidden flex-shrink-0">
+            <img src="/logo.png" alt="MARCOM SS" className="w-full h-full object-contain" />
           </div>
           <div>
             <span className="font-bold text-white text-sm tracking-tight block leading-tight">
-              Suka Shawarma
+              MARCOM SS
             </span>
-            <span className="text-[10px] text-amber-400/80 font-medium">Marcom Ops</span>
+            <span className="text-xs text-amber-400/80 font-medium">Suka Shawarma</span>
           </div>
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Toggle navigation menu"
-          className="p-2 rounded-lg text-stone-300 hover:text-white hover:bg-stone-800/80 transition-colors"
+          className="p-2 rounded-lg text-stone-300 hover:text-white hover:bg-stone-800/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400"
         >
           {isOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </button>
@@ -167,22 +167,22 @@ export default function Sidebar({ user }: SidebarProps) {
       >
         {/* Brand Header */}
         <div className="h-20 flex items-center px-5 border-b border-stone-800/80 space-x-3.5">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#E8590C] via-[#D9480F] to-[#9C3106] flex items-center justify-center text-white shadow-md shadow-orange-950/40 ring-1 ring-white/15 flex-shrink-0">
-            <Flame className="w-5 h-5 text-amber-100 fill-amber-200" />
+          <div className="w-10 h-10 rounded-xl bg-stone-900 border border-stone-800 flex items-center justify-center p-1 shadow-md shadow-orange-950/20 ring-1 ring-white/10 flex-shrink-0 overflow-hidden">
+            <img src="/logo.png" alt="MARCOM SS" className="w-full h-full object-contain" />
           </div>
           <div className="min-w-0">
             <h1 className="font-extrabold text-sm tracking-tight text-white leading-tight flex items-center gap-1.5">
-              <span>Suka Shawarma</span>
+              <span>MARCOM SS</span>
             </h1>
-            <p className="text-[11px] text-stone-400 font-medium tracking-wide">
-              Marcom Operations Desk
+            <p className="text-xs text-stone-400 font-medium tracking-wide">
+              Suka Shawarma Marcom Desk
             </p>
           </div>
         </div>
 
         {/* Section Label */}
         <div className="px-5 pt-5 pb-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-stone-400">
+          <span className="text-xs font-bold uppercase tracking-wider text-stone-400">
             Navigasi Utama
           </span>
         </div>
@@ -304,7 +304,7 @@ export default function Sidebar({ user }: SidebarProps) {
               </p>
               <div className="flex items-center space-x-1.5 mt-0.5">
                 <span
-                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold tracking-wider uppercase ${
+                  className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-extrabold tracking-wider uppercase ${
                     user.role === 'ADMIN'
                       ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
                       : 'bg-orange-500/15 text-orange-300 border border-orange-500/30'
@@ -312,7 +312,7 @@ export default function Sidebar({ user }: SidebarProps) {
                 >
                   {user.role}
                 </span>
-                <span className="text-[10px] text-stone-400 truncate max-w-[90px]">
+                <span className="text-xs text-stone-400 truncate max-w-[90px]">
                   {user.email}
                 </span>
               </div>

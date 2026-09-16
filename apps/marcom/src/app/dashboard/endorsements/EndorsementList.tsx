@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import {
   Video,
   Plus,
@@ -30,6 +30,8 @@ import {
   Utensils,
   FileSpreadsheet,
   Truck,
+  UserPlus,
+  ArrowLeft,
 } from 'lucide-react'
 import {
   createEndorsement,
@@ -45,6 +47,8 @@ import {
 } from '@/app/actions/sync'
 import EndorsementFinanceView from './EndorsementFinanceView'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
+import EndorsementMenuSelector, { SelectedMenuItem } from '@/components/dashboard/EndorsementMenuSelector'
+import type { PosMenuItem } from '@/lib/supabase-pos'
 
 export interface SerializedEndorsementPost {
   id: string
@@ -68,9 +72,12 @@ export interface SerializedEndorsement {
   scheduleDate: string
   rateCard: number
   menuGiven?: string | null
+  menuItems?: SelectedMenuItem[] | null
   hppMenu?: number
   shippingCost?: number
   totalCost?: number
+  posOrderId?: string | null
+  posOrderNumber?: number | null
   type?: string
   shippingAddress?: string | null
   recipientName?: string | null
@@ -110,9 +117,27 @@ export interface SerializedEndorsement {
 
 interface EndorsementListProps {
   initialEndorsements: SerializedEndorsement[]
-  outlets: Array<{ id: string; name: string }>
-  kols: Array<{ id: string; name: string }>
+  outlets: Array<{
+    id: string
+    name: string
+    type?: string
+    posOutletId?: string | null
+    posName?: string | null
+    posType?: string | null
+    region?: string | null
+    isActive?: boolean
+  }>
+  kols: Array<{ id: string; name: string; phoneNumber?: string | null; bankAccount?: string | null }>
   userRole: string
+  posMenuItems?: PosMenuItem[]
+}
+
+export type SocialPlatform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'THREADS'
+
+export interface KolSocialEntry {
+  id: string
+  platform: SocialPlatform
+  handle: string
 }
 
 const VISIT_STATUSES = ['PENDING', 'VISITED', 'CANCELED']
@@ -123,6 +148,7 @@ export default function EndorsementList({
   outlets,
   kols,
   userRole,
+  posMenuItems = [],
 }: EndorsementListProps) {
   // Tab Switcher state
   const [activeTab, setActiveTab] = useState<'operations' | 'finance' | 'analytics'>('operations')
@@ -154,12 +180,46 @@ export default function EndorsementList({
   const [createMenuName, setCreateMenuName] = useState('Ayam jumbo dan Sapi sedang')
   const [createHpp, setCreateHpp] = useState(38000)
   const [createRateCard, setCreateRateCard] = useState<string>('0')
+  const [createMenuItems, setCreateMenuItems] = useState<SelectedMenuItem[]>([])
+  const [isNewKol, setIsNewKol] = useState(false)
+  const [selectedKolId, setSelectedKolId] = useState('')
+  const [newKolName, setNewKolName] = useState('')
+  const [newKolPhone, setNewKolPhone] = useState('')
+  const [newKolSocials, setNewKolSocials] = useState<KolSocialEntry[]>([
+    { id: '1', platform: 'INSTAGRAM', handle: '' },
+  ])
+
+  const addKolSocial = () => {
+    const used = new Set(newKolSocials.map((s) => s.platform))
+    const available: SocialPlatform[] = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'THREADS']
+    const nextPlatform = available.find((p) => !used.has(p)) || 'TIKTOK'
+    setNewKolSocials((prev) => [
+      ...prev,
+      { id: Date.now().toString(), platform: nextPlatform, handle: '' },
+    ])
+  }
+
+  const removeKolSocial = (id: string) => {
+    setNewKolSocials((prev) => {
+      const filtered = prev.filter((s) => s.id !== id)
+      return filtered.length > 0
+        ? filtered
+        : [{ id: Date.now().toString(), platform: 'INSTAGRAM', handle: '' }]
+    })
+  }
+
+  const updateKolSocial = (id: string, field: 'platform' | 'handle', value: string) => {
+    setNewKolSocials((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s))
+    )
+  }
 
   const [editType, setEditType] = useState<'VISIT' | 'DELIVERY'>('VISIT')
   const [editShippingCost, setEditShippingCost] = useState<string>('0')
   const [editMenuName, setEditMenuName] = useState('')
   const [editHpp, setEditHpp] = useState(0)
   const [editRateCard, setEditRateCard] = useState<string>('0')
+  const [editMenuItems, setEditMenuItems] = useState<SelectedMenuItem[]>([])
 
   // Live calculation state inside the Video Metrics Modal
   const [metricViews, setMetricViews] = useState<number>(0)
@@ -177,6 +237,21 @@ export default function EndorsementList({
   const [endorsementUrl, setEndorsementUrl] = useState('')
   const [isFetchingEndorsementMetric, setIsFetchingEndorsementMetric] = useState(false)
   const [fetchEndorsementNotice, setFetchEndorsementNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Keyboard UX: Dismiss open modal on Escape key press (Nielsen H3: User Control & Freedom)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (deleteTarget) setDeleteTarget(null)
+        else if (videoMetricsTarget) setVideoMetricsTarget(null)
+        else if (editingEndorsement) setEditingEndorsement(null)
+        else if (isCreateOpen) setIsCreateOpen(false)
+        else if (isImportModalOpen) setIsImportModalOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [deleteTarget, videoMetricsTarget, editingEndorsement, isCreateOpen, isImportModalOpen])
 
   // Filter endorsements for operations tab
   const filteredOperations = initialEndorsements.filter((item) => {
@@ -499,6 +574,11 @@ export default function EndorsementList({
           <button
             onClick={() => {
               setErrorMessage('')
+              setIsNewKol(false)
+              setSelectedKolId('')
+              setNewKolName('')
+              setNewKolPhone('')
+              setNewKolSocials([{ id: '1', platform: 'INSTAGRAM', handle: '' }])
               setIsCreateOpen(true)
             }}
             className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer"
@@ -751,16 +831,16 @@ export default function EndorsementList({
           <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs sm:text-sm text-stone-600">
-                <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
+                <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
                   <tr>
                     <th className="py-4 px-4 sm:px-6">KOL / Influencer</th>
                     <th className="py-4 px-4">Cabang</th>
-                    <th className="py-4 px-4">Jadwal Visit</th>
-                    <th className="py-4 px-4">Rate Card</th>
-                    <th className="py-4 px-4">Status Visit</th>
-                    <th className="py-4 px-4">Status Tayang</th>
-                    <th className="py-4 px-4 text-center">Metrik Video</th>
-                    <th className="py-4 px-4 sm:px-6 text-right">Aksi</th>
+                    <th className="py-4 px-4 whitespace-nowrap">Jadwal Visit</th>
+                    <th className="py-4 px-4 text-right whitespace-nowrap">Rate Card</th>
+                    <th className="py-4 px-4 text-center whitespace-nowrap">Status Visit</th>
+                    <th className="py-4 px-4 text-center whitespace-nowrap">Status Tayang</th>
+                    <th className="py-4 px-4 text-center whitespace-nowrap">Metrik Video</th>
+                    <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE8DE]">
@@ -773,7 +853,7 @@ export default function EndorsementList({
                     </tr>
                   ) : (
                     filteredOperations.map((item) => (
-                      <tr key={item.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                      <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
                         <td className="py-4 px-4 sm:px-6">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-bold text-xs flex items-center justify-center flex-shrink-0">
@@ -813,20 +893,20 @@ export default function EndorsementList({
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span>{item.outlet.name}</span>
                             {item.type === 'DELIVERY' && (
-                              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
-                                <Truck className="w-2.5 h-2.5" />
+                              <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-stone-100 text-stone-700 border border-stone-200">
+                                <Truck className="w-3 h-3 text-stone-600" />
                                 SS Online
                               </span>
                             )}
                           </div>
                           {item.type === 'DELIVERY' && item.courierResi && (
-                            <div className="text-[10px] text-stone-500 font-mono mt-0.5">
+                            <div className="text-xs text-stone-500 font-mono mt-0.5">
                               Resi: {item.courierResi}
                             </div>
                           )}
                         </td>
 
-                        <td className="py-4 px-4 text-xs">
+                        <td className="py-4 px-4 text-xs whitespace-nowrap">
                           <div className="font-medium text-stone-700">
                             {new Date(item.scheduleDate).toLocaleDateString('id-ID', {
                               day: 'numeric',
@@ -836,39 +916,51 @@ export default function EndorsementList({
                           </div>
                         </td>
 
-                        <td className="py-4 px-4 font-mono font-bold text-stone-900">
+                        <td className="py-4 px-4 font-mono font-bold text-stone-900 text-right whitespace-nowrap">
                           {formatRupiah(item.rateCard)}
                         </td>
 
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
                           <select
                             value={item.visitStatus}
                             onChange={(e) =>
                               handleQuickStatus(item.id, e.target.value, item.postStatus)
                             }
-                            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border focus:outline-none transition-colors cursor-pointer ${
+                            aria-label={`Status visit ${item.kol.name}`}
+                            className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus-visible:ring-offset-1 transition-colors cursor-pointer ${
                               item.visitStatus === 'VISITED'
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                                 : item.visitStatus === 'CANCELED'
                                 ? 'bg-red-50 text-red-700 border-red-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                                : 'bg-stone-100 text-stone-700 border-stone-200'
                             }`}
                           >
                             <option value="PENDING">PENDING</option>
                             <option value="VISITED">VISITED</option>
                             <option value="CANCELED">CANCELED</option>
                           </select>
+                          {item.posOrderNumber ? (
+                            <div className="mt-1 flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 w-fit">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                              <span>POS Order #{item.posOrderNumber}</span>
+                            </div>
+                          ) : item.menuItems && item.menuItems.length > 0 ? (
+                            <div className="mt-1 text-xs text-stone-500 font-medium">
+                              {item.menuItems.length} menu POS siap
+                            </div>
+                          ) : null}
                         </td>
 
-                        <td className="py-4 px-4">
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
                           <select
                             value={item.postStatus}
                             onChange={(e) =>
                               handleQuickStatus(item.id, item.visitStatus, e.target.value)
                             }
-                            className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border focus:outline-none transition-colors cursor-pointer ${
+                            aria-label={`Status tayang ${item.kol.name}`}
+                            className={`text-xs font-bold px-2.5 py-1.5 rounded-lg border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus-visible:ring-offset-1 transition-colors cursor-pointer ${
                               item.postStatus === 'ON'
-                                ? 'bg-[#D9480F]/10 text-[#D9480F] border-[#D9480F]/20'
+                                ? 'bg-[#FFF4ED] text-[#D9480F] border-[#D9480F]/30'
                                 : item.postStatus === 'TAKE_DOWN'
                                 ? 'bg-stone-200 text-stone-700 border-stone-300'
                                 : 'bg-stone-100 text-stone-600 border-stone-200'
@@ -880,26 +972,28 @@ export default function EndorsementList({
                           </select>
                         </td>
 
-                        <td className="py-4 px-4 text-center">
+                        <td className="py-4 px-4 text-center whitespace-nowrap">
                           <div className="inline-flex items-center gap-1">
                             {item.postUrl && (
                               <button
                                 onClick={() => handleSyncSingleEndorsement(item.id)}
                                 disabled={syncingId === item.id}
-                                className="p-1 text-stone-400 hover:text-[#D9480F] hover:bg-[#FFF4ED] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                                className="w-9 h-9 flex items-center justify-center text-stone-400 hover:text-[#D9480F] hover:bg-[#FFF4ED] rounded-lg transition-colors cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
                                 title="Sync metrik langsung dari link video"
+                                aria-label={`Sinkronisasi metrik video ${item.kol.name}`}
                               >
                                 <RefreshCw
                                   className={`w-3.5 h-3.5 ${
-                                    syncingId === item.id ? 'animate-spin text-[#D9480F]' : ''
+                                    syncingId === item.id ? 'animate-spin text-[#D9480F] motion-reduce:animate-none' : ''
                                   }`}
                                 />
                               </button>
                             )}
                             <button
                               onClick={() => openVideoMetricsModal(item)}
-                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-[#FFF4ED] hover:text-[#D9480F] text-stone-700 font-bold text-xs transition-colors border border-stone-200 hover:border-[#D9480F]/40 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] rounded-lg bg-stone-100 hover:bg-[#FFF4ED] hover:text-[#D9480F] text-stone-700 font-bold text-xs transition-colors border border-stone-200 hover:border-[#D9480F]/40 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
                               title="Update Metrik Views & Engagement Video"
+                              aria-label={`Update metrik video ${item.kol.name}`}
                             >
                               <BarChart3 className="w-3.5 h-3.5" />
                               <span>
@@ -913,15 +1007,22 @@ export default function EndorsementList({
                           </div>
                         </td>
 
-                        <td className="py-4 px-4 sm:px-6 text-right">
+                        <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
                           <div className="flex items-center justify-end space-x-1">
                             <button
                               onClick={() => {
                                 setErrorMessage('')
                                 setEditingEndorsement(item)
+                                setEditType((item.type as any) || 'VISIT')
+                                setEditShippingCost(item.shippingCost?.toString() || '0')
+                                setEditMenuName(item.menuGiven || '')
+                                setEditHpp(item.hppMenu || 0)
+                                setEditRateCard(item.rateCard.toString())
+                                setEditMenuItems(item.menuItems ? (item.menuItems as any) : [])
                               }}
-                              className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"
+                              className="w-9 h-9 flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
                               title="Edit Data Endorsement"
+                              aria-label={`Edit data endorsement ${item.kol.name}`}
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
@@ -931,8 +1032,9 @@ export default function EndorsementList({
                                   setErrorMessage('')
                                   setDeleteTarget(item)
                                 }}
-                                className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                className="w-9 h-9 flex items-center justify-center text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
                                 title="Hapus Endorsement"
+                                aria-label={`Hapus endorsement ${item.kol.name}`}
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -955,9 +1057,9 @@ export default function EndorsementList({
           {/* Executive Analytics Bento Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* CPV Card */}
-            <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
+            <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
                   Rata-rata CPV (Biaya / View)
                 </span>
                 <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
@@ -966,61 +1068,61 @@ export default function EndorsementList({
               </div>
               <div className="mt-3">
                 <div className="text-2xl font-black font-mono text-[#1A1715]">
-                  {formatRupiah(avgCPV)} <span className="text-xs text-stone-500 font-sans">/ view</span>
+                  {formatRupiah(avgCPV)} <span className="text-xs text-stone-500 font-sans font-normal">/ view</span>
                 </div>
-                <p className="text-[11px] text-stone-500 mt-1">
-                  {avgCPV < 100 ? '🔥 Efisiensi Sangat Baik (< Rp 100)' : 'Standar industri kuliner (Rp 100-200)'}
+                <p className="text-xs text-stone-500 mt-1">
+                  {avgCPV < 100 ? 'Efisiensi Sangat Baik (< Rp 100)' : 'Standar industri kuliner (Rp 100-200)'}
                 </p>
               </div>
             </div>
 
             {/* Engagement Rate Card */}
-            <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
+            <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
                   Rata-rata Engagement Rate
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
                   <Flame className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-black font-mono text-amber-700">
+                <div className="text-2xl font-black font-mono text-[#1A1715]">
                   {avgER.toFixed(2)}%
                 </div>
-                <p className="text-[11px] text-stone-500 mt-1">
-                  {avgER >= 5.0 ? '🚀 Sangat Tinggi (Audiens antusias)' : 'Benchmark F&B: 3% - 6%'}
+                <p className="text-xs text-stone-500 mt-1">
+                  {avgER >= 5.0 ? 'Tingkat Respons Audiens Tinggi' : 'Benchmark F&B: 3% - 6%'}
                 </p>
               </div>
             </div>
 
             {/* Total Interactions Card */}
-            <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
+            <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
                   Total Interaksi Audiens
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
                   <Heart className="w-4 h-4" />
                 </div>
               </div>
               <div className="mt-3">
-                <div className="text-2xl font-black font-mono text-emerald-800">
+                <div className="text-2xl font-black font-mono text-[#1A1715]">
                   {totalEngagementActive.toLocaleString('id-ID')}
                 </div>
-                <div className="text-[11px] text-stone-500 mt-1 flex items-center gap-2">
+                <div className="text-xs text-stone-500 mt-1 flex items-center gap-2">
                   <span>Likes, komentar, share & simpan</span>
                 </div>
               </div>
             </div>
 
             {/* Top Performer Card */}
-            <div className="bg-gradient-to-br from-[#1C1917] to-[#292524] p-5 rounded-3xl text-white shadow-xs flex flex-col justify-between border border-stone-800">
+            <div className="bg-gradient-to-br from-[#1C1917] to-[#292524] p-5 rounded-2xl text-white shadow-xs flex flex-col justify-between border border-stone-800">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-stone-300 font-bold uppercase tracking-wider">
+                <span className="text-xs text-stone-300 font-bold uppercase tracking-wider">
                   Video Paling Viral
                 </span>
-                <div className="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-xl bg-white/10 text-amber-300 flex items-center justify-center">
                   <Award className="w-4 h-4" />
                 </div>
               </div>
@@ -1028,7 +1130,7 @@ export default function EndorsementList({
                 <div className="font-bold text-sm text-white truncate">
                   {topPerformer ? topPerformer.kol.name : 'Belum Ada'}
                 </div>
-                <div className="text-xs text-amber-200 mt-0.5">
+                <div className="text-xs text-stone-300 mt-0.5">
                   {topPerformer ? (
                     `${topPerformer.effectiveViews.toLocaleString('id-ID')} views • @${topPerformer.outlet.name}`
                   ) : (
@@ -1075,13 +1177,14 @@ export default function EndorsementList({
                 <select
                   value={performanceFilter}
                   onChange={(e) => setPerformanceFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors"
+                  aria-label="Filter kategori kinerja"
+                  className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus:border-[#D9480F] transition-colors"
                 >
                   <option value="ALL">Semua Kategori Kinerja</option>
-                  <option value="VIRAL">🚀 Viral / Top Performer</option>
-                  <option value="EFFICIENT">⭐ Efisien & Standar</option>
-                  <option value="UNDERPERFORMING">⚠️ Perlu Evaluasi</option>
-                  <option value="PENDING">⏳ Menunggu Data / Belum Tayang</option>
+                  <option value="VIRAL">Viral / Top Performer</option>
+                  <option value="EFFICIENT">Efisien & Standar</option>
+                  <option value="UNDERPERFORMING">Perlu Evaluasi</option>
+                  <option value="PENDING">Menunggu Data / Belum Tayang</option>
                 </select>
               </div>
 
@@ -1619,22 +1722,190 @@ export default function EndorsementList({
                 </div>
               )}
 
+              {/* KOL Selection or New KOL Registration */}
               <div>
-                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                  Pilih KOL / Influencer *
-                </label>
-                <select
-                  name="kolId"
-                  required
-                  className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                >
-                  <option value="">-- Pilih Profil KOL --</option>
-                  {kols.map((k) => (
-                    <option key={k.id} value={k.id}>
-                      {k.name}
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                    {isNewKol ? 'Daftarkan KOL Baru *' : 'Pilih KOL / Influencer *'}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsNewKol(!isNewKol)
+                      setNewKolName('')
+                      setNewKolPhone('')
+                      setNewKolSocials([{ id: '1', platform: 'INSTAGRAM', handle: '' }])
+                      setSelectedKolId('')
+                    }}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#D9480F] hover:text-[#B83808] hover:underline cursor-pointer"
+                  >
+                    {isNewKol ? (
+                      <>
+                        <ArrowLeft className="w-3.5 h-3.5" />
+                        <span>Pilih dari Daftar KOL</span>
+                      </>
+                    ) : (
+                      <>
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>+ KOL Baru</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <input type="hidden" name="isNewKol" value={isNewKol ? 'true' : 'false'} />
+
+                {!isNewKol ? (
+                  <select
+                    name="kolId"
+                    value={selectedKolId}
+                    onChange={(e) => {
+                      if (e.target.value === '__NEW__') {
+                        setIsNewKol(true)
+                        setSelectedKolId('')
+                      } else {
+                        setSelectedKolId(e.target.value)
+                      }
+                    }}
+                    required={!isNewKol}
+                    className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] bg-white"
+                  >
+                    <option value="">-- Pilih Profil KOL --</option>
+                    <option value="__NEW__" className="font-bold text-[#D9480F] bg-[#FFF4ED]">
+                      ✨ + Daftarkan Profil KOL Baru...
                     </option>
-                  ))}
-                </select>
+                    {kols.map((k) => (
+                      <option key={k.id} value={k.id}>
+                        {k.name} {k.phoneNumber ? `(${k.phoneNumber})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3.5 sm:p-4 bg-[#FFF4ED]/60 border border-[#D9480F]/30 rounded-2xl space-y-3 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-xs font-extrabold text-[#D9480F]">
+                        <UserPlus className="w-4 h-4" />
+                        <span>Profil Influencer / KOL Baru</span>
+                      </div>
+                      <span className="text-[10px] font-semibold text-stone-500 bg-white px-2 py-0.5 rounded-md border border-[#EFE8DE]">
+                        Otomatis masuk database KOL
+                      </span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        Nama Lengkap / Panggilan KOL *
+                      </label>
+                      <input
+                        name="newKolName"
+                        type="text"
+                        value={newKolName}
+                        onChange={(e) => setNewKolName(e.target.value)}
+                        required={isNewKol}
+                        placeholder="Contoh: Sarah Kuliner / @makanbareng"
+                        className="w-full px-3 py-2 text-xs sm:text-sm border border-[#EFE8DE] bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                      />
+                    </div>
+
+                    {/* No. WhatsApp / Telepon */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                        No. WhatsApp / Telepon (Opsional)
+                      </label>
+                      <input
+                        name="newKolPhone"
+                        type="tel"
+                        value={newKolPhone}
+                        onChange={(e) => setNewKolPhone(e.target.value)}
+                        placeholder="e.g. 08123456789 (untuk koordinasi visit outlet)"
+                        className="w-full px-3 py-2 text-xs border border-[#EFE8DE] bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                      />
+                    </div>
+
+                    {/* Akun Media Sosial Multi-Platform (IG, TikTok, Shorts, Threads) */}
+                    <div className="pt-1">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="block text-[11px] font-bold text-stone-700">
+                          Akun Media Sosial <span className="text-stone-400 font-normal">(Bisa Lebih dari 1 Platform)</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={addKolSocial}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-[#D9480F] hover:text-[#B83808] hover:underline cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>+ Tambah Sosmed</span>
+                        </button>
+                      </div>
+
+                      {/* Serialized JSON passed to createEndorsement */}
+                      <input
+                        type="hidden"
+                        name="newKolSocials"
+                        value={JSON.stringify(newKolSocials.filter((s) => s.handle.trim()))}
+                      />
+                      {/* Backward compatibility fallback */}
+                      <input
+                        type="hidden"
+                        name="newKolSocial"
+                        value={newKolSocials.find((s) => s.handle.trim())?.handle || ''}
+                      />
+
+                      <div className="space-y-2">
+                        {newKolSocials.map((entry) => (
+                          <div key={entry.id} className="flex items-center gap-2">
+                            {/* Dropdown Platform */}
+                            <div className="relative w-36 sm:w-44 flex-shrink-0">
+                              <select
+                                value={entry.platform}
+                                onChange={(e) =>
+                                  updateKolSocial(entry.id, 'platform', e.target.value as SocialPlatform)
+                                }
+                                className="w-full px-2.5 py-2 text-xs font-bold border border-[#EFE8DE] bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F] text-stone-800 cursor-pointer shadow-2xs"
+                              >
+                                <option value="INSTAGRAM">📸 Instagram (IG)</option>
+                                <option value="TIKTOK">🎵 TikTok</option>
+                                <option value="YOUTUBE">▶️ YouTube Shorts</option>
+                                <option value="THREADS">🧵 Threads</option>
+                              </select>
+                            </div>
+
+                            {/* Input Handle / Link */}
+                            <div className="flex-1 relative">
+                              <input
+                                type="text"
+                                value={entry.handle}
+                                onChange={(e) => updateKolSocial(entry.id, 'handle', e.target.value)}
+                                placeholder={
+                                  entry.platform === 'INSTAGRAM'
+                                    ? 'e.g. @sarah_foodie atau link IG'
+                                    : entry.platform === 'TIKTOK'
+                                    ? 'e.g. @sarah.kuliner atau link TikTok'
+                                    : entry.platform === 'YOUTUBE'
+                                    ? 'e.g. @SarahShorts atau link channel'
+                                    : 'e.g. @sarah.threads'
+                                }
+                                className="w-full px-3 py-2 text-xs border border-[#EFE8DE] bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                              />
+                            </div>
+
+                            {/* Delete Row Button */}
+                            {newKolSocials.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeKolSocial(entry.id)}
+                                className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer flex-shrink-0"
+                                title="Hapus baris sosmed ini"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1663,11 +1934,22 @@ export default function EndorsementList({
                     className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                   >
                     <option value="">-- Pilih Cabang --</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
+                    {outlets
+                      .filter((o) => (createType === 'DELIVERY' ? true : o.isActive !== false))
+                      .sort((a, b) => {
+                        if (createType === 'DELIVERY') {
+                          const aGudang = a.posType === 'gudang' || a.name.toLowerCase().includes('online') || a.name.toLowerCase().includes('gudang')
+                          const bGudang = b.posType === 'gudang' || b.name.toLowerCase().includes('online') || b.name.toLowerCase().includes('gudang')
+                          if (aGudang && !bGudang) return -1
+                          if (!aGudang && bGudang) return 1
+                        }
+                        return a.name.localeCompare(b.name)
+                      })
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name} {o.region ? `(${o.region})` : ''} {o.type === 'MITRA' ? '• Mitra' : ''} {!o.posOutletId ? '⚠️ (Non-POS)' : ''}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
@@ -1790,153 +2072,59 @@ export default function EndorsementList({
                 </div>
               </div>
 
-              {/* Menu & HPP Preset Block */}
-              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE8DE] space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Utensils className="w-3.5 h-3.5 text-[#D9480F]" />
-                    <span>Menu Complimentary & HPP</span>
-                  </label>
-                  <span className="text-[10px] text-stone-500">Biaya Makanan</span>
-                </div>
+              {/* Menu POS Integration Selector */}
+              <EndorsementMenuSelector
+                posMenuItems={posMenuItems}
+                selectedItems={createMenuItems}
+                onChange={setCreateMenuItems}
+                onSummaryCalculated={(summary, hpp) => {
+                  setCreateMenuName(summary)
+                  setCreateHpp(hpp)
+                }}
+              />
 
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value === 'ayam_sapi_38') {
-                        setCreateMenuName('Ayam jumbo dan Sapi sedang')
-                        setCreateHpp(38000)
-                      } else if (e.target.value === 'pekayon_418') {
-                        setCreateMenuName('Ayam jumbo dan Sapi sedang')
-                        setCreateHpp(41800)
-                      } else if (e.target.value === 'barter_50') {
-                        setCreateMenuName('Paket Shawarma Jumbo Mix + Drink')
-                        setCreateHpp(50000)
-                      } else if (e.target.value === 'custom') {
-                        setCreateMenuName('')
-                        setCreateHpp(0)
-                      }
-                    }}
+                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                    Ringkasan Menu (Laporan)
+                  </label>
+                  <input
+                    name="menuGiven"
+                    value={createMenuName}
+                    onChange={(e) => setCreateMenuName(e.target.value)}
+                    placeholder="e.g. 1x Combo #2, 2x Aqua"
                     className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
-                  >
-                    <option value="ayam_sapi_38">Preset: Ayam Jumbo + Sapi Sedang (HPP Rp 38.000)</option>
-                    <option value="pekayon_418">Preset: Pekayon / Pamulang (HPP Rp 41.800)</option>
-                    <option value="barter_50">Preset: Barter Spesial (HPP Rp 50.000)</option>
-                    <option value="custom">Custom / Input Sendiri</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                      Nama Menu
-                    </label>
-                    <input
-                      name="menuGiven"
-                      value={createMenuName}
-                      onChange={(e) => setCreateMenuName(e.target.value)}
-                      placeholder="e.g. Ayam jumbo dan Sapi sedang"
-                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                      Nominal HPP SS (Rp)
-                    </label>
-                    <input
-                      name="hppMenu"
-                      type="number"
-                      min="0"
-                      value={createHpp}
-                      onChange={(e) => setCreateHpp(parseFloat(e.target.value) || 0)}
-                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Dual Post Links (TikTok & IG) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Link Post TikTok
-                  </label>
-                  <input
-                    name="postUrl"
-                    type="url"
-                    placeholder="https://vt.tiktok.com/..."
-                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Link Post IG Reel
+                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                    Nominal HPP SS (Rp)
                   </label>
                   <input
-                    name="postUrlIg"
-                    type="url"
-                    placeholder="https://instagram.com/reel/..."
-                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    name="hppMenu"
+                    type="number"
+                    min="0"
+                    value={createHpp}
+                    onChange={(e) => setCreateHpp(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
                   />
                 </div>
               </div>
 
-              {/* Draft & Payment Status */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Status Draft Konten
-                  </label>
-                  <select
-                    name="draftStatus"
-                    defaultValue="PENDING"
-                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-medium"
-                  >
-                    <option value="PENDING">Pending (Menunggu Draft)</option>
-                    <option value="APPROVED">Approved (Disetujui)</option>
-                    <option value="REVISION">Perlu Revisi</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Status Pembayaran
-                  </label>
-                  <select
-                    name="paymentStatus"
-                    defaultValue={createRateCard === '0' ? 'BARTER' : 'UNPAID'}
-                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-medium"
-                  >
-                    <option value="UNPAID">Belum Bayar (Pending)</option>
-                    <option value="PAID">Lunas (Done)</option>
-                    <option value="BARTER">Barter Produk</option>
-                    <option value="DOWN_PAYMENT">DP Sebagian</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Payment Notes & Bank Override */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Rekening Transfer (Kustom)
-                  </label>
-                  <input
-                    name="bankAccountCustom"
-                    placeholder="e.g. BCA 123456 a.n ..."
-                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                    Catatan Pembayaran
-                  </label>
-                  <input
-                    name="paymentNotes"
-                    placeholder="e.g. Baru transfer DP 100rb"
-                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none"
-                  />
-                </div>
+              {/* Catatan Kunjungan / Briefing untuk Kasir & Tim */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                  Catatan Kunjungan / Briefing (Opsional)
+                </label>
+                <textarea
+                  name="paymentNotes"
+                  rows={2}
+                  placeholder="Contoh: Datang jam 14:00, brief konten fokus menu burger & shawarma spicy, bawa kru 1 orang..."
+                  className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                />
+                <p className="text-[10px] text-stone-500 mt-1">
+                  💡 Catatan ini otomatis terbaca oleh kasir POS saat influencer datang ke cabang outlet. Link video TikTok/IG dan metrik konten dapat diisi setelah visit selesai.
+                </p>
               </div>
 
               <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
@@ -2036,11 +2224,22 @@ export default function EndorsementList({
                     required
                     className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                   >
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
+                    {outlets
+                      .filter((o) => (editType === 'DELIVERY' ? true : o.isActive !== false || o.id === editingEndorsement.outletId))
+                      .sort((a, b) => {
+                        if (editType === 'DELIVERY') {
+                          const aGudang = a.posType === 'gudang' || a.name.toLowerCase().includes('online') || a.name.toLowerCase().includes('gudang')
+                          const bGudang = b.posType === 'gudang' || b.name.toLowerCase().includes('online') || b.name.toLowerCase().includes('gudang')
+                          if (aGudang && !bGudang) return -1
+                          if (!aGudang && bGudang) return 1
+                        }
+                        return a.name.localeCompare(b.name)
+                      })
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name} {o.region ? `(${o.region})` : ''} {o.type === 'MITRA' ? '• Mitra' : ''} {!o.posOutletId ? '⚠️ (Non-POS)' : ''}
+                        </option>
+                      ))}
                   </select>
                 </div>
               </div>
@@ -2156,40 +2355,51 @@ export default function EndorsementList({
                 </div>
               </div>
 
-              {/* Menu & HPP Preset Block */}
-              <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE8DE] space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
-                    <Utensils className="w-3.5 h-3.5 text-[#D9480F]" />
-                    <span>Menu Complimentary & HPP</span>
-                  </label>
-                  <span className="text-[10px] text-stone-500">Biaya Makanan</span>
+              {editingEndorsement.posOrderNumber && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    Pesanan telah diklaim di POS dengan <strong>Order #{editingEndorsement.posOrderNumber}</strong>
+                  </span>
                 </div>
+              )}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                      Nama Menu
-                    </label>
-                    <input
-                      name="menuGiven"
-                      defaultValue={editingEndorsement.menuGiven || 'Ayam jumbo dan Sapi sedang'}
-                      placeholder="e.g. Ayam jumbo dan Sapi sedang"
-                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-                      Nominal HPP SS (Rp)
-                    </label>
-                    <input
-                      name="hppMenu"
-                      type="number"
-                      min="0"
-                      defaultValue={editingEndorsement.hppMenu || 38000}
-                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
-                    />
-                  </div>
+              {/* Menu POS Integration Selector */}
+              <EndorsementMenuSelector
+                posMenuItems={posMenuItems}
+                selectedItems={editMenuItems}
+                onChange={setEditMenuItems}
+                onSummaryCalculated={(summary, hpp) => {
+                  setEditMenuName(summary)
+                  setEditHpp(hpp)
+                }}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                    Ringkasan Menu (Laporan)
+                  </label>
+                  <input
+                    name="menuGiven"
+                    value={editMenuName}
+                    onChange={(e) => setEditMenuName(e.target.value)}
+                    placeholder="e.g. 1x Combo #2, 2x Aqua"
+                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                    Nominal HPP SS (Rp)
+                  </label>
+                  <input
+                    name="hppMenu"
+                    type="number"
+                    min="0"
+                    value={editHpp}
+                    onChange={(e) => setEditHpp(parseFloat(e.target.value) || 0)}
+                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
+                  />
                 </div>
               </div>
 

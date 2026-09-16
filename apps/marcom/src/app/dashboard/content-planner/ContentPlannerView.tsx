@@ -27,6 +27,8 @@ import {
   ArrowRight,
   TrendingUp,
   Megaphone,
+  MapPin,
+  Zap,
 } from 'lucide-react'
 import {
   createInternalContent,
@@ -602,11 +604,12 @@ export default function ContentPlannerView({
             <select
               value={adsFilter}
               onChange={(e) => setAdsFilter(e.target.value as any)}
-              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium text-stone-800"
+              aria-label="Filter traffic ads"
+              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus:border-[#D9480F] transition-colors font-medium text-stone-800"
             >
               <option value="ALL">Semua Traffic (Ads & Organik)</option>
-              <option value="ADS">🚀 Diiklanin (Paid Boost)</option>
-              <option value="ORGANIC">🌱 Organik Murni</option>
+              <option value="ADS">Diiklanin (Paid Boost)</option>
+              <option value="ORGANIC">Organik Murni</option>
             </select>
           </div>
 
@@ -962,14 +965,14 @@ export default function ContentPlannerView({
         <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm text-stone-600">
-            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
+            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="py-4 px-4 sm:px-6">Jadwal & Jam</th>
-                <th className="py-4 px-4">Konten & Konsep</th>
-                <th className="py-4 px-4">Tipe & Pilar</th>
-                <th className="py-4 px-4">Target Goal</th>
-                <th className="py-4 px-4">Status Produksi</th>
-                <th className="py-4 px-4 sm:px-6 text-right">Aksi</th>
+                <th className="py-4 px-4 sm:px-6 whitespace-nowrap">Jadwal & Jam</th>
+                <th className="py-4 px-4 whitespace-nowrap">Konten & Konsep</th>
+                <th className="py-4 px-4 whitespace-nowrap">Tipe & Pilar</th>
+                <th className="py-4 px-4 whitespace-nowrap">Target Goal</th>
+                <th className="py-4 px-4 whitespace-nowrap">Status Produksi</th>
+                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -989,9 +992,9 @@ export default function ContentPlannerView({
                   const isPosted = item.status === 'Sudah Posting' || item.status === 'POSTED'
 
                   return (
-                    <tr key={item.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                    <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
                       {/* Jadwal & Jam */}
-                      <td className="py-4 px-4 sm:px-6">
+                      <td className="py-4 px-4 sm:px-6 whitespace-nowrap">
                         <div className="font-bold text-[#1A1715]">
                           {new Date(item.postDate).toLocaleDateString('id-ID', {
                             day: 'numeric',
@@ -1007,7 +1010,7 @@ export default function ContentPlannerView({
 
                       {/* Konten & Konsep */}
                       <td className="py-4 px-4">
-                        <div className="min-w-0 max-w-sm">
+                        <div className="min-w-0 sm:max-w-md lg:max-w-xl">
                           <div className="font-bold text-[#1A1715] flex items-center gap-1.5">
                             <span className="truncate" title={item.title}>{item.title}</span>
                             {item.postUrl && (
@@ -1043,8 +1046,9 @@ export default function ContentPlannerView({
                               <span>{item.isAds ? 'Diiklanin' : 'Organik'}</span>
                             </button>
                             {item.outletName && item.outletName !== 'Semua Cabang (Nasional)' && (
-                              <span className="text-[10px] font-semibold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
-                                📍 {item.outletName}
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                                <MapPin className="w-3 h-3 text-stone-400" />
+                                <span>{item.outletName}</span>
                               </span>
                             )}
                           </div>
@@ -1237,13 +1241,15 @@ export default function ContentPlannerView({
                           {isTiktok ? 'TIKTOK' : isInstagram ? 'INSTAGRAM' : 'SHORTS'}
                         </span>
                         {item.postTime && (
-                          <span className="text-[10px] font-mono text-stone-600 font-bold bg-white px-1.5 py-0.5 rounded border border-[#EFE8DE]">
-                            ⏰ {item.postTime}
+                          <span className="inline-flex items-center gap-1 text-xs font-mono text-stone-600 font-bold bg-white px-2 py-0.5 rounded-md border border-[#EFE8DE]">
+                            <Clock className="w-3 h-3 text-stone-400" />
+                            <span>{item.postTime}</span>
                           </span>
                         )}
                         {item.isAds && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200">
-                            🚀 Ads
+                          <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200">
+                            <Zap className="w-3 h-3 text-purple-600" />
+                            <span>Ads</span>
                           </span>
                         )}
                         <span

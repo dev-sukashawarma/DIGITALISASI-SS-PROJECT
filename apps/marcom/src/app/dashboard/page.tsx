@@ -141,13 +141,13 @@ export default async function DashboardPage() {
         <div className="flex items-center gap-2.5">
           <Link
             href="/dashboard/calendar"
-            className="px-3.5 py-1.5 rounded-xl bg-[#D9480F] text-white text-xs font-bold shadow-xs hover:bg-[#B83808] transition-all flex items-center gap-1.5"
+            className="px-3.5 py-1.5 min-h-[36px] rounded-xl bg-[#D9480F] text-white text-xs font-bold shadow-xs hover:bg-[#B83808] transition-all flex items-center gap-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus-visible:ring-offset-2"
           >
             <Calendar className="w-3.5 h-3.5" />
             <span>Kalender Marcom</span>
           </Link>
-          <div className="hidden sm:flex px-3 py-1.5 rounded-xl bg-white border border-[#EFE8DE] text-xs font-semibold text-stone-700 shadow-2xs items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <div className="hidden sm:flex px-3 py-1.5 min-h-[36px] rounded-xl bg-white border border-[#EFE8DE] text-xs font-semibold text-stone-700 shadow-2xs items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse motion-reduce:animate-none" />
             <span>PostgreSQL Active</span>
           </div>
         </div>
@@ -156,7 +156,7 @@ export default async function DashboardPage() {
       {/* Asymmetric Bento Grid Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-4">
         {/* Bento Hero Card (Span 7) */}
-        <div className="lg:col-span-7 bg-gradient-to-br from-[#1C1917] via-[#292524] to-[#1C1917] rounded-3xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden flex flex-col justify-between border border-stone-800">
+        <div className="lg:col-span-7 bg-gradient-to-br from-[#1C1917] via-[#292524] to-[#1C1917] rounded-2xl p-6 sm:p-8 text-white shadow-md relative overflow-hidden flex flex-col justify-between border border-stone-800">
           <div className="relative z-10 space-y-3">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-amber-300 text-xs font-semibold backdrop-blur-xs border border-white/10">
               <Sparkles className="w-3.5 h-3.5" />
@@ -172,7 +172,7 @@ export default async function DashboardPage() {
 
           <div className="relative z-10 pt-6 mt-4 border-t border-stone-800/80 grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
-              <span className="text-[11px] text-stone-400 uppercase font-semibold tracking-wider block">
+              <span className="text-xs text-stone-400 uppercase font-semibold tracking-wider block">
                 Total Alokasi
               </span>
               <span className="text-base sm:text-lg font-bold font-mono text-amber-200">
@@ -180,7 +180,7 @@ export default async function DashboardPage() {
               </span>
             </div>
             <div>
-              <span className="text-[11px] text-stone-400 uppercase font-semibold tracking-wider block">
+              <span className="text-xs text-stone-400 uppercase font-semibold tracking-wider block">
                 Total Views Didapat
               </span>
               <span className="text-base sm:text-lg font-bold font-mono text-white">
@@ -188,7 +188,7 @@ export default async function DashboardPage() {
               </span>
             </div>
             <div className="col-span-2 sm:col-span-1">
-              <span className="text-[11px] text-stone-400 uppercase font-semibold tracking-wider block">
+              <span className="text-xs text-stone-400 uppercase font-semibold tracking-wider block">
                 Jangkauan Cabang
               </span>
               <span className="text-base sm:text-lg font-bold text-white">
@@ -202,12 +202,12 @@ export default async function DashboardPage() {
         </div>
 
         {/* Bento Stat 1: Outlets (Span 5) */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
+        <div className="lg:col-span-5 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
           <div className="flex items-start justify-between">
-            <div className="w-12 h-12 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center font-black">
+            <div className="w-12 h-12 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center font-black">
               <Store className="w-6 h-6" />
             </div>
-            <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600">
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600">
               18 Terdaftar
             </span>
           </div>
@@ -220,7 +220,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/dashboard/outlets"
-            className="inline-flex items-center justify-between w-full pt-3 border-t border-[#EFE8DE] text-xs font-bold text-[#D9480F] hover:text-[#B83808] group"
+            className="inline-flex items-center justify-between w-full pt-3 border-t border-[#EFE8DE] text-xs font-bold text-[#D9480F] hover:text-[#B83808] group focus-visible:outline-none focus-visible:underline"
           >
             <span>Buka Direktori Cabang</span>
             <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -228,12 +228,12 @@ export default async function DashboardPage() {
         </div>
 
         {/* Bento Stat 2: Database KOL (Span 4) */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
+        <div className="lg:col-span-4 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
           <div className="flex items-start justify-between">
-            <div className="w-11 h-11 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
-            <span className="text-[11px] font-bold text-amber-800 bg-amber-100/70 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-full">
               Influencer
             </span>
           </div>
@@ -246,7 +246,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/dashboard/kols"
-            className="inline-flex items-center justify-between text-xs font-bold text-[#D9480F] hover:underline pt-2 border-t border-[#EFE8DE]"
+            className="inline-flex items-center justify-between text-xs font-bold text-[#D9480F] hover:underline pt-2 border-t border-[#EFE8DE] focus-visible:outline-none focus-visible:underline"
           >
             <span>Kelola Profil KOL</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -254,12 +254,12 @@ export default async function DashboardPage() {
         </div>
 
         {/* Bento Stat 3: Endorsement Campaigns (Span 4) */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
+        <div className="lg:col-span-4 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
           <div className="flex items-start justify-between">
-            <div className="w-11 h-11 rounded-2xl bg-orange-50 text-[#D9480F] flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
               <Video className="w-5 h-5" />
             </div>
-            <span className="text-[11px] font-bold text-[#D9480F] bg-[#FFF4ED] px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold text-[#D9480F] bg-[#FFF4ED] px-2.5 py-0.5 rounded-full">
               TikTok & Reels
             </span>
           </div>
@@ -274,7 +274,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/dashboard/endorsements"
-            className="inline-flex items-center justify-between text-xs font-bold text-[#D9480F] hover:underline pt-2 border-t border-[#EFE8DE]"
+            className="inline-flex items-center justify-between text-xs font-bold text-[#D9480F] hover:underline pt-2 border-t border-[#EFE8DE] focus-visible:outline-none focus-visible:underline"
           >
             <span>Buka Tracking Endorse</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -282,12 +282,12 @@ export default async function DashboardPage() {
         </div>
 
         {/* Bento Stat 4: Ads Mitra (Span 4) */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
+        <div className="lg:col-span-4 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs flex flex-col justify-between hover:border-[#D9480F]/40 transition-all duration-150">
           <div className="flex items-start justify-between">
-            <div className="w-11 h-11 rounded-2xl bg-stone-100 text-stone-800 flex items-center justify-center">
+            <div className="w-11 h-11 rounded-xl bg-stone-100 text-stone-800 flex items-center justify-center">
               <Megaphone className="w-5 h-5" />
             </div>
-            <span className="text-[11px] font-bold text-stone-700 bg-stone-200/70 px-2.5 py-0.5 rounded-full">
+            <span className="text-xs font-bold text-stone-700 bg-stone-100 px-2.5 py-0.5 rounded-full">
               Iklan Digital
             </span>
           </div>
@@ -300,7 +300,7 @@ export default async function DashboardPage() {
           </div>
           <Link
             href="/dashboard/ads"
-            className="inline-flex items-center justify-between text-xs font-bold text-[#D9480F] hover:underline pt-2 border-t border-[#EFE8DE]"
+            className="inline-flex items-center justify-between text-xs font-bold text-[#D9480F] hover:underline pt-2 border-t border-[#EFE8DE] focus-visible:outline-none focus-visible:underline"
           >
             <span>Buka Tracking Ads</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -311,7 +311,7 @@ export default async function DashboardPage() {
       {/* Action Row, Upcoming Agenda, & Recent Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
         {/* Quick Action Dock (Span 3 on xl, Span 4 on lg) */}
-        <div className="lg:col-span-4 xl:col-span-3 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        <div className="lg:col-span-4 xl:col-span-3 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#D9480F]" />
@@ -322,15 +322,15 @@ export default async function DashboardPage() {
           <div className="space-y-2.5">
             <Link
               href="/dashboard/calendar"
-              className="flex items-center justify-between p-3 rounded-2xl bg-[#FFF4ED] border border-[#D9480F]/30 hover:border-[#D9480F] hover:bg-[#FFF4ED] transition-all group"
+              className="flex items-center justify-between p-3 rounded-xl bg-[#FFF4ED] border border-[#D9480F]/30 hover:border-[#D9480F] hover:bg-[#FFF4ED] transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-[#D9480F] flex items-center justify-center text-white shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-[#D9480F] flex items-center justify-center text-white shadow-2xs group-hover:scale-105 transition-transform">
                   <Calendar className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#D9480F]">Kalender Marcom</div>
-                  <div className="text-[11px] text-stone-600">Jadwal KOL, Ads & Promo</div>
+                  <div className="text-xs text-stone-500">Jadwal KOL, Ads & Promo</div>
                 </div>
               </div>
               <ArrowRight className="w-4 h-4 text-[#D9480F] group-hover:translate-x-1 transition-transform" />
@@ -338,15 +338,15 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/endorsements"
-              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-[#D9480F] shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-white border border-[#EFE8DE] flex items-center justify-center text-[#D9480F] shadow-2xs group-hover:scale-105 transition-transform">
                   <Video className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1A1715]">Jadwalkan Endorse</div>
-                  <div className="text-[11px] text-stone-500">Input visit & rate card</div>
+                  <div className="text-xs text-stone-500">Input visit & rate card</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -354,15 +354,15 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/kols"
-              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-amber-700 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1A1715]">Tambah Profil KOL</div>
-                  <div className="text-[11px] text-stone-500">Medsos & kontak WA</div>
+                  <div className="text-xs text-stone-500">Medsos & kontak WA</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -370,15 +370,15 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/ads"
-              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
                   <Megaphone className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1A1715]">Input Budget Ads</div>
-                  <div className="text-[11px] text-stone-500">Iklan cabang mitra</div>
+                  <div className="text-xs text-stone-500">Iklan cabang mitra</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -386,15 +386,15 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/outlets"
-              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
             >
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
                   <Store className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1A1715]">Tambah Cabang</div>
-                  <div className="text-[11px] text-stone-500">Daftarkan outlet baru</div>
+                  <div className="text-xs text-stone-500">Daftarkan outlet baru</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -403,7 +403,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Upcoming Agenda Widget (Span 4 on xl, Span 8 on lg) */}
-        <div className="lg:col-span-8 xl:col-span-4 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        <div className="lg:col-span-8 xl:col-span-4 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <div>
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
@@ -416,14 +416,14 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/dashboard/calendar"
-              className="text-xs font-bold text-[#D9480F] hover:underline"
+              className="text-xs font-bold text-[#D9480F] hover:underline focus-visible:outline-none focus-visible:underline"
             >
               Lihat Kalender →
             </Link>
           </div>
 
           {upcomingAgendas.length === 0 ? (
-            <div className="py-10 text-center rounded-2xl border-2 border-dashed border-[#EFE8DE] text-stone-400">
+            <div className="py-10 text-center rounded-xl border-2 border-dashed border-[#EFE8DE] text-stone-400">
               <Calendar className="w-8 h-8 mx-auto mb-2 text-stone-300" />
               <p className="text-xs font-semibold text-stone-600">Belum ada agenda terdekat.</p>
               <Link
@@ -439,11 +439,11 @@ export default async function DashboardPage() {
                 <Link
                   key={item.id}
                   href={item.link}
-                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-2 px-2 rounded-xl transition-colors group"
+                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-2 px-2 rounded-xl transition-colors group focus-visible:outline-none focus-visible:bg-[#FAF8F5]"
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-xs ${
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs ${
                         item.type === 'endorsement'
                           ? 'bg-[#FFF4ED] text-[#D9480F]'
                           : item.type === 'ad'
@@ -463,7 +463,7 @@ export default async function DashboardPage() {
                       <div className="font-bold text-xs text-[#1A1715] truncate group-hover:text-[#D9480F] transition-colors">
                         {item.title}
                       </div>
-                      <div className="text-[11px] text-stone-500 flex items-center gap-1.5 mt-0.5">
+                      <div className="text-xs text-stone-500 flex items-center gap-1.5 mt-0.5">
                         <span className="font-semibold text-stone-700">{item.dateFormatted}</span>
                         <span>•</span>
                         <span className="truncate">{item.outlet}</span>
@@ -472,7 +472,7 @@ export default async function DashboardPage() {
                   </div>
 
                   <span
-                    className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider flex-shrink-0 ${
+                    className={`text-xs font-bold px-2 py-0.5 rounded-md uppercase tracking-wider flex-shrink-0 ${
                       item.type === 'endorsement'
                         ? 'bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/20'
                         : item.type === 'ad'
@@ -489,7 +489,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* Recent Endorsements Feed (Span 5 on xl, Span 12 on lg) */}
-        <div className="lg:col-span-12 xl:col-span-5 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        <div className="lg:col-span-12 xl:col-span-5 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <div>
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
@@ -502,14 +502,14 @@ export default async function DashboardPage() {
             </div>
             <Link
               href="/dashboard/endorsements"
-              className="text-xs font-bold text-[#D9480F] hover:underline"
+              className="text-xs font-bold text-[#D9480F] hover:underline focus-visible:outline-none focus-visible:underline"
             >
               Lihat Semua →
             </Link>
           </div>
 
           {recentEndorsements.length === 0 ? (
-            <div className="py-12 text-center rounded-2xl border-2 border-dashed border-[#EFE8DE] text-stone-400">
+            <div className="py-12 text-center rounded-xl border-2 border-dashed border-[#EFE8DE] text-stone-400">
               <Video className="w-10 h-10 mx-auto mb-2 text-stone-300" />
               <p className="text-sm font-semibold text-stone-600">Belum ada endorsement yang tercatat.</p>
               <p className="text-xs mt-1">Gunakan tombol &apos;Jadwalkan Endorsement&apos; untuk input data pertama.</p>
@@ -519,7 +519,7 @@ export default async function DashboardPage() {
               {recentEndorsements.map((item: any) => (
                 <div key={item.id.toString()} className="py-3.5 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center font-bold text-xs flex-shrink-0">
                       {item.kol.name.slice(0, 2).toUpperCase()}
                     </div>
                     <div className="min-w-0">
@@ -538,18 +538,18 @@ export default async function DashboardPage() {
 
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${
+                      className={`text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${
                         item.visitStatus === 'VISITED'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          : 'bg-stone-100 text-stone-700 border border-stone-200'
                       }`}
                     >
                       {item.visitStatus}
                     </span>
                     <span
-                      className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${
+                      className={`text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider ${
                         item.postStatus === 'ON'
-                          ? 'bg-[#D9480F]/10 text-[#D9480F] border border-[#D9480F]/20'
+                          ? 'bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/30'
                           : 'bg-stone-100 text-stone-600 border border-stone-200'
                       }`}
                     >

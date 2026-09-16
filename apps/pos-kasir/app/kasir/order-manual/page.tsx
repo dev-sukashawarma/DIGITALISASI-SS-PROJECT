@@ -33,6 +33,28 @@ interface Line {
   cartItemId: string
   parentId?: string
   package_choices?: Record<string, string>
+  isEndorseItem?: boolean
+}
+
+export interface PosEndorsement {
+  id: string
+  marcom_endorsement_id: number
+  outlet_id: string
+  outlet_name: string
+  kol_id?: number
+  kol_name: string
+  kol_handle?: string
+  kol_phone?: string
+  schedule_date: string
+  items: Array<{
+    id: string
+    name: string
+    price: number
+    quantity: number
+    category_name?: string
+  }>
+  status: 'SCHEDULED' | 'CLAIMED' | 'EXPIRED' | 'CANCELLED'
+  notes?: string
 }
 
 type Payment = 'cash' | 'qris' | 'card' | 'va'
@@ -54,6 +76,10 @@ export default function OrderManualPage() {
   const [forceAvailableIds, setForceAvailableIds] = useState<Set<string>>(new Set())
   const [upsellIds, setUpsellIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Endorsement KOL terintegrasi MARCOM
+  const [todayEndorsements, setTodayEndorsements] = useState<PosEndorsement[]>([])
+  const [activeEndorsementClaim, setActiveEndorsementClaim] = useState<PosEndorsement | null>(null)
 
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
@@ -156,6 +182,7 @@ export default function OrderManualPage() {
       setChannel(newMode === 'website' ? 'website' : null)
       setPayment(null)
       setCustomerName('')
+      setActiveEndorsementClaim(null)
       setPickupTime('')
       setPromoSubsidy('')
       setSearch('')
@@ -176,7 +203,8 @@ export default function OrderManualPage() {
     async function syncFromSupabase() {
       try {
         const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
-        const [menuRes, catRes, unavRes] = await fetchWithTimeout(
+        const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+        const [menuRes, catRes, unavRes, endorseRes] = await fetchWithTimeout(
           Promise.all([
             supabase.from('menu_items')
               .select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, or_menu_item_id, quantity)')
@@ -185,12 +213,21 @@ export default function OrderManualPage() {
             supabase.from('kiosk_settings').select('key, value, outlet_id')
               .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
               .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids', 'upsell_ids']),
+            supabase.from('pos_endorsements')
+              .select('*')
+              .eq('outlet_id', outletId)
+              .eq('schedule_date', todayStr)
+              .eq('status', 'SCHEDULED'),
           ])
         )
 
         if (menuRes.error) throw menuRes.error
         if (catRes.error) throw catRes.error
         if (unavRes.error && unavRes.error.code !== 'PGRST116') throw unavRes.error
+
+        if (endorseRes && !endorseRes.error && Array.isArray(endorseRes.data)) {
+          setTodayEndorsements(endorseRes.data)
+        }
 
         const fetchedItemsRaw = menuRes.data ?? []
         const fetchedItems = fetchedItemsRaw.filter((item: any) => {
@@ -332,12 +369,55 @@ export default function OrderManualPage() {
           fetchMenu()
         }
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'pos_endorsements' }, (payload: any) => {
+        if (payload.new?.outlet_id === outletId || payload.old?.outlet_id === outletId) {
+          syncFromSupabase()
+        }
+      })
       .subscribe()
 
     return () => {
       supabase.removeChannel(channel)
     }
   }, [supabase, outletId, loaded])
+
+  const fetchTodayEndorsements = useCallback(async () => {
+    if (!outletId) return
+    try {
+      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+      const { data, error } = await supabase
+        .from('pos_endorsements')
+        .select('*')
+        .eq('outlet_id', outletId)
+        .eq('schedule_date', todayStr)
+        .eq('status', 'SCHEDULED')
+      if (!error && data) {
+        setTodayEndorsements(data)
+      }
+    } catch (e) {
+      console.warn('Gagal memuat endorsement hari ini', e)
+    }
+  }, [outletId, supabase])
+
+  const displayCategories = useMemo(() => {
+    if (todayEndorsements.length > 0) {
+      return [
+        { id: 'cat-endorsement', name: `⭐ Endorsement (${todayEndorsements.length})`, sort_order: -1 },
+        ...categories
+      ]
+    }
+    return categories
+  }, [categories, todayEndorsements.length])
+
+  const filteredEndorsements = useMemo(() => {
+    if (!deferredSearch.trim()) return todayEndorsements
+    const q = deferredSearch.toLowerCase().trim()
+    return todayEndorsements.filter(e =>
+      e.kol_name.toLowerCase().includes(q) ||
+      (e.kol_handle && e.kol_handle.toLowerCase().includes(q)) ||
+      (e.kol_phone && e.kol_phone.includes(q))
+    )
+  }, [todayEndorsements, deferredSearch])
 
   // ── Menu terfilter (tersedia + kategori + pencarian) ──────────────────────
   const visibleItems = useMemo(() => {
@@ -455,23 +535,56 @@ export default function OrderManualPage() {
   const totalItems = lineList.reduce((s, l) => s + l.quantity, 0)
   
   const baseSubtotal = lineList.reduce((s, l) => s + l.item.price * l.quantity, 0)
-  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null) => {
-    if (mode === 'endorse') return 0;
+  const wrappedCalculateItemPrice = (price: number, id: string, channelPrices?: Record<string, number> | null, isEndorseItem?: boolean) => {
+    if (mode === 'endorse' || isEndorseItem) return 0;
     return calculateItemPrice(price, id, baseSubtotal, channel || (mode === 'online' ? 'gofood' : undefined), channelPrices)
   }
 
-  const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices) * l.quantity, 0)
+  const subtotalAmount = lineList.reduce((s, l) => s + wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices, l.isEndorseItem) * l.quantity, 0)
   const globalDiscount = calculateGlobalDiscount(subtotalAmount)
   
   const posPromoDiscount = lineList.reduce((sum, l) => {
-    if (mode === 'endorse') return sum;
+    if (mode === 'endorse' || l.isEndorseItem) return sum;
     const activeChannel = channel || (mode === 'online' ? 'gofood' : undefined);
     const isFoodApp = activeChannel ? ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo'].includes(activeChannel.toLowerCase()) : false;
     if (!isFoodApp) return sum;
-    const baseP = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices);
+    const baseP = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices, l.isEndorseItem);
     const cutP = calculateItemPrice(l.item.price, l.item.id, baseSubtotal, activeChannel, l.item.channel_prices, { ignoreFoodAppRule: true });
     return sum + (baseP - cutP) * l.quantity;
   }, 0);
+
+  const handleClaimEndorsement = useCallback((end: PosEndorsement) => {
+    const newLines: Line[] = []
+    if (Array.isArray(end.items)) {
+      for (const it of end.items) {
+        const matched = items.find(m => m.id === it.id || m.name.toLowerCase() === it.name.toLowerCase())
+        newLines.push({
+          item: (matched || {
+            id: it.id,
+            name: it.name,
+            price: it.price || 0,
+            is_available: true,
+            category_id: '',
+          }) as MenuItem,
+          quantity: it.quantity || 1,
+          note: `Endorse: ${end.kol_name}`,
+          cartItemId: Math.random().toString(36).substring(2, 9),
+          isEndorseItem: true
+        })
+      }
+    }
+    setLines(newLines)
+    setCustomerName(`KOL: ${end.kol_name}${end.kol_handle ? ` (${end.kol_handle})` : ''}`)
+    setActiveEndorsementClaim(end)
+    setMode('walkin')
+    postToNative({ type: 'haptic', style: 'success' })
+  }, [items])
+
+  const handleCancelEndorsementClaim = useCallback(() => {
+    setActiveEndorsementClaim(null)
+    setLines((prev) => prev.filter((l) => !l.isEndorseItem))
+    setCustomerName('')
+  }, [])
 
   const isFoodAppChannel = channel ? FOOD_APP_IDS.includes(channel.toLowerCase()) : false
   const parsedPromoSubsidy = isFoodAppChannel ? (Number(promoSubsidy) || 0) : 0
@@ -606,7 +719,7 @@ export default function OrderManualPage() {
 
       const estimated = await nextEstimatedNumber(outletId as string)
       const items = lineList.map((l) => {
-        const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
+        const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices, l.isEndorseItem)
         return {
           menu_item_id: l.item.id,
           name: l.item.name,
@@ -695,7 +808,7 @@ export default function OrderManualPage() {
 
     // Snapshot rincian untuk struk SEBELUM keranjang direset
     const receiptItems = lineList.map((l) => {
-      const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices)
+      const unit = wrappedCalculateItemPrice(l.item.price, l.item.id, l.item.channel_prices, l.isEndorseItem)
       return {
         name: l.item.name,
         note: l.note?.trim() || undefined,
@@ -713,7 +826,8 @@ export default function OrderManualPage() {
       payment_method: method,
       customer_name: customerName,
       amount_received: method === 'cash' ? amountReceived : undefined,
-      is_endorse: mode === 'endorse',
+      is_endorse: mode === 'endorse' || (activeEndorsementClaim != null && totalPrice === 0),
+      pos_endorsement_id: activeEndorsementClaim?.id,
       payment_proof_url: typeof proofFile === 'string' ? proofFile : null,
       items: lineList.map((l) => ({
         menu_item_id: l.item.id,
@@ -721,7 +835,8 @@ export default function OrderManualPage() {
         note: l.note,
         parent_id: l.parentId,
         cartItemId: l.cartItemId,
-        package_choices: l.package_choices
+        package_choices: l.package_choices,
+        unit_price: (l.isEndorseItem || mode === 'endorse') ? 0 : undefined,
       })),
     }
 
@@ -866,6 +981,8 @@ export default function OrderManualPage() {
       queryClient.invalidateQueries({ queryKey: ['orders'] })
       setLines([])
       setCustomerName('')
+      setActiveEndorsementClaim(null)
+      fetchTodayEndorsements()
       setCartOpen(false)
       setWalkInPanelKey((k) => k + 1)
     }
@@ -1024,11 +1141,15 @@ export default function OrderManualPage() {
                 >
                   Semua
                 </button>
-                {categories.map((c) => (
+                {displayCategories.map((c) => (
                   <button
                     key={c.id}
                     onClick={() => setActiveCat(c.id)}
-                    className={`px-3.5 py-1.5 rounded-lg text-xs xl:text-sm font-bold whitespace-nowrap transition-all ${activeCat === c.id ? 'bg-gray-900 text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs xl:text-sm font-bold whitespace-nowrap transition-all ${
+                      activeCat === c.id
+                        ? c.id === 'cat-endorsement' ? 'bg-amber-500 text-white shadow-md' : 'bg-gray-900 text-white shadow-md'
+                        : c.id === 'cat-endorsement' ? 'bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 font-extrabold' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
                   >
                     {c.name}
                   </button>
@@ -1037,10 +1158,144 @@ export default function OrderManualPage() {
             </div>
           </div>
 
-          {/* Grid menu */}
+          {/* Reminder banner jika ada jadwal hari ini tapi sedang di kategori lain */}
+          {todayEndorsements.length > 0 && activeCat !== 'cat-endorsement' && !activeEndorsementClaim && (
+            <div
+              onClick={() => setActiveCat('cat-endorsement')}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-xl p-3.5 px-4 flex items-center justify-between cursor-pointer shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
+            >
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">⭐</span>
+                <div>
+                  <p className="text-[11px] font-extrabold uppercase tracking-wide text-amber-100">Kunjungan KOL Hari Ini</p>
+                  <p className="text-sm font-bold">Ada {todayEndorsements.length} jadwal visit KOL di cabang ini</p>
+                </div>
+              </div>
+              <span className="bg-white text-amber-700 font-bold text-xs px-3.5 py-1.5 rounded-lg shadow-sm">
+                Lihat Tiket →
+              </span>
+            </div>
+          )}
+
+          {/* Grid menu atau Daftar Endorsement */}
           {loading ? (
             <div className="flex items-center justify-center py-20 text-gray-400">
               <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : activeCat === 'cat-endorsement' ? (
+            <div className="space-y-4">
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-sm">
+                  ⭐
+                </div>
+                <div>
+                  <h3 className="font-bold text-amber-950 text-base">Jadwal Kunjungan KOL Hari Ini ({filteredEndorsements.length})</h3>
+                  <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+                    Pilih tiket kunjungan di bawah untuk memasukkan menu jatah endorsement ke keranjang kasir (harga Rp 0). Jika KOL memesan menu tambahan, Anda dapat memilih menu lain dari katalog untuk ditagihkan normal (Split Billing).
+                  </p>
+                </div>
+              </div>
+
+              {filteredEndorsements.length === 0 ? (
+                <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border border-dashed border-gray-200">
+                  <ThumbsUp className="w-10 h-10 mx-auto mb-2 opacity-50 text-amber-500" />
+                  <p className="font-semibold text-gray-700">Tidak ada jadwal visit yang cocok</p>
+                  <p className="text-xs text-gray-500 mt-1">Cek kembali pencarian nama KOL</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {filteredEndorsements.map((end) => {
+                    const isCurrentClaim = activeEndorsementClaim?.id === end.id
+                    return (
+                      <div
+                        key={end.id}
+                        className={`bg-white rounded-2xl border p-4 transition-all shadow-sm flex flex-col justify-between ${
+                          isCurrentClaim
+                            ? 'border-amber-500 ring-2 ring-amber-400 bg-amber-50/20'
+                            : 'border-gray-200 hover:border-amber-300 hover:shadow-md'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <h4 className="font-bold text-gray-900 text-base flex items-center gap-1.5 flex-wrap">
+                                <span>{end.kol_name}</span>
+                                {end.kol_handle && (
+                                  <span className="text-xs font-semibold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                                    {end.kol_handle.startsWith('@') ? end.kol_handle : `@${end.kol_handle}`}
+                                  </span>
+                                )}
+                              </h4>
+                              {end.kol_phone && (
+                                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                  <span>WA:</span>
+                                  <span className="font-medium text-gray-700">{end.kol_phone}</span>
+                                </p>
+                              )}
+                            </div>
+                            <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 border border-amber-200">
+                              Hari Ini
+                            </span>
+                          </div>
+
+                          {/* Items */}
+                          <div className="mt-3.5 pt-3 border-t border-gray-100">
+                            <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">
+                              Menu Jatah Endorsement:
+                            </p>
+                            <div className="space-y-1.5 bg-gray-50 rounded-xl p-3 border border-gray-100">
+                              {Array.isArray(end.items) && end.items.length > 0 ? (
+                                end.items.map((it, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-xs">
+                                    <span className="font-semibold text-gray-800">
+                                      {it.quantity}x {it.name}
+                                    </span>
+                                    <span className="text-emerald-600 font-bold bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded text-[10px]">
+                                      Gratis (Rp 0)
+                                    </span>
+                                  </div>
+                                ))
+                              ) : (
+                                <p className="text-xs text-gray-400 italic">Menu jatah belum diisi</p>
+                              )}
+                            </div>
+                          </div>
+
+                          {end.notes && (
+                            <div className="mt-3 bg-amber-50/60 p-2.5 rounded-xl border border-amber-100 text-xs text-gray-600">
+                              <span className="font-bold text-amber-900">Catatan MARCOM: </span>
+                              <span>{end.notes}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                          <span className="text-[11px] text-gray-400 font-mono">
+                            Visit #{end.marcom_endorsement_id || end.id.slice(0, 8)}
+                          </span>
+                          {isCurrentClaim ? (
+                            <button
+                              type="button"
+                              disabled
+                              className="bg-emerald-600 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm opacity-90"
+                            >
+                              <CheckCircle2 className="w-4 h-4" /> Di Keranjang
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleClaimEndorsement(end)}
+                              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm shadow-amber-200 transition-all active:scale-95"
+                            >
+                              <Plus className="w-4 h-4" /> Klaim & Masukkan Menu
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           ) : visibleItems.length === 0 ? (
             <div className="text-center py-16 text-gray-400">
@@ -1155,6 +1410,8 @@ export default function OrderManualPage() {
               error={walkInError}
               onPay={handleWalkInPay}
               isEndorse={mode === 'endorse'}
+              activeEndorsementClaim={activeEndorsementClaim}
+              onCancelEndorsement={handleCancelEndorsementClaim}
             />
           ) : (
             <CartPanel
@@ -1235,6 +1492,8 @@ export default function OrderManualPage() {
                 onPay={handleWalkInPay}
                 embedded
                 isEndorse={mode === 'endorse'}
+                activeEndorsementClaim={activeEndorsementClaim}
+                onCancelEndorsement={handleCancelEndorsementClaim}
               />
             ) : (
               <CartPanel

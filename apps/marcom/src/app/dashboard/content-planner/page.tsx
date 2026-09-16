@@ -5,7 +5,7 @@ import ContentPlannerView, { SerializedInternalContent } from './ContentPlannerV
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Konten Planner & Insight Video | Suka Shawarma',
+  title: 'Konten Planner & Insight Video',
   description: 'Pelacakan hasil video organik buatan tim kreatif internal Suka Shawarma dan analisis performa pilar konten.',
 }
 

@@ -9,7 +9,7 @@ import CalendarView, {
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Kalender Marcom | Suka Shawarma',
+  title: 'Kalender Marcom',
   description: 'Jadwal kolaborasi KOL, iklan digital mitra, dan agenda promo event cabang Suka Shawarma.',
 }
 

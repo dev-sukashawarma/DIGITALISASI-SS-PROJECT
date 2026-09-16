@@ -23,8 +23,8 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-6 bg-white p-8 sm:p-10 rounded-3xl shadow-xl border border-[#EFE8DE] text-center">
         {/* Brand Header */}
         <div className="space-y-3">
-          <div className="mx-auto flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#E8590C] via-[#D9480F] to-[#9C3106] text-white shadow-lg shadow-orange-950/20 ring-4 ring-[#FFF4ED]">
-            <Flame className="w-7 h-7 text-amber-100 fill-amber-200 animate-pulse" />
+          <div className="mx-auto flex items-center justify-center w-16 h-16 rounded-2xl bg-stone-50 border border-stone-200 p-2 shadow-lg shadow-orange-950/10 ring-4 ring-[#FFF4ED]">
+            <img src="/logo.png" alt="MARCOM SS" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-[#FFF4ED] text-[#D9480F] text-[11px] font-extrabold uppercase tracking-wider mb-2">
@@ -32,10 +32,10 @@ export default function LoginPage() {
               <span>Single Sign-On Portal</span>
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-[#1A1715] tracking-tight">
-              Suka Shawarma
+              MARCOM SS
             </h2>
             <p className="mt-1 text-xs sm:text-sm text-stone-500 font-medium">
-              Sistem Digitalisasi Marcom & Tracking Influencer
+              Sistem Digitalisasi Marcom & Tracking Influencer Suka Shawarma
             </p>
           </div>
         </div>

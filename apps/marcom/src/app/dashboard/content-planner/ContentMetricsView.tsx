@@ -36,6 +36,8 @@ import {
   Zap,
   CalendarDays,
   Megaphone,
+  Lightbulb,
+  MapPin,
 } from 'lucide-react'
 import {
   createInternalContent,
@@ -1183,7 +1185,10 @@ export default function ContentMetricsView({
           </div>
 
           <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/60 text-xs text-amber-900 mt-2">
-            <span className="font-bold block">💡 Rekomendasi Kreatif:</span>
+            <div className="flex items-center gap-1.5 font-bold mb-1">
+              <Lightbulb className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+              <span>Rekomendasi Kreatif:</span>
+            </div>
             <span>
               Fokuskan produksi pada pilar <strong>{topPillar?.name || 'Promo'}</strong> karena menghasilkan engagement paling responsif.
             </span>
@@ -1202,7 +1207,7 @@ export default function ContentMetricsView({
               placeholder="Cari judul konten, tipe, creator, atau cabang..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors"
+              className="w-full pl-10 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus:border-[#D9480F] transition-colors"
             />
           </div>
 
@@ -1211,11 +1216,12 @@ export default function ContentMetricsView({
             <select
               value={adsFilter}
               onChange={(e) => setAdsFilter(e.target.value as any)}
-              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium text-stone-800"
+              aria-label="Filter traffic ads"
+              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] focus:border-[#D9480F] transition-colors font-medium text-stone-800"
             >
               <option value="ALL">Semua Traffic (Ads & Organik)</option>
-              <option value="ADS">🚀 Diiklanin (Paid Boost)</option>
-              <option value="ORGANIC">🌱 Organik Murni</option>
+              <option value="ADS">Diiklanin (Paid Boost)</option>
+              <option value="ORGANIC">Organik Murni</option>
             </select>
           </div>
 
@@ -1407,15 +1413,15 @@ export default function ContentMetricsView({
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm text-stone-600">
-            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
+            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="py-4 px-4 sm:px-6">Konten & Platform</th>
-                <th className="py-4 px-4">Tipe & Pilar</th>
-                <th className="py-4 px-4">Jadwal Tayang</th>
-                <th className="py-4 px-4">Jangkauan (Reach & Views)</th>
-                <th className="py-4 px-4">Interaksi (L/C/S/B)</th>
-                <th className="py-4 px-4">Performa (EBR & ER)</th>
-                <th className="py-4 px-4 sm:px-6 text-right">Aksi</th>
+                <th className="py-4 px-4 sm:px-6 whitespace-nowrap">Konten & Platform</th>
+                <th className="py-4 px-4 whitespace-nowrap">Tipe & Pilar</th>
+                <th className="py-4 px-4 whitespace-nowrap">Jadwal Tayang</th>
+                <th className="py-4 px-4 whitespace-nowrap">Jangkauan (Reach & Views)</th>
+                <th className="py-4 px-4 whitespace-nowrap">Interaksi (L/C/S/B)</th>
+                <th className="py-4 px-4 whitespace-nowrap">Performa (EBR & ER)</th>
+                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -1434,14 +1440,14 @@ export default function ContentMetricsView({
                   const formatConfig = FORMATS[item.format] || FORMATS.VIDEO
 
                   return (
-                    <tr key={item.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                    <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
                       {/* Title, Platform & Format */}
                       <td className="py-4 px-4 sm:px-6">
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
                             #{startIndex + idx + 1}
                           </div>
-                          <div className="min-w-0 max-w-xs">
+                          <div className="min-w-0 sm:max-w-md lg:max-w-xl">
                             <div className="font-bold text-[#1A1715] flex items-center gap-1.5">
                               <span className="truncate" title={item.title}>{item.title}</span>
                               {item.postUrl && (
@@ -1477,8 +1483,9 @@ export default function ContentMetricsView({
                                 <span>{item.isAds ? 'Diiklanin' : 'Organik'}</span>
                               </button>
                               {item.outletName && item.outletName !== 'Semua Cabang (Nasional)' && (
-                                <span className="text-[10px] font-semibold text-stone-600 bg-stone-100 px-1.5 py-0.5 rounded">
-                                  📍 {item.outletName}
+                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
+                                  <MapPin className="w-3 h-3 text-stone-400" />
+                                  <span>{item.outletName}</span>
                                 </span>
                               )}
                             </div>

@@ -273,14 +273,14 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
             <Zap className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+            <div className="text-xs text-stone-400 font-bold uppercase tracking-wider">
               Efisiensi Rata-rata CPV
             </div>
             <div className="text-xl font-extrabold font-mono text-[#1A1715]">
               {avgCpv > 0 ? `${formatRupiah(avgCpv)} / view` : 'Belum ada'}
             </div>
-            <div className="text-[11px] text-stone-500 mt-0.5">
-              {avgCpv > 0 && avgCpv < 50 ? '🔥 Sangat Murah (< Rp 50)' : 'Biaya per view video iklan'}
+            <div className="text-xs text-stone-500 mt-0.5">
+              {avgCpv > 0 && avgCpv < 50 ? 'Efisiensi Sangat Baik (< Rp 50)' : 'Biaya per view video iklan'}
             </div>
           </div>
         </div>
@@ -365,19 +365,19 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm text-stone-600">
-            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
+            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="py-4 px-4 sm:px-6">Akun & Kategori</th>
-                <th className="py-4 px-4">Platform</th>
-                <th className="py-4 px-4">Tanggal Kampanye</th>
-                <th className="py-4 px-4 text-right">Ad Spend (Spent)</th>
-                <th className="py-4 px-4 text-center">Link Video Iklan</th>
-                <th className="py-4 px-4 text-right">Views Awal</th>
-                <th className="py-4 px-4 text-right">Views Akhir</th>
-                <th className="py-4 px-4 text-right">Net Views Gain</th>
-                <th className="py-4 px-4 text-right">CPV (Biaya/View)</th>
-                <th className="py-4 px-4 text-center">Status</th>
-                <th className="py-4 px-4 sm:px-6 text-right">Aksi</th>
+                <th className="py-4 px-4 sm:px-6 whitespace-nowrap">Akun & Kategori</th>
+                <th className="py-4 px-4 whitespace-nowrap">Platform</th>
+                <th className="py-4 px-4 whitespace-nowrap">Tanggal Kampanye</th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">Ad Spend (Spent)</th>
+                <th className="py-4 px-4 text-center whitespace-nowrap">Link Video Iklan</th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">Views Awal</th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">Views Akhir</th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">Net Views Gain</th>
+                <th className="py-4 px-4 text-right whitespace-nowrap">CPV (Biaya/View)</th>
+                <th className="py-4 px-4 text-center whitespace-nowrap">Status</th>
+                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -393,7 +393,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                   const cpv = netGain > 0 && item.spent > 0 ? item.spent / netGain : 0
 
                   return (
-                    <tr key={item.id} className="hover:bg-[#FAF8F5]/60 transition-colors">
+                    <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
                       {/* Account & Category */}
                       <td className="py-4 px-4 sm:px-6">
                         <div className="font-extrabold text-[#1A1715]">

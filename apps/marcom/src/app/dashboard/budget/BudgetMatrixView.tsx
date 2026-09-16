@@ -170,26 +170,26 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#FAF8F5]/80 text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
+            <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="py-3.5 px-4">No</th>
-                <th className="py-3.5 px-4">Nama Cabang</th>
-                <th className="py-3.5 px-4 text-right">Target Budget</th>
-                <th className="py-3.5 px-4 text-right">Rate Card</th>
-                <th className="py-3.5 px-4 text-right">HPP Menu</th>
-                <th className="py-3.5 px-4 text-right">Total Realisasi</th>
-                <th className="py-3.5 px-4 text-right">Sisa Budget</th>
-                <th className="py-3.5 px-4 text-center">Target KOL</th>
-                <th className="py-3.5 px-4 text-center">Realisasi KOL</th>
-                <th className="py-3.5 px-4 text-center">Capaian %</th>
-                <th className="py-3.5 px-4 text-right">Aksi</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">No</th>
+                <th className="py-3.5 px-4 whitespace-nowrap">Nama Cabang</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Target Budget</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Rate Card</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">HPP Menu</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Total Realisasi</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Sisa Budget</th>
+                <th className="py-3.5 px-4 text-center whitespace-nowrap">Target KOL</th>
+                <th className="py-3.5 px-4 text-center whitespace-nowrap">Realisasi KOL</th>
+                <th className="py-3.5 px-4 text-center whitespace-nowrap">Capaian %</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
               {summary.outlets.map((item, idx) => {
                 const isOverBudget = item.remainingBudget < 0
                 return (
-                  <tr key={item.outletId} className="hover:bg-[#FAF8F5]/60 transition-colors">
+                  <tr key={item.outletId} className="hover:bg-amber-50/30 transition-colors">
                     <td className="py-3.5 px-4 text-stone-400 font-mono">{idx + 1}</td>
                     <td className="py-3.5 px-4 font-bold text-[#1A1715]">
                       <div className="flex items-center gap-1.5">

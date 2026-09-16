@@ -1,87 +1,57 @@
-﻿# Multi-stage Dockerfile for Next.js app (apps/marcom)
-# Built from repository root (context: .) via GitHub Actions
-
-# --- Stage 1: Build Next.js application ---
+# Stage 1: Dependencies & Build
 FROM node:22-slim AS builder
 
-WORKDIR /repo
+WORKDIR /app
 
 # Install OpenSSL and ca-certificates for Prisma
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm pinned to exact version
+# Install pnpm pinned to exact same version as local dev
 RUN npm install -g pnpm@11.3.0
 
-# Copy package manifests, lockfile, and prisma schema
-COPY apps/marcom/package.json apps/marcom/pnpm-lock.yaml* apps/marcom/pnpm-workspace.yaml* ./apps/marcom/
-COPY apps/marcom/prisma ./apps/marcom/prisma/
+# Copy package definitions, lockfile, and Prisma schema before install
+COPY package.json pnpm-lock.yaml ./
+COPY prisma ./prisma/
 
-WORKDIR /repo/apps/marcom
-RUN pnpm install --frozen-lockfile --ignore-scripts
-RUN pnpm prisma generate
+# Install all dependencies WITH lifecycle scripts
+# pnpm 11 respects "pnpm.onlyBuiltDependencies" in package.json (already contains prisma & friends)
+# This ensures Prisma engine binaries (.so.node) are downloaded properly for Linux
+RUN pnpm install --frozen-lockfile
 
-# Copy source code
-WORKDIR /repo
-COPY apps/marcom ./apps/marcom
+# Copy the rest of the application source code
+COPY . .
 
-# Build-time environment variables
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_COOKIE_DOMAIN
-ARG NEXT_PUBLIC_PORTAL_URL
-ARG DATABASE_URL
-
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
-ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
-ENV DATABASE_URL=$DATABASE_URL
+# Set build environment variables
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV DOCKER_BUILD=true
 
-# Prevent build process from OOM
-ENV RAYON_NUM_THREADS=1
-ENV UV_THREADPOOL_SIZE=1
-ENV NEXT_PRIVATE_MAX_WORKERS=1
-
-WORKDIR /repo/apps/marcom
+# Build Next.js application
 RUN pnpm run build
 
-# --- Stage 2: Ultra-lightweight Production Runner ---
+# ---------------------------------------------------------------
+# Stage 2: Production Runner
+# ---------------------------------------------------------------
 FROM node:22-slim AS runner
 
 WORKDIR /app
 
-# Install runtime dependencies for Prisma & health checks
+# Install runtime dependencies
 RUN apt-get update -y && apt-get install -y openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV PORT=3999
-ENV HOSTNAME=0.0.0.0
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV DOCKER_BUILD=true
 
-# Runtime environment variables
-ARG NEXT_PUBLIC_SUPABASE_URL
-ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
-ARG NEXT_PUBLIC_COOKIE_DOMAIN
-ARG NEXT_PUBLIC_PORTAL_URL
-ARG DATABASE_URL
-ARG CRON_SECRET
+# Copy necessary artifacts from builder stage
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/prisma ./prisma
 
-ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
-ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
-ENV NEXT_PUBLIC_COOKIE_DOMAIN=$NEXT_PUBLIC_COOKIE_DOMAIN
-ENV NEXT_PUBLIC_PORTAL_URL=$NEXT_PUBLIC_PORTAL_URL
-ENV DATABASE_URL=$DATABASE_URL
-ENV CRON_SECRET=$CRON_SECRET
-
-# Copy artifacts from builder
-COPY --from=builder /repo/apps/marcom/package.json ./package.json
-COPY --from=builder /repo/apps/marcom/node_modules ./node_modules
-COPY --from=builder /repo/apps/marcom/prisma ./prisma
-COPY --from=builder /repo/apps/marcom/.next ./.next
-COPY --from=builder /repo/apps/marcom/public ./public
-
+# Expose port
 EXPOSE 3999
 
-CMD ["npx", "next", "start", "-p", "3999"]
+CMD ["node", "node_modules/.bin/next", "start", "-p", "3999"]

@@ -11,7 +11,7 @@ export type ActionState = {
   data?: any
 }
 
-export function cleanOutletName(sbName: string): string {
+function cleanOutletName(sbName: string): string {
   let name = sbName.trim()
   if (/^SUKA\s+SHAWARMA\s+/i.test(name)) {
     name = name.replace(/^SUKA\s+SHAWARMA\s+/i, '')

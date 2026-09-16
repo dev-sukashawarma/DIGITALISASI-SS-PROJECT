@@ -2794,6 +2794,28 @@ serupa tapi minor (1 resep, 5 outlet).
     sama.
 - `useSalesHourlyRaw` masih rawan cap 1.000 baris (Session 2026-09-07) — **tak
   terkait** sesi ini, jangan digabung.
+- ✅ **"Lengkapi resep menu yang belum punya" — ternyata NOL resep perlu ditulis**
+  (2026-09-16). Dari 47 menu tanpa resep, **44 adalah paket** (paket memang tak
+  punya resep sendiri; HPP-nya jumlah komponen) dan diperiksa: keempat puluh
+  empatnya punya komponen, dan **seluruh komponennya sudah punya resep aktif**.
+  Tiga sisanya dua menu BOGO + menu uji `tesss`, semuanya nol penjualan.
+  Lubang yang sebenarnya ada di `get_hpp_dinamis_menu`: ia mencari resep pada
+  menu yang terjual, jadi **seluruh penjualan paket menyumbang HPP teoritis nol**
+  — 1.268 porsi, Rp 56.038.000, 6% omzet September. `trg_process_bom_stok` sudah
+  menguraikan paket sejak awal (termasuk `package_choices`), jadi sisi AKTUAL
+  selalu benar; yang timpang cuma sisi TEORITIS. Diperbaiki `20260916110000`
+  (applied+terstempel) memakai aturan pemilihan komponen yang sama dengan BOM.
+  Bukti Empang 1–15 Sep: menu terhitung penuh 20→29 dari 29, teoritis
+  36.687.854→38.473.821, selisihnya **persis** sumbangan paket 1.785.967 (menu
+  satuan nol bergeser). ⚠️ **Agregasi sebelum penetapan harga itu wajib**: versi
+  pertama memanggil `harga_bahan_efektif` sekali per (baris order × bahan) →
+  7,2 detik; setelah `uraian_agg` → 1,0 detik dengan angka identik. Juga:
+  `SUM(order_items.quantity)` bertipe bigint sedangkan kolom keluaran numeric —
+  versi pertama sempat terpasang lalu gagal saat dipanggil, wajib `::numeric`.
+  Laporan resmi tak terpengaruh: `get_owner_dashboard_summary` &
+  `get_mitra_item_hpp_base` sudah menjumlahkan `hpp_override` komponen untuk
+  paket. Pembanding baru: SHAWARMA DUO COMBO dinamis Rp28.537/porsi vs komponen
+  override Rp31.000.
 - ✅ **PLASTIK BESAR — DITUTUP 2026-09-15** (`20260915236000`, applied+terstempel): `kemasan_qty` 100 → 250 (sepakat dengan faktor Ikat/Pack 5/Lembar 50). Harga Rp6.000 dikonfirmasi owner **angka uji**, sengaja dibiarkan sampai PO pertama menimpanya. Kini **nol** bahan aktif dengan `kemasan_qty ≠ faktor_tampilan`, jadi penjaga katalog `234000` tak menahan bahan mana pun.
 - ✅ **SAUS CABE/SAOS CABE — DITUTUP 2026-09-15** (`20260915235000_gabung_saus_cabe_tomat_ke_saos`, applied+terstempel). Akar: `20260914130000` menambah bahan hantu SAUS CABE/SAUS TOMAT (kg, tanpa harga/faktor) ke resep tanpa membuang baris SAOS lama → 28 resep offline memotong saus 2×, 11 resep Online tak memotong saus sungguhan. Gramasi baru dipindahkan ke SAOS CABE & SAOS TOMAT POUCH (41 baris resep masing-masing), hantu dinonaktifkan+rename. Pelajaran: `trg_process_bom_stok` TIDAK menyaring `bahan_baku.is_active` — menonaktifkan bahan tidak menghentikan potongan BOM; baris resepnya yang harus dipindah.
 ---

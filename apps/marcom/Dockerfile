@@ -84,4 +84,4 @@ COPY --from=builder /repo/apps/marcom/public ./public
 
 EXPOSE 3999
 
-CMD ["node", "node_modules/.bin/next", "start", "-p", "3999"]
+CMD ["npx", "next", "start", "-p", "3999"]

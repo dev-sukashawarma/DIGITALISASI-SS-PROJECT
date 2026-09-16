@@ -2402,9 +2402,16 @@ pada itu terjadi lebih dulu.
   tak boleh disembunyikan). Catatan uji di outlet tes ke vendor Tempo 10 akan ikut
   tersahkan kalau tidak **ditolak** dulu. Belum ada catatan uji di DB (semua uji
   SQL berjalan dalam transaksi ROLLBACK).
-- **Smoke test browser (login sungguhan) belum pernah dijalankan** — wajib sebelum
-  20 Sep: crew outlet TES mencatat → Pusat melihat → **tolak** catatan uji. Jangan
-  sahkan nota saat uji (menulis PO utang sungguhan).
+- ✅ **Smoke test login sungguhan LULUS 16 Sep 2026** (dijalankan owner): crew
+  outlet TES mencatat → Pusat melihat → **tolak** — utuh. Diverifikasi ke DB,
+  bukan sekadar laporan layar: `terima_vendor_outlet` 2 baris (keduanya outlet
+  tes, keduanya `ditolak`, `nota_vendor_id` NULL) · `nota_vendor` **0** · PO dari
+  nota **0** · 4 baris ledger ber-`ref_terima_vendor_id` yang **berpasangan tepat**
+  (`pembelian_supplier` +2000 lalu `rejected_kiriman` −2000; +1000 lalu −1000) —
+  penolakan membalik stok, bukan cuma menandai dokumen. **Nol catatan
+  menggantung** yang bisa ikut tersapu ke nota 30 Sep.
+  ⚠️ Sisa satu butir §1 runbook: **mode pantau** owner/admin_finance (tombol
+  sahkan/tolak harus tidak ada) belum dicoba. Bukan penghalang go-live.
 - **Review menangkap 4 cacat sebelum live:** tanggal RPC pakai `current_date` UTC
   (crew 00:00–07:00 WIB ditolak) → WIB; uji t7 tak menguji `tolak_terima_vendor` &
   menghitung ledger tanpa snapshot tetap → ditambah + REPEATABLE READ; pemantau Q1

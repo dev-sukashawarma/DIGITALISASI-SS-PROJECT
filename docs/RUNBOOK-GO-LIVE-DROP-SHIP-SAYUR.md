@@ -19,7 +19,7 @@
 | Migration DB `20260911123000_drop_ship_laporan` (view `nilai_masuk_drop_ship_harian`) | ✅ LIVE & terstempel |
 | Skrip `supabase/verifikasi/drop_ship/pemantau.sql` | ✅ 4 kueri jalan di DB live, semua 0 baris (wajar sebelum go-live) |
 | Kode app (`apps/stok`): halaman crew & Pusat, hook, predikat peran | ✅ **Sudah di `main` & live** (dicek 15 Sep 2026) — butir "merge/push/redeploy" di §1 sudah terpenuhi |
-| Smoke test browser (login sungguhan) | **Sebagian** — ada 1 catatan uji di outlet tes (11 Sep, 2 kg sayur, status `ditolak`). Alur Pusat (nota) & mode pantau owner belum terbukti — jalankan ulang §1 setelah redeploy 15 Sep |
+| Smoke test browser (login sungguhan) | ✅ **LULUS 16 Sep 2026** (owner) — alur crew → Pusat → tolak terbukti utuh. Diverifikasi ke DB: 2 catatan uji, keduanya outlet tes, keduanya `ditolak`, **0 nota** & **0 PO** terbentuk, dan 4 baris ledger **berpasangan tepat** (+2000/−2000, +1000/−1000) — penolakan benar-benar membalik stok, bukan sekadar menandai dokumen. Sisa yang belum terbukti: **mode pantau owner/admin_finance** |
 | **Hanya sayur** (keputusan owner 15 Sep 2026) | ✅ Migration `20260915110000_drop_ship_hanya_bahan_bertanda`: penanda `bahan_baku.drop_ship`, hanya **Sayur (lettuce)** menyala. `catat_terima_vendor` & `info_terima_vendor` **menolak bahan lain** (sebelumnya crew bisa mencatat mis. SAPI dari Pak Aziz dan stok outlet bertambah tanpa surat jalan). Form crew hanya menampilkan sayur; daftar vendor di halaman nota hanya vendor sayur. Uji `supabase/verifikasi/drop_ship/t8_hanya_sayur.sql` LULUS |
 
 **Cek kesiapan 15 Sep 2026 (DB live):** bucket foto `drop-ship` ada · harga terkunci sayur
@@ -39,13 +39,15 @@ mengumumkan ke outlet sebelum §1 selesai** — kalau kode belum live di
 
 ## 1. Sebelum 20 September — syarat wajib
 
-- [ ] Seluruh branch `feat/drop-ship-sayur` (Task 1–10) di-merge ke `main` dan
+- [x] Seluruh branch `feat/drop-ship-sayur` (Task 1–10) di-merge ke `main` dan
       **di-push** (izin owner).
-- [ ] App `stok` **di-redeploy** di Coolify.
-- [ ] Semua tab browser yang sudah kebuka sebelum redeploy di-**hard refresh**
+- [x] App `stok` **di-redeploy** (otomatis lewat GitHub Actions `deploy-stok-coolify`
+      saat push `main` menyentuh `apps/stok/**`).
+- [x] Semua tab browser yang sudah kebuka sebelum redeploy di-**hard refresh**
       atau ditutup-buka ulang. Error "Server Action ... was not found on the
       server" setelah redeploy itu efek normal Next.js, bukan bug.
-- [ ] **Smoke test login sungguhan** — pakai akun crew **outlet TES**, jangan
+- [x] **Smoke test login sungguhan** — ✅ **LULUS 16 Sep 2026**, kecuali butir
+      "mode pantau" terakhir yang belum dicoba. — pakai akun crew **outlet TES**, jangan
       outlet sungguhan (catatan di outlet sungguhan menambah stok sayur palsu):
   - Login sebagai **crew outlet tes** → menu **"Terima dari Vendor"**
     (`/stok/terima-vendor`) → catat 1 kg sayur → cek baris muncul di daftar
@@ -56,8 +58,18 @@ mengumumkan ke outlet sebelum §1 selesai** — kalau kode belum live di
   - **Tolak** catatan uji itu (tombol "Tolak", isi alasan "uji coba") → stok
     outlet tes kembali seperti semula dan catatan tidak ikut ke nota mana pun.
     **Jangan sahkan nota dalam smoke test** — pengesahan menulis PO utang sungguhan.
-  - Login sebagai **owner** atau **admin_finance** → halaman nota terbuka dalam
-    "Mode pantau", tombol sahkan/tolak tidak ada.
+  - ⚠️ **BELUM DICOBA:** login sebagai **owner** atau **admin_finance** → halaman
+    nota terbuka dalam "Mode pantau", tombol sahkan/tolak tidak ada. Satu-satunya
+    butir §1 yang tersisa; bukan penghalang go-live (kalau gagal, akibatnya owner
+    bisa menyahkan nota — bukan crew), tapi layak dicek sekali sebelum 30 Sep.
+
+**Hasil uji 16 Sep 2026, diverifikasi ke DB** (bukan sekadar laporan layar):
+`terima_vendor_outlet` → 2 baris, keduanya outlet tes, keduanya `ditolak`,
+`nota_vendor_id` NULL. `nota_vendor` 0 baris, PO dari nota 0. `ledger_stok`
+ber-`ref_terima_vendor_id` 4 baris dan **saling meniadakan**: `pembelian_supplier`
++2000 (11 Sep) diikuti `rejected_kiriman` −2000 empat menit kemudian, lalu +1000
+(15 Sep) diikuti −1000. Nol catatan menggantung yang bisa ikut tersapu ke nota
+30 September.
 
 ---
 

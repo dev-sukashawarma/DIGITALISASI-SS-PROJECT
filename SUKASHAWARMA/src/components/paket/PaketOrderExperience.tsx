@@ -49,6 +49,46 @@ const IconClose = () => (
   </svg>
 );
 
+// Motif batik — bunga 8 kelopak dua ukuran berselang-seling, khas motif batik floral
+function BatikFlower({ length, width }: { length: number; width: number }) {
+  const petal = `M0,0 C${width},${-length * 0.32} ${width},${-length * 0.72} 0,${-length} C${-width},${-length * 0.72} ${-width},${-length * 0.32} 0,0 Z`;
+  return (
+    <>
+      {Array.from({ length: 8 }).map((_, i) => (
+        <path key={i} d={petal} transform={`rotate(${i * 45})`} />
+      ))}
+      <circle r={width * 0.65} />
+    </>
+  );
+}
+
+const BatikPattern = ({ id }: { id: string }) => (
+  <svg className="absolute inset-0 w-full h-full pointer-events-none" aria-hidden="true">
+    <defs>
+      <pattern id={id} width="52" height="52" patternUnits="userSpaceOnUse">
+        <g fill="white">
+          <g transform="translate(0,0)" opacity="0.2">
+            <BatikFlower length={11} width={4.5} />
+          </g>
+          <g transform="translate(52,0)" opacity="0.2">
+            <BatikFlower length={11} width={4.5} />
+          </g>
+          <g transform="translate(0,52)" opacity="0.2">
+            <BatikFlower length={11} width={4.5} />
+          </g>
+          <g transform="translate(52,52)" opacity="0.2">
+            <BatikFlower length={11} width={4.5} />
+          </g>
+          <g transform="translate(26,26)" opacity="0.16">
+            <BatikFlower length={6} width={2.2} />
+          </g>
+        </g>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill={`url(#${id})`} />
+  </svg>
+);
+
 const IconChevronRight = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <polyline points="9 18 15 12 9 6" />
@@ -236,7 +276,7 @@ export default function PaketOrderExperience() {
               Susun Pesanan Kamu
             </h2>
             <p className="text-[#111111]/60 max-w-lg mx-auto mb-4">
-              Atur jumlah tiap menu sesuka hati, mau 10, 20, atau lebih juga bebas. Pesan 50 pcs shawarma ke atas otomatis dapat diskon 15%.
+              Atur jumlah menu sesuka hati mu. Min order 50pcs akan dapat diskon 15%
             </p>
             <p className="inline-flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-[#111111]/45">
               <span><span className="font-semibold text-[#111111]/70">Paket A</span> tanpa minuman</span>
@@ -302,11 +342,12 @@ export default function PaketOrderExperience() {
             onClick={() => setCartOpen(true)}
             aria-label={`Buka keranjang, ${cartCount} pcs dipilih`}
             className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-between
-                       px-5 sm:px-8 py-4
+                       px-5 sm:px-8 py-4 overflow-hidden
                        bg-[#6E1A10] text-white shadow-[0_-4px_24px_rgba(0,0,0,0.18)]
                        hover:bg-[#5a1509] transition-colors duration-150"
           >
-            <div className="flex items-center gap-3">
+            <BatikPattern id="batik-cart-bar" />
+            <div className="relative z-10 flex items-center gap-3">
               <IconCart />
               <span className="w-px h-6 bg-white/25" />
               <span className="min-w-[24px] h-6 px-1.5 flex items-center justify-center
@@ -314,7 +355,9 @@ export default function PaketOrderExperience() {
                 {cartCount}
               </span>
             </div>
-            <IconChevronRight />
+            <span className="relative z-10 flex items-center">
+              <IconChevronRight />
+            </span>
           </motion.button>
         )}
       </AnimatePresence>
@@ -323,7 +366,7 @@ export default function PaketOrderExperience() {
       <AnimatePresence>
         {cartOpen && (
           <motion.div
-            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center"
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 sm:p-6"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -336,11 +379,11 @@ export default function PaketOrderExperience() {
               exit={{ opacity: 0 }}
             />
             <motion.div
-              initial={{ y: 40, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 40, opacity: 0 }}
+              initial={{ y: 40, opacity: 0, scale: 0.97 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 40, opacity: 0, scale: 0.97 }}
               transition={{ type: "spring", stiffness: 340, damping: 32 }}
-              className="relative bg-white w-full sm:max-w-md sm:rounded-2xl rounded-t-2xl p-6 max-h-[85vh] overflow-y-auto"
+              className="relative bg-white w-full sm:max-w-md rounded-2xl p-6 max-h-[85vh] overflow-y-auto shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
             >
               <div className="flex items-center justify-between mb-5">
                 <h3 className="font-bold text-lg text-[#111111]">Keranjang Pesanan</h3>

@@ -46,8 +46,8 @@ export default function PaketHero() {
           className="text-white/65 leading-relaxed mb-9 max-w-xl mx-auto"
           style={{ fontSize: "clamp(0.95rem, 1.5vw, 1.05rem)" }}
         >
-          Pesan Suka Shawarma untuk acara kantor, sekolah, atau komunitas.
-          Bebas pilih menu sendiri, minimal 50 pcs langsung dapat diskon 15%.
+          Lengkapi momen acaramu menjadi lebih seru dengan SUKA Shawarma!
+          Bebas pilih menu dan nikmatin keuntungan disc 15% dengan minimal order 50pcs Shawarma
         </motion.p>
 
         <motion.div

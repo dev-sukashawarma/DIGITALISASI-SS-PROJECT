@@ -50,6 +50,10 @@ export interface WaterfallInput {
   managementFeeIncome?: number
   /** Potongan management fee pusat (khusus scope mitra). */
   managementFeeExpense?: number
+  /** Rincian omzet kotor per channel penjualan. */
+  grossRevenueBreakdown?: WaterfallDetail[]
+  /** Rincian potongan merchant per channel penjualan. */
+  deductionsBreakdown?: WaterfallDetail[]
 }
 
 export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
@@ -59,6 +63,8 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     opexMonthlyBreakdown,
     managementFeeIncome = 0,
     managementFeeExpense = 0,
+    grossRevenueBreakdown,
+    deductionsBreakdown,
   } = input
 
   const pct = (n: number) => (grossRevenue > 0 ? (n / grossRevenue) * 100 : 0)
@@ -76,14 +82,16 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       amount: grossRevenue,
       kind: 'base',
       pctOfGross: grossRevenue > 0 ? 100 : 0,
+      breakdown: grossRevenueBreakdown?.length ? grossRevenueBreakdown : undefined,
     },
     {
       key: 'potongan',
-      label: 'Potongan Merchant & Platform',
-      hint: 'Komisi ojek online, diskon merchant, biaya platform',
+      label: 'Potongan / Diskon Merchant',
+      hint: 'Diskon langsung toko & biaya platform',
       amount: -deductions,
       kind: 'deduction',
       pctOfGross: pct(-deductions),
+      breakdown: deductionsBreakdown?.length ? deductionsBreakdown : undefined,
     },
     ...(managementFeeIncome > 0 ? [{
       key: 'fee_manajemen_mitra',

@@ -45,6 +45,7 @@ import { useProratedOpex } from '@/hooks/useProratedOpex'
 import { PRORATED_CATEGORIES } from '@/lib/opexProrata'
 import { clearPeriodCache } from '@/lib/periodCache'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
+import { getSourceLabel } from '@/lib/channels'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -451,6 +452,44 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       .sort((a, b) => a.amount - b.amount)
   }, [expenseRows, isProrated, prorataMonthInfo])
 
+  // Rincian Omzet Kotor per Channel Penjualan (POS, Food Apps, Online Marketplace)
+  const grossRevenueBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    salesRows
+      .filter(r => !isTestOutlet(r.outlet_id))
+      .forEach(r => {
+        const src = r.sales_source || 'pos'
+        const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+        map.set(src, (map.get(src) ?? 0) + gross)
+      })
+    return [...map.entries()]
+      .filter(([_, amount]) => amount > 0)
+      .map(([src, amount]) => ({
+        label: getSourceLabel(src),
+        amount,
+      }))
+      .sort((a, b) => b.amount - a.amount)
+  }, [salesRows])
+
+  // Rincian Potongan Merchant per Channel Penjualan
+  const deductionsBreakdown = useMemo(() => {
+    const map = new Map<string, number>()
+    salesRows
+      .filter(r => !isTestOutlet(r.outlet_id))
+      .forEach(r => {
+        const src = r.sales_source || 'pos'
+        const ded = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
+        map.set(src, (map.get(src) ?? 0) + ded)
+      })
+    return [...map.entries()]
+      .filter(([_, amount]) => amount > 0)
+      .map(([src, amount]) => ({
+        label: getSourceLabel(src),
+        amount: -amount,
+      }))
+      .sort((a, b) => a.amount - b.amount)
+  }, [salesRows])
+
   const waterfallInput = useMemo(() => ({
     grossRevenue: actualGrossSales,
     deductions: totalDeductions,
@@ -463,10 +502,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     opexMonthlyBreakdown,
     managementFeeIncome: managementFeeReceived,
     managementFeeExpense: managementFeeExpense,
+    grossRevenueBreakdown,
+    deductionsBreakdown,
   }), [
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
     pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
     opexMonthlyBreakdown, managementFeeReceived, managementFeeExpense,
+    grossRevenueBreakdown, deductionsBreakdown,
   ])
 
   const handleExportCSV = () => {

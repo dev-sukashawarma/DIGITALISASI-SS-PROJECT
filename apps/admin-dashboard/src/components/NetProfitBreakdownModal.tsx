@@ -142,7 +142,9 @@ export function NetProfitBreakdownModal({
                     {step.breakdown.map((item) => (
                       <div key={item.label} className="flex items-baseline justify-between gap-4 pr-4">
                         <span className="text-[12px] text-suka-gray-500 truncate">{item.label}</span>
-                        <span className="text-[12px] font-semibold text-rose-500/90 shrink-0 tabular-nums">
+                        <span className={`text-[12px] font-semibold shrink-0 tabular-nums ${
+                          item.amount < 0 ? 'text-rose-500/90' : 'text-suka-brown'
+                        }`}>
                           {item.amount < 0 ? '-' : ''}{rupiah(Math.abs(item.amount))}
                         </span>
                       </div>

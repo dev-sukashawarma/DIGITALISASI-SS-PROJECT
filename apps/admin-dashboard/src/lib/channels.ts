@@ -66,3 +66,21 @@ export function getChannel(id: string | null | undefined): ChannelConfig | null 
 
   return CHANNELS.find((c) => c.id === norm) ?? null
 }
+
+export const SOURCE_LABELS: Record<string, string> = {
+  pos: 'Kasir Offline (POS)',
+  gofood: 'GoFood',
+  grabfood: 'GrabFood',
+  shopeefood: 'ShopeeFood',
+  tiktok: 'TikTok Go',
+  tiktok_shop: 'TikTok Shop (Seller)',
+  shopee_shop: 'Shopee Seller',
+  online: 'Website Online',
+  app: 'Aplikasi SukaShawarma',
+  endors: 'Endorse',
+}
+
+export function getSourceLabel(salesSource: string | null | undefined): string {
+  if (!salesSource) return 'Kasir Offline (POS)'
+  return SOURCE_LABELS[salesSource.toLowerCase()] ?? salesSource
+}

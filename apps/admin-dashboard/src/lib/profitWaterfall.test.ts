@@ -189,3 +189,42 @@ describe('management fee di waterfall', () => {
     }
   })
 })
+
+describe('rincian channel omzet kotor dan potongan merchant', () => {
+  const OMZET_CHANNELS = [
+    { label: 'Kasir Offline (POS)', amount: 60_000_000 },
+    { label: 'ShopeeFood', amount: 25_000_000 },
+    { label: 'GoFood', amount: 15_000_000 },
+  ]
+  const POTONGAN_CHANNELS = [
+    { label: 'ShopeeFood', amount: -5_000_000 },
+    { label: 'GoFood', amount: -3_000_000 },
+  ]
+
+  it('menempelkan rincian channel pada omzet_kotor dan potongan saat diberikan', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      grossRevenueBreakdown: OMZET_CHANNELS,
+      deductionsBreakdown: POTONGAN_CHANNELS,
+    })
+
+    const omzetStep = steps.find((s) => s.key === 'omzet_kotor')
+    expect(omzetStep?.breakdown).toEqual(OMZET_CHANNELS)
+    expect(omzetStep?.breakdown?.reduce((s, r) => s + r.amount, 0)).toBe(INPUT.grossRevenue)
+
+    const potonganStep = steps.find((s) => s.key === 'potongan')
+    expect(potonganStep?.breakdown).toEqual(POTONGAN_CHANNELS)
+    expect(potonganStep?.breakdown?.reduce((s, r) => s + r.amount, 0)).toBe(-INPUT.deductions)
+  })
+
+  it('tidak ada breakdown jika tidak disediakan atau array kosong', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      grossRevenueBreakdown: [],
+      deductionsBreakdown: [],
+    })
+
+    expect(steps.find((s) => s.key === 'omzet_kotor')?.breakdown).toBeUndefined()
+    expect(steps.find((s) => s.key === 'potongan')?.breakdown).toBeUndefined()
+  })
+})

@@ -77,6 +77,40 @@ export function usePODetailKitchen(id: string | null) {
   })
 }
 
+// GUDANG PUSAT (HQ) -- tujuan stok setiap penerimaan PO; verifikasi_terima_po
+// menulis ledger ke id ini (di-hardcode juga di dalam fungsinya).
+export const GUDANG_PUSAT_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'
+
+/**
+ * Stok berjalan Gudang Pusat per bahan, dalam SATUAN BESAR.
+ * Dipakai form terima untuk menampilkan akibat penerimaan ke stok.
+ * Bahan yang tidak punya baris saldo sengaja TIDAK dipetakan jadi 0 --
+ * pemanggil membedakan "belum diketahui" dari "memang nol".
+ */
+export function useStokGudang(bahanIds: string[]) {
+  return useQuery({
+    queryKey: ['stok-gudang-po-kitchen', [...bahanIds].sort()],
+    enabled: bahanIds.length > 0,
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from('stok_balance')
+        .select('bahan_baku_id, saldo, saldo_is_gram, bahan_baku(faktor_tampilan, satuan_kecil)')
+        .eq('outlet_id', GUDANG_PUSAT_ID)
+        .in('bahan_baku_id', bahanIds)
+      if (error) throw error
+      const map: Record<string, number> = {}
+      for (const row of (data ?? []) as any[]) {
+        const b = row.bahan_baku ?? {}
+        const saldo = Number(row.saldo || 0)
+        map[row.bahan_baku_id] = row.saldo_is_gram && b.satuan_kecil && b.faktor_tampilan
+          ? saldo / Number(b.faktor_tampilan)
+          : saldo
+      }
+      return map
+    },
+  })
+}
+
 export function useVerifikasiPO() {
   const qc = useQueryClient()
   return useMutation({
@@ -87,6 +121,18 @@ export function useVerifikasiPO() {
       poId: string
       items: { bahan_baku_id: string; qty_terima: number; harga_terima: number | null; kondisi: string; catatan?: string }[]
     }) => {
+      // ⚠️ LAYAR INI TIDAK PERNAH MENULIS APA PUN (diverifikasi ke DB live,
+      // 16 Sep 2026, dengan kontrol positif). verifikasi_terima_po mencari
+      // baris item lewat `poi.id = (v_item->>'id')::uuid`; payload di bawah
+      // tidak pernah mengirim `id`, jadi setiap item kena `CONTINUE` dan
+      // fungsinya tetap mengembalikan success:true -- toast hijau, nol efek.
+      //
+      // Satu-satunya yang kurang untuk mengaktifkannya: kirim `id` baris PO
+      // (lihat TerimaBahanList.handleSubmit). SENGAJA belum diaktifkan --
+      // menghidupkan jalur tulis ke stok produksi adalah keputusan owner,
+      // dan ada risiko nyata: staf yang selama ini memasukkan ulang lewat
+      // app stok/finance akan membuat penerimaan DOBEL begitu layar ini
+      // benar-benar bekerja.
       const { data, error } = await supabase.rpc('verifikasi_terima_po', {
         p_po_id: poId,
         p_items: items,

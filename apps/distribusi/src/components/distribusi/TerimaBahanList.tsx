@@ -2,6 +2,8 @@
 import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { usePOPending, usePODetailKitchen, useVerifikasiPO, uploadInvoiceKitchen, getInvoiceUrl, type POItemVerif } from '@/hooks/usePOKitchen'
+import { useStokGudang } from '@/hooks/usePOKitchen'
+import { cekTerima, stokSetelahTerima, pesanWarning } from '@/lib/terimaGuard'
 import { BottomNav } from '@/components/distribusi/BottomNav'
 import { Package, ChevronRight, ArrowLeft, Camera, CheckCircle2, AlertCircle, Clock, FileText } from 'lucide-react'
 import { toast } from 'sonner'
@@ -99,11 +101,40 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
     }
   }
 
-  function updateState(itemId: string, field: keyof ItemVerifState, value: string) {
+  // Dulu memanggil getState({ id: itemId } as any): untuk baris yang belum
+  // punya state, defaultnya dihitung dari item PALSU itu -- qty_terima jadi
+  // String(undefined) = "undefined", lalu parseFloat -> NaN -> 0. Mengetik
+  // harga lebih dulu diam-diam menolkan qty-nya. Sekarang itemnya dibawa utuh.
+  function updateState(item: POItemVerif, field: keyof ItemVerifState, value: string) {
     setItemStates(prev => ({
       ...prev,
-      [itemId]: { ...getState({ id: itemId } as any), [field]: value },
+      [item.id]: { ...getState(item), [field]: value },
     }))
+  }
+
+  const bahanIds = po?.items.map(it => it.bahan_baku_id).filter(Boolean) ?? []
+  const { data: stokGudang } = useStokGudang(bahanIds)
+
+  // null = belum diketahui (query belum selesai / bahan belum punya baris
+  // saldo). Sengaja tidak dipukul rata jadi 0 -- lihat terimaGuard.ts.
+  function stokBesar(bahanBakuId?: string | null): number | null {
+    if (!bahanBakuId || !stokGudang) return null
+    return bahanBakuId in stokGudang ? stokGudang[bahanBakuId] : null
+  }
+
+  // Di layar ini kolom qty bersifat TOTAL KUMULATIF (beda dengan app stok &
+  // finance yang menanyakan "tiba hari ini"), jadi delta yang benar-benar
+  // masuk = input dikurangi yang sudah pernah diterima -- persis cara
+  // verifikasi_terima_po menghitungnya.
+  function warningsUntuk(item: POItemVerif) {
+    const sebelumnya = Number(item.qty_terima || 0)
+    const input = parseFloat(getState(item).qty_terima) || 0
+    return cekTerima({
+      qtyDatang: Math.max(0, input - sebelumnya),
+      qtyPesan: Number(item.qty_pesan || 0),
+      qtyTerimaSebelumnya: sebelumnya,
+      stokGudangBesar: stokBesar(item.bahan_baku_id),
+    })
   }
 
   async function handleUploadInvoice(e: React.ChangeEvent<HTMLInputElement>) {
@@ -124,6 +155,25 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
 
   async function handleSubmit() {
     if (!po) return
+    // Gerbang konfirmasi. SATU dialog untuk semua baris: peringatan beruntun
+    // melatih orang menekan "lanjut" (pelajaran gerbang nol opname).
+    const bermasalah = po.items
+      .map(item => ({ item, warnings: warningsUntuk(item) }))
+      .filter(x => x.warnings.length > 0)
+    if (bermasalah.length > 0) {
+      const rincian = bermasalah
+        .map(x => {
+          const sat = x.item.bahan_baku.satuan
+          return `- ${x.item.bahan_baku.nama}: total ${getState(x.item).qty_terima} ${sat}` +
+            '\n  ' + x.warnings.map(w => pesanWarning(w, sat)).join('\n  ')
+        })
+        .join('\n\n')
+      const lanjut = window.confirm(
+        'PERIKSA LAGI SEBELUM DISIMPAN\n\n' + rincian +
+          '\n\nPenerimaan yang sudah tersimpan TIDAK BISA dikurangi lewat aplikasi; koreksinya harus manual di database.\n\nTetap simpan?'
+      )
+      if (!lanjut) return
+    }
     const items = po.items.map(item => {
       const s = getState(item)
       return {
@@ -229,6 +279,12 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
           const s = getState(item)
           const qtyNum = parseFloat(s.qty_terima)
           const isKurang = !isNaN(qtyNum) && qtyNum < item.qty_pesan
+          const stokSekarang = stokBesar(item.bahan_baku_id)
+          const stokNanti = stokSetelahTerima(
+            stokSekarang,
+            Math.max(0, (parseFloat(s.qty_terima) || 0) - Number(item.qty_terima || 0))
+          )
+          const warnings = warningsUntuk(item)
           
           return (
             <div key={item.id} className="bg-white rounded-3xl border border-gray-100 shadow-[0_4px_20px_rgb(0,0,0,0.03)] p-5 relative overflow-hidden transition-all duration-300" style={{ animationDelay: `${i * 100}ms` }}>
@@ -258,7 +314,7 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
                     <input
                       type="number" min="0" step="0.01"
                       value={s.qty_terima}
-                      onChange={e => updateState(item.id, 'qty_terima', e.target.value)}
+                      onChange={e => updateState(item, 'qty_terima', e.target.value)}
                       className={`w-full border-2 rounded-2xl px-4 py-3 text-base text-right font-extrabold focus:outline-none transition-colors ${
                         isKurang 
                           ? 'border-yellow-300 bg-yellow-50/50 text-yellow-800 focus:border-yellow-400 focus:bg-yellow-50' 
@@ -267,6 +323,22 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
                     />
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-bold text-gray-400">{item.bahan_baku.satuan}</span>
                   </div>
+                  {/* Akibat ke stok, ditampilkan SELALU -- bukan cuma saat
+                      curiga. Form terima dulu tidak pernah menunjukkannya. */}
+                  <p className="text-[10px] font-bold text-gray-500 tabular-nums">
+                    Stok Gudang:{' '}
+                    {stokSekarang === null ? (
+                      <span className="text-gray-300">belum termuat</span>
+                    ) : (
+                      <>
+                        {stokSekarang} &rarr;{' '}
+                        <span className={warnings.length > 0 ? 'text-red-600 font-extrabold' : 'text-[#3d2b1f] font-extrabold'}>
+                          {stokNanti}
+                        </span>{' '}
+                        {item.bahan_baku.satuan}
+                      </>
+                    )}
+                  </p>
                 </div>
                 <div className="space-y-1.5">
                   <label className="block text-[10px] font-extrabold text-gray-500 uppercase tracking-wider">
@@ -277,13 +349,26 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
                     <input
                       type="number" min="0"
                       value={s.harga_terima}
-                      onChange={e => updateState(item.id, 'harga_terima', e.target.value)}
+                      onChange={e => updateState(item, 'harga_terima', e.target.value)}
                       placeholder={String(item.harga_pesan)}
                       className="w-full border-2 border-gray-100 bg-gray-50/50 rounded-2xl pl-10 pr-4 py-3 text-sm text-right font-bold text-[#3d2b1f] focus:outline-none focus:border-[#f29744]/40 focus:bg-white focus:ring-4 focus:ring-[#f29744]/10 transition-all placeholder:font-normal placeholder:text-gray-300"
                     />
                   </div>
                 </div>
               </div>
+
+              {warnings.length > 0 && (
+                <div className="flex gap-2.5 p-3.5 mb-4 bg-red-50 border border-red-200 rounded-2xl">
+                  <AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    {warnings.map((w, wi) => (
+                      <p key={wi} className="text-[11px] font-bold text-red-700 leading-snug">
+                        {pesanWarning(w, item.bahan_baku.satuan)}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Kondisi */}
               <div className="space-y-2 mb-1">
@@ -302,7 +387,7 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
                     }
 
                     return (
-                      <button key={k} onClick={() => updateState(item.id, 'kondisi', k)} className={baseClass}>
+                      <button key={k} onClick={() => updateState(item, 'kondisi', k)} className={baseClass}>
                         {k === 'baik' ? '✓ Baik' : k === 'kurang' ? '⚠ Kurang' : '✗ Rusak'}
                       </button>
                     )
@@ -316,7 +401,7 @@ function VerifikasiDetail({ poId, onBack }: { poId: string; onBack: () => void }
                 <input
                   type="text"
                   value={s.catatan}
-                  onChange={e => updateState(item.id, 'catatan', e.target.value)}
+                  onChange={e => updateState(item, 'catatan', e.target.value)}
                   placeholder="Jelaskan secara singkat..."
                   className="w-full border-2 border-gray-100 bg-gray-50 rounded-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-[#f29744]/40 focus:bg-white focus:ring-4 focus:ring-[#f29744]/10 transition-all"
                 />

@@ -19,6 +19,7 @@ export async function createOutlet(
   }
 
   const name = (formData.get('name') as string)?.trim()
+  const type = (formData.get('type') as string) || 'INTERNAL'
   if (!name) {
     return { error: 'Nama cabang/outlet wajib diisi' }
   }
@@ -33,11 +34,12 @@ export async function createOutlet(
     }
 
     await prisma.outlet.create({
-      data: { name },
+      data: { name, type },
     })
 
     revalidatePath('/dashboard/outlets')
     revalidatePath('/dashboard')
+    revalidatePath('/dashboard/budget')
     return { success: true }
   } catch (err: any) {
     console.error('Failed to create outlet:', err)
@@ -56,6 +58,7 @@ export async function updateOutlet(
   }
 
   const name = (formData.get('name') as string)?.trim()
+  const type = (formData.get('type') as string) || 'INTERNAL'
   if (!name) {
     return { error: 'Nama cabang/outlet wajib diisi' }
   }
@@ -77,11 +80,12 @@ export async function updateOutlet(
 
     await prisma.outlet.update({
       where: { id: outletId },
-      data: { name },
+      data: { name, type },
     })
 
     revalidatePath('/dashboard/outlets')
     revalidatePath('/dashboard')
+    revalidatePath('/dashboard/budget')
     return { success: true }
   } catch (err: any) {
     console.error('Failed to update outlet:', err)

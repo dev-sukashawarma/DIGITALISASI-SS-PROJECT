@@ -9,13 +9,34 @@ import {
   Users,
   Video,
   Megaphone,
+  Calendar,
+  Clapperboard,
   ShieldCheck,
   LogOut,
   Menu,
   X,
   Flame,
+  BarChart3,
+  CalendarDays,
+  ChevronDown,
+  DollarSign,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
+
+interface NavChild {
+  name: string
+  href: string
+  icon: any
+  badge?: string | null
+}
+
+interface NavItem {
+  name: string
+  href: string
+  icon: any
+  badge?: string | null
+  children?: NavChild[]
+}
 
 interface SidebarProps {
   user: {
@@ -29,7 +50,7 @@ export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
 
-  const navItems = [
+  const navItems: NavItem[] = [
     {
       name: 'Overview',
       href: '/dashboard',
@@ -37,10 +58,22 @@ export default function Sidebar({ user }: SidebarProps) {
       badge: null,
     },
     {
+      name: 'Kalender Marcom',
+      href: '/dashboard/calendar',
+      icon: Calendar,
+      badge: null,
+    },
+    {
       name: 'Cabang Outlet',
       href: '/dashboard/outlets',
       icon: Store,
       badge: null,
+    },
+    {
+      name: 'Budget Outlet',
+      href: '/dashboard/budget',
+      icon: DollarSign,
+      badge: 'Baru',
     },
     {
       name: 'Database KOL',
@@ -55,10 +88,30 @@ export default function Sidebar({ user }: SidebarProps) {
       badge: 'Live',
     },
     {
-      name: 'Ads Mitra',
+      name: 'Ads & Paid Traffic',
       href: '/dashboard/ads',
       icon: Megaphone,
-      badge: null,
+      badge: 'Multi-Akun',
+    },
+    {
+      name: 'Konten Planner',
+      href: '/dashboard/content-planner',
+      icon: Clapperboard,
+      badge: 'Baru',
+      children: [
+        {
+          name: 'Rencana Konten',
+          href: '/dashboard/content-planner',
+          icon: CalendarDays,
+          badge: null,
+        },
+        {
+          name: 'Metrik Data',
+          href: '/dashboard/content-planner/metrik-data',
+          icon: BarChart3,
+          badge: '168 Post',
+        },
+      ],
     },
   ]
 
@@ -137,43 +190,103 @@ export default function Sidebar({ user }: SidebarProps) {
         <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon
-            const isActive =
+            const hasChildren = item.children && item.children.length > 0
+            const isParentActive =
               item.href === '/dashboard'
                 ? pathname === '/dashboard'
                 : pathname.startsWith(item.href)
 
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={closeMobile}
-                className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
-                  isActive
-                    ? 'bg-[#D9480F] text-white shadow-sm shadow-orange-950/30'
-                    : 'text-stone-300 hover:text-white hover:bg-stone-800/60'
-                }`}
-              >
-                <div className="flex items-center space-x-3 min-w-0">
-                  <Icon
-                    className={`w-4 h-4 flex-shrink-0 transition-colors ${
-                      isActive ? 'text-white' : 'text-stone-400 group-hover:text-amber-400'
-                    }`}
-                  />
-                  <span className="truncate">{item.name}</span>
-                </div>
+              <div key={item.href} className="space-y-1">
+                <Link
+                  href={item.href}
+                  onClick={closeMobile}
+                  className={`group flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-150 ${
+                    isParentActive && !hasChildren
+                      ? 'bg-[#D9480F] text-white shadow-sm shadow-orange-950/30'
+                      : isParentActive && hasChildren
+                      ? 'bg-stone-800/90 text-white border border-stone-700/50'
+                      : 'text-stone-300 hover:text-white hover:bg-stone-800/60'
+                  }`}
+                >
+                  <div className="flex items-center space-x-3 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 flex-shrink-0 transition-colors ${
+                        isParentActive ? 'text-amber-400' : 'text-stone-400 group-hover:text-amber-400'
+                      }`}
+                    />
+                    <span className="truncate">{item.name}</span>
+                  </div>
 
-                {item.badge && (
-                  <span
-                    className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
-                      isActive
-                        ? 'bg-black/25 text-white'
-                        : 'bg-stone-800 text-stone-300 border border-stone-700/50'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {item.badge && (
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase tracking-wider ${
+                          isParentActive && !hasChildren
+                            ? 'bg-black/25 text-white'
+                            : 'bg-stone-800 text-stone-300 border border-stone-700/50'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                    )}
+                    {hasChildren && (
+                      <ChevronDown
+                        className={`w-3.5 h-3.5 text-stone-400 transition-transform duration-200 ${
+                          isParentActive ? 'rotate-0 text-amber-400' : '-rotate-90 text-stone-500'
+                        }`}
+                      />
+                    )}
+                  </div>
+                </Link>
+
+                {/* Sub-menu / Children */}
+                {hasChildren && isParentActive && (
+                  <div className="ml-3 pl-3 border-l-2 border-stone-800 space-y-1 py-1 animate-in fade-in duration-150">
+                    {item.children!.map((child) => {
+                      const ChildIcon = child.icon
+                      const isChildActive =
+                        child.href === '/dashboard/content-planner'
+                          ? pathname === '/dashboard/content-planner'
+                          : pathname === child.href || pathname.startsWith(child.href)
+
+                      return (
+                        <Link
+                          key={child.href}
+                          href={child.href}
+                          onClick={closeMobile}
+                          className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                            isChildActive
+                              ? 'bg-[#D9480F] text-white shadow-xs font-bold'
+                              : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
+                          }`}
+                        >
+                          <div className="flex items-center space-x-2.5 min-w-0">
+                            <ChildIcon
+                              className={`w-3.5 h-3.5 flex-shrink-0 ${
+                                isChildActive ? 'text-white' : 'text-stone-500'
+                              }`}
+                            />
+                            <span className="truncate">{child.name}</span>
+                          </div>
+
+                          {child.badge && (
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
+                                isChildActive
+                                  ? 'bg-black/25 text-white'
+                                  : 'bg-stone-800 text-stone-400 border border-stone-700/40'
+                              }`}
+                            >
+                              {child.badge}
+                            </span>
+                          )}
+                        </Link>
+                      )
+                    })}
+                  </div>
                 )}
-              </Link>
+              </div>
             )
           })}
         </nav>

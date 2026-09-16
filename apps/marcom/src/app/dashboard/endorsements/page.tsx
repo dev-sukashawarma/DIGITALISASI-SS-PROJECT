@@ -13,51 +13,99 @@ export default async function EndorsementsPage() {
       include: {
         kol: true,
         outlet: true,
+        posts: {
+          orderBy: { createdAt: 'asc' },
+        },
       },
     }),
     prisma.outlet.findMany({
       orderBy: { name: 'asc' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, type: true },
     }),
     prisma.kol.findMany({
       orderBy: { name: 'asc' },
-      select: { id: true, name: true },
+      select: { id: true, name: true, phoneNumber: true, bankAccount: true },
     }),
   ])
 
-  const serializedEndorsements: SerializedEndorsement[] = endorsements.map((item: any) => ({
-    id: item.id.toString(),
-    kolId: item.kolId.toString(),
-    outletId: item.outletId.toString(),
-    scheduleDate: item.scheduleDate.toISOString().split('T')[0],
-    rateCard: Number(item.rateCard),
-    postUrl: item.postUrl,
-    initialViews: item.initialViews,
-    finalViews: item.finalViews,
-    visitStatus: item.visitStatus,
-    postStatus: item.postStatus,
-    createdAt: item.createdAt.toISOString(),
-    kol: {
-      id: item.kol.id.toString(),
-      name: item.kol.name,
-      tiktokUrl: item.kol.tiktokUrl,
-      instagramUrl: item.kol.instagramUrl,
-      phoneNumber: item.kol.phoneNumber,
-    },
-    outlet: {
-      id: item.outlet.id.toString(),
-      name: item.outlet.name,
-    },
-  }))
+  const serializedEndorsements: SerializedEndorsement[] = endorsements.map((item: any) => {
+    const rateCard = Number(item.rateCard || 0)
+    const hppMenu = Number(item.hppMenu || 0)
+    const shippingCost = Number(item.shippingCost || 0)
+    const totalCost = rateCard + hppMenu + shippingCost
+
+    return {
+      id: item.id.toString(),
+      kolId: item.kolId.toString(),
+      outletId: item.outletId.toString(),
+      scheduleDate: item.scheduleDate.toISOString().split('T')[0],
+      rateCard,
+      menuGiven: item.menuGiven || null,
+      hppMenu,
+      shippingCost,
+      totalCost,
+      type: item.type || 'VISIT',
+      shippingAddress: item.shippingAddress || null,
+      recipientName: item.recipientName || null,
+      courierResi: item.courierResi || null,
+      isShipped: item.isShipped ?? false,
+      shippingDate: item.shippingDate ? item.shippingDate.toISOString().split('T')[0] : null,
+      postUrl: item.postUrl,
+      initialViews: item.initialViews,
+      finalViews: item.finalViews,
+      likes: item.likes ?? 0,
+      comments: item.comments ?? 0,
+      shares: item.shares ?? 0,
+      saves: item.saves ?? 0,
+      visitStatus: item.visitStatus,
+      postStatus: item.postStatus,
+      draftStatus: item.draftStatus || 'PENDING',
+      paymentStatus: item.paymentStatus || 'UNPAID',
+      paymentDate: item.paymentDate ? item.paymentDate.toISOString().split('T')[0] : null,
+      paymentNotes: item.paymentNotes || null,
+      bankAccountCustom: item.bankAccountCustom || null,
+      createdAt: item.createdAt.toISOString(),
+      posts: (item.posts || []).map((p: any) => ({
+        id: p.id.toString(),
+        endorsementId: p.endorsementId.toString(),
+        platform: p.platform,
+        customPlatformName: p.customPlatformName,
+        postUrl: p.postUrl,
+        status: p.status,
+        views: p.views || 0,
+        likes: p.likes || 0,
+        comments: p.comments || 0,
+        shares: p.shares || 0,
+        saves: p.saves || 0,
+        postedAt: p.postedAt ? p.postedAt.toISOString().split('T')[0] : null,
+      })),
+      kol: {
+        id: item.kol.id.toString(),
+        name: item.kol.name,
+        tiktokUrl: item.kol.tiktokUrl,
+        instagramUrl: item.kol.instagramUrl,
+        phoneNumber: item.kol.phoneNumber,
+        bankAccount: item.kol.bankAccount,
+      },
+      outlet: {
+        id: item.outlet.id.toString(),
+        name: item.outlet.name,
+        type: item.outlet.type || 'INTERNAL',
+      },
+    }
+  })
 
   const serializedOutlets = outlets.map((o: any) => ({
     id: o.id.toString(),
     name: o.name,
+    type: o.type || 'INTERNAL',
   }))
 
   const serializedKols = kols.map((k: any) => ({
     id: k.id.toString(),
     name: k.name,
+    phoneNumber: k.phoneNumber || null,
+    bankAccount: k.bankAccount || null,
   }))
 
   return (

@@ -56,6 +56,66 @@ export default async function DashboardPage() {
     },
   })
 
+  // Get upcoming agenda items
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
+  const [upcomingEndorsements, upcomingAds, upcomingPromos] = await Promise.all([
+    prisma.endorsement.findMany({
+      where: { scheduleDate: { gte: todayStart } },
+      take: 4,
+      orderBy: { scheduleDate: 'asc' },
+      include: { outlet: true, kol: true },
+    }),
+    prisma.ad.findMany({
+      where: { scheduleDate: { gte: todayStart } },
+      take: 4,
+      orderBy: { scheduleDate: 'asc' },
+      include: { outlet: true },
+    }),
+    prisma.promoEvent.findMany({
+      where: { endDate: { gte: todayStart } },
+      take: 4,
+      orderBy: { startDate: 'asc' },
+      include: { outlet: true },
+    }),
+  ])
+
+  const upcomingAgendas = [
+    ...upcomingEndorsements.map((e: any) => ({
+      id: `endorse-${e.id}`,
+      type: 'endorsement' as const,
+      title: `Visit: ${e.kol.name}`,
+      date: e.scheduleDate,
+      dateFormatted: new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(e.scheduleDate),
+      outlet: e.outlet.name,
+      badge: e.visitStatus,
+      link: '/dashboard/calendar',
+    })),
+    ...upcomingAds.map((a: any) => ({
+      id: `ad-${a.id}`,
+      type: 'ad' as const,
+      title: `Ads ${a.outlet.name}`,
+      date: a.scheduleDate,
+      dateFormatted: new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(a.scheduleDate),
+      outlet: a.outlet.name,
+      badge: a.status,
+      link: '/dashboard/calendar',
+    })),
+    ...upcomingPromos.map((p: any) => ({
+      id: `promo-${p.id}`,
+      type: 'promo' as const,
+      title: p.title,
+      date: p.startDate,
+      dateFormatted: new Intl.DateTimeFormat('id-ID', { day: 'numeric', month: 'short' }).format(p.startDate),
+      outlet: p.outlet?.name || 'Semua Cabang',
+      badge: p.type,
+      link: '/dashboard/calendar',
+    })),
+  ]
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .slice(0, 5)
+
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -79,9 +139,16 @@ export default async function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <div className="px-3 py-1.5 rounded-xl bg-white border border-[#EFE8DE] text-xs font-semibold text-stone-700 shadow-2xs flex items-center gap-2">
+          <Link
+            href="/dashboard/calendar"
+            className="px-3.5 py-1.5 rounded-xl bg-[#D9480F] text-white text-xs font-bold shadow-xs hover:bg-[#B83808] transition-all flex items-center gap-1.5"
+          >
+            <Calendar className="w-3.5 h-3.5" />
+            <span>Kalender Marcom</span>
+          </Link>
+          <div className="hidden sm:flex px-3 py-1.5 rounded-xl bg-white border border-[#EFE8DE] text-xs font-semibold text-stone-700 shadow-2xs items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Database: PostgreSQL Active</span>
+            <span>PostgreSQL Active</span>
           </div>
         </div>
       </div>
@@ -241,29 +308,45 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Action Row & Recent Feed */}
+      {/* Action Row, Upcoming Agenda, & Recent Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
-        {/* Quick Action Dock (Span 4) */}
-        <div className="lg:col-span-4 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        {/* Quick Action Dock (Span 3 on xl, Span 4 on lg) */}
+        <div className="lg:col-span-4 xl:col-span-3 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#D9480F]" />
-              <span>Aksi Cepat Operasional</span>
+              <span>Aksi Cepat</span>
             </h3>
           </div>
 
           <div className="space-y-2.5">
             <Link
-              href="/dashboard/endorsements"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              href="/dashboard/calendar"
+              className="flex items-center justify-between p-3 rounded-2xl bg-[#FFF4ED] border border-[#D9480F]/30 hover:border-[#D9480F] hover:bg-[#FFF4ED] transition-all group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-[#D9480F] shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-[#D9480F] flex items-center justify-center text-white shadow-2xs group-hover:scale-105 transition-transform">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-[#D9480F]">Kalender Marcom</div>
+                  <div className="text-[11px] text-stone-600">Jadwal KOL, Ads & Promo</div>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-[#D9480F] group-hover:translate-x-1 transition-transform" />
+            </Link>
+
+            <Link
+              href="/dashboard/endorsements"
+              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-[#D9480F] shadow-2xs group-hover:scale-105 transition-transform">
                   <Video className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#1A1715]">Jadwalkan Endorsement</div>
-                  <div className="text-[11px] text-stone-500">Input visit & rate card KOL</div>
+                  <div className="text-xs font-bold text-[#1A1715]">Jadwalkan Endorse</div>
+                  <div className="text-[11px] text-stone-500">Input visit & rate card</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -271,15 +354,15 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/kols"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-amber-700 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-amber-700 shadow-2xs group-hover:scale-105 transition-transform">
                   <Users className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1A1715]">Tambah Profil KOL</div>
-                  <div className="text-[11px] text-stone-500">Medsos, kontak & no rekening</div>
+                  <div className="text-[11px] text-stone-500">Medsos & kontak WA</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -287,15 +370,15 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/ads"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
                   <Megaphone className="w-4 h-4" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-[#1A1715]">Input Budget Ads</div>
-                  <div className="text-[11px] text-stone-500">Catat iklan cabang mitra</div>
+                  <div className="text-[11px] text-stone-500">Iklan cabang mitra</div>
                 </div>
               </div>
               <PlusCircle className="w-4 h-4 text-stone-400 group-hover:text-[#D9480F]" />
@@ -303,14 +386,14 @@ export default async function DashboardPage() {
 
             <Link
               href="/dashboard/outlets"
-              className="flex items-center justify-between p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
+              className="flex items-center justify-between p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] hover:border-[#D9480F] hover:bg-[#FFF4ED]/60 transition-all group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-xl bg-white border border-[#EFE8DE] flex items-center justify-center text-stone-700 shadow-2xs group-hover:scale-105 transition-transform">
                   <Store className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-[#1A1715]">Tambah Cabang Baru</div>
+                  <div className="text-xs font-bold text-[#1A1715]">Tambah Cabang</div>
                   <div className="text-[11px] text-stone-500">Daftarkan outlet baru</div>
                 </div>
               </div>
@@ -319,8 +402,94 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Recent Endorsements Feed (Span 8) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        {/* Upcoming Agenda Widget (Span 4 on xl, Span 8 on lg) */}
+        <div className="lg:col-span-8 xl:col-span-4 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
+            <div>
+              <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[#D9480F]" />
+                <span>Agenda Terjadwal</span>
+              </h3>
+              <p className="text-xs text-stone-500 mt-0.5">
+                KOL, Ads & Promo terdekat
+              </p>
+            </div>
+            <Link
+              href="/dashboard/calendar"
+              className="text-xs font-bold text-[#D9480F] hover:underline"
+            >
+              Lihat Kalender →
+            </Link>
+          </div>
+
+          {upcomingAgendas.length === 0 ? (
+            <div className="py-10 text-center rounded-2xl border-2 border-dashed border-[#EFE8DE] text-stone-400">
+              <Calendar className="w-8 h-8 mx-auto mb-2 text-stone-300" />
+              <p className="text-xs font-semibold text-stone-600">Belum ada agenda terdekat.</p>
+              <Link
+                href="/dashboard/calendar"
+                className="inline-block mt-2 text-xs font-bold text-[#D9480F] hover:underline"
+              >
+                + Buat Agenda di Kalender
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#EFE8DE]">
+              {upcomingAgendas.map((item) => (
+                <Link
+                  key={item.id}
+                  href={item.link}
+                  className="py-3 flex items-center justify-between gap-3 hover:bg-[#FAF8F5] -mx-2 px-2 rounded-xl transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-xs ${
+                        item.type === 'endorsement'
+                          ? 'bg-[#FFF4ED] text-[#D9480F]'
+                          : item.type === 'ad'
+                          ? 'bg-stone-100 text-stone-700'
+                          : 'bg-emerald-50 text-emerald-700'
+                      }`}
+                    >
+                      {item.type === 'endorsement' ? (
+                        <Video className="w-3.5 h-3.5" />
+                      ) : item.type === 'ad' ? (
+                        <Megaphone className="w-3.5 h-3.5" />
+                      ) : (
+                        <Sparkles className="w-3.5 h-3.5" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-xs text-[#1A1715] truncate group-hover:text-[#D9480F] transition-colors">
+                        {item.title}
+                      </div>
+                      <div className="text-[11px] text-stone-500 flex items-center gap-1.5 mt-0.5">
+                        <span className="font-semibold text-stone-700">{item.dateFormatted}</span>
+                        <span>•</span>
+                        <span className="truncate">{item.outlet}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider flex-shrink-0 ${
+                      item.type === 'endorsement'
+                        ? 'bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/20'
+                        : item.type === 'ad'
+                        ? 'bg-stone-100 text-stone-700 border border-stone-200'
+                        : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    }`}
+                  >
+                    {item.badge}
+                  </span>
+                </Link>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Endorsements Feed (Span 5 on xl, Span 12 on lg) */}
+        <div className="lg:col-span-12 xl:col-span-5 bg-white rounded-3xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <div>
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
@@ -328,14 +497,14 @@ export default async function DashboardPage() {
                 <span>Endorsement Terbaru</span>
               </h3>
               <p className="text-xs text-stone-500 mt-0.5">
-                5 aktivitas visit & posting influencer paling akhir
+                5 aktivitas visit & posting paling akhir
               </p>
             </div>
             <Link
               href="/dashboard/endorsements"
               className="text-xs font-bold text-[#D9480F] hover:underline"
             >
-              Lihat Seluruh Data →
+              Lihat Semua →
             </Link>
           </div>
 

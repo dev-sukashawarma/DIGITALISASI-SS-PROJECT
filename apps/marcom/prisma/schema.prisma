@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../node_modules/@prisma/client"
 }
 
 datasource db {
@@ -11,11 +10,31 @@ datasource db {
 model Outlet {
   id           BigInt   @id @default(autoincrement())
   name         String   @unique
+  type         String   @default("INTERNAL") // INTERNAL atau MITRA
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   endorsements Endorsement[]
   ads          Ad[]
+  promoEvents  PromoEvent[]
+  internalContents InternalContent[]
+  budgets      OutletBudget[]
 
   @@map("outlets")
+}
+
+model OutletBudget {
+  id              BigInt   @id @default(autoincrement())
+  outletId        BigInt   @map("outlet_id")
+  periodMonth     Int      @map("period_month") // 1 - 12
+  periodYear      Int      @map("period_year")  // e.g. 2026
+  targetBudget    Decimal  @default(0) @db.Decimal(12,2) @map("target_budget")
+  targetKolCount  Int      @default(0) @map("target_kol_count")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  outlet          Outlet   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@unique([outletId, periodMonth, periodYear], name: "idx_outlet_budget_period")
+  @@map("outlet_budgets")
 }
 
 model Kol {
@@ -32,41 +51,91 @@ model Kol {
 }
 
 model Endorsement {
-  id           BigInt   @id @default(autoincrement())
-  kolId        BigInt   @map("kol_id")
-  outletId     BigInt   @map("outlet_id")
-  scheduleDate DateTime @map("schedule_date") @db.Date
-  rateCard     Decimal  @default(0) @db.Decimal(12,2) @map("rate_card")
-  postUrl      String?  @map("post_url")
-  initialViews Int?     @map("initial_views")
-  finalViews   Int?     @map("final_views")
-  visitStatus  String   @default("PENDING") @map("visit_status") 
-  postStatus   String   @default("OFF") @map("post_status") 
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  id                BigInt   @id @default(autoincrement())
+  kolId             BigInt   @map("kol_id")
+  outletId          BigInt   @map("outlet_id")
+  scheduleDate      DateTime @map("schedule_date") @db.Date
+  rateCard          Decimal  @default(0) @db.Decimal(12,2) @map("rate_card")
+  menuGiven         String?  @map("menu_given")
+  hppMenu           Decimal  @default(0) @db.Decimal(12,2) @map("hpp_menu")
+  postUrl           String?  @map("post_url")
+  initialViews      Int?     @map("initial_views")
+  finalViews        Int?     @map("final_views")
+  likes             Int?     @default(0)
+  comments          Int?     @default(0)
+  shares            Int?     @default(0)
+  saves             Int?     @default(0)
+  visitStatus       String   @default("PENDING") @map("visit_status") 
+  postStatus        String   @default("OFF") @map("post_status") 
+  draftStatus       String   @default("PENDING") @map("draft_status") // PENDING, APPROVED, REVISION, NOT_REQUIRED
+  paymentStatus     String   @default("UNPAID") @map("payment_status") // UNPAID, PAID, BARTER, DOWN_PAYMENT
+  paymentDate       DateTime? @map("payment_date") @db.Date
+  paymentNotes      String?  @map("payment_notes")
+  bankAccountCustom String?  @map("bank_account_custom")
 
-  kol          Kol      @relation(fields: [kolId], references: [id], onDelete: Restrict)
-  outlet       Outlet   @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  // SS Online (Delivery / Ekspedisi)
+  type              String   @default("VISIT") // VISIT or DELIVERY
+  shippingAddress   String?  @map("shipping_address")
+  recipientName     String?  @map("recipient_name")
+  courierResi       String?  @map("courier_resi")
+  shippingCost      Decimal  @default(0) @db.Decimal(12,2) @map("shipping_cost")
+  isShipped         Boolean  @default(false) @map("is_shipped")
+  shippingDate      DateTime? @map("shipping_date") @db.Date
+
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  kol               Kol      @relation(fields: [kolId], references: [id], onDelete: Restrict)
+  outlet            Outlet   @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  posts             EndorsementPost[]
 
   @@index([kolId], name: "idx_endorsements_kol_id")
   @@index([outletId], name: "idx_endorsements_outlet_id")
   @@index([scheduleDate], name: "idx_endorsements_date")
+  @@index([paymentStatus], name: "idx_endorsements_payment_status")
+  @@index([type], name: "idx_endorsements_type")
   @@map("endorsements")
+}
+
+model EndorsementPost {
+  id                 BigInt    @id @default(autoincrement())
+  endorsementId      BigInt    @map("endorsement_id")
+  platform           String    @default("TIKTOK") // TIKTOK, IG_REEL, IG_STORY, THREADS, YOUTUBE_SHORTS, CUSTOM
+  customPlatformName String?   @map("custom_platform_name")
+  postUrl            String    @map("post_url")
+  status             String    @default("POSTED") // POSTED, DRAFT, TAKE_DOWN
+  views              Int       @default(0)
+  likes              Int       @default(0)
+  comments           Int       @default(0)
+  shares             Int       @default(0)
+  saves              Int       @default(0)
+  postedAt           DateTime? @map("posted_at") @db.Date
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  endorsement        Endorsement @relation(fields: [endorsementId], references: [id], onDelete: Cascade)
+
+  @@index([endorsementId], name: "idx_endorsement_posts_endorsement_id")
+  @@map("endorsement_posts")
 }
 
 model Ad {
   id           BigInt   @id @default(autoincrement())
-  outletId     BigInt   @map("outlet_id")
+  outletId     BigInt?  @map("outlet_id")
+  category     String   @default("MITRA") // INTERNAL atau MITRA
+  platform     String   @default("TIKTOK") // TIKTOK atau INSTAGRAM
+  accountName  String?  @map("account_name") // e.g. OFC TIKTOK, OFC IG, EMPANG, dll.
   scheduleDate DateTime @map("schedule_date") @db.Date
   budget       Decimal  @default(0) @db.Decimal(12,2)
+  spent        Decimal  @default(0) @db.Decimal(12,2)
   adUrl        String?  @map("ad_url")
   initialViews Int?     @map("initial_views")
   finalViews   Int?     @map("final_views")
   status       String   @default("OFF") 
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  outlet       Outlet   @relation(fields: [outletId], references: [id], onDelete: Restrict)
+  outlet       Outlet?  @relation(fields: [outletId], references: [id], onDelete: SetNull)
 
   @@index([outletId], name: "idx_ads_outlet_id")
+  @@index([category], name: "idx_ads_category")
   @@index([scheduleDate], name: "idx_ads_schedule_date")
   @@map("ads")
 }
@@ -80,3 +149,59 @@ model User {
 
   @@map("users")
 }
+
+model PromoEvent {
+  id          BigInt    @id @default(autoincrement())
+  title       String
+  description String?
+  outletId    BigInt?   @map("outlet_id")
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  type        String    @default("PROMO") @map("type")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  outlet      Outlet?   @relation(fields: [outletId], references: [id], onDelete: Cascade)
+
+  @@index([startDate, endDate], name: "idx_promo_events_date")
+  @@index([outletId], name: "idx_promo_events_outlet")
+  @@map("promo_events")
+}
+
+model InternalContent {
+  id                BigInt   @id @default(autoincrement())
+  title             String
+  platform          String   @default("TIKTOK")
+  pillar            String   @default("PROMO")
+  contentType       String?  @map("content_type")
+  format            String   @default("VIDEO") @map("format")
+  goal              String?  @map("goal")
+  status            String   @default("Sudah Posting") @map("status")
+  isAds             Boolean  @default(false) @map("is_ads")
+  creator           String?  @map("creator")
+  outletId          BigInt?  @map("outlet_id")
+  postUrl           String?  @map("post_url")
+  postDate          DateTime @map("post_date") @db.Date
+  postTime          String?  @map("post_time")
+  reach             Int      @default(0)
+  views             Int      @default(0)
+  likes             Int      @default(0)
+  comments          Int      @default(0)
+  shares            Int      @default(0)
+  saves             Int      @default(0)
+  followersBaseline Int?     @map("followers_baseline")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  outlet            Outlet?  @relation(fields: [outletId], references: [id], onDelete: SetNull)
+
+  @@index([pillar], name: "idx_internal_content_pillar")
+  @@index([platform], name: "idx_internal_content_platform")
+  @@index([contentType], name: "idx_internal_content_type")
+  @@index([format], name: "idx_internal_content_format")
+  @@index([goal], name: "idx_internal_content_goal")
+  @@index([isAds], name: "idx_internal_content_ads")
+  @@index([postDate], name: "idx_internal_content_date")
+  @@index([outletId], name: "idx_internal_content_outlet")
+  @@map("internal_contents")
+}
+
+

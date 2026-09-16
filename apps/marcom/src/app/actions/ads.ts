@@ -19,29 +19,38 @@ export async function createAd(
   }
 
   const outletIdStr = formData.get('outletId') as string
+  const category = (formData.get('category') as string) || 'MITRA'
+  const platform = (formData.get('platform') as string) || 'TIKTOK'
+  const accountName = (formData.get('accountName') as string)?.trim() || null
   const scheduleDateStr = formData.get('scheduleDate') as string
   const budgetStr = (formData.get('budget') as string) || '0'
+  const spentStr = (formData.get('spent') as string) || '0'
   const adUrl = (formData.get('adUrl') as string)?.trim() || null
   const initialViewsStr = formData.get('initialViews') as string
   const finalViewsStr = formData.get('finalViews') as string
   const status = (formData.get('status') as string) || 'OFF'
 
-  if (!outletIdStr || !scheduleDateStr) {
-    return { error: 'Outlet dan Tanggal Jadwal wajib diisi' }
+  if (!scheduleDateStr) {
+    return { error: 'Tanggal Jadwal iklan wajib diisi' }
   }
 
   try {
-    const outletId = BigInt(outletIdStr)
+    const outletId = outletIdStr ? BigInt(outletIdStr) : null
     const scheduleDate = new Date(scheduleDateStr)
     const budget = parseFloat(budgetStr.replace(/[^0-9.]/g, '')) || 0
+    const spent = parseFloat(spentStr.replace(/[^0-9.]/g, '')) || 0
     const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
     const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null
 
     await prisma.ad.create({
       data: {
         outletId,
+        category,
+        platform,
+        accountName,
         scheduleDate,
         budget,
+        spent,
         adUrl,
         initialViews,
         finalViews,
@@ -69,22 +78,27 @@ export async function updateAd(
   }
 
   const outletIdStr = formData.get('outletId') as string
+  const category = (formData.get('category') as string) || 'MITRA'
+  const platform = (formData.get('platform') as string) || 'TIKTOK'
+  const accountName = (formData.get('accountName') as string)?.trim() || null
   const scheduleDateStr = formData.get('scheduleDate') as string
   const budgetStr = (formData.get('budget') as string) || '0'
+  const spentStr = (formData.get('spent') as string) || '0'
   const adUrl = (formData.get('adUrl') as string)?.trim() || null
   const initialViewsStr = formData.get('initialViews') as string
   const finalViewsStr = formData.get('finalViews') as string
   const status = (formData.get('status') as string) || 'OFF'
 
-  if (!outletIdStr || !scheduleDateStr) {
-    return { error: 'Outlet dan Tanggal Jadwal wajib diisi' }
+  if (!scheduleDateStr) {
+    return { error: 'Tanggal Jadwal iklan wajib diisi' }
   }
 
   try {
     const adId = BigInt(id)
-    const outletId = BigInt(outletIdStr)
+    const outletId = outletIdStr ? BigInt(outletIdStr) : null
     const scheduleDate = new Date(scheduleDateStr)
     const budget = parseFloat(budgetStr.replace(/[^0-9.]/g, '')) || 0
+    const spent = parseFloat(spentStr.replace(/[^0-9.]/g, '')) || 0
     const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
     const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null
 
@@ -92,8 +106,12 @@ export async function updateAd(
       where: { id: adId },
       data: {
         outletId,
+        category,
+        platform,
+        accountName,
         scheduleDate,
         budget,
+        spent,
         adUrl,
         initialViews,
         finalViews,

@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "endorsements" ADD COLUMN     "comments" INTEGER DEFAULT 0,
+ADD COLUMN     "likes" INTEGER DEFAULT 0,
+ADD COLUMN     "saves" INTEGER DEFAULT 0,
+ADD COLUMN     "shares" INTEGER DEFAULT 0;

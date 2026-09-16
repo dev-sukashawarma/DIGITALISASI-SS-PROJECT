@@ -9,15 +9,12 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates
 # Enable pnpm via corepack
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Copy package definitions and lockfile
+# Copy package definitions, lockfile, and Prisma schema
 COPY package.json pnpm-lock.yaml ./
-
-# Install dependencies using pnpm
-RUN pnpm install --frozen-lockfile
-
-# Copy Prisma schema and generate client
 COPY prisma ./prisma/
-RUN pnpm prisma generate
+
+# Install dependencies using pnpm (this will trigger "postinstall: prisma generate" successfully)
+RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the application source code
 COPY . .

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useTransition, useMemo } from 'react'
+import { useState, useTransition, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import {
   CalendarDays,
@@ -42,6 +42,7 @@ import {
   GOALS,
   PLATFORMS,
   SerializedInternalContent,
+  Pagination,
 } from './ContentMetricsView'
 
 export type { SerializedInternalContent }
@@ -67,6 +68,15 @@ export default function ContentPlannerView({
   const [pillarFilter, setPillarFilter] = useState('ALL')
   const [platformFilter, setPlatformFilter] = useState('ALL')
   const [outletFilter, setOutletFilter] = useState('')
+
+  // Table view pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter])
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -171,6 +181,16 @@ export default function ContentPlannerView({
       })
       .sort((a, b) => new Date(b.postDate).getTime() - new Date(a.postDate).getTime())
   }, [initialContents, search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter])
+
+  // Table pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const safeCurrentPage = Math.min(currentPage, totalPages)
+  const startIndex = (safeCurrentPage - 1) * pageSize
+  const endIndex = Math.min(startIndex + pageSize, filtered.length)
+
+  const paginatedContents = useMemo(() => {
+    return filtered.slice(startIndex, endIndex)
+  }, [filtered, startIndex, endIndex])
 
   // Aggregate stats
   const totalContents = initialContents.length
@@ -962,7 +982,7 @@ export default function ContentPlannerView({
                   </td>
                 </tr>
               ) : (
-                filtered.map((item) => {
+                paginatedContents.map((item) => {
                   const pillarConfig = PILLARS[item.pillar] || PILLARS.Promo
                   const platformConfig = PLATFORMS[item.platform] || PLATFORMS.TIKTOK
                   const formatConfig = FORMATS[item.format] || FORMATS.VIDEO
@@ -1121,6 +1141,23 @@ export default function ContentPlannerView({
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {filtered.length > 0 && (
+          <Pagination
+            currentPage={safeCurrentPage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            pageSize={pageSize}
+            pageSizeOptions={[10, 20, 50, 100]}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(size) => {
+              setPageSize(size)
+              setCurrentPage(1)
+            }}
+            itemName="rencana konten"
+          />
+        )}
       </div>
       )}
 

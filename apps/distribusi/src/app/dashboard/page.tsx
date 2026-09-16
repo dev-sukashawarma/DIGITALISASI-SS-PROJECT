@@ -34,7 +34,6 @@ import {
   FileDown,
   Printer,
   Eye,
-  PackagePlus,
   SlidersHorizontal,
   X,
   Radio,
@@ -1080,15 +1079,6 @@ export default function DashboardPage() {
                       <ChevronRight size={16} />
                     </button>
 
-                    <button
-                      onClick={() => router.push('/distribusi/terima-bahan')}
-                      className="w-full py-3 px-4 bg-[#fff8f1] hover:bg-orange-50 active:scale-[0.98] border border-suka-orange/20 text-suka-brown rounded-2xl font-extrabold text-xs uppercase tracking-wider flex items-center justify-between transition-all cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2.5">
-                        <PackagePlus size={16} className="text-suka-orange" /> Terima PO Bahan Supplier
-                      </span>
-                      <ChevronRight size={14} className="text-suka-gray-400" />
-                    </button>
                   </>
                 ) : (
                   <>

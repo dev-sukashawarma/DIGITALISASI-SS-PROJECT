@@ -4,10 +4,10 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@suka/auth'
 import { getCrossAppUrl } from '@/lib/navigation'
 
-import { LayoutDashboard, FilePlus2, PackageCheck, History, QrCode } from 'lucide-react'
+import { LayoutDashboard, FilePlus2, History, QrCode } from 'lucide-react'
 
 interface BottomNavProps {
-  activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'terima-supplier' | 'scan' | 'none'
+  activeTab: 'dashboard' | 'terima' | 'riwayat' | 'surat-jalan' | 'pengiriman' | 'scan' | 'none'
 }
 
 export function BottomNav({ activeTab }: BottomNavProps) {
@@ -17,7 +17,6 @@ export function BottomNav({ activeTab }: BottomNavProps) {
   if (loading || !outletStaff) return null
 
   const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'purchasing'].includes(outletStaff.role)
-  const isKitchen = outletStaff.role === 'kitchen'
 
   const handleNavigate = (path: string) => {
     const resolvedUrl = getCrossAppUrl(path)
@@ -58,20 +57,6 @@ export function BottomNav({ activeTab }: BottomNavProps) {
             <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">Buat SJ</span>
           </button>
 
-          {/* Terima Bahan (khusus kitchen) */}
-          {isKitchen && (
-            <button
-              onClick={() => handleNavigate('/distribusi/terima-bahan')}
-              className={`flex flex-col items-center justify-center transition-all duration-200 cursor-pointer min-w-[64px] py-1 px-3 rounded-xl ${
-                activeTab === 'terima-supplier'
-                  ? 'bg-suka-orange text-white shadow-md shadow-suka-orange/25 scale-[1.02]'
-                  : 'text-suka-gray-500 hover:text-suka-brown active:scale-95'
-              }`}
-            >
-              <PackageCheck size={18} />
-              <span className="text-[10px] font-extrabold uppercase tracking-wider mt-1 leading-none">PO Bahan</span>
-            </button>
-          )}
 
           {/* Riwayat */}
           <button

@@ -1,0 +1,117 @@
+name: Build & Deploy POS Kasir (GHCR to Coolify)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/pos-kasir/**'
+      - 'packages/auth/**'
+      - 'packages/design-system/**'
+      - 'packages/realtime/**'
+      - 'packages/offline-queue/**'
+      - '.github/workflows/deploy-pos-coolify.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-pos-kasir-production
+  cancel-in-progress: true
+
+jobs:
+  build-and-push:
+    name: Build Docker Image & Push to GHCR
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata (tags & labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/dev-sukashawarma/digitalisasi-ss-project/pos-kasir
+          tags: |
+            type=raw,value=latest
+            type=sha,format=short
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: apps/pos-kasir/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_COOKIE_DOMAIN=${{ secrets.NEXT_PUBLIC_COOKIE_DOMAIN || '.sukashawarma.com' }}
+            NEXT_PUBLIC_PORTAL_URL=${{ secrets.NEXT_PUBLIC_PORTAL_URL || 'https://app.sukashawarma.com' }}
+            NEXT_PUBLIC_SITE_URL=${{ secrets.NEXT_PUBLIC_SITE_URL || 'https://pos.sukashawarma.com' }}
+            NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co' }}
+            NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5NjMyOTIsImV4cCI6MjA5NjUzOTI5Mn0.RdsvP6OKs6aiRnqqd02BYiv5gzbh4uGqO88dapo0Gso' }}
+
+      - name: Trigger Coolify Deploy (Pull & Restart on VPS)
+        continue-on-error: true
+        env:
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_API_TOKEN }}
+        run: |
+          if [ -n "$COOLIFY_TOKEN" ]; then
+            echo "Querying Coolify API to find POS Kasir application UUID..."
+            APPS_JSON=$(curl --fail --show-error --silent --location \
+              --request GET "https://coolify.sukashawarma.tech/api/v1/applications" \
+              --header "Authorization: Bearer $COOLIFY_TOKEN" || true)
+
+            POS_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.fqdn // "") | contains("pos.sukashawarma.com")) | .uuid) else empty end' 2>/dev/null | head -n 1)
+
+            if [ -z "$POS_UUID" ] || [ "$POS_UUID" = "null" ]; then
+              POS_UUID=$(echo "$APPS_JSON" | jq -r 'if type=="array" then (.[] | select((.name // "") | test("pos|kasir|kiosk"; "i")) | .uuid) else empty end' 2>/dev/null | head -n 1)
+            fi
+
+            if [ -n "$POS_UUID" ] && [ "$POS_UUID" != "null" ]; then
+              echo "Found POS UUID: $POS_UUID"
+              echo "Triggering Coolify deployment via API..."
+              curl --fail --show-error --silent --location \
+                --request POST "https://coolify.sukashawarma.tech/api/v1/deploy?uuid=$POS_UUID" \
+                --header "Authorization: Bearer $COOLIFY_TOKEN"
+              echo -e "\nCoolify deployment successfully triggered for POS ($POS_UUID)!"
+            else
+              echo "[WARN] Could not auto-detect POS UUID from Coolify API."
+              echo "Available applications on Coolify:"
+              echo "$APPS_JSON" | jq -r 'if type=="array" then .[] | "\(.name) (\(.uuid)) -> \(.fqdn)" else "Response is not an array" end' 2>/dev/null || true
+            fi
+          else
+            echo "COOLIFY_API_TOKEN is not set, skipping Coolify trigger."
+          fi
+
+      - name: Verify Live Service Health (Smoke Test)
+        run: |
+          echo "Waiting 30s for Coolify container restart..."
+          sleep 30
+          APP_URL="https://pos.sukashawarma.com"
+          echo "Probing $APP_URL..."
+          for i in {1..15}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$APP_URL" || true)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "307" ] || [ "$STATUS" = "401" ]; then
+              echo "✅ POS Kasir is LIVE and healthy (HTTP $STATUS)!"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "⚠️ Service did not return healthy HTTP status within timeout."
+          exit 1

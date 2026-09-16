@@ -216,8 +216,8 @@ export default function OrderManualPage() {
             supabase.from('pos_endorsements')
               .select('*')
               .eq('outlet_id', outletId)
-              .eq('schedule_date', todayStr)
-              .eq('status', 'SCHEDULED'),
+              .eq('status', 'SCHEDULED')
+              .order('schedule_date', { ascending: true }),
           ])
         )
 
@@ -384,29 +384,29 @@ export default function OrderManualPage() {
   const fetchTodayEndorsements = useCallback(async () => {
     if (!outletId) return
     try {
-      const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
       const { data, error } = await supabase
         .from('pos_endorsements')
         .select('*')
         .eq('outlet_id', outletId)
-        .eq('schedule_date', todayStr)
         .eq('status', 'SCHEDULED')
+        .order('schedule_date', { ascending: true })
       if (!error && data) {
         setTodayEndorsements(data)
       }
     } catch (e) {
-      console.warn('Gagal memuat endorsement hari ini', e)
+      console.warn('Gagal memuat endorsement', e)
     }
   }, [outletId, supabase])
 
   const displayCategories = useMemo(() => {
-    if (todayEndorsements.length > 0) {
-      return [
-        { id: 'cat-endorsement', name: `⭐ Endorsement (${todayEndorsements.length})`, sort_order: -1 },
-        ...categories
-      ]
-    }
-    return categories
+    return [
+      {
+        id: 'cat-endorsement',
+        name: todayEndorsements.length > 0 ? `⭐ Endorsement (${todayEndorsements.length})` : '⭐ Endorsement',
+        sort_order: -1
+      },
+      ...categories
+    ]
   }, [categories, todayEndorsements.length])
 
   const filteredEndorsements = useMemo(() => {
@@ -1189,7 +1189,7 @@ export default function OrderManualPage() {
                   ⭐
                 </div>
                 <div>
-                  <h3 className="font-bold text-amber-950 text-base">Jadwal Kunjungan KOL Hari Ini ({filteredEndorsements.length})</h3>
+                  <h3 className="font-bold text-amber-950 text-base">Jadwal Kunjungan KOL / Endorsement ({filteredEndorsements.length})</h3>
                   <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
                     Pilih tiket kunjungan di bawah untuk memasukkan menu jatah endorsement ke keranjang kasir (harga Rp 0). Jika KOL memesan menu tambahan, Anda dapat memilih menu lain dari katalog untuk ditagihkan normal (Split Billing).
                   </p>
@@ -1199,8 +1199,8 @@ export default function OrderManualPage() {
               {filteredEndorsements.length === 0 ? (
                 <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border border-dashed border-gray-200">
                   <ThumbsUp className="w-10 h-10 mx-auto mb-2 opacity-50 text-amber-500" />
-                  <p className="font-semibold text-gray-700">Tidak ada jadwal visit yang cocok</p>
-                  <p className="text-xs text-gray-500 mt-1">Cek kembali pencarian nama KOL</p>
+                  <p className="font-semibold text-gray-700">Belum ada jadwal kunjungan KOL untuk outlet ini</p>
+                  <p className="text-xs text-gray-500 mt-1">Jadwal endorsement baru dapat dibuat melalui menu MARCOM Dashboard.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1233,9 +1233,30 @@ export default function OrderManualPage() {
                                 </p>
                               )}
                             </div>
-                            <span className="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 border border-amber-200">
-                              Hari Ini
-                            </span>
+                            {(() => {
+                              const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date())
+                              const isToday = end.schedule_date === todayStr
+                              const isPast = end.schedule_date < todayStr
+                              if (isToday) {
+                                return (
+                                  <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 border border-emerald-200">
+                                    Hari Ini
+                                  </span>
+                                )
+                              }
+                              if (isPast) {
+                                return (
+                                  <span className="bg-rose-100 text-rose-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 border border-rose-200">
+                                    Lewat ({end.schedule_date})
+                                  </span>
+                                )
+                              }
+                              return (
+                                <span className="bg-blue-100 text-blue-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 border border-blue-200">
+                                  Jadwal: {end.schedule_date}
+                                </span>
+                              )
+                            })()}
                           </div>
 
                           {/* Items */}

@@ -220,12 +220,15 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
               id: it.id,
               qty_diterima_kitchen: it.qty_diterima_kitchen ?? it.qty_klaim,
             }))
-            await verifikasiKitchenDanBuatSJ(
+            const resRetur = await verifikasiKitchenDanBuatSJ(
               returId,
               verifiedItems,
               `Digabung bersama pengiriman reguler #${permintaan.id.slice(0, 6).toUpperCase()}`,
               true
             )
+            if (!resRetur.success) {
+              throw new Error(resRetur.error || 'Gagal menerbitkan Surat Jalan Pengganti Retur')
+            }
           }
         }
         toast.success(

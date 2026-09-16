@@ -114,23 +114,40 @@ export function useReturActions() {
   }
 
   const submitClaim = useMutation({
-    mutationFn: submitReturClaim,
+    mutationFn: async (payload: Parameters<typeof submitReturClaim>[0]) => {
+      const res = await submitReturClaim(payload)
+      if (!res.success) {
+        throw new Error(res.error || 'Gagal mengajukan retur bahan')
+      }
+      return res.data
+    },
     onSuccess: invalidate,
   })
 
   const approveManager = useMutation({
-    mutationFn: ({ returId, approve, note }: { returId: string; approve: boolean; note?: string }) =>
-      approveReturManager(returId, approve, note),
+    mutationFn: async ({ returId, approve, note }: { returId: string; approve: boolean; note?: string }) => {
+      const res = await approveReturManager(returId, approve, note)
+      if (!res.success) {
+        throw new Error(res.error || 'Gagal memproses persetujuan manager')
+      }
+      return res.data
+    },
     onSuccess: invalidate,
   })
 
   const serahTerima = useMutation({
-    mutationFn: konfirmasiSerahTerimaDriver,
+    mutationFn: async (payload: Parameters<typeof konfirmasiSerahTerimaDriver>[0]) => {
+      const res = await konfirmasiSerahTerimaDriver(payload)
+      if (!res.success) {
+        throw new Error(res.error || 'Gagal mengonfirmasi serah terima kurir')
+      }
+      return res.data
+    },
     onSuccess: invalidate,
   })
 
   const verifikasiKitchen = useMutation({
-    mutationFn: ({
+    mutationFn: async ({
       returId,
       itemsVerified,
       note,
@@ -140,7 +157,13 @@ export function useReturActions() {
       itemsVerified: Array<{ id: string; qty_diterima_kitchen: number }>
       note?: string
       terbitkanSjSekarang?: boolean
-    }) => verifikasiKitchenDanBuatSJ(returId, itemsVerified, note, terbitkanSjSekarang),
+    }) => {
+      const res = await verifikasiKitchenDanBuatSJ(returId, itemsVerified, note, terbitkanSjSekarang)
+      if (!res.success) {
+        throw new Error(res.error || 'Gagal memverifikasi retur Central Kitchen')
+      }
+      return res.data
+    },
     onSuccess: invalidate,
   })
 

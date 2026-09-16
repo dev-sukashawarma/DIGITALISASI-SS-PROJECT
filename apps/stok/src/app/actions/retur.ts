@@ -118,6 +118,10 @@ export async function fetchReturDetail(returId: string): Promise<ReturStok | nul
 
 /**
  * Submit pengajuan retur dari outlet.
+ *
+ * Return { success, data, error } alih-alih throw: di Next.js production, Server Action
+ * yang throw Error menghasilkan pesan generic "An error occurred in the Server Components render"
+ * yang tidak berguna bagi kru. Dengan return, client menerima pesan error asli.
  */
 export async function submitReturClaim(payload: {
   outlet_id: string
@@ -131,22 +135,27 @@ export async function submitReturClaim(payload: {
     catatan?: string
   }>
   catatan?: string
-}) {
-  const supabase = await getAuthedClient()
+}): Promise<{ success: boolean; data?: any; error?: string | null }> {
+  try {
+    const supabase = await getAuthedClient()
 
-  const { data, error } = await supabase.rpc('ajukan_retur_stok', {
-    p_outlet_id: payload.outlet_id,
-    p_tipe_retur: payload.tipe_retur ?? 'chiller_outlet',
-    p_items: payload.items,
-    p_catatan: payload.catatan ?? null,
-  })
+    const { data, error } = await supabase.rpc('ajukan_retur_stok', {
+      p_outlet_id: payload.outlet_id,
+      p_tipe_retur: payload.tipe_retur ?? 'chiller_outlet',
+      p_items: payload.items,
+      p_catatan: payload.catatan ?? null,
+    })
 
-  if (error) {
-    console.error('submitReturClaim error:', error)
-    throw new Error(error.message)
+    if (error) {
+      console.error('submitReturClaim error:', error)
+      return { success: false, error: error.message, data: null }
+    }
+
+    return { success: true, data, error: null }
+  } catch (err: any) {
+    console.error('submitReturClaim exception:', err)
+    return { success: false, error: err?.message || 'Gagal mengajukan retur bahan', data: null }
   }
-
-  return data
 }
 
 /**
@@ -156,21 +165,26 @@ export async function approveReturManager(
   returId: string,
   approve: boolean,
   note?: string
-) {
-  const supabase = await getAuthedClient()
+): Promise<{ success: boolean; data?: any; error?: string | null }> {
+  try {
+    const supabase = await getAuthedClient()
 
-  const { data, error } = await supabase.rpc('approve_retur_by_manager', {
-    p_retur_id: returId,
-    p_approve: approve,
-    p_catatan: note ?? null,
-  })
+    const { data, error } = await supabase.rpc('approve_retur_by_manager', {
+      p_retur_id: returId,
+      p_approve: approve,
+      p_catatan: note ?? null,
+    })
 
-  if (error) {
-    console.error('approveReturManager error:', error)
-    throw new Error(error.message)
+    if (error) {
+      console.error('approveReturManager error:', error)
+      return { success: false, error: error.message, data: null }
+    }
+
+    return { success: true, data, error: null }
+  } catch (err: any) {
+    console.error('approveReturManager exception:', err)
+    return { success: false, error: err?.message || 'Gagal memproses persetujuan manager', data: null }
   }
-
-  return data
 }
 
 /**
@@ -184,25 +198,30 @@ export async function konfirmasiSerahTerimaDriver(payload: {
   driver_kontak?: string
   driver_plat?: string
   foto_serah_terima?: string
-}) {
-  const supabase = await getAuthedClient()
+}): Promise<{ success: boolean; data?: any; error?: string | null }> {
+  try {
+    const supabase = await getAuthedClient()
 
-  const { data, error } = await supabase.rpc('konfirmasi_serah_terima_logistik', {
-    p_retur_id: payload.retur_id,
-    p_jenis_logistik: payload.jenis_logistik,
-    p_nomor_resi: payload.nomor_resi ?? null,
-    p_driver_nama: payload.driver_nama ?? null,
-    p_driver_kontak: payload.driver_kontak ?? null,
-    p_driver_plat: payload.driver_plat ?? null,
-    p_foto_serah_terima: payload.foto_serah_terima ?? null,
-  })
+    const { data, error } = await supabase.rpc('konfirmasi_serah_terima_logistik', {
+      p_retur_id: payload.retur_id,
+      p_jenis_logistik: payload.jenis_logistik,
+      p_nomor_resi: payload.nomor_resi ?? null,
+      p_driver_nama: payload.driver_nama ?? null,
+      p_driver_kontak: payload.driver_kontak ?? null,
+      p_driver_plat: payload.driver_plat ?? null,
+      p_foto_serah_terima: payload.foto_serah_terima ?? null,
+    })
 
-  if (error) {
-    console.error('konfirmasiSerahTerimaDriver error:', error)
-    throw new Error(error.message)
+    if (error) {
+      console.error('konfirmasiSerahTerimaDriver error:', error)
+      return { success: false, error: error.message, data: null }
+    }
+
+    return { success: true, data, error: null }
+  } catch (err: any) {
+    console.error('konfirmasiSerahTerimaDriver exception:', err)
+    return { success: false, error: err?.message || 'Gagal mengonfirmasi serah terima kurir', data: null }
   }
-
-  return data
 }
 
 /**
@@ -213,22 +232,27 @@ export async function verifikasiKitchenDanBuatSJ(
   itemsVerified: Array<{ id: string; qty_diterima_kitchen: number }>,
   note?: string,
   terbitkanSjSekarang: boolean = true
-) {
-  const supabase = await getAuthedClient()
+): Promise<{ success: boolean; data?: any; error?: string | null }> {
+  try {
+    const supabase = await getAuthedClient()
 
-  const { data, error } = await supabase.rpc('verifikasi_kitchen_dan_buat_sj', {
-    p_retur_id: returId,
-    p_items_verified: itemsVerified,
-    p_catatan: note ?? null,
-    p_terbitkan_sj_sekarang: terbitkanSjSekarang,
-  })
+    const { data, error } = await supabase.rpc('verifikasi_kitchen_dan_buat_sj', {
+      p_retur_id: returId,
+      p_items_verified: itemsVerified,
+      p_catatan: note ?? null,
+      p_terbitkan_sj_sekarang: terbitkanSjSekarang,
+    })
 
-  if (error) {
-    console.error('verifikasiKitchenDanBuatSJ error:', error)
-    throw new Error(error.message)
+    if (error) {
+      console.error('verifikasiKitchenDanBuatSJ error:', error)
+      return { success: false, error: error.message, data: null }
+    }
+
+    return { success: true, data, error: null }
+  } catch (err: any) {
+    console.error('verifikasiKitchenDanBuatSJ exception:', err)
+    return { success: false, error: err?.message || 'Gagal memverifikasi retur di Central Kitchen', data: null }
   }
-
-  return data
 }
 
 /**

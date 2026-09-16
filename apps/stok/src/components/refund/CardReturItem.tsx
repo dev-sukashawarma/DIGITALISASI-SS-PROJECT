@@ -362,7 +362,8 @@ export function CardReturItem({
 
         {/* Action Buttons */}
         <div className="pt-2 border-t border-gray-100 flex items-center justify-between flex-wrap gap-2">
-          <div className="text-[10px] text-gray-400 italic">
+          <div className="text-[10px] text-gray-400 italic space-x-2">
+            {retur.catatan_outlet && <span>Catatan Outlet: "{retur.catatan_outlet}"</span>}
             {retur.catatan_manager && <span>Catatan AM: "{retur.catatan_manager}"</span>}
           </div>
 

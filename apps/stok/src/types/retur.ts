@@ -52,6 +52,7 @@ export interface ReturStok {
   diserahkan_driver_at: string | null
   verified_by_kitchen: string | null
   verified_kitchen_at: string | null
+  catatan_outlet?: string | null
   catatan_kitchen: string | null
   ref_surat_jalan_asal_id: string | null
   ref_surat_jalan_pengganti_id: string | null

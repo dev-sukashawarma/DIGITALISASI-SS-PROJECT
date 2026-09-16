@@ -1,22 +1,22 @@
 # Stage 1: Dependencies & Build
-FROM node:20-slim AS builder
+FROM node:22-slim AS builder
 
 WORKDIR /app
 
 # Install OpenSSL and ca-certificates for Prisma
 RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm 11 (same major version as local dev environment)
-RUN npm install -g pnpm@11
+# Install pnpm pinned to exact same version as local dev
+RUN npm install -g pnpm@11.3.0
 
 # Copy package definitions, lockfile, and Prisma schema before install
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install all dependencies but skip all lifecycle scripts to avoid ERR_PNPM_IGNORED_BUILDS
+# Install all dependencies, skip lifecycle scripts to avoid ERR_PNPM_IGNORED_BUILDS
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
-# Manually run prisma generate (needed before build)
+# Manually run prisma generate (required before Next.js build)
 RUN pnpm prisma generate
 
 # Copy the rest of the application source code
@@ -33,11 +33,11 @@ RUN pnpm run build
 # ---------------------------------------------------------------
 # Stage 2: Production Runner
 # ---------------------------------------------------------------
-FROM node:20-slim AS runner
+FROM node:22-slim AS runner
 
 WORKDIR /app
 
-# Install runtime dependencies (OpenSSL for Prisma)
+# Install runtime dependencies
 RUN apt-get update -y && apt-get install -y openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
@@ -55,5 +55,4 @@ COPY --from=builder /app/prisma ./prisma
 # Expose port
 EXPOSE 3999
 
-# Start Next.js server (npm works fine here, no pnpm needed at runtime)
 CMD ["node", "node_modules/.bin/next", "start", "-p", "3999"]

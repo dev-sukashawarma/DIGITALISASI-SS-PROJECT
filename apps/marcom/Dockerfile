@@ -6,14 +6,14 @@ WORKDIR /app
 # Install OpenSSL and ca-certificates for Prisma
 RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
-# Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@9 --activate
+# Install pnpm 9 (matches pnpm-lock.yaml lockfileVersion: 9.0)
+RUN npm install -g pnpm@9
 
 # Copy package definitions, lockfile, and Prisma schema
 COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
-# Install dependencies using pnpm (this will trigger "postinstall: prisma generate" successfully)
+# Install dependencies (will run postinstall: prisma generate without pnpm v12 supply-chain errors)
 RUN pnpm install --frozen-lockfile
 
 # Copy the rest of the application source code
@@ -34,7 +34,7 @@ WORKDIR /app
 
 # Install runtime dependencies (OpenSSL for Prisma, curl for healthcheck/cron)
 RUN apt-get update -y && apt-get install -y openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN npm install -g pnpm@9
 
 ENV NODE_ENV=production
 ENV PORT=3999

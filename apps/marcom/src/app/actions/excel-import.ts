@@ -21,18 +21,18 @@ export interface ImportResult {
 
 function parseExcelDate(val: any, defaultYear: number = 2026, defaultMonth: number = 9): Date | null {
   if (!val) return null
-  if (val instanceof Date && !isNaN(val.getTime())) return val
 
-  // Excel serial number
-  if (typeof val === 'number') {
+  let resDate: Date | null = null
+
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    resDate = val
+  } else if (typeof val === 'number') {
+    // Excel serial number
     const parsed = XLSX.SSF.parse_date_code(val)
     if (parsed) {
-      return new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d))
+      resDate = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d))
     }
-  }
-
-  // String format
-  if (typeof val === 'string') {
+  } else if (typeof val === 'string') {
     const s = val.trim()
     if (!s) return null
 
@@ -45,18 +45,34 @@ function parseExcelDate(val: any, defaultYear: number = 2026, defaultMonth: numb
 
       if (p2 > 1000) {
         // DD/MM/YYYY
-        return new Date(Date.UTC(p2, p1 - 1, p0))
+        resDate = new Date(Date.UTC(p2, p1 - 1, p0))
       } else if (p0 > 1000) {
         // YYYY/MM/DD
-        return new Date(Date.UTC(p0, p1 - 1, p2))
+        resDate = new Date(Date.UTC(p0, p1 - 1, p2))
       }
     }
 
-    const d = new Date(s)
-    if (!isNaN(d.getTime())) return d
+    if (!resDate) {
+      const d = new Date(s)
+      if (!isNaN(d.getTime())) resDate = d
+    }
   }
 
-  return new Date(Date.UTC(defaultYear, defaultMonth - 1, 15))
+  if (!resDate) {
+    return new Date(Date.UTC(defaultYear, defaultMonth - 1, 15))
+  }
+
+  // Indonesian date correction:
+  // Excel sering kali mem-parsing format tanggal DD/MM/YYYY (contoh: 12/09/2026) sebagai MM/DD/YYYY (bulan 12, tanggal 9).
+  // Jika tanggal yang dihasilkan memiliki day == defaultMonth dan month != defaultMonth, lakukan pembalikan (swap).
+  const d = resDate.getUTCDate()
+  const m = resDate.getUTCMonth() + 1
+  const y = resDate.getUTCFullYear()
+  if (d === defaultMonth && m !== defaultMonth && m <= 31) {
+    return new Date(Date.UTC(y, defaultMonth - 1, m))
+  }
+
+  return resDate
 }
 
 function parseNumber(val: any): number {

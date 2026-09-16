@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { fetchPosMenuItems } from '@/lib/supabase-pos'
+import { syncClaimedEndorsements } from '@/app/actions/endorsements'
 import EndorsementList, { SerializedEndorsement } from './EndorsementList'
 
 export const dynamic = 'force-dynamic'
@@ -7,7 +9,10 @@ export const dynamic = 'force-dynamic'
 export default async function EndorsementsPage() {
   const user = await getCurrentUser()
 
-  const [endorsements, outlets, kols] = await Promise.all([
+  // Sinkronisasi otomatis klaim POS yang berstatus CLAIMED
+  await syncClaimedEndorsements()
+
+  const [endorsements, outlets, kols, posMenuItems] = await Promise.all([
     prisma.endorsement.findMany({
       orderBy: { scheduleDate: 'desc' },
       include: {
@@ -20,12 +25,22 @@ export default async function EndorsementsPage() {
     }),
     prisma.outlet.findMany({
       orderBy: { name: 'asc' },
-      select: { id: true, name: true, type: true },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        posOutletId: true,
+        posName: true,
+        posType: true,
+        region: true,
+        isActive: true,
+      },
     }),
     prisma.kol.findMany({
       orderBy: { name: 'asc' },
       select: { id: true, name: true, phoneNumber: true, bankAccount: true },
     }),
+    fetchPosMenuItems(),
   ])
 
   const serializedEndorsements: SerializedEndorsement[] = endorsements.map((item: any) => {
@@ -41,9 +56,12 @@ export default async function EndorsementsPage() {
       scheduleDate: item.scheduleDate.toISOString().split('T')[0],
       rateCard,
       menuGiven: item.menuGiven || null,
+      menuItems: item.menuItems || null,
       hppMenu,
       shippingCost,
       totalCost,
+      posOrderId: item.posOrderId || null,
+      posOrderNumber: item.posOrderNumber || null,
       type: item.type || 'VISIT',
       shippingAddress: item.shippingAddress || null,
       recipientName: item.recipientName || null,
@@ -99,6 +117,11 @@ export default async function EndorsementsPage() {
     id: o.id.toString(),
     name: o.name,
     type: o.type || 'INTERNAL',
+    posOutletId: o.posOutletId || null,
+    posName: o.posName || null,
+    posType: o.posType || null,
+    region: o.region || null,
+    isActive: o.isActive ?? true,
   }))
 
   const serializedKols = kols.map((k: any) => ({
@@ -114,6 +137,7 @@ export default async function EndorsementsPage() {
       outlets={serializedOutlets}
       kols={serializedKols}
       userRole={user?.role || 'MARCOM'}
+      posMenuItems={posMenuItems}
     />
   )
 }

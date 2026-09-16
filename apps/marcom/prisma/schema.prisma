@@ -12,6 +12,13 @@ model Outlet {
   id           BigInt   @id @default(autoincrement())
   name         String   @unique
   type         String   @default("INTERNAL") // INTERNAL atau MITRA
+  posOutletId  String?  @map("pos_outlet_id")
+  posName      String?  @map("pos_name")
+  posType      String?  @map("pos_type") // outlet, mitra, office, gudang, marketplace, system
+  region       String?  @map("region")
+  address      String?  @map("address")
+  phone        String?  @map("phone")
+  isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
   endorsements Endorsement[]
   ads          Ad[]
@@ -43,6 +50,8 @@ model Kol {
   name         String
   tiktokUrl    String?  @map("tiktok_url")
   instagramUrl String?  @map("instagram_url")
+  youtubeUrl   String?  @map("youtube_url")
+  threadsUrl   String?  @map("threads_url")
   phoneNumber  String?  @map("phone_number")
   bankAccount  String?  @map("bank_account")
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
@@ -58,7 +67,10 @@ model Endorsement {
   scheduleDate      DateTime @map("schedule_date") @db.Date
   rateCard          Decimal  @default(0) @db.Decimal(12,2) @map("rate_card")
   menuGiven         String?  @map("menu_given")
+  menuItems         Json?    @map("menu_items")
   hppMenu           Decimal  @default(0) @db.Decimal(12,2) @map("hpp_menu")
+  posOrderId        String?  @map("pos_order_id")
+  posOrderNumber    Int?     @map("pos_order_number")
   postUrl           String?  @map("post_url")
   initialViews      Int?     @map("initial_views")
   finalViews        Int?     @map("final_views")

@@ -21,6 +21,8 @@ export interface SerializedKol {
   name: string
   tiktokUrl: string | null
   instagramUrl: string | null
+  youtubeUrl?: string | null
+  threadsUrl?: string | null
   phoneNumber: string | null
   bankAccount: string | null
   createdAt: string
@@ -154,14 +156,14 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs sm:text-sm text-stone-600">
-            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider">
+            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider sticky top-0 z-10 shadow-2xs">
               <tr>
-                <th className="px-6 py-4">Nama Akun / Creator</th>
-                <th className="px-6 py-4">Tautan Media Sosial</th>
-                <th className="px-6 py-4">Kontak WhatsApp</th>
-                <th className="px-6 py-4">Rekening Transfer</th>
-                <th className="px-6 py-4 text-center">Riwayat</th>
-                <th className="px-6 py-4 text-right">Aksi</th>
+                <th className="px-6 py-4 whitespace-nowrap">Nama Akun / Creator</th>
+                <th className="px-6 py-4 whitespace-nowrap">Tautan Media Sosial</th>
+                <th className="px-6 py-4 whitespace-nowrap">Kontak WhatsApp</th>
+                <th className="px-6 py-4 whitespace-nowrap">Rekening Transfer</th>
+                <th className="px-6 py-4 text-center whitespace-nowrap">Riwayat</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -175,7 +177,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 </tr>
               ) : (
                 filteredKols.map((kol) => (
-                  <tr key={kol.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                  <tr key={kol.id} className="hover:bg-amber-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center font-extrabold text-xs">
@@ -194,7 +196,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             href={kol.tiktokUrl.startsWith('http') ? kol.tiktokUrl : `https://${kol.tiktokUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-stone-800 hover:text-[#D9480F] font-semibold truncate max-w-[200px]"
+                            className="inline-flex items-center gap-1.5 text-stone-800 hover:text-[#D9480F] font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
                             <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white text-[9px] font-black flex-shrink-0">
                               TT
@@ -209,7 +211,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             href={kol.instagramUrl.startsWith('http') ? kol.instagramUrl : `https://${kol.instagramUrl}`}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 text-rose-700 hover:text-rose-800 font-semibold truncate max-w-[200px]"
+                            className="inline-flex items-center gap-1.5 text-rose-700 hover:text-rose-800 font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
                             <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white text-[9px] font-black flex-shrink-0">
                               IG
@@ -219,7 +221,37 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                           </a>
                         ) : null}
 
-                        {!kol.tiktokUrl && !kol.instagramUrl && (
+                        {kol.youtubeUrl && kol.youtubeUrl !== 'nan' ? (
+                          <a
+                            href={kol.youtubeUrl.startsWith('http') ? kol.youtubeUrl : `https://${kol.youtubeUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-700 font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
+                          >
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white text-[9px] font-black flex-shrink-0">
+                              YT
+                            </span>
+                            <span className="truncate">{kol.youtubeUrl.replace(/^https?:\/\/(www\.)?youtube\.com\/@?/, '@')}</span>
+                            <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
+                          </a>
+                        ) : null}
+
+                        {kol.threadsUrl && kol.threadsUrl !== 'nan' ? (
+                          <a
+                            href={kol.threadsUrl.startsWith('http') ? kol.threadsUrl : `https://${kol.threadsUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-stone-800 hover:text-[#D9480F] font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
+                          >
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white text-[9px] font-black flex-shrink-0">
+                              TH
+                            </span>
+                            <span className="truncate">{kol.threadsUrl.replace(/^https?:\/\/(www\.)?threads\.net\/@?/, '@')}</span>
+                            <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
+                          </a>
+                        ) : null}
+
+                        {!kol.tiktokUrl && !kol.instagramUrl && !kol.youtubeUrl && !kol.threadsUrl && (
                           <span className="text-xs text-stone-400 italic">Belum ada sosmed</span>
                         )}
                       </div>

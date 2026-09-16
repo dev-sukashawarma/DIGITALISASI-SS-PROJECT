@@ -14,6 +14,8 @@ export interface Line {
   quantity: number
   note: string
   parentId?: string
+  package_choices?: Record<string, string>
+  isEndorseItem?: boolean
 }
 
 export type Payment = 'cash' | 'qris' | 'card'
@@ -43,11 +45,20 @@ export function WalkInCartPanel(props: {
   onPay: (method: Payment, amountReceived: number | null, proofFile?: File | null) => void
   embedded?: boolean
   isEndorse?: boolean
+  activeEndorsementClaim?: {
+    id: string
+    kol_name: string
+    kol_handle?: string
+    schedule_date?: string
+    notes?: string
+  } | null
+  onCancelEndorsement?: () => void
 }) {
   const {
     lineList, totalItems, subtotal, totalPrice, globalDiscount, globalPromo,
     needsMoreForPromo, missingAmount, customerName, setCustomerName, setQty, setNote,
-    calculateItemPrice, submitting, error, onPay, embedded, isEndorse
+    calculateItemPrice, submitting, error, onPay, embedded, isEndorse,
+    activeEndorsementClaim, onCancelEndorsement
   } = props
 
   const isOnline = useNetworkStatus()
@@ -57,9 +68,10 @@ export function WalkInCartPanel(props: {
 
   const amountReceived = cashInput ? parseInt(cashInput.replace(/\D/g, ''), 10) || 0 : 0
   const change = amountReceived - totalPrice
-  const cashEnough = amountReceived >= totalPrice && (isEndorse || totalPrice > 0)
+  const isZeroBill = totalPrice === 0
+  const cashEnough = isZeroBill || (amountReceived >= totalPrice && (isEndorse || totalPrice > 0))
 
-  const canPayCash = lineList.length > 0 && (isEndorse || cashEnough) && !submitting && customerName.trim() !== ''
+  const canPayCash = lineList.length > 0 && (isEndorse || isZeroBill || cashEnough) && !submitting && customerName.trim() !== ''
   const canOpenQris = lineList.length > 0 && !submitting && customerName.trim() !== ''
   const canPayCard = lineList.length > 0 && !submitting && customerName.trim() !== ''
 
@@ -76,6 +88,34 @@ export function WalkInCartPanel(props: {
           </div>
         )}
 
+        {/* Active Endorsement Claim Banner */}
+        {activeEndorsementClaim && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start justify-between gap-2 shadow-xs">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-xs font-extrabold text-amber-800">
+                <span>⭐ Tiket Visit KOL</span>
+                <span className="bg-amber-200 text-amber-900 text-[10px] px-1.5 py-0.2 rounded-full font-bold">Hari Ini</span>
+              </div>
+              <p className="text-sm font-bold text-amber-950 mt-0.5 truncate">
+                {activeEndorsementClaim.kol_name} {activeEndorsementClaim.kol_handle ? `(${activeEndorsementClaim.kol_handle})` : ''}
+              </p>
+              <p className="text-[11px] text-amber-700 leading-tight mt-0.5">
+                Menu jatah endorsement Rp 0. Pesanan ekstra di luar jatah otomatis ditagihkan normal.
+              </p>
+            </div>
+            {onCancelEndorsement && (
+              <button
+                type="button"
+                onClick={onCancelEndorsement}
+                className="p-1 text-amber-600 hover:text-red-600 hover:bg-amber-100 rounded-lg transition-colors flex-shrink-0"
+                title="Batal klaim tiket"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Items */}
         {lineList.length === 0 ? (
           <div className="text-center py-10 text-gray-400 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
@@ -86,7 +126,8 @@ export function WalkInCartPanel(props: {
           <div className="space-y-3 max-h-[36dvh] overflow-y-auto -mx-2 px-2 scrollbar-thin scrollbar-thumb-gray-200">
             {lineList.filter(l => !l.parentId).map((root) => {
               const children = lineList.filter(l => l.parentId === root.cartItemId)
-              const discountedPrice = calculateItemPrice(root.item.price, root.item.id, root.item.channel_prices)
+              const isEndorseItem = !!root.isEndorseItem
+              const discountedPrice = isEndorseItem ? 0 : calculateItemPrice(root.item.price, root.item.id, root.item.channel_prices)
               return (
                 <div key={root.cartItemId} className="py-2 flex flex-col gap-2 relative">
                   {/* Vertical Line for Cart */}
@@ -94,15 +135,26 @@ export function WalkInCartPanel(props: {
                     <div className="absolute left-[20px] top-10 bottom-4 w-[2px] bg-gray-200 z-0" />
                   )}
                   
-                  <div className="relative z-10 bg-white rounded-xl p-3 border border-gray-200 shadow-sm transition-all hover:border-amber-200">
+                  <div className={`relative z-10 bg-white rounded-xl p-3 border shadow-sm transition-all ${isEndorseItem ? 'border-amber-300 bg-amber-50/20' : 'border-gray-200 hover:border-amber-200'}`}>
                     <div className="flex items-start gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-gray-800 leading-snug text-sm">
-                          {root.item.name}
+                        <p className="font-semibold text-gray-800 leading-snug text-sm flex items-center gap-1.5 flex-wrap">
+                          <span>{root.item.name}</span>
+                          {isEndorseItem && (
+                            <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                              ⭐ Endorse Rp 0
+                            </span>
+                          )}
                         </p>
                         <div className="flex items-center gap-1.5 mt-1">
-
-                          <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
+                          {isEndorseItem ? (
+                            <>
+                              <span className="text-gray-400 line-through text-xs">{formatRupiah(root.item.price * root.quantity)}</span>
+                              <p className="text-emerald-600 font-bold text-sm">Gratis (Rp 0)</p>
+                            </>
+                          ) : (
+                            <p className="text-amber-600 font-bold text-sm">{formatRupiah(discountedPrice * root.quantity)}</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-1 bg-gray-50 rounded-lg p-1 border border-gray-100 flex-shrink-0">
@@ -110,9 +162,15 @@ export function WalkInCartPanel(props: {
                           {root.quantity === 1 ? <Trash2 className="w-3.5 h-3.5 text-red-500" /> : <Minus className="w-3.5 h-3.5" />}
                         </button>
                         <span className="font-bold text-sm w-5 text-center text-gray-800">{root.quantity}</span>
-                        <button onClick={() => setQty(root.cartItemId, root.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
+                        {isEndorseItem ? (
+                          <span className="w-7 h-7 rounded-md bg-gray-100 text-gray-400 flex items-center justify-center text-xs font-bold cursor-not-allowed" title="Jatah endorse terkunci. Pilih dari katalog menu untuk porsi berbayar tambahan.">
+                            🔒
+                          </span>
+                        ) : (
+                          <button onClick={() => setQty(root.cartItemId, root.quantity + 1)} className="w-7 h-7 rounded-md bg-amber-500 text-white flex items-center justify-center shadow-sm hover:bg-amber-600 active:scale-95 transition-all">
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
                     <div className="relative mt-2.5">
@@ -130,7 +188,8 @@ export function WalkInCartPanel(props: {
                   {children.length > 0 && (
                     <div className="mt-1 space-y-2 relative z-10">
                       {children.map(child => {
-                        const childDiscountedPrice = calculateItemPrice(child.item.price, child.item.id, child.item.channel_prices)
+                        const isChildEndorse = !!child.isEndorseItem
+                        const childDiscountedPrice = isChildEndorse ? 0 : calculateItemPrice(child.item.price, child.item.id, child.item.channel_prices)
                         return (
                           <div key={child.cartItemId} className="relative pl-[3rem]">
                             {/* L-Shape branch indicator */}
@@ -138,13 +197,24 @@ export function WalkInCartPanel(props: {
                             <div className="bg-amber-50/30 rounded-xl p-2 border border-amber-100/50 transition-all hover:border-amber-200 shadow-sm">
                               <div className="flex items-start gap-3">
                                 <div className="flex-1 min-w-0">
-                                  <p className="font-semibold text-amber-900 leading-snug text-xs">
+                                  <p className="font-semibold text-amber-900 leading-snug text-xs flex items-center gap-1.5 flex-wrap">
                                     <span className="font-extrabold text-amber-500 mr-1.5">↳ Extra</span>
-                                    {child.item.name}
+                                    <span>{child.item.name}</span>
+                                    {isChildEndorse && (
+                                      <span className="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
+                                        Endorse Rp 0
+                                      </span>
+                                    )}
                                   </p>
                                   <div className="flex items-center gap-1.5 mt-1">
-
-                                    <p className="text-amber-700 font-bold text-sm">{formatRupiah(childDiscountedPrice * child.quantity)}</p>
+                                    {isChildEndorse ? (
+                                      <>
+                                        <span className="text-gray-400 line-through text-xs">{formatRupiah(child.item.price * child.quantity)}</span>
+                                        <p className="text-emerald-600 font-bold text-sm">Gratis (Rp 0)</p>
+                                      </>
+                                    ) : (
+                                      <p className="text-amber-700 font-bold text-sm">{formatRupiah(childDiscountedPrice * child.quantity)}</p>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1 bg-white rounded-lg p-1 border border-gray-100 flex-shrink-0 shadow-sm">
@@ -152,9 +222,15 @@ export function WalkInCartPanel(props: {
                                     {child.quantity === 1 ? <Trash2 className="w-3 h-3 text-red-500" /> : <Minus className="w-3 h-3" />}
                                   </button>
                                   <span className="font-bold text-xs w-4 text-center text-gray-800">{child.quantity}</span>
-                                  <button onClick={() => setQty(child.cartItemId, child.quantity + 1)} className="w-6 h-6 rounded-md bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 active:scale-95 transition-all">
-                                    <Plus className="w-3 h-3" />
-                                  </button>
+                                  {isChildEndorse ? (
+                                    <span className="w-6 h-6 rounded-md bg-gray-100 text-gray-400 flex items-center justify-center text-xs font-bold cursor-not-allowed">
+                                      🔒
+                                    </span>
+                                  ) : (
+                                    <button onClick={() => setQty(child.cartItemId, child.quantity + 1)} className="w-6 h-6 rounded-md bg-amber-500 text-white flex items-center justify-center hover:bg-amber-600 active:scale-95 transition-all">
+                                      <Plus className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -185,10 +261,17 @@ export function WalkInCartPanel(props: {
           </div>
 
           {/* Metode bayar */}
-          {!isEndorse && (
+          {isZeroBill ? (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 text-center">
+              <p className="text-xs font-extrabold text-emerald-800 uppercase tracking-wide">Tagihan Rp 0</p>
+              <p className="text-xs text-emerald-700 mt-0.5">Seluruh menu dicover oleh endorsement KOL</p>
+            </div>
+          ) : !isEndorse ? (
             <>
               <div>
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">Metode Pembayaran</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-1.5">
+                  Metode Pembayaran {activeEndorsementClaim ? '(Item Tambahan)' : ''}
+                </label>
                 <div className="grid grid-cols-3 gap-3">
                   <button
                     onClick={() => setPayment('cash')}
@@ -267,7 +350,7 @@ export function WalkInCartPanel(props: {
                 </div>
               )}
             </>
-          )}
+          ) : null}
         </div>
 
         {/* Ringkasan total */}
@@ -299,8 +382,22 @@ export function WalkInCartPanel(props: {
         )}
 
         {/* Tombol bayar */}
-        {payment === 'qris' && !isEndorse ? (
+        {isZeroBill ? (
           <button
+            type="button"
+            onClick={() => onPay('cash', 0)}
+            disabled={!canPayCash}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95"
+          >
+            {submitting ? (
+              <><Loader2 className="w-5 h-5 animate-spin" /> Memproses...</>
+            ) : (
+              <><CheckCircle2 className="w-5 h-5" /> Selesaikan Klaim Endorse (Rp 0)</>
+            )}
+          </button>
+        ) : payment === 'qris' && !isEndorse ? (
+          <button
+            type="button"
             onClick={() => setQrisOpen(true)}
             disabled={!canOpenQris}
             className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm shadow-blue-200 flex items-center justify-center gap-2 transition-all active:scale-95"
@@ -309,6 +406,7 @@ export function WalkInCartPanel(props: {
           </button>
         ) : (
           <button
+            type="button"
             onClick={() => onPay(isEndorse ? 'cash' : payment, (payment === 'cash' || isEndorse) ? (isEndorse ? 0 : amountReceived) : null)}
             disabled={isEndorse ? !canPayCash : (payment === 'cash' ? !canPayCash : !canPayCard)}
             className={`w-full ${(payment === 'card' && !isEndorse) ? 'bg-purple-500 hover:bg-purple-600 shadow-purple-200' : 'bg-emerald-500 hover:bg-emerald-600 shadow-emerald-200'} disabled:bg-gray-200 disabled:text-gray-400 text-white font-bold py-3.5 rounded-xl shadow-sm flex items-center justify-center gap-2 transition-all active:scale-95`}

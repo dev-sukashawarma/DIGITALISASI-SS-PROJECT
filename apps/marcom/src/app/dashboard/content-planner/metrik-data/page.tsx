@@ -5,7 +5,7 @@ import ContentMetricsView, { SerializedInternalContent } from '../ContentMetrics
 export const dynamic = 'force-dynamic'
 
 export const metadata = {
-  title: 'Metrik Data Konten | Suka Shawarma',
+  title: 'Metrik Data Konten',
   description: 'Analisis performa mendalam jangkauan reach, views, interaksi, dan rasio EBR% video internal Suka Shawarma.',
 }
 

@@ -417,7 +417,7 @@ export default function EndorsementFinanceView({
       <div className="bg-white rounded-2xl border border-[#EFE8DE] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-stone-600 font-bold uppercase tracking-wider text-[11px]">
+            <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-stone-600 font-bold uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="p-3.5 text-center w-10">
                   <input
@@ -427,16 +427,16 @@ export default function EndorsementFinanceView({
                     className="rounded border-stone-300 text-[#D9480F] focus:ring-[#D9480F]"
                   />
                 </th>
-                <th className="p-3.5">Tanggal Visit</th>
-                <th className="p-3.5">KOL & Telepon</th>
-                <th className="p-3.5">Outlet</th>
-                <th className="p-3.5">Menu & HPP</th>
-                <th className="p-3.5 text-right">Rate Card</th>
-                <th className="p-3.5 text-right">Total Biaya</th>
-                <th className="p-3.5 text-center">Draft Video</th>
-                <th className="p-3.5">Nomor Rekening (Transfer)</th>
-                <th className="p-3.5 text-center">Status Pembayaran</th>
-                <th className="p-3.5 text-center">Aksi</th>
+                <th className="p-3.5 whitespace-nowrap">Tanggal Visit</th>
+                <th className="p-3.5 whitespace-nowrap">KOL & Telepon</th>
+                <th className="p-3.5 whitespace-nowrap">Outlet</th>
+                <th className="p-3.5 whitespace-nowrap">Menu & HPP</th>
+                <th className="p-3.5 text-right whitespace-nowrap">Rate Card</th>
+                <th className="p-3.5 text-right whitespace-nowrap">Total Biaya</th>
+                <th className="p-3.5 text-center whitespace-nowrap">Draft Video</th>
+                <th className="p-3.5 whitespace-nowrap">Nomor Rekening (Transfer)</th>
+                <th className="p-3.5 text-center whitespace-nowrap">Status Pembayaran</th>
+                <th className="p-3.5 text-center whitespace-nowrap">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">

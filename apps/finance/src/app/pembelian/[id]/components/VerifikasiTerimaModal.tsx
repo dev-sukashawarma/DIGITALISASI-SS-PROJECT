@@ -1,12 +1,18 @@
 // @ts-nocheck
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, CheckCircle, PackageCheck, AlertCircle, Camera, FileText } from 'lucide-react'
 import { Spinner } from '@suka/design-system'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrder'
 import { useVerifikasiTerimaPO, useUploadInvoice, getInvoiceUrl } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
+import { createClient } from '@/lib/supabase'
+import { cekTerima, stokSetelahTerima, pesanWarning } from '@/lib/purchase/terimaGuard'
+
+// GUDANG PUSAT (HQ) -- satu-satunya tujuan stok penerimaan PO
+// (verifikasi_terima_po menulis ledger ke id ini, di-hardcode juga di sana).
+const GUDANG_PUSAT_ID = 'd23e11b3-23f1-4f9a-b428-cc73e1aa9b90'
 
 type Props = {
   po: PurchaseOrder
@@ -50,12 +56,79 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
     })
   )
 
+  // Stok berjalan Gudang Pusat, satuan besar. null = BELUM DIKETAHUI (query
+  // gagal / bahan belum punya baris saldo) -- sengaja tidak dipukul rata jadi 0,
+  // lihat terimaGuard.ts.
+  const [stokGudang, setStokGudang] = useState<Record<string, number> | null>(null)
+
+  useEffect(() => {
+    let batal = false
+    const ids = po.items.map(it => it.bahan_baku_id).filter(Boolean) as string[]
+    if (ids.length === 0) { setStokGudang({}); return }
+    ;(async () => {
+      const { data, error } = await createClient()
+        .from('stok_balance')
+        .select('bahan_baku_id, saldo, saldo_is_gram, bahan_baku(faktor_tampilan, satuan_kecil)')
+        .eq('outlet_id', GUDANG_PUSAT_ID)
+        .in('bahan_baku_id', ids)
+      if (batal) return
+      if (error) { setStokGudang(null); return }
+      const map: Record<string, number> = {}
+      for (const row of (data ?? []) as any[]) {
+        const b = row.bahan_baku ?? {}
+        const saldo = Number(row.saldo || 0)
+        map[row.bahan_baku_id] = row.saldo_is_gram && b.satuan_kecil && b.faktor_tampilan
+          ? saldo / Number(b.faktor_tampilan)
+          : saldo
+      }
+      setStokGudang(map)
+    })()
+    return () => { batal = true }
+  }, [po.id])
+
+  const stokBesar = (bahanBakuId?: string | null): number | null => {
+    if (!bahanBakuId || !stokGudang) return null
+    return bahanBakuId in stokGudang ? stokGudang[bahanBakuId] : null
+  }
+
+  const warningsUntuk = (poItem: any) => {
+    const st = items.find(i => i.id === poItem.id)
+    if (!st) return []
+    return cekTerima({
+      qtyDatang: Number(st.qty_datang || 0),
+      qtyPesan: Number(st.qty_pesan || 0),
+      qtyTerimaSebelumnya: Number(st.qty_terima_sebelumnya || 0),
+      stokGudangBesar: stokBesar(poItem.bahan_baku_id)
+    })
+  }
+
   const updateItem = (id: string, field: keyof ItemState, value: any) => {
     setItems(prev => prev.map(it => it.id === id ? { ...it, [field]: value } : it))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Gerbang konfirmasi. SATU dialog untuk semua baris: dua peringatan
+    // beruntun melatih orang menekan "lanjut" (pelajaran gerbang nol opname).
+    const bermasalah = po.items
+      .map((poItem: any) => ({ poItem, warnings: warningsUntuk(poItem) }))
+      .filter((x: any) => x.warnings.length > 0)
+    if (bermasalah.length > 0) {
+      const rincian = bermasalah
+        .map((x: any) => {
+          const st = items.find(i => i.id === x.poItem.id)
+          const sat = x.poItem.bahan_baku?.satuan || x.poItem.satuan_ad_hoc || 'satuan'
+          const nama = x.poItem.bahan_baku?.nama || x.poItem.item_description || 'Item'
+          return `- ${nama}: ${st?.qty_datang} ${sat}` + '\n  ' +
+            x.warnings.map((w: any) => pesanWarning(w, sat)).join('\n  ')
+        })
+        .join('\n\n')
+      const lanjut = window.confirm(
+        'PERIKSA LAGI SEBELUM DISIMPAN\n\n' + rincian +
+          '\n\nPenerimaan yang sudah tersimpan TIDAK BISA dikurangi lewat aplikasi; koreksinya harus manual di database.\n\nTetap simpan?'
+      )
+      if (!lanjut) return
+    }
     setUploadingFile(true)
     try {
       if (invoiceFile) {
@@ -124,6 +197,9 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
               const isAdhoc = !poItem.bahan_baku_id
               const totalAkumulasi = (Number(state?.qty_terima_sebelumnya || 0) + Number(state?.qty_datang || 0))
               const satuan = isAdhoc ? poItem.satuan_ad_hoc : (poItem.bahan_baku?.satuan || poItem.bahan_baku?.satuan_standar || 'satuan')
+              const stokSekarang = stokBesar(poItem.bahan_baku_id)
+              const stokNanti = stokSetelahTerima(stokSekarang, Number(state?.qty_datang || 0))
+              const warnings = warningsUntuk(poItem)
 
               return (
                 <div key={poItem.id} className="bg-white/95 border border-suka-brown/10 rounded-3xl p-5 shadow-sm flex flex-col gap-4">
@@ -182,6 +258,25 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                           {satuan}
                         </span>
                       </div>
+                      {/* Akibat ke stok, ditampilkan SELALU -- bukan cuma saat
+                          curiga. Form ini dulu tidak pernah menunjukkannya, dan
+                          itu akar salah input 16 Sep 2026. */}
+                      {!isAdhoc && (
+                        <p className="text-[10px] font-bold text-suka-brown/60 tabular-nums leading-snug">
+                          Stok Gudang:{' '}
+                          {stokSekarang === null ? (
+                            <span className="text-suka-brown/40">belum termuat</span>
+                          ) : (
+                            <>
+                              {stokSekarang} &rarr;{' '}
+                              <span className={warnings.length > 0 ? 'text-red-600 font-black' : 'text-suka-brown font-black'}>
+                                {stokNanti}
+                              </span>{' '}
+                              {satuan}
+                            </>
+                          )}
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-1.5">
@@ -236,6 +331,19 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                       />
                     </div>
                   </div>
+
+                  {warnings.length > 0 && (
+                    <div className="flex gap-2.5 p-3.5 bg-red-50 border border-red-200 rounded-2xl">
+                      <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                      <div className="space-y-1">
+                        {warnings.map((w: any, wi: number) => (
+                          <p key={wi} className="text-[11px] font-bold text-red-700 leading-snug">
+                            {pesanWarning(w, satuan)}
+                          </p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                 </div>
               )

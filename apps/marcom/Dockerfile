@@ -7,7 +7,7 @@ WORKDIR /app
 RUN apt-get update -y && apt-get install -y openssl ca-certificates
 
 # Enable pnpm via corepack
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # Copy package definitions, lockfile, and Prisma schema
 COPY package.json pnpm-lock.yaml ./
@@ -34,7 +34,7 @@ WORKDIR /app
 
 # Install runtime dependencies (OpenSSL for Prisma, curl for healthcheck/cron)
 RUN apt-get update -y && apt-get install -y openssl curl ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 ENV NODE_ENV=production
 ENV PORT=3999

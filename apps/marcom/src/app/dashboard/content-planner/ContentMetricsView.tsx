@@ -1328,26 +1328,77 @@ export default function ContentMetricsView({
           </div>
         </div>
 
-        <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE]">
-          <span>
-            Menampilkan <span className="font-bold text-[#1A1715]">{filtered.length}</span> dari {totalContents} konten internal
-          </span>
-          {(search || adsFilter !== 'ALL' || formatFilter !== 'ALL' || goalFilter !== 'ALL' || contentTypeFilter !== 'ALL' || pillarFilter !== 'ALL' || platformFilter !== 'ALL' || outletFilter) && (
-            <button
-              onClick={() => {
-                setSearch('')
-                setAdsFilter('ALL')
-                setFormatFilter('ALL')
-                setGoalFilter('ALL')
-                setContentTypeFilter('ALL')
-                setPillarFilter('ALL')
-                setPlatformFilter('ALL')
-                setOutletFilter('')
-              }}
-              className="text-[#D9480F] hover:underline font-bold cursor-pointer"
-            >
-              Reset Semua Filter
-            </button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-stone-500 font-medium pt-2.5 border-t border-[#EFE8DE]">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span>
+              Menampilkan <span className="font-bold text-[#1A1715] font-mono">{filtered.length === 0 ? 0 : `${startIndex + 1} - ${endIndex}`}</span> dari <span className="font-bold text-[#1A1715] font-mono">{filtered.length}</span> konten internal
+              {filtered.length !== totalContents && ` (total: ${totalContents})`}
+            </span>
+            {(search || adsFilter !== 'ALL' || formatFilter !== 'ALL' || goalFilter !== 'ALL' || contentTypeFilter !== 'ALL' || pillarFilter !== 'ALL' || platformFilter !== 'ALL' || outletFilter) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setAdsFilter('ALL')
+                  setFormatFilter('ALL')
+                  setGoalFilter('ALL')
+                  setContentTypeFilter('ALL')
+                  setPillarFilter('ALL')
+                  setPlatformFilter('ALL')
+                  setOutletFilter('')
+                }}
+                className="text-[#D9480F] hover:underline font-bold cursor-pointer text-xs ml-1"
+              >
+                Reset Filter
+              </button>
+            )}
+          </div>
+
+          {/* Quick Pagination bar on top */}
+          {filtered.length > 0 && (
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
+                <span className="text-stone-400 text-[11px]">Tampilkan:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => {
+                    setPageSize(Number(e.target.value))
+                    setCurrentPage(1)
+                  }}
+                  className="px-2 py-0.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-[#D9480F] cursor-pointer shadow-2xs"
+                >
+                  {[10, 20, 50, 100].map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt} / hal
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1 pl-2 border-l border-[#EFE8DE]">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={safeCurrentPage <= 1}
+                  className="p-1 rounded-md border border-[#EFE8DE] bg-white text-stone-600 hover:bg-[#FAF8F5] hover:border-[#D9480F]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-2xs"
+                  title="Halaman Sebelumnya"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="text-xs font-mono font-bold text-stone-700 px-1">
+                  Hal. <strong className="text-[#D9480F]">{safeCurrentPage}</strong> / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={safeCurrentPage >= totalPages}
+                  className="p-1 rounded-md border border-[#EFE8DE] bg-white text-stone-600 hover:bg-[#FAF8F5] hover:border-[#D9480F]/40 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all shadow-2xs"
+                  title="Halaman Selanjutnya"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

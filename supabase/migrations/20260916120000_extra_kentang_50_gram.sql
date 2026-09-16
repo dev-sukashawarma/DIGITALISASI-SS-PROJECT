@@ -4,7 +4,7 @@
 -- Konfirmasi owner 2026-09-16: satu porsi "Extra Kentang" = 50 gram.
 --
 -- Resepnya tercatat 20 gram — sekitar tiga potong kentang goreng untuk topping
--- yang dijual Rp 3.500. Ketahuan dari panel HPP Dinamis: dinamis Rp 291/porsi
+-- yang dijual Rp 9.000. Ketahuan dari panel HPP Dinamis: dinamis Rp 291/porsi
 -- vs override Rp 3.500 (-91,7%), paling menyimpang dari seluruh papan (menu
 -- lain -13% s/d -33%). Extra Keju di sebelahnya diperiksa juga dan WAJAR:
 -- 1 lembar keju, 240 lembar/Dus @ Rp 289.047 = Rp 1.204/porsi.
@@ -22,10 +22,13 @@
 -- historis TIDAK disentuh — jejak audit, dan outlet opname rutin sehingga
 -- selisih lama sudah terserap (pola sama dengan keputusan 2026-09-09 K1).
 --
--- CATATAN TERPISAH, BUKAN BAGIAN MIGRATION INI: `hpp_override` Extra Kentang
--- dan Extra Keju sama-sama Rp 3.500 = PERSIS harga jualnya. Angka itu tampak
--- seperti harga jual yang keliru masuk ke kolom HPP, dan ia ikut ke laporan
--- laba yang sekarang masih memakai override. Menunggu keputusan owner.
+-- KOREKSI (ditulis belakangan, hari yang sama): draf pertama header ini menduga
+-- `hpp_override` Rp 3.500 di kedua topping adalah HARGA JUAL yang keliru masuk
+-- ke kolom HPP. ⚠️ DUGAAN ITU SALAH dan sudah ditarik. Harga jual sebenarnya
+-- Extra Kentang Rp 9.000 dan Extra Keju Rp 7.000 (aplikasi Rp 8.000); disapu ke
+-- seluruh menu aktif: NOL baris ber-`hpp_override = price`. Kedua topping justru
+-- margin terbaik — food cost 38,9% & 50% vs menu utama 60–71%. Perbaikan resep di
+-- bawah berdiri sendiri: porsinya yang kurang dicatat, bukan override-nya salah.
 -- =============================================================================
 BEGIN;
 

@@ -8,6 +8,7 @@ const workspaceRoot = process.env.DOCKER_BUILD === "true"
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: workspaceRoot,
+  serverExternalPackages: ["@prisma/client", "prisma"],
   turbopack: {
     root: workspaceRoot,
   },

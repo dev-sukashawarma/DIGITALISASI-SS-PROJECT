@@ -1,4 +1,4 @@
-﻿name: Build & Deploy Marcom (GHCR to Coolify)
+name: Build & Deploy Marcom (GHCR to Coolify)
 
 on:
   push:
@@ -77,11 +77,11 @@ jobs:
 
       - name: Verify Live Service Health (Smoke Test)
         run: |
-          echo "Waiting 15s for Coolify container restart..."
-          sleep 15
+          echo "Waiting 30s for Coolify container restart..."
+          sleep 30
           APP_URL="https://marcom.sukashawarma.com"
           echo "Probing $APP_URL..."
-          for i in {1..8}; do
+          for i in {1..15}; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$APP_URL" || true)
             echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] || [ "$STATUS" = "307" ] || [ "$STATUS" = "401" ]; then

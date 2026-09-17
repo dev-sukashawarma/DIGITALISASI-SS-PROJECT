@@ -60,7 +60,7 @@ export async function assertStaffCanAccessOutlet(serviceClient: any, staffId: st
 
   const isPrivileged = [
     'admin', 'admin_hr', 'owner', 'spv', 'kitchen',
-    'admin_finance', 'finance', 'purchasing', 'developer', 'regional_manager', 'area_manager'
+    'admin_finance', 'finance', 'purchasing', 'developer', 'regional_manager'
   ].includes(staff.role)
 
   if (isPrivileged) return

@@ -85,9 +85,18 @@ export async function searchCompletedOrders(
   }
 
   if (trimmed) {
-    q = /^\d+$/.test(trimmed)
-      ? q.eq('order_number', parseInt(trimmed, 10))
-      : q.ilike('customer_name', `%${trimmed}%`)
+    const isDigitsOnly = /^\d+$/.test(trimmed)
+    const numVal = isDigitsOnly ? parseInt(trimmed, 10) : NaN
+
+    // PostgreSQL INTEGER (32-bit signed) maksimum 2.147.483.647.
+    // Jika input angka di dalam batas, cocokkan order_number.
+    // Jika angka lebih besar (seperti nomor HP / nomor resi eksternal) atau berupa teks nama,
+    // cari ke customer_name, customer_phone, atau external_order_id.
+    if (isDigitsOnly && !isNaN(numVal) && numVal <= 2147483647) {
+      q = q.eq('order_number', numVal)
+    } else {
+      q = q.or(`customer_name.ilike.%${trimmed}%,customer_phone.ilike.%${trimmed}%,external_order_id.ilike.%${trimmed}%`)
+    }
   }
 
   const { data, error } = await q

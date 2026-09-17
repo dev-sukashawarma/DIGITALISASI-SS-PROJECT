@@ -43,6 +43,18 @@ type ItemState = {
   kondisi: 'baik' | 'rusak'
   catatan: string
   bahan_baku_id?: string
+  /**
+   * Berapa satuan TAMPILAN (mis. Roll) per 1 satuan besar (mis. Dus) yang
+   * dipakai RPC verifikasi_terima_po untuk konversi ledger. Default 1 saat
+   * baris tidak punya override tampilan -- perilaku lama, tak berubah.
+   * Dipakai untuk baris yang satuan_ad_hoc-nya cocok dengan satuan_tengah
+   * bahan (lihat 20260917100000_koreksi_satuan_po_foil_ekadharma_15sep.sql):
+   * qty/harga besar-scale dari DB dikonversi SEKALI saat form dibuka supaya
+   * kru bisa menghitung & mengetik dalam satuan fisik yang mereka pegang,
+   * lalu dikonversi balik ke besar-scale sebelum dikirim ke RPC (yang selalu
+   * mengasumsikan input dalam satuan besar bahan).
+   */
+  faktorTampilPerBase: number
 }
 
 export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
@@ -66,7 +78,7 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
 
       const { data: rawItems, error: iErr } = await supabase
         .from('purchase_order_item')
-        .select('*, bahan_baku(nama, satuan)')
+        .select('*, bahan_baku(nama, satuan, satuan_tengah, faktor_tengah)')
         .eq('purchase_order_id', poId)
       if (iErr) throw iErr
 
@@ -111,6 +123,15 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
     return bahanBakuId in stokGudang ? stokGudang[bahanBakuId] : null
   }
 
+  // Stok gudang (selalu besar-scale/Dus dari stokBesar()) dikonversi ke
+  // satuan TAMPILAN baris ini supaya bisa dibandingkan apple-to-apple dengan
+  // qty_datang yang diketik kru dalam satuan tampilan itu.
+  const stokTampil = (bahanBakuId: string | undefined, faktorTampilPerBase: number): number | null => {
+    const base = stokBesar(bahanBakuId)
+    if (base === null) return null
+    return base * faktorTampilPerBase
+  }
+
   const barisBerperingatan = items
     .map((it) => ({
       it,
@@ -118,7 +139,7 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
         qtyDatang: Number(it.qty_datang || 0),
         qtyPesan: Number(it.qty_pesan || 0),
         qtyTerimaSebelumnya: Number(it.qty_terima_sebelumnya || 0),
-        stokGudangBesar: stokBesar(it.bahan_baku_id)
+        stokGudangBesar: stokTampil(it.bahan_baku_id, it.faktorTampilPerBase)
       })
     }))
     .filter((x) => x.warnings.length > 0)
@@ -128,21 +149,53 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
     if (poDetail?.items) {
       setItems(
         poDetail.items.map((it: any) => {
-          const prevTerima = Number(it.qty_terima || 0)
-          const qtyPesan = Number(it.qty_pesan || 0)
+          const satuanBesar = it.bahan_baku?.satuan || 'pcs'
+          const satuanTengah = it.bahan_baku?.satuan_tengah
+          const faktorTengah = Number(it.bahan_baku?.faktor_tengah || 0)
+
+          // Baris yang satuan_ad_hoc-nya cocok dengan satuan_tengah bahan berarti
+          // qty/harga di DB (besar-scale) sengaja dikonversi untuk direceh-kan
+          // ke satuan fisik yang kru pegang -- lihat komentar faktorTampilPerBase
+          // di ItemState & migration 20260917100000_koreksi_satuan_po_foil_ekadharma_15sep.
+          const pakaiTampil =
+            !!it.satuan_ad_hoc &&
+            !!satuanTengah &&
+            faktorTengah > 0 &&
+            String(it.satuan_ad_hoc).toLowerCase().trim() === String(satuanTengah).toLowerCase().trim()
+
+          const satuan = pakaiTampil ? it.satuan_ad_hoc : (satuanBesar || it.satuan_ad_hoc || 'pcs')
+          const faktorTampilPerBase = pakaiTampil ? faktorTengah : 1
+
+          // Bulatkan hasil konversi -- 1000/48*48 kembali sebagai 999.9999999999999
+          // (drift floating point), bukan 1000 genap seperti yang harusnya dilihat kru.
+          const bulat = (n: number) => Math.round(n * 1e6) / 1e6
+
+          const prevTerimaBase = Number(it.qty_terima || 0)
+          const qtyPesanBase = Number(it.qty_pesan || 0)
+          const prevTerima = bulat(prevTerimaBase * faktorTampilPerBase)
+          const qtyPesan = bulat(qtyPesanBase * faktorTampilPerBase)
           const sisaBelumTiba = Math.max(0, qtyPesan - prevTerima)
+
+          const hargaPesanBase = Number(it.harga_pesan || 0)
+          const hargaTerimaBase = Number(it.harga_terima ?? it.harga_pesan ?? 0)
+          // Harga per satuan tampilan (Roll) = harga per satuan besar (Dus) / faktor,
+          // arah kebalikan dari qty -- Roll lebih murah per satuan drpd Dus.
+          const hargaPesan = faktorTampilPerBase > 0 ? bulat(hargaPesanBase / faktorTampilPerBase) : hargaPesanBase
+          const hargaTerima = faktorTampilPerBase > 0 ? bulat(hargaTerimaBase / faktorTampilPerBase) : hargaTerimaBase
+
           return {
             id: it.id,
             bahan_baku_id: it.bahan_baku_id,
             nama_item: it.bahan_baku?.nama || it.item_description || 'Item Ad-Hoc',
-            satuan: it.bahan_baku?.satuan || it.satuan_ad_hoc || 'pcs',
+            satuan,
             qty_pesan: qtyPesan,
             qty_terima_sebelumnya: prevTerima,
             qty_datang: sisaBelumTiba > 0 ? sisaBelumTiba : qtyPesan,
-            harga_pesan: Number(it.harga_pesan || 0),
-            harga_terima: Number(it.harga_terima ?? it.harga_pesan ?? 0),
+            harga_pesan: hargaPesan,
+            harga_terima: hargaTerima,
             kondisi: 'baik',
-            catatan: it.catatan || ''
+            catatan: it.catatan || '',
+            faktorTampilPerBase
           }
         })
       )
@@ -211,15 +264,25 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
       }
 
       // 2. Execute verifikasi_terima_po RPC with delta qty_datang and new cumulative qty_terima
-      const payloadItems = items.map(it => ({
-        id: it.id,
-        bahan_baku_id: it.bahan_baku_id,
-        qty_datang: Number(it.qty_datang || 0),
-        qty_terima: Number(it.qty_terima_sebelumnya) + Number(it.qty_datang || 0),
-        harga_terima: Number(it.harga_terima || 0),
-        kondisi: it.kondisi,
-        catatan: it.catatan
-      }))
+      // RPC selalu mengasumsikan qty/harga dalam satuan BESAR bahan (Dus, dst) --
+      // baris yang dikonversi ke satuan tampilan (faktorTampilPerBase != 1) wajib
+      // dikonversi balik di sini sebelum dikirim.
+      const payloadItems = items.map(it => {
+        const f = it.faktorTampilPerBase || 1
+        const qtyDatangTampil = Number(it.qty_datang || 0)
+        const qtyDatangBase = qtyDatangTampil / f
+        const qtyTerimaBase = (Number(it.qty_terima_sebelumnya) / f) + qtyDatangBase
+        const hargaTerimaBase = Number(it.harga_terima || 0) * f
+        return {
+          id: it.id,
+          bahan_baku_id: it.bahan_baku_id,
+          qty_datang: qtyDatangBase,
+          qty_terima: qtyTerimaBase,
+          harga_terima: hargaTerimaBase,
+          kondisi: it.kondisi,
+          catatan: it.catatan
+        }
+      })
 
       const { data: rpcRes, error: rpcErr } = await supabase.rpc('verifikasi_terima_po', {
         p_po_id: poId,
@@ -315,7 +378,7 @@ export function KitchenVerifikasiModal({ poId, onClose, onSuccess }: Props) {
 
                     {items.map((it, idx) => {
                       const totalAkumulasi = (Number(it.qty_terima_sebelumnya || 0) + Number(it.qty_datang || 0))
-                      const stokSekarang = stokBesar(it.bahan_baku_id)
+                      const stokSekarang = stokTampil(it.bahan_baku_id, it.faktorTampilPerBase)
                       const stokNanti = stokSetelahTerima(stokSekarang, Number(it.qty_datang || 0))
                       const warnings = cekTerima({
                         qtyDatang: Number(it.qty_datang || 0),

@@ -515,10 +515,15 @@ export default function CalendarView({
 
       {/* Modal: Tambah Agenda Baru (Tabbed) */}
       {isAddOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsAddOpen(false)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden my-auto flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE]">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE] flex-shrink-0 bg-white">
               <div>
                 <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
                   <CalendarIcon className="w-5 h-5 text-[#D9480F]" />
@@ -537,7 +542,7 @@ export default function CalendarView({
             </div>
 
             {/* Category Selector Tabs */}
-            <div className="grid grid-cols-3 p-2 bg-[#FAF8F5] border-b border-[#EFE8DE] text-xs font-bold text-center gap-1">
+            <div className="grid grid-cols-3 p-2 bg-[#FAF8F5] border-b border-[#EFE8DE] text-xs font-bold text-center gap-1 flex-shrink-0">
               <button
                 type="button"
                 onClick={() => setAddCategory('endorsement')}
@@ -574,7 +579,7 @@ export default function CalendarView({
             </div>
 
             {/* Dynamic Form based on Category */}
-            <form onSubmit={handleCreateAgenda} className="p-6 space-y-4">
+            <form onSubmit={handleCreateAgenda} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -825,7 +830,7 @@ export default function CalendarView({
                 </>
               )}
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
                 <button
                   type="button"
                   onClick={() => setIsAddOpen(false)}
@@ -848,10 +853,15 @@ export default function CalendarView({
 
       {/* Modal: Pop-up Detail Agenda */}
       {detailItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-md w-full overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDetailItem(null)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-md w-full overflow-hidden flex flex-col max-h-[90vh] my-auto animate-in fade-in zoom-in-95 duration-150">
             {/* Header with Type Icon */}
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between p-5 sm:p-6 border-b border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div
                   className={`w-10 h-10 rounded-2xl flex items-center justify-center font-bold ${
@@ -890,115 +900,117 @@ export default function CalendarView({
 
               <button
                 onClick={() => setDetailItem(null)}
-                className="text-stone-400 hover:text-stone-600 p-1 rounded-lg"
+                className="p-1.5 text-stone-400 hover:text-stone-700 hover:bg-stone-200/50 rounded-xl transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Content Details */}
-            <div className="space-y-2.5 text-xs text-stone-600 bg-[#FAF8F5] p-4 rounded-2xl border border-[#EFE8DE]">
-              {/* Outlet */}
-              <div className="flex justify-between items-center">
-                <span className="text-stone-400 font-medium">Cabang Outlet:</span>
-                <span className="font-bold text-[#1A1715]">
-                  {detailItem.data.outletName}
-                </span>
-              </div>
+            {/* Scrollable Content Details */}
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+              <div className="space-y-2.5 text-xs text-stone-600 bg-[#FAF8F5] p-4 rounded-2xl border border-[#EFE8DE]">
+                {/* Outlet */}
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-400 font-medium">Cabang Outlet:</span>
+                  <span className="font-bold text-[#1A1715]">
+                    {detailItem.data.outletName}
+                  </span>
+                </div>
 
-              {/* Tanggal */}
-              <div className="flex justify-between items-center">
-                <span className="text-stone-400 font-medium">Jadwal Tanggal:</span>
-                <span className="font-mono font-semibold text-stone-800">
-                  {detailItem.type === 'promo'
-                    ? `${detailItem.data.startDate} s/d ${detailItem.data.endDate}`
-                    : detailItem.data.scheduleDate}
-                </span>
-              </div>
+                {/* Tanggal */}
+                <div className="flex justify-between items-center">
+                  <span className="text-stone-400 font-medium">Jadwal Tanggal:</span>
+                  <span className="font-mono font-semibold text-stone-800">
+                    {detailItem.type === 'promo'
+                      ? `${detailItem.data.startDate} s/d ${detailItem.data.endDate}`
+                      : detailItem.data.scheduleDate}
+                  </span>
+                </div>
 
-              {/* Endorsement Specifics */}
-              {detailItem.type === 'endorsement' && (
-                <>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-400 font-medium">Rate Card:</span>
-                    <span className="font-mono font-bold text-[#1A1715]">
-                      {formatRupiah(detailItem.data.rateCard)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-400 font-medium">Status Visit:</span>
-                    <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      {detailItem.data.visitStatus}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-400 font-medium">Status Tayang:</span>
-                    <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/30">
-                      Post: {detailItem.data.postStatus}
-                    </span>
-                  </div>
-                  {detailItem.data.postUrl && (
-                    <div className="flex justify-between items-center pt-1 border-t border-[#EFE8DE]">
-                      <span className="text-stone-400 font-medium">Link Konten:</span>
-                      <a
-                        href={detailItem.data.postUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#D9480F] font-bold hover:underline inline-flex items-center gap-1"
-                      >
-                        <span>Buka Video</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
+                {/* Endorsement Specifics */}
+                {detailItem.type === 'endorsement' && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-400 font-medium">Rate Card:</span>
+                      <span className="font-mono font-bold text-[#1A1715]">
+                        {formatRupiah(detailItem.data.rateCard)}
+                      </span>
                     </div>
-                  )}
-                </>
-              )}
-
-              {/* Ads Specifics */}
-              {detailItem.type === 'ad' && (
-                <>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-400 font-medium">Budget Iklan:</span>
-                    <span className="font-mono font-bold text-[#1A1715]">
-                      {formatRupiah(detailItem.data.budget)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-400 font-medium">Status Iklan:</span>
-                    <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-stone-100 text-stone-800 border border-stone-300">
-                      {detailItem.data.status}
-                    </span>
-                  </div>
-                </>
-              )}
-
-              {/* Promo Specifics */}
-              {detailItem.type === 'promo' && (
-                <>
-                  <div className="flex justify-between items-center">
-                    <span className="text-stone-400 font-medium">Tipe Promo:</span>
-                    <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-amber-100 text-amber-900 border border-amber-300">
-                      {detailItem.data.type}
-                    </span>
-                  </div>
-                  {detailItem.data.description && (
-                    <div className="pt-2 border-t border-[#EFE8DE]">
-                      <span className="text-stone-400 font-medium block mb-1">Keterangan:</span>
-                      <p className="text-stone-700 italic">{detailItem.data.description}</p>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-400 font-medium">Status Visit:</span>
+                      <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        {detailItem.data.visitStatus}
+                      </span>
                     </div>
-                  )}
-                </>
-              )}
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-400 font-medium">Status Tayang:</span>
+                      <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/30">
+                        Post: {detailItem.data.postStatus}
+                      </span>
+                    </div>
+                    {detailItem.data.postUrl && (
+                      <div className="flex justify-between items-center pt-1 border-t border-[#EFE8DE]">
+                        <span className="text-stone-400 font-medium">Link Konten:</span>
+                        <a
+                          href={detailItem.data.postUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#D9480F] font-bold hover:underline inline-flex items-center gap-1"
+                        >
+                          <span>Buka Video</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {/* Ads Specifics */}
+                {detailItem.type === 'ad' && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-400 font-medium">Budget Iklan:</span>
+                      <span className="font-mono font-bold text-[#1A1715]">
+                        {formatRupiah(detailItem.data.budget)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-400 font-medium">Status Iklan:</span>
+                      <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-stone-100 text-stone-800 border border-stone-300">
+                        {detailItem.data.status}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {/* Promo Specifics */}
+                {detailItem.type === 'promo' && (
+                  <>
+                    <div className="flex justify-between items-center">
+                      <span className="text-stone-400 font-medium">Tipe Promo:</span>
+                      <span className="font-bold px-2 py-0.5 rounded-md text-[10px] bg-amber-100 text-amber-900 border border-amber-300">
+                        {detailItem.data.type}
+                      </span>
+                    </div>
+                    {detailItem.data.description && (
+                      <div className="pt-2 border-t border-[#EFE8DE]">
+                        <span className="text-stone-400 font-medium block mb-1">Keterangan:</span>
+                        <p className="text-stone-700 italic">{detailItem.data.description}</p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-t border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
               {userRole === 'ADMIN' ? (
                 <button
                   type="button"
                   onClick={handleDeleteItem}
                   disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{isPending ? 'Menghapus...' : 'Hapus Agenda'}</span>

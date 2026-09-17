@@ -1441,9 +1441,14 @@ export default function EndorsementList({
 
       {/* MODAL: UPDATE METRIK VIDEO & ENGAGEMENT */}
       {videoMetricsTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[92vh]">
-            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setVideoMetricsTarget(null)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
+            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5] flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
                   <BarChart3 className="w-5 h-5" />
@@ -1466,7 +1471,7 @@ export default function EndorsementList({
               </button>
             </div>
 
-            <form onSubmit={handleUpdateVideoMetrics} className="p-5 sm:p-6 space-y-4 overflow-y-auto">
+            <form onSubmit={handleUpdateVideoMetrics} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -1667,7 +1672,7 @@ export default function EndorsementList({
                 )
               })()}
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
                 <button
                   type="button"
                   onClick={() => setVideoMetricsTarget(null)}
@@ -1690,9 +1695,14 @@ export default function EndorsementList({
 
       {/* MODAL: TAMBAH ENDORSEMENT BARU */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreateOpen(false)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
+            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5] flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
                   <Video className="w-5 h-5" />
@@ -1714,7 +1724,7 @@ export default function EndorsementList({
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-5 sm:p-6 space-y-4">
+            <form onSubmit={handleCreate} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -2127,7 +2137,7 @@ export default function EndorsementList({
                 </p>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
@@ -2150,9 +2160,14 @@ export default function EndorsementList({
 
       {/* MODAL: EDIT ENDORSEMENT DATA */}
       {editingEndorsement && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingEndorsement(null)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
+            <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5] flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center">
                   <Edit2 className="w-5 h-5" />
@@ -2172,7 +2187,7 @@ export default function EndorsementList({
               </button>
             </div>
 
-            <form onSubmit={handleUpdate} className="p-5 sm:p-6 space-y-4">
+            <form onSubmit={handleUpdate} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -2512,7 +2527,7 @@ export default function EndorsementList({
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
                 <button
                   type="button"
                   onClick={() => setEditingEndorsement(null)}
@@ -2535,8 +2550,13 @@ export default function EndorsementList({
 
       {/* MODAL: KONFIRMASI HAPUS */}
       {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-sm w-full overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteTarget(null)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-sm w-full overflow-hidden p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150 my-auto">
             <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center mx-auto">
               <Trash2 className="w-6 h-6" />
             </div>

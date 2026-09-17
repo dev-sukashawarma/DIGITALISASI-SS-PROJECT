@@ -377,7 +377,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                 <th className="py-4 px-4 text-right whitespace-nowrap">Net Views Gain</th>
                 <th className="py-4 px-4 text-right whitespace-nowrap">CPV (Biaya/View)</th>
                 <th className="py-4 px-4 text-center whitespace-nowrap">Status</th>
-                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
+                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -393,7 +393,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                   const cpv = netGain > 0 && item.spent > 0 ? item.spent / netGain : 0
 
                   return (
-                    <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
+                    <tr key={item.id} className="group hover:bg-amber-50/30 transition-colors">
                       {/* Account & Category */}
                       <td className="py-4 px-4 sm:px-6">
                         <div className="font-extrabold text-[#1A1715]">
@@ -492,7 +492,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                       </td>
 
                       {/* Actions */}
-                      <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
+                      <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                         <div className="flex items-center justify-end space-x-1">
                           <button
                             onClick={() => {

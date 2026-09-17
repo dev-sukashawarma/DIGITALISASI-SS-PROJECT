@@ -1429,7 +1429,7 @@ export default function ContentMetricsView({
                 <th className="py-4 px-4 whitespace-nowrap">Jangkauan (Reach & Views)</th>
                 <th className="py-4 px-4 whitespace-nowrap">Interaksi (L/C/S/B)</th>
                 <th className="py-4 px-4 whitespace-nowrap">Performa (EBR & ER)</th>
-                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
+                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -1448,7 +1448,7 @@ export default function ContentMetricsView({
                   const formatConfig = FORMATS[item.format] || FORMATS.VIDEO
 
                   return (
-                    <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
+                    <tr key={item.id} className="group hover:bg-amber-50/30 transition-colors">
                       {/* Title, Platform & Format */}
                       <td className="py-4 px-4 sm:px-6">
                         <div className="flex items-start gap-3">
@@ -1602,7 +1602,7 @@ export default function ContentMetricsView({
                       </td>
 
                       {/* Aksi */}
-                      <td className="py-4 px-4 sm:px-6 text-right">
+                      <td className="py-4 px-4 sm:px-6 text-right sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Metrik Button */}
                           <button

@@ -163,7 +163,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 <th className="px-6 py-4 whitespace-nowrap">Kontak WhatsApp</th>
                 <th className="px-6 py-4 whitespace-nowrap">Rekening Transfer</th>
                 <th className="px-6 py-4 text-center whitespace-nowrap">Riwayat</th>
-                <th className="px-6 py-4 text-right whitespace-nowrap">Aksi</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -177,7 +177,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 </tr>
               ) : (
                 filteredKols.map((kol) => (
-                  <tr key={kol.id} className="hover:bg-amber-50/30 transition-colors">
+                  <tr key={kol.id} className="group hover:bg-amber-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center font-extrabold text-xs">
@@ -281,7 +281,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                         {kol._count.endorsements} visit
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap">
+                    <td className="px-6 py-4 text-right space-x-2 whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                       <button
                         onClick={() => {
                           setErrorMessage('')

@@ -381,7 +381,7 @@ export default function OutletList({ initialOutlets, posOutlets = [], userRole }
                 <th className="px-6 py-4 whitespace-nowrap">Region</th>
                 <th className="px-6 py-4 text-center whitespace-nowrap">Status Operasional</th>
                 <th className="px-6 py-4 text-center whitespace-nowrap">Total Konten & Ads</th>
-                <th className="px-6 py-4 text-right whitespace-nowrap">Aksi</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -395,7 +395,7 @@ export default function OutletList({ initialOutlets, posOutlets = [], userRole }
                 </tr>
               ) : (
                 filteredOutlets.map((outlet, index) => (
-                  <tr key={outlet.id} className="hover:bg-amber-50/30 transition-colors">
+                  <tr key={outlet.id} className="group hover:bg-amber-50/30 transition-colors">
                     <td className="px-6 py-4 font-mono text-xs text-stone-400">
                       {index + 1}
                     </td>
@@ -501,7 +501,7 @@ export default function OutletList({ initialOutlets, posOutlets = [], userRole }
                     </td>
 
                     {/* Aksi */}
-                    <td className="px-6 py-4 text-right space-x-1.5 whitespace-nowrap">
+                    <td className="px-6 py-4 text-right space-x-1.5 whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                       <button
                         onClick={() => {
                           setErrorMessage('')

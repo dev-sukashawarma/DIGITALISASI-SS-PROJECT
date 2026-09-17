@@ -972,7 +972,7 @@ export default function ContentPlannerView({
         /* Editorial Calendar & Schedule Table */
         <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+          <table className="w-full min-w-[900px] text-left text-xs sm:text-sm text-stone-600">
             <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="py-4 px-4 sm:px-6 whitespace-nowrap">Jadwal & Jam</th>
@@ -980,7 +980,7 @@ export default function ContentPlannerView({
                 <th className="py-4 px-4 whitespace-nowrap">Tipe & Pilar</th>
                 <th className="py-4 px-4 whitespace-nowrap">Target Goal</th>
                 <th className="py-4 px-4 whitespace-nowrap">Status Produksi</th>
-                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
+                <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -1000,7 +1000,7 @@ export default function ContentPlannerView({
                   const isPosted = item.status === 'Sudah Posting' || item.status === 'POSTED'
 
                   return (
-                    <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
+                    <tr key={item.id} className="group hover:bg-amber-50/30 transition-colors">
                       {/* Jadwal & Jam */}
                       <td className="py-4 px-4 sm:px-6 whitespace-nowrap">
                         <div className="font-bold text-[#1A1715]">
@@ -1107,7 +1107,7 @@ export default function ContentPlannerView({
                       </td>
 
                       {/* Aksi */}
-                      <td className="py-4 px-4 sm:px-6 text-right">
+                      <td className="py-4 px-4 sm:px-6 text-right sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                         <div className="flex items-center justify-end gap-1.5">
                           {/* Metrik Data Link */}
                           <Link

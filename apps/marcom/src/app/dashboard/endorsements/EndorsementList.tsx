@@ -840,7 +840,7 @@ export default function EndorsementList({
                     <th className="py-4 px-4 text-center whitespace-nowrap">Status Visit</th>
                     <th className="py-4 px-4 text-center whitespace-nowrap">Status Tayang</th>
                     <th className="py-4 px-4 text-center whitespace-nowrap">Metrik Video</th>
-                    <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">Aksi</th>
+                    <th className="py-4 px-4 sm:px-6 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE8DE]">
@@ -853,7 +853,7 @@ export default function EndorsementList({
                     </tr>
                   ) : (
                     filteredOperations.map((item) => (
-                      <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
+                      <tr key={item.id} className="group hover:bg-amber-50/30 transition-colors">
                         <td className="py-4 px-4 sm:px-6">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-bold text-xs flex items-center justify-center flex-shrink-0">
@@ -1007,7 +1007,7 @@ export default function EndorsementList({
                           </div>
                         </td>
 
-                        <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap">
+                        <td className="py-4 px-4 sm:px-6 text-right whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                           <div className="flex items-center justify-end space-x-1">
                             <button
                               onClick={() => {
@@ -1235,7 +1235,7 @@ export default function EndorsementList({
                     <th className="py-4 px-4">Engagement Rate</th>
                     <th className="py-4 px-4">Efisiensi Biaya (CPV)</th>
                     <th className="py-4 px-4">Status Kinerja</th>
-                    <th className="py-4 px-4 sm:px-6 text-right">Aksi</th>
+                    <th className="py-4 px-4 sm:px-6 text-right sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFE8DE]">
@@ -1248,7 +1248,7 @@ export default function EndorsementList({
                     </tr>
                   ) : (
                     filteredAnalytics.map((item, idx) => (
-                      <tr key={item.id} className="hover:bg-[#FAF8F5]/80 transition-colors">
+                      <tr key={item.id} className="group hover:bg-[#FAF8F5]/80 transition-colors">
                         {/* Video & Influencer */}
                         <td className="py-4 px-4 sm:px-6">
                           <div className="flex items-center gap-3">
@@ -1392,7 +1392,7 @@ export default function EndorsementList({
                         </td>
 
                         {/* Action */}
-                        <td className="py-4 px-4 sm:px-6 text-right">
+                        <td className="py-4 px-4 sm:px-6 text-right sticky right-0 z-10 bg-white group-hover:bg-[#FAF8F5]/80 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                           <div className="flex items-center justify-end space-x-1.5">
                             {item.postUrl && (
                               <button

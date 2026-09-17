@@ -228,14 +228,14 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Target KOL</th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Realisasi KOL</th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Capaian %</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">Aksi</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
               {summary.outlets.map((item, idx) => {
                 const isOverBudget = item.remainingBudget < 0
                 return (
-                  <tr key={item.outletId} className="hover:bg-amber-50/30 transition-colors">
+                  <tr key={item.outletId} className="group hover:bg-amber-50/30 transition-colors">
                     <td className="py-3.5 px-4 text-stone-400 font-mono">{idx + 1}</td>
                     <td className="py-3.5 px-4 font-bold text-[#1A1715]">
                       <div className="flex items-center gap-1.5">
@@ -309,7 +309,7 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
                         )}
                       </div>
                     </td>
-                    <td className="py-3.5 px-4 text-right">
+                    <td className="py-3.5 px-4 text-right sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                       <button
                         onClick={() => openEditModal(item)}
                         className="p-1.5 text-stone-400 hover:text-[#D9480F] hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"

@@ -436,7 +436,7 @@ export default function EndorsementFinanceView({
                 <th className="p-3.5 text-center whitespace-nowrap">Draft Video</th>
                 <th className="p-3.5 whitespace-nowrap">Nomor Rekening (Transfer)</th>
                 <th className="p-3.5 text-center whitespace-nowrap">Status Pembayaran</th>
-                <th className="p-3.5 text-center whitespace-nowrap">Aksi</th>
+                <th className="p-3.5 text-center whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -457,7 +457,7 @@ export default function EndorsementFinanceView({
                   return (
                     <tr
                       key={item.id}
-                      className={`hover:bg-[#FAF8F5]/60 transition-colors ${
+                      className={`group hover:bg-[#FAF8F5]/60 transition-colors ${
                         isSelected ? 'bg-amber-50/40' : ''
                       }`}
                     >
@@ -621,7 +621,11 @@ export default function EndorsementFinanceView({
                       </td>
 
                       {/* Action */}
-                      <td className="p-3.5 text-center whitespace-nowrap">
+                      <td
+                        className={`p-3.5 text-center whitespace-nowrap sticky right-0 z-10 group-hover:bg-[#FAF8F5]/60 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)] ${
+                          isSelected ? 'bg-amber-50/40' : 'bg-white'
+                        }`}
+                      >
                         <button
                           onClick={() => onEdit(item)}
                           className="px-2.5 py-1 text-[11px] font-bold text-stone-600 hover:text-[#D9480F] bg-stone-50 hover:bg-stone-100 rounded-lg border border-stone-200 transition-colors cursor-pointer"

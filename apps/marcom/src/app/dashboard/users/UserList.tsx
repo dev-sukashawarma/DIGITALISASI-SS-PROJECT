@@ -139,7 +139,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
                 <th className="px-6 py-4 whitespace-nowrap">Alamat Email</th>
                 <th className="px-6 py-4 whitespace-nowrap">Role Saat Ini</th>
                 <th className="px-6 py-4 whitespace-nowrap">Terdaftar Sejak</th>
-                <th className="px-6 py-4 text-right whitespace-nowrap">Aksi</th>
+                <th className="px-6 py-4 text-right whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
@@ -147,7 +147,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
                 const isSelf = u.id === currentUserId
 
                 return (
-                  <tr key={u.id} className="hover:bg-amber-50/30 transition-colors">
+                  <tr key={u.id} className="group hover:bg-amber-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/20 flex items-center justify-center font-extrabold text-xs">
@@ -184,7 +184,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
                         year: 'numeric',
                       })}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-6 py-4 text-right sticky right-0 z-10 bg-white group-hover:bg-amber-50/30 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                       {!isSelf && (
                         <button
                           onClick={() => {

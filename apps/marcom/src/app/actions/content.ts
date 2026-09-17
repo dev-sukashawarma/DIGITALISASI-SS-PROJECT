@@ -282,10 +282,6 @@ export async function deleteInternalContent(id: string): Promise<ActionState> {
     return { error: 'Unauthorized' }
   }
 
-  if (user.role !== 'ADMIN') {
-    return { error: 'Hanya role ADMIN yang berhak menghapus konten video internal' }
-  }
-
   try {
     const contentId = BigInt(id)
     await prisma.internalContent.delete({

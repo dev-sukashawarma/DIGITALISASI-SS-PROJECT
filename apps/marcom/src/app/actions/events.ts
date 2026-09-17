@@ -118,10 +118,6 @@ export async function deletePromoEvent(id: string): Promise<ActionState> {
     return { error: 'Unauthorized' }
   }
 
-  if (user.role !== 'ADMIN') {
-    return { error: 'Hanya role ADMIN yang berhak menghapus event/promo' }
-  }
-
   try {
     const eventId = BigInt(id)
     await prisma.promoEvent.delete({

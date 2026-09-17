@@ -513,18 +513,16 @@ export default function OutletList({ initialOutlets, posOutlets = [], userRole }
                         <Edit2 className="w-4 h-4" />
                       </button>
 
-                      {userRole === 'ADMIN' && (
-                        <button
-                          onClick={() => {
-                            setErrorMessage('')
-                            setDeleteTarget(outlet)
-                          }}
-                          className="inline-flex items-center p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="Hapus outlet"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() => {
+                          setErrorMessage('')
+                          setDeleteTarget(outlet)
+                        }}
+                        className="inline-flex items-center p-2 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        title="Hapus outlet"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </td>
                   </tr>
                 ))

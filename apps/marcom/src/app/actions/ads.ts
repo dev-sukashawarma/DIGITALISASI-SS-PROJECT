@@ -166,10 +166,6 @@ export async function deleteAd(id: string): Promise<ActionState> {
     return { error: 'Unauthorized' }
   }
 
-  if (user.role !== 'ADMIN') {
-    return { error: 'Hanya role ADMIN yang berhak menghapus data Ads' }
-  }
-
   try {
     const adId = BigInt(id)
 

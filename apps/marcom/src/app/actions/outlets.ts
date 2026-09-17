@@ -271,10 +271,6 @@ export async function deleteOutlet(id: string): Promise<ActionState> {
     return { error: 'Unauthorized' }
   }
 
-  if (user.role !== 'ADMIN') {
-    return { error: 'Hanya role ADMIN yang berhak menghapus data cabang' }
-  }
-
   try {
     const outletId = BigInt(id)
 

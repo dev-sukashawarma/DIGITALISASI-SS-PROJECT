@@ -1005,19 +1005,15 @@ export default function CalendarView({
 
             {/* Modal Actions */}
             <div className="flex items-center justify-between p-4 sm:p-5 border-t border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
-              {userRole === 'ADMIN' ? (
-                <button
-                  type="button"
-                  onClick={handleDeleteItem}
-                  disabled={isPending}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>{isPending ? 'Menghapus...' : 'Hapus Agenda'}</span>
-                </button>
-              ) : (
-                <div />
-              )}
+              <button
+                type="button"
+                onClick={handleDeleteItem}
+                disabled={isPending}
+                className="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isPending ? 'Menghapus...' : 'Hapus Agenda'}</span>
+              </button>
 
               <button
                 type="button"

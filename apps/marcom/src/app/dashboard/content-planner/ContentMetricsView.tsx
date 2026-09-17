@@ -1639,18 +1639,16 @@ export default function ContentMetricsView({
                           </button>
 
                           {/* Delete */}
-                          {userRole === 'ADMIN' && (
-                            <button
-                              onClick={() => {
-                                setDeleteTarget(item)
-                                setErrorMessage('')
-                              }}
-                              className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                              title="Hapus Konten"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setDeleteTarget(item)
+                              setErrorMessage('')
+                            }}
+                            className="p-1.5 rounded-lg text-stone-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                            title="Hapus Konten"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>

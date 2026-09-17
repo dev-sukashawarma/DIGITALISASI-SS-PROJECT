@@ -607,10 +607,6 @@ export async function deleteEndorsement(id: string): Promise<ActionState> {
     return { error: 'Unauthorized' }
   }
 
-  if (user.role !== 'ADMIN') {
-    return { error: 'Hanya role ADMIN yang berhak menghapus data endorsement' }
-  }
-
   try {
     const endorsementId = BigInt(id)
 

@@ -1026,19 +1026,17 @@ export default function EndorsementList({
                             >
                               <Edit2 className="w-4 h-4" />
                             </button>
-                            {userRole === 'ADMIN' && (
-                              <button
-                                onClick={() => {
-                                  setErrorMessage('')
-                                  setDeleteTarget(item)
-                                }}
-                                className="w-9 h-9 flex items-center justify-center text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
-                                title="Hapus Endorsement"
-                                aria-label={`Hapus endorsement ${item.kol.name}`}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            )}
+                            <button
+                              onClick={() => {
+                                setErrorMessage('')
+                                setDeleteTarget(item)
+                              }}
+                              className="w-9 h-9 flex items-center justify-center text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                              title="Hapus Endorsement"
+                              aria-label={`Hapus endorsement ${item.kol.name}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
                         </td>
                       </tr>

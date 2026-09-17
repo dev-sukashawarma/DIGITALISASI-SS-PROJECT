@@ -97,10 +97,6 @@ export async function deleteKol(id: string): Promise<ActionState> {
     return { error: 'Unauthorized' }
   }
 
-  if (user.role !== 'ADMIN') {
-    return { error: 'Hanya role ADMIN yang berhak menghapus data KOL' }
-  }
-
   try {
     const kolId = BigInt(id)
 

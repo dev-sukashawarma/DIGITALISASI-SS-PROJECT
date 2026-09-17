@@ -504,18 +504,16 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          {userRole === 'ADMIN' && (
-                            <button
-                              onClick={() => {
-                                setErrorMessage('')
-                                setDeleteTarget(item)
-                              }}
-                              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                              title="Hapus Iklan"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
+                          <button
+                            onClick={() => {
+                              setErrorMessage('')
+                              setDeleteTarget(item)
+                            }}
+                            className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="Hapus Iklan"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>

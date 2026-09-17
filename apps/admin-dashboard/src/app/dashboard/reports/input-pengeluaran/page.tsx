@@ -435,7 +435,20 @@ export default function InputPengeluaranPage() {
                             {r.isTopup ? r.category : labelOf(r.category)}
                           </td>
                           <td className="px-4 py-3">{r.outlet_name}</td>
-                          <td className="px-4 py-3 text-suka-gray-600 truncate max-w-[250px]">{r.description}</td>
+                          <td className="px-4 py-3 text-suka-gray-600 truncate max-w-[280px]">
+                            {r.description?.startsWith('[MARCOM:') ? (
+                              <div className="flex items-center gap-1.5" title={r.description}>
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200 shrink-0">
+                                  MARCOM
+                                </span>
+                                <span className="truncate">
+                                  {r.description.replace(/^\[MARCOM:\s*([^\]]+)\]\s*/, '$1: ')}
+                                </span>
+                              </div>
+                            ) : (
+                              r.description
+                            )}
+                          </td>
                           <td className={`px-4 py-3 text-right font-medium ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
                             {isIncome ? '+' : '-'}Rp {r.amount.toLocaleString('id-ID')}
                           </td>

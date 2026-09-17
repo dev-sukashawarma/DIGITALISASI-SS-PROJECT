@@ -19,6 +19,7 @@ import {
   FileSpreadsheet,
 } from 'lucide-react'
 import { MonthlyBudgetMatrix, OutletBudgetSummary, upsertOutletBudget } from '@/app/actions/budgets'
+import { triggerSyncHistoricalOpex } from '@/app/actions/sync'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
 
 interface BudgetMatrixViewProps {
@@ -40,6 +41,11 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
   const [editNotes, setEditNotes] = useState<string>('')
   const [errorMessage, setErrorMessage] = useState<string>('')
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+  const [isSyncingOpex, setIsSyncingOpex] = useState(false)
+  const [syncOpexResult, setSyncOpexResult] = useState<{
+    message: string
+    isError?: boolean
+  } | null>(null)
   const [isPending, startTransition] = useTransition()
 
   const formatRupiah = (val: number) => {
@@ -56,6 +62,31 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
     setEditKolVal(outlet.targetKolCount.toString())
     setEditNotes(outlet.notes || '')
     setErrorMessage('')
+  }
+
+  const handleSyncOpex = async () => {
+    setIsSyncingOpex(true)
+    setSyncOpexResult(null)
+    try {
+      const res = await triggerSyncHistoricalOpex()
+      if (res?.success) {
+        setSyncOpexResult({
+          message: `Berhasil sinkronisasi ke OPEX Finance (mulai September 2026)! Total: ${res.totalProcessed} data diproses (${res.syncedEndorsements} endorsement, ${res.syncedAds} ads).`,
+        })
+      } else {
+        setSyncOpexResult({
+          message: res?.error || 'Gagal melakukan sinkronisasi ke OPEX Finance.',
+          isError: true,
+        })
+      }
+    } catch (err: any) {
+      setSyncOpexResult({
+        message: err?.message || 'Terjadi kesalahan sistem saat sinkronisasi.',
+        isError: true,
+      })
+    } finally {
+      setIsSyncingOpex(false)
+    }
   }
 
   const handleSaveBudget = (e: React.FormEvent) => {
@@ -174,11 +205,26 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
               <tr>
                 <th className="py-3.5 px-4 whitespace-nowrap">No</th>
                 <th className="py-3.5 px-4 whitespace-nowrap">Nama Cabang</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">Target Budget</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">Rate Card</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">HPP Menu</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">Total Realisasi</th>
-                <th className="py-3.5 px-4 text-right whitespace-nowrap">Sisa Budget</th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">
+                  <div>Target Budget</div>
+                  <div className="text-[9px] text-stone-400 font-medium normal-case tracking-normal">Pagu Anggaran</div>
+                </th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">
+                  <div>Rate Card</div>
+                  <div className="text-[9px] text-stone-400 font-medium normal-case tracking-normal">Biaya KOL</div>
+                </th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">
+                  <div>HPP Menu</div>
+                  <div className="text-[9px] text-stone-400 font-medium normal-case tracking-normal">Konsumsi Menu</div>
+                </th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">
+                  <div>Total Realisasi</div>
+                  <div className="text-[9px] text-[#D9480F] font-bold normal-case tracking-normal">Biaya Terpakai (▲)</div>
+                </th>
+                <th className="py-3.5 px-4 text-right whitespace-nowrap">
+                  <div>Sisa Budget</div>
+                  <div className="text-[9px] text-stone-400 font-medium normal-case tracking-normal">Pagu - Terpakai (▼)</div>
+                </th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Target KOL</th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Realisasi KOL</th>
                 <th className="py-3.5 px-4 text-center whitespace-nowrap">Capaian %</th>
@@ -203,7 +249,16 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right font-mono font-bold text-stone-900">
-                      {formatRupiah(item.targetBudget)}
+                      <div>{formatRupiah(item.targetBudget)}</div>
+                      {item.targetBudget === 0 && (
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(item)}
+                          className="text-[10px] text-[#D9480F] hover:underline font-sans font-semibold inline-flex items-center gap-0.5 cursor-pointer"
+                        >
+                          + Atur Target
+                        </button>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-right font-mono text-stone-600">
                       {formatRupiah(item.realizedRateCard)}
@@ -219,7 +274,12 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
                         isOverBudget ? 'text-rose-600' : 'text-emerald-700'
                       }`}
                     >
-                      {formatRupiah(item.remainingBudget)}
+                      <div>{formatRupiah(item.remainingBudget)}</div>
+                      {item.targetBudget === 0 && item.totalRealizedCost > 0 && (
+                        <div className="text-[9px] text-rose-500 font-sans font-normal italic">
+                          (Tanpa pagu budget)
+                        </div>
+                      )}
                     </td>
                     <td className="py-3.5 px-4 text-center font-mono font-bold text-stone-700">
                       {item.targetKolCount}
@@ -232,17 +292,21 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
                     </td>
                     <td className="py-3.5 px-4 text-center">
                       <div className="flex items-center justify-center gap-1">
-                        <span
-                          className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
-                            item.budgetAchievementRate > 100
-                              ? 'bg-rose-100 text-rose-800'
-                              : item.budgetAchievementRate >= 80
-                              ? 'bg-amber-100 text-amber-800'
-                              : 'bg-emerald-100 text-emerald-800'
-                          }`}
-                        >
-                          {item.budgetAchievementRate}%
-                        </span>
+                        {item.targetBudget === 0 ? (
+                          <span className="text-[10px] text-stone-400 font-medium italic">-</span>
+                        ) : (
+                          <span
+                            className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                              item.budgetAchievementRate > 100
+                                ? 'bg-rose-100 text-rose-800'
+                                : item.budgetAchievementRate >= 80
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                            }`}
+                          >
+                            {item.budgetAchievementRate}%
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -339,8 +403,44 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
             <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
             <span>Import Excel</span>
           </button>
+
+          <button
+            onClick={handleSyncOpex}
+            disabled={isSyncingOpex}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold shadow-2xs transition-all cursor-pointer disabled:opacity-60"
+            title="Sinkronisasi seluruh pengeluaran (Endorsement, Ongkir, Ads) ke OPEX Finance & Admin Dashboard"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-purple-600 ${isSyncingOpex ? 'animate-spin' : ''}`} />
+            <span>{isSyncingOpex ? 'Menyinkronkan...' : 'Sync OPEX Finance'}</span>
+          </button>
         </div>
       </div>
+
+      {/* Notifikasi Hasil Sinkronisasi OPEX */}
+      {syncOpexResult && (
+        <div
+          className={`p-4 rounded-2xl border text-xs flex items-center justify-between gap-3 ${
+            syncOpexResult.isError
+              ? 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {syncOpexResult.isError ? (
+              <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
+            ) : (
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+            )}
+            <span className="font-medium">{syncOpexResult.message}</span>
+          </div>
+          <button
+            onClick={() => setSyncOpexResult(null)}
+            className="text-stone-400 hover:text-stone-600 p-1 cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
 
       {/* KPI Bento Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

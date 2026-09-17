@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import * as XLSX from 'xlsx'
+import { syncAllHistoricalMarcomToOpex } from '@/lib/sync-finance-opex'
 
 export interface ImportResult {
   success: boolean
@@ -643,6 +644,13 @@ export async function importExcelSpreadsheet(formData: FormData): Promise<Import
           }
         }
       }
+    }
+
+    // Sinkronisasi otomatis transaksi yang diimpor ke OPEX Finance & Admin Dashboard
+    try {
+      await syncAllHistoricalMarcomToOpex()
+    } catch (syncOpexErr) {
+      console.error('Error auto-syncing imported Excel data to OPEX:', syncOpexErr)
     }
 
     revalidatePath('/dashboard')

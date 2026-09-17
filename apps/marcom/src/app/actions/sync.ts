@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { scrapeVideoMetrics, ScrapedMetrics } from '@/lib/scraper'
+import { syncAllHistoricalMarcomToOpex } from '@/lib/sync-finance-opex'
 
 export type AutoFetchResult = {
   success: boolean
@@ -341,4 +342,19 @@ export async function syncAllActiveVideos(isCron: boolean = false): Promise<Sync
       message: `Terjadi kendala saat proses sinkronisasi: ${err?.message}`,
     }
   }
+}
+
+/**
+ * Trigger manual untuk sinkronisasi seluruh pengeluaran MARCOM ke OPEX Supabase
+ */
+export async function triggerSyncHistoricalOpex() {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { success: false, error: 'Unauthorized: Harap login terlebih dahulu' }
+  }
+
+  const res = await syncAllHistoricalMarcomToOpex()
+  revalidatePath('/dashboard/budget')
+  revalidatePath('/dashboard')
+  return res
 }

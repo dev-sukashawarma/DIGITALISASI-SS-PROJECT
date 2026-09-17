@@ -95,6 +95,10 @@ model Endorsement {
   isShipped         Boolean  @default(false) @map("is_shipped")
   shippingDate      DateTime? @map("shipping_date") @db.Date
 
+  // Referensi OPEX Supabase (Finance & Admin Dashboard)
+  rateCardExpenseId String?  @map("rate_card_expense_id")
+  shippingExpenseId String?  @map("shipping_expense_id")
+
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   kol               Kol      @relation(fields: [kolId], references: [id], onDelete: Restrict)
@@ -143,6 +147,10 @@ model Ad {
   initialViews Int?     @map("initial_views")
   finalViews   Int?     @map("final_views")
   status       String   @default("OFF") 
+
+  // Referensi OPEX Supabase (Finance & Admin Dashboard)
+  expenseId    String?  @map("expense_id")
+
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   outlet       Outlet?  @relation(fields: [outletId], references: [id], onDelete: SetNull)

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { syncAdOpex, deleteOpexByExpenseId } from '@/lib/sync-finance-opex'
 
 export type ActionState = {
   success?: boolean
@@ -42,7 +43,7 @@ export async function createAd(
     const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
     const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null
 
-    await prisma.ad.create({
+    const newAd = await prisma.ad.create({
       data: {
         outletId,
         category,
@@ -57,6 +58,9 @@ export async function createAd(
         status,
       },
     })
+
+    // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
+    await syncAdOpex(newAd.id)
 
     revalidatePath('/dashboard/ads')
     revalidatePath('/dashboard')
@@ -119,6 +123,9 @@ export async function updateAd(
       },
     })
 
+    // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
+    await syncAdOpex(adId)
+
     revalidatePath('/dashboard/ads')
     revalidatePath('/dashboard')
     return { success: true }
@@ -165,6 +172,17 @@ export async function deleteAd(id: string): Promise<ActionState> {
 
   try {
     const adId = BigInt(id)
+
+    // Ambil referensi expense ID untuk dihapus dari OPEX Supabase
+    const existing = await prisma.ad.findUnique({
+      where: { id: adId },
+      select: { expenseId: true },
+    })
+
+    if (existing?.expenseId) {
+      await deleteOpexByExpenseId(existing.expenseId)
+    }
+
     await prisma.ad.delete({
       where: { id: adId },
     })

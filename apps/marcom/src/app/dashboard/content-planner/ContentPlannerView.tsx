@@ -438,7 +438,7 @@ export default function ContentPlannerView({
       </div>
 
       {/* Top Tab Switcher */}
-      <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit">
+      <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit flex-wrap">
         <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-[#D9480F] text-white shadow-xs">
           <CalendarDays className="w-4 h-4" />
           <span>Rencana Konten</span>
@@ -453,6 +453,14 @@ export default function ContentPlannerView({
           <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-mono">
             {totalContents}
           </span>
+        </Link>
+
+        <Link
+          href="/dashboard/content-planner/referensi-data"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+        >
+          <TrendingUp className="w-4 h-4 text-stone-400" />
+          <span>Referensi Data</span>
         </Link>
       </div>
 

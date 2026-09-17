@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { getPosSupabase } from '@/lib/supabase-pos'
+import { syncEndorsementOpex, deleteOpexByExpenseId } from '@/lib/sync-finance-opex'
 
 export type ActionState = {
   success?: boolean
@@ -229,6 +230,9 @@ export async function createEndorsement(
       })
     }
 
+    // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
+    await syncEndorsementOpex(endorsement.id)
+
     revalidatePath('/dashboard/endorsements')
     revalidatePath('/dashboard/kols')
     revalidatePath('/dashboard')
@@ -372,6 +376,9 @@ export async function updateEndorsement(
       console.error('Error syncing endorsement update to POS Supabase:', syncErr)
     }
 
+    // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
+    await syncEndorsementOpex(endorsementId)
+
     revalidatePath('/dashboard/endorsements')
     revalidatePath('/dashboard')
     revalidatePath('/dashboard/budget')
@@ -404,6 +411,9 @@ export async function updateShippingStatus(
         ...(shippingCost !== undefined ? { shippingCost } : {}),
       },
     })
+
+    // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
+    await syncEndorsementOpex(endorsementId)
 
     revalidatePath('/dashboard/endorsements')
     revalidatePath('/dashboard/budget')
@@ -603,6 +613,22 @@ export async function deleteEndorsement(id: string): Promise<ActionState> {
 
   try {
     const endorsementId = BigInt(id)
+
+    // Ambil referensi expense ID untuk dihapus dari OPEX Supabase
+    const existing = await prisma.endorsement.findUnique({
+      where: { id: endorsementId },
+      select: { rateCardExpenseId: true, shippingExpenseId: true },
+    })
+
+    if (existing) {
+      if (existing.rateCardExpenseId) {
+        await deleteOpexByExpenseId(existing.rateCardExpenseId)
+      }
+      if (existing.shippingExpenseId) {
+        await deleteOpexByExpenseId(existing.shippingExpenseId)
+      }
+    }
+
     await prisma.endorsement.delete({
       where: { id: endorsementId },
     })

@@ -911,7 +911,7 @@ export default function ContentMetricsView({
       </div>
 
       {/* Top Tab Switcher */}
-      <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit">
+      <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit flex-wrap">
         <Link
           href="/dashboard/content-planner"
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
@@ -927,6 +927,14 @@ export default function ContentMetricsView({
             {totalContents}
           </span>
         </div>
+
+        <Link
+          href="/dashboard/content-planner/referensi-data"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+        >
+          <TrendingUp className="w-4 h-4 text-stone-400" />
+          <span>Referensi Data</span>
+        </Link>
       </div>
 
       {/* Sync Status Banner */}

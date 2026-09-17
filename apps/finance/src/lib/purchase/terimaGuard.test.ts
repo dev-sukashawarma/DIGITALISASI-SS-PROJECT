@@ -17,6 +17,31 @@ describe('cekTerima - dua kejadian nyata 16 Sep 2026', () => {
   })
 })
 
+describe('cekTerima - terima persis sesuai sisa pesanan tidak pernah diperingatkan', () => {
+  // Dari smoke test 17 Sep 2026: KULIT 32 diisi 300 (seluruh pesanan) ke gudang
+  // yang sedang kosong (2 Pack) -> peringatan "150x" menyala, padahal itu
+  // penerimaan paling normal yang ada. Aturan rasio-stok akan SELALU menyala
+  // tiap kali barang habis diisi ulang penuh, dan peringatan yang terlalu
+  // sering berubah jadi klik refleks.
+  it('isi ulang penuh ke gudang yang hampir kosong -> nol peringatan', () => {
+    expect(cekTerima({ qtyDatang: 300, qtyPesan: 300, qtyTerimaSebelumnya: 0, stokGudangBesar: 2 })).toEqual([])
+  })
+
+  it('sisa setelah kiriman bertahap juga dianggap sesuai (200 pesan, 49 tiba, 151 datang)', () => {
+    expect(cekTerima({ qtyDatang: 151, qtyPesan: 200, qtyTerimaSebelumnya: 49, stokGudangBesar: 105 })).toEqual([])
+  })
+
+  it('KETAJAMAN TIDAK BERKURANG: 77 dari sisa 300 tetap diperingatkan', () => {
+    const w = cekTerima({ qtyDatang: 77, qtyPesan: 300, qtyTerimaSebelumnya: 0, stokGudangBesar: 2 })
+    expect(jenis(w)).toEqual(['lompatan_stok'])
+  })
+
+  it('pengecualian ini TIDAK menutupi kelebihan pesanan (tepung)', () => {
+    const w = cekTerima({ qtyDatang: 100, qtyPesan: 100, qtyTerimaSebelumnya: 100, stokGudangBesar: 136 })
+    expect(jenis(w)).toEqual(['melebihi_pesanan'])
+  })
+})
+
 describe('cekTerima - jalur mayoritas tidak boleh berisik', () => {
   it('kiriman bertahap wajar (SAPI 200 dari sisa 300, stok 150) -> nol peringatan', () => {
     expect(cekTerima({ qtyDatang: 200, qtyPesan: 1000, qtyTerimaSebelumnya: 500, stokGudangBesar: 150 })).toEqual([])

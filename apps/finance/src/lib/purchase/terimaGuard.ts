@@ -74,8 +74,23 @@ export function cekTerima(i: TerimaGuardInput): TerimaWarning[] {
   const out: TerimaWarning[] = []
   if (!(i.qtyDatang > 0)) return out
 
+  // Terima PERSIS sejumlah sisa pesanan = apa yang menurut PO-nya memang harus
+  // datang. Itu penerimaan paling normal yang ada, dan aturan rasio-stok di
+  // bawah akan SELALU menyala untuknya tiap kali barang habis diisi ulang penuh
+  // (smoke test 17 Sep 2026: KULIT 32, 300 dari 300, gudang sisa 2 Pack ->
+  // "150x"). Peringatan sesering itu berubah jadi klik refleks, dan itu lebih
+  // buruk daripada tidak ada peringatan.
+  //
+  // Pengecualian ini sengaja SEMPIT: hanya membungkam aturan rasio-stok, hanya
+  // saat jumlahnya sama persis dengan sisa pesanan. Kelebihan pesanan tetap
+  // diperingatkan, dan angka yang MELESET dari sisa pesanan -- termasuk 77 dari
+  // sisa 300 yang jadi asal-usul gerbang ini -- tetap tertangkap.
+  const sisaPesanan = i.qtyPesan - i.qtyTerimaSebelumnya
+  const sesuaiSisaPesanan =
+    sisaPesanan > 0 && Math.abs(i.qtyDatang - sisaPesanan) <= TOLERANSI_FLOAT
+
   const stok = i.stokGudangBesar
-  if (stok !== null && Number.isFinite(stok) && stok > 0) {
+  if (!sesuaiSisaPesanan && stok !== null && Number.isFinite(stok) && stok > 0) {
     const rasio = i.qtyDatang / stok
     if (rasio > AMBANG_LOMPATAN_STOK) {
       out.push({ jenis: 'lompatan_stok', rasio, stokSebelum: stok })

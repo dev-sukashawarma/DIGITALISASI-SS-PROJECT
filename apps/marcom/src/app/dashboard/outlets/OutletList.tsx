@@ -248,7 +248,7 @@ export default function OutletList({ initialOutlets, posOutlets = [], userRole }
       )}
 
       {/* KPI Bento Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex items-center gap-3.5">
           <div className="w-11 h-11 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center shrink-0">
             <Store className="w-5 h-5" />
@@ -371,7 +371,7 @@ export default function OutletList({ initialOutlets, posOutlets = [], userRole }
       {/* Table Section */}
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+          <table className="w-full min-w-[850px] text-left text-xs sm:text-sm text-stone-600">
             <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="px-6 py-4 whitespace-nowrap">No</th>

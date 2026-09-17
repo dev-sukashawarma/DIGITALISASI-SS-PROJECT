@@ -272,7 +272,7 @@ export default function EndorsementFinanceView({
       )}
 
       {/* Finance KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Card 1: Belum Dibayar */}
         <div className="p-4 sm:p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-2xs">
           <div className="flex items-center justify-between text-amber-800">
@@ -416,7 +416,7 @@ export default function EndorsementFinanceView({
       {/* Finance Table */}
       <div className="bg-white rounded-2xl border border-[#EFE8DE] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full min-w-[950px] text-left text-xs">
             <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-stone-600 font-bold uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="p-3.5 text-center w-10">

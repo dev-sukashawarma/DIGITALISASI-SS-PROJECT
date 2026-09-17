@@ -268,7 +268,7 @@ export default function CalendarView({
       </div>
 
       {/* Control Bar: Month Switcher & Filters */}
-      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         {/* Month Selector Buttons */}
         <div className="flex items-center space-x-2 sm:space-x-3">
           <button
@@ -372,7 +372,9 @@ export default function CalendarView({
 
       {/* Monthly Calendar Grid */}
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
-        {/* Day Header Row */}
+        <div className="overflow-x-auto">
+          <div className="min-w-[680px]">
+            {/* Day Header Row */}
         <div className="grid grid-cols-7 border-b border-[#EFE8DE] bg-[#FAF8F5] text-center text-xs font-bold text-stone-600 py-3 uppercase tracking-wider">
           {DAY_LABELS.map((dayLabel, idx) => (
             <div key={dayLabel} className={idx >= 5 ? 'text-[#D9480F]' : ''}>
@@ -506,6 +508,8 @@ export default function CalendarView({
               </div>
             )
           })}
+        </div>
+          </div>
         </div>
       </div>
 

@@ -200,7 +200,7 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+          <table className="w-full min-w-[980px] text-left text-xs">
             <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="py-3.5 px-4 whitespace-nowrap">No</th>
@@ -443,7 +443,7 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
       )}
 
       {/* KPI Bento Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Target Budget */}
         <div className="p-5 rounded-3xl bg-white border border-[#EFE8DE] shadow-xs flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-stone-100 text-stone-700 flex items-center justify-center shrink-0">

@@ -310,8 +310,8 @@ export default async function DashboardPage() {
 
       {/* Action Row, Upcoming Agenda, & Recent Feed */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
-        {/* Quick Action Dock (Span 3 on xl, Span 4 on lg) */}
-        <div className="lg:col-span-4 xl:col-span-3 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        {/* Quick Action Dock (Span 3 on xl, Span 6 on lg) */}
+        <div className="lg:col-span-6 xl:col-span-3 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-[#D9480F]" />
@@ -402,8 +402,8 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        {/* Upcoming Agenda Widget (Span 4 on xl, Span 8 on lg) */}
-        <div className="lg:col-span-8 xl:col-span-4 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
+        {/* Upcoming Agenda Widget (Span 4 on xl, Span 6 on lg) */}
+        <div className="lg:col-span-6 xl:col-span-4 bg-white rounded-2xl p-6 border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <div>
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">

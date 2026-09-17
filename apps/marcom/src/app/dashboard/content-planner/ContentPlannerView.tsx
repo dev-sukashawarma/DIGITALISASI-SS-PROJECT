@@ -489,7 +489,7 @@ export default function ContentPlannerView({
       )}
 
       {/* Executive 4 Bento Cards for Planning */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Rencana */}
         <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">

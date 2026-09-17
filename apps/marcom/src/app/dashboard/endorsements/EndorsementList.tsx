@@ -736,7 +736,7 @@ export default function EndorsementList({
 
           {/* Filters Bar */}
           <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Search */}
               <div className="relative">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -830,7 +830,7 @@ export default function EndorsementList({
           {/* Table Section */}
           <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+              <table className="w-full min-w-[850px] text-left text-xs sm:text-sm text-stone-600">
                 <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
                   <tr>
                     <th className="py-4 px-4 sm:px-6">KOL / Influencer</th>
@@ -1055,7 +1055,7 @@ export default function EndorsementList({
       {activeTab === 'analytics' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Executive Analytics Bento Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
             {/* CPV Card */}
             <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
               <div className="flex items-center justify-between">
@@ -1143,7 +1143,7 @@ export default function EndorsementList({
 
           {/* Analytics Filters & Sorting Toolbar */}
           <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-3">
               {/* Search */}
               <div className="relative">
                 <Search className="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -1225,7 +1225,7 @@ export default function EndorsementList({
           {/* Analytics Table */}
           <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+              <table className="w-full min-w-[900px] text-left text-xs sm:text-sm text-stone-600">
                 <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
                   <tr>
                     <th className="py-4 px-4 sm:px-6">Video & Influencer</th>

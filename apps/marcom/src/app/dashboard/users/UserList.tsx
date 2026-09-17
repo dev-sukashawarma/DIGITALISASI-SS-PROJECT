@@ -132,7 +132,7 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
       {/* Table Section */}
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+          <table className="w-full min-w-[700px] text-left text-xs sm:text-sm text-stone-600">
             <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-[11px] font-bold text-stone-500 uppercase tracking-wider sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="px-6 py-4 whitespace-nowrap">Nama Pengguna</th>

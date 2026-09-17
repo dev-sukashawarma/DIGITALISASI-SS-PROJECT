@@ -972,7 +972,7 @@ export default function ContentMetricsView({
       )}
 
       {/* Executive 4 Bento Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Total Konten */}
         <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
@@ -1068,9 +1068,9 @@ export default function ContentMetricsView({
       </div>
 
       {/* Visual Intelligence Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
         {/* Pilar Effectiveness Chart / Bars */}
-        <div className="lg:col-span-8 bg-white p-6 rounded-3xl border border-[#EFE8DE] shadow-xs space-y-4">
+        <div className="xl:col-span-8 bg-white p-6 rounded-3xl border border-[#EFE8DE] shadow-xs space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
             <div>
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
@@ -1120,7 +1120,7 @@ export default function ContentMetricsView({
         </div>
 
         {/* Platform Share */}
-        <div className="lg:col-span-4 bg-white p-6 rounded-3xl border border-[#EFE8DE] shadow-xs space-y-4 flex flex-col justify-between">
+        <div className="xl:col-span-4 bg-white p-6 rounded-3xl border border-[#EFE8DE] shadow-xs space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-[#EFE8DE]">
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
@@ -1420,7 +1420,7 @@ export default function ContentMetricsView({
       {/* Content Metrik Table (Persis Screenshot) */}
       <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs sm:text-sm text-stone-600">
+          <table className="w-full min-w-[880px] text-left text-xs sm:text-sm text-stone-600">
             <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="py-4 px-4 sm:px-6 whitespace-nowrap">Konten & Platform</th>

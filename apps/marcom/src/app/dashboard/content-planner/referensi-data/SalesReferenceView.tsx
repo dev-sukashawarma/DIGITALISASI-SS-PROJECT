@@ -242,7 +242,7 @@ export default function SalesReferenceView({
 
       {/* Filter Toolbar */}
       <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
           {/* Preset Tanggal Pills */}
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs font-bold text-stone-400 uppercase tracking-wider mr-1 flex items-center gap-1">
@@ -349,7 +349,7 @@ export default function SalesReferenceView({
       </div>
 
       {/* DUAL COLUMN BENTO GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
         {/* KOLOM KIRI: RANKING OUTLET */}
         <div className="bg-white rounded-3xl border border-[#EFE8DE] shadow-xs overflow-hidden flex flex-col">
           {/* Header Kolom Outlet */}
@@ -389,7 +389,7 @@ export default function SalesReferenceView({
 
           {/* Table Outlet */}
           <div className="overflow-x-auto max-h-[680px] overflow-y-auto divide-y divide-[#EFE8DE]">
-            <table className="w-full text-left text-xs text-stone-600">
+            <table className="w-full min-w-[500px] text-left text-xs text-stone-600">
               <thead className="bg-[#FAF8F5]/80 text-stone-500 font-bold uppercase tracking-wider text-[10px] sticky top-0 z-10 border-b border-[#EFE8DE]">
                 <tr>
                   <th className="py-3 px-4 w-12 text-center">Rank</th>
@@ -591,7 +591,7 @@ export default function SalesReferenceView({
 
           {/* Table Item */}
           <div className="overflow-x-auto min-h-[480px]">
-            <table className="w-full text-left text-xs text-stone-600">
+            <table className="w-full min-w-[500px] text-left text-xs text-stone-600">
               <thead className="bg-[#FAF8F5]/80 text-stone-500 font-bold uppercase tracking-wider text-[10px] border-b border-[#EFE8DE]">
                 <tr>
                   <th className="py-3 px-4 w-12 text-center">Rank</th>

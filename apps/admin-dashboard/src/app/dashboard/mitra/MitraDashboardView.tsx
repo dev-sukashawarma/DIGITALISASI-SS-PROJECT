@@ -753,7 +753,7 @@ export function MitraDashboardView({
                         </div>
 
                         <div className="text-right shrink-0 flex items-center gap-3">
-                          <OrderSourceBadge salesSource={ord.sales_source || 'pos'} customerName={ord.customer_name} />
+                          <OrderSourceBadge channel={ord.channel} salesSource={ord.sales_source || 'pos'} customerName={ord.customer_name} isEndorse={ord.is_endorse} />
                           <span className="font-black text-suka-brown text-sm">
                             {formatRupiah(ord.total_amount)}
                           </span>

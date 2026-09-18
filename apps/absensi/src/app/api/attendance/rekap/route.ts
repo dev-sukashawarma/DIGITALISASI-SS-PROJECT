@@ -29,7 +29,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const [primaryStaffRes, assignedStaffRes, attRes, localCfgRes, globalCfgRes] = await Promise.all([
+    const [primaryStaffRes, assignedStaffRes, localCfgRes, globalCfgRes] = await Promise.all([
       supabaseService
         .from('outlet_staff')
         .select('id, name, role')
@@ -40,14 +40,6 @@ export async function GET(request: Request) {
         .from('staff_outlets')
         .select('staff_id, outlet_staff!inner(id, name, role, status)')
         .eq('outlet_id', outlet_id),
-
-      supabaseService
-        .from('attendance')
-        .select('id, type, ts_server, ts_client, status, selfie_url, outlet_staff_id, telat_menit, is_manual_button, source')
-        .eq('outlet_id', outlet_id)
-        .gte('ts_server', `${start_date}T00:00:00+07:00`)
-        .lte('ts_server', `${end_date}T23:59:59+07:00`)
-        .order('ts_server', { ascending: false }),
 
       supabaseService
         .from('outlet_attendance_config')
@@ -76,7 +68,23 @@ export async function GET(request: Request) {
     });
 
     const activeStaff = Array.from(activeStaffMap.values());
+    const activeStaffIds = Array.from(activeStaffMap.keys());
     const nameById = new Map(activeStaff.map((s) => [s.id, s.name]));
+
+    let attQuery = supabaseService
+      .from('attendance')
+      .select('id, type, ts_server, ts_client, status, selfie_url, outlet_staff_id, telat_menit, is_manual_button, source, shift_jam_masuk, shift_jam_keluar')
+      .gte('ts_server', `${start_date}T00:00:00+07:00`)
+      .lte('ts_server', `${end_date}T23:59:59+07:00`)
+      .order('ts_server', { ascending: false });
+
+    if (activeStaffIds.length > 0) {
+      attQuery = attQuery.or(`outlet_id.eq.${outlet_id},outlet_staff_id.in.(${activeStaffIds.join(',')})`);
+    } else {
+      attQuery = attQuery.eq('outlet_id', outlet_id);
+    }
+
+    const attRes = await attQuery;
 
     const rawRows = attRes.data || [];
     const dbRows = rawRows.map((r) => ({
@@ -92,13 +100,31 @@ export async function GET(request: Request) {
     }
 
     dbRows.forEach((r: any) => {
-      if (r.status === 'telat' && r.type === 'in' && cfg?.jam_masuk) {
-        const [h, m] = cfg.jam_masuk.split(':').map(Number);
-        const expectedMinutes = h * 60 + m;
-        const t = dayjs(r.ts_server).tz('Asia/Jakarta');
-        const actualMinutes = t.hour() * 60 + t.minute();
-        const diff = actualMinutes - expectedMinutes;
-        r.delay_minutes = r.telat_menit ?? (diff > 0 ? diff : 0);
+      const t = dayjs(r.ts_server).tz('Asia/Jakarta');
+      const actualMinutes = t.hour() * 60 + t.minute();
+
+      if (r.status === 'telat' && r.type === 'in') {
+        const jamMasuk = r.shift_jam_masuk || cfg?.jam_masuk;
+        if (jamMasuk) {
+          const [h, m] = jamMasuk.split(':').map(Number);
+          const diff = actualMinutes - (h * 60 + m);
+          r.delay_minutes = r.telat_menit ?? (diff > 0 ? diff : 0);
+        } else {
+          r.delay_minutes = r.telat_menit ?? 0;
+        }
+      } else if (r.type === 'out') {
+        const jamKeluar = r.shift_jam_keluar || cfg?.jam_keluar;
+        if (jamKeluar) {
+          const [h, m] = jamKeluar.split(':').map(Number);
+          const diff = actualMinutes - (h * 60 + m);
+          if (r.status === 'pulang_telat') {
+            r.delay_minutes = r.telat_menit ?? (diff > 0 ? diff : 0);
+          } else if (r.status === 'lebih_awal') {
+            r.delay_minutes = r.telat_menit ?? (diff < 0 ? Math.abs(diff) : 0);
+          }
+        } else {
+          r.delay_minutes = r.telat_menit ?? 0;
+        }
       }
     });
 
@@ -116,14 +142,14 @@ export async function GET(request: Request) {
         continue;
       }
       
-      const inRecordsForDay = new Set(
+      const presentStaffForDay = new Set(
         dbRows
-          .filter((r) => r.type === 'in' && r.ts_server.startsWith(dStr))
+          .filter((r) => dayjs(r.ts_server).tz('Asia/Jakarta').format('YYYY-MM-DD') === dStr && r.status !== 'alpha')
           .map((r) => r.outlet_staff_id)
       );
       
       activeStaff.forEach((staff) => {
-        if (!inRecordsForDay.has(staff.id)) {
+        if (!presentStaffForDay.has(staff.id)) {
           virtualAlphas.push({
             id: `virtual-alpha-${staff.id}-${dStr}`,
             type: 'in',

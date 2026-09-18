@@ -23,14 +23,21 @@ type StaffRow = { id: string; name: string; role?: string | null; face_descripto
 
 const FUNCTION_URL = "/api/submit-attendance";
 
-/**
- * `outlets.slug` Kantor Pusat — di sana tidak ada kasir, pesanan, maupun checklist tutup
- * outlet, jadi gerbang absen pulang tidak berlaku (lihat wajibTutupOutlet).
- *
- * Dikenali lewat slug, BUKAN `outlets.type`: tipe `office` memuat dua lokasi yang berbeda
- * sifatnya — Kantor Pusat dan Gudang Pusat yang merupakan gudang sungguhan.
- */
 const SLUG_KANTOR_PUSAT = "kantor-pusat";
+
+/**
+ * Kantor Pusat: tidak ada kasir, pesanan, maupun checklist tutup outlet di sana, jadi
+ * gerbang absen pulang tidak berlaku (lihat wajibTutupOutlet).
+ *
+ * `outlets.type = 'office'` saja TIDAK cukup sebagai penanda: tipe itu juga dipegang
+ * Gudang Pusat, gudang sungguhan yang tetap wajib menutup outlet. Slug dicocokkan lebih
+ * dulu; namanya dipakai sebagai cadangan kalau slug-nya pernah diubah, karena satu-satunya
+ * lokasi `office` yang bernama "kantor" memang Kantor Pusat.
+ */
+function adalahKantorPusat(outlet: { slug?: string | null; name?: string | null; type?: string | null }): boolean {
+  if (outlet.slug === SLUG_KANTOR_PUSAT) return true;
+  return outlet.type === "office" && /kantor/i.test(outlet.name ?? "");
+}
 
 /**
  * @param outletId outlet aktif
@@ -76,35 +83,45 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
     const checkPermissions = async () => {
       try {
-        if (navigator.permissions) {
-          const [camPerm, geoPerm] = await Promise.all([
-            navigator.permissions.query({ name: "camera" as any }).catch(() => null),
-            navigator.permissions.query({ name: "geolocation" as any }).catch(() => null),
-          ]);
+        // Permissions API bukan penentu, cuma petunjuk: `name: "camera"` tidak dikenal di
+        // sebagian browser & WebView dan query-nya melempar. Kalau jawabannya tidak ada,
+        // JANGAN menahan kamera — biarkan getUserMedia yang memutuskan, karena hanya itu
+        // yang otoritatif dan penolakannya tampil lewat onError CameraCapture. Tanpa ini
+        // kotak kamera cuma hitam tanpa satu pun pesan.
+        const [camPerm, geoPerm] = navigator.permissions
+          ? await Promise.all([
+              navigator.permissions.query({ name: "camera" as any }).catch(() => null),
+              navigator.permissions.query({ name: "geolocation" as any }).catch(() => null),
+            ])
+          : [null, null];
 
-          if (camPerm?.state === "granted" && geoPerm?.state === "granted") {
-            setPermissionState("granted");
-            setPermissionError(null);
-            return;
+        const cam = camPerm?.state ?? null;
+        const geo = geoPerm?.state ?? null;
+
+        if (cam === "denied" || geo === "denied") {
+          setPermissionState("denied");
+          let errStr = "Izin ditolak oleh pengguna atau browser. Silakan aktifkan di setelan situs.";
+          if (cam === "denied" && geo !== "denied") {
+            errStr = "Izin kamera ditolak di setelan browser. Silakan izinkan akses kamera.";
+          } else if (geo === "denied" && cam !== "denied") {
+            errStr = "Izin lokasi ditolak di setelan browser. Silakan izinkan akses lokasi.";
           }
-          if (camPerm?.state === "denied" || geoPerm?.state === "denied") {
-            setPermissionState("denied");
-            let errStr = "Izin ditolak oleh pengguna atau browser. Silakan aktifkan di setelan situs.";
-            if (camPerm?.state === "denied" && geoPerm?.state !== "denied") {
-              errStr = "Izin kamera ditolak di setelan browser. Silakan izinkan akses kamera.";
-            } else if (geoPerm?.state === "denied" && camPerm?.state !== "denied") {
-              errStr = "Izin lokasi ditolak di setelan browser. Silakan izinkan akses lokasi.";
-            }
-            setPermissionError(errStr);
-            return;
-          }
-          if (camPerm?.state === "prompt" || geoPerm?.state === "prompt") {
-            setPermissionState("prompt");
-            return;
-          }
+          setPermissionError(errStr);
+          return;
         }
+
+        if (cam === "prompt" || geo === "prompt") {
+          setPermissionState("prompt");
+          return;
+        }
+
+        // Sisanya: granted, atau tak terjawab sama sekali.
+        setPermissionState("granted");
+        setPermissionError(null);
       } catch (e) {
         console.warn("Permissions query error:", e);
+        setPermissionState("granted");
+        setPermissionError(null);
       }
     };
 
@@ -148,7 +165,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     try {
       const { data, error } = await supabase
         .from("outlets")
-        .select("lat, lng, is_active, slug")
+        .select("lat, lng, is_active, slug, name, type")
         .eq("id", outletId)
         .single();
 
@@ -159,7 +176,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         return;
       }
 
-      diKantorPusatRef.current = data.slug === SLUG_KANTOR_PUSAT;
+      diKantorPusatRef.current = adalahKantorPusat(data);
 
       if (data.is_active === false) {
         setResult({ ok: false, message: "Kamera absensi sedang dinonaktifkan oleh Pusat (Emergency Lock)." });

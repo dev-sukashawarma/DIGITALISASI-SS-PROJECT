@@ -41,7 +41,9 @@ type StaffSummary = {
   total_telat_toleransi: number;
   total_alpha: number;
   total_cepat: number;
+  total_pulang_lambat: number;
   latest_photo_url: string | null;
+  in_photo_url: string | null;
   latest_in: Row | null;
   latest_out: Row | null;
   rows: Row[];
@@ -137,7 +139,9 @@ export default function RekapPage() {
           total_telat_toleransi: 0,
           total_alpha: 0,
           total_cepat: 0,
+          total_pulang_lambat: 0,
           latest_photo_url: null,
+          in_photo_url: null,
           latest_in: null,
           latest_out: null,
           rows: []
@@ -149,14 +153,46 @@ export default function RekapPage() {
       if (r.selfie_url && !s.latest_photo_url) {
         s.latest_photo_url = r.selfie_url;
       }
+      if (r.type === "in" && r.selfie_url && !s.in_photo_url) {
+        s.in_photo_url = r.selfie_url;
+      }
       if (r.type === "in" && r.status !== "alpha" && !s.latest_in) s.latest_in = r;
       if (r.type === "out" && !s.latest_out) s.latest_out = r;
-      
-      if (r.type === "in" && r.status !== "alpha") s.total_masuk++;
-      if (r.status === "telat" || r.status === "pulang_telat") s.total_telat++;
-      if (r.status === "telat_toleransi") s.total_telat_toleransi++;
-      if (r.status === "alpha") s.total_alpha++;
-      if (r.status === "lebih_awal") s.total_cepat++;
+    });
+
+    // Compute totals per staff accurately grouped by date (Asia/Jakarta)
+    map.forEach(s => {
+      const dayGroups = new Map<string, { in?: Row; out?: Row; alpha?: Row }>();
+      s.rows.forEach(r => {
+        const dStr = dayjs(r.ts_server).tz("Asia/Jakarta").format("YYYY-MM-DD");
+        const existing = dayGroups.get(dStr) || {};
+        if (r.status === "alpha") {
+          existing.alpha = r;
+        } else if (r.type === "in") {
+          existing.in = r;
+        } else if (r.type === "out") {
+          existing.out = r;
+        }
+        dayGroups.set(dStr, existing);
+      });
+
+      dayGroups.forEach(day => {
+        if (day.in) {
+          s.total_masuk++;
+          if (day.in.status === "telat") s.total_telat++;
+          else if (day.in.status === "telat_toleransi") s.total_telat_toleransi++;
+        } else if (day.out) {
+          // Attended work (clocked out even if missed in record)
+          s.total_masuk++;
+        } else if (day.alpha) {
+          s.total_alpha++;
+        }
+
+        if (day.out) {
+          if (day.out.status === "lebih_awal") s.total_cepat++;
+          else if (day.out.status === "pulang_telat") s.total_pulang_lambat++;
+        }
+      });
     });
     
     let result = Array.from(map.values()).sort((a,b) => a.name.localeCompare(b.name));
@@ -167,6 +203,7 @@ export default function RekapPage() {
         if (filterStatus === "telat_toleransi") return s.total_telat_toleransi > 0;
         if (filterStatus === "alpha") return s.total_alpha > 0;
         if (filterStatus === "lebih_awal") return s.total_cepat > 0;
+        if (filterStatus === "pulang_telat") return s.total_pulang_lambat > 0;
         return true;
       });
     }
@@ -179,6 +216,7 @@ export default function RekapPage() {
       telat: staffSummaries.reduce((acc, s) => acc + s.total_telat + s.total_telat_toleransi, 0),
       alpha: staffSummaries.reduce((acc, s) => acc + s.total_alpha, 0),
       cepat: staffSummaries.reduce((acc, s) => acc + s.total_cepat, 0),
+      pulang_lambat: staffSummaries.reduce((acc, s) => acc + s.total_pulang_lambat, 0),
     }
   }, [staffSummaries]);
 
@@ -203,10 +241,11 @@ export default function RekapPage() {
   }, [selectedStaff]);
 
   const STAT = [
-    { label: "Kehadiran (Masuk)", value: globalSummary.masuk, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" },
-    { label: "Terlambat", value: globalSummary.telat, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100" },
+    { label: "Kehadiran", value: globalSummary.masuk, bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" },
+    { label: "Terlambat (Masuk)", value: globalSummary.telat, bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-100" },
     { label: "Alpha / Tidak Hadir", value: globalSummary.alpha, bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-100" },
     { label: "Pulang Cepat", value: globalSummary.cepat, bg: "bg-sky-50", text: "text-sky-700", border: "border-sky-100" },
+    { label: "Pulang Lambat", value: globalSummary.pulang_lambat, bg: "bg-amber-50", text: "text-amber-800", border: "border-amber-200" },
   ];
 
   const headerAndSwitcher = (
@@ -275,7 +314,7 @@ export default function RekapPage() {
       case "telat": return "Masuk Telat";
       case "telat_toleransi": return "Telat (Toleransi)";
       case "lebih_awal": return "Pulang Cepat";
-      case "pulang_telat": return "Pulang Lama";
+      case "pulang_telat": return "Pulang Lambat";
       case "tepat": return "Tepat Waktu";
       case "alpha": return "Alpha";
       default: return status;
@@ -297,7 +336,7 @@ export default function RekapPage() {
       {headerAndSwitcher}
 
       {/* Global Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-4">
         {STAT.map((s) => (
           <div key={s.label} className={`rounded-2xl border ${s.border} ${s.bg} p-4 sm:p-5 flex flex-col`}>
             <div className={`text-xs font-semibold uppercase tracking-wider ${s.text} opacity-80`}>{s.label}</div>
@@ -314,12 +353,13 @@ export default function RekapPage() {
           options={[
             { label: "Semua Status", value: "semua" },
             { label: "Hadir", value: "masuk" },
-            { label: "Telat", value: "telat" },
+            { label: "Telat Masuk", value: "telat" },
             { label: "Telat (Toleransi)", value: "telat_toleransi" },
             { label: "Alpha", value: "alpha" },
-            { label: "Pulang Cepat", value: "lebih_awal" }
+            { label: "Pulang Cepat", value: "lebih_awal" },
+            { label: "Pulang Lambat", value: "pulang_telat" }
           ]}
-          className="w-[160px]"
+          className="w-[170px]"
         />
       </div>
 
@@ -338,15 +378,27 @@ export default function RekapPage() {
               onClick={() => setSelectedStaff(staff)}
               className="flex items-center gap-4 p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
             >
-              {staff.latest_photo_url ? (
-                <img 
-                  src={selfieUrl(staff.latest_photo_url)} 
-                  alt="selfie" 
-                  className="h-12 w-12 shrink-0 rounded-full object-cover border border-slate-200 bg-slate-100" 
-                />
-              ) : (
-                <Avatar name={staff.name} size={48} />
-              )}
+              <div 
+                onClick={(e) => {
+                  const photo = staff.in_photo_url || staff.latest_photo_url;
+                  if (photo) {
+                    e.stopPropagation();
+                    setPreview(selfieUrl(photo));
+                  }
+                }}
+                className={staff.in_photo_url || staff.latest_photo_url ? "cursor-pointer hover:opacity-90 transition-opacity" : ""}
+                title={staff.in_photo_url || staff.latest_photo_url ? "Klik untuk melihat foto diam-diam" : undefined}
+              >
+                {(staff.in_photo_url || staff.latest_photo_url) ? (
+                  <img 
+                    src={selfieUrl(staff.in_photo_url || staff.latest_photo_url!)} 
+                    alt="selfie" 
+                    className="h-12 w-12 shrink-0 rounded-full object-cover border border-slate-200 bg-slate-100 ring-2 ring-emerald-500/20" 
+                  />
+                ) : (
+                  <Avatar name={staff.name} size={48} />
+                )}
+              </div>
               
               <div className="flex-1 min-w-0">
                 <div className="text-base font-bold text-slate-800 truncate">{staff.name}</div>
@@ -356,24 +408,44 @@ export default function RekapPage() {
                   {staff.total_telat_toleransi > 0 && <span className="font-medium text-yellow-600">{staff.total_telat_toleransi} Telat (Tol)</span>}
                   {staff.total_alpha > 0 && <span className="font-medium text-rose-600">{staff.total_alpha} Alpha</span>}
                   {staff.total_cepat > 0 && <span className="font-medium text-sky-600">{staff.total_cepat} Plg Cepat</span>}
+                  {staff.total_pulang_lambat > 0 && <span className="font-medium text-amber-800">{staff.total_pulang_lambat} Plg Lambat</span>}
                 </div>
                 {(staff.latest_in || staff.latest_out) && (
                   <div className="flex items-center gap-4 mt-2 text-xs">
-                    {staff.latest_in && (
+                    {staff.latest_in ? (
                       <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
                         <LogIn size={12} className="text-emerald-500" />
+                        {staff.latest_in.selfie_url && (
+                          <img
+                            src={selfieUrl(staff.latest_in.selfie_url)}
+                            alt="Foto Masuk"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreview(selfieUrl(staff.latest_in!.selfie_url!));
+                            }}
+                            title="Klik untuk memperbesar foto masuk (foto diam-diam)"
+                            className="h-5 w-5 rounded object-cover border border-slate-300 hover:scale-110 transition-transform cursor-pointer"
+                          />
+                        )}
                         <span>In: <span className="font-semibold text-slate-800">{jam(staff.latest_in.ts_server)}</span></span>
                         {(staff.latest_in.delay_minutes || staff.latest_in.telat_menit) ? (
                           <span className="text-rose-500 ml-1 font-medium">Telat {staff.latest_in.delay_minutes || staff.latest_in.telat_menit}m</span>
                         ) : null}
                       </div>
-                    )}
+                    ) : staff.latest_out ? (
+                      <div className="flex items-center gap-1.5 text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 italic">
+                        <LogIn size={12} className="text-slate-400" />
+                        <span>In: Tidak Absen Masuk</span>
+                      </div>
+                    ) : null}
                     {staff.latest_out && (
                       <div className="flex items-center gap-1.5 text-slate-600 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">
                         <LogOut size={12} className="text-amber-500" />
                         <span>Out: <span className="font-semibold text-slate-800">{jam(staff.latest_out.ts_server)}</span></span>
-                        {(staff.latest_out.delay_minutes || staff.latest_out.telat_menit) ? (
-                          <span className="text-rose-500 ml-1 font-medium">Cepat {staff.latest_out.delay_minutes || staff.latest_out.telat_menit}m</span>
+                        {staff.latest_out.status === "pulang_telat" && (staff.latest_out.delay_minutes || staff.latest_out.telat_menit) ? (
+                          <span className="text-amber-800 ml-1 font-medium">Lambat {staff.latest_out.delay_minutes || staff.latest_out.telat_menit}m</span>
+                        ) : staff.latest_out.status === "lebih_awal" && (staff.latest_out.delay_minutes || staff.latest_out.telat_menit) ? (
+                          <span className="text-sky-600 ml-1 font-medium">Cepat {staff.latest_out.delay_minutes || staff.latest_out.telat_menit}m</span>
                         ) : null}
                       </div>
                     )}
@@ -395,7 +467,17 @@ export default function RekapPage() {
           <div className="w-full max-w-md h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
             <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
-                <Avatar name={selectedStaff.name} size={40} />
+                {(selectedStaff.in_photo_url || selectedStaff.latest_photo_url) ? (
+                  <img 
+                    src={selfieUrl(selectedStaff.in_photo_url || selectedStaff.latest_photo_url!)} 
+                    alt="selfie" 
+                    onClick={() => setPreview(selfieUrl((selectedStaff.in_photo_url || selectedStaff.latest_photo_url)!))}
+                    title="Klik untuk memperbesar foto"
+                    className="h-10 w-10 shrink-0 rounded-full object-cover border border-slate-200 bg-slate-100 cursor-pointer" 
+                  />
+                ) : (
+                  <Avatar name={selectedStaff.name} size={40} />
+                )}
                 <div>
                   <h3 className="font-bold text-slate-800 leading-tight">{selectedStaff.name}</h3>
                   <p className="text-xs text-slate-500 font-medium">Detail Kehadiran</p>
@@ -414,7 +496,7 @@ export default function RekapPage() {
                 <div className="text-center p-8 text-slate-500">Tidak ada riwayat detail.</div>
               ) : (
                 detailByDate.map(day => {
-                  const isAlpha = !day.in && day.alpha;
+                  const isAlpha = !day.in && !day.out && !!day.alpha;
                   const dateStr = formatTanggal(day.dateTs);
 
                   return (

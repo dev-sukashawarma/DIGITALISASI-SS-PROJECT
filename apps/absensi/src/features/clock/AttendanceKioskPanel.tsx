@@ -182,7 +182,7 @@ export function AttendanceKioskPanel() {
         supabase.from("global_settings").select("value").eq("key", "global_attendance_config").maybeSingle()
       ]).then(([local, global]) => {
         // Pilihan shift hanya ada di config khusus outlet, bukan aturan pusat.
-        setOpsiShift(shiftOptions(local.data));
+        setOpsiShift(shiftOptions(local.data, outletStaff?.role));
         let data: any = local.data;
         if (!data && global.data?.value) {
           try {

@@ -1,3 +1,5 @@
+import type { ShiftKe } from "./shift";
+
 export type AttendanceType = "in" | "out";
 
 export type AttendancePayload = {
@@ -14,7 +16,7 @@ export type AttendancePayload = {
   ts_client: string;
   from_queue: boolean;
   is_manual_button?: boolean;
-  shift_ke?: 1 | 2;           // Wajib saat absen masuk di outlet dengan pilihan dua shift
+  shift_ke?: ShiftKe;         // Wajib saat absen masuk di outlet dengan pilihan shift (1, 2, atau 3)
 };
 
 export type SubmitResult =

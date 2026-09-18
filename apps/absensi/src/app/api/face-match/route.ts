@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     // Ambil kandidat
     let query = admin
       .from("outlet_staff")
-      .select("id, name, face_descriptor")
+      .select("id, name, face_descriptor, role")
       .or(orQuery)
       .not("face_descriptor", "is", null);
 
@@ -49,10 +49,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, reason: "db_error", detail: error.message }, { status: 500 });
     }
 
-    const candidates: Candidate[] = (data || []).map((s: any) => ({
+    const candidates: (Candidate & { role?: string })[] = (data || []).map((s: any) => ({
       id: s.id,
       name: s.name,
       descriptor: s.face_descriptor,
+      role: s.role,
     }));
 
     if (candidates.length === 0) {
@@ -78,6 +79,7 @@ export async function POST(req: NextRequest) {
       staffId: found.id,
       name: found.name,
       similarity: found.similarity,
+      role: matchedCandidate?.role,
       descriptor: matchedCandidate?.descriptor
     }, { status: 200 });
 

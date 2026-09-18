@@ -68,7 +68,18 @@ serve(async (req) => {
 
     if (Object.keys(patch).length > 0) {
       const { error } = await admin.from("outlet_staff").update(patch).eq("id", staff_id);
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23505" || error.message?.includes("outlet_staff_nik_key")) {
+          throw new Error("NIK yang dimasukkan sudah terdaftar pada karyawan lain. Mohon gunakan NIK yang berbeda.");
+        }
+        if (error.code === "23505" || error.message?.includes("outlet_staff_nip_key")) {
+          throw new Error("NIP yang dimasukkan sudah terdaftar pada karyawan lain.");
+        }
+        if (error.code === "23505" || error.message?.includes("outlet_staff_username_key")) {
+          throw new Error("Username sudah digunakan oleh akun lain.");
+        }
+        throw error;
+      }
     }
 
     // 2.5 Update financials if provided

@@ -290,6 +290,8 @@ export default function StaffPage() {
               outlets={outlets}
               onSubmit={editingStaff ? handleUpdate : handleCreate}
               submitting={create.isPending || update.isPending}
+              staffList={staffList}
+              editingStaffId={editingStaff?.id}
               initial={
                 editingStaff
                   ? {

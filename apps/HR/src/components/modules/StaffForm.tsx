@@ -5,9 +5,9 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button, CurrencyInput } from '@suka/design-system'
-import { DollarSign, ShieldAlert, Sparkles, Navigation, Phone, Wallet, Coins } from 'lucide-react'
+import { DollarSign, ShieldAlert } from 'lucide-react'
 import { OutletMultiSelect } from './OutletMultiSelect'
-import type { Outlet, StaffFormValues, Role } from '@/lib/types'
+import type { Outlet, StaffFormValues, Role, StaffRow } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
 import { formatRupiah } from '@/lib/format'
 
@@ -56,6 +56,11 @@ const getStaffFormSchema = (isEditing: boolean) =>
     outlet_id: z.string().min(1, 'Outlet wajib dipilih'),
     outlet_ids: z.array(z.string()).optional(),
     is_bonus_eligible: z.boolean().optional(),
+    nip: z.string().nullable().optional(),
+    contract_type: z.string().nullable().optional(),
+    join_date: z.string().nullable().optional(),
+    resign_date: z.string().nullable().optional(),
+    leave_quota: z.coerce.number().nullable().optional(),
     nik: z.string().nullable().optional(),
     email: z.string().email('Format email tidak valid').nullable().optional().or(z.literal('')),
     phone: z.string().nullable().optional(),
@@ -117,16 +122,28 @@ export function StaffForm({
   onSubmit,
   submitting,
   initial,
+  staffList = [],
+  editingStaffId,
 }: {
   outlets: Outlet[]
   onSubmit: (values: StaffFormValues) => void
   submitting: boolean
   initial?: Partial<StaffFormValues>
+  staffList?: StaffRow[]
+  editingStaffId?: string
 }) {
   const isEditing = !!initial?.name
   const schema = getStaffFormSchema(isEditing)
 
-  const { register, handleSubmit: formHandleSubmit, trigger, control, watch, formState: { errors } } = useForm<any>({
+  const {
+    register,
+    handleSubmit: formHandleSubmit,
+    trigger,
+    control,
+    watch,
+    setError,
+    formState: { errors },
+  } = useForm<any>({
     resolver: zodResolver(schema as any) as any,
     defaultValues: {
       name: initial?.name ?? '',
@@ -173,6 +190,34 @@ export function StaffForm({
   })
 
   const watchRole = watch('role')
+  const watchNik = watch('nik')
+  const watchNip = watch('nip')
+
+  // Real-time duplicate check against existing staff database
+  const duplicateNikOwner = (() => {
+    if (!watchNik || typeof watchNik !== 'string') return null
+    const clean = watchNik.trim()
+    if (!clean) return null
+    const conflict = staffList.find(
+      (s) => s.id !== editingStaffId && s.nik && s.nik.trim() === clean
+    )
+    if (!conflict) return null
+    const outletName = (conflict as any).outlets?.name || 'Pusat'
+    return `${conflict.name} (${outletName})`
+  })()
+
+  const duplicateNipOwner = (() => {
+    if (!watchNip || typeof watchNip !== 'string') return null
+    const clean = watchNip.trim().toLowerCase()
+    if (!clean) return null
+    const conflict = staffList.find(
+      (s) => s.id !== editingStaffId && s.nip && s.nip.trim().toLowerCase() === clean
+    )
+    if (!conflict) return null
+    const outletName = (conflict as any).outlets?.name || 'Pusat'
+    return `${conflict.name} (${outletName})`
+  })()
+
   const watchBasic = Number(watch('basic_salary')) || 0
   const watchMeal = Number(watch('allowance_meal')) || 0
   const watchTransport = Number(watch('allowance_transport')) || 0
@@ -204,6 +249,23 @@ export function StaffForm({
   const isFirstStep = currentIndex === 0
 
   async function validateStep(stepId: string): Promise<boolean> {
+    if (stepId === 'utama') {
+      if (duplicateNipOwner) {
+        setError('nip', { type: 'manual', message: `NIP sudah terdaftar atas nama ${duplicateNipOwner}` })
+        return false
+      }
+    }
+    if (stepId === 'pribadi') {
+      if (duplicateNikOwner) {
+        setError('nik', { type: 'manual', message: `NIK sudah terdaftar atas nama ${duplicateNikOwner}` })
+        return false
+      }
+      const rawNik = (watch('nik') || '').trim()
+      if (rawNik && rawNik.length !== 16) {
+        setError('nik', { type: 'manual', message: 'NIK harus terdiri dari 16 digit angka' })
+        return false
+      }
+    }
     const fields = stepFields[stepId]
     return await trigger(fields as any)
   }
@@ -211,8 +273,7 @@ export function StaffForm({
   async function validateThrough(targetIndex: number): Promise<boolean> {
     for (let i = 0; i <= targetIndex; i++) {
       const stepId = tabs[i].id
-      const fields = stepFields[stepId]
-      const isValid = await trigger(fields as any)
+      const isValid = await validateStep(stepId)
       if (!isValid) {
         setActiveTab(stepId as any)
         return false
@@ -233,18 +294,43 @@ export function StaffForm({
 
   const onSubmitForm = async (rawData: any) => {
     const data = rawData as FormData
+
+    if (duplicateNipOwner) {
+      setActiveTab('utama')
+      setError('nip', { type: 'manual', message: `NIP sudah terdaftar atas nama ${duplicateNipOwner}` })
+      return
+    }
+
+    if (duplicateNikOwner) {
+      setActiveTab('pribadi')
+      setError('nik', { type: 'manual', message: `NIK sudah terdaftar atas nama ${duplicateNikOwner}` })
+      return
+    }
+
+    const rawNik = (data.nik || '').trim()
+    if (rawNik && rawNik.length !== 16) {
+      setActiveTab('pribadi')
+      setError('nik', { type: 'manual', message: 'NIK harus terdiri dari 16 digit angka' })
+      return
+    }
+
     if (!(await validateThrough(tabs.length - 1))) return
 
+    const cleanNik = rawNik ? rawNik : null
+    const cleanNip = (data.nip || '').trim() ? (data.nip || '').trim() : null
+    const cleanPersonalEmail = (data.email || '').trim() ? (data.email || '').trim() : null
+    const cleanPhone = (data.phone || '').trim() ? (data.phone || '').trim() : null
+
     const payload: StaffFormValues = {
-      name: data.name,
-      username: data.username || '',
-      role: data.role,
+      name: data.name.trim(),
+      username: data.username ? data.username.trim() : '',
+      role: data.role as Role,
       outlet_id: data.outlet_id,
-      outlet_ids: data.role === 'leader' || data.role === 'area_manager' ? data.outlet_ids : [],
+      outlet_ids: data.role === 'leader' || data.role === 'area_manager' ? (data.outlet_ids ?? []) : [],
       is_bonus_eligible: data.is_bonus_eligible !== undefined ? data.is_bonus_eligible : true,
-      nik: data.nik || null,
-      email: data.email || null,
-      phone: data.phone || null,
+      nik: cleanNik,
+      email: cleanPersonalEmail,
+      phone: cleanPhone,
       address_ktp: data.address_ktp || null,
       address_domicile: data.address_domicile || null,
       birth_place: data.birth_place || null,
@@ -254,8 +340,8 @@ export function StaffForm({
       emergency_name: data.emergency_name || null,
       emergency_relationship: data.emergency_relationship || null,
       emergency_phone: data.emergency_phone || null,
-      nip: data.nip || null,
-      contract_type: data.contract_type || null,
+      nip: cleanNip,
+      contract_type: (data.contract_type as any) || null,
       join_date: data.join_date || null,
       resign_date: data.resign_date || null,
       leave_quota: data.leave_quota || 0,
@@ -271,9 +357,9 @@ export function StaffForm({
       bank_name: data.bank_name || undefined,
       bank_account_number: data.bank_account_number || undefined,
       bank_account_name: data.bank_account_name || undefined,
-      npwp: data.npwp || null,
-      bpjs_ketenagakerjaan: data.bpjs_ketenagakerjaan || null,
-      bpjs_kesehatan: data.bpjs_kesehatan || null,
+      npwp: (data.npwp || '').trim() || null,
+      bpjs_ketenagakerjaan: (data.bpjs_ketenagakerjaan || '').trim() || null,
+      bpjs_kesehatan: (data.bpjs_kesehatan || '').trim() || null,
     }
 
     if (!isEditing && data.password) {
@@ -324,7 +410,17 @@ export function StaffForm({
 
             <div>
               <label htmlFor="sf-nip" className={labelCls}>NIP (Nomor Induk Pegawai)</label>
-              <input id="sf-nip" className={inputCls} placeholder="NIP-XXXXX" {...register('nip')} />
+              <input
+                id="sf-nip"
+                className={`${inputCls} ${duplicateNipOwner || errors.nip ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20' : ''}`}
+                placeholder="NIP-XXXXX"
+                {...register('nip')}
+              />
+              {(errors.nip?.message || duplicateNipOwner) && (
+                <span className="text-xs text-red-500 mt-1 block font-medium">
+                  ⚠️ {errors.nip?.message?.toString() || `NIP sudah terdaftar atas nama ${duplicateNipOwner}`}
+                </span>
+              )}
             </div>
 
             <div>
@@ -427,16 +523,20 @@ export function StaffForm({
               <label htmlFor="sf-nik" className={labelCls}>NIK KTP (16 Digit)</label>
               <input
                 id="sf-nik"
-                className={inputCls}
+                className={`${inputCls} ${duplicateNikOwner || errors.nik ? 'border-red-500 focus:border-red-500 focus:ring-red-500 bg-red-50/20' : ''}`}
                 maxLength={16}
-                placeholder="320xxxxxxxxxxxxx"
+                placeholder="320xxxxxxxxxxxxx (16 digit)"
                 {...register('nik', {
                   onChange: (e) => {
                     e.target.value = e.target.value.replace(/\D/g, '')
                   },
                 })}
               />
-              {errors.nik && <span className="text-xs text-red-500 mt-1 block">{errors.nik.message?.toString()}</span>}
+              {(errors.nik?.message || duplicateNikOwner) && (
+                <span className="text-xs text-red-500 mt-1 block font-medium">
+                  ⚠️ {errors.nik?.message?.toString() || `NIK sudah terdaftar atas nama ${duplicateNikOwner}`}
+                </span>
+              )}
             </div>
 
             <div>

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@suka/auth'
 import { adminApi } from '@/lib/adminApi'
 import type { StaffFormValues } from '@/lib/types'
-import { createStaffSync, toggleStaffBonusEligibility, deleteStaffSync } from '@/app/actions/users'
+import { createStaffSync, updateStaffSync, toggleStaffBonusEligibility, deleteStaffSync } from '@/app/actions/users'
 
 export function useStaffMutations() {
   const { session } = useAuth()
@@ -23,7 +23,7 @@ export function useStaffMutations() {
   })
   const update = useMutation({
     mutationFn: (vars: { staff_id: string } & Partial<StaffFormValues>) =>
-      adminApi.updateStaff(token(), vars),
+      updateStaffSync(vars),
     onSuccess: invalidate,
   })
   const resetPassword = useMutation({

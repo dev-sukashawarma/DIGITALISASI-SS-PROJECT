@@ -24,6 +24,15 @@ type StaffRow = { id: string; name: string; role?: string | null; face_descripto
 const FUNCTION_URL = "/api/submit-attendance";
 
 /**
+ * `outlets.slug` Kantor Pusat — di sana tidak ada kasir, pesanan, maupun checklist tutup
+ * outlet, jadi gerbang absen pulang tidak berlaku (lihat wajibTutupOutlet).
+ *
+ * Dikenali lewat slug, BUKAN `outlets.type`: tipe `office` memuat dua lokasi yang berbeda
+ * sifatnya — Kantor Pusat dan Gudang Pusat yang merupakan gudang sungguhan.
+ */
+const SLUG_KANTOR_PUSAT = "kantor-pusat";
+
+/**
  * @param outletId outlet aktif
  * @param options.lockToStaffId Bila diisi, kiosk bekerja MODE 1:1 — hanya cocok
  *   dengan descriptor staff ini (akun yang sedang login). Wajah orang lain ditolak
@@ -43,6 +52,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const candidatesRef = useRef<Candidate[]>([]);
   const watchIdRef = useRef<number | null>(null);
   const locationLockedRef = useRef(false);
+  const diKantorPusatRef = useRef(false);
   const livenessWarningStartRef = useRef<number | null>(null);
   const [phase, setPhase] = useState<KioskPhase>("locating");
   const [outletCoords, setOutletCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -138,7 +148,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     try {
       const { data, error } = await supabase
         .from("outlets")
-        .select("lat, lng, is_active")
+        .select("lat, lng, is_active, slug")
         .eq("id", outletId)
         .single();
 
@@ -148,6 +158,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         setPhase("location_invalid");
         return;
       }
+
+      diKantorPusatRef.current = data.slug === SLUG_KANTOR_PUSAT;
 
       if (data.is_active === false) {
         setResult({ ok: false, message: "Kamera absensi sedang dinonaktifkan oleh Pusat (Emergency Lock)." });
@@ -364,8 +376,13 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
    * Apakah staff ini wajib menunggu penutupan outlet (checklist tutup & laci kasir)
    * sebelum absen pulang. Di outlet dua shift hanya shift yang pulang paling akhir;
    * aturan yang sama ditegakkan ulang di server (api/submit-attendance).
+   *
+   * Kantor Pusat tidak punya laci kasir maupun checklist tutup outlet, jadi gerbang ini
+   * hanya akan mengunci staf kantor selamanya. Yang tersisa di sana cuma aturan jam, dan
+   * itu tetap ditegakkan server (`too_early_out`: paling cepat 30 menit sebelum jam pulang).
    */
   async function wajibTutupOutlet(staffId: string): Promise<boolean> {
+    if (diKantorPusatRef.current) return false;
     const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
     const opsi = await loadShiftOptions(staffRole);
     if (!opsi) return true;

@@ -48,7 +48,7 @@ export interface WaterfallInput {
   opexMonthlyBreakdown?: WaterfallDetail[]
   /** Pendapatan management fee dari mitra (khusus scope internal). */
   managementFeeIncome?: number
-  /** Pendapatan margin pasokan bahan baku mitra (10% HPP) untuk pusat/holding. */
+  /** Pendapatan margin pasokan bahan baku mitra (10% HPP dasar) untuk pusat/holding. */
   mitraHppMarginIncome?: number
   /** Potongan management fee pusat (khusus scope mitra). */
   managementFeeExpense?: number
@@ -107,12 +107,12 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     }] : []),
     ...(mitraHppMarginIncome > 0 ? [{
       key: 'margin_pasokan_mitra',
-      label: 'Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP)',
-      hint: `Margin 10% atas pasokan bahan baku resep untuk seluruh outlet kemitraan (setara ${pct(mitraHppMarginIncome).toFixed(1)}% terhadap omzet kotor)`,
+      label: 'Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP Dasar)',
+      hint: `Margin 10% atas HPP dasar bahan baku resep untuk seluruh outlet kemitraan — selisih antara yang ditagihkan ke mitra dan modal bahan pusat (setara ${pct(mitraHppMarginIncome).toFixed(1)}% terhadap omzet kotor)`,
       amount: mitraHppMarginIncome,
       kind: 'base' as const,
       pctOfGross: pct(mitraHppMarginIncome),
-      pctLabel: '10% HPP Mitra',
+      pctLabel: '10% HPP Dasar',
     }] : []),
     {
       key: 'pendapatan_bersih',

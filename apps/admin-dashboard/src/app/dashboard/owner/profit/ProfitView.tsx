@@ -276,16 +276,36 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     ? (isAllOutlets ? managementFeeData.totalMitraFee : (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0))
     : 0
 
-  // Total HPP seluruh outlet kemitraan yang berada dalam cakupan filter
-  const totalMitraHpp = useMemo(() => {
+  // Total HPP outlet kemitraan dalam cakupan filter, dipisah tiga angka:
+  // `hpp` = yang ditagihkan ke mitra (base + 10%), `base` = modal bahan pusat,
+  // `markup` = selisih keduanya. Ketiganya dijumlah dari nilai per item supaya
+  // eksak — tidak ada pembagian balik 1,1 di level agregat.
+  const mitraHppTotals = useMemo(() => {
     return hpp.rows
       .filter(r => (isAllOutlets ? mitraIds.has(r.outlet_id) : (r.outlet_id === filter.outletId && mitraIds.has(r.outlet_id))) && !isTestOutlet(r.outlet_id))
-      .reduce((sum, r) => sum + (Number(r.hpp) || 0), 0)
+      .reduce(
+        (acc, r) => ({
+          hpp: acc.hpp + (Number(r.hpp) || 0),
+          base: acc.base + (Number(r.baseHpp) || 0),
+          markup: acc.markup + (Number(r.markup) || 0),
+        }),
+        { hpp: 0, base: 0, markup: 0 },
+      )
   }, [hpp.rows, mitraIds, isAllOutlets, filter.outletId])
 
-  // Pendapatan Margin Pasokan Bahan Baku Mitra (10% flat dari total HPP mitra)
+  const totalMitraHpp = mitraHppTotals.hpp
+  const totalMitraBaseHpp = mitraHppTotals.base
+
+  // Pendapatan Margin Pasokan Bahan Baku Mitra = 10% dari HPP DASAR, yaitu
+  // selisih antara yang ditagihkan ke mitra dan modal bahan pusat.
+  //
+  // Diakui di dua scope dengan alasan berbeda:
+  // - `internal`: HPP & omzet mitra tak ikut di sini, jadi ini pendapatan baru.
+  // - `all`: HPP mitra ikut sebagai biaya dalam angka yang SUDAH ber-markup,
+  //   jadi margin ini mengembalikannya ke modal sebenarnya. Kalau dicabut,
+  //   laba global malah terlalu kecil sebesar markup itu.
   const mitraHppMarginReceived = (scope === 'all' || scope === 'internal')
-    ? Math.round(totalMitraHpp * 0.10)
+    ? mitraHppTotals.markup
     : 0
 
   // Omzet Kotor Total: Sesuai instruksi owner, management fee & margin bahan baku mitra ditambahkan ke revenue
@@ -759,7 +779,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MANAGEMENT FEE MITRA (PUSAT)', mgmtFeeAll])
         }
         if (marginHppAll > 0) {
-          rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MARGIN PASOKAN BAHAN MITRA (10% HPP)', marginHppAll])
+          rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MARGIN PASOKAN BAHAN MITRA (10% HPP DASAR)', marginHppAll])
         }
         rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN BERSIH (NET REVENUE)', netRevAll])
         rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI HPP & WASTE', 'TOTAL MODAL BAHAN (HPP)', hppAll])
@@ -1334,7 +1354,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     </span>
                   )}
                   {mitraHppMarginReceived > 0 && (
-                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300" title="Termasuk pendapatan Margin Pasokan Bahan Baku 10% HPP Kemitraan">
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300" title="Termasuk pendapatan Margin Pasokan Bahan Baku 10% HPP Dasar Kemitraan">
                       +Margin Bahan Mitra {rupiah(mitraHppMarginReceived)}
                     </span>
                   )}
@@ -1503,9 +1523,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     {mitraHppMarginReceived > 0 && (
                       <div className="flex justify-between items-center text-xs text-amber-800 pl-4 border-l-2 border-amber-500 bg-amber-50/60 py-1 pr-2 rounded-r-lg">
                         <div>
-                          <span className="font-semibold block">Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP)</span>
+                          <span className="font-semibold block">Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP Dasar)</span>
                           <span className="text-[10px] text-amber-700 block font-normal">
-                            10% dari total HPP outlet kemitraan ({rupiah(totalMitraHpp)})
+                            10% dari HPP dasar bahan baku mitra ({rupiah(totalMitraBaseHpp)}) · ditagihkan ke mitra {rupiah(totalMitraHpp)}
                           </span>
                         </div>
                         <span className="font-bold text-sm shrink-0">+{rupiah(mitraHppMarginReceived)}</span>

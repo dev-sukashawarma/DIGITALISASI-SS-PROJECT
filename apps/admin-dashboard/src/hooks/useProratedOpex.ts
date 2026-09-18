@@ -11,6 +11,7 @@ import {
   calculateProratedExpenses,
   type ProratedExpenseResult,
 } from '@/lib/opexProrata'
+import { isTestOrDevStaff } from '@/lib/staffFilters'
 
 interface UseProratedOpexOptions {
   filter: PeriodFilterValue
@@ -54,6 +55,9 @@ export function useProratedOpex({
           allowance_position,
           allowance_presence,
           outlet_staff!payroll_records_staff_id_fkey(
+            id,
+            name,
+            username,
             outlet_id,
             role,
             status
@@ -69,7 +73,7 @@ export function useProratedOpex({
 
       const rows = (data ?? []) as any[]
       return rows
-        .filter(r => r.outlet_staff?.role !== 'kiosk')
+        .filter(r => r.outlet_staff && r.outlet_staff.status === 'active' && !isTestOrDevStaff(r.outlet_staff))
         .map(r => ({
           outlet_id: r.outlet_staff?.outlet_id as string,
           total_salary: Number(r.total_salary) || 0,
@@ -87,6 +91,9 @@ export function useProratedOpex({
       const { data, error } = await supabase
         .from('outlet_staff')
         .select(`
+          id,
+          name,
+          username,
           outlet_id,
           role,
           status,
@@ -105,15 +112,17 @@ export function useProratedOpex({
       }
 
       const rows = (data ?? []) as any[]
-      return rows.map(s => {
-        const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
-        return {
-          outlet_id: s.outlet_id as string,
-          basic_salary: Number(fin?.basic_salary) || 0,
-          allowance_position: Number(fin?.allowance_position) || 0,
-          allowance_presence: Number(fin?.allowance_presence) || 0,
-        }
-      }).filter(s => Boolean(s.outlet_id))
+      return rows
+        .filter(s => !isTestOrDevStaff(s))
+        .map(s => {
+          const fin = Array.isArray(s.staff_financials) ? s.staff_financials[0] : s.staff_financials
+          return {
+            outlet_id: s.outlet_id as string,
+            basic_salary: Number(fin?.basic_salary) || 0,
+            allowance_position: Number(fin?.allowance_position) || 0,
+            allowance_presence: Number(fin?.allowance_presence) || 0,
+          }
+        }).filter(s => Boolean(s.outlet_id))
     },
     enabled: shouldFetchProrata,
     staleTime: 10 * 60 * 1000, // 10 menit

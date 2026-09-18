@@ -264,16 +264,32 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     [salesRows]
   )
 
-  // Penerimaan Management Fee oleh Kantor Pusat (khusus scope internal)
-  const managementFeeReceived = scope === 'internal' && isAllOutlets ? managementFeeData.totalMitraFee : 0
+  // Penerimaan Management Fee oleh Kantor Pusat (scope all & internal)
+  const managementFeeReceived = (scope === 'all' || scope === 'internal')
+    ? (isAllOutlets 
+        ? managementFeeData.totalMitraFee 
+        : (mitraIds.has(filter.outletId) ? (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0) : 0))
+    : 0
   
   // Pembayaran Management Fee ke Pusat oleh Kemitraan (khusus scope mitra)
   const managementFeeExpense = scope === 'mitra' 
     ? (isAllOutlets ? managementFeeData.totalMitraFee : (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0))
     : 0
 
-  // Omzet Kotor Total: Sesuai instruksi owner, management fee dari mitra ditambahkan ke revenue internal
-  const actualGrossRevenue = actualGrossSales + managementFeeReceived
+  // Total HPP seluruh outlet kemitraan yang berada dalam cakupan filter
+  const totalMitraHpp = useMemo(() => {
+    return hpp.rows
+      .filter(r => (isAllOutlets ? mitraIds.has(r.outlet_id) : (r.outlet_id === filter.outletId && mitraIds.has(r.outlet_id))) && !isTestOutlet(r.outlet_id))
+      .reduce((sum, r) => sum + (Number(r.hpp) || 0), 0)
+  }, [hpp.rows, mitraIds, isAllOutlets, filter.outletId])
+
+  // Pendapatan Margin Pasokan Bahan Baku Mitra (10% flat dari total HPP mitra)
+  const mitraHppMarginReceived = (scope === 'all' || scope === 'internal')
+    ? Math.round(totalMitraHpp * 0.10)
+    : 0
+
+  // Omzet Kotor Total: Sesuai instruksi owner, management fee & margin bahan baku mitra ditambahkan ke revenue
+  const actualGrossRevenue = actualGrossSales + managementFeeReceived + mitraHppMarginReceived
 
   const totalPotongan = useMemo(
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0), 
@@ -501,13 +517,14 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     includeCentral,
     opexMonthlyBreakdown,
     managementFeeIncome: managementFeeReceived,
+    mitraHppMarginIncome: mitraHppMarginReceived,
     managementFeeExpense: managementFeeExpense,
     grossRevenueBreakdown,
     deductionsBreakdown,
   }), [
     actualGrossSales, totalDeductions, totalHpp, totalWaste,
     pengeluaranOutletBulanan, pengeluaranOutletPettyCash, pengeluaranPusat, includeCentral,
-    opexMonthlyBreakdown, managementFeeReceived, managementFeeExpense,
+    opexMonthlyBreakdown, managementFeeReceived, mitraHppMarginReceived, managementFeeExpense,
     grossRevenueBreakdown, deductionsBreakdown,
   ])
 
@@ -522,24 +539,25 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const outletName = item.name.replace(/^SUKA SHAWARMA\s*/i, '').trim()
         const outletSales = salesRows.filter(r => r.outlet_id === item.id)
         
-        // Check mitra investment profile
+        // Menggunakan data kemitraan resmi yang tersinkronisasi dari item
+        const isMitra = item.isMitra
         const inv = mitraInvestments[item.id]
-        const isMitra = Boolean(inv || item.name.toLowerCase().includes('mitra'))
         const modalInvestasi = Number(inv?.nilai_investasi) || (isMitra ? 125000000 : 0)
         const omzetHistoris = Number(inv?.omzet_historis) || 0
         const transferHistoris = Number(inv?.transfer_historis) || 0
         const profitMitraSebelumnya = omzetHistoris + transferHistoris
         const policy = resolveMitraPolicy({
           periodFrom: effectiveFilter.from,
-          isBep: Boolean(inv?.isBep),
+          isBep: item.isBep,
           legacyProfitSharingPct: inv?.persentase_bagi_hasil,
           legacyManagementFee: inv?.management_fee,
         })
         const bagiHasilPct = isMitra ? policy.profitSharingPct : 0
-        const mgmtFeePct = isMitra ? policy.managementFeePct : 0
+        const mgmtFeePct = item.mgmtFeePct
+        const managementFee = item.mgmtFee
         const categoryLabel = isMitra ? `Mitra (Bagi Hasil ${bagiHasilPct}% | Mgmt Fee ${mgmtFeePct}%)` : 'Outlet Pusat'
 
-        // 1. Group sales by channel
+        // 1. Group sales by channel (potongan riil dari database)
         const channels = {
           outlet: { revenue: 0, adminFee: 0 },
           food_apps: { revenue: 0, adminFee: 0 },
@@ -549,42 +567,53 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
         outletSales.forEach(r => {
           const grp = getChannelGroup(r.sales_source || '')
-          const gross = (r.omzet || 0) + (r.total_deductions || 0)
-          const fee = (r.total_deductions || 0) + (r.platform_fee || 0)
+          const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+          const fee = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
           channels[grp].revenue += gross
           channels[grp].adminFee += fee
         })
 
-        // Standard platform commission rates: Food Apps 20%, TikTok 10%
-        if (channels.food_apps.adminFee === 0 && channels.food_apps.revenue > 0) {
-          channels.food_apps.adminFee = Math.round(channels.food_apps.revenue * 0.20)
+        const totalRev = channels.outlet.revenue + channels.food_apps.revenue + channels.tiktok_go.revenue + channels.website.revenue
+        const totalAdminFee = channels.outlet.adminFee + channels.food_apps.adminFee + channels.tiktok_go.adminFee + channels.website.adminFee
+        const totalCogs = item.hpp
+
+        // Alokasi HPP proporsional berdasarkan revenue riil channel
+        const getCogs = (rev: number) => totalRev > 0 ? Math.round((item.hpp * rev) / totalRev) : 0
+
+        let cogsOutlet = getCogs(channels.outlet.revenue)
+        let cogsFoodApps = getCogs(channels.food_apps.revenue)
+        let cogsTikTok = getCogs(channels.tiktok_go.revenue)
+        let cogsWebsite = getCogs(channels.website.revenue)
+
+        // Penyesuaian selisih pembulatan ke channel yang memiliki revenue
+        const sumCogs = cogsOutlet + cogsFoodApps + cogsTikTok + cogsWebsite
+        const diffCogs = item.hpp - sumCogs
+        if (diffCogs !== 0) {
+          if (channels.outlet.revenue >= channels.food_apps.revenue && channels.outlet.revenue > 0) {
+            cogsOutlet += diffCogs
+          } else if (channels.food_apps.revenue > 0) {
+            cogsFoodApps += diffCogs
+          } else if (channels.tiktok_go.revenue > 0) {
+            cogsTikTok += diffCogs
+          } else if (channels.website.revenue > 0) {
+            cogsWebsite += diffCogs
+          }
         }
-        if (channels.tiktok_go.adminFee === 0 && channels.tiktok_go.revenue > 0) {
-          channels.tiktok_go.adminFee = Math.round(channels.tiktok_go.revenue * 0.10)
-        }
 
-        const totalGross = item.omzet + item.deductions
-        const getCogs = (rev: number) => totalGross > 0 ? Math.round((item.hpp * rev) / totalGross) : 0
-
-        const cogsOutlet = getCogs(channels.outlet.revenue)
-        const cogsFoodApps = getCogs(channels.food_apps.revenue)
-        const cogsTikTok = getCogs(channels.tiktok_go.revenue)
-        const cogsWebsite = Math.max(0, item.hpp - cogsOutlet - cogsFoodApps - cogsTikTok)
-
-        const gpOutlet = channels.outlet.revenue - cogsOutlet
+        const gpOutlet = channels.outlet.revenue - channels.outlet.adminFee - cogsOutlet
         const gpFoodApps = channels.food_apps.revenue - channels.food_apps.adminFee - cogsFoodApps
         const settlementTikTok = channels.tiktok_go.revenue - channels.tiktok_go.adminFee
         const gpTikTok = settlementTikTok - cogsTikTok
-        const gpWebsite = channels.website.revenue - cogsWebsite
+        const gpWebsite = channels.website.revenue - channels.website.adminFee - cogsWebsite
 
-        const totalRev = channels.outlet.revenue + channels.food_apps.revenue + channels.tiktok_go.revenue + channels.website.revenue
-        const totalCogs = item.hpp
-        const totalAdminFee = channels.food_apps.adminFee + channels.tiktok_go.adminFee
-        const managementFee = (totalRev * mgmtFeePct) / 100
-        const totalGrossProfit = totalRev - totalCogs - totalAdminFee - managementFee
+        // Laba kotor murni (Revenue - Potongan - HPP) sesuai standar akuntansi & dashboard
+        const totalGrossProfit = totalRev - totalAdminFee - totalCogs
 
         // CSV Rows - Channel 1
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI OUTLET', 'REVENUE', channels.outlet.revenue])
+        if (channels.outlet.adminFee > 0) {
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI OUTLET', 'ADMIN FEE (POTONGAN QRIS/EDC)', channels.outlet.adminFee])
+        }
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI OUTLET', 'TOTAL COGS (HPP)', cogsOutlet])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI OUTLET', 'TOTAL GROSS PROFIT OUTLET', gpOutlet])
 
@@ -603,18 +632,20 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
         // CSV Rows - Channel 4
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'REVENUE', channels.website.revenue])
+        if (channels.website.adminFee > 0) {
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'ADMIN FEE (PAYMENT GATEWAY)', channels.website.adminFee])
+        }
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'TOTAL COGS (HPP)', cogsWebsite])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TRANSAKSI WEBSITE SS', 'TOTAL GROSS PROFIT WEBSITE SS', gpWebsite])
 
         // CSV Rows - Total Rekap Gross
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', 'TOTAL REVENUE', totalRev])
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', 'TOTAL POTONGAN MERCHANT', totalAdminFee])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', 'TOTAL COGS (HPP)', totalCogs])
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', 'TOTAL ADMIN FEE', totalAdminFee])
-        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', `MANAGEMENT FEE (${mgmtFeePct}%)`, managementFee])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'TOTAL REKAP GROSS', 'TOTAL GROSS PROFIT', totalGrossProfit])
 
-        // OPEX
-        const outletOpex = expenseRows.filter(e => e.outlet_id === item.id)
+        // OPEX (murni biaya operasional outlet tanpa waste)
+        const outletOpex = expenseRows.filter(e => e.outlet_id === item.id && (e.scope === 'outlet' || !e.scope))
         const opexSums: Record<string, number> = {
           pengeluaran_outlet: 0,
           gaji_crew_outlet: 0,
@@ -650,10 +681,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           else opexSums.pengeluaran_outlet += e.amount
         })
 
-        if (item.waste > 0) {
-          opexSums.pengeluaran_outlet += item.waste
-        }
-
         const totalOpex = Object.values(opexSums).reduce((a, b) => a + b, 0)
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'PENGELUARAN OUTLET', opexSums.pengeluaran_outlet])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'GAJI CREW OUTLET', opexSums.gaji_crew_outlet])
@@ -673,14 +700,20 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'JOINT EXPENSE', opexSums.joint_expense])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'URAIAN OPEX', 'SUB TOTAL PENGELUARAN', totalOpex])
 
+        // BEBAN LAINNYA & KEMITRAAN
+        rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'BEBAN LAINNYA & KEMITRAAN', 'KERUGIAN BAHAN RUSAK (WASTE)', item.waste])
+        if (isMitra) {
+          rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'BEBAN LAINNYA & KEMITRAAN', `MANAGEMENT FEE PUSAT (${mgmtFeePct}%)`, managementFee])
+        }
+
         // NET PROFIT & BAGI HASIL
-        const totalNetProfit = totalGrossProfit - totalOpex
+        const totalNetProfit = item.net
         let profitMitra = 0
         let profitSukaShawarma = 0
 
         if (isMitra) {
-          profitMitra = totalNetProfit > 0 ? (totalNetProfit * bagiHasilPct) / 100 : totalNetProfit
-          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit * (100 - bagiHasilPct)) / 100 : 0)
+          profitMitra = totalNetProfit > 0 ? Math.round((totalNetProfit * bagiHasilPct) / 100) : totalNetProfit
+          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit - profitMitra) : 0)
         } else {
           profitMitra = 0
           profitSukaShawarma = totalNetProfit
@@ -694,7 +727,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const totalProfitMitraSementara = profitMitraSebelumnya + (isMitra ? profitMitra : 0)
         const roi = modalInvestasi > 0 ? ((totalProfitMitraSementara / modalInvestasi) * 100).toFixed(2) + '%' : '0.00%'
         const bepStatus = isMitra 
-          ? (modalInvestasi > 0 && totalProfitMitraSementara >= modalInvestasi 
+          ? (item.isBep || (modalInvestasi > 0 && totalProfitMitraSementara >= modalInvestasi)
               ? 'SUDAH BEP (BALIK MODAL)' 
               : `${(modalInvestasi > 0 ? (totalProfitMitraSementara / modalInvestasi) * 100 : 0).toFixed(2).replace('.', ',')}% Menuju BEP`)
           : '-'
@@ -706,6 +739,37 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'REKAP MODAL MITRA', 'ROI (%)', `"${roi}"`])
         rows.push([`"${outletName}"`, `"${categoryLabel}"`, 'REKAP MODAL MITRA', 'STATUS BEP', `"${bepStatus}"`])
       })
+
+      // Jika ekspor gabungan semua outlet, tambahkan ringkasan konsolidasi perusahaan
+      if (isAllOutlets && scope !== 'mitra') {
+        const totalGrossOmzet = actualGrossSales
+        const totalPotongan = totalDeductions
+        const netRevAll = netRevenue
+        const hppAll = totalHpp
+        const wasteAll = totalWaste
+        const opexAll = pengeluaranOutlet
+        const mgmtFeeAll = managementFeeReceived
+        const marginHppAll = mitraHppMarginReceived
+        const opexPusatAll = pengeluaranPusat
+        const netProfitPerusahaan = displayLaba
+
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'TOTAL OMZET KOTOR PENJUALAN', totalGrossOmzet])
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'TOTAL POTONGAN MERCHANT', totalPotongan])
+        if (mgmtFeeAll > 0) {
+          rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MANAGEMENT FEE MITRA (PUSAT)', mgmtFeeAll])
+        }
+        if (marginHppAll > 0) {
+          rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MARGIN PASOKAN BAHAN MITRA (10% HPP)', marginHppAll])
+        }
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN BERSIH (NET REVENUE)', netRevAll])
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI HPP & WASTE', 'TOTAL MODAL BAHAN (HPP)', hppAll])
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI HPP & WASTE', 'KERUGIAN BAHAN RUSAK (WASTE)', wasteAll])
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'TOTAL BEBAN OPERASIONAL OUTLET', opexAll])
+        if (opexPusatAll > 0) {
+          rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OPEX', 'BEBAN OPERASIONAL KANTOR PUSAT (MANAJEMEN)', opexPusatAll])
+        }
+        rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI LABA BERSIH', 'LABA BERSIH AKHIR PERUSAHAAN (NET PROFIT)', netProfitPerusahaan])
+      }
 
       const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n')
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -740,23 +804,24 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const outletDisplayName = item.name.replace(/^SUKA SHAWARMA\s*/i, '').toUpperCase()
         const outletSales = salesRows.filter(r => r.outlet_id === item.id)
 
-        // Check mitra investment profile
+        // Menggunakan data kemitraan resmi yang tersinkronisasi dari item
+        const isMitra = item.isMitra
         const inv = mitraInvestments[item.id]
-        const isMitra = Boolean(inv || item.name.toLowerCase().includes('mitra'))
         const modalInvestasi = Number(inv?.nilai_investasi) || (isMitra ? 125000000 : 0)
         const omzetHistoris = Number(inv?.omzet_historis) || 0
         const transferHistoris = Number(inv?.transfer_historis) || 0
         const profitMitraSebelumnya = omzetHistoris + transferHistoris
         const policy = resolveMitraPolicy({
           periodFrom: effectiveFilter.from,
-          isBep: Boolean(inv?.isBep),
+          isBep: item.isBep,
           legacyProfitSharingPct: inv?.persentase_bagi_hasil,
           legacyManagementFee: inv?.management_fee,
         })
         const bagiHasilPct = isMitra ? policy.profitSharingPct : 0
-        const mgmtFeePct = isMitra ? policy.managementFeePct : 0
+        const mgmtFeePct = item.mgmtFeePct
+        const managementFee = item.mgmtFee
 
-        // 1. Group sales by channel
+        // 1. Group sales by channel (potongan riil dari database)
         const channels = {
           outlet: { revenue: 0, adminFee: 0 },
           food_apps: { revenue: 0, adminFee: 0 },
@@ -766,42 +831,50 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
 
         outletSales.forEach(r => {
           const grp = getChannelGroup(r.sales_source || '')
-          const gross = (r.omzet || 0) + (r.total_deductions || 0)
-          const fee = (r.total_deductions || 0) + (r.platform_fee || 0)
+          const gross = (Number(r.omzet) || 0) + (Number(r.total_deductions) || 0)
+          const fee = (Number(r.total_deductions) || 0) + (Number(r.platform_fee) || 0)
           channels[grp].revenue += gross
           channels[grp].adminFee += fee
         })
 
-        // Standard platform commission rates: Food Apps 20%, TikTok 10%
-        if (channels.food_apps.adminFee === 0 && channels.food_apps.revenue > 0) {
-          channels.food_apps.adminFee = Math.round(channels.food_apps.revenue * 0.20)
+        const totalRev = channels.outlet.revenue + channels.food_apps.revenue + channels.tiktok_go.revenue + channels.website.revenue
+        const totalAdminFee = channels.outlet.adminFee + channels.food_apps.adminFee + channels.tiktok_go.adminFee + channels.website.adminFee
+        const totalCogs = item.hpp
+
+        // Alokasi HPP proporsional berdasarkan revenue riil channel
+        const getCogs = (rev: number) => totalRev > 0 ? Math.round((item.hpp * rev) / totalRev) : 0
+
+        let cogsOutlet = getCogs(channels.outlet.revenue)
+        let cogsFoodApps = getCogs(channels.food_apps.revenue)
+        let cogsTikTok = getCogs(channels.tiktok_go.revenue)
+        let cogsWebsite = getCogs(channels.website.revenue)
+
+        // Penyesuaian selisih pembulatan ke channel yang memiliki revenue
+        const sumCogs = cogsOutlet + cogsFoodApps + cogsTikTok + cogsWebsite
+        const diffCogs = item.hpp - sumCogs
+        if (diffCogs !== 0) {
+          if (channels.outlet.revenue >= channels.food_apps.revenue && channels.outlet.revenue > 0) {
+            cogsOutlet += diffCogs
+          } else if (channels.food_apps.revenue > 0) {
+            cogsFoodApps += diffCogs
+          } else if (channels.tiktok_go.revenue > 0) {
+            cogsTikTok += diffCogs
+          } else if (channels.website.revenue > 0) {
+            cogsWebsite += diffCogs
+          }
         }
-        if (channels.tiktok_go.adminFee === 0 && channels.tiktok_go.revenue > 0) {
-          channels.tiktok_go.adminFee = Math.round(channels.tiktok_go.revenue * 0.10)
-        }
 
-        const totalGross = item.omzet + item.deductions
-        const getCogs = (rev: number) => totalGross > 0 ? Math.round((item.hpp * rev) / totalGross) : 0
-
-        const cogsOutlet = getCogs(channels.outlet.revenue)
-        const cogsFoodApps = getCogs(channels.food_apps.revenue)
-        const cogsTikTok = getCogs(channels.tiktok_go.revenue)
-        const cogsWebsite = Math.max(0, item.hpp - cogsOutlet - cogsFoodApps - cogsTikTok)
-
-        const gpOutlet = channels.outlet.revenue - cogsOutlet
+        const gpOutlet = channels.outlet.revenue - channels.outlet.adminFee - cogsOutlet
         const gpFoodApps = channels.food_apps.revenue - channels.food_apps.adminFee - cogsFoodApps
         const settlementTikTok = channels.tiktok_go.revenue - channels.tiktok_go.adminFee
         const gpTikTok = settlementTikTok - cogsTikTok
-        const gpWebsite = channels.website.revenue - cogsWebsite
+        const gpWebsite = channels.website.revenue - channels.website.adminFee - cogsWebsite
 
-        const totalRev = channels.outlet.revenue + channels.food_apps.revenue + channels.tiktok_go.revenue + channels.website.revenue
-        const totalCogs = item.hpp
-        const totalAdminFee = channels.food_apps.adminFee + channels.tiktok_go.adminFee
-        const managementFee = (totalRev * mgmtFeePct) / 100
-        const totalGrossProfit = totalRev - totalCogs - totalAdminFee - managementFee
+        // Laba kotor murni (Revenue - Potongan - HPP) sesuai standar akuntansi & dashboard
+        const totalGrossProfit = totalRev - totalAdminFee - totalCogs
 
-        // OPEX
-        const outletOpex = expenseRows.filter(e => e.outlet_id === item.id)
+        // OPEX (murni biaya operasional outlet tanpa waste)
+        const outletOpex = expenseRows.filter(e => e.outlet_id === item.id && (e.scope === 'outlet' || !e.scope))
         const opexSums: Record<string, number> = {
           pengeluaran_outlet: 0,
           gaji_crew_outlet: 0,
@@ -837,19 +910,15 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           else opexSums.pengeluaran_outlet += e.amount
         })
 
-        if (item.waste > 0) {
-          opexSums.pengeluaran_outlet += item.waste
-        }
-
         const totalOpex = Object.values(opexSums).reduce((a, b) => a + b, 0)
-        const totalNetProfit = totalGrossProfit - totalOpex
+        const totalNetProfit = item.net
 
         let profitMitra = 0
         let profitSukaShawarma = 0
 
         if (isMitra) {
-          profitMitra = totalNetProfit > 0 ? (totalNetProfit * bagiHasilPct) / 100 : totalNetProfit
-          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit * (100 - bagiHasilPct)) / 100 : 0)
+          profitMitra = totalNetProfit > 0 ? Math.round((totalNetProfit * bagiHasilPct) / 100) : totalNetProfit
+          profitSukaShawarma = managementFee + (totalNetProfit > 0 ? (totalNetProfit - profitMitra) : 0)
         } else {
           profitMitra = 0
           profitSukaShawarma = totalNetProfit
@@ -859,7 +928,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         const totalProfitMitraSementara = profitMitraSebelumnya + (isMitra ? profitMitra : 0)
         const roiVal = modalInvestasi > 0 ? ((totalProfitMitraSementara / modalInvestasi) * 100).toFixed(2).replace('.', ',') + '%' : '-'
         const bepStatus = isMitra 
-          ? (modalInvestasi > 0 && totalProfitMitraSementara >= modalInvestasi 
+          ? (item.isBep || (modalInvestasi > 0 && totalProfitMitraSementara >= modalInvestasi)
               ? 'SUDAH BALIK MODAL (BEP)' 
               : `${(modalInvestasi > 0 ? (totalProfitMitraSementara / modalInvestasi) * 100 : 0).toFixed(2).replace('.', ',')}% Menuju BEP`)
           : 'Outlet Milik Pusat'
@@ -916,6 +985,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           { content: 'TRANSAKSI OUTLET (KASIR POS / OFFLINE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
         ])
         bodyRows.push(['REVENUE', { content: rupiah(channels.outlet.revenue), styles: { halign: 'right' } }])
+        if (channels.outlet.adminFee > 0) {
+          bodyRows.push(['POTONGAN / ADMIN FEE (EDC/QRIS)', { content: rupiah(channels.outlet.adminFee), styles: { halign: 'right' } }])
+        }
         bodyRows.push(['TOTAL COGS (HPP)', { content: rupiah(cogsOutlet), styles: { halign: 'right' } }])
         bodyRows.push([
           { content: 'TOTAL GROSS PROFIT OUTLET', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
@@ -930,7 +1002,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           { content: 'TRANSAKSI FOOD APPS (GRAB / GOJEK / SHOPEE)', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
         ])
         bodyRows.push(['REVENUE', { content: rupiah(channels.food_apps.revenue), styles: { halign: 'right' } }])
-        bodyRows.push(['ADMIN FEE (KOMISI PLATFORM)', { content: rupiah(channels.food_apps.adminFee), styles: { halign: 'right' } }])
+        bodyRows.push(['POTONGAN MERCHANT / ADMIN FEE', { content: rupiah(channels.food_apps.adminFee), styles: { halign: 'right' } }])
         bodyRows.push(['TOTAL COGS (HPP)', { content: rupiah(cogsFoodApps), styles: { halign: 'right' } }])
         bodyRows.push([
           { content: 'TOTAL GROSS PROFIT FOOD APPS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
@@ -964,6 +1036,9 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           { content: 'TRANSAKSI WEBSITE RESMI SUKA SHAWARMA', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: sukaAmberLight, textColor: sukaAmberDark } }
         ])
         bodyRows.push(['REVENUE', { content: rupiah(channels.website.revenue), styles: { halign: 'right' } }])
+        if (channels.website.adminFee > 0) {
+          bodyRows.push(['POTONGAN / ADMIN FEE PAYMENT', { content: rupiah(channels.website.adminFee), styles: { halign: 'right' } }])
+        }
         bodyRows.push(['TOTAL COGS (HPP)', { content: rupiah(cogsWebsite), styles: { halign: 'right' } }])
         bodyRows.push([
           { content: 'TOTAL GROSS PROFIT WEBSITE SS', styles: { fontStyle: 'bold', fillColor: [254, 249, 195] } }, 
@@ -982,19 +1057,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           { content: rupiah(totalRev), styles: { halign: 'right' } }
         ])
         bodyRows.push([
+          { content: 'TOTAL POTONGAN MERCHANT' }, 
+          { content: rupiah(totalAdminFee), styles: { halign: 'right' } }
+        ])
+        bodyRows.push([
           { content: 'TOTAL COGS (HPP)' }, 
           { content: rupiah(totalCogs), styles: { halign: 'right' } }
         ])
-        bodyRows.push([
-          { content: 'TOTAL ADMIN FEE' }, 
-          { content: rupiah(totalAdminFee), styles: { halign: 'right' } }
-        ])
-        if (mgmtFeePct > 0 || managementFee > 0) {
-          bodyRows.push([
-            { content: `MANAGEMENT FEE PUSAT (${mgmtFeePct}%)`, styles: { fontStyle: 'bold', fillColor: sukaBlueLight, textColor: sukaBlueDark } }, 
-            { content: rupiah(managementFee), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaBlueLight, textColor: sukaBlueDark } }
-          ])
-        }
         bodyRows.push([
           { content: 'TOTAL GROSS PROFIT', styles: { fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }, 
           { content: rupiah(totalGrossProfit), styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaGold, textColor: [15, 23, 42] } }
@@ -1031,7 +1100,22 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         // Spacer
         bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.6, lineWidth: 0 } }])
 
-        // 7. NET PROFIT & BAGI HASIL
+        // 7. BEBAN LAINNYA & KEMITRAAN
+        bodyRows.push([
+          { content: 'BEBAN LAINNYA & BIAYA KEMITRAAN', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: [254, 242, 242], textColor: [159, 18, 57] } }
+        ])
+        bodyRows.push(['KERUGIAN BAHAN RUSAK (WASTE)', { content: rupiah(item.waste), styles: { halign: 'right' } }])
+        if (isMitra) {
+          bodyRows.push([
+            { content: `MANAGEMENT FEE PUSAT (${mgmtFeePct}%)`, styles: { fontStyle: 'bold', fillColor: sukaBlueLight, textColor: sukaBlueDark } }, 
+            { content: managementFee > 0 ? rupiah(managementFee) : 'Rp 0 (Bebas Fee · BEP)', styles: { halign: 'right', fontStyle: 'bold', fillColor: sukaBlueLight, textColor: sukaBlueDark } }
+          ])
+        }
+
+        // Spacer
+        bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.6, lineWidth: 0 } }])
+
+        // 8. HASIL LABA BERSIH & BAGI HASIL
         bodyRows.push([
           { content: 'HASIL LABA BERSIH & BAGI HASIL', colSpan: 2, styles: { halign: 'center', fontStyle: 'bold', fillColor: [241, 245, 249], textColor: [15, 23, 42] } }
         ])
@@ -1055,7 +1139,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
           ])
         }
 
-        // 8. REKAP MODAL MITRA & ROI
+        // 9. REKAP MODAL MITRA & ROI
         if (isMitra) {
           bodyRows.push([{ content: '', colSpan: 2, styles: { cellPadding: 0.6, lineWidth: 0 } }])
           bodyRows.push([
@@ -1222,7 +1306,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                 <div>
                   <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Omzet Penjualan (Kotor)</p>
                   <p className="text-[11px] text-suka-gray-400 font-medium mt-0.5">
-                    {managementFeeReceived > 0 ? 'Omzet outlet + penerimaan fee mitra' : 'Pemasukan kotor sebelum potongan'}
+                    {managementFeeReceived > 0 && mitraHppMarginReceived > 0
+                      ? 'Omzet outlet + fee mitra + margin pasokan bahan'
+                      : managementFeeReceived > 0
+                        ? 'Omzet outlet + penerimaan fee mitra'
+                        : mitraHppMarginReceived > 0
+                          ? 'Omzet outlet + margin pasokan bahan mitra'
+                          : 'Pemasukan kotor sebelum potongan'}
                   </p>
                 </div>
                 <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600">
@@ -1241,6 +1331,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                   {managementFeeReceived > 0 && (
                     <span className="text-[10px] font-bold text-blue-700 bg-blue-100/80 px-2 py-0.5 rounded-full border border-blue-200" title="Termasuk pendapatan Management Fee 3% dari kemitraan">
                       +Fee Mitra {rupiah(managementFeeReceived)}
+                    </span>
+                  )}
+                  {mitraHppMarginReceived > 0 && (
+                    <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-full border border-amber-300" title="Termasuk pendapatan Margin Pasokan Bahan Baku 10% HPP Kemitraan">
+                      +Margin Bahan Mitra {rupiah(mitraHppMarginReceived)}
                     </span>
                   )}
                 </div>
@@ -1394,8 +1489,26 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                     </div>
                     {managementFeeReceived > 0 && (
                       <div className="flex justify-between items-center text-xs text-blue-700 pl-4 border-l-2 border-blue-400 bg-blue-50/50 py-1 pr-2 rounded-r-lg">
-                        <span className="font-semibold">Pendapatan Management Fee Mitra (3% Gross Mitra)</span>
-                        <span className="font-bold">+{rupiah(managementFeeReceived)}</span>
+                        <div>
+                          <span className="font-semibold block">Pendapatan Management Fee Mitra (3% Gross Mitra)</span>
+                          <span className="text-[10px] text-blue-600 block font-normal">
+                            {isAllOutlets 
+                              ? `3% dari omzet kotor outlet mitra belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet BEP bebas fee`
+                              : `3% dari omzet kotor outlet kemitraan`}
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">+{rupiah(managementFeeReceived)}</span>
+                      </div>
+                    )}
+                    {mitraHppMarginReceived > 0 && (
+                      <div className="flex justify-between items-center text-xs text-amber-800 pl-4 border-l-2 border-amber-500 bg-amber-50/60 py-1 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP)</span>
+                          <span className="text-[10px] text-amber-700 block font-normal">
+                            10% dari total HPP outlet kemitraan ({rupiah(totalMitraHpp)})
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">+{rupiah(mitraHppMarginReceived)}</span>
                       </div>
                     )}
                     <div className="pt-2 border-t border-suka-gray-200 flex justify-between items-center font-bold">

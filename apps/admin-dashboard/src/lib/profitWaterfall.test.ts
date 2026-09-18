@@ -188,6 +188,29 @@ describe('management fee di waterfall', () => {
       }
     }
   })
+
+  it('menambahkan margin_pasokan_mitra dan menaikkan laba bersih saat ada mitraHppMarginIncome', () => {
+    const marginIncome = 4_500_000
+    const steps = buildProfitWaterfall({ ...INPUT, mitraHppMarginIncome: marginIncome })
+    
+    const marginStep = steps.find((s) => s.key === 'margin_pasokan_mitra')
+    expect(marginStep).toBeDefined()
+    expect(marginStep?.amount).toBe(marginIncome)
+
+    const baseTotal = buildProfitWaterfall(INPUT).find((s) => s.kind === 'total')!.amount
+    const withMarginTotal = steps.find((s) => s.kind === 'total')!.amount
+    expect(withMarginTotal).toBe(baseTotal + marginIncome)
+
+    // Running sum check
+    let running = 0
+    for (const step of steps) {
+      if (step.kind === 'subtotal' || step.kind === 'total') {
+        expect(step.amount).toBe(running)
+      } else {
+        running += step.amount
+      }
+    }
+  })
 })
 
 describe('rincian channel omzet kotor dan potongan merchant', () => {

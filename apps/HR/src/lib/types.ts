@@ -1,6 +1,14 @@
-import type { Role, StaffStatus } from '@suka/auth'
+import type { Role, StaffStatus, AccountCategory } from '@suka/auth'
 
-export type { Role, StaffStatus }
+export type { Role, StaffStatus, AccountCategory }
+
+export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = {
+  employee: 'Karyawan',
+  system_bot: 'Bot / AI',
+  kiosk: 'Kiosk / Perangkat',
+  mitra_owner: 'Mitra Owner',
+  testing: 'Akun Testing',
+}
 
 export interface Outlet {
   id: string
@@ -19,6 +27,7 @@ export interface StaffRow {
   name: string
   role: Role
   status: StaffStatus
+  account_category?: AccountCategory
   username: string | null
   outlet_id: string | null
   outlets: { name: string } | null
@@ -65,6 +74,7 @@ export interface StaffFormValues {
   username: string
   password?: string
   role: Role
+  account_category?: AccountCategory
   outlet_id: string
   outlet_ids: string[]
   is_bonus_eligible?: boolean
@@ -110,6 +120,7 @@ export interface StaffFilterValues {
   outletId: string
   role: string
   status: string
+  category?: string
   sortBy?: StaffSortKey
   sortOrder?: SortOrder
 }

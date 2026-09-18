@@ -48,6 +48,8 @@ export interface WaterfallInput {
   opexMonthlyBreakdown?: WaterfallDetail[]
   /** Pendapatan management fee dari mitra (khusus scope internal). */
   managementFeeIncome?: number
+  /** Pendapatan margin pasokan bahan baku mitra (10% HPP) untuk pusat/holding. */
+  mitraHppMarginIncome?: number
   /** Potongan management fee pusat (khusus scope mitra). */
   managementFeeExpense?: number
   /** Rincian omzet kotor per channel penjualan. */
@@ -62,6 +64,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
     opexMonthly, opexPettyCash, centralExpense, includeCentral,
     opexMonthlyBreakdown,
     managementFeeIncome = 0,
+    mitraHppMarginIncome = 0,
     managementFeeExpense = 0,
     grossRevenueBreakdown,
     deductionsBreakdown,
@@ -69,7 +72,7 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
 
   const pct = (n: number) => (grossRevenue > 0 ? (n / grossRevenue) * 100 : 0)
 
-  const netRevenue = grossRevenue - deductions + managementFeeIncome
+  const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome
   const labaKotor = netRevenue - hpp
   const opex = opexMonthly + opexPettyCash + (includeCentral ? centralExpense : 0)
   const labaBersih = labaKotor - waste - opex - managementFeeExpense
@@ -101,6 +104,15 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       kind: 'base' as const,
       pctOfGross: pct(managementFeeIncome),
       pctLabel: '3% Gross Mitra',
+    }] : []),
+    ...(mitraHppMarginIncome > 0 ? [{
+      key: 'margin_pasokan_mitra',
+      label: 'Pendapatan Margin Pasokan Bahan Baku Mitra (10% HPP)',
+      hint: `Margin 10% atas pasokan bahan baku resep untuk seluruh outlet kemitraan (setara ${pct(mitraHppMarginIncome).toFixed(1)}% terhadap omzet kotor)`,
+      amount: mitraHppMarginIncome,
+      kind: 'base' as const,
+      pctOfGross: pct(mitraHppMarginIncome),
+      pctLabel: '10% HPP Mitra',
     }] : []),
     {
       key: 'pendapatan_bersih',

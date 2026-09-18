@@ -11,6 +11,8 @@ import { periodCacheOptions, withPeriodCache } from "@/lib/periodCache";
 export interface HppRow {
   outlet_id: string;
   hpp: number;
+  baseHpp?: number;
+  markup?: number;
 }
 
 function getItemHpp(
@@ -19,7 +21,7 @@ function getItemHpp(
   fallbackName?: string,
   menuItemByNameMap?: Map<string, any>,
   channel?: string | null,
-): number {
+): { hpp: number; baseHpp: number; markup: number } {
   let itemObj = menuItem;
   if (
     (!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) &&
@@ -31,7 +33,7 @@ function getItemHpp(
       itemObj = menuItemByNameMap.get(cleanKey);
     }
   }
-  if (!itemObj) return 0;
+  if (!itemObj) return { hpp: 0, baseHpp: 0, markup: 0 };
 
   let baseHpp = 0;
   const normCh = channel ? channel.toLowerCase() : null;
@@ -68,9 +70,10 @@ function getItemHpp(
     }, 0);
   }
   if (outletType === "mitra" && baseHpp > 0) {
-    return Math.round(baseHpp * 1.1);
+    const hpp = Math.round(baseHpp * 1.1);
+    return { hpp, baseHpp, markup: Math.round(hpp * 0.1) };
   }
-  return baseHpp;
+  return { hpp: baseHpp, baseHpp, markup: 0 };
 }
 
 const PAGE_SIZE = 1000;
@@ -102,15 +105,24 @@ export function useHpp(filter: PeriodFilterValue) {
       const ordersGte = start.toISOString();
       const ordersLte = end.toISOString();
 
-      // Dua tabel master, kecil dan tak saling bergantung — ambil bersamaan.
-      const [outletsRes, menuItemsRes] = await Promise.all([
+      // Tabel master untuk resep dan outlet
+      const [outletsRes, menuItemsRes, mitraInvRes] = await Promise.all([
         supabase.from("outlets").select("id, type, name, slug").neq("id", TEST_OUTLET_ID),
         supabase.from("menu_items").select(MENU_HPP_SELECT),
+        supabase.from("mitra_investments").select("outlet_id"),
       ]);
+
+      const mitraIdsSet = new Set<string>();
+      mitraInvRes.data?.forEach((m: any) => {
+        if (m.outlet_id) mitraIdsSet.add(m.outlet_id);
+      });
 
       const outletTypeMap = new Map<string, string>();
       outletsRes.data?.forEach((o: any) => {
-        if (!isTestOutlet(o)) outletTypeMap.set(o.id, o.type || "outlet");
+        if (!isTestOutlet(o)) {
+          const isMitra = o.type === "mitra" || (o.name || "").toLowerCase().includes("mitra") || mitraIdsSet.has(o.id);
+          outletTypeMap.set(o.id, isMitra ? "mitra" : (o.type || "outlet"));
+        }
       });
 
       const menuItemsData = menuItemsRes.data;
@@ -170,7 +182,7 @@ export function useHpp(filter: PeriodFilterValue) {
           : Promise.resolve([] as any[]),
       ]);
 
-      const hppMap = new Map<string, number>();
+      const hppMap = new Map<string, { hpp: number; baseHpp: number; markup: number }>();
 
       allOrders.forEach((o: any) => {
         if (isTestOutlet(o.outlet_id)) return;
@@ -178,7 +190,7 @@ export function useHpp(filter: PeriodFilterValue) {
         const orderChannel = o.channel || o.sales_source;
 
         o.order_items?.forEach((item: any) => {
-          const hpp = getItemHpp(
+          const { hpp, baseHpp, markup } = getItemHpp(
             item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null,
             outletType,
             item.menu_item_name,
@@ -186,8 +198,12 @@ export function useHpp(filter: PeriodFilterValue) {
             orderChannel,
           );
           const qty = item.quantity || 1;
-          const current = hppMap.get(o.outlet_id) || 0;
-          hppMap.set(o.outlet_id, current + hpp * qty);
+          const current = hppMap.get(o.outlet_id) || { hpp: 0, baseHpp: 0, markup: 0 };
+          hppMap.set(o.outlet_id, {
+            hpp: current.hpp + hpp * qty,
+            baseHpp: current.baseHpp + baseHpp * qty,
+            markup: current.markup + markup * qty,
+          });
         });
       });
 
@@ -201,7 +217,7 @@ export function useHpp(filter: PeriodFilterValue) {
             ? menuItemByIdMap.get(item.menu_id)
             : null;
           const fallbackName = menuItem?.name || "Unknown";
-          const hpp = getItemHpp(
+          const { hpp, baseHpp, markup } = getItemHpp(
             menuItem,
             outletType,
             fallbackName,
@@ -209,14 +225,20 @@ export function useHpp(filter: PeriodFilterValue) {
             ecommerceChannel,
           );
           const qty = item.quantity || 1;
-          const current = hppMap.get(outletId) || 0;
-          hppMap.set(outletId, current + hpp * qty);
+          const current = hppMap.get(outletId) || { hpp: 0, baseHpp: 0, markup: 0 };
+          hppMap.set(outletId, {
+            hpp: current.hpp + hpp * qty,
+            baseHpp: current.baseHpp + baseHpp * qty,
+            markup: current.markup + markup * qty,
+          });
         });
       });
 
-      return Array.from(hppMap.entries()).map(([outlet_id, hpp]) => ({
+      return Array.from(hppMap.entries()).map(([outlet_id, data]) => ({
         outlet_id,
-        hpp,
+        hpp: data.hpp,
+        baseHpp: data.baseHpp,
+        markup: data.markup,
       }));
     }),
   });

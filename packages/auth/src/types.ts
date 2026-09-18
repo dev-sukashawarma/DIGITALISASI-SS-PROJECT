@@ -32,12 +32,15 @@ export type AppName =
 
 export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 
+export type AccountCategory = 'employee' | 'system_bot' | 'kiosk' | 'mitra_owner' | 'testing'
+
 export type OutletStaffProfile = {
   id: string
   outlet_id: string | null
   name: string
   role: Role
   status: StaffStatus
+  account_category?: AccountCategory
   username: string | null
   ref_photo_url: string | null
   outlets: { name: string } | null

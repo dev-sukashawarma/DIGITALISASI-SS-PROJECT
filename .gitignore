@@ -59,6 +59,7 @@ apps/*/public/workbox-*.js
 # Development & Temporary
 .agents/
 .superpowers/
+.impeccable/
 .tmp_migrate/
 .claude/
 .claude/worktrees/

@@ -49,7 +49,7 @@ export function periodCacheOptions(filter: Pick<PeriodFilterValue, 'to'>) {
 // CLAUDE.md), dan yang kita butuhkan cuma read-through cache untuk periode
 // tertutup. Naikkan VERSION bila bentuk data yang disimpan berubah, agar entri
 // lama tidak dibaca dengan skema baru.
-const VERSION = 'v2'
+const VERSION = 'v4'
 const PREFIX = `rq-period:${VERSION}:`
 const MAX_BYTES = 1_500_000 // jauh di bawah kuota localStorage ~5 MB
 

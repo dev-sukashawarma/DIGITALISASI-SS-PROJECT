@@ -77,9 +77,17 @@ export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
     name === 'kasir_tes' ||
     name === 'empang_tes' ||
     name === 'pusat_tes' ||
-    name === 'rendy_tes' ||
     name === 'superadmin 2' ||
-    name === 'admin 2'
+    name === 'admin 2' ||
+    name === 'staff pusat' ||
+    name === 'fahmibnr' ||
+    name === 'pusatt' ||
+    name === 'beji2' ||
+    name.startsWith('tes_') ||
+    name.endsWith('_tes') ||
+    name.includes('testing') ||
+    name.includes('test ') ||
+    name.includes(' test')
   ) {
     return true
   }

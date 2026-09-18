@@ -15,17 +15,45 @@ export const SCOPE_LABEL: Record<ProfitScope, string> = {
   mitra: 'Mitra',
 }
 
+export interface OutletOwnershipInput {
+  id: string
+  name?: string | null
+  type?: string | null
+}
+
 /**
- * Himpunan id outlet yang dihitung sebagai outlet kemitraan: punya baris di
- * `mitra_investments`, atau namanya mengandung "mitra".
+ * Apakah satu outlet dihitung sebagai outlet kemitraan. Tiga penanda, cukup
+ * salah satu: `outlets.type = 'mitra'`, punya baris di `mitra_investments`,
+ * atau namanya mengandung "mitra".
+ *
+ * `type` WAJIB ikut dibaca. HPP outlet mitra dinaikkan 1,1x berdasarkan penanda
+ * yang sama di `useHpp`; kalau aturan di sini lebih sempit, outlet mitra baru
+ * yang dinamai tanpa kata "MITRA" dan belum punya baris investasi akan tetap
+ * kena markup di HPP-nya tanpa pendapatan margin tandingannya pernah diakui —
+ * markup itu berubah jadi biaya hantu, diam-diam.
+ */
+export function isMitraOutlet(
+  outlet: OutletOwnershipInput | null | undefined,
+  mitraInvestmentIds: Set<string>,
+): boolean {
+  if (!outlet) return false
+  if (outlet.type === 'mitra') return true
+  if (mitraInvestmentIds.has(outlet.id)) return true
+  return (outlet.name ?? '').toLowerCase().includes('mitra')
+}
+
+/**
+ * Himpunan id outlet yang dihitung sebagai outlet kemitraan, memakai aturan
+ * tunggal `isMitraOutlet`.
  */
 export function mitraOutletIds(
-  outlets: { id: string; name?: string | null }[],
+  outlets: OutletOwnershipInput[],
   investments: Record<string, unknown>,
 ): Set<string> {
-  const ids = new Set<string>(Object.keys(investments ?? {}))
+  const investmentIds = new Set<string>(Object.keys(investments ?? {}))
+  const ids = new Set<string>(investmentIds)
   for (const outlet of outlets ?? []) {
-    if ((outlet?.name ?? '').toLowerCase().includes('mitra')) ids.add(outlet.id)
+    if (isMitraOutlet(outlet, investmentIds)) ids.add(outlet.id)
   }
   return ids
 }

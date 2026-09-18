@@ -7,6 +7,7 @@ import { cleanItemName } from "@/lib/order-item-name";
 import { isTestOutlet, TEST_OUTLET_ID } from "@/lib/outletFilters";
 import { fetchAllPagesParallel } from "@/lib/queryPaging";
 import { periodCacheOptions, withPeriodCache } from "@/lib/periodCache";
+import { isMitraOutlet } from "@/lib/outletOwnership";
 
 export interface HppRow {
   outlet_id: string;
@@ -120,8 +121,10 @@ export function useHpp(filter: PeriodFilterValue) {
       const outletTypeMap = new Map<string, string>();
       outletsRes.data?.forEach((o: any) => {
         if (!isTestOutlet(o)) {
-          const isMitra = o.type === "mitra" || (o.name || "").toLowerCase().includes("mitra") || mitraIdsSet.has(o.id);
-          outletTypeMap.set(o.id, isMitra ? "mitra" : (o.type || "outlet"));
+          // Aturan "siapa outlet mitra" dipakai bersama halaman Laba Rugi lewat
+          // satu fungsi — kalau ditulis ulang di sini, markup HPP dan pengakuan
+          // pendapatan margin bisa diam-diam berbeda daftar outletnya.
+          outletTypeMap.set(o.id, isMitraOutlet(o, mitraIdsSet) ? "mitra" : (o.type || "outlet"));
         }
       });
 

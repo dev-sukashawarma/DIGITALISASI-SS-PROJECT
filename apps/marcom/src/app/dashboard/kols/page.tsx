@@ -24,6 +24,7 @@ export default async function KolsPage() {
     tiktokUrl: kol.tiktokUrl,
     instagramUrl: kol.instagramUrl,
     youtubeUrl: kol.youtubeUrl || null,
+    facebookUrl: kol.facebookUrl || null,
     threadsUrl: kol.threadsUrl || null,
     phoneNumber: kol.phoneNumber,
     bankAccount: kol.bankAccount,

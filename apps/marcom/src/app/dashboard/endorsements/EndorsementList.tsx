@@ -103,9 +103,12 @@ export interface SerializedEndorsement {
   kol: {
     id: string
     name: string
-    tiktokUrl: string | null
-    instagramUrl: string | null
-    phoneNumber: string | null
+    tiktokUrl?: string | null
+    instagramUrl?: string | null
+    youtubeUrl?: string | null
+    facebookUrl?: string | null
+    threadsUrl?: string | null
+    phoneNumber?: string | null
     bankAccount?: string | null
   }
   outlet: {
@@ -132,7 +135,7 @@ interface EndorsementListProps {
   posMenuItems?: PosMenuItem[]
 }
 
-export type SocialPlatform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'THREADS'
+export type SocialPlatform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'FACEBOOK' | 'THREADS'
 
 export interface KolSocialEntry {
   id: string
@@ -191,7 +194,7 @@ export default function EndorsementList({
 
   const addKolSocial = () => {
     const used = new Set(newKolSocials.map((s) => s.platform))
-    const available: SocialPlatform[] = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'THREADS']
+    const available: SocialPlatform[] = ['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'FACEBOOK', 'THREADS']
     const nextPlatform = available.find((p) => !used.has(p)) || 'TIKTOK'
     setNewKolSocials((prev) => [
       ...prev,
@@ -861,26 +864,59 @@ export default function EndorsementList({
                             </div>
                             <div>
                               <div className="font-bold text-[#1A1715]">{item.kol.name}</div>
-                              <div className="text-[11px] text-stone-400 flex items-center gap-2 mt-0.5">
-                                {item.kol.tiktokUrl && (
-                                  <a
-                                    href={item.kol.tiktokUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5"
-                                  >
-                                    <span>TikTok</span>
-                                    <ExternalLink className="w-2.5 h-2.5" />
-                                  </a>
-                                )}
+                              <div className="text-[11px] text-stone-400 flex items-center gap-2 mt-0.5 flex-wrap">
                                 {item.kol.instagramUrl && (
                                   <a
                                     href={item.kol.instagramUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5"
+                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5 text-rose-600 font-medium"
                                   >
                                     <span>IG</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                                {item.kol.tiktokUrl && (
+                                  <a
+                                    href={item.kol.tiktokUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5 text-stone-700 font-medium"
+                                  >
+                                    <span>TT</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                                {item.kol.youtubeUrl && (
+                                  <a
+                                    href={item.kol.youtubeUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5 text-red-600 font-medium"
+                                  >
+                                    <span>YT</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                                {item.kol.facebookUrl && (
+                                  <a
+                                    href={item.kol.facebookUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5 text-blue-600 font-medium"
+                                  >
+                                    <span>FB</span>
+                                    <ExternalLink className="w-2.5 h-2.5" />
+                                  </a>
+                                )}
+                                {item.kol.threadsUrl && (
+                                  <a
+                                    href={item.kol.threadsUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="hover:text-[#D9480F] inline-flex items-center gap-0.5 text-stone-800 font-medium"
+                                  >
+                                    <span>TH</span>
                                     <ExternalLink className="w-2.5 h-2.5" />
                                   </a>
                                 )}
@@ -917,7 +953,28 @@ export default function EndorsementList({
                         </td>
 
                         <td className="py-4 px-4 font-mono font-bold text-stone-900 text-right whitespace-nowrap">
-                          {formatRupiah(item.rateCard)}
+                          <div>{formatRupiah(item.rateCard)}</div>
+                          {item.rateCard > 0 && (
+                            <div className="mt-1">
+                              {item.paymentStatus === 'PAID' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  Lunas{item.paymentDate ? ` • TF: ${new Date(item.paymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}` : ''}
+                                </span>
+                              ) : item.paymentStatus === 'DOWN_PAYMENT' ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                                  DP{item.paymentDate ? ` • TF: ${new Date(item.paymentDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}` : ''}
+                                </span>
+                              ) : item.paymentStatus === 'BARTER' ? (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">
+                                  Barter
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 border border-stone-200">
+                                  Belum Bayar
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </td>
 
                         <td className="py-4 px-4 text-center whitespace-nowrap">
@@ -1483,7 +1540,7 @@ export default function EndorsementList({
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
                     Link URL Video Konten
                   </label>
-                  <span className="text-[10px] text-stone-400">TikTok, Reels, Shorts</span>
+                  <span className="text-[10px] text-stone-500 font-semibold">5 Platform: TikTok, IG, YT, FB, Threads</span>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -1491,7 +1548,7 @@ export default function EndorsementList({
                     type="url"
                     value={endorsementUrl}
                     onChange={(e) => setEndorsementUrl(e.target.value)}
-                    placeholder="https://www.tiktok.com/@... atau https://instagram.com/reel/..."
+                    placeholder="https://... (TikTok, IG Reel/Post, YT Shorts, Facebook Reel/Video, Threads)"
                     className="w-full px-4 py-2.5 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                   />
                   <button
@@ -1874,6 +1931,7 @@ export default function EndorsementList({
                                 <option value="INSTAGRAM">📸 Instagram (IG)</option>
                                 <option value="TIKTOK">🎵 TikTok</option>
                                 <option value="YOUTUBE">▶️ YouTube Shorts</option>
+                                <option value="FACEBOOK">👥 Facebook</option>
                                 <option value="THREADS">🧵 Threads</option>
                               </select>
                             </div>
@@ -1891,6 +1949,8 @@ export default function EndorsementList({
                                     ? 'e.g. @sarah.kuliner atau link TikTok'
                                     : entry.platform === 'YOUTUBE'
                                     ? 'e.g. @SarahShorts atau link channel'
+                                    : entry.platform === 'FACEBOOK'
+                                    ? 'e.g. facebook.com/sarah atau fanspage'
                                     : 'e.g. @sarah.threads'
                                 }
                                 className="w-full px-3 py-2 text-xs border border-[#EFE8DE] bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
@@ -2116,6 +2176,36 @@ export default function EndorsementList({
                     onChange={(e) => setCreateHpp(parseFloat(e.target.value) || 0)}
                     className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-mono"
                   />
+                </div>
+              </div>
+
+              {/* Status & Tanggal Pembayaran / Transfer */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE8DE]">
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    Status Pembayaran
+                  </label>
+                  <select
+                    name="paymentStatus"
+                    defaultValue="UNPAID"
+                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none font-medium"
+                  >
+                    <option value="UNPAID">Belum Bayar (Pending)</option>
+                    <option value="PAID">Lunas (Done)</option>
+                    <option value="BARTER">Barter Produk</option>
+                    <option value="DOWN_PAYMENT">DP Sebagian</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    Tanggal Transfer (TF)
+                  </label>
+                  <input
+                    name="paymentDate"
+                    type="date"
+                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">Diisi jika sudah transfer (lunas/DP)</span>
                 </div>
               </div>
 
@@ -2466,7 +2556,7 @@ export default function EndorsementList({
               </div>
 
               {/* Draft & Payment Status in Edit */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
                     Status Draft Konten
@@ -2496,6 +2586,22 @@ export default function EndorsementList({
                     <option value="BARTER">Barter Produk</option>
                     <option value="DOWN_PAYMENT">DP Sebagian</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    Tanggal Transfer (TF)
+                  </label>
+                  <input
+                    name="paymentDate"
+                    type="date"
+                    defaultValue={
+                      editingEndorsement.paymentDate
+                        ? new Date(editingEndorsement.paymentDate).toISOString().split('T')[0]
+                        : ''
+                    }
+                    className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl bg-white focus:outline-none"
+                  />
                 </div>
               </div>
 

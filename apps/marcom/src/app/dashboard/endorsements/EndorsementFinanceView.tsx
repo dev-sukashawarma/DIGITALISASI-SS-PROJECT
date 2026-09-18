@@ -45,6 +45,9 @@ export default function EndorsementFinanceView({
   const [copiedBankId, setCopiedBankId] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const [bannerMessage, setBannerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [batchPaymentDate, setBatchPaymentDate] = useState<string>(
+    new Date().toISOString().split('T')[0]
+  )
 
   // Finance KPI Calculations
   const metrics = useMemo(() => {
@@ -145,10 +148,11 @@ export default function EndorsementFinanceView({
   }
 
   // Update Payment Status
-  const handleUpdatePayment = (id: string, newStatus: string) => {
+  const handleUpdatePayment = (id: string, newStatus: string, customDate?: string | null) => {
     const today = new Date().toISOString().split('T')[0]
+    const dateToUse = customDate !== undefined ? customDate : (newStatus === 'PAID' ? today : null)
     startTransition(async () => {
-      const res = await updatePaymentStatus(id, newStatus, newStatus === 'PAID' ? today : null)
+      const res = await updatePaymentStatus(id, newStatus, dateToUse)
       if (res?.error) {
         setBannerMessage({ type: 'error', text: res.error })
       } else {
@@ -160,18 +164,34 @@ export default function EndorsementFinanceView({
     })
   }
 
-  // Batch mark as paid
-  const handleBatchMarkPaid = () => {
-    if (selectedIds.length === 0) return
-    const today = new Date().toISOString().split('T')[0]
+  // Update Payment / Transfer Date (Tgl TF)
+  const handleUpdatePaymentDate = (id: string, currentStatus: string, date: string) => {
     startTransition(async () => {
-      const res = await batchUpdatePayments(selectedIds, 'PAID', today)
+      const res = await updatePaymentStatus(id, currentStatus, date || null)
       if (res?.error) {
         setBannerMessage({ type: 'error', text: res.error })
       } else {
         setBannerMessage({
           type: 'success',
-          text: `${selectedIds.length} endorsement berhasil ditandai Lunas!`,
+          text: `Tanggal transfer (TF) berhasil disimpan: ${date || 'Dikosongkan'}`,
+        })
+      }
+    })
+  }
+
+  // Batch mark as paid
+  const handleBatchMarkPaid = () => {
+    if (selectedIds.length === 0) return
+    const today = new Date().toISOString().split('T')[0]
+    const dateToUse = batchPaymentDate || today
+    startTransition(async () => {
+      const res = await batchUpdatePayments(selectedIds, 'PAID', dateToUse)
+      if (res?.error) {
+        setBannerMessage({ type: 'error', text: res.error })
+      } else {
+        setBannerMessage({
+          type: 'success',
+          text: `${selectedIds.length} endorsement berhasil ditandai Lunas dengan tanggal TF ${dateToUse}!`,
         })
         setSelectedIds([])
       }
@@ -193,7 +213,7 @@ export default function EndorsementFinanceView({
       'Status Draft',
       'Data Rekening Bank',
       'Status Pembayaran',
-      'Tanggal Bayar',
+      'Tanggal Transfer (TF)',
       'Catatan Pembayaran',
     ]
 
@@ -390,16 +410,25 @@ export default function EndorsementFinanceView({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {selectedIds.length > 0 && (
-            <button
-              onClick={handleBatchMarkPaid}
-              disabled={isPending}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Bayar {selectedIds.length} Terpilih</span>
-            </button>
+            <div className="flex items-center gap-1.5 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-xl">
+              <span className="text-[11px] font-bold text-emerald-900 whitespace-nowrap">Tgl TF:</span>
+              <input
+                type="date"
+                value={batchPaymentDate}
+                onChange={(e) => setBatchPaymentDate(e.target.value)}
+                className="px-2 py-1 text-xs border border-emerald-300 rounded-lg bg-white focus:outline-none font-mono"
+              />
+              <button
+                onClick={handleBatchMarkPaid}
+                disabled={isPending}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Bayar {selectedIds.length} Terpilih</span>
+              </button>
+            </div>
           )}
 
           <button
@@ -416,7 +445,7 @@ export default function EndorsementFinanceView({
       {/* Finance Table */}
       <div className="bg-white rounded-2xl border border-[#EFE8DE] shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[950px] text-left text-xs">
+          <table className="w-full min-w-[1050px] text-left text-xs">
             <thead className="bg-[#FAF8F5] border-b border-[#EFE8DE] text-stone-600 font-bold uppercase tracking-wider text-[11px] sticky top-0 z-10 shadow-2xs">
               <tr>
                 <th className="p-3.5 text-center w-10">
@@ -436,13 +465,14 @@ export default function EndorsementFinanceView({
                 <th className="p-3.5 text-center whitespace-nowrap">Draft Video</th>
                 <th className="p-3.5 whitespace-nowrap">Nomor Rekening (Transfer)</th>
                 <th className="p-3.5 text-center whitespace-nowrap">Status Pembayaran</th>
+                <th className="p-3.5 text-center whitespace-nowrap">Tgl Transfer (TF)</th>
                 <th className="p-3.5 text-center whitespace-nowrap sticky right-0 z-20 bg-[#FAF8F5] shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#EFE8DE]">
               {filteredList.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="p-8 text-center text-stone-400">
+                  <td colSpan={12} className="p-8 text-center text-stone-400">
                     Tidak ada data endorsement yang cocok dengan filter pembayaran.
                   </td>
                 </tr>
@@ -618,6 +648,24 @@ export default function EndorsementFinanceView({
                           <option value="BARTER">Barter</option>
                           <option value="DOWN_PAYMENT">DP Sebagian</option>
                         </select>
+                      </td>
+
+                      {/* Tgl Transfer (TF) Input */}
+                      <td className="p-3.5 text-center whitespace-nowrap">
+                        <input
+                          type="date"
+                          value={item.paymentDate ? new Date(item.paymentDate).toISOString().split('T')[0] : ''}
+                          onChange={(e) =>
+                            handleUpdatePaymentDate(
+                              item.id,
+                              item.paymentStatus || 'PAID',
+                              e.target.value
+                            )
+                          }
+                          disabled={isPending}
+                          title="Ubah Tanggal Transfer (TF)"
+                          className="px-2 py-1 text-xs border border-[#EFE8DE] bg-white rounded-lg focus:outline-none focus:ring-1 focus:ring-[#D9480F] font-mono text-stone-800 cursor-pointer"
+                        />
                       </td>
 
                       {/* Action */}

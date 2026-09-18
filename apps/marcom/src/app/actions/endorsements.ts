@@ -92,6 +92,7 @@ export async function createEndorsement(
       let tiktokUrl: string | null = null
       let instagramUrl: string | null = null
       let youtubeUrl: string | null = null
+      let facebookUrl: string | null = null
       let threadsUrl: string | null = null
 
       for (const item of socials) {
@@ -100,16 +101,23 @@ export async function createEndorsement(
         if (item.platform === 'TIKTOK' && !tiktokUrl) tiktokUrl = h
         else if (item.platform === 'INSTAGRAM' && !instagramUrl) instagramUrl = h
         else if (item.platform === 'YOUTUBE' && !youtubeUrl) youtubeUrl = h
+        else if (item.platform === 'FACEBOOK' && !facebookUrl) facebookUrl = h
         else if (item.platform === 'THREADS' && !threadsUrl) threadsUrl = h
       }
 
-      if (!tiktokUrl && !instagramUrl && !youtubeUrl && !threadsUrl && newKolSocial) {
+      if (!tiktokUrl && !instagramUrl && !youtubeUrl && !facebookUrl && !threadsUrl && newKolSocial) {
         if (
           newKolSocial.includes('instagram.com') ||
           newKolSocial.includes('ig') ||
           newKolSocial.toLowerCase().startsWith('@ig')
         ) {
           instagramUrl = newKolSocial
+        } else if (newKolSocial.includes('facebook.com') || newKolSocial.includes('fb.com')) {
+          facebookUrl = newKolSocial
+        } else if (newKolSocial.includes('youtube.com') || newKolSocial.includes('youtu.be')) {
+          youtubeUrl = newKolSocial
+        } else if (newKolSocial.includes('threads.net')) {
+          threadsUrl = newKolSocial
         } else {
           tiktokUrl = newKolSocial
         }
@@ -121,6 +129,7 @@ export async function createEndorsement(
           tiktokUrl,
           instagramUrl,
           youtubeUrl,
+          facebookUrl,
           threadsUrl,
           phoneNumber: newKolPhone,
         },
@@ -190,6 +199,7 @@ export async function createEndorsement(
               if (kol?.instagramUrl) handles.push(`IG: ${kol.instagramUrl}`)
               if (kol?.tiktokUrl) handles.push(`TT: ${kol.tiktokUrl}`)
               if (kol?.youtubeUrl) handles.push(`YT: ${kol.youtubeUrl}`)
+              if (kol?.facebookUrl) handles.push(`FB: ${kol.facebookUrl}`)
               if (kol?.threadsUrl) handles.push(`TH: ${kol.threadsUrl}`)
               return handles.length > 0 ? handles.join(' | ') : null
             })(),
@@ -359,6 +369,7 @@ export async function updateEndorsement(
               if (kol?.instagramUrl) handles.push(`IG: ${kol.instagramUrl}`)
               if (kol?.tiktokUrl) handles.push(`TT: ${kol.tiktokUrl}`)
               if (kol?.youtubeUrl) handles.push(`YT: ${kol.youtubeUrl}`)
+              if (kol?.facebookUrl) handles.push(`FB: ${kol.facebookUrl}`)
               if (kol?.threadsUrl) handles.push(`TH: ${kol.threadsUrl}`)
               return handles.length > 0 ? handles.join(' | ') : null
             })(),

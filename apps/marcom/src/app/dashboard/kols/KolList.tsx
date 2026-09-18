@@ -22,6 +22,7 @@ export interface SerializedKol {
   tiktokUrl: string | null
   instagramUrl: string | null
   youtubeUrl?: string | null
+  facebookUrl?: string | null
   threadsUrl?: string | null
   phoneNumber: string | null
   bankAccount: string | null
@@ -236,6 +237,21 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                           </a>
                         ) : null}
 
+                        {kol.facebookUrl && kol.facebookUrl !== 'nan' ? (
+                          <a
+                            href={kol.facebookUrl.startsWith('http') ? kol.facebookUrl : `https://${kol.facebookUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
+                          >
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white text-[9px] font-black flex-shrink-0">
+                              FB
+                            </span>
+                            <span className="truncate">{kol.facebookUrl.replace(/^https?:\/\/(www\.)?facebook\.com\//, '')}</span>
+                            <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
+                          </a>
+                        ) : null}
+
                         {kol.threadsUrl && kol.threadsUrl !== 'nan' ? (
                           <a
                             href={kol.threadsUrl.startsWith('http') ? kol.threadsUrl : `https://${kol.threadsUrl}`}
@@ -251,7 +267,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                           </a>
                         ) : null}
 
-                        {!kol.tiktokUrl && !kol.instagramUrl && !kol.youtubeUrl && !kol.threadsUrl && (
+                        {!kol.tiktokUrl && !kol.instagramUrl && !kol.youtubeUrl && !kol.facebookUrl && !kol.threadsUrl && (
                           <span className="text-xs text-stone-400 italic">Belum ada sosmed</span>
                         )}
                       </div>
@@ -314,9 +330,14 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
       {/* Modal Tambah KOL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsCreateOpen(false)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-xl w-full overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
                 <Users className="w-5 h-5 text-[#D9480F]" />
                 Tambah Profil KOL Baru
@@ -329,7 +350,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-6 space-y-4">
+            <form onSubmit={handleCreate} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -351,32 +372,94 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Link Profil TikTok
+              {/* 5 Platforms Social Media */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                    Akun Media Sosial (5 Platform)
                   </label>
-                  <input
-                    name="tiktokUrl"
-                    type="text"
-                    placeholder="https://tiktok.com/@..."
-                    className="w-full px-4 py-2 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                  />
+                  <span className="text-[10px] text-stone-400 font-medium">Isi link/handle yang tersedia</span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Link Profil Instagram
-                  </label>
-                  <input
-                    name="instagramUrl"
-                    type="text"
-                    placeholder="https://instagram.com/..."
-                    className="w-full px-4 py-2 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white text-[8px] font-black">
+                        IG
+                      </span>
+                      <span>Instagram</span>
+                    </label>
+                    <input
+                      name="instagramUrl"
+                      type="text"
+                      placeholder="https://instagram.com/..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white text-[8px] font-black">
+                        TT
+                      </span>
+                      <span>TikTok</span>
+                    </label>
+                    <input
+                      name="tiktokUrl"
+                      type="text"
+                      placeholder="https://tiktok.com/@..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white text-[8px] font-black">
+                        YT
+                      </span>
+                      <span>YouTube</span>
+                    </label>
+                    <input
+                      name="youtubeUrl"
+                      type="text"
+                      placeholder="https://youtube.com/@..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white text-[8px] font-black">
+                        FB
+                      </span>
+                      <span>Facebook</span>
+                    </label>
+                    <input
+                      name="facebookUrl"
+                      type="text"
+                      placeholder="https://facebook.com/..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white text-[8px] font-black">
+                        TH
+                      </span>
+                      <span>Threads</span>
+                    </label>
+                    <input
+                      name="threadsUrl"
+                      type="text"
+                      placeholder="https://threads.net/@..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
                     No WhatsApp / HP
@@ -401,7 +484,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
@@ -424,9 +507,14 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
       {/* Modal Edit KOL */}
       {editingKol && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-lg w-full overflow-hidden my-8 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE]">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-stone-950/50 backdrop-blur-xs overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setEditingKol(null)
+          }}
+        >
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-xl w-full overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between px-6 py-5 border-b border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
               <h3 className="font-extrabold text-[#1A1715] text-base flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-[#D9480F]" />
                 Edit Data KOL
@@ -439,7 +527,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
               </button>
             </div>
 
-            <form onSubmit={handleUpdate} className="p-6 space-y-4">
+            <form onSubmit={handleUpdate} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
               {errorMessage && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -460,32 +548,99 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Link TikTok
+              {/* 5 Platforms Social Media */}
+              <div className="space-y-3 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                    Akun Media Sosial (5 Platform)
                   </label>
-                  <input
-                    name="tiktokUrl"
-                    type="text"
-                    defaultValue={editingKol.tiktokUrl || ''}
-                    className="w-full px-4 py-2 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                  />
+                  <span className="text-[10px] text-stone-400 font-medium">Isi link/handle yang tersedia</span>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Link Instagram
-                  </label>
-                  <input
-                    name="instagramUrl"
-                    type="text"
-                    defaultValue={editingKol.instagramUrl || ''}
-                    className="w-full px-4 py-2 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white text-[8px] font-black">
+                        IG
+                      </span>
+                      <span>Instagram</span>
+                    </label>
+                    <input
+                      name="instagramUrl"
+                      type="text"
+                      defaultValue={editingKol.instagramUrl || ''}
+                      placeholder="https://instagram.com/..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white text-[8px] font-black">
+                        TT
+                      </span>
+                      <span>TikTok</span>
+                    </label>
+                    <input
+                      name="tiktokUrl"
+                      type="text"
+                      defaultValue={editingKol.tiktokUrl || ''}
+                      placeholder="https://tiktok.com/@..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white text-[8px] font-black">
+                        YT
+                      </span>
+                      <span>YouTube</span>
+                    </label>
+                    <input
+                      name="youtubeUrl"
+                      type="text"
+                      defaultValue={editingKol.youtubeUrl || ''}
+                      placeholder="https://youtube.com/@..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white text-[8px] font-black">
+                        FB
+                      </span>
+                      <span>Facebook</span>
+                    </label>
+                    <input
+                      name="facebookUrl"
+                      type="text"
+                      defaultValue={editingKol.facebookUrl || ''}
+                      placeholder="https://facebook.com/..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white text-[8px] font-black">
+                        TH
+                      </span>
+                      <span>Threads</span>
+                    </label>
+                    <input
+                      name="threadsUrl"
+                      type="text"
+                      defaultValue={editingKol.threadsUrl || ''}
+                      placeholder="https://threads.net/@..."
+                      className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
                 <div>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
                     No WhatsApp / HP
@@ -510,7 +665,7 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-[#EFE8DE]">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
                 <button
                   type="button"
                   onClick={() => setEditingKol(null)}

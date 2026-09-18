@@ -21,6 +21,9 @@ export async function createKol(
   const name = (formData.get('name') as string)?.trim()
   const tiktokUrl = (formData.get('tiktokUrl') as string)?.trim() || null
   const instagramUrl = (formData.get('instagramUrl') as string)?.trim() || null
+  const youtubeUrl = (formData.get('youtubeUrl') as string)?.trim() || null
+  const facebookUrl = (formData.get('facebookUrl') as string)?.trim() || null
+  const threadsUrl = (formData.get('threadsUrl') as string)?.trim() || null
   const phoneNumber = (formData.get('phoneNumber') as string)?.trim() || null
   const bankAccount = (formData.get('bankAccount') as string)?.trim() || null
 
@@ -34,6 +37,9 @@ export async function createKol(
         name,
         tiktokUrl,
         instagramUrl,
+        youtubeUrl,
+        facebookUrl,
+        threadsUrl,
         phoneNumber,
         bankAccount,
       },
@@ -61,6 +67,9 @@ export async function updateKol(
   const name = (formData.get('name') as string)?.trim()
   const tiktokUrl = (formData.get('tiktokUrl') as string)?.trim() || null
   const instagramUrl = (formData.get('instagramUrl') as string)?.trim() || null
+  const youtubeUrl = (formData.get('youtubeUrl') as string)?.trim() || null
+  const facebookUrl = (formData.get('facebookUrl') as string)?.trim() || null
+  const threadsUrl = (formData.get('threadsUrl') as string)?.trim() || null
   const phoneNumber = (formData.get('phoneNumber') as string)?.trim() || null
   const bankAccount = (formData.get('bankAccount') as string)?.trim() || null
 
@@ -77,6 +86,9 @@ export async function updateKol(
         name,
         tiktokUrl,
         instagramUrl,
+        youtubeUrl,
+        facebookUrl,
+        threadsUrl,
         phoneNumber,
         bankAccount,
       },

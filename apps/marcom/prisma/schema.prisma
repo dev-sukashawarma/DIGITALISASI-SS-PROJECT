@@ -51,6 +51,7 @@ model Kol {
   tiktokUrl    String?  @map("tiktok_url")
   instagramUrl String?  @map("instagram_url")
   youtubeUrl   String?  @map("youtube_url")
+  facebookUrl  String?  @map("facebook_url")
   threadsUrl   String?  @map("threads_url")
   phoneNumber  String?  @map("phone_number")
   bankAccount  String?  @map("bank_account")

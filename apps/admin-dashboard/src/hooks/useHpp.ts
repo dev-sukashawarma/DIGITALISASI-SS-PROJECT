@@ -70,8 +70,11 @@ function getItemHpp(
     }, 0);
   }
   if (outletType === "mitra" && baseHpp > 0) {
+    // Outlet mitra ditagih base + 10%. Marginnya adalah SELISIHNYA (= 10% base),
+    // bukan 10% dari angka yang sudah dikali 1,1 — itu 11% base, dan Rp-nya
+    // tak pernah ditagihkan ke siapa pun.
     const hpp = Math.round(baseHpp * 1.1);
-    return { hpp, baseHpp, markup: Math.round(hpp * 0.1) };
+    return { hpp, baseHpp, markup: hpp - baseHpp };
   }
   return { hpp: baseHpp, baseHpp, markup: 0 };
 }

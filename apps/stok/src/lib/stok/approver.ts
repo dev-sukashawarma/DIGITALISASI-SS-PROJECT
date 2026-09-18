@@ -29,6 +29,16 @@ export function canApprovePermintaan(role: string | null | undefined): boolean {
   return !!role && (PERMINTAAN_APPROVER_ROLES as readonly string[]).includes(role)
 }
 
+// Role yang boleh MELIHAT antrean permintaan bahan (tab "Antrean" di halaman
+// Permintaan Bahan Baku, dan badge terkait di BottomNav/AppSidebar). `leader`
+// SENGAJA dikecualikan di sini (keputusan owner) -- tampilan permintaan bahan
+// baku untuk leader harus sama seperti crew (tanpa tab Antrean / mode pantau),
+// meski `isApproverRole()` masih menyertakan leader untuk fitur lain di luar
+// halaman ini (mis. badge Mutasi Antar Outlet).
+export function canViewPermintaanQueue(role: string | null | undefined): boolean {
+  return !!role && role !== 'leader' && (isApproverRole(role) || canApprovePermintaan(role))
+}
+
 // Drop-ship vendor -> outlet (spec 2026-09-11 §6). Satu sumber untuk UI; RPC
 // memeriksa ulang di DB (peran_saya()) karena guard UI tidak melindungi apa pun.
 const NOTA_VENDOR_PENGESAH = ['purchasing', 'kitchen', 'admin'] as const

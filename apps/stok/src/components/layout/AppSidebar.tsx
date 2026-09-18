@@ -8,7 +8,7 @@ import { useOutletScope } from '@/hooks/useOutletScope'
 import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
-import { isApproverRole, canCatatTerimaVendor, canLihatNotaVendor } from '@/lib/stok/approver'
+import { canViewPermintaanQueue, canCatatTerimaVendor, canLihatNotaVendor } from '@/lib/stok/approver'
 import { canLihatKirimanVendor } from '@/lib/stok/kirimanVendor'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
@@ -66,7 +66,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const role = outletStaff?.role
 
   // Role permissions
-  const isApprover = isApproverRole(role)
+  const isApprover = canViewPermintaanQueue(role)
   const canReceivePO = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
   const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
   const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')

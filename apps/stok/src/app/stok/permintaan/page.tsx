@@ -8,7 +8,7 @@ import { ApprovalList } from '@/components/permintaan/ApprovalList'
 import { OutletSwitcher } from '@/components/common/OutletSwitcher'
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 import { AppLayout } from '@/components/layout/AppLayout'
-import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
+import { canApprovePermintaan, canViewPermintaanQueue } from '@/lib/stok/approver'
 import { useApprovalList } from '@/hooks/usePermintaan'
 
 import { Plus, History, CheckCircle2, X, ClipboardList } from 'lucide-react'
@@ -20,7 +20,7 @@ export default function PermintaanPage() {
   const [isCartView, setIsCartView] = useState(false)
   const [justSubmittedMessage, setJustSubmittedMessage] = useState<string | null>(null)
 
-  const canViewApprovalQueue = isApproverRole(outletStaff?.role) || canApprovePermintaan(outletStaff?.role)
+  const canViewApprovalQueue = canViewPermintaanQueue(outletStaff?.role)
   const canApprove = canApprovePermintaan(outletStaff?.role)
   const isPureKitchen = outletStaff?.role === 'kitchen'
 

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth, createSupabaseBrowserClient } from '@suka/auth'
 import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
-import { isApproverRole } from '@/lib/stok/approver'
+import { canViewPermintaanQueue } from '@/lib/stok/approver'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
 import {
@@ -35,7 +35,7 @@ export function BottomNav() {
   const [isMoreOpen, setIsMoreOpen] = useState(false)
 
   const role = outletStaff?.role
-  const isApprover = isApproverRole(role)
+  const isApprover = canViewPermintaanQueue(role)
   const isKitchenOrAdmin = ['kitchen', 'purchasing', 'admin', 'admin_finance', 'owner', 'developer'].includes(role ?? '')
   const isLeaderOrSPV = ['spv', 'regional_manager', 'leader', 'area_manager'].includes(role ?? '')
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
@@ -179,13 +179,6 @@ export function BottomNav() {
       label: 'Mutasi Antar Outlet',
       desc: 'Transfer stok antar outlet binaan',
       badge: pendingMutasiCount,
-    },
-    {
-      href: '/stok/penerimaan-po',
-      icon: Truck,
-      label: 'Terima PO Supplier',
-      desc: 'Penerimaan barang inbound',
-      badge: inboundPosCount,
     },
     {
       href: '/stok/waste/history',

@@ -1,0 +1,55 @@
+-- Migration: 20260918180000_tutup_baca_anon_lokasi_staf.sql
+-- Tujuan: menutup bagian C2 yang tidak ambigu -- pembacaan lokasi staf
+--         oleh anon (audit 2026-09-18).
+--
+-- MASALAH (dibuktikan lewat HTTP nyata tanpa login):
+--   staff_location_trails  -> 106.305 baris terbaca
+--   staff_live_locations   ->      40 baris terbaca
+--   Kunci anon bersifat NEXT_PUBLIC_* sehingga ikut terkirim ke setiap
+--   browser pengunjung; "terbaca anon" berarti terbaca siapa pun di
+--   internet. Jejak pergerakan karyawan adalah data pribadi (UU PDP).
+--
+--   Penyebabnya policy *_select_policy dari 20300221000000, yang memberi
+--   SELECT USING(true) kepada {anon, authenticated}. Migration itu
+--   sendiri menyatakan tujuannya menghentikan banjir error 42501 saat
+--   MENULIS titik GPS -- membuka pembacaan bukan bagian dari tujuan itu.
+--
+-- YANG SENGAJA TIDAK DISENTUH -- penulisan oleh anon:
+--   staff_live_locations_insert_policy / _update_policy
+--   staff_location_trails_insert_policy
+--   Background service aplikasi mobile menulis TANPA sesi, jadi mencabut
+--   ini akan mematikan pelacakan GPS. Dibiarkan utuh dengan sadar.
+--
+--   Konsekuensi yang perlu diketahui (integritas, bukan kebocoran):
+--   karena penulisan terbuka untuk anon, siapa pun dapat menyisipkan
+--   titik lokasi palsu. Itu tidak bisa diperbaiki lewat policy -- perlu
+--   aplikasi mobile-nya login lebih dulu. Dicatat, bukan diperbaiki.
+--
+-- EFEK SETELAH MIGRATION INI:
+--   Pembacaan tetap terbuka untuk policy ber-scope yang SUDAH ADA:
+--     *_monitor_read : admin, admin_hr, owner, spv, leader,
+--                      regional_manager, area_manager, developer, korlap
+--                      (status = 'active')
+--     *_self_read    : staf membaca lokasinya sendiri
+--   Keduanya selama ini dekoratif karena di-OR dengan USING(true).
+--
+--   Owner meminta pembacaan dipersempit ke 'developer' saja. Itu SENGAJA
+--   BELUM dikerjakan di sini: *_monitor_read memuat sembilan role
+--   pengawas lapangan (a.l. 29 leader, 6 area_manager, 1 korlap) yang
+--   kemungkinan memakainya, dan permintaan tersebut disampaikan sebelum
+--   keberadaan policy itu diketahui. Mempersempitnya adalah keputusan
+--   tersendiri dan mudah dilakukan kemudian -- cukup ganti daftar role
+--   di *_monitor_read. Migration ini hanya menutup paparan ke publik,
+--   yang tidak diperdebatkan.
+--
+-- RANJAU TIMESTAMP 2030:
+--   Kedua policy yang dibuang berasal dari 20300221000000, yang pada
+--   replay dari nol terurut SETELAH berkas ini dan akan membuatnya
+--   kembali -- memulihkan pembacaan anon tanpa peringatan. Produksi aman
+--   karena keduanya sudah terstempel dan db push tidak menjalankan ulang.
+--   Timestamp 2030 tidak dipakai di sini karena
+--   scripts/migration-timestamp-lint.mjs menolaknya. Mengikuti preseden
+--   repo (2026-09-07, 2026-09-09): didokumentasikan, tidak di-rename.
+
+DROP POLICY IF EXISTS "staff_live_locations_select_policy" ON public.staff_live_locations;
+DROP POLICY IF EXISTS "staff_location_trails_select_policy" ON public.staff_location_trails;

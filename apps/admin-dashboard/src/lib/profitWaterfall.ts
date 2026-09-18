@@ -72,10 +72,19 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
 
   const pct = (n: number) => (grossRevenue > 0 ? (n / grossRevenue) * 100 : 0)
 
-  const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome
+  // Fee manajemen dan margin pasokan bahan adalah transaksi ANTAR-KANTONG
+  // (pusat <-> mitra). Keduanya diletakkan berpasangan di blok yang sama,
+  // di atas Pendapatan Bersih, supaya pada tampilan gabungan sisi pendapatan
+  // dan sisi bebannya saling menghapus DI DEPAN MATA -- bukan dengan
+  // menghilangkan salah satunya dari layar.
+  //
+  // Beban fee sengaja TIDAK lagi diletakkan di bawah bersama opex: selama ia
+  // di sana, tampilan gabungan mengakui pendapatannya tanpa pernah membukukan
+  // bebannya, sehingga `all` tak pernah sama dengan `internal` + `mitra`.
+  const netRevenue = grossRevenue - deductions + managementFeeIncome + mitraHppMarginIncome - managementFeeExpense
   const labaKotor = netRevenue - hpp
   const opex = opexMonthly + opexPettyCash + (includeCentral ? centralExpense : 0)
-  const labaBersih = labaKotor - waste - opex - managementFeeExpense
+  const labaBersih = labaKotor - waste - opex
 
   const steps: WaterfallStep[] = [
     {
@@ -113,6 +122,14 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       kind: 'base' as const,
       pctOfGross: pct(mitraHppMarginIncome),
       pctLabel: '10% HPP Dasar',
+    }] : []),
+    ...(managementFeeExpense > 0 ? [{
+      key: 'fee_manajemen_pusat',
+      label: 'Beban Management Fee Mitra ke Pusat (3%)',
+      hint: 'Sisi beban dari fee yang sama — pada tampilan gabungan ia menghapus baris pendapatannya di atas',
+      amount: -managementFeeExpense,
+      kind: 'deduction' as const,
+      pctOfGross: pct(-managementFeeExpense),
     }] : []),
     {
       key: 'pendapatan_bersih',
@@ -162,17 +179,6 @@ export function buildProfitWaterfall(input: WaterfallInput): WaterfallStep[] {
       pctOfGross: pct(-opexPettyCash),
     },
   ]
-
-  if (managementFeeExpense > 0) {
-    steps.push({
-      key: 'fee_manajemen_pusat',
-      label: 'Management Fee Pusat (3%)',
-      hint: 'Fee 3% dari omzet kotor disetor ke kantor pusat',
-      amount: -managementFeeExpense,
-      kind: 'deduction',
-      pctOfGross: pct(-managementFeeExpense),
-    })
-  }
 
   if (includeCentral) {
     steps.push({

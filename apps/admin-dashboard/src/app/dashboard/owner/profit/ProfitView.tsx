@@ -269,9 +269,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
       totalMitraFee += fee
     }
 
+    let jumlahOutletBelumBep = 0
+    perOutletFee.forEach(v => { if (v.pct > 0) jumlahOutletBelumBep++ })
+
     return {
       totalMitraFee,
       grossMitraBelumBep,
+      jumlahOutletBelumBep,
       perOutletFee,
     }
   }, [mitraInvestments, sales.rows, effectiveFilter.from])
@@ -290,7 +294,11 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     : 0
   
   // Pembayaran Management Fee ke Pusat oleh Kemitraan (khusus scope mitra)
-  const managementFeeExpense = scope === 'mitra' 
+  // Sisi BEBAN fee. Wajib ikut di scope 'all': di sana kedua kantongnya
+  // (pusat penerima, mitra pembayar) sama-sama ada di dalam layar, jadi kalau
+  // hanya pendapatannya yang dibukukan, laba gabungan kelebihan sebesar fee —
+  // dan `all` tak pernah sama dengan `internal` + `mitra`.
+  const managementFeeExpense = (scope === 'mitra' || scope === 'all') 
     ? (isAllOutlets ? managementFeeData.totalMitraFee : (managementFeeData.perOutletFee.get(filter.outletId)?.fee ?? 0))
     : 0
 
@@ -326,8 +334,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     ? mitraHppTotals.markup
     : 0
 
-  // Omzet Kotor Total: Sesuai instruksi owner, management fee & margin bahan baku mitra ditambahkan ke revenue
-  const actualGrossRevenue = actualGrossSales + managementFeeReceived + mitraHppMarginReceived
+  // Omzet Kotor = uang dari PELANGGAN saja. Fee manajemen dan margin pasokan
+  // bahan bukan penjualan; keduanya pindah ke blok antar-kantong di bawah
+  // "Penjualan Bersih" (tetap dijumlah ke Pendapatan Bersih, jadi laba tidak
+  // bergeser). Selama keduanya ikut di sini, Margin Kotor % dan seluruh kartu
+  // rasio memakai penyebut yang digelembungkan — dan gelembungnya membesar
+  // seiring bertambahnya outlet mitra.
+  const actualGrossRevenue = actualGrossSales
 
   const totalPotongan = useMemo(
     () => salesRows.filter(r => !isTestOutlet(r.outlet_id)).reduce((sum, r) => sum + (Number(r.total_deductions) || 0), 0), 
@@ -363,12 +376,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   )
   
   // Pendapatan bersih: Gross - Potongan (sudah termasuk Management Fee Mitra pada scope internal)
-  const netRevenue = actualGrossRevenue - totalDeductions
+  const netRevenue = actualGrossRevenue - totalDeductions + managementFeeReceived + mitraHppMarginReceived - managementFeeExpense
   const labaKotor = netRevenue - totalHpp
   const marginKotor = actualGrossRevenue > 0 ? (labaKotor / actualGrossRevenue) * 100 : 0
   
   // Laba bersih outlet: untuk mitra, dipotong management fee pusat
-  const labaBersih = labaKotor - pengeluaranOutlet - totalWaste - managementFeeExpense
+  // managementFeeExpense sudah dipotong di netRevenue (blok antar-kantong).
+  const labaBersih = labaKotor - pengeluaranOutlet - totalWaste
   
   const labaPerusahaan = computeCompanyProfit(labaBersih, pengeluaranPusat).labaPerusahaan
   const displayLaba = isAllOutlets ? labaPerusahaan : labaBersih
@@ -798,6 +812,12 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         }
         if (marginHppAll > 0) {
           rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN MARGIN PASOKAN BAHAN MITRA (10% HPP DASAR)', marginHppAll])
+        }
+        // Sisi beban fee WAJIB ikut di ekspor gabungan. Tanpa baris ini,
+        // pembaca CSV melihat pendapatan fee tanpa pasangannya dan menyangka
+        // ada laba yang tidak dibukukan.
+        if (managementFeeExpense > 0) {
+          rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'BEBAN MANAGEMENT FEE MITRA KE PUSAT (SALING HAPUS)', -managementFeeExpense])
         }
         rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI OMZET', 'PENDAPATAN BERSIH (NET REVENUE)', netRevAll])
         rows.push(['"RINGKASAN KONSOLIDASI SELURUH OUTLET"', '"Konsolidasi Perusahaan"', 'KONSOLIDASI HPP & WASTE', 'TOTAL MODAL BAHAN (HPP)', hppAll])
@@ -1549,6 +1569,29 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                         <span className="font-bold text-sm shrink-0">+{rupiah(mitraHppMarginReceived)}</span>
                       </div>
                     )}
+                    {managementFeeExpense > 0 ? (
+                      <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300 bg-rose-50/40 py-1.5 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Management Fee ke Kantor Pusat (3% Gross Mitra Belum BEP)</span>
+                          <span className="text-[10px] text-rose-500 block font-normal">
+                            {isAllOutlets 
+                              ? `Dipotong 3% hanya dari ${managementFeeData.jumlahOutletBelumBep} outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet sudah BEP bebas fee`
+                              : `Dipotong 3% dari omzet kotor outlet`}
+                          </span>
+                        </div>
+                        <span className="font-bold text-sm shrink-0">-{rupiah(managementFeeExpense)}</span>
+                      </div>
+                    ) : scope === 'mitra' && !isAllOutlets ? (
+                      <div className="flex justify-between items-center text-xs text-emerald-700 pl-4 border-l-2 border-emerald-400 bg-emerald-50/50 py-1.5 pr-2 rounded-r-lg">
+                        <div>
+                          <span className="font-semibold block">Management Fee ke Kantor Pusat (0% · Bebas Fee)</span>
+                          <span className="text-[10px] text-emerald-600 block font-normal">
+                            Outlet ini telah mencapai status Balik Modal (BEP). Bebas potongan management fee.
+                          </span>
+                        </div>
+                        <span className="font-bold text-xs shrink-0 text-emerald-700">Rp 0</span>
+                      </div>
+                    ) : null}
                     <div className="pt-2 border-t border-suka-gray-200 flex justify-between items-center font-bold">
                       <span className="text-suka-brown">Pendapatan Bersih (Net Revenue)</span>
                       <span className="text-emerald-700 font-black text-base">{rupiah(netRevenue)}</span>
@@ -1605,29 +1648,6 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <span className="font-medium">Biaya Kas Kecil Operasional (Petty Cash)</span>
                       <span className="font-bold">-{rupiah(pengeluaranOutletPettyCash)}</span>
                     </div>
-                    {managementFeeExpense > 0 ? (
-                      <div className="flex justify-between items-center text-xs text-rose-600 pl-4 border-l-2 border-rose-300 bg-rose-50/40 py-1.5 pr-2 rounded-r-lg">
-                        <div>
-                          <span className="font-semibold block">Management Fee ke Kantor Pusat (3% Gross Mitra Belum BEP)</span>
-                          <span className="text-[10px] text-rose-500 block font-normal">
-                            {isAllOutlets 
-                              ? `Dipotong 3% hanya dari 9 outlet belum BEP (${rupiah(managementFeeData.grossMitraBelumBep)}) · Outlet sudah BEP (${rupiah(actualGrossSales - managementFeeData.grossMitraBelumBep)}) bebas fee`
-                              : `Dipotong 3% dari omzet kotor outlet`}
-                          </span>
-                        </div>
-                        <span className="font-bold text-sm shrink-0">-{rupiah(managementFeeExpense)}</span>
-                      </div>
-                    ) : scope === 'mitra' && !isAllOutlets ? (
-                      <div className="flex justify-between items-center text-xs text-emerald-700 pl-4 border-l-2 border-emerald-400 bg-emerald-50/50 py-1.5 pr-2 rounded-r-lg">
-                        <div>
-                          <span className="font-semibold block">Management Fee ke Kantor Pusat (0% · Bebas Fee)</span>
-                          <span className="text-[10px] text-emerald-600 block font-normal">
-                            Outlet ini telah mencapai status Balik Modal (BEP). Bebas potongan management fee.
-                          </span>
-                        </div>
-                        <span className="font-bold text-xs shrink-0 text-emerald-700">Rp 0</span>
-                      </div>
-                    ) : null}
                     {isAllOutlets && pengeluaranPusat > 0 && (
                       <div className="flex justify-between items-center text-rose-600">
                         <span className="font-medium">Beban Operasional Kantor Pusat (Manajemen)</span>

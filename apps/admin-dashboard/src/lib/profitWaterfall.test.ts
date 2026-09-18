@@ -213,6 +213,80 @@ describe('management fee di waterfall', () => {
   })
 })
 
+describe('transaksi antar-kantong pusat <-> mitra', () => {
+  const FEE = 12_201_380
+
+  it('fee yang diakui DAN dibebankan saling menghapus — laba bersih sama seperti tanpa fee sama sekali', () => {
+    // Inilah kasus tampilan gabungan: kedua kantong ada di dalam layar.
+    const tanpaFee = buildProfitWaterfall(INPUT)
+    const denganKeduanya = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+    })
+    const total = (steps: ReturnType<typeof buildProfitWaterfall>) =>
+      steps.find((s) => s.kind === 'total')!.amount
+
+    expect(total(denganKeduanya)).toBe(total(tanpaFee))
+  })
+
+  it('kedua sisi fee tetap TAMPIL sebagai baris — saling hapus, bukan hilang', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+    })
+    expect(steps.find((s) => s.key === 'fee_manajemen_mitra')?.amount).toBe(FEE)
+    expect(steps.find((s) => s.key === 'fee_manajemen_pusat')?.amount).toBe(-FEE)
+  })
+
+  it('beban fee berada DI ATAS Pendapatan Bersih, berpasangan dengan pendapatannya', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+    })
+    const i = (k: string) => steps.findIndex((s) => s.key === k)
+    expect(i('fee_manajemen_pusat')).toBeGreaterThan(i('fee_manajemen_mitra'))
+    expect(i('fee_manajemen_pusat')).toBeLessThan(i('pendapatan_bersih'))
+  })
+
+  it('beban fee memotong LABA KOTOR, bukan cuma laba bersih', () => {
+    // Pembeda dari perilaku lama: dulu beban fee duduk di bawah bersama opex,
+    // jadi Laba Kotor tak tersentuh olehnya. Test ini gagal pada kode lama.
+    const dasar = buildProfitWaterfall(INPUT)
+    const dgnBeban = buildProfitWaterfall({ ...INPUT, managementFeeExpense: FEE })
+    const lk = (steps: ReturnType<typeof buildProfitWaterfall>) =>
+      steps.find((s) => s.key === 'laba_kotor')!.amount
+    expect(lk(dgnBeban)).toBe(lk(dasar) - FEE)
+  })
+
+  it('Omzet Kotor tidak ikut naik oleh fee maupun margin', () => {
+    const steps = buildProfitWaterfall({
+      ...INPUT,
+      managementFeeIncome: FEE,
+      managementFeeExpense: FEE,
+      mitraHppMarginIncome: 27_287_790,
+    })
+    expect(steps.find((s) => s.key === 'omzet_kotor')!.amount).toBe(INPUT.grossRevenue)
+  })
+
+  it('identitas all = internal + mitra tertutup pada laba bersih', () => {
+    // internal: punya pendapatan fee, tanpa bebannya
+    const internal = buildProfitWaterfall({ ...INPUT, managementFeeIncome: FEE })
+    // mitra: punya beban fee, tanpa pendapatannya
+    const mitra = buildProfitWaterfall({ ...INPUT, managementFeeExpense: FEE })
+    // all: keduanya
+    const all = buildProfitWaterfall({ ...INPUT, managementFeeIncome: FEE, managementFeeExpense: FEE })
+    const total = (steps: ReturnType<typeof buildProfitWaterfall>) =>
+      steps.find((s) => s.kind === 'total')!.amount
+    const dasar = total(buildProfitWaterfall(INPUT))
+
+    // (internal - dasar) + (mitra - dasar) = (all - dasar)
+    expect((total(internal) - dasar) + (total(mitra) - dasar)).toBe(total(all) - dasar)
+  })
+})
+
 describe('rincian channel omzet kotor dan potongan merchant', () => {
   const OMZET_CHANNELS = [
     { label: 'Kasir Offline (POS)', amount: 60_000_000 },

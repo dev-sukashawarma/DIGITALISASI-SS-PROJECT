@@ -119,6 +119,24 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
     setFilter({ ...filter, outletId: 'all' })
   }, [mitraLoading, lockedOutletId, filter, inScope, setFilter])
 
+  // Laba Rugi Global hanya punya satu arti: seluruh outlet. Pemilih outletnya
+  // disembunyikan, dan nilainya DIPAKSA 'all' — bukan sekadar disembunyikan.
+  //
+  // Filter outlet hidup di store lintas halaman, dan penjaga di atas tak pernah
+  // menolaknya di scope 'all' (semua outlet dianggap in-scope). Tanpa paksaan
+  // ini, memilih satu outlet di halaman lain membuat Laba Rugi Global terbuka
+  // dalam keadaan sudah terfilter — diam-diam tanpa opex kantor pusat, karena
+  // opex itu hanya ikut saat `isAllOutlets`.
+  //
+  // `lockedOutletId` (role mitra, read-only) TIDAK boleh ditimpa: kuncinya
+  // justru yang menjaga mereka melihat outletnya sendiri saja.
+  const hideOutletPicker = scope === 'all' && !lockedOutletId
+  useEffect(() => {
+    if (!hideOutletPicker) return
+    if (filter.outletId === 'all') return
+    setFilter({ ...filter, outletId: 'all' })
+  }, [hideOutletPicker, filter, setFilter])
+
   const [outletSearch, setOutletSearch] = useState('')
   const [sortBy, setSortBy] = useState<'net' | 'margin' | 'omzet'>('net')
   const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
@@ -1243,7 +1261,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
         {/* Baris atas hanya berisi PENYARING — "apa yang sedang dilihat".
             Tombol perintah turun ke pita di bawah supaya keduanya tak
             berdesakan sebagai hal yang setara. */}
-        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} />
+        <PeriodFilter value={filter} onChange={setFilter} outlets={outlets} lockedOutletId={lockedOutletId} hideSource={true} hideOutlet={hideOutletPicker} />
       </PageHeader>
 
       {/* Status Sinkronisasi / Last Updated */}

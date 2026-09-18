@@ -122,13 +122,16 @@ function CustomDateRangePopover({
 
 
 export function PeriodFilter({
-  value, onChange, outlets, lockedOutletId, hideSource
+  value, onChange, outlets, lockedOutletId, hideSource, hideOutlet
 }: {
   value: PeriodFilterValue
   onChange: (v: PeriodFilterValue) => void
   outlets: { id: string; name: string }[]
   lockedOutletId?: string | null
   hideSource?: boolean
+  /** Sembunyikan pemilih outlet sepenuhnya — untuk layar yang memang hanya
+   *  punya satu arti, mis. Laba Rugi Global yang selalu seluruh outlet. */
+  hideOutlet?: boolean
 }) {
   const setPreset = (p: Preset) => onChange({ ...value, ...presetRange(p) })
 
@@ -185,7 +188,7 @@ export function PeriodFilter({
 
       {/* 2 & 3. Dropdowns — stack to full width on mobile, inline on larger screens */}
       <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3">
-        {!lockedOutletId && (
+        {!lockedOutletId && !hideOutlet && (
           <OutletCombobox
             value={value.outletId}
             outlets={outlets || []}

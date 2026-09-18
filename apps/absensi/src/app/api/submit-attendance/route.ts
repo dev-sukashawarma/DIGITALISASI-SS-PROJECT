@@ -79,7 +79,7 @@ export async function POST(req: Request) {
     // Validasi radius GPS server-side + toleransi akurasi.
     const { data: outlet } = await admin
       .from("outlets")
-      .select("lat, lng")
+      .select("lat, lng, slug, name, type")
       .eq("id", body.outlet_id)
       .single();
     if (!outlet) return NextResponse.json({ ok: false, reason: "outlet_not_found" }, { status: 404 });
@@ -287,7 +287,13 @@ export async function POST(req: Request) {
     // yang pulang paling akhir (mis. 22:00). Crew shift pagi (17:00) boleh pulang
     // walau outlet masih jualan. Outlet satu shift / absen tanpa jejak shift →
     // tetap berlaku untuk siapa pun (aturan lama).
-    if (body.type === "out" && isShiftPenutup(opsiShift, shiftCols?.shift_jam_keluar)) {
+    // Kantor Pusat dikecualikan: tidak ada laci kasir maupun pesanan di sana, jadi baris
+    // `shifts` yang tertinggal (mis. sisa uji coba POS) akan mengunci staf kantor tanpa
+    // ada yang bisa mereka tutup. Gudang Pusat — sama-sama `type = 'office'` — TIDAK ikut.
+    const diKantorPusat =
+      outlet.slug === "kantor-pusat" || (outlet.type === "office" && /kantor/i.test(outlet.name ?? ""));
+
+    if (body.type === "out" && !diKantorPusat && isShiftPenutup(opsiShift, shiftCols?.shift_jam_keluar)) {
       const { data: openShift } = await admin
         .from("shifts")
         .select("id")

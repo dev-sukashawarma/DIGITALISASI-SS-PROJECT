@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
+import { ensureDatabaseSchema } from '@/lib/prisma'
 import Sidebar from '@/components/dashboard/Sidebar'
 
 export default async function DashboardLayout({
@@ -7,6 +8,7 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  await ensureDatabaseSchema()
   const user = await getCurrentUser()
 
   if (!user) {

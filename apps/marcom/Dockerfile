@@ -66,4 +66,4 @@ COPY --from=builder /app/prisma ./prisma
 # Expose port
 EXPOSE 3999
 
-CMD ["npx", "next", "start", "-p", "3999"]
+CMD ["sh", "-c", "npx prisma migrate deploy; npx next start -p 3999"]

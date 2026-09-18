@@ -43,4 +43,14 @@ describe('access matrix', () => {
     expect(hasAppAccess('area_manager', 'finance')).toBe(true)
     expect(hasAppAccess('area_manager', 'manager')).toBe(true)
   })
+
+  it('driver hanya memiliki akses ke absensi', () => {
+    expect(hasAppAccess('driver', 'absensi')).toBe(true)
+    expect(hasAppAccess('driver', 'pos-kasir')).toBe(false)
+    expect(hasAppAccess('driver', 'stok')).toBe(false)
+    expect(hasAppAccess('driver', 'distribusi')).toBe(false)
+    expect(hasAppAccess('driver', 'admin-dashboard')).toBe(false)
+    expect(hasAppAccess('driver', 'finance')).toBe(false)
+    expect(accessibleApps('driver')).toEqual(['absensi'])
+  })
 })

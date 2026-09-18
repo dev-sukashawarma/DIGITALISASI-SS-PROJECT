@@ -247,7 +247,7 @@ export async function POST(req: Request) {
     let jamMasukEfektif: string = cfg.jam_masuk;
     let jamKeluarEfektif: string = cfg.jam_keluar || "17:00";
     let shiftCols: { shift_jam_masuk: string; shift_jam_keluar: string } | null = null;
-    const opsiShift = shiftOptions(cfg);
+    const opsiShift = shiftOptions(cfg, target.role);
     if (opsiShift) {
       if (body.type === "out") {
         const { data: lastIn } = await admin

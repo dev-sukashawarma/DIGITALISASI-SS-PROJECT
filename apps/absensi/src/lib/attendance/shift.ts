@@ -4,7 +4,7 @@
  * Dipakai bersama oleh kiosk (modal pilih shift), route submit, dan papan.
  */
 
-export type ShiftKe = 1 | 2;
+export type ShiftKe = 1 | 2 | 3;
 
 export type ShiftOption = {
   ke: ShiftKe;
@@ -18,18 +18,37 @@ export type ShiftConfig = {
   pilih_shift_aktif?: boolean | null;
   shift2_jam_masuk?: string | null;
   shift2_jam_keluar?: string | null;
+  shift3_jam_masuk?: string | null;
+  shift3_jam_keluar?: string | null;
 };
 
 const hhmm = (t: string) => t.slice(0, 5);
 
-/** Daftar shift yang wajib dipilih crew, atau null bila outlet hanya satu shift. */
-export function shiftOptions(cfg: ShiftConfig | null | undefined): ShiftOption[] | null {
+/**
+ * Daftar shift yang wajib dipilih crew/staf, atau null bila outlet hanya satu shift.
+ * Bila role === 'driver', otomatis diberikan 3 pilihan shift (termasuk 09:00–18:00).
+ */
+export function shiftOptions(
+  cfg: ShiftConfig | null | undefined,
+  role?: string | null
+): ShiftOption[] | null {
   if (!cfg?.pilih_shift_aktif) return null;
   if (!cfg.jam_masuk || !cfg.jam_keluar || !cfg.shift2_jam_masuk || !cfg.shift2_jam_keluar) return null;
-  return [
+
+  const options: ShiftOption[] = [
     { ke: 1, jam_masuk: hhmm(cfg.jam_masuk), jam_keluar: hhmm(cfg.jam_keluar) },
     { ke: 2, jam_masuk: hhmm(cfg.shift2_jam_masuk), jam_keluar: hhmm(cfg.shift2_jam_keluar) },
   ];
+
+  if (role === "driver") {
+    const s3Masuk = cfg.shift3_jam_masuk ? hhmm(cfg.shift3_jam_masuk) : "09:00";
+    const s3Keluar = cfg.shift3_jam_keluar ? hhmm(cfg.shift3_jam_keluar) : "18:00";
+    options.push({ ke: 3, jam_masuk: s3Masuk, jam_keluar: s3Keluar });
+  } else if (cfg.shift3_jam_masuk && cfg.shift3_jam_keluar) {
+    options.push({ ke: 3, jam_masuk: hhmm(cfg.shift3_jam_masuk), jam_keluar: hhmm(cfg.shift3_jam_keluar) });
+  }
+
+  return options;
 }
 
 /** Sebutan shift dari jam masuknya: Pagi (<11), Siang (<15), Sore/Malam. */
@@ -66,5 +85,5 @@ export function isShiftPenutup(opsi: ShiftOption[] | null, jamKeluarShift: strin
 }
 
 export function isShiftKe(v: unknown): v is ShiftKe {
-  return v === 1 || v === 2;
+  return v === 1 || v === 2 || v === 3;
 }

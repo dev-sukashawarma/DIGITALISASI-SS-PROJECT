@@ -1,6 +1,12 @@
 import { faceSimilarity, DEFAULT_MATCH_THRESHOLD, type Descriptor } from "./match";
 
-export type Candidate = { id: string; name: string; descriptor: Descriptor };
+export type Candidate = {
+  id: string;
+  name: string;
+  descriptor: Descriptor;
+  role?: string | null;
+  allow_manual_button?: boolean;
+};
 export type IdentifyResult = { id: string; name: string; similarity: number; bestSimilarity: number };
 
 /** Cari kandidat terbaik (1:N) dengan kemiripan tertinggi. Fallback ke {id:"unknown"} jika tak ada match. */

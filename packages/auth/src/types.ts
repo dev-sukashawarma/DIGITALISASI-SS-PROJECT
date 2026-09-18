@@ -14,6 +14,7 @@ export type Role =
   | 'area_manager'
   | 'purchasing'
   | 'developer'
+  | 'driver'
 
 export type AppName =
   | 'pos-kasir'

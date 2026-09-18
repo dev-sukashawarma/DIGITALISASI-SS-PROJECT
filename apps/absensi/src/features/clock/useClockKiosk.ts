@@ -19,7 +19,7 @@ import { haversineMeters, GEOFENCE_RADIUS_M, MAX_GPS_ACCURACY_M, isGpsAccuracyAc
 export type KioskPhase = "locating" | "location_invalid" | "locked" | "idle" | "identified" | "pilih_shift" | "liveness" | "submitting" | "result";
 export type KioskResult = { ok: boolean; message: string };
 
-type StaffRow = { id: string; name: string; face_descriptor: number[] | null; allow_manual_button: boolean };
+type StaffRow = { id: string; name: string; role?: string | null; face_descriptor: number[] | null; allow_manual_button: boolean };
 
 const FUNCTION_URL = "/api/submit-attendance";
 
@@ -350,14 +350,14 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   const pendingManualRef = useRef<{ staffId: string; staffName: string } | null>(null);
 
   /** Opsi shift outlet ini (null = outlet satu shift). Dibaca segar tiap absen masuk. */
-  async function loadShiftOptions(): Promise<ShiftOption[] | null> {
+  async function loadShiftOptions(role?: string | null): Promise<ShiftOption[] | null> {
     if (!outletId) return null;
     const { data } = await supabase
       .from("outlet_attendance_config")
       .select("jam_masuk, jam_keluar, pilih_shift_aktif, shift2_jam_masuk, shift2_jam_keluar")
       .eq("outlet_id", outletId)
       .maybeSingle();
-    return shiftOptions(data);
+    return shiftOptions(data, role);
   }
 
   /**
@@ -366,7 +366,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
    * aturan yang sama ditegakkan ulang di server (api/submit-attendance).
    */
   async function wajibTutupOutlet(staffId: string): Promise<boolean> {
-    const opsi = await loadShiftOptions();
+    const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
+    const opsi = await loadShiftOptions(staffRole);
     if (!opsi) return true;
     const { data } = await supabase
       .from("attendance")
@@ -386,7 +387,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     if (!outletId) return;
     let query = supabase
       .from("outlet_staff")
-      .select("id,name,face_descriptor,allow_manual_button")
+      .select("id,name,role,face_descriptor,allow_manual_button")
       .or(`outlet_id.eq.${outletId},role.in.(spv,admin,owner,admin_hr,leader,korlap,regional_manager,area_manager)`)
       .not("face_descriptor", "is", null);
     // Mode 1:1 — batasi kandidat ke akun yang login saja (verifikasi, bukan identifikasi).
@@ -394,7 +395,13 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
     const { data } = await query;
     candidatesRef.current = ((data as StaffRow[]) ?? [])
       .filter((s) => s.face_descriptor)
-      .map((s) => ({ id: s.id, name: s.name, descriptor: s.face_descriptor!, allow_manual_button: s.allow_manual_button }));
+      .map((s) => ({
+        id: s.id,
+        name: s.name,
+        role: s.role,
+        descriptor: s.face_descriptor!,
+        allow_manual_button: s.allow_manual_button,
+      }));
   }, [outletId, lockToStaffId, supabase]);
 
   /** Tentukan aksi IN/OUT dari record hari ini. */
@@ -441,6 +448,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       
       let foundId = "unknown";
       let foundName = "Unknown";
+      let foundRole: string | null = null;
       let foundSim = 0;
 
       if (matchMode === "client") {
@@ -449,6 +457,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
         foundId = found.id;
         foundName = found.name;
         foundSim = found.bestSimilarity;
+        const matched = candidatesRef.current.find((c) => c.id === foundId);
+        if (matched?.role) foundRole = matched.role;
       } else {
         // --- MODE SERVER (OPSI 1) ---
         const desc = Array.from(res.face[0].embedding);
@@ -463,6 +473,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
           foundId = data.staffId;
           foundName = data.name;
           foundSim = data.similarity;
+          foundRole = data.role ?? null;
           if (data.descriptor) {
             setServerDescriptor(data.descriptor);
           }
@@ -514,7 +525,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
       // Outlet dua shift: crew wajib memilih shift sebelum absen masuk
       // (kecuali sudah dipilih di awal lewat options.shiftKe).
       if (next === "in" && !presetShiftKe) {
-        const opsi = await loadShiftOptions();
+        const opsi = await loadShiftOptions(foundRole);
         if (opsi) {
           setShiftChoices(opsi);
           setPhase("pilih_shift");
@@ -755,7 +766,8 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
 
       shiftKeRef.current = presetShiftKe;
       if (nextAction === "in" && !presetShiftKe) {
-        const opsi = await loadShiftOptions();
+        const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
+        const opsi = await loadShiftOptions(staffRole);
         if (opsi) {
           pendingManualRef.current = { staffId, staffName };
           setWho({ id: staffId, name: staffName });

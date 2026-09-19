@@ -190,7 +190,7 @@ export default function ChecklistMonitorPage() {
           </button>
         }
       />
-      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} />
+      <OutletSwitcher currentOutletId={selectedOutletId} onChange={setSelectedOutletId} label="Pilih Cabang Monitoring:" />
     </>
   );
 

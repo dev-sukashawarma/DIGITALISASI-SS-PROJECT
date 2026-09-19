@@ -8,7 +8,15 @@ import { useAuth } from '@suka/auth';
 
 type Outlet = { id: string; name: string };
 
-export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId: string, onChange: (id: string) => void }) {
+export function OutletSwitcher({ 
+  currentOutletId, 
+  onChange, 
+  label = "Pilih Cabang:" 
+}: { 
+  currentOutletId: string; 
+  onChange: (id: string) => void; 
+  label?: string; 
+}) {
   const supabase = createClient();
   const { outletStaff } = useAuth();
   const [outlets, setOutlets] = useState<Outlet[]>([]);
@@ -17,7 +25,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
   useEffect(() => {
     let mounted = true;
     async function load() {
-      const isSpv = outletStaff?.role === 'spv' || outletStaff?.role === 'admin' || outletStaff?.role === 'regional_manager' || outletStaff?.role === 'area_manager';
+      const isSpv = ['spv', 'admin', 'admin_hr', 'owner', 'regional_manager', 'area_manager'].includes(outletStaff?.role || '');
       let ids: string[] = [];
       
       if (!isSpv) {
@@ -57,7 +65,7 @@ export function OutletSwitcher({ currentOutletId, onChange }: { currentOutletId:
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-white rounded-xl border border-gray-200 p-4 mb-5 shadow-sm gap-3">
       <div className="flex items-center gap-2 text-sm font-semibold text-gray-500">
         <Store size={18} className="text-suka-orange" />
-        Pilih Outlet Enrollment:
+        {label}
       </div>
       <div className="w-full sm:w-64">
         <Select

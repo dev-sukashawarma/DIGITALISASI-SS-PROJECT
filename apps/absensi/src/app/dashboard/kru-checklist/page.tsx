@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Spinner, EmptyState } from "@suka/design-system";
 import { ListChecks, CheckCircle2, Circle, ChevronDown, ChevronUp, User, Lock, Sunrise, Sunset, Store } from "lucide-react";
 import { useAuth } from '@suka/auth';
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
 import { useToast } from "@/lib/feedback/toast";
 import { OutletSwitcher } from "@/components/OutletSwitcher";
@@ -225,6 +226,13 @@ ChecklistCategoryCard.displayName = "ChecklistCategoryCard";
 
 export default function KruChecklistPage() {
   const { outletStaff } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (outletStaff?.role === "admin_hr") {
+      router.replace("/dashboard/checklist-monitor");
+    }
+  }, [outletStaff, router]);
 
   const qc = useQueryClient();
   const supabase = createClient();

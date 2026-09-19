@@ -401,6 +401,7 @@ export function useClockKiosk(outletId: string, options?: { lockToStaffId?: stri
   async function wajibTutupOutlet(staffId: string): Promise<boolean> {
     if (diKantorPusatRef.current) return false;
     const staffRole = candidatesRef.current.find((c) => c.id === staffId)?.role;
+    if (staffRole === 'admin_hr') return false;
     const opsi = await loadShiftOptions(staffRole);
     if (!opsi) return true;
     const { data } = await supabase

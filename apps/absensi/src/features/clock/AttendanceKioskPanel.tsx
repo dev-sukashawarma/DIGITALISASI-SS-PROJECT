@@ -157,13 +157,15 @@ export function AttendanceKioskPanel() {
       if (kiosk.result.ok) {
         triggerSuccessFeedback();
         setTimeout(() => {
-          router.push("/dashboard/kru-checklist");
+          if (outletStaff?.role !== "admin_hr") {
+            router.push("/dashboard/kru-checklist");
+          }
         }, 1500);
       } else {
         triggerErrorFeedback();
       }
     }
-  }, [kiosk.result, router]);
+  }, [kiosk.result, router, outletStaff]);
 
   useEffect(() => {
     if (!activeOutletId) return;

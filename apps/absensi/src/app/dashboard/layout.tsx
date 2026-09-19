@@ -27,6 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { unreadCount } = useLeaveNotifications();
 
   const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+  const isHr = outletStaff?.role === "admin_hr";
 
   // Hanya Leader, Admin, Area Manager, Regional Manager, dan Admin HR yang boleh akses Enrollment
   const isEnrollmentAllowed = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
@@ -38,7 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },
     { href: "/dashboard/papan-kehadiran", label: "Papan Kehadiran", icon: <LayoutDashboard size={20} /> },
     { href: "/dashboard/rekap", label: "Rekap & Riwayat", icon: <ClipboardList size={20} /> },
-    { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={20} /> },
+    ...(!isHr ? [{ href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={20} /> }] : []),
     { href: "/dashboard/checklist-monitor", label: "Monitor Checklist", icon: <ClipboardCheck size={20} /> },
     { href: "/dashboard/checklist", label: "Manajemen Checklist", icon: <ListChecks size={20} /> },
     { href: "/dashboard/cuti", label: "Cuti", icon: <CalendarDays size={20} /> },
@@ -59,7 +60,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const mobileMainItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={22} /> },
     { href: "/dashboard/rekap", label: "Rekap", icon: <ClipboardList size={22} /> },
-    { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={22} /> },
+    ...(isHr ? [
+      { href: "/dashboard/checklist-monitor", label: "Monitor", icon: <ClipboardCheck size={22} /> },
+    ] : [
+      { href: "/dashboard/kru-checklist", label: "Isi Checklist", icon: <ClipboardCheck size={22} /> },
+    ]),
     ...(isEnrollmentAllowed ? [{ href: "/dashboard/enroll", label: "Enroll", icon: <UserPlus size={22} /> }] : [{ href: "/dashboard/papan-kehadiran", label: "Papan", icon: <LayoutDashboard size={22} /> }]),
   ] : [
     { href: "/dashboard/kru", label: "Beranda", icon: <LayoutDashboard size={22} /> },
@@ -84,14 +89,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           router.replace("/dashboard/kru");
         }
       } else {
-        if (pathname === "/dashboard/enroll" && !isEnrollmentAllowed) {
+        if (isHr && (pathname === "/dashboard/kru-checklist" || pathname.startsWith("/dashboard/kru-checklist/"))) {
+          router.replace("/dashboard/checklist-monitor");
+        } else if (pathname === "/dashboard/enroll" && !isEnrollmentAllowed) {
           router.replace("/dashboard");
         } else if (pathname === "/dashboard/pengaturan" && !isSettingsAllowed) {
           router.replace("/dashboard");
         }
       }
     }
-  }, [outletStaff, isSPV, isEnrollmentAllowed, isSettingsAllowed, loading, pathname, router]);
+  }, [outletStaff, isSPV, isHr, isEnrollmentAllowed, isSettingsAllowed, loading, pathname, router]);
 
   // Tutup sheet "Lainnya" tiap pindah halaman
   React.useEffect(() => { setMoreOpen(false); }, [pathname]);

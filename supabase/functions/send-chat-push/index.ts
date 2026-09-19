@@ -68,7 +68,13 @@ serve(async (req) => {
       group_name,
       group_photo,
       mentions,
+      // Chat pribadi 1-on-1. Kalau `recipient_id` ada, pesan ini HANYA dikirim
+      // ke perangkat orang itu — bukan disiarkan ke seluruh anggota grup.
+      recipient_id,
+      sender_avatar,
     } = await req.json()
+
+    const pribadi = typeof recipient_id === 'string' && recipient_id.length > 0
 
     // Siapa yang namanya disebut. Dipakai untuk memberi mereka notifikasi yang
     // berbeda — sama seperti WhatsApp, disebut namanya terasa lain dari sekadar
@@ -90,6 +96,10 @@ serve(async (req) => {
     // Pengirim tidak dikirimi notifikasi pesannya sendiri.
     let query = supabase.from('chat_push_tokens').select('token, staff_id')
     if (sender_id) query = query.neq('staff_id', sender_id)
+    // Obrolan pribadi berhenti di satu orang. Tanpa penyaringan ini, seluruh
+    // staf ikut menerima isi percakapan berdua — kebocoran, bukan sekadar
+    // notifikasi yang mengganggu.
+    if (pribadi) query = query.eq('staff_id', recipient_id)
 
     const { data: tokens, error } = await query
     if (error) throw error
@@ -107,16 +117,29 @@ serve(async (req) => {
       )
     }
 
-    const dasar: Record<string, string> = {
-      type: 'chat',
-      title: group_name || 'Chat Tim',
-      body: String(body),
-      sender: sender_name || 'Anggota tim',
-      sender_id: sender_id || '',
-      message_id: message_id || '',
-      group_photo: group_photo || '',
-      url: '/chat',
-    }
+    const dasar: Record<string, string> = pribadi
+      ? {
+          // Aplikasi native memakai penanda ini untuk menggambar notifikasi
+          // percakapan tersendiri per lawan bicara, lengkap dengan foto profil.
+          type: 'private_chat',
+          title: sender_name || 'Pesan Pribadi',
+          body: String(body),
+          sender: sender_name || 'Anggota tim',
+          sender_id: sender_id || '',
+          sender_avatar: sender_avatar || '',
+          message_id: message_id || '',
+          url: `/chat/private?from=${sender_id || ''}`,
+        }
+      : {
+          type: 'chat',
+          title: group_name || 'Chat Tim',
+          body: String(body),
+          sender: sender_name || 'Anggota tim',
+          sender_id: sender_id || '',
+          message_id: message_id || '',
+          group_photo: group_photo || '',
+          url: '/chat',
+        }
 
     // Payload dibangun PER PENERIMA, bukan sekali untuk semua. Fungsi ini memang
     // sudah mengirim per token, jadi membedakan isinya tidak menambah satu pun

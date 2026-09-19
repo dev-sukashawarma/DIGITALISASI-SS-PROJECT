@@ -28,11 +28,18 @@ export async function POST(request: Request) {
   const posDb = createServiceClient()
 
   // 1. Cek idempotency ketat di pos-kasir (cegah duplikasi order id / external_order_id)
-  const { data: existingList } = await posDb
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(external_order_id)
+  let query = posDb
     .from('orders')
     .select('id, order_number, source, external_order_id')
-    .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
-    .limit(1)
+
+  if (isUUID) {
+    query = query.or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
+  } else {
+    query = query.eq('external_order_id', external_order_id)
+  }
+
+  const { data: existingList } = await query.limit(1)
 
   let existing = existingList && existingList.length > 0 ? existingList[0] : null
 

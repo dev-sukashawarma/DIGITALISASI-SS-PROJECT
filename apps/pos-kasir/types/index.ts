@@ -73,7 +73,7 @@ export interface CartItem {
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled'
 export type PaymentMethod = 'cash' | 'qris' | 'card'
 
-export type OrderSource = 'pos' | 'online' | 'manual'
+export type OrderSource = 'pos' | 'online' | 'manual' | 'app'
 
 export interface Order {
   id: string
@@ -86,6 +86,7 @@ export interface Order {
   total_amount: number
   notes: string | null
   source: OrderSource
+  sales_source?: string | null
   channel: string | null
   external_order_id: string | null
   release_time?: string | null

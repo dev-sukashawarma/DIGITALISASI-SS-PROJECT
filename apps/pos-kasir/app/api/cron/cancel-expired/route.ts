@@ -24,12 +24,12 @@ export async function GET(request: Request) {
       .update({ status: 'cancelled' })
       .eq('status', 'pending')
       .lte('created_at', expiredTime)
-      .select('id, receipt_number')
+      .select('id, order_number')
 
     if (updateError) throw updateError
 
     if (cancelledOrders && cancelledOrders.length > 0) {
-      console.log(`Automatically cancelled ${cancelledOrders.length} expired orders:`, cancelledOrders.map(o => o.receipt_number).join(', '))
+      console.log(`Automatically cancelled ${cancelledOrders.length} expired orders:`, cancelledOrders.map(o => o.order_number).join(', '))
     }
 
     return NextResponse.json({ success: true, cancelled_count: cancelledOrders?.length || 0 })

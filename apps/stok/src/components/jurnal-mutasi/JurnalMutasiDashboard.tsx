@@ -588,6 +588,7 @@ export function JurnalMutasiDashboard({ initialOutletId }: JurnalMutasiDashboard
             items={data.items}
             startDate={data.period.start_date}
             endDate={data.period.end_date}
+            period={data.period}
           />
         </>
       )}

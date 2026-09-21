@@ -15,7 +15,7 @@ import {
   Utensils,
   BookOpen,
 } from 'lucide-react'
-import type { ReconciliationItem } from '@/app/actions/jurnalMutasi'
+import type { ReconciliationItem, ReconciliationPeriodInfo } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
 import { DrillDownTimeline } from './DrillDownTimeline'
 
@@ -24,11 +24,12 @@ interface RekonsiliasiTableProps {
   items: ReconciliationItem[]
   startDate: string
   endDate: string
+  period?: ReconciliationPeriodInfo
 }
 
 const CATEGORIES = ['ALL', 'FOOD & BEVERAGE', 'BUMBU', 'PACKAGING', 'OPERASIONAL'] as const
 
-export function RekonsiliasiTable({ outletId, items, startDate, endDate }: RekonsiliasiTableProps) {
+export function RekonsiliasiTable({ outletId, items, startDate, endDate, period }: RekonsiliasiTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL')
@@ -254,6 +255,15 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate }: Rekon
                             Riil: {formatRp(item.masuk_rp_riil)}
                           </div>
                         )}
+                        {item.vendor_masuk?.map((v) => (
+                          <div
+                            key={v.vendor_nama}
+                            className="text-[9px] font-bold text-suka-brown/70 truncate"
+                            title={`Vendor: ${v.vendor_nama}`}
+                          >
+                            {v.vendor_nama}: {formatQty(item, v.qty)} · @{formatRp(item.harga_master_kirim)}/{item.satuan_kirim}
+                          </div>
+                        ))}
                       </td>
 
                       {/* Pemakaian */}
@@ -264,6 +274,15 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate }: Rekon
                         <div className="text-[10px] font-semibold text-blue-700/80">
                           {formatRp(item.pakai_rp)}
                         </div>
+                        {item.vendor_pakai?.map((v) => (
+                          <div
+                            key={v.vendor_nama}
+                            className="text-[9px] font-bold text-suka-brown/70 truncate"
+                            title="Estimasi FIFO berdasarkan surat jalan"
+                          >
+                            ≈ {v.vendor_nama}: {formatQty(item, v.qty)} · @{formatRp(item.harga_master_kirim)}/{item.satuan_kirim}
+                          </div>
+                        ))}
                         {item.menu_usages && item.menu_usages.length > 0 && (
                           <div className="mt-1 flex items-center justify-end">
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-100 text-blue-900 text-[9px] font-black" title="Klik baris untuk rincian menu">
@@ -464,6 +483,7 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate }: Rekon
                                 item={item}
                                 startDate={startDate}
                                 endDate={endDate}
+                                period={period}
                               />
                             </div>
                           </details>

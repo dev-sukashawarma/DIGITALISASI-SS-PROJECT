@@ -3,6 +3,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { getDistribusiFactor } from '@/lib/format/compositeUnit'
+import { attributeFifo, labelFifo, type FifoWindowRow } from '@/lib/stok/vendorFifo'
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 
 const MANAGEMENT_ROLES = [
@@ -65,6 +67,100 @@ async function requireManagementAuth(outletId?: string) {
   return { staff, authedClient, serviceClient }
 }
 
+interface VendorRefRow {
+  bahan_baku_id: string
+  ref_shipment_id: string | null
+  ref_terima_vendor_id: string | null
+  ref_po_id: string | null
+}
+
+const vendorLabel = (nama: string | null | undefined) =>
+  nama ? nama.replace(/\s*-\s*Tempo\s*\d+\s*$/i, '').trim() : null
+
+/**
+ * Vendor hanya diketahui untuk barang MASUK: surat jalan (vendor_id per baris),
+ * terima drop-ship, atau PO. Pemakaian di outlet tidak dilacak per vendor.
+ * Kunci hasil: `${tipeRef}:${refId}:${bahanId}` -> nama vendor.
+ */
+async function resolveVendorNames(
+  supabase: ReturnType<typeof makeServiceClient>,
+  rows: VendorRefRow[]
+): Promise<(row: VendorRefRow) => string | null> {
+  const sjIds = [...new Set(rows.map((r) => r.ref_shipment_id).filter((v): v is string => !!v))]
+  const tvIds = [...new Set(rows.map((r) => r.ref_terima_vendor_id).filter((v): v is string => !!v))]
+  const poIds = [...new Set(rows.map((r) => r.ref_po_id).filter((v): v is string => !!v))]
+
+  const [sjRes, tvRes, poRes] = await Promise.all([
+    sjIds.length > 0
+      ? supabase.from('surat_jalan_item').select('surat_jalan_id, bahan_baku_id, vendor_id').in('surat_jalan_id', sjIds).not('vendor_id', 'is', null)
+      : Promise.resolve({ data: [] as any[] }),
+    tvIds.length > 0
+      ? supabase.from('terima_vendor_outlet').select('id, supplier_id').in('id', tvIds)
+      : Promise.resolve({ data: [] as any[] }),
+    poIds.length > 0
+      ? supabase.from('purchase_order').select('id, supplier_id').in('id', poIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  const supplierIds = [
+    ...new Set([
+      ...(sjRes.data || []).map((x: any) => x.vendor_id),
+      ...(tvRes.data || []).map((x: any) => x.supplier_id),
+      ...(poRes.data || []).map((x: any) => x.supplier_id),
+    ].filter(Boolean)),
+  ]
+  const nameById = new Map<string, string>()
+  if (supplierIds.length > 0) {
+    const { data: sup } = await supabase.from('supplier').select('id, nama').in('id', supplierIds)
+    for (const s of sup || []) nameById.set(s.id, vendorLabel(s.nama) || s.nama)
+  }
+
+  const sjMap = new Map<string, string>()
+  for (const x of sjRes.data || []) sjMap.set(`${x.surat_jalan_id}_${x.bahan_baku_id}`, x.vendor_id)
+  const tvMap = new Map<string, string>((tvRes.data || []).map((x: any) => [x.id, x.supplier_id]))
+  const poMap = new Map<string, string>((poRes.data || []).map((x: any) => [x.id, x.supplier_id]))
+
+  return (row) => {
+    const sid =
+      (row.ref_terima_vendor_id && tvMap.get(row.ref_terima_vendor_id)) ||
+      (row.ref_po_id && poMap.get(row.ref_po_id)) ||
+      (row.ref_shipment_id && sjMap.get(`${row.ref_shipment_id}_${row.bahan_baku_id}`)) ||
+      null
+    return sid ? nameById.get(sid) || null : null
+  }
+}
+
+const INFLOW_TIPE = ['terima_kiriman', 'pembelian_supplier', 'transfer_masuk', 'adjustment']
+
+/** Kiriman masuk terakhir sebelum periode (terbaru dulu) untuk membentuk lapisan saldo awal FIFO. */
+async function fetchPriorInflows(
+  supabase: ReturnType<typeof makeServiceClient>,
+  outletId: string,
+  startIso: string,
+  bahanIds: string[] | null
+) {
+  let q = supabase
+    .from('ledger_stok')
+    .select('bahan_baku_id, qty, ref_shipment_id, ref_terima_vendor_id, ref_po_id')
+    .eq('outlet_id', outletId)
+    .lt('created_at', startIso)
+    .gt('qty', 0)
+    .in('tipe', INFLOW_TIPE)
+    .order('created_at', { ascending: false })
+    .limit(bahanIds ? 400 : 3000)
+  if (bahanIds) q = q.in('bahan_baku_id', bahanIds)
+  const { data } = await q
+  const rows = (data || []) as any[]
+  const vendorOf = await resolveVendorNames(supabase, rows)
+  const byBahan = new Map<string, { qty: number; vendor: string | null }[]>()
+  for (const r of rows) {
+    const list = byBahan.get(r.bahan_baku_id) || []
+    list.push({ qty: Number(r.qty), vendor: vendorOf(r) })
+    byBahan.set(r.bahan_baku_id, list)
+  }
+  return byBahan
+}
+
 export interface OpnameSessionSummary {
   id: string
   tanggal: string
@@ -92,6 +188,11 @@ export interface MenuItemUsage {
   total_pemakaian: number
 }
 
+export interface VendorMasuk {
+  vendor_nama: string
+  qty: number
+}
+
 export interface ReconciliationItem {
   bahan_baku_id: string
   nama: string
@@ -103,6 +204,8 @@ export interface ReconciliationItem {
   faktor_tampilan: number | null
   harga_beli_master: number
   unit_price_kecil: number
+  satuan_kirim: string
+  harga_master_kirim: number
   
   // Qty (dalam satuan terkecil / gram)
   saldo_awal_qty: number
@@ -125,6 +228,12 @@ export interface ReconciliationItem {
   stok_fisik_rp: number | null
   selisih_rp: number
   
+  vendor_masuk?: VendorMasuk[]
+  vendor_pakai?: VendorMasuk[]
+
+  has_opname: boolean
+  status: 'MATCH' | 'MINUS' | 'SURPLUS' | 'TIDAK_OPNAME'
+  selisih_persen: number | null
   diagnostics: DiagnosticAlert[]
   menu_usages: MenuItemUsage[]
 }
@@ -160,15 +269,17 @@ export interface MenuBomBreakdownItem {
   ingredients: MenuBomIngredient[]
 }
 
+export interface ReconciliationPeriodInfo {
+  mode: 'opname_session' | 'date_range'
+  opname_terpilih?: OpnameSessionSummary | null
+  opname_sebelumnya?: OpnameSessionSummary | null
+  start_date: string
+  end_date: string
+}
+
 export interface ReconciliationSnapshotResponse {
   outlet: { id: string; name: string }
-  period: {
-    mode: 'opname_session' | 'date_range'
-    opname_terpilih?: OpnameSessionSummary | null
-    opname_sebelumnya?: OpnameSessionSummary | null
-    start_date: string
-    end_date: string
-  }
+  period: ReconciliationPeriodInfo
   pending_surat_jalan_count: number
   items: ReconciliationItem[]
   totals: ReconciliationTotals
@@ -193,6 +304,8 @@ export interface LedgerTimelineRow {
   ref_opname_id: string | null
   ref_transfer_id: string | null
   ref_doc_number: string | null
+  vendor_nama: string | null
+  vendor_estimasi: string | null
 }
 
 export interface OutletOverviewItem {
@@ -644,7 +757,7 @@ export async function fetchReconciliationSnapshot(
   const [bahanRes, hargaRes] = await Promise.all([
     supabase
       .from('bahan_baku')
-      .select('id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, is_active')
+      .select('id, nama, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, satuan_distribusi, is_active')
       .eq('is_active', true)
       .order('kategori', { ascending: true })
       .order('nama', { ascending: true }),
@@ -659,7 +772,7 @@ export async function fetchReconciliationSnapshot(
   // 4. Ambil mutasi dari ledger_stok antara startIso dan endIso
   let ledgerQuery = supabase
     .from('ledger_stok')
-    .select('id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_opname_id, saldo_sebelum, saldo_sesudah')
+    .select('id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_opname_id, ref_terima_vendor_id, ref_po_id, saldo_sebelum, saldo_sesudah')
     .eq('outlet_id', outletId)
     .gte('created_at', startIso)
     .lte('created_at', endIso)
@@ -693,6 +806,37 @@ export async function fetchReconciliationSnapshot(
       if (item.harga_snapshot && item.harga_snapshot > 0) {
         realPricesMap.set(`${item.surat_jalan_id}_${item.bahan_baku_id}`, item.harga_snapshot)
       }
+    }
+  }
+
+  const vendorOf = await resolveVendorNames(supabase, (ledgerRows || []) as any)
+  const vendorMasukByBahan = new Map<string, Map<string, number>>()
+  const vendorPakaiByBahan = new Map<string, Map<string, number>>()
+  {
+    const priorByBahan = await fetchPriorInflows(supabase, outletId, startIso, null)
+    const rowsByBahan = new Map<string, any[]>()
+    for (const r of ledgerRows || []) {
+      const l = rowsByBahan.get(r.bahan_baku_id) || []
+      l.push(r)
+      rowsByBahan.set(r.bahan_baku_id, l)
+    }
+    for (const [bId, rs] of rowsByBahan) {
+      const win: FifoWindowRow[] = rs.map((r) => ({
+        id: r.id,
+        qty: Number(r.qty || 0),
+        vendor: Number(r.qty) > 0 ? vendorOf(r) : null,
+      }))
+      const attr = attributeFifo({
+        openingBalance: Number(rs[0].saldo_sebelum || 0),
+        priorInflowsNewestFirst: priorByBahan.get(bId) || [],
+        windowRows: win,
+      })
+      const m = new Map<string, number>()
+      for (const r of rs) {
+        if (r.tipe !== 'pemakaian') continue
+        for (const part of attr.get(r.id) || []) m.set(part.vendor, (m.get(part.vendor) || 0) + part.qty)
+      }
+      vendorPakaiByBahan.set(bId, m)
     }
   }
 
@@ -976,6 +1120,14 @@ export async function fetchReconciliationSnapshot(
     ) {
       agg.masukQty += Math.abs(rawQty)
 
+      const vNama = vendorOf(row as any) || 'Vendor tidak tercatat'
+      let vm = vendorMasukByBahan.get(row.bahan_baku_id)
+      if (!vm) {
+        vm = new Map()
+        vendorMasukByBahan.set(row.bahan_baku_id, vm)
+      }
+      vm.set(vNama, (vm.get(vNama) || 0) + Math.abs(rawQty))
+
       // Cek apakah ada harga riil dari surat jalan
       if (row.ref_shipment_id) {
         const realPrice = realPricesMap.get(`${row.ref_shipment_id}_${row.bahan_baku_id}`)
@@ -1116,6 +1268,24 @@ export async function fetchReconciliationSnapshot(
     if (stokFisikRp !== null) totalFisikRp += stokFisikRp
     totalSelisihRp += selisihRp
 
+    const hasOpname = stokFisik !== null && stokFisik !== undefined
+    let status: 'MATCH' | 'MINUS' | 'SURPLUS' | 'TIDAK_OPNAME' = 'TIDAK_OPNAME'
+    let selisihPersen: number | null = null
+
+    if (hasOpname) {
+      if (Math.abs(selisihQty) <= 0.01) {
+        status = 'MATCH'
+      } else if (selisihQty < -0.01) {
+        status = 'MINUS'
+      } else {
+        status = 'SURPLUS'
+      }
+
+      if (stokSistem !== 0) {
+        selisihPersen = Math.round((selisihQty / Math.abs(stokSistem)) * 1000) / 10
+      }
+    }
+
     reconciliationItems.push({
       bahan_baku_id: b.id,
       nama: b.nama,
@@ -1127,6 +1297,11 @@ export async function fetchReconciliationSnapshot(
       faktor_tampilan: b.faktor_tampilan,
       harga_beli_master: hargaMaster,
       unit_price_kecil: unitPriceKecil,
+      satuan_kirim: b.satuan_distribusi?.trim() || b.satuan,
+      harga_master_kirim: (() => {
+        const f = getDistribusiFactor(b as any)
+        return f > 0 ? hargaMaster / f : hargaMaster
+      })(),
       saldo_awal_qty: saldoAwal,
       masuk_qty: masukQty,
       pakai_qty: pakaiQty,
@@ -1144,7 +1319,16 @@ export async function fetchReconciliationSnapshot(
       stok_sistem_rp: stokSistemRp,
       stok_fisik_rp: stokFisikRp,
       selisih_rp: selisihRp,
+      has_opname: hasOpname,
+      status,
+      selisih_persen: selisihPersen,
       diagnostics,
+      vendor_masuk: Array.from(vendorMasukByBahan.get(b.id)?.entries() || [])
+        .map(([vendor_nama, qty]) => ({ vendor_nama, qty }))
+        .sort((a, c) => c.qty - a.qty),
+      vendor_pakai: Array.from(vendorPakaiByBahan.get(b.id)?.entries() || [])
+        .map(([vendor_nama, qty]) => ({ vendor_nama, qty }))
+        .sort((a, c) => c.qty - a.qty),
       menu_usages: menuUsageByBahan.get(b.id) || [],
     })
   }
@@ -1224,7 +1408,9 @@ export async function fetchItemTransactionLedger(
       ref_shipment_id,
       ref_order_id,
       ref_opname_id,
-      ref_transfer_id
+      ref_transfer_id,
+      ref_terima_vendor_id,
+      ref_po_id
     `)
     .eq('outlet_id', outletId)
     .eq('bahan_baku_id', bahanBakuId)
@@ -1249,6 +1435,22 @@ export async function fetchItemTransactionLedger(
 
   const sjDocMap = new Map((shipmentsRes.data || []).map((s: any) => [s.id, s.document_number]))
   const orderDocMap = new Map((ordersRes.data || []).map((o: any) => [o.id, `#${o.order_number}`]))
+
+  const vendorOf = await resolveVendorNames(
+    supabase,
+    (rows || []).map((r: any) => ({ ...r, bahan_baku_id: bahanBakuId }))
+  )
+
+  const priorByBahan = await fetchPriorInflows(supabase, outletId, startDate, [bahanBakuId])
+  const fifo = attributeFifo({
+    openingBalance: Number((rows || [])[0]?.saldo_sebelum || 0),
+    priorInflowsNewestFirst: priorByBahan.get(bahanBakuId) || [],
+    windowRows: (rows || []).map((r: any) => ({
+      id: r.id,
+      qty: Number(r.qty || 0),
+      vendor: Number(r.qty) > 0 ? vendorOf({ ...r, bahan_baku_id: bahanBakuId }) : null,
+    })),
+  })
 
   return (rows || []).map((r: any) => {
     const qty = Number(r.qty || 0)
@@ -1279,6 +1481,8 @@ export async function fetchItemTransactionLedger(
       ref_opname_id: r.ref_opname_id,
       ref_transfer_id: r.ref_transfer_id,
       ref_doc_number: docNumber,
+      vendor_estimasi: qty < 0 ? labelFifo(fifo.get(r.id)) : null,
+      vendor_nama: qty > 0 ? vendorOf({ ...r, bahan_baku_id: bahanBakuId }) : null,
     }
   })
 }

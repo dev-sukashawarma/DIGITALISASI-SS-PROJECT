@@ -66,7 +66,7 @@ export default function JurnalMutasiPage() {
     <AppLayout>
       <div className="min-h-screen bg-[#fffdfa] text-[#1e1b15]">
         {/* Header Banner */}
-        <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 py-4 flex items-center justify-between shadow-2xs sticky top-0 z-20">
+        <header className="bg-white/95 backdrop-blur-md border-b border-suka-brown/10 px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between shadow-2xs sticky top-0 z-20">
           <div>
             <h1 className="text-lg sm:text-xl font-black text-suka-brown tracking-tight">
               Jurnal & Rekonsiliasi Bahan
@@ -82,7 +82,7 @@ export default function JurnalMutasiPage() {
         </header>
 
         {/* Main Dashboard */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+        <main className="w-full px-4 sm:px-6 lg:px-8 mt-6 pb-12">
           <JurnalMutasiDashboard initialOutletId={effectiveOutletId} />
         </main>
       </div>

@@ -590,7 +590,7 @@ export default function BudgetMatrixView({ initialData, userRole }: BudgetMatrix
                 <input
                   type="number"
                   min="0"
-                  step="10000"
+                  step="any"
                   value={editBudgetVal}
                   onChange={(e) => setEditBudgetVal(e.target.value)}
                   required

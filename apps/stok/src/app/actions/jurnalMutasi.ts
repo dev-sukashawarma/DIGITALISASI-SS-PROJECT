@@ -130,6 +130,9 @@ async function resolveVendorNames(
   }
 }
 
+/** Nama item order kadang membawa catatan kasir: "Menu|NOTE|Tidak Pedas" -> "Menu". */
+const bersihNamaMenu = (n: string | null | undefined) => (n || '').replace(/\s*\|\s*NOTE\s*\|.*$/i, '').trim()
+
 const INFLOW_TIPE = ['terima_kiriman', 'pembelian_supplier', 'transfer_masuk', 'adjustment']
 
 /** Kiriman masuk terakhir sebelum periode (terbaru dulu) untuk membentuk lapisan saldo awal FIFO. */
@@ -159,6 +162,110 @@ async function fetchPriorInflows(
     byBahan.set(r.bahan_baku_id, list)
   }
   return byBahan
+}
+
+/**
+ * Petakan baris pemakaian ke menu yang terjual (order_items + resep/paket), tanpa catatan ledger.
+ * Hasil: ledgerId -> "Nama Menu" (atau "Paket > Komponen"), diberi "xN" bila porsi > 1.
+ */
+async function resolveMenuTerjual(
+  supabase: ReturnType<typeof makeServiceClient>,
+  outletId: string,
+  bahanBakuId: string,
+  rows: { id: string; tipe: string; qty: number; ref_order_id: string | null }[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  const pakaiRows = rows.filter((r) => r.tipe === 'pemakaian' && r.ref_order_id)
+  const orderIds = [...new Set(pakaiRows.map((r) => r.ref_order_id as string))]
+  if (orderIds.length === 0) return out
+
+  const items: { order_id: string; menu_item_id: string; menu_item_name: string | null; quantity: number }[] = []
+  for (let i = 0; i < orderIds.length; i += 200) {
+    const { data } = await supabase
+      .from('order_items')
+      .select('order_id, menu_item_id, menu_item_name, quantity')
+      .in('order_id', orderIds.slice(i, i + 200))
+      .not('menu_item_id', 'is', null)
+    items.push(...((data || []) as any))
+  }
+  const menuIds = [...new Set(items.map((i) => String(i.menu_item_id)))]
+  if (menuIds.length === 0) return out
+
+  const { data: pkgs } = await supabase
+    .from('menu_packages')
+    .select('package_id, menu_item_id, quantity')
+    .in('package_id', menuIds)
+  const compIds = [...new Set((pkgs || []).map((p: any) => String(p.menu_item_id)))]
+  const allIds = [...new Set([...menuIds, ...compIds])]
+
+  const [resepRes, namesRes] = await Promise.all([
+    supabase
+      .from('resep')
+      .select('menu_item_ref, scope, outlet_id, resep_item!inner(bahan_baku_id, qty_per_porsi)')
+      .in('menu_item_ref', allIds)
+      .eq('is_active', true)
+      .eq('resep_item.bahan_baku_id', bahanBakuId),
+    compIds.length > 0
+      ? supabase.from('menu_items').select('id, name').in('id', compIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  // qty bahan per 1 porsi menu; resep outlet menimpa global
+  const qppByMenu = new Map<string, { qpp: number; scope: string }>()
+  for (const r of (resepRes.data || []) as any[]) {
+    if (r.scope === 'outlet' && r.outlet_id !== outletId) continue
+    const qpp = Number(r.resep_item?.[0]?.qty_per_porsi || 0)
+    const cur = qppByMenu.get(r.menu_item_ref)
+    if (!cur || (cur.scope === 'global' && r.scope === 'outlet')) qppByMenu.set(r.menu_item_ref, { qpp, scope: r.scope })
+  }
+  const compName = new Map<string, string>((namesRes.data || []).map((m: any) => [m.id, m.name]))
+  const pkgOf = new Map<string, { menu_item_id: string; quantity: number }[]>()
+  for (const p of (pkgs || []) as any[]) {
+    const l = pkgOf.get(p.package_id) || []
+    l.push({ menu_item_id: String(p.menu_item_id), quantity: Number(p.quantity || 1) })
+    pkgOf.set(p.package_id, l)
+  }
+
+  // kandidat per order: menu yang benar-benar memakai bahan ini
+  const kandidat = new Map<string, { label: string; expected: number }[]>()
+  for (const it of items) {
+    const mid = String(it.menu_item_id)
+    const porsi = Number(it.quantity || 1)
+    const nama = bersihNamaMenu(it.menu_item_name) || `Menu #${mid.slice(0, 8)}`
+    const list = kandidat.get(it.order_id) || []
+    const comps = pkgOf.get(mid)
+    if (comps && comps.length > 0) {
+      for (const c of comps) {
+        const r = qppByMenu.get(c.menu_item_id)
+        if (!r) continue
+        list.push({
+          label: `${nama} > ${compName.get(c.menu_item_id) || 'komponen'}${porsi > 1 ? ` x${porsi}` : ''}`,
+          expected: r.qpp * c.quantity * porsi,
+        })
+      }
+    } else {
+      const r = qppByMenu.get(mid)
+      if (r) list.push({ label: `${nama}${porsi > 1 ? ` x${porsi}` : ''}`, expected: r.qpp * porsi })
+    }
+    kandidat.set(it.order_id, list)
+  }
+
+  // cocokkan tiap baris ledger dengan kandidat berdasarkan qty; fallback: semua kandidat order itu
+  const dipakai = new Map<string, Set<number>>()
+  for (const r of pakaiRows) {
+    const list = kandidat.get(r.ref_order_id as string) || []
+    if (list.length === 0) continue
+    const used = dipakai.get(r.ref_order_id as string) || new Set<number>()
+    const idx = list.findIndex((k, i) => !used.has(i) && Math.abs(k.expected - Math.abs(r.qty)) < 0.5)
+    if (idx >= 0) {
+      used.add(idx)
+      dipakai.set(r.ref_order_id as string, used)
+      out.set(r.id, list[idx].label)
+    } else {
+      out.set(r.id, list.map((k) => k.label).join(', '))
+    }
+  }
+  return out
 }
 
 export interface OpnameSessionSummary {
@@ -306,6 +413,7 @@ export interface LedgerTimelineRow {
   ref_doc_number: string | null
   vendor_nama: string | null
   vendor_estimasi: string | null
+  menu_terjual: string | null
 }
 
 export interface OutletOverviewItem {
@@ -892,7 +1000,7 @@ export async function fetchReconciliationSnapshot(
         existing.totalPorsi += qty
       } else {
         soldMenuMap.set(mid, {
-          name: oi.menu_item_name || `Menu #${mid}`,
+          name: bersihNamaMenu(oi.menu_item_name) || `Menu #${mid}`,
           totalPorsi: qty,
         })
       }
@@ -1445,6 +1553,12 @@ export async function fetchItemTransactionLedger(
     (rows || []).map((r: any) => ({ ...r, bahan_baku_id: bahanBakuId }))
   )
 
+  const menuTerjual = await resolveMenuTerjual(
+    supabase,
+    outletId,
+    bahanBakuId,
+    (rows || []).map((r: any) => ({ id: r.id, tipe: r.tipe, qty: Number(r.qty || 0), ref_order_id: r.ref_order_id }))
+  )
   const priorByBahan = await fetchPriorInflows(supabase, outletId, startDate, [bahanBakuId])
   const fifo = attributeFifo({
     openingBalance: Number((rows || [])[0]?.saldo_sebelum || 0),
@@ -1485,6 +1599,7 @@ export async function fetchItemTransactionLedger(
       ref_opname_id: r.ref_opname_id,
       ref_transfer_id: r.ref_transfer_id,
       ref_doc_number: docNumber,
+      menu_terjual: menuTerjual.get(r.id) || null,
       vendor_estimasi: qty < 0 ? labelFifo(fifo.get(r.id)) : null,
       vendor_nama: qty > 0 ? vendorOf({ ...r, bahan_baku_id: bahanBakuId }) : null,
     }

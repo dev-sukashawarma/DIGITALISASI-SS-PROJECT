@@ -279,7 +279,7 @@ export function DrillDownTimeline({
                             {row.ref_doc_number}:
                           </span>
                         )}
-                        <span>{row.catatan || '-'}</span>
+                        <span>{row.menu_terjual || row.catatan || '-'}</span>
                         {row.vendor_estimasi && (
                           <div className="text-[10px] font-bold text-emerald-700 truncate" title="Estimasi FIFO berdasarkan surat jalan">
                             ≈ Vendor: {row.vendor_estimasi} · Master {formatRp(item.harga_master_kirim)}/{item.satuan_kirim}

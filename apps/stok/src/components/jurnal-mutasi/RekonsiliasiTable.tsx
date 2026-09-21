@@ -29,6 +29,13 @@ interface RekonsiliasiTableProps {
 
 const CATEGORIES = ['ALL', 'FOOD & BEVERAGE', 'BUMBU', 'PACKAGING', 'OPERASIONAL'] as const
 
+const KATEGORI_ORDER: { key: string; label: string }[] = [
+  { key: 'FOOD & BEVERAGE', label: '🥩 Food & Beverage' },
+  { key: 'BUMBU', label: '🌶️ Bumbu' },
+  { key: 'PACKAGING', label: '📦 Packaging' },
+  { key: 'OPERASIONAL', label: '📋 Operasional' },
+]
+
 export function RekonsiliasiTable({ outletId, items, startDate, endDate, period }: RekonsiliasiTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -92,6 +99,22 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate, period 
         return a.nama.localeCompare(b.nama)
       })
   }, [items, searchQuery, selectedCategory, onlyVariance, sortBy])
+
+  // Kelompok kategori sama dengan papan monitoring (CrewList/SPVTable)
+  const groupedItems = useMemo(() => {
+    const known = new Set(KATEGORI_ORDER.map((c) => c.key))
+    const groups = KATEGORI_ORDER.map((c) => ({
+      key: c.key,
+      label: c.label,
+      rows: filteredItems.filter((i) => (i.kategori || '').toUpperCase() === c.key),
+    }))
+    groups.push({
+      key: 'LAINNYA',
+      label: '🗂️ Lainnya',
+      rows: filteredItems.filter((i) => !known.has((i.kategori || '').toUpperCase())),
+    })
+    return groups.filter((g) => g.rows.length > 0)
+  }, [filteredItems])
 
   return (
     <div className="space-y-4">
@@ -189,7 +212,15 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate, period 
                 </tr>
               )}
 
-              {filteredItems.map((item) => {
+              {groupedItems.map((group) => (
+                <React.Fragment key={group.key}>
+                  <tr className="bg-suka-cream/60">
+                    <td colSpan={10} className="px-3.5 py-2 text-[11px] font-black uppercase tracking-wider text-suka-brown">
+                      {group.label}
+                      <span className="ml-2 font-bold text-suka-brown/50">{group.rows.length} item</span>
+                    </td>
+                  </tr>
+                  {group.rows.map((item) => {
                 const isExpanded = expandedId === item.bahan_baku_id
                 const isNegativeDiff = item.selisih_qty < -0.01
                 const isPositiveDiff = item.selisih_qty > 0.01
@@ -493,6 +524,8 @@ export function RekonsiliasiTable({ outletId, items, startDate, endDate, period 
                   </React.Fragment>
                 )
               })}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>

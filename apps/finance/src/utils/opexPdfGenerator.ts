@@ -122,14 +122,17 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
     rupiah(r.amount)
   ])
 
-  // Summary row at the bottom
-  const summaryRow = [
-    'TOTAL',
-    '',
-    '',
-    '',
-    '',
-    rupiah(totalAmount)
+  // Summary row at the bottom (Merge kolom 0-4 / colSpan: 5)
+  const summaryRow: any = [
+    {
+      content: 'TOTAL',
+      colSpan: 5,
+      styles: { halign: 'right', fontStyle: 'bold' }
+    },
+    {
+      content: rupiah(totalAmount),
+      styles: { halign: 'right', fontStyle: 'bold' }
+    }
   ]
 
   autoTable(doc, {

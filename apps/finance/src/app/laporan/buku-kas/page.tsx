@@ -420,118 +420,121 @@ export default function BukuKasPage() {
       </PageHeader>
 
       {/* FILTER CONTROLS */}
-      <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs space-y-3">
-        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
-          {/* Outlet Selector */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-600 shrink-0">
-              Outlet:
-            </span>
-            <div className="w-56 sm:w-64">
-              <TargetCombobox
-                value={target}
-                onChange={setTarget}
-                options={selectOptions}
-                icon={null}
-                className="w-full text-xs"
-              />
-            </div>
-          </div>
-
-          {/* Right Side: Date Presets Pills */}
-          <div className="flex items-center gap-1 bg-suka-gray-100/90 p-1 rounded-xl border border-suka-gray-200/60 shrink-0 self-start lg:self-auto overflow-x-auto max-w-full">
-            <button
-              type="button"
-              onClick={() => setPreset('today')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activePreset === 'today'
-                  ? 'bg-suka-orange text-white font-bold shadow-xs'
-                  : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-              }`}
-            >
-              Hari Ini
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('last_7_days')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activePreset === 'last_7_days'
-                  ? 'bg-suka-orange text-white font-bold shadow-xs'
-                  : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-              }`}
-            >
-              7 Hari
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('this_month')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activePreset === 'this_month'
-                  ? 'bg-suka-orange text-white font-bold shadow-xs'
-                  : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-              }`}
-            >
-              Bulan Ini
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('last_month')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activePreset === 'last_month'
-                  ? 'bg-suka-orange text-white font-bold shadow-xs'
-                  : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-              }`}
-            >
-              Bulan Lalu
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('last_30_days')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activePreset === 'last_30_days'
-                  ? 'bg-suka-orange text-white font-bold shadow-xs'
-                  : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-              }`}
-            >
-              30 Hari
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreset('custom')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
-                activePreset === 'custom'
-                  ? 'bg-suka-orange text-white font-bold shadow-xs'
-                  : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
-              }`}
-            >
-              Custom
-            </button>
+      <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-suka-gray-200 shadow-xs flex flex-wrap items-center gap-3 sm:gap-4">
+        {/* Outlet Selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-600 shrink-0">
+            Outlet:
+          </span>
+          <div className="w-56 sm:w-64">
+            <TargetCombobox
+              value={target}
+              onChange={setTarget}
+              options={selectOptions}
+              icon={null}
+              className="w-full text-xs"
+            />
           </div>
         </div>
 
-        {/* Custom Datepicker (Only shown in Custom preset) */}
+        <div className="h-6 w-px bg-suka-gray-200 hidden sm:block" />
+
+        {/* Date Presets Pills */}
+        <div className="flex items-center gap-1 bg-suka-gray-100/90 p-1 rounded-xl border border-suka-gray-200/60 shrink-0 overflow-x-auto max-w-full">
+          <button
+            type="button"
+            onClick={() => setPreset('today')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'today'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Hari Ini
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreset('last_7_days')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'last_7_days'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            7 Hari
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreset('this_month')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'this_month'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Bulan Ini
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreset('last_month')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'last_month'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Bulan Lalu
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreset('last_30_days')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'last_30_days'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            30 Hari
+          </button>
+          <button
+            type="button"
+            onClick={() => setPreset('custom')}
+            className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
+              activePreset === 'custom'
+                ? 'bg-suka-orange text-white font-bold shadow-xs'
+                : 'text-gray-600 hover:text-suka-brown hover:bg-white/70'
+            }`}
+          >
+            Custom
+          </button>
+        </div>
+
+        {/* Custom Datepicker (Only shown in Custom preset, directly adjacent) */}
         {activePreset === 'custom' && (
-          <div className="pt-3 border-t border-suka-gray-100 flex flex-wrap items-center gap-2 animate-in fade-in duration-200">
-            <span className="text-xs font-bold text-gray-600 flex items-center gap-1.5 shrink-0">
-              <Calendar size={14} className="text-suka-orange" />
-              Rentang Tanggal:
-            </span>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="text-xs font-semibold border border-suka-gray-200 rounded-xl px-2.5 py-1.5 bg-white text-suka-brown outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-2xs"
-              />
-              <span className="text-xs text-gray-400 font-bold px-0.5">s/d</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="text-xs font-semibold border border-suka-gray-200 rounded-xl px-2.5 py-1.5 bg-white text-suka-brown outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-2xs"
-              />
+          <>
+            <div className="h-6 w-px bg-suka-gray-200 hidden md:block" />
+            <div className="flex items-center gap-2 animate-in fade-in duration-200">
+              <span className="text-xs font-bold text-gray-600 flex items-center gap-1 shrink-0">
+                <Calendar size={14} className="text-suka-orange" />
+                Tanggal:
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs font-semibold border border-suka-gray-200 rounded-xl px-2.5 py-1.5 bg-white text-suka-brown outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-2xs"
+                />
+                <span className="text-xs text-gray-400 font-bold px-0.5">s/d</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="text-xs font-semibold border border-suka-gray-200 rounded-xl px-2.5 py-1.5 bg-white text-suka-brown outline-none focus:border-suka-orange focus:ring-1 focus:ring-suka-orange shadow-2xs"
+                />
+              </div>
             </div>
-          </div>
+          </>
         )}
       </div>
 

@@ -1,6 +1,8 @@
 package com.sukashawarma.customer.ui.profile
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,6 +12,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -21,15 +25,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,25 +39,51 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sukashawarma.customer.R
 import com.sukashawarma.customer.ui.components.bounceClick
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaCream
+import com.sukashawarma.customer.ui.theme.SukaGreen
 import com.sukashawarma.customer.ui.theme.SukaInk
 import com.sukashawarma.customer.ui.theme.SukaMuted
 import com.sukashawarma.customer.ui.theme.SukaOrange
 import com.sukashawarma.customer.ui.theme.SukaTint
 
 /**
- * Layar 2 - Masuk ke Akun ala Stitch Design System.
+ * Layar Masuk — gaya "illustration style": latar krem hangat, maskot chef di
+ * atas dengan hiasan konfeti, judul sapaan, lalu satu tombol utama oranye.
+ *
+ * Sengaja TIDAK meniru kolom email & kata sandi dari referensi desainnya.
+ * Gateway hanya mengenal masuk lewat Google (`/v1/auth/google`); kolom yang
+ * tampak bisa diisi tapi tidak berfungsi akan menjadi jebakan bagi pelanggan.
+ *
+ * Teks di atas tombol oranye memakai SukaInk, BUKAN putih: kontras putih di
+ * atas SukaOrange hanya 2,3:1 (lihat ColorContrastTest).
  */
 @Composable
 fun LoginScreen(
@@ -67,258 +94,329 @@ fun LoginScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    val scrollState = rememberScrollState()
 
     LaunchedEffect(state.berhasil) {
         if (state.berhasil) onBerhasil()
     }
 
-    Scaffold(
-        modifier = modifier.fillMaxSize(),
-        containerColor = SukaCream,
-        topBar = {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = SukaCream
-            ) {
-                Row(
-                    modifier = Modifier
-                        .statusBarsPadding()
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .bounceClick(onClick = onKembali),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Kembali",
-                            tint = SukaBrown,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Box(modifier = Modifier.size(40.dp))
-                }
-            }
-        }
-    ) { padding ->
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(SukaCream)
+    ) {
         Column(
             modifier = Modifier
-                .padding(padding)
                 .fillMaxSize()
-                .verticalScroll(scrollState)
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+                .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
-            Spacer(modifier = Modifier.height(8.dp))
+            IlustrasiSambutan()
 
-            // Logo Badge
-            Box(
-                modifier = Modifier
-                    .size(70.dp)
-                    .clip(CircleShape)
-                    .background(SukaBrown),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "SS",
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontFamily = LilitaOne,
-                        color = SukaOrange,
-                        fontSize = 28.sp
-                    )
-                )
+            Text(
+                text = "Selamat Datang!",
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = LilitaOne,
+                    color = SukaBrown,
+                    fontSize = 30.sp,
+                ),
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Masuk untuk memesan tanpa antre dan memantau pesananmu.",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    color = SukaMuted,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 12.dp),
+            )
+
+            Spacer(Modifier.height(32.dp))
+
+            TombolMasukGoogle(
+                memuat = state.memuat,
+                onKlik = { viewModel.masukDenganGoogle(context) },
+            )
+
+            state.pesanGalat?.let { pesan ->
+                Spacer(Modifier.height(12.dp))
+                KotakGalat(pesan = pesan, onTutup = viewModel::bersihkanGalat)
             }
 
-            // Headline
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                Text(
-                    text = "Masuk ke Akun",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = LilitaOne,
-                        color = SukaBrown,
-                        fontSize = 26.sp
-                    ),
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = "Dipakai untuk menyimpan pesanan & memantau riwayat pengambilanmu.",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        color = SukaMuted,
-                        fontSize = 13.sp,
-                        lineHeight = 18.sp
-                    ),
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 8.dp)
-                )
-            }
+            Spacer(Modifier.height(24.dp))
+            PemisahAtau()
+            Spacer(Modifier.height(16.dp))
 
-            // Login Container Card
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, SukaBorder),
-                shadowElevation = 3.dp
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (state.memuat) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(120.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                CircularProgressIndicator(color = SukaOrange, modifier = Modifier.size(36.dp))
-                                Text(
-                                    "Menghubungkan akun...",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = SukaMuted)
-                                )
-                            }
-                        }
-                    } else {
-                        // Google Sign In Button
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp)
-                                .bounceClick(scaleDown = 0.98f) { viewModel.masukDenganGoogle(context) },
-                            shape = RoundedCornerShape(25.dp),
-                            color = Color.White,
-                            border = BorderStroke(1.5.dp, SukaBorder),
-                            shadowElevation = 1.dp
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Google G styled text or symbol
-                                Box(
-                                    modifier = Modifier
-                                        .size(24.dp)
-                                        .clip(CircleShape)
-                                        .background(Color(0xFFEA4335)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        "G",
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Text(
-                                    text = "Lanjutkan dengan Google",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = SukaInk,
-                                        fontSize = 14.sp
-                                    )
-                                )
-                            }
-                        }
+            TombolWhatsAppSegera()
 
-                        // WhatsApp placeholder button
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(25.dp),
-                            color = Color(0xFFF9FAFB),
-                            border = BorderStroke(1.dp, Color(0xFFE5E7EB))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Filled.Phone,
-                                    contentDescription = null,
-                                    tint = Color(0xFF9CA3AF),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Lanjutkan dengan WhatsApp",
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = Color(0xFF9CA3AF),
-                                        fontSize = 13.sp
-                                    )
-                                )
-                            }
-                        }
+            Spacer(Modifier.height(28.dp))
 
-                        Text(
-                            text = "Masuk lewat WhatsApp akan segera aktif.",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                color = SukaMuted,
-                                fontSize = 11.sp
-                            )
-                        )
+            Text(
+                text = buildAnnotatedString {
+                    append("Belum punya akun? ")
+                    withStyle(SpanStyle(color = SukaOrange, fontWeight = FontWeight.Bold)) {
+                        append("Akun dibuat otomatis")
                     }
+                    append(" saat kamu masuk dengan Google.")
+                },
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = SukaMuted,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                ),
+                textAlign = TextAlign.Center,
+            )
 
-                    // Error Box
-                    state.pesanGalat?.let { pesan ->
-                        Surface(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            color = Color(0xFFFEF2F2),
-                            border = BorderStroke(1.dp, Color(0xFFFCA5A5))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = pesan,
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Color(0xFFDC2626),
-                                        fontSize = 12.sp
-                                    ),
-                                    modifier = Modifier.weight(1f)
-                                )
-                                IconButton(
-                                    onClick = viewModel::bersihkanGalat,
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Filled.Close,
-                                        contentDescription = "Tutup",
-                                        tint = Color(0xFFDC2626),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-                    }
+            Spacer(Modifier.height(24.dp))
+        }
+
+        // Tombol kembali di atas ilustrasi, area sentuh 48dp.
+        Box(
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 4.dp)
+                .size(48.dp)
+                .bounceClick(onClick = onKembali)
+                .semantics {
+                    contentDescription = "Kembali"
+                    role = Role.Button
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = null,
+                tint = SukaBrown,
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+/** Maskot chef dengan hiasan konfeti di sekelilingnya. */
+@Composable
+private fun IlustrasiSambutan() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(300.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Hiasan murni dekoratif, digambar di belakang maskot.
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+
+            // Lingkaran lembut di belakang maskot.
+            drawCircle(color = SukaTint, radius = h * 0.40f, center = Offset(w * 0.5f, h * 0.56f))
+
+            // Cincin oranye kiri atas.
+            drawCircle(
+                color = SukaOrange,
+                radius = 16.dp.toPx(),
+                center = Offset(w * 0.18f, h * 0.30f),
+                style = Stroke(width = 5.dp.toPx()),
+            )
+
+            // Garis bergelombang kanan atas.
+            val gelombang = Path().apply {
+                val x0 = w * 0.74f
+                val y0 = h * 0.22f
+                val seg = 12.dp.toPx()
+                moveTo(x0, y0)
+                for (i in 0 until 4) {
+                    val dy = if (i % 2 == 0) -8.dp.toPx() else 8.dp.toPx()
+                    relativeQuadraticTo(seg / 2, dy, seg, 0f)
                 }
             }
+            drawPath(
+                path = gelombang,
+                color = SukaBrown.copy(alpha = 0.55f),
+                style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round),
+            )
 
+            // Titik-titik bulat.
+            drawCircle(color = SukaOrange, radius = 7.dp.toPx(), center = Offset(w * 0.86f, h * 0.52f))
+            drawCircle(color = SukaGreen.copy(alpha = 0.7f), radius = 5.dp.toPx(), center = Offset(w * 0.12f, h * 0.60f))
+            drawCircle(color = SukaBrown.copy(alpha = 0.35f), radius = 4.dp.toPx(), center = Offset(w * 0.30f, h * 0.14f))
+
+            // Kotak kecil miring.
+            rotate(degrees = 20f, pivot = Offset(w * 0.82f, h * 0.78f)) {
+                drawRoundRect(
+                    color = SukaOrange.copy(alpha = 0.8f),
+                    topLeft = Offset(w * 0.82f - 7.dp.toPx(), h * 0.78f - 7.dp.toPx()),
+                    size = Size(14.dp.toPx(), 14.dp.toPx()),
+                    cornerRadius = CornerRadius(3.dp.toPx()),
+                )
+            }
+            rotate(degrees = -15f, pivot = Offset(w * 0.20f, h * 0.84f)) {
+                drawRoundRect(
+                    color = SukaGreen.copy(alpha = 0.55f),
+                    topLeft = Offset(w * 0.20f - 5.dp.toPx(), h * 0.84f - 5.dp.toPx()),
+                    size = Size(10.dp.toPx(), 10.dp.toPx()),
+                    cornerRadius = CornerRadius(2.dp.toPx()),
+                )
+            }
+        }
+
+        Image(
+            painter = painterResource(R.drawable.ilustrasi_login),
+            contentDescription = "Maskot chef Suka Shawarma",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier
+                .padding(top = 32.dp)
+                .size(230.dp),
+        )
+    }
+}
+
+/** Tombol utama oranye selebar kolom. Saat memuat, berganti jadi indikator. */
+@Composable
+private fun TombolMasukGoogle(memuat: Boolean, onKlik: () -> Unit) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp)
+            .then(if (memuat) Modifier else Modifier.bounceClick(scaleDown = 0.98f, onClick = onKlik))
+            .semantics { role = Role.Button },
+        shape = RoundedCornerShape(14.dp),
+        color = SukaOrange,
+        shadowElevation = 2.dp,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (memuat) {
+                CircularProgressIndicator(
+                    color = SukaInk,
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "Menghubungkan akun…",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = SukaInk,
+                        fontSize = 15.sp,
+                    ),
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(Color.White),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "G",
+                        color = Color(0xFF4285F4),
+                        fontWeight = FontWeight.Black,
+                        fontSize = 14.sp,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = "Masuk dengan Google",
+                    style = MaterialTheme.typography.titleSmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = SukaInk,
+                        fontSize = 15.sp,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/** Garis — "atau" — garis, seperti "or continue with" di referensi. */
+@Composable
+private fun PemisahAtau() {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        HorizontalDivider(modifier = Modifier.weight(1f), color = SukaBorder)
+        Text(
+            text = "atau",
+            style = MaterialTheme.typography.labelMedium.copy(color = SukaMuted, fontSize = 12.sp),
+            modifier = Modifier.padding(horizontal = 12.dp),
+        )
+        HorizontalDivider(modifier = Modifier.weight(1f), color = SukaBorder)
+    }
+}
+
+/**
+ * Masuk lewat WhatsApp belum aktif. Ditampilkan redup dan tak bisa diketuk,
+ * dengan keterangan yang jujur, bukan disembunyikan.
+ */
+@Composable
+private fun TombolWhatsAppSegera() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 52.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.White,
+        border = BorderStroke(1.dp, SukaBorder),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Phone,
+                contentDescription = null,
+                tint = SukaMuted,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "WhatsApp · segera hadir",
+                style = MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    color = SukaMuted,
+                    fontSize = 14.sp,
+                ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun KotakGalat(pesan: String, onTutup: () -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFEF2F2),
+        border = BorderStroke(1.dp, Color(0xFFFCA5A5)),
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = pesan,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = Color(0xFFDC2626),
+                    fontSize = 12.sp,
+                ),
+                modifier = Modifier.weight(1f),
+            )
+            IconButton(onClick = onTutup) {
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "Tutup pesan",
+                    tint = Color(0xFFDC2626),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
     }
 }

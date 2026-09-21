@@ -5,6 +5,7 @@ import { InboundOutbound, InboundOutboundSumber } from '@/types/stok';
 import { format, isToday, isYesterday } from 'date-fns';
 import { id } from 'date-fns/locale';
 import { Calendar, ArrowDownCircle, ArrowUpCircle, PackageOpen, Store, FileCheck2, PencilLine } from 'lucide-react';
+import { getDistribusiFactor } from '@/lib/format/compositeUnit';
 
 /**
  * Badge per sumber arus barang. Sengaja dibedakan visual supaya penerimaan yang
@@ -59,17 +60,17 @@ const DELIVERY_UNITS_FALLBACK: Record<string, { label: string; factorFromLarge: 
   'KULIT 32': { label: 'pack', factorFromLarge: 1 },
   'AYAM': { label: 'kg', factorFromLarge: 1 },
   'SAPI': { label: 'pcs', factorFromLarge: 1 },
-  'KENTANG': { label: 'kg', factorFromLarge: 4 },
+  'KENTANG': { label: 'kg', factorFromLarge: 10 },
   'KEJU': { label: 'pack', factorFromLarge: 24 },
   'TUM': { label: 'kg', factorFromLarge: 1 },
   'BAWANG': { label: 'kg', factorFromLarge: 1 },
   'TEPUNG': { label: 'kg', factorFromLarge: 1 },
   'MINYAK SAYUR': { label: 'kompan', factorFromLarge: 1 },
   'MINYAK': { label: 'kompan', factorFromLarge: 1 },
-  'FOIL': { label: 'roll', factorFromLarge: 24 },
+  'FOIL': { label: 'roll', factorFromLarge: 48 },
   'FOIL (48)': { label: 'roll', factorFromLarge: 48 },
   'SARUNG TANGAN BENING': { label: 'pack', factorFromLarge: 1 },
-  'HAND GLOVE': { label: 'pack', factorFromLarge: 1 },
+  'HAND GLOVE': { label: 'box', factorFromLarge: 75 },
   'KERTAS STRUK': { label: 'roll', factorFromLarge: 1 },
   'THERMAL STRUK': { label: 'roll', factorFromLarge: 1 },
   'PLASTIK BENING': { label: 'pack', factorFromLarge: 5 },
@@ -80,8 +81,9 @@ const DELIVERY_UNITS_FALLBACK: Record<string, { label: string; factorFromLarge: 
   'PAPER WRAP': { label: 'pack', factorFromLarge: 1 },
   'POWDER TEH': { label: 'kg', factorFromLarge: 1 },
   'POWDER JERUK': { label: 'kg', factorFromLarge: 1 },
-  'CUP': { label: 'pcs', factorFromLarge: 1 },
-  'TUTUP': { label: 'pcs', factorFromLarge: 1 },
+  'CUP': { label: 'pcs', factorFromLarge: 25 },
+  'TUTUP': { label: 'pcs', factorFromLarge: 25 },
+  'TUTUP PACK': { label: 'pcs', factorFromLarge: 25 },
   'SEDOTAN': { label: 'pack', factorFromLarge: 1 },
   'STIKER': { label: 'lembar', factorFromLarge: 100 },
   'MIE': { label: 'bungkus', factorFromLarge: 40 },
@@ -153,14 +155,47 @@ function convertToDistribusiUnit(
   };
 }
 
-function getDistribusiCalculation(item: InboundOutbound): {
+export interface DistribusiCalculationResult {
   qtyNumber: number;
   unitLabel: string;
   displayText: string;
+  hargaPerDistUnit: number | null;
   totalNilai: number | null;
+  distFactor: number;
   /** Sisa stok gudang setelah transaksi ini, dalam satuan distribusi. */
   saldoText: string | null;
-} {
+}
+
+export function getDistribusiFactorForBahan(bahan: BahanUnitInfo): number {
+  const fallback = DELIVERY_UNITS_FALLBACK[bahan.nama?.toUpperCase() || ''];
+  const rawDistUnit = bahan.satuan_distribusi?.trim() || fallback?.label || bahan.satuan || 'satuan';
+
+  // 1. Coba getDistribusiFactor kanonik dengan satuan_distribusi yang sudah ter-resolve
+  const canonicalFactor = getDistribusiFactor({
+    ...bahan,
+    satuan_distribusi: rawDistUnit,
+  });
+  if (canonicalFactor && canonicalFactor !== 1) {
+    return canonicalFactor;
+  }
+
+  // 2. Jika 1 satuan besar memiliki konversi ke satuan distribusi lewat convertToDistribusiUnit
+  if (bahan.faktor_tampilan && bahan.faktor_tampilan > 1) {
+    const fromOneBesar = convertToDistribusiUnit(bahan, bahan.faktor_tampilan);
+    if (fromOneBesar.qtyNumber > 0) {
+      return fromOneBesar.qtyNumber;
+    }
+  }
+
+  // 3. Fallback tabel jika tersedia
+  if (fallback?.factorFromLarge && fallback.factorFromLarge > 0) {
+    return fallback.factorFromLarge;
+  }
+
+  return 1;
+}
+
+export function getDistribusiCalculation(item: InboundOutbound): DistribusiCalculationResult {
   const bahan = item.bahan_baku;
   const numQty = Number(item.qty);
   const effectivePrice = getEffectivePrice(item);
@@ -170,13 +205,21 @@ function getDistribusiCalculation(item: InboundOutbound): {
       qtyNumber: numQty,
       unitLabel: 'satuan',
       displayText: numQty.toLocaleString('id-ID'),
+      hargaPerDistUnit: effectivePrice,
       totalNilai: effectivePrice ? Math.round(numQty * effectivePrice) : null,
+      distFactor: 1,
       saldoText: null,
     };
   }
 
   const { qtyNumber, unitLabel } = convertToDistribusiUnit(bahan, numQty);
-  const totalNilai = effectivePrice ? Math.round(qtyNumber * effectivePrice) : null;
+  const distFactor = getDistribusiFactorForBahan(bahan);
+  const hargaPerDistUnit =
+    effectivePrice !== null && distFactor > 0
+      ? effectivePrice / distFactor
+      : effectivePrice;
+  const totalNilai =
+    hargaPerDistUnit !== null ? Math.round(qtyNumber * hargaPerDistUnit) : null;
 
   // Saldo dari ledger_stok berada di skala basis yang sama dengan qty, jadi
   // lewat konversi yang sama persis -- bukan rumus terpisah.
@@ -189,7 +232,9 @@ function getDistribusiCalculation(item: InboundOutbound): {
     qtyNumber,
     unitLabel,
     displayText: `${qtyNumber.toLocaleString('id-ID')} ${unitLabel}`,
+    hargaPerDistUnit,
     totalNilai,
+    distFactor,
     saldoText,
   };
 }
@@ -341,7 +386,7 @@ export function InboundOutboundList({ items }: Props) {
                       <th className="px-5 py-3">Tipe & Kategori</th>
                       <th className="px-5 py-3 text-right">Jumlah Satuan</th>
                       <th className="px-5 py-3 text-right">Sisa Stok</th>
-                      <th className="px-5 py-3 text-right">Harga Beli / Satuan</th>
+                      <th className="px-5 py-3 text-right">Harga Satuan</th>
                       <th className="px-5 py-3 text-right">Total Harga (Rp)</th>
                       <th className="px-5 py-3 text-right">Total Pengiriman (Rp)</th>
                       <th className="px-5 py-3">Catatan / Tujuan</th>
@@ -402,10 +447,23 @@ export function InboundOutboundList({ items }: Props) {
                               )}
                             </td>
                             <td className="px-5 py-3.5 text-right whitespace-nowrap">
-                              {effectivePrice ? (
-                                <span className="text-xs font-bold text-suka-brown">
-                                  Rp {effectivePrice.toLocaleString('id-ID')} <span className="text-[11px] font-medium text-suka-brown/60">/ {calc.unitLabel.toLowerCase()}</span>
-                                </span>
+                              {calc.hargaPerDistUnit !== null ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-xs font-bold text-suka-brown">
+                                    Rp {Math.round(calc.hargaPerDistUnit).toLocaleString('id-ID')}{' '}
+                                    <span className="text-[11px] font-medium text-suka-brown/60">
+                                      / {calc.unitLabel.toLowerCase()}
+                                    </span>
+                                  </span>
+                                  {effectivePrice !== null && calc.distFactor > 1 && (
+                                    <span
+                                      className="text-[10px] text-suka-brown/40"
+                                      title={`Harga master: Rp ${effectivePrice.toLocaleString('id-ID')} / ${item.bahan_baku?.satuan || 'satuan'}`}
+                                    >
+                                      (Master: Rp {effectivePrice.toLocaleString('id-ID')}/{item.bahan_baku?.satuan || 'satuan'})
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-xs text-suka-brown/30">-</span>
                               )}

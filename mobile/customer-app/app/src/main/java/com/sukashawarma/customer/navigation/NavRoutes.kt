@@ -1,7 +1,6 @@
 package com.sukashawarma.customer.navigation
 
 object Rute {
-    const val ONBOARDING = "onboarding"
 
     /**
      * `tujuan` menentukan ke mana pelanggan dibawa setelah berhasil masuk.

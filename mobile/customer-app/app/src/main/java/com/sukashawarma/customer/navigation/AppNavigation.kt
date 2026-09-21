@@ -47,7 +47,6 @@ import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.FloatingCartBar
 import com.sukashawarma.customer.ui.components.SukaBottomNavBar
 import com.sukashawarma.customer.ui.home.HomeScreen
-import com.sukashawarma.customer.ui.home.OnboardingScreen
 import com.sukashawarma.customer.ui.home.OutletPickerScreen
 import com.sukashawarma.customer.ui.home.OutletPickerViewModel
 import com.sukashawarma.customer.ui.menu.CatalogScreen
@@ -117,7 +116,8 @@ fun CustomerAppRoot(container: AppContainer) {
     // kemudahan -- gateway tetap penentu sah atau tidaknya sesi, dan akan
     // menolak dengan 401 kalau ternyata sudah tidak berlaku.
     val mulaiDari = remember {
-        if (container.sessionStore.adaSesiBerlaku()) Rute.BERANDA else Rute.ONBOARDING
+        // Tanpa layar perkenalan: belum login langsung ke layar Masuk.
+        if (container.sessionStore.adaSesiBerlaku()) Rute.BERANDA else Rute.MASUK
     }
 
     Scaffold(
@@ -257,12 +257,6 @@ fun CustomerAppRoot(container: AppContainer) {
             }
         ) {
 
-            composable(Rute.ONBOARDING) {
-                OnboardingScreen(
-                    onMasuk = { navController.navigate(Rute.masuk()) }
-                )
-            }
-
             composable(
                 Rute.MASUK,
                 arguments = listOf(
@@ -285,11 +279,16 @@ fun CustomerAppRoot(container: AppContainer) {
                             }
                         } else {
                             navController.navigate(Rute.KATALOG) {
-                                popUpTo(Rute.ONBOARDING) { inclusive = true }
+                                popUpTo(navController.graph.id) { inclusive = true }
                             }
                         }
                     },
-                    onKembali = { navController.popBackStack() }
+                    // Hanya ada tombol kembali bila memang ada layar sebelumnya
+                    // (mis. diarahkan login dari halaman bayar). Sebagai layar
+                    // pertama, tombol kembali tak punya tujuan.
+                    onKembali = if (navController.previousBackStackEntry != null) {
+                        { navController.popBackStack() }
+                    } else null
                 )
             }
 
@@ -609,8 +608,8 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onKeluar = {
                         container.sessionStore.hapus()
-                        navController.navigate(Rute.ONBOARDING) {
-                            popUpTo(Rute.KATALOG) { inclusive = true }
+                        navController.navigate(Rute.masuk()) {
+                            popUpTo(navController.graph.id) { inclusive = true }
                         }
                     },
                     onLihatRiwayat = {

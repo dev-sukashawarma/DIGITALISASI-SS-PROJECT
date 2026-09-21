@@ -89,7 +89,7 @@ import com.sukashawarma.customer.ui.theme.SukaTint
 fun LoginScreen(
     viewModel: LoginViewModel,
     onBerhasil: () -> Unit,
-    onKembali: () -> Unit,
+    onKembali: (() -> Unit)?,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -143,6 +143,20 @@ fun LoginScreen(
                 onKlik = { viewModel.masukDenganGoogle(context) },
             )
 
+            // Dulu hanya ada di layar perkenalan, yang kini dihapus. Tanpa ini
+            // tak ada lagi tempat pelanggan melihat persetujuan tersebut.
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "Dengan masuk, kamu menyetujui Ketentuan Layanan & Kebijakan Privasi Suka Shawarma.",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    color = SukaMuted,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                ),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 8.dp),
+            )
+
             state.pesanGalat?.let { pesan ->
                 Spacer(Modifier.height(12.dp))
                 KotakGalat(pesan = pesan, onTutup = viewModel::bersihkanGalat)
@@ -175,8 +189,9 @@ fun LoginScreen(
             Spacer(Modifier.height(24.dp))
         }
 
-        // Tombol kembali di atas ilustrasi, area sentuh 48dp.
-        Box(
+        // Tombol kembali di atas ilustrasi, area sentuh 48dp. Tidak tampil
+        // bila layar Masuk adalah layar pertama (tak ada tujuan kembali).
+        if (onKembali != null) Box(
             modifier = Modifier
                 .statusBarsPadding()
                 .padding(start = 8.dp, top = 4.dp)

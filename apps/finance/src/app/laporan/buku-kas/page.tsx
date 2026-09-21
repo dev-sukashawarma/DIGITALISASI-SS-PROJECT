@@ -373,55 +373,55 @@ export default function BukuKasPage() {
           <Button
             variant="outline"
             onClick={handleExportPDF}
-            className="flex items-center gap-2 border-rose-500 text-rose-600 hover:bg-rose-50 bg-white cursor-pointer shadow-2xs"
+            className="flex items-center gap-1.5 border-rose-500 text-rose-600 hover:bg-rose-50 bg-white cursor-pointer shadow-2xs text-xs px-3 py-2 h-9"
             title="Download Laporan Resmi OPEX ke format PDF dengan tanda tangan Admin, Finance, dan Direktur"
           >
-            <FileText size={16} />
-            Export PDF
+            <FileText size={15} />
+            <span>Export PDF</span>
           </Button>
 
           <Button
             variant="outline"
             onClick={handleExportExcel}
-            className="flex items-center gap-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 bg-white cursor-pointer"
+            className="flex items-center gap-1.5 border-emerald-500 text-emerald-600 hover:bg-emerald-50 bg-white cursor-pointer text-xs px-3 py-2 h-9"
           >
-            <Download size={16} />
-            Export Excel
+            <Download size={15} />
+            <span>Export Excel</span>
           </Button>
 
           <Button
             variant="outline"
             onClick={handleExportCSV}
-            className="flex items-center gap-2 border-blue-500 text-blue-600 hover:bg-blue-50 bg-white cursor-pointer"
+            className="flex items-center gap-1.5 border-blue-500 text-blue-600 hover:bg-blue-50 bg-white cursor-pointer text-xs px-3 py-2 h-9"
           >
-            <FileText size={16} />
-            Export CSV
+            <FileText size={15} />
+            <span>Export CSV</span>
           </Button>
 
           {isChecker && (
             <Button
               variant="outline"
               onClick={() => setIsImportOpen(true)}
-              className="flex items-center gap-2 border-suka-orange text-suka-orange hover:bg-suka-orange/10 bg-white cursor-pointer"
+              className="flex items-center gap-1.5 border-suka-orange text-suka-orange hover:bg-suka-orange/10 bg-white cursor-pointer text-xs px-3 py-2 h-9"
             >
-              <UploadCloud size={16} />
-              Import CSV
+              <UploadCloud size={15} />
+              <span>Import CSV</span>
             </Button>
           )}
 
           <Button
             onClick={() => setIsFormOpen(true)}
-            className="flex items-center gap-2 bg-suka-orange hover:bg-amber-600 text-white font-bold cursor-pointer"
+            className="flex items-center gap-1.5 bg-suka-orange hover:bg-amber-600 text-white font-bold cursor-pointer text-xs px-3.5 py-2 h-9 shadow-xs"
           >
-            <Plus size={16} />
-            Catat Pengeluaran
+            <Plus size={15} />
+            <span>Catat Pengeluaran</span>
           </Button>
         </div>
       </PageHeader>
 
       {/* FILTER CONTROLS */}
       <div className="bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-xs space-y-3">
-        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+        <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-4">
           {/* Outlet Selector */}
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-gray-600 shrink-0">
@@ -536,57 +536,60 @@ export default function BukuKasPage() {
       </div>
 
       {/* SUMMARY STATS (PURE OPEX) */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {/* Total OPEX */}
-        <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1">
-              <ArrowUpRight size={14} /> Total Pengeluaran (OPEX)
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-rose-600 uppercase tracking-wider flex items-center gap-1 truncate">
+              <ArrowUpRight size={14} className="shrink-0" />
+              <span className="truncate">Total OPEX</span>
             </div>
-            <div className="text-2xl font-black text-rose-700 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-rose-700 mt-1 tracking-tight truncate" title={rupiah(summary.totalOpex)}>
               {rupiah(summary.totalOpex)}
             </div>
-            <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
+            <div className="text-[11px] text-gray-400 font-semibold mt-0.5 truncate">
               {summary.count} transaksi operasional
             </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs shrink-0 ml-3">
             OUT
           </div>
         </div>
 
         {/* Salary */}
-        <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1">
-              <Users size={14} /> Gaji & Payroll
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider flex items-center gap-1 truncate">
+              <Users size={14} className="shrink-0" />
+              <span className="truncate">Gaji & Payroll</span>
             </div>
-            <div className="text-2xl font-black text-indigo-700 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-indigo-700 mt-1 tracking-tight truncate" title={rupiah(summary.salary)}>
               {rupiah(summary.salary)}
             </div>
-            <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
+            <div className="text-[11px] text-gray-400 font-semibold mt-0.5 truncate">
               Beban gaji crew & kantor
             </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 ml-3">
             PAY
           </div>
         </div>
 
         {/* Non-Salary OPEX */}
-        <div className="bg-white p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between">
-          <div>
-            <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1">
-              <Store size={14} /> Operasional Cabang & Pusat
+        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center justify-between min-w-0">
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-bold text-amber-600 uppercase tracking-wider flex items-center gap-1 truncate">
+              <Store size={14} className="shrink-0" />
+              <span className="truncate">Operasional Outlet & Pusat</span>
             </div>
-            <div className="text-2xl font-black text-amber-700 mt-1">
+            <div className="text-xl sm:text-2xl font-black text-amber-700 mt-1 tracking-tight truncate" title={rupiah(summary.nonSalary)}>
               {rupiah(summary.nonSalary)}
             </div>
-            <div className="text-[11px] text-gray-400 font-semibold mt-0.5">
-              Listrik, wifi, bahan, operasional
+            <div className="text-[11px] text-gray-400 font-semibold mt-0.5 truncate">
+              Listrik, wifi, operasional
             </div>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xs shrink-0 ml-3">
             OPEX
           </div>
         </div>
@@ -613,12 +616,12 @@ export default function BukuKasPage() {
             <p className="text-xs text-gray-400 mt-1">Tidak ada catatan pengeluaran OPEX pada filter dan rentang tanggal ini.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
+          <div className="overflow-x-auto scrollbar-thin">
+            <table className="w-full text-left text-xs border-collapse min-w-[960px]">
               <thead className="bg-gray-50 border-b border-suka-gray-200 text-gray-500 font-bold uppercase tracking-wider text-[10px]">
                 <tr>
                   <th className="px-4 py-3">Tanggal</th>
-                  <th className="px-4 py-3">Unit / Cabang</th>
+                  <th className="px-4 py-3">Outlet</th>
                   <th className="px-4 py-3">Nama Pemohon</th>
                   <th className="px-4 py-3">Divisi</th>
                   <th className="px-4 py-3">Kategori</th>
@@ -656,7 +659,7 @@ export default function BukuKasPage() {
                           {labelOf(tx.category)}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-600 max-w-xs truncate" title={tx.description}>
+                      <td className="px-4 py-3.5 text-gray-600 min-w-[200px] max-w-sm whitespace-normal break-words leading-relaxed" title={tx.description}>
                         {tx.description || '-'}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
@@ -691,6 +694,19 @@ export default function BukuKasPage() {
                   )
                 })}
               </tbody>
+              {allTransactions.length > 0 && (
+                <tfoot className="bg-gray-50/90 border-t-2 border-suka-gray-200 text-xs font-bold">
+                  <tr>
+                    <td colSpan={7} className="px-4 py-3.5 text-right uppercase tracking-wider text-gray-500 font-extrabold">
+                      Total Pengeluaran OPEX ({allTransactions.length} Transaksi):
+                    </td>
+                    <td className="px-5 py-3.5 text-right font-black text-sm text-rose-600 whitespace-nowrap">
+                      -{rupiah(summary.totalOpex)}
+                    </td>
+                    <td className="px-3 py-3.5"></td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
@@ -699,8 +715,8 @@ export default function BukuKasPage() {
       {/* MODAL PREVIEW BUKTI NOTA */}
       {previewReceiptUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between border-b pb-3">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col p-5 sm:p-6 shadow-xl border border-gray-100 overflow-hidden">
+            <div className="flex items-center justify-between border-b pb-3 shrink-0">
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-emerald-600" />
                 Bukti Struk / Invoice Pembelian
@@ -713,14 +729,14 @@ export default function BukuKasPage() {
                 <X size={18} />
               </button>
             </div>
-            <div className="max-h-[70vh] overflow-auto flex items-center justify-center bg-gray-50 rounded-xl p-2">
+            <div className="flex-1 overflow-auto flex items-center justify-center bg-gray-50 rounded-xl p-3 my-4 min-h-0">
               <img
                 src={previewReceiptUrl}
                 alt="Bukti Nota"
-                className="max-h-[65vh] object-contain rounded-lg shadow-xs"
+                className="max-h-[60vh] object-contain rounded-lg shadow-xs"
               />
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end pt-2 border-t border-gray-100 shrink-0">
               <button
                 type="button"
                 onClick={() => setPreviewReceiptUrl(null)}

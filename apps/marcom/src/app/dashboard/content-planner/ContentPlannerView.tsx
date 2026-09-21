@@ -462,7 +462,7 @@ export default function ContentPlannerView({
 
         <Link
           href="/dashboard/content-planner/metrik-data"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
         >
           <BarChart3 className="w-4 h-4 text-stone-400" />
           <span>Metrik Data</span>
@@ -473,7 +473,7 @@ export default function ContentPlannerView({
 
         <Link
           href="/dashboard/content-planner/referensi-data"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
         >
           <TrendingUp className="w-4 h-4 text-stone-400" />
           <span>Referensi Data</span>
@@ -481,7 +481,7 @@ export default function ContentPlannerView({
 
         <Link
           href="/dashboard/content-planner/pengaturan"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
         >
           <Settings2 className="w-4 h-4 text-stone-400" />
           <span>Pengaturan Konten</span>

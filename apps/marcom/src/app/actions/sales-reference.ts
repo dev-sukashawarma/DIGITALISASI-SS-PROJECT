@@ -81,7 +81,7 @@ export async function fetchOutletsList(): Promise<OutletOption[]> {
   }
 }
 
-// Helper to chunk-fetch all rows from Supabase view beyond default 1000 limit
+// Helper to chunk-fetch all rows from Supabase view in parallel
 async function fetchAllViewRows(
   table: string,
   select: string,
@@ -89,39 +89,56 @@ async function fetchAllViewRows(
   endDate: string,
   outletId?: string
 ): Promise<any[]> {
-  const supabase = getPosSupabase()
-  let all: any[] = []
-  let from = 0
-  const step = 1000
-
-  while (true) {
-    let query = supabase
+  try {
+    const supabase = getPosSupabase()
+    let countQuery = supabase
       .from(table)
-      .select(select)
+      .select('*', { count: 'exact', head: true })
       .gte('sales_date', startDate)
       .lte('sales_date', endDate)
       .neq('outlet_id', TEST_OUTLET_ID)
-      .range(from, from + step - 1)
 
     if (outletId && outletId !== 'ALL') {
-      query = query.eq('outlet_id', outletId)
+      countQuery = countQuery.eq('outlet_id', outletId)
     }
 
-    const { data, error } = await query
-
-    if (error) {
-      console.error(`Error querying ${table}:`, error)
-      break
+    const { count, error: countErr } = await countQuery
+    if (countErr || count === null || count === 0) {
+      if (countErr) console.error(`Error counting ${table}:`, countErr)
+      return []
     }
 
-    if (!data || data.length === 0) break
+    const step = 1000
+    const pages = Math.ceil(count / step)
+    const tasks = []
 
-    all = all.concat(data)
-    if (data.length < step) break
-    from += step
+    for (let i = 0; i < pages; i++) {
+      let query = supabase
+        .from(table)
+        .select(select)
+        .gte('sales_date', startDate)
+        .lte('sales_date', endDate)
+        .neq('outlet_id', TEST_OUTLET_ID)
+        .range(i * step, (i + 1) * step - 1)
+
+      if (outletId && outletId !== 'ALL') {
+        query = query.eq('outlet_id', outletId)
+      }
+      tasks.push(query)
+    }
+
+    const results = await Promise.all(tasks)
+    let all: any[] = []
+    for (const res of results) {
+      if (res.data) {
+        all = all.concat(res.data)
+      }
+    }
+    return all
+  } catch (err) {
+    console.error(`fetchAllViewRows failed on ${table}:`, err)
+    return []
   }
-
-  return all
 }
 
 export async function getSalesReferenceData(params: {
@@ -132,6 +149,8 @@ export async function getSalesReferenceData(params: {
 }): Promise<SalesReferenceData> {
   const period = params.period || 'thisMonth'
   const targetOutletId = params.outletId || 'ALL'
+
+  try {
 
   // Determine date bounds in Asia/Jakarta (WIB)
   const now = new Date()
@@ -316,15 +335,29 @@ export async function getSalesReferenceData(params: {
     displayTrx = target ? target.totalTrx : 0
   }
 
-  return {
-    period,
-    startDate: startDateStr,
-    endDate: endDateStr,
-    outletId: targetOutletId,
-    totalOmzetKotor: displayOmzet,
-    totalTransactions: displayTrx,
-    totalItemsSold: totalFilteredItemsSold,
-    outletRankings,
-    menuRankings,
+    return {
+      period,
+      startDate: startDateStr,
+      endDate: endDateStr,
+      outletId: targetOutletId,
+      totalOmzetKotor: displayOmzet,
+      totalTransactions: displayTrx,
+      totalItemsSold: totalFilteredItemsSold,
+      outletRankings,
+      menuRankings,
+    }
+  } catch (err) {
+    console.error('getSalesReferenceData failed:', err)
+    return {
+      period,
+      startDate: '',
+      endDate: '',
+      outletId: targetOutletId,
+      totalOmzetKotor: 0,
+      totalTransactions: 0,
+      totalItemsSold: 0,
+      outletRankings: [],
+      menuRankings: [],
+    }
   }
 }

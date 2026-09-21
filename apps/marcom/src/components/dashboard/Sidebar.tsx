@@ -52,6 +52,18 @@ interface SidebarProps {
 export default function Sidebar({ user }: SidebarProps) {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
+    '/dashboard/content-planner': true,
+  })
+
+  const toggleMenu = (href: string, e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setExpandedMenus((prev) => ({
+      ...prev,
+      [href]: !prev[href],
+    }))
+  }
 
   const navItems: NavItem[] = [
     {
@@ -210,6 +222,7 @@ export default function Sidebar({ user }: SidebarProps) {
               item.href === '/dashboard'
                 ? pathname === '/dashboard'
                 : pathname.startsWith(item.href)
+            const isExpanded = hasChildren && (expandedMenus[item.href] ?? isParentActive)
 
             return (
               <div key={item.href} className="space-y-1">
@@ -246,17 +259,24 @@ export default function Sidebar({ user }: SidebarProps) {
                       </span>
                     )}
                     {hasChildren && (
-                      <ChevronDown
-                        className={`w-3.5 h-3.5 text-stone-400 transition-transform duration-200 ${
-                          isParentActive ? 'rotate-0 text-amber-400' : '-rotate-90 text-stone-500'
-                        }`}
-                      />
+                      <button
+                        type="button"
+                        onClick={(e) => toggleMenu(item.href, e)}
+                        className="p-1 -mr-1 rounded-md hover:bg-stone-700/50 transition-colors cursor-pointer"
+                        title={isExpanded ? 'Tutup sub-menu' : 'Buka sub-menu'}
+                      >
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 text-stone-400 transition-transform duration-200 ${
+                            isExpanded ? 'rotate-0 text-amber-400' : '-rotate-90 text-stone-500'
+                          }`}
+                        />
+                      </button>
                     )}
                   </div>
                 </Link>
 
                 {/* Sub-menu / Children */}
-                {hasChildren && isParentActive && (
+                {hasChildren && isExpanded && (
                   <div className="ml-3 pl-3 border-l-2 border-stone-800 space-y-1 py-1 animate-in fade-in duration-150">
                     {item.children!.map((child) => {
                       const ChildIcon = child.icon

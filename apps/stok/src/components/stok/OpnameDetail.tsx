@@ -319,7 +319,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
               const unit = bahan ? bahan.satuan : '';
               const category = bahan ? bahan.kategori : '';
 
-              const thresholdPersen = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil);
+              const thresholdPersen = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil, bahan?.nama);
               const selisihPersenInfo = computeSelisihPersen(it.selisih, it.qty_system);
 
               // qty_fisik/qty_system/selisih SELALU dalam satuan kecil (gram) --

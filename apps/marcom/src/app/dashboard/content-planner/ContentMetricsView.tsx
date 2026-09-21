@@ -38,6 +38,8 @@ import {
   Megaphone,
   Lightbulb,
   MapPin,
+  Settings2,
+  Link2,
 } from 'lucide-react'
 import {
   createInternalContent,
@@ -75,6 +77,7 @@ export interface SerializedInternalContent {
   shares: number
   saves: number
   followersBaseline: number | null
+  groupId?: string | null
   createdAt: string
 }
 
@@ -82,6 +85,7 @@ interface ContentMetricsViewProps {
   initialContents: SerializedInternalContent[]
   outlets: Array<{ id: string; name: string }>
   userRole: string
+  initialContentTypes?: string[]
 }
 
 export const PILLARS: Record<string, { label: string; color: string; badgeBg: string; text: string; border: string }> = {
@@ -401,7 +405,12 @@ export default function ContentMetricsView({
   initialContents,
   outlets,
   userRole,
+  initialContentTypes,
 }: ContentMetricsViewProps) {
+  const contentTypesList = useMemo(() => {
+    return initialContentTypes && initialContentTypes.length > 0 ? initialContentTypes : CONTENT_TYPES
+  }, [initialContentTypes])
+
   // Filters state
   const [search, setSearch] = useState('')
   const [adsFilter, setAdsFilter] = useState<'ALL' | 'ADS' | 'ORGANIC'>('ALL')
@@ -444,7 +453,13 @@ export default function ContentMetricsView({
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncBanner, setSyncBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
-  // Create modal state
+  // Create modal state - Multi-platform support
+  const [createPlatforms, setCreatePlatforms] = useState<string[]>(['TIKTOK'])
+  const [platformUrls, setPlatformUrls] = useState<Record<string, string>>({
+    TIKTOK: '',
+    INSTAGRAM: '',
+    YOUTUBE_SHORTS: '',
+  })
   const [createUrl, setCreateUrl] = useState('')
   const [createTitle, setCreateTitle] = useState('')
   const [createPlatform, setCreatePlatform] = useState('TIKTOK')
@@ -706,11 +721,13 @@ export default function ContentMetricsView({
   }
 
   const openCreateModal = () => {
+    setCreatePlatforms(['TIKTOK'])
+    setPlatformUrls({ TIKTOK: '', INSTAGRAM: '', YOUTUBE_SHORTS: '' })
     setCreateUrl('')
     setCreateTitle('')
     setCreatePlatform('TIKTOK')
     setCreateFormat('VIDEO')
-    setCreateContentType('Sidak Outlet')
+    setCreateContentType(contentTypesList[0] || 'Sidak Outlet')
     setCreateGoal('Sales & Traffic')
     setCreatePillar('Promo')
     setCreatePostTime('11:00')
@@ -790,8 +807,9 @@ export default function ContentMetricsView({
     }
   }
 
-  const handleAutoFetchCreate = async () => {
-    if (!createUrl.trim()) {
+  const handleAutoFetchCreateForUrl = async (targetUrl?: string) => {
+    const urlToFetch = (targetUrl || createUrl || platformUrls[createPlatforms[0]] || '').trim()
+    if (!urlToFetch) {
       setFetchCreateNotice({
         type: 'error',
         message: 'Masukkan URL video terlebih dahulu',
@@ -801,7 +819,7 @@ export default function ContentMetricsView({
     setIsFetchingCreate(true)
     setFetchCreateNotice(null)
     try {
-      const res = await autoFetchVideoMetrics(createUrl)
+      const res = await autoFetchVideoMetrics(urlToFetch)
       if (res.success && res.data) {
         setCreateViews(res.data.views || 0)
         setCreateLikes(res.data.likes || 0)
@@ -810,9 +828,6 @@ export default function ContentMetricsView({
         setCreateSaves(res.data.saves || 0)
         if (res.data.title && !createTitle) {
           setCreateTitle(res.data.title)
-        }
-        if (res.data.platform && res.data.platform !== 'UNKNOWN') {
-          setCreatePlatform(res.data.platform)
         }
         setFetchCreateNotice({
           type: 'success',
@@ -827,12 +842,14 @@ export default function ContentMetricsView({
     } catch (err: any) {
       setFetchCreateNotice({
         type: 'error',
-        message: err?.message || 'Gagal menghubungi server.',
+        message: err?.message || 'Gagal menghubungi scraper API.',
       })
     } finally {
       setIsFetchingCreate(false)
     }
   }
+
+  const handleAutoFetchCreate = () => handleAutoFetchCreateForUrl()
 
   const handleAutoFetchMetric = async () => {
     if (!metricUrl.trim()) {
@@ -934,6 +951,14 @@ export default function ContentMetricsView({
         >
           <TrendingUp className="w-4 h-4 text-stone-400" />
           <span>Referensi Data</span>
+        </Link>
+
+        <Link
+          href="/dashboard/content-planner/pengaturan"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+        >
+          <Settings2 className="w-4 h-4 text-stone-400" />
+          <span>Pengaturan Konten</span>
         </Link>
       </div>
 
@@ -1254,7 +1279,7 @@ export default function ContentMetricsView({
               className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
             >
               <option value="ALL">Semua Tipe Konten</option>
-              {CONTENT_TYPES.map((ct) => (
+              {contentTypesList.map((ct) => (
                 <option key={ct} value={ct}>
                   {ct}
                 </option>
@@ -1474,6 +1499,12 @@ export default function ContentMetricsView({
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${platformConfig.badge}`}>
                                 {platformConfig.label}
                               </span>
+                              {item.groupId && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200" title="Cross-platform bundle">
+                                  <Link2 className="w-2.5 h-2.5" />
+                                  Cross-post
+                                </span>
+                              )}
                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${formatConfig.badge}`}>
                                 {item.format}
                               </span>
@@ -1900,37 +1931,111 @@ export default function ContentMetricsView({
                 />
               </div>
 
-              {/* URL Auto-Fetch - Wajib diisi setelah Judul */}
-              <div className="space-y-2 p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE]">
+              {/* Platform Selector Checkboxes */}
+              <div>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1.5">
+                  Platform Tayang <span className="text-red-500">*</span>
+                  <span className="text-[11px] font-normal text-stone-500 ml-1.5">
+                    (Bisa pilih lebih dari 1 untuk auto cross-post)
+                  </span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'TIKTOK', label: 'TikTok' },
+                    { id: 'INSTAGRAM', label: 'Instagram' },
+                    { id: 'YOUTUBE_SHORTS', label: 'YouTube Shorts' },
+                  ].map((plat) => {
+                    const isChecked = createPlatforms.includes(plat.id)
+                    return (
+                      <label
+                        key={plat.id}
+                        className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-[#FFF4ED] border-[#D9480F] text-[#D9480F] shadow-2xs'
+                            : 'bg-[#FAF8F5] border-[#EFE8DE] text-stone-600 hover:bg-white'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="platforms"
+                          value={plat.id}
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCreatePlatforms([...createPlatforms, plat.id])
+                            } else {
+                              if (createPlatforms.length > 1) {
+                                setCreatePlatforms(createPlatforms.filter((p) => p !== plat.id))
+                              }
+                            }
+                          }}
+                          className="w-3.5 h-3.5 accent-[#D9480F] rounded"
+                        />
+                        <span>{plat.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Dynamic URL Inputs per Selected Platform */}
+              <div className="space-y-2.5 p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE]">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold text-[#1A1715]">
-                    Link URL Video (TikTok / IG Reels / YT Shorts) <span className="text-red-500">*</span>
-                  </label>
-                  <span className="text-[10px] text-[#D9480F] font-bold">Wajib diisi</span>
+                  <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                    Link URL Video per Platform
+                  </span>
+                  {createPlatforms.length > 1 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-2 py-0.5 rounded-md border border-[#D9480F]/20">
+                      <Sparkles className="w-3 h-3" />
+                      Auto Cross-Post ({createPlatforms.length} Platform)
+                    </span>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    name="postUrl"
-                    required
-                    value={createUrl}
-                    onChange={(e) => setCreateUrl(e.target.value)}
-                    placeholder="https://www.tiktok.com/@.../video/... atau https://www.instagram.com/reel/..."
-                    className="flex-1 px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAutoFetchCreate}
-                    disabled={isFetchingCreate}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    <Zap className="w-3.5 h-3.5" />
-                    <span>{isFetchingCreate ? 'Membaca...' : 'Tarik Data'}</span>
-                  </button>
-                </div>
+
+                {createPlatforms.map((plat) => {
+                  const platLabel = plat === 'TIKTOK' ? 'TikTok' : plat === 'INSTAGRAM' ? 'Instagram' : 'YouTube Shorts'
+                  const platPlaceholder =
+                    plat === 'TIKTOK'
+                      ? 'https://www.tiktok.com/@.../video/...'
+                      : plat === 'INSTAGRAM'
+                      ? 'https://www.instagram.com/reel/...'
+                      : 'https://youtube.com/shorts/...'
+
+                  return (
+                    <div key={plat} className="space-y-1">
+                      <label className="block text-[11px] font-bold text-stone-600">
+                        Link URL {platLabel} <span className="text-red-500">*</span>
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          name={`postUrl_${plat}`}
+                          required
+                          value={platformUrls[plat] || ''}
+                          onChange={(e) =>
+                            setPlatformUrls({ ...platformUrls, [plat]: e.target.value })
+                          }
+                          placeholder={platPlaceholder}
+                          className="flex-1 px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAutoFetchCreateForUrl(platformUrls[plat])}
+                          disabled={isFetchingCreate || !platformUrls[plat]?.trim()}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                          title="Tarik metrik & judul video otomatis"
+                        >
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>{isFetchingCreate ? 'Membaca...' : 'Tarik Data'}</span>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+
                 {fetchCreateNotice && (
                   <div
-                    className={`text-xs p-2 rounded-lg ${
+                    className={`text-xs p-2 rounded-lg mt-1 ${
                       fetchCreateNotice.type === 'success'
                         ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
                         : 'bg-red-50 text-red-800 border border-red-200'
@@ -1941,21 +2046,8 @@ export default function ContentMetricsView({
                 )}
               </div>
 
-              {/* Platform & Format */}
+              {/* Format & Tipe Konten */}
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Platform</label>
-                  <select
-                    name="platform"
-                    value={createPlatform}
-                    onChange={(e) => setCreatePlatform(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  >
-                    <option value="TIKTOK">TikTok</option>
-                    <option value="INSTAGRAM">Instagram</option>
-                    <option value="YOUTUBE_SHORTS">YouTube Shorts</option>
-                  </select>
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Format Konten</label>
                   <select
@@ -1968,10 +2060,6 @@ export default function ContentMetricsView({
                     <option value="FEED">Feed (Carousel / Single)</option>
                   </select>
                 </div>
-              </div>
-
-              {/* Tipe Konten & Goal */}
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Tipe Konten</label>
                   <select
@@ -1980,24 +2068,26 @@ export default function ContentMetricsView({
                     onChange={(e) => setCreateContentType(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
                   >
-                    {CONTENT_TYPES.map((ct) => (
+                    {contentTypesList.map((ct) => (
                       <option key={ct} value={ct}>{ct}</option>
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Marketing Goal</label>
-                  <select
-                    name="goal"
-                    value={createGoal}
-                    onChange={(e) => setCreateGoal(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  >
-                    {GOALS.map((g) => (
-                      <option key={g} value={g}>{g}</option>
-                    ))}
-                  </select>
-                </div>
+              </div>
+
+              {/* Marketing Goal */}
+              <div>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1">Marketing Goal</label>
+                <select
+                  name="goal"
+                  value={createGoal}
+                  onChange={(e) => setCreateGoal(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                >
+                  {GOALS.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
               </div>
 
               {/* Pilar & Cabang */}

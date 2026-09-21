@@ -5,15 +5,30 @@ export function computeSelisih(qtyFisik: number | null, qtySystem: number): numb
 const MEASURABLE_UNITS = ['gram', 'ml', 'kg', 'liter']
 
 /**
+ * Toleransi khusus per bahan (keputusan owner): selisih opname yang masih di bawah
+ * persentase ini dianggap aman dan tidak di-flag. Kunci = nama bahan (huruf besar).
+ */
+const THRESHOLD_PER_BAHAN: Record<string, number> = {
+  SAPI: 40,
+  AYAM: 40,
+  KENTANG: 20,
+}
+
+/**
  * Mengambil nilai persentase threshold / batas toleransi untuk suatu bahan.
  * - Satuan timbang/ukur (gram, kg, ml, liter) → 5%
  * - Satuan hitung / countable (pcs, pack, box, dll) → 0%
  * - Fallback jika satuan tidak disediakan → 15%
+ * - Bahan dengan toleransi khusus (SAPI/AYAM 40%, KENTANG 20%) → mengalahkan aturan satuan
  */
 export function getThresholdPersen(
   satuan?: string,
   satuanKecil?: string | null,
+  nama?: string | null,
 ): number {
+  const khusus = nama ? THRESHOLD_PER_BAHAN[nama.trim().toUpperCase()] : undefined;
+  if (khusus !== undefined) return khusus;
+
   if (!satuan) return 15;
 
   const s = satuan.toLowerCase();
@@ -94,10 +109,11 @@ export function isSelisihFlagged(
   qtySystem: number,
   satuan?: string,
   satuanKecil?: string | null,
+  nama?: string | null,
 ): boolean {
   if (qtySystem === 0) return selisih !== 0;
 
-  const threshold = getThresholdPersen(satuan, satuanKecil) / 100;
+  const threshold = getThresholdPersen(satuan, satuanKecil, nama) / 100;
   const baseQty = Math.abs(qtySystem);
   return Math.abs(selisih) > threshold * baseQty;
 }

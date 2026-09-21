@@ -105,4 +105,21 @@ describe('selisih logic & threshold helpers', () => {
       expect(isSelisihFlagged(-1, 100, 'pcs')).toBe(true)
     })
   })
+
+  describe('toleransi khusus per bahan', () => {
+    it('SAPI & AYAM 40%, KENTANG 20%', () => {
+      expect(getThresholdPersen('kg', 'gram', 'SAPI')).toBe(40)
+      expect(getThresholdPersen('kg', 'gram', 'ayam')).toBe(40)
+      expect(getThresholdPersen('dus', 'gram', 'KENTANG')).toBe(20)
+    })
+    it('selisih di bawah batas tidak di-flag, di atas batas di-flag', () => {
+      expect(isSelisihFlagged(-3900, 10000, 'kg', 'gram', 'SAPI')).toBe(false)
+      expect(isSelisihFlagged(-4100, 10000, 'kg', 'gram', 'SAPI')).toBe(true)
+      expect(isSelisihFlagged(-1900, 10000, 'dus', 'gram', 'KENTANG')).toBe(false)
+      expect(isSelisihFlagged(-2100, 10000, 'dus', 'gram', 'KENTANG')).toBe(true)
+    })
+    it('bahan lain tetap memakai aturan satuan', () => {
+      expect(isSelisihFlagged(-600, 10000, 'kg', 'gram', 'MINYAK')).toBe(true)
+    })
+  })
 })

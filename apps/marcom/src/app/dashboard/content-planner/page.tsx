@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { getContentTypes } from '@/app/actions/content'
 import ContentPlannerView, { SerializedInternalContent } from './ContentPlannerView'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,7 @@ export const metadata = {
 export default async function ContentPlannerPage() {
   const user = await getCurrentUser()
 
-  const [contents, outlets] = await Promise.all([
+  const [contents, outlets, contentTypes] = await Promise.all([
     prisma.internalContent.findMany({
       orderBy: { postDate: 'desc' },
       include: {
@@ -23,6 +24,7 @@ export default async function ContentPlannerPage() {
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
     }),
+    getContentTypes(),
   ])
 
   const serializedContents: SerializedInternalContent[] = contents.map((item: any) => ({
@@ -48,6 +50,7 @@ export default async function ContentPlannerPage() {
     shares: item.shares,
     saves: item.saves,
     followersBaseline: item.followersBaseline || null,
+    groupId: item.groupId || null,
     createdAt: item.createdAt.toISOString(),
   }))
 
@@ -61,6 +64,7 @@ export default async function ContentPlannerPage() {
       initialContents={serializedContents}
       outlets={serializedOutlets}
       userRole={user?.role || 'MARCOM'}
+      initialContentTypes={contentTypes.map((c) => c.name)}
     />
   )
 }

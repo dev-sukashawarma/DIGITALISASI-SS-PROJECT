@@ -21,6 +21,8 @@ import {
   ChevronDown,
   DollarSign,
   ExternalLink,
+  TrendingUp,
+  Settings2,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 
@@ -110,6 +112,18 @@ export default function Sidebar({ user }: SidebarProps) {
           name: 'Metrik Data',
           href: '/dashboard/content-planner/metrik-data',
           icon: BarChart3,
+          badge: null,
+        },
+        {
+          name: 'Referensi Data',
+          href: '/dashboard/content-planner/referensi-data',
+          icon: TrendingUp,
+          badge: null,
+        },
+        {
+          name: 'Pengaturan Konten',
+          href: '/dashboard/content-planner/pengaturan',
+          icon: Settings2,
           badge: null,
         },
       ],

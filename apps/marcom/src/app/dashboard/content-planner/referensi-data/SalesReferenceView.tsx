@@ -19,6 +19,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Award,
+  Settings2,
 } from 'lucide-react'
 import {
   SalesReferenceData,
@@ -188,6 +189,14 @@ export default function SalesReferenceView({
           <TrendingUp className="w-4 h-4" />
           <span>Referensi Data</span>
         </div>
+
+        <Link
+          href="/dashboard/content-planner/pengaturan"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+        >
+          <Settings2 className="w-4 h-4 text-stone-400" />
+          <span>Pengaturan Konten</span>
+        </Link>
       </div>
 
       {/* 2 Executive Bento KPI Cards */}

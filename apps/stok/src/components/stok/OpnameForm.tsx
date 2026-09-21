@@ -522,7 +522,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
           bahan_baku_id: b.id,
           qty_fisik: qtyFisik,
           qty_system: qtySystem,
-          flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil),
+          flagged: isSelisihFlagged(selisih, qtySystem, b.satuan, b.satuan_kecil, b.nama),
           catatan: `[RAW] ${JSON.stringify(rawData)}`,
         };
       });

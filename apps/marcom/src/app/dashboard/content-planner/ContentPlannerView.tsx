@@ -29,6 +29,8 @@ import {
   Megaphone,
   MapPin,
   Zap,
+  Settings2,
+  Link2,
 } from 'lucide-react'
 import {
   createInternalContent,
@@ -53,13 +55,19 @@ interface ContentPlannerViewProps {
   initialContents: SerializedInternalContent[]
   outlets: Array<{ id: string; name: string }>
   userRole: string
+  initialContentTypes?: string[]
 }
 
 export default function ContentPlannerView({
   initialContents,
   outlets,
   userRole,
+  initialContentTypes,
 }: ContentPlannerViewProps) {
+  const contentTypesList = useMemo(() => {
+    return initialContentTypes && initialContentTypes.length > 0 ? initialContentTypes : CONTENT_TYPES
+  }, [initialContentTypes])
+
   // Filters state
   const [search, setSearch] = useState('')
   const [adsFilter, setAdsFilter] = useState<'ALL' | 'ADS' | 'ORGANIC'>('ALL')
@@ -113,7 +121,13 @@ export default function ContentPlannerView({
   const [statusNotice, setStatusNotice] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
-  // Create form state
+  // Create form state - Multi-platform support
+  const [createPlatforms, setCreatePlatforms] = useState<string[]>(['TIKTOK'])
+  const [platformUrls, setPlatformUrls] = useState<Record<string, string>>({
+    TIKTOK: '',
+    INSTAGRAM: '',
+    YOUTUBE_SHORTS: '',
+  })
   const [createTitle, setCreateTitle] = useState('')
   const [createPlatform, setCreatePlatform] = useState('TIKTOK')
   const [createFormat, setCreateFormat] = useState('VIDEO')
@@ -379,10 +393,12 @@ export default function ContentPlannerView({
   }
 
   const openCreateModal = () => {
+    setCreatePlatforms(['TIKTOK'])
+    setPlatformUrls({ TIKTOK: '', INSTAGRAM: '', YOUTUBE_SHORTS: '' })
     setCreateTitle('')
     setCreatePlatform('TIKTOK')
     setCreateFormat('VIDEO')
-    setCreateContentType('Sidak Outlet')
+    setCreateContentType(contentTypesList[0] || 'Sidak Outlet')
     setCreateGoal('Sales & Traffic')
     setCreatePillar('Promo')
     setCreateStatus('Planned')
@@ -461,6 +477,14 @@ export default function ContentPlannerView({
         >
           <TrendingUp className="w-4 h-4 text-stone-400" />
           <span>Referensi Data</span>
+        </Link>
+
+        <Link
+          href="/dashboard/content-planner/pengaturan"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60"
+        >
+          <Settings2 className="w-4 h-4 text-stone-400" />
+          <span>Pengaturan Konten</span>
         </Link>
       </div>
 
@@ -642,7 +666,7 @@ export default function ContentPlannerView({
               className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
             >
               <option value="ALL">Semua Tipe Konten</option>
-              {CONTENT_TYPES.map((ct) => (
+              {contentTypesList.map((ct) => (
                 <option key={ct} value={ct}>
                   {ct}
                 </option>
@@ -902,6 +926,11 @@ export default function ContentPlannerView({
                                 >
                                   {isTiktok ? 'TT' : isInstagram ? 'IG' : 'YT'}
                                 </span>
+                                {item.groupId && (
+                                  <span className="text-[9px] text-indigo-600 font-bold" title="Cross-post terhubung">
+                                    <Link2 className="w-2.5 h-2.5 inline" />
+                                  </span>
+                                )}
                                 {item.postTime && (
                                   <span className="text-[9px] font-mono text-stone-500">
                                     {item.postTime}
@@ -1037,6 +1066,12 @@ export default function ContentPlannerView({
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${platformConfig.badge}`}>
                               {platformConfig.label}
                             </span>
+                            {item.groupId && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200" title="Cross-platform bundle">
+                                <Link2 className="w-2.5 h-2.5" />
+                                Cross-post
+                              </span>
+                            )}
                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${formatConfig.badge}`}>
                               {item.format}
                             </span>
@@ -1345,35 +1380,99 @@ export default function ContentPlannerView({
                 />
               </div>
 
+              {/* Platform Selector Checkboxes */}
               <div>
-                <label className="block text-xs font-bold text-[#1A1715] mb-1">
-                  Link URL Postingan <span className="text-red-500">*</span>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1.5">
+                  Platform Tayang <span className="text-red-500">*</span>
+                  <span className="text-[11px] font-normal text-stone-500 ml-1.5">
+                    (Bisa pilih lebih dari 1 untuk auto cross-post)
+                  </span>
                 </label>
-                <input
-                  type="url"
-                  name="postUrl"
-                  required
-                  value={createPostUrl}
-                  onChange={(e) => setCreatePostUrl(e.target.value)}
-                  placeholder="https://www.tiktok.com/@... atau https://www.instagram.com/reel/..."
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                />
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { id: 'TIKTOK', label: 'TikTok' },
+                    { id: 'INSTAGRAM', label: 'Instagram' },
+                    { id: 'YOUTUBE_SHORTS', label: 'YouTube Shorts' },
+                  ].map((plat) => {
+                    const isChecked = createPlatforms.includes(plat.id)
+                    return (
+                      <label
+                        key={plat.id}
+                        className={`flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-[#FFF4ED] border-[#D9480F] text-[#D9480F] shadow-2xs'
+                            : 'bg-[#FAF8F5] border-[#EFE8DE] text-stone-600 hover:bg-white'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          name="platforms"
+                          value={plat.id}
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setCreatePlatforms([...createPlatforms, plat.id])
+                            } else {
+                              if (createPlatforms.length > 1) {
+                                setCreatePlatforms(createPlatforms.filter((p) => p !== plat.id))
+                              }
+                            }
+                          }}
+                          className="w-3.5 h-3.5 accent-[#D9480F] rounded"
+                        />
+                        <span>{plat.label}</span>
+                      </label>
+                    )
+                  })}
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Platform</label>
-                  <select
-                    name="platform"
-                    value={createPlatform}
-                    onChange={(e) => setCreatePlatform(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  >
-                    <option value="TIKTOK">TikTok</option>
-                    <option value="INSTAGRAM">Instagram</option>
-                    <option value="YOUTUBE_SHORTS">YouTube Shorts</option>
-                  </select>
+              {/* Dynamic URL Inputs per Selected Platform */}
+              <div className="space-y-2.5 p-3 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE]">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+                    Link URL Postingan
+                  </span>
+                  {createPlatforms.length > 1 && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-2 py-0.5 rounded-md border border-[#D9480F]/20">
+                      <Sparkles className="w-3 h-3" />
+                      Auto Cross-Post ({createPlatforms.length} Platform)
+                    </span>
+                  )}
                 </div>
+
+                {createPlatforms.map((plat) => {
+                  const platLabel = plat === 'TIKTOK' ? 'TikTok' : plat === 'INSTAGRAM' ? 'Instagram' : 'YouTube Shorts'
+                  const platPlaceholder =
+                    plat === 'TIKTOK'
+                      ? 'https://www.tiktok.com/@.../video/...'
+                      : plat === 'INSTAGRAM'
+                      ? 'https://www.instagram.com/reel/...'
+                      : 'https://youtube.com/shorts/...'
+
+                  return (
+                    <div key={plat}>
+                      <label className="block text-[11px] font-bold text-stone-600 mb-1">
+                        Link URL {platLabel} <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="url"
+                        name={`postUrl_${plat}`}
+                        required
+                        value={platformUrls[plat] || ''}
+                        onChange={(e) =>
+                          setPlatformUrls({ ...platformUrls, [plat]: e.target.value })
+                        }
+                        placeholder={platPlaceholder}
+                        className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Format & Tipe Konten */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Format Konten</label>
                   <select
@@ -1386,9 +1485,6 @@ export default function ContentPlannerView({
                     <option value="FEED">Feed (Carousel / Single)</option>
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Tipe Konten</label>
                   <select
@@ -1397,11 +1493,14 @@ export default function ContentPlannerView({
                     onChange={(e) => setCreateContentType(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
                   >
-                    {CONTENT_TYPES.map((ct) => (
+                    {contentTypesList.map((ct) => (
                       <option key={ct} value={ct}>{ct}</option>
                     ))}
                   </select>
                 </div>
+              </div>
+              {/* Marketing Goal & Pilar Konten */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Marketing Goal</label>
                   <select
@@ -1415,9 +1514,6 @@ export default function ContentPlannerView({
                     ))}
                   </select>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Pilar Konten</label>
                   <select
@@ -1431,19 +1527,21 @@ export default function ContentPlannerView({
                     ))}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Status Awal</label>
-                  <select
-                    name="status"
-                    value={createStatus}
-                    onChange={(e) => setCreateStatus(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  >
-                    <option value="Planned">Planned (Terjadwal)</option>
-                    <option value="Draft">Draft (Konsep)</option>
-                    <option value="Sudah Posting">Sudah Posting</option>
-                  </select>
-                </div>
+              </div>
+
+              {/* Status Awal */}
+              <div>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1">Status Awal</label>
+                <select
+                  name="status"
+                  value={createStatus}
+                  onChange={(e) => setCreateStatus(e.target.value)}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                >
+                  <option value="Planned">Planned (Terjadwal)</option>
+                  <option value="Draft">Draft (Konsep)</option>
+                  <option value="Sudah Posting">Sudah Posting</option>
+                </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

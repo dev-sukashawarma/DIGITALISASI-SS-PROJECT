@@ -211,6 +211,7 @@ model InternalContent {
   shares            Int      @default(0)
   saves             Int      @default(0)
   followersBaseline Int?     @map("followers_baseline")
+  groupId           String?  @map("group_id")
   createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   outlet            Outlet?  @relation(fields: [outletId], references: [id], onDelete: SetNull)
@@ -223,7 +224,16 @@ model InternalContent {
   @@index([isAds], name: "idx_internal_content_ads")
   @@index([postDate], name: "idx_internal_content_date")
   @@index([outletId], name: "idx_internal_content_outlet")
+  @@index([groupId], name: "idx_internal_content_group_id")
   @@map("internal_contents")
+}
+
+model ContentType {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("content_types")
 }
 
 

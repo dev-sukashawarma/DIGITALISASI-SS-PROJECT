@@ -265,6 +265,30 @@ class GatewayClient(
         }
     }
 
+    suspend fun profile(): GatewayResult<ProfileResponse> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/customer/profile") {
+                sisipkanOtorisasi()
+            }
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
+    suspend fun updateProfile(request: UpdateProfileRequest): GatewayResult<ProfileResponse> {
+        return try {
+            val response = client.patch("$baseUrl/api/v1/customer/profile") {
+                contentType(ContentType.Application.Json)
+                sisipkanOtorisasi()
+                setBody(request)
+            }
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
     suspend fun updateNotificationPreferences(request: UpdateNotificationPreferencesRequest): GatewayResult<Unit> {
         return try {
             val response = client.patch("$baseUrl/api/v1/customer/notification-preferences") {

@@ -117,4 +117,18 @@ class Repository(private val gateway: GatewayClient) {
                 notifyPromotions = promo
             )
         )
+
+    suspend fun profil(): GatewayResult<com.sukashawarma.customer.data.api.CustomerDto> =
+        when (val h = gateway.profile()) {
+            is GatewayResult.Sukses -> GatewayResult.Sukses(h.data.customer)
+            is GatewayResult.Gagal -> h
+        }
+
+    suspend fun simpanProfil(nama: String?, telepon: String?): GatewayResult<com.sukashawarma.customer.data.api.CustomerDto> =
+        when (val h = gateway.updateProfile(
+            com.sukashawarma.customer.data.api.UpdateProfileRequest(name = nama, phone = telepon)
+        )) {
+            is GatewayResult.Sukses -> GatewayResult.Sukses(h.data.customer)
+            is GatewayResult.Gagal -> h
+        }
 }

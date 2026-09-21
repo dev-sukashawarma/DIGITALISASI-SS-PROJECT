@@ -34,29 +34,4 @@ class InformasiAkunTest {
         assertNull(InformasiAkun.teksAtauNull("  "))
         assertEquals("08123", InformasiAkun.teksAtauNull(" 08123 "))
     }
-
-    @Test
-    fun `masa berlaku ditampilkan dalam WIB`() {
-        // 07.30 UTC = 14.30 WIB
-        assertEquals(
-            "21 Oktober 2026, 14.30 WIB",
-            InformasiAkun.formatBerlakuSampai("2026-10-21T07:30:00Z"),
-        )
-    }
-
-    @Test
-    fun `lewat tengah malam UTC tetap tanggal WIB yang benar`() {
-        // 18.00 UTC tanggal 20 = 01.00 WIB tanggal 21
-        assertEquals(
-            "21 Oktober 2026, 01.00 WIB",
-            InformasiAkun.formatBerlakuSampai("2026-10-20T18:00:00Z"),
-        )
-    }
-
-    @Test
-    fun `tanggal rusak atau kosong disembunyikan, bukan ditampilkan mentah`() {
-        assertNull(InformasiAkun.formatBerlakuSampai("bukan tanggal"))
-        assertNull(InformasiAkun.formatBerlakuSampai(""))
-        assertNull(InformasiAkun.formatBerlakuSampai(null))
-    }
 }

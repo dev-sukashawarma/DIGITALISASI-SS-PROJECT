@@ -44,7 +44,8 @@ export async function POST(request: Request) {
   // Baca profil lama dulu. Upsert polos akan menimpa `name` dengan null pada
   // login berikutnya bila Google tidak mengirim `full_name` -- pelanggan
   // kehilangan namanya diam-diam. Nilai dari Google hanya MENGISI yang kosong,
-  // tidak pernah menghapus yang sudah ada.
+  // tidak pernah menimpa yang sudah ada -- termasuk nama yang diubah pelanggan
+  // sendiri lewat halaman Informasi Akun.
   const { data: lama } = await retail
     .from('customers')
     .select('name, email')
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       {
         id: user.id,
         email: user.email ?? lama?.email ?? null,
-        name: namaGoogle ?? lama?.name ?? null,
+        name: lama?.name ?? namaGoogle ?? null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'id' }

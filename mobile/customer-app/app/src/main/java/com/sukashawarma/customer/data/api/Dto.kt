@@ -224,3 +224,15 @@ data class UpdateNotificationPreferencesRequest(
     @SerialName("notify_promotions") val notifyPromotions: Boolean? = null
 )
 
+
+@Serializable
+data class ProfileResponse(
+    val customer: CustomerDto
+)
+
+/** Field null = tidak diubah. `phone` string kosong = hapus nomor. */
+@Serializable
+data class UpdateProfileRequest(
+    val name: String? = null,
+    val phone: String? = null
+)

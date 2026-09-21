@@ -62,6 +62,7 @@ import com.sukashawarma.customer.ui.payment.SuccessScreen
 import com.sukashawarma.customer.ui.product.ItemDetailScreen
 import com.sukashawarma.customer.ui.product.ItemDetailViewModel
 import com.sukashawarma.customer.ui.profile.InformasiAkunScreen
+import com.sukashawarma.customer.ui.profile.InformasiAkunViewModel
 import com.sukashawarma.customer.ui.profile.LoginScreen
 import com.sukashawarma.customer.ui.profile.LoginViewModel
 import com.sukashawarma.customer.ui.profile.ProfileScreen
@@ -294,8 +295,11 @@ fun CustomerAppRoot(container: AppContainer) {
             }
 
             composable(Rute.INFO_AKUN) {
+                val infoAkunViewModel: InformasiAkunViewModel = viewModel(
+                    factory = pabrik { InformasiAkunViewModel(container.repository, container.sessionStore) }
+                )
                 InformasiAkunScreen(
-                    sesi = container.sessionStore.baca(),
+                    viewModel = infoAkunViewModel,
                     onKembali = { navController.popBackStack() }
                 )
             }

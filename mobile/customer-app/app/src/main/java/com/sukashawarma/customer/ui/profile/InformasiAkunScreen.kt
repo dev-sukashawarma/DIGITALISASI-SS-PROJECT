@@ -9,68 +9,77 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sukashawarma.customer.data.SessionData
 import com.sukashawarma.customer.ui.components.PageBrandHeader
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
+import com.sukashawarma.customer.ui.theme.SukaButtonShape
+import com.sukashawarma.customer.ui.theme.SukaInputShape
 import com.sukashawarma.customer.ui.theme.SukaCream
+import com.sukashawarma.customer.ui.theme.SukaGreen
 import com.sukashawarma.customer.ui.theme.SukaInk
 import com.sukashawarma.customer.ui.theme.SukaMuted
 import com.sukashawarma.customer.ui.theme.SukaOrange
 import com.sukashawarma.customer.ui.theme.SukaTint
 
 /**
- * Halaman Informasi Akun — hanya-baca.
+ * Halaman Informasi Akun: Nama, Email, No WhatsApp.
  *
- * Nama & email berasal dari akun Google dan diperbarui gateway setiap kali
- * pelanggan masuk; belum ada endpoint untuk mengubahnya dari aplikasi. Jadi
- * halaman ini tidak menampilkan kolom yang tampak bisa disunting, dan
- * menjelaskan terus terang dari mana datanya berasal.
- *
- * Baris yang datanya kosong DISEMBUNYIKAN, tidak ditampilkan sebagai
- * "Belum diisi" -- aplikasi tak punya tempat untuk mengisinya.
+ * Nama & No WhatsApp bisa diubah. Email terkunci -- itu identitas akun Google
+ * yang dipakai untuk masuk. Nama yang diubah di sini TIDAK ditimpa Google saat
+ * masuk berikutnya (gateway hanya mengisi nama yang masih kosong).
  */
 @Composable
 fun InformasiAkunScreen(
-    sesi: SessionData?,
+    viewModel: InformasiAkunViewModel,
     onKembali: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val nama = InformasiAkun.teksAtauNull(sesi?.nama)
-    val email = InformasiAkun.teksAtauNull(sesi?.email)
-    val telepon = InformasiAkun.teksAtauNull(sesi?.telepon)
-    val inisial = remember(nama) { InformasiAkun.inisial(nama) }
-    val berlaku = remember(sesi?.expiresAt) { InformasiAkun.formatBerlakuSampai(sesi?.expiresAt) }
+    val state by viewModel.state.collectAsState()
+    val fokus = LocalFocusManager.current
+    val inisial = remember(state.namaTersimpan) { InformasiAkun.inisial(state.namaTersimpan) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -87,11 +96,34 @@ fun InformasiAkunScreen(
             modifier = Modifier
                 .padding(padding)
                 .fillMaxSize()
+                .imePadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 16.dp),
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // Kartu identitas
+            // Avatar
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(72.dp)
+                        .clip(CircleShape)
+                        .background(SukaOrange),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = inisial,
+                        style = MaterialTheme.typography.headlineSmall.copy(
+                            fontFamily = LilitaOne,
+                            color = SukaInk,
+                            fontSize = 28.sp,
+                        ),
+                    )
+                }
+            }
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -99,94 +131,89 @@ fun InformasiAkunScreen(
                 border = BorderStroke(1.dp, SukaBorder),
             ) {
                 Column(
-                    modifier = Modifier.padding(vertical = 24.dp, horizontal = 16.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(CircleShape)
-                            .background(SukaOrange),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = inisial,
-                            style = MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = LilitaOne,
-                                color = SukaInk,
-                                fontSize = 28.sp,
-                            ),
-                        )
-                    }
-                    Text(
-                        text = nama ?: "Pelanggan Suka Shawarma",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = SukaBrown,
-                            fontSize = 20.sp,
-                        ),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    if (email != null) {
-                        Text(
-                            text = email,
-                            style = MaterialTheme.typography.bodyMedium.copy(color = SukaMuted, fontSize = 14.sp),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                }
-            }
-
-            JudulBagian("DATA AKUN")
-            KartuBaris {
-                BarisInfo(Icons.Filled.Person, "Nama", nama ?: "—")
-                if (email != null) {
-                    Pemisah()
-                    BarisInfo(Icons.Filled.Email, "Email", email)
-                }
-                if (telepon != null) {
-                    Pemisah()
-                    BarisInfo(Icons.Filled.Phone, "Nomor HP", telepon)
-                }
-                Pemisah()
-                BarisInfo(Icons.Filled.Lock, "Masuk dengan", "Akun Google")
-            }
-
-            if (berlaku != null) {
-                JudulBagian("SESI")
-                KartuBaris {
-                    BarisInfo(Icons.Filled.Schedule, "Sesi berlaku sampai", berlaku)
-                }
-            }
-
-            // Keterangan asal data
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                color = SukaTint,
-            ) {
-                Row(
                     modifier = Modifier.padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Info,
-                        contentDescription = null,
-                        tint = SukaBrown,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Text(
-                        text = "Nama dan email diambil dari akun Google-mu dan diperbarui setiap kali kamu masuk. " +
-                            "Untuk mengubahnya, ubah di pengaturan akun Google, lalu keluar dan masuk lagi.",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = SukaInk,
-                            fontSize = 13.sp,
-                            lineHeight = 19.sp,
+                    Isian(
+                        label = "Nama",
+                        ikon = Icons.Filled.Person,
+                        nilai = state.nama,
+                        onUbah = viewModel::ubahNama,
+                        galat = state.galatNama,
+                        placeholder = "Nama lengkapmu",
+                        keyboard = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Words,
+                            imeAction = ImeAction.Next,
                         ),
                     )
+
+                    EmailTerkunci(state.email)
+
+                    Isian(
+                        label = "No WhatsApp",
+                        ikon = Icons.Filled.Phone,
+                        nilai = state.whatsApp,
+                        onUbah = viewModel::ubahWhatsApp,
+                        galat = state.galatWhatsApp,
+                        placeholder = "0812 3456 7890",
+                        keterangan = "Dipakai outlet untuk menghubungimu soal pesanan.",
+                        keyboard = KeyboardOptions(
+                            keyboardType = KeyboardType.Phone,
+                            imeAction = ImeAction.Done,
+                        ),
+                        aksiKeyboard = KeyboardActions(onDone = {
+                            fokus.clearFocus()
+                            viewModel.simpan()
+                        }),
+                    )
+                }
+            }
+
+            state.pesanGalat?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall.copy(color = MaterialTheme.colorScheme.error, fontSize = 13.sp),
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+
+            if (state.tersimpan && !state.adaPerubahan) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = SukaGreen, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = "Perubahan tersimpan.",
+                        style = MaterialTheme.typography.bodySmall.copy(color = SukaGreen, fontSize = 13.sp),
+                    )
+                }
+            }
+
+            Button(
+                onClick = {
+                    fokus.clearFocus()
+                    viewModel.simpan()
+                },
+                enabled = state.adaPerubahan && !state.menyimpan,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = SukaButtonShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = SukaOrange,
+                    contentColor = SukaInk,
+                    disabledContainerColor = SukaTint,
+                    disabledContentColor = SukaMuted,
+                ),
+            ) {
+                if (state.menyimpan) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = SukaInk,
+                        strokeWidth = 2.dp,
+                    )
+                } else {
+                    Text("Simpan", fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                 }
             }
         }
@@ -194,75 +221,94 @@ fun InformasiAkunScreen(
 }
 
 @Composable
-private fun JudulBagian(teks: String) {
+private fun Isian(
+    label: String,
+    ikon: ImageVector,
+    nilai: String,
+    onUbah: (String) -> Unit,
+    galat: String?,
+    placeholder: String,
+    keyboard: KeyboardOptions,
+    keterangan: String? = null,
+    aksiKeyboard: KeyboardActions = KeyboardActions.Default,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LabelIsian(label)
+        OutlinedTextField(
+            value = nilai,
+            onValueChange = onUbah,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            isError = galat != null,
+            placeholder = { Text(placeholder, color = SukaMuted) },
+            leadingIcon = { Icon(ikon, contentDescription = null, tint = SukaBrown, modifier = Modifier.size(20.dp)) },
+            keyboardOptions = keyboard,
+            keyboardActions = aksiKeyboard,
+            shape = SukaInputShape,
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = SukaOrange,
+                unfocusedBorderColor = SukaBorder,
+                focusedTextColor = SukaInk,
+                unfocusedTextColor = SukaInk,
+                cursorColor = SukaBrown,
+            ),
+        )
+        val bawah = galat ?: keterangan
+        if (bawah != null) {
+            Text(
+                text = bawah,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = if (galat != null) MaterialTheme.colorScheme.error else SukaMuted,
+                    fontSize = 12.sp,
+                ),
+                modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmailTerkunci(email: String?) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        LabelIsian("Email")
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = SukaInputShape,
+            color = SukaTint,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Email, contentDescription = null, tint = SukaBrown, modifier = Modifier.size(20.dp))
+                Text(
+                    text = email ?: "—",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.bodyMedium.copy(color = SukaInk, fontSize = 15.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Icon(Icons.Filled.Lock, contentDescription = "Tidak bisa diubah", tint = SukaMuted, modifier = Modifier.size(16.dp))
+            }
+        }
+        Text(
+            text = "Email akun Google yang dipakai untuk masuk, tidak bisa diubah.",
+            style = MaterialTheme.typography.bodySmall.copy(color = SukaMuted, fontSize = 12.sp),
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+    }
+}
+
+@Composable
+private fun LabelIsian(teks: String) {
     Text(
         text = teks,
-        style = MaterialTheme.typography.labelSmall.copy(
-            fontWeight = FontWeight.Black,
-            color = SukaMuted,
-            fontSize = 11.sp,
-            letterSpacing = 0.5.sp,
+        style = MaterialTheme.typography.labelMedium.copy(
+            color = SukaBrown,
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.sp,
         ),
         modifier = Modifier.padding(horizontal = 4.dp),
     )
-}
-
-@Composable
-private fun KartuBaris(isi: @Composable () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, SukaBorder),
-    ) {
-        Column { isi() }
-    }
-}
-
-@Composable
-private fun Pemisah() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(1.dp)
-            .background(Color(0xFFF8EFE7)),
-    )
-}
-
-@Composable
-private fun BarisInfo(ikon: ImageVector, label: String, nilai: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(SukaTint),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(imageVector = ikon, contentDescription = null, tint = SukaBrown, modifier = Modifier.size(18.dp))
-        }
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelSmall.copy(color = SukaMuted, fontSize = 12.sp),
-            )
-            Text(
-                text = nilai,
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    color = SukaInk,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                ),
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
 }

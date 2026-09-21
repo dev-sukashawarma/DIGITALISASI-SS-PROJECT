@@ -165,7 +165,9 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   if (outletIds.length > 0) {
     const { data: ords } = await supabase
       .from('orders')
-      .select('id, created_at, customer_name, total_amount, status, sales_source, receipt_number, outlet_id, channel, is_endorse')
+      // `receipt_number` hanya ada di pos_sales; tabel orders memakai order_number.
+      // Kolom yang salah membuat query gagal (42703) dan daftar orderan selalu kosong.
+      .select('id, created_at, customer_name, total_amount, status, sales_source, order_number, outlet_id, channel, is_endorse')
       .in('outlet_id', outletIds)
       .order('created_at', { ascending: false })
       .limit(10)

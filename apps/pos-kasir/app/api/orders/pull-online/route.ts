@@ -140,43 +140,54 @@ export async function POST(request: Request) {
     releaseTime = calculateReleaseTime(pickupTime, totalPrepTime)
   }
 
-  // 3. Masukkan ke pos-kasir
+  // 3. Masukkan ke pos-kasir.
+  // Route ini dipanggil bersamaan dari tiga jalur (cron server per menit, browser
+  // kasir, dan edge function order-system), jadi cek-lalu-insert di atas tetap
+  // bisa balapan. ON CONFLICT DO NOTHING (ignoreDuplicates) memindahkan idempotency
+  // ke database sehingga tidak lagi memuntahkan error 23505 ke log Postgres.
   const { data: newOrder, error: insertErr } = await posDb
     .from('orders')
-    .insert({
-      outlet_id: posOutletId,
-      customer_name: order.customer_name,
-      customer_phone: order.customer_wa,
-      notes: order.notes || null,
-      payment_method: 'qris',
-      total_amount: order.total,
-      status: 'preparing',
-      source: 'online',
-      sales_source: 'online',
-      external_order_id: order.id,
-      pickup_time: pickupTime ? pickupTime.toISOString() : null,
-      release_time: releaseTime ? releaseTime.toISOString() : null,
-    })
+    .upsert(
+      {
+        outlet_id: posOutletId,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_wa,
+        notes: order.notes || null,
+        payment_method: 'qris',
+        total_amount: order.total,
+        status: 'preparing',
+        source: 'online',
+        sales_source: 'online',
+        external_order_id: order.id,
+        pickup_time: pickupTime ? pickupTime.toISOString() : null,
+        release_time: releaseTime ? releaseTime.toISOString() : null,
+      },
+      { onConflict: 'external_order_id', ignoreDuplicates: true }
+    )
     .select('id, order_number')
-    .single()
+    .maybeSingle()
 
-  if (insertErr || !newOrder) {
-    if ((insertErr as any)?.code === '23505') {
-      const { data: retryList } = await posDb
-        .from('orders')
-        .select('id, order_number')
-        .or(`id.eq.${external_order_id},external_order_id.eq.${external_order_id}`)
-        .limit(1)
-      if (retryList && retryList.length > 0) {
-        return NextResponse.json({
-          success: true,
-          message: 'Order sudah ditarik sebelumnya (race condition resolved)',
-          order_id: retryList[0].id,
-          order_number: retryList[0].order_number,
-        })
-      }
-    }
+  if (insertErr) {
     console.error('Gagal insert order ke pos-kasir:', insertErr)
+    return NextResponse.json({ error: 'Gagal menyimpan pesanan ke database kasir' }, { status: 500 })
+  }
+
+  if (!newOrder) {
+    // Konflik: jalur lain sudah memasukkannya sepersekian detik lalu. Ambil yang ada.
+    const { data: retryList } = await posDb
+      .from('orders')
+      .select('id, order_number')
+      .eq('external_order_id', external_order_id)
+      .limit(1)
+    if (retryList && retryList.length > 0) {
+      return NextResponse.json({
+        success: true,
+        message: 'Order sudah ditarik sebelumnya (race condition resolved)',
+        order_id: retryList[0].id,
+        order_number: retryList[0].order_number,
+      })
+    }
+    console.error('Upsert order tidak mengembalikan baris dan tidak ditemukan:', external_order_id)
     return NextResponse.json({ error: 'Gagal menyimpan pesanan ke database kasir' }, { status: 500 })
   }
 

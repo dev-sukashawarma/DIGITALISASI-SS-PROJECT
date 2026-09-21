@@ -11,6 +11,7 @@ import { useExpectedCash } from '@/hooks/useExpectedCash'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
 import { summarizeBalances } from '@/lib/cashSummary'
+import { isExcludedOutlet } from '@/lib/outletFilters'
 import type { CashLocation, CashBalance, CashTransaction } from '@/lib/types'
 
 type DepositMethod = 'transfer' | 'langsung'
@@ -188,7 +189,7 @@ export function SetoranView({
                 <select value={outletId} onChange={(e) => setOutletId(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange bg-white">
                   <option value="">— pilih outlet asal —</option>
-                  {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                  {outlets.filter((o) => !isExcludedOutlet(o.name)).map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </label>
 

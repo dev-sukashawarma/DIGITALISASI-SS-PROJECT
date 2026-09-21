@@ -3,14 +3,14 @@
 import { useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
-import { TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { TEST_OUTLET_ID, isExcludedOutlet } from '@/lib/outletFilters'
 
 export interface OutletOption {
   id: string
   name: string
 }
 
-/** Daftar outlet untuk atribusi setoran. */
+/** Daftar outlet untuk atribusi setoran (hanya cabang fisik, non-cabang di-hide). */
 export function useOutlets() {
   const supabase = useMemo(() => createClient(), [])
   return useQuery<OutletOption[]>({
@@ -23,7 +23,8 @@ export function useOutlets() {
         .neq('id', TEST_OUTLET_ID)
         .order('name', { ascending: true })
       if (error) throw error
-      return (data as OutletOption[]) ?? []
+      const raw = (data as OutletOption[]) ?? []
+      return raw.filter((o) => !isExcludedOutlet(o.name))
     },
     staleTime: 5 * 60_000,
   })

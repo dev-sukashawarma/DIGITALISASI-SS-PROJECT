@@ -39,8 +39,8 @@ export function BottomNav() {
   const isKitchenOrAdmin = ['kitchen', 'purchasing', 'admin', 'admin_finance', 'owner', 'developer'].includes(role ?? '')
   const isLeaderOrSPV = ['spv', 'regional_manager', 'leader', 'area_manager'].includes(role ?? '')
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
-  // jadi khusus staff gudang. Role lain pakai Ledger Stok untuk riwayat outletnya.
-  const canViewInboundOutbound = role === 'kitchen'
+  // diakses oleh staff gudang, admin, dan purchasing.
+  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing'].includes(role ?? '')
   const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')
 
   // 1. Pending Approvals

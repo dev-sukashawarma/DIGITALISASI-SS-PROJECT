@@ -73,8 +73,8 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')
   const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer', 'purchasing'].includes(role ?? '')
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
-  // jadi khusus staff gudang. Role lain pakai Ledger Stok untuk riwayat outletnya.
-  const canViewInboundOutbound = role === 'kitchen'
+  // diakses oleh staff gudang, admin, dan purchasing.
+  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing'].includes(role ?? '')
   const canViewHPP = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
   // Nilai Persediaan dibaca lewat view security_invoker, jadi gate-nya HARUS
   // sama dengan policy RLS `bbh_read` di bahan_baku_harga -- kalau lebih longgar,

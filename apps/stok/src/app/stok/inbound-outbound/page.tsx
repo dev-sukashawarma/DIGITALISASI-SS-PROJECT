@@ -87,8 +87,9 @@ export default function InboundOutboundPage() {
 
   // Menyembunyikan menu di nav saja tidak cukup -- URL-nya tetap bisa dibuka
   // langsung. Datanya sendiri sudah dibatasi RLS `ledger_read`, guard ini
-  // menegakkan maksudnya: halaman arus barang gudang khusus staff gudang.
-  if (outletStaff && outletStaff.role !== 'kitchen') {
+  // menegakkan maksudnya: halaman arus barang gudang khusus staff gudang, admin, dan purchasing.
+  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing'].includes(outletStaff?.role ?? '');
+  if (outletStaff && !canViewInboundOutbound) {
     return (
       <AppLayout>
         <div className="min-h-screen bg-[#fff8f1] flex items-center justify-center px-6">
@@ -96,7 +97,7 @@ export default function InboundOutboundPage() {
             <div className="w-14 h-14 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-center mx-auto mb-4">
               <ShieldAlert className="w-7 h-7 text-amber-600" />
             </div>
-            <p className="text-suka-brown font-extrabold text-sm">Halaman khusus staff gudang</p>
+            <p className="text-suka-brown font-extrabold text-sm">Halaman khusus staff gudang & manajemen</p>
             <p className="text-suka-brown/60 text-xs mt-2 leading-relaxed">
               Inbound / Outbound mencatat arus barang Gudang Pusat. Untuk riwayat stok
               outletmu, buka halaman <span className="font-bold">Ledger Stok</span>.

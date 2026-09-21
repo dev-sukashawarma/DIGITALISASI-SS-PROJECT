@@ -50,6 +50,46 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   }
 }
 
+export async function uploadExpenseInvoiceAction(formData: FormData) {
+  try {
+    const file = formData.get('file') as File | null
+    if (!file || file.size === 0) {
+      return { success: false, error: 'File tidak ditemukan' }
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      return { success: false, error: 'Ukuran file maksimal 10MB' }
+    }
+
+    const supabase = getServiceSupabase()
+    const ext = file.name.split('.').pop() || 'jpg'
+    const cleanName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${ext}`
+    const storagePath = `invoices/${cleanName}`
+
+    const buffer = Buffer.from(await file.arrayBuffer())
+    const { error: uploadError } = await supabase.storage
+      .from('opex-invoices')
+      .upload(storagePath, buffer, {
+        contentType: file.type || 'image/jpeg',
+        upsert: true
+      })
+
+    if (uploadError) {
+      console.error('Failed to upload expense invoice:', uploadError)
+      return { success: false, error: 'Gagal mengupload invoice: ' + uploadError.message }
+    }
+
+    const { data: pubData } = supabase.storage
+      .from('opex-invoices')
+      .getPublicUrl(storagePath)
+
+    return { success: true, url: pubData.publicUrl }
+  } catch (err: any) {
+    console.error('Exception in uploadExpenseInvoiceAction:', err)
+    return { success: false, error: err?.message || 'Gagal mengupload file' }
+  }
+}
+
 export async function createSingleExpenseAction(input: {
   outletId: string | null
   category: string
@@ -59,6 +99,7 @@ export async function createSingleExpenseAction(input: {
   periodMonth: string
   type: string
   created_by?: string | null
+  receipt_url?: string | null
 }) {
   try {
     const supabase = getServiceSupabase()
@@ -119,7 +160,8 @@ export async function createSingleExpenseAction(input: {
         period_month: input.periodMonth,
         type: input.type,
         payment_source: input.outletId ? 'petty_cash' : 'transfer_pusat',
-        created_by: validStaffId
+        created_by: validStaffId,
+        receipt_url: input.receipt_url || null
       })
       .select()
       .single()

@@ -2,9 +2,10 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Plus, Wallet, FileText, ArrowDownRight, ArrowUpRight, Building2, ArrowRight } from 'lucide-react'
+import { Plus, Wallet, FileText, ArrowDownRight, ArrowUpRight, Building2, ArrowRight, Eye, X } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/ui'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { useExpenses } from '@/hooks/useExpenses'
@@ -13,6 +14,7 @@ import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { isExcludedOutlet } from '@/lib/outletFilters'
+import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
@@ -31,6 +33,7 @@ export default function InputPengeluaranPage() {
   const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7)) // YYYY-MM
   const [target, setTarget] = useState<string>('all')       // 'all' | 'PUSAT' | outletId
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
 
   const isPusat = target === 'PUSAT'
   const periodMonth = firstOfMonth(month)
@@ -63,6 +66,7 @@ export default function InputPengeluaranPage() {
         description: r.description,
         amount: r.amount,
         type: r.type || 'expense', // 'income' or 'expense'
+        receipt_url: r.receipt_url,
         isTopup: false
       })
     })
@@ -71,6 +75,45 @@ export default function InputPengeluaranPage() {
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
   }, [expenseRows, target])
+
+  const totalAmount = useMemo(() => {
+    return allTransactions.reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
+  }, [allTransactions])
+
+  const handleExportPDF = async () => {
+    if (allTransactions.length === 0) {
+      toast.error('Tidak ada data transaksi untuk diekspor ke PDF pada periode ini.')
+      return
+    }
+
+    try {
+      toast.info('Menyiapkan dokumen PDF OPEX...')
+      const targetOption = selectOptions.find(o => o.value === target)
+      const targetLabel = targetOption ? targetOption.label : 'Semua Unit'
+
+      await generateOpexReportPDF({
+        startDate: periodMonth,
+        endDate: lastOfMonth(month),
+        targetLabel,
+        items: allTransactions.map(t => ({
+          date: t.date,
+          outlet_name: t.outlet_name,
+          recipient_name: t.recipient_name,
+          division: t.division,
+          category: t.category,
+          category_label: labelOf(t.category),
+          description: t.description,
+          amount: t.amount,
+          receipt_url: t.receipt_url
+        })),
+        totalAmount
+      })
+      toast.success('Laporan PDF OPEX berhasil diunduh!')
+    } catch (e: any) {
+      console.error('PDF export error:', e)
+      toast.error('Gagal membuat file PDF: ' + (e?.message || 'Error'))
+    }
+  }
 
   const validOutlets = useMemo(() => {
     return outlets.filter(o => !isExcludedOutlet(o))
@@ -97,6 +140,14 @@ export default function InputPengeluaranPage() {
             onChange={setTarget}
             placeholder="— Pilih target —"
           />
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            className="rounded-xl flex items-center gap-2 border-rose-500 text-rose-600 hover:bg-rose-50 bg-white cursor-pointer shadow-2xs"
+            title="Download Laporan Resmi OPEX ke PDF dengan tanda tangan Admin, Finance, dan Direktur"
+          >
+            <FileText className="w-4 h-4" /> Export PDF
+          </Button>
           <Button onClick={() => setIsFormOpen(true)} className="rounded-xl flex items-center gap-2">
             <Plus className="w-4 h-4" /> Tambah Transaksi
           </Button>
@@ -153,6 +204,7 @@ export default function InputPengeluaranPage() {
                   <th className="px-4 py-3 font-medium">Kategori</th>
                   <th className="px-4 py-3 font-medium">Outlet</th>
                   <th className="px-4 py-3 font-medium">Keterangan</th>
+                  <th className="px-3 py-3 font-medium text-center">Bukti Nota</th>
                   <th className="px-4 py-3 font-medium text-right">Jumlah</th>
                 </tr>
               </thead>
@@ -193,6 +245,21 @@ export default function InputPengeluaranPage() {
                           r.description
                         )}
                       </td>
+                      <td className="px-3 py-3 text-center">
+                        {r.receipt_url ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedReceiptUrl(r.receipt_url)}
+                            title="Klik untuk melihat bukti invoice/nota"
+                            className="inline-flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold px-2.5 py-1 rounded-lg text-[10px] border border-emerald-200 transition-colors cursor-pointer"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Lihat Nota</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-gray-400 italic">-</span>
+                        )}
+                      </td>
                       <td className={`px-4 py-3 text-right font-medium ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
                         {isIncome ? '+' : '-'}Rp {r.amount.toLocaleString('id-ID')}
                       </td>
@@ -204,6 +271,52 @@ export default function InputPengeluaranPage() {
           </div>
         )}
       </div>
+
+      {/* Modal Preview Bukti Invoice */}
+      {selectedReceiptUrl && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-5 space-y-3 shadow-xl">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100">
+              <h4 className="font-bold text-sm text-gray-900">Bukti Nota / Invoice</h4>
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptUrl(null)}
+                className="p-1 rounded-lg text-gray-400 hover:text-gray-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="max-h-[68vh] overflow-auto flex items-center justify-center bg-gray-50 rounded-xl p-2">
+              {selectedReceiptUrl.toLowerCase().endsWith('.pdf') ? (
+                <iframe src={selectedReceiptUrl} className="w-full h-[60vh] rounded-lg" />
+              ) : (
+                <img
+                  src={selectedReceiptUrl}
+                  alt="Bukti Nota"
+                  className="max-h-[62vh] object-contain rounded-lg"
+                />
+              )}
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <a
+                href={selectedReceiptUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1.5 bg-suka-orange/10 hover:bg-suka-orange/20 text-suka-orange font-bold text-xs rounded-xl"
+              >
+                Buka Layar Penuh
+              </a>
+              <button
+                type="button"
+                onClick={() => setSelectedReceiptUrl(null)}
+                className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isFormOpen && (
         <ExpenseFormModal 

@@ -33,6 +33,7 @@ import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { rupiah } from '@/lib/format'
 import { isExcludedOutlet } from '@/lib/outletFilters'
+import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
 
@@ -278,6 +279,42 @@ export default function BukuKasPage() {
     }
   }
 
+  // Export to PDF handler with Admin, Finance, and Director signatures
+  const handleExportPDF = async () => {
+    if (allTransactions.length === 0) {
+      toast.error('Tidak ada data transaksi untuk diekspor ke PDF pada rentang tanggal ini.')
+      return
+    }
+
+    try {
+      toast.info('Menyiapkan dokumen PDF OPEX...')
+      const targetOption = selectOptions.find(o => o.value === target)
+      const targetLabel = targetOption ? targetOption.label : 'Semua Unit'
+
+      await generateOpexReportPDF({
+        startDate,
+        endDate,
+        targetLabel,
+        items: allTransactions.map(t => ({
+          date: t.date,
+          outlet_name: t.outlet_name,
+          recipient_name: t.recipient_name,
+          division: t.division,
+          category: t.category,
+          category_label: labelOf(t.category),
+          description: t.description,
+          amount: t.amount,
+          receipt_url: t.receipt_url
+        })),
+        totalAmount: summary.totalOpex
+      })
+      toast.success('Laporan PDF OPEX berhasil diunduh!')
+    } catch (e: any) {
+      console.error('PDF export error:', e)
+      toast.error('Gagal membuat file PDF: ' + (e?.message || 'Error'))
+    }
+  }
+
   // Quick preset handlers
   const setPreset = (preset: 'today' | 'this_month' | 'last_month' | 'last_7_days' | 'last_30_days') => {
     const today = new Date()
@@ -330,6 +367,16 @@ export default function BukuKasPage() {
         description="Pencatatan dan rincian beban operasional (Gaji, Operasional Cabang, dan Beban Kantor Pusat)."
       >
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExportPDF}
+            className="flex items-center gap-2 border-rose-500 text-rose-600 hover:bg-rose-50 bg-white cursor-pointer shadow-2xs"
+            title="Download Laporan Resmi OPEX ke format PDF dengan tanda tangan Admin, Finance, dan Direktur"
+          >
+            <FileText size={16} />
+            Export PDF
+          </Button>
+
           <Button
             variant="outline"
             onClick={handleExportExcel}

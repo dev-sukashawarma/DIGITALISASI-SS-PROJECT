@@ -143,6 +143,23 @@ export interface ReconciliationTotals {
   ekstrem_count: number
 }
 
+export interface MenuBomIngredient {
+
+  bahan_baku_id: string
+  nama_bahan: string
+  qty_per_porsi: number
+  satuan: string
+  total_kebutuhan: number
+}
+
+export interface MenuBomBreakdownItem {
+  menu_item_id: string
+  menu_item_name: string
+  total_porsi: number
+  has_recipe: boolean
+  ingredients: MenuBomIngredient[]
+}
+
 export interface ReconciliationSnapshotResponse {
   outlet: { id: string; name: string }
   period: {
@@ -155,8 +172,10 @@ export interface ReconciliationSnapshotResponse {
   pending_surat_jalan_count: number
   items: ReconciliationItem[]
   totals: ReconciliationTotals
+  menu_breakdown?: MenuBomBreakdownItem[]
   audit_note: string | null
 }
+
 
 export interface LedgerTimelineRow {
   id: string
@@ -679,6 +698,8 @@ export async function fetchReconciliationSnapshot(
 
   // 5b. Ambil data penjualan menu POS untuk breakdown pemakaian bahan per item
   const menuUsageByBahan = new Map<string, MenuItemUsage[]>()
+  const menuBreakdownList: MenuBomBreakdownItem[] = []
+
 
   const { data: ordersData } = await supabase
     .from('orders')
@@ -731,6 +752,30 @@ export async function fetchReconciliationSnapshot(
 
     const menuItemIds = Array.from(soldMenuMap.keys())
     if (menuItemIds.length > 0) {
+      // Ambil data menu_packages untuk mendeteksi apakah ada menu paket/combo yang terjual
+      const { data: pkgList } = await supabase
+        .from('menu_packages')
+        .select('package_id, menu_item_id, quantity')
+        .in('package_id', menuItemIds)
+
+      // Kumpulkan semua menu_item_id yang butuh resep:
+      // Menu langsung + komponen dari menu paket
+      const pkgMap = new Map<string, { menu_item_id: string; quantity: number }[]>()
+      const allMenuIdsToFetch = new Set<string>(menuItemIds)
+
+      for (const p of pkgList || []) {
+        let list = pkgMap.get(p.package_id)
+        if (!list) {
+          list = []
+          pkgMap.set(p.package_id, list)
+        }
+        list.push({
+          menu_item_id: p.menu_item_id,
+          quantity: Number(p.quantity || 1),
+        })
+        allMenuIdsToFetch.add(p.menu_item_id)
+      }
+
       const { data: resepList } = await supabase
         .from('resep')
         .select(`
@@ -744,7 +789,7 @@ export async function fetchReconciliationSnapshot(
             satuan
           )
         `)
-        .in('menu_item_ref', menuItemIds)
+        .in('menu_item_ref', Array.from(allMenuIdsToFetch))
         .eq('is_active', true)
 
       const activeResepPerMenu = new Map<string, any>()
@@ -760,37 +805,126 @@ export async function fetchReconciliationSnapshot(
         }
       }
 
+      const bahanMap = new Map((bahanList || []).map((b) => [b.id, b]))
+
       for (const [mid, menuInfo] of soldMenuMap.entries()) {
-        const r = activeResepPerMenu.get(mid)
-        if (!r || !r.resep_item) continue
+        const directRecipe = activeResepPerMenu.get(mid)
+        const hasDirectRecipe = !!(directRecipe && directRecipe.resep_item && directRecipe.resep_item.length > 0)
+        const components = pkgMap.get(mid) || []
+        const isPackage = components.length > 0
 
-        for (const ri of (r as any).resep_item || []) {
-          const bId = ri.bahan_baku_id
-          const porsi = menuInfo.totalPorsi
-          const qtyPerPorsi = Number(ri.qty_per_porsi || 0)
-          const totalPemakaian = Math.round(porsi * qtyPerPorsi * 100) / 100
+        let hasRecipe = hasDirectRecipe
+        const ingredients: MenuBomIngredient[] = []
 
-          let list = menuUsageByBahan.get(bId)
-          if (!list) {
-            list = []
-            menuUsageByBahan.set(bId, list)
+        if (isPackage) {
+          // Kasus Menu Paket / Combo: Akumulasi BOM dari seluruh komponen paketnya
+          const mergedIngredients = new Map<string, MenuBomIngredient>()
+          let anyCompHasRecipe = false
+
+          for (const comp of components) {
+            const compResep = activeResepPerMenu.get(comp.menu_item_id)
+            if (!compResep || !compResep.resep_item) continue
+            anyCompHasRecipe = true
+
+            for (const ri of (compResep as any).resep_item || []) {
+              const bId = ri.bahan_baku_id
+              const bObj = bahanMap.get(bId)
+              const namaBahan = bObj?.nama || `Bahan #${bId.slice(0, 8)}`
+              const satuan = ri.satuan || bObj?.satuan_kecil || bObj?.satuan || 'gr'
+              const qtyPerPorsi = Number(ri.qty_per_porsi || 0) * comp.quantity
+              const totalPemakaian = Math.round(menuInfo.totalPorsi * qtyPerPorsi * 100) / 100
+
+              const existing = mergedIngredients.get(bId)
+              if (existing) {
+                existing.qty_per_porsi = Math.round((existing.qty_per_porsi + qtyPerPorsi) * 100) / 100
+                existing.total_kebutuhan = Math.round((existing.total_kebutuhan + totalPemakaian) * 100) / 100
+              } else {
+                mergedIngredients.set(bId, {
+                  bahan_baku_id: bId,
+                  nama_bahan: namaBahan,
+                  qty_per_porsi: qtyPerPorsi,
+                  satuan,
+                  total_kebutuhan: totalPemakaian,
+                })
+              }
+            }
           }
 
-          list.push({
-            menu_item_name: menuInfo.name,
-            porsi_terjual: porsi,
-            qty_per_porsi: qtyPerPorsi,
-            satuan: ri.satuan || 'gr',
-            total_pemakaian: totalPemakaian,
-          })
+          if (anyCompHasRecipe) {
+            hasRecipe = true
+            for (const ing of mergedIngredients.values()) {
+              ingredients.push(ing)
+
+              // Masukkan ke grouping pemakaian per bahan baku
+              let list = menuUsageByBahan.get(ing.bahan_baku_id)
+              if (!list) {
+                list = []
+                menuUsageByBahan.set(ing.bahan_baku_id, list)
+              }
+              list.push({
+                menu_item_name: menuInfo.name,
+                porsi_terjual: menuInfo.totalPorsi,
+                qty_per_porsi: ing.qty_per_porsi,
+                satuan: ing.satuan,
+                total_pemakaian: ing.total_kebutuhan,
+              })
+            }
+            ingredients.sort((a, b) => b.total_kebutuhan - a.total_kebutuhan)
+          }
+        } else if (hasDirectRecipe) {
+          // Kasus Menu Single Biasa
+          for (const ri of (directRecipe as any).resep_item || []) {
+            const bId = ri.bahan_baku_id
+            const bObj = bahanMap.get(bId)
+            const namaBahan = bObj?.nama || `Bahan #${bId.slice(0, 8)}`
+            const porsi = menuInfo.totalPorsi
+            const qtyPerPorsi = Number(ri.qty_per_porsi || 0)
+            const totalPemakaian = Math.round(porsi * qtyPerPorsi * 100) / 100
+            const satuan = ri.satuan || bObj?.satuan_kecil || bObj?.satuan || 'gr'
+
+            // Untuk grouping lama per bahan baku
+            let list = menuUsageByBahan.get(bId)
+            if (!list) {
+              list = []
+              menuUsageByBahan.set(bId, list)
+            }
+            list.push({
+              menu_item_name: menuInfo.name,
+              porsi_terjual: porsi,
+              qty_per_porsi: qtyPerPorsi,
+              satuan,
+              total_pemakaian: totalPemakaian,
+            })
+
+            // Untuk breakdown terstruktur per menu (BOM)
+            ingredients.push({
+              bahan_baku_id: bId,
+              nama_bahan: namaBahan,
+              qty_per_porsi: qtyPerPorsi,
+              satuan,
+              total_kebutuhan: totalPemakaian,
+            })
+          }
+          ingredients.sort((a, b) => b.total_kebutuhan - a.total_kebutuhan)
         }
+
+        menuBreakdownList.push({
+          menu_item_id: mid,
+          menu_item_name: menuInfo.name,
+          total_porsi: menuInfo.totalPorsi,
+          has_recipe: hasRecipe,
+          ingredients,
+        })
       }
+
+      menuBreakdownList.sort((a, b) => b.total_porsi - a.total_porsi)
 
       for (const list of menuUsageByBahan.values()) {
         list.sort((a, b) => b.total_pemakaian - a.total_pemakaian)
       }
     }
   }
+
 
   // Agregasi mutasi per bahan baku
   const movementMap = new Map<
@@ -1039,9 +1173,11 @@ export async function fetchReconciliationSnapshot(
       anomali_skala_count: anomaliSkalaCount,
       ekstrem_count: ekstremCount,
     },
+    menu_breakdown: menuBreakdownList,
     audit_note: auditNote,
   }
 }
+
 
 /**
  * Mengambil buku jurnal transaksi kronologis untuk satu bahan baku spesifik

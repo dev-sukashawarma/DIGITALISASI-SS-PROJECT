@@ -86,7 +86,47 @@ describe('exportReconciliationToPdf', () => {
           ],
         },
       ],
+      menu_breakdown: [
+        {
+          menu_item_id: 'm-1',
+          menu_item_name: 'Shawarma Ayam Reguler',
+          total_porsi: 40,
+          has_recipe: true,
+          ingredients: [
+            {
+              bahan_baku_id: 'b-1',
+              nama_bahan: 'AYAM FILLET',
+              qty_per_porsi: 100,
+              satuan: 'gr',
+              total_kebutuhan: 4000,
+            },
+          ],
+        },
+        {
+          menu_item_id: 'm-2',
+          menu_item_name: 'Shawarma Ayam Jumbo',
+          total_porsi: 10,
+          has_recipe: true,
+          ingredients: [
+            {
+              bahan_baku_id: 'b-1',
+              nama_bahan: 'AYAM FILLET',
+              qty_per_porsi: 200,
+              satuan: 'gr',
+              total_kebutuhan: 2000,
+            },
+          ],
+        },
+        {
+          menu_item_id: 'm-3',
+          menu_item_name: 'Menu Tanpa Resep',
+          total_porsi: 5,
+          has_recipe: false,
+          ingredients: [],
+        },
+      ],
     }
+
 
     // Call exportReconciliationToPdf
     await expect(exportReconciliationToPdf(mockData)).resolves.not.toThrow()

@@ -235,85 +235,260 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   doc.line(col3X, signY + 20, col3X + signBoxWidth, signY + 20)
   doc.text('Nama: .......................................', col3X, signY + 24)
 
-  // ── 2. Halaman Lampiran: Rincian Pemakaian Menu POS per Bahan Baku ──
-  const itemsWithUsage = data.items.filter((i) => i.menu_usages && i.menu_usages.length > 0)
+  // ── 2. Halaman Lampiran: Breakdown Menu Terjual & Perhitungan BOM ──
+  const menuBreakdown =
+    data.menu_breakdown && data.menu_breakdown.length > 0
+      ? data.menu_breakdown
+      : (() => {
+          // Fallback dari itemsWithUsage jika payload menu_breakdown belum terisi
+          const fallbackMap = new Map<string, any>()
+          for (const it of itemsWithUsage) {
+            for (const u of it.menu_usages) {
+              let m = fallbackMap.get(u.menu_item_name)
+              if (!m) {
+                m = {
+                  menu_item_id: u.menu_item_name,
+                  menu_item_name: u.menu_item_name,
+                  total_porsi: u.porsi_terjual,
+                  has_recipe: true,
+                  ingredients: [],
+                }
+                fallbackMap.set(u.menu_item_name, m)
+              }
+              m.ingredients.push({
+                bahan_baku_id: it.id,
+                nama_bahan: it.nama,
+                qty_per_porsi: u.qty_per_porsi,
+                satuan: u.satuan,
+                total_kebutuhan: u.total_pemakaian,
+              })
+            }
+          }
+          return Array.from(fallbackMap.values())
+        })()
 
-  if (itemsWithUsage.length > 0) {
+  if (menuBreakdown.length > 0) {
     doc.addPage()
     let lampiranY = 14
 
-    doc.setFillColor(242, 102, 34)
+    // Header Lampiran
+    doc.setFillColor(242, 102, 34) // Suka Orange
     doc.rect(margin, lampiranY, 4, 14, 'F')
 
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(12)
+    doc.setFontSize(11)
     doc.setTextColor(30, 41, 59)
-    doc.text('LAMPIRAN: RINCIAN PEMAKAIAN BAHAN BAKU PER MENU TERJUAL (BOM POS)', margin + 8, lampiranY + 5)
+    doc.text('LAMPIRAN: BREAKDOWN PENJUALAN MENU & PERHITUNGAN BOM (BILL OF MATERIALS)', margin + 8, lampiranY + 5)
 
     doc.setFontSize(8)
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(100, 116, 139)
     doc.text(
-      `Rincian porsi penjualan menu kasir dan konsumsi resep standar untuk outlet ${data.outlet.name}.`,
+      `Rincian menu POS terjual dan konsumsi standar resep (BOM) x Qty Porsi untuk outlet ${data.outlet.name}.`,
       margin + 8,
       lampiranY + 11
     )
 
     lampiranY += 18
 
-    const lampiranHeaders = [
-      'No',
-      'Nama Bahan Baku',
-      'Menu POS Terjual',
-      'Porsi Terjual',
-      'Standar Resep / Porsi',
-      'Total Pemakaian Resep',
-    ]
+    // BAGIAN 1: Rincian per Menu Terjual
+    for (let mIdx = 0; mIdx < menuBreakdown.length; mIdx++) {
+      const menu = menuBreakdown[mIdx]
 
-    const lampiranBody: any[] = []
-    let rowIdx = 1
+      // Cek apakah sisa halaman cukup untuk judul menu + minimal 2 baris tabel (~30mm)
+      if (lampiranY + 28 > pageHeight - margin) {
+        doc.addPage()
+        lampiranY = 14
+      }
 
-    for (const item of itemsWithUsage) {
-      for (const u of item.menu_usages) {
-        lampiranBody.push([
-          rowIdx++,
-          item.nama,
-          u.menu_item_name,
-          `${u.porsi_terjual.toLocaleString('id-ID')} porsi`,
-          `${u.qty_per_porsi.toLocaleString('id-ID')} ${u.satuan}`,
-          `${u.total_pemakaian.toLocaleString('id-ID')} ${u.satuan}`,
-        ])
+      // Title Bar Menu Item
+      doc.setFillColor(254, 243, 199) // Soft amber / cream
+      doc.roundedRect(margin, lampiranY, pageWidth - margin * 2, 7, 1.5, 1.5, 'F')
+      doc.setDrawColor(245, 158, 11)
+      doc.roundedRect(margin, lampiranY, pageWidth - margin * 2, 7, 1.5, 1.5, 'S')
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8.5)
+      doc.setTextColor(146, 64, 14) // Amber 800
+      doc.text(
+        `${mIdx + 1}. ${menu.menu_item_name.toUpperCase()}`,
+        margin + 4,
+        lampiranY + 4.8
+      )
+
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(8)
+      doc.setTextColor(180, 83, 9)
+      const porsiBadgeText = `Total Terjual: ${menu.total_porsi.toLocaleString('id-ID')} Porsi`
+      doc.text(
+        porsiBadgeText,
+        pageWidth - margin - 4,
+        lampiranY + 4.8,
+        { align: 'right' }
+      )
+
+      lampiranY += 9
+
+      if (!menu.has_recipe || menu.ingredients.length === 0) {
+        // Warning jika menu belum ada resepnya
+        doc.setFillColor(254, 242, 242) // Rose 50
+        doc.roundedRect(margin, lampiranY, pageWidth - margin * 2, 6.5, 1, 1, 'F')
+        doc.setFont('helvetica', 'italic')
+        doc.setFontSize(7.5)
+        doc.setTextColor(185, 28, 28) // Rose 700
+        doc.text(
+          `* Resep (BOM) belum dikonfigurasi di sistem untuk menu ini (terjual ${menu.total_porsi} porsi). Konsumsi bahan baku belum dapat dihitung otomatis.`,
+          margin + 4,
+          lampiranY + 4.2
+        )
+        lampiranY += 9
+      } else {
+        const subHeaders = [
+          'No',
+          'Nama Bahan Baku',
+          'Standar BOM / Porsi',
+          'Rumus Perhitungan (BOM x Qty Terjual)',
+          'Total Kebutuhan Bahan',
+        ]
+
+        const subBody = menu.ingredients.map((ing: any, ingIdx: number) => {
+          const rumus = `${ing.qty_per_porsi.toLocaleString('id-ID')} ${ing.satuan} x ${menu.total_porsi.toLocaleString('id-ID')} porsi`
+          const totalStr = `${ing.total_kebutuhan.toLocaleString('id-ID')} ${ing.satuan}`
+          return [
+            ingIdx + 1,
+            ing.nama_bahan,
+            `${ing.qty_per_porsi.toLocaleString('id-ID')} ${ing.satuan}`,
+            rumus,
+            totalStr,
+          ]
+        })
+
+        autoTable(doc, {
+          head: [subHeaders],
+          body: subBody,
+          startY: lampiranY,
+          margin: { left: margin, right: margin },
+          theme: 'grid',
+          styles: {
+            fontSize: 7.5,
+            cellPadding: 1.8,
+            lineColor: [226, 232, 240],
+            lineWidth: 0.2,
+            textColor: [30, 41, 59],
+          },
+          headStyles: {
+            fillColor: [112, 22, 4], // Suka Maroon
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            halign: 'center',
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 10 },
+            1: { fontStyle: 'bold', cellWidth: 55 },
+            2: { halign: 'right', cellWidth: 40 },
+            3: { halign: 'center' },
+            4: { halign: 'right', fontStyle: 'bold', cellWidth: 45 },
+          },
+
+          alternateRowStyles: {
+            fillColor: [255, 250, 245],
+          },
+        })
+
+        lampiranY = (doc as any).lastAutoTable.finalY + 5
       }
     }
 
+    // ── BAGIAN 2: Ringkasan Akumulasi Kebutuhan Bahan (Validasi Opname) ──
+    if (lampiranY + 40 > pageHeight - margin) {
+      doc.addPage()
+      lampiranY = 14
+    } else {
+      lampiranY += 4
+    }
+
+    doc.setFillColor(16, 149, 106) // Emerald 600
+    doc.rect(margin, lampiranY, 4, 12, 'F')
+
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10)
+    doc.setTextColor(30, 41, 59)
+    doc.text('RINGKASAN AKUMULASI KEBUTUHAN BAHAN BAKU (ACUAN VALIDASI OPNAME)', margin + 8, lampiranY + 5)
+
+    doc.setFontSize(7.5)
+    doc.setFont('helvetica', 'normal')
+    doc.setTextColor(100, 116, 139)
+    doc.text(
+      'Total kebutuhan teoritis resep POS dari seluruh menu terjual. Angka ini menjadi acuan validasi kolom Pemakaian POS di Halaman 1.',
+      margin + 8,
+      lampiranY + 10
+    )
+
+    lampiranY += 15
+
+    // Hitung akumulasi per bahan baku dari ingredients
+    const summaryMap = new Map<string, { nama: string; satuan: string; total: number }>()
+    for (const menu of menuBreakdown) {
+      for (const ing of menu.ingredients) {
+        const existing = summaryMap.get(ing.bahan_baku_id)
+        if (existing) {
+          existing.total += ing.total_kebutuhan
+        } else {
+          summaryMap.set(ing.bahan_baku_id, {
+            nama: ing.nama_bahan,
+            satuan: ing.satuan,
+            total: ing.total_kebutuhan,
+          })
+        }
+      }
+    }
+
+    const summaryList = Array.from(summaryMap.values()).sort((a, b) => a.nama.localeCompare(b.nama))
+
+    const summaryHeaders = [
+      'No',
+      'Nama Bahan Baku',
+      'Satuan',
+      'Total Kebutuhan Teoritis (BOM POS)',
+      'Acuan Status di Laporan Rekonsiliasi (Halaman 1)',
+    ]
+
+    const summaryBody = summaryList.map((s, idx) => [
+      idx + 1,
+      s.nama,
+      s.satuan,
+      `${s.total.toLocaleString('id-ID')} ${s.satuan}`,
+      'Sesuai dengan kolom Pemakaian POS',
+    ])
+
     autoTable(doc, {
-      head: [lampiranHeaders],
-      body: lampiranBody,
+      head: [summaryHeaders],
+      body: summaryBody,
       startY: lampiranY,
       margin: { left: margin, right: margin },
+      theme: 'grid',
       styles: {
-        fontSize: 8,
-        cellPadding: 2.5,
+        fontSize: 7.5,
+        cellPadding: 2,
         lineColor: [226, 232, 240],
         lineWidth: 0.2,
         textColor: [30, 41, 59],
       },
       headStyles: {
-        fillColor: [242, 102, 34], // Suka Orange
+        fillColor: [16, 149, 106], // Emerald 600
         textColor: [255, 255, 255],
         fontStyle: 'bold',
         halign: 'center',
       },
       columnStyles: {
-        0: { halign: 'center', cellWidth: 12 },
-        1: { fontStyle: 'bold', cellWidth: 55 },
-        2: { fontStyle: 'normal' },
-        3: { halign: 'right', cellWidth: 32 },
-        4: { halign: 'right', cellWidth: 45 },
-        5: { halign: 'right', fontStyle: 'bold', cellWidth: 45 },
+        0: { halign: 'center', cellWidth: 10 },
+        1: { fontStyle: 'bold', cellWidth: 60 },
+        2: { halign: 'center', cellWidth: 25 },
+        3: { halign: 'right', fontStyle: 'bold', cellWidth: 55 },
+        4: { halign: 'left', fontStyle: 'italic', textColor: [71, 85, 105] },
       },
       alternateRowStyles: {
-        fillColor: [255, 250, 245],
+        fillColor: [240, 253, 244], // Emerald 50
       },
     })
   }
@@ -325,3 +500,4 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
 
   doc.save(filename)
 }
+

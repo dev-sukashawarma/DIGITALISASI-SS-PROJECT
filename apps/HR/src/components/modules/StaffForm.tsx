@@ -776,6 +776,16 @@ export function StaffForm({
             </div>
 
             <div>
+              <label htmlFor="sf-bpjs-ket" className={labelCls}>BPJS Ketenagakerjaan</label>
+              <input id="sf-bpjs-ket" className={inputCls} placeholder="No. BPJS Ketenagakerjaan" {...register('bpjs_ketenagakerjaan')} />
+            </div>
+
+            <div>
+              <label htmlFor="sf-bpjs-kes" className={labelCls}>BPJS Kesehatan</label>
+              <input id="sf-bpjs-kes" className={inputCls} placeholder="No. BPJS Kesehatan" {...register('bpjs_kesehatan')} />
+            </div>
+
+            <div>
               <label htmlFor="sf-bank-name" className={labelCls}>Nama Bank</label>
               <input id="sf-bank-name" className={inputCls} placeholder="BCA / Mandiri / BNI / BRI" {...register('bank_name')} />
             </div>

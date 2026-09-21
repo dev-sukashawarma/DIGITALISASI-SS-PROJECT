@@ -247,6 +247,12 @@ export function StaffForm({
 
     if (isPrivileged) {
       payload.basic_salary = data.basic_salary || 0
+      payload.allowance_meal = data.allowance_meal || 0
+      payload.allowance_transport = data.allowance_transport || 0
+      payload.allowance_communication = data.allowance_communication || 0
+      payload.sales_bonus = data.sales_bonus || 0
+      payload.deduction_kasbon = data.deduction_kasbon || 0
+      payload.deduction_bpjs = data.deduction_bpjs || 0
       payload.allowance_position = data.allowance_position || 0
       payload.allowance_presence = data.allowance_presence || 0
       payload.bank_name = data.bank_name || undefined

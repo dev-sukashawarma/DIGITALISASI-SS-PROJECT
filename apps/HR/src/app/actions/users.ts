@@ -10,10 +10,11 @@ function getAdminSupabase() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } })
 }
 
-export async function createStaffSync(values: StaffFormValues) {
-  await requireRole(['admin', 'owner', 'admin_hr'])
+export async function createStaffSync(values: StaffFormValues): Promise<{ ok: boolean; staff_id?: string; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
 
-  const admin = getAdminSupabase()
+    const admin = getAdminSupabase()
   
   const {
     name, username, password, role, outlet_id, outlet_ids,
@@ -42,7 +43,7 @@ export async function createStaffSync(values: StaffFormValues) {
       .maybeSingle()
     if (conflictNik) {
       const outletName = (conflictNik as any).outlets?.name || 'Pusat'
-      throw new Error(`NIK "${cleanNik}" sudah terdaftar atas nama karyawan "${conflictNik.name}" (${outletName}). Mohon periksa kembali data NIK.`)
+      return { ok: false, error: `NIK "${cleanNik}" sudah terdaftar atas nama karyawan "${conflictNik.name}" (${outletName}). Mohon periksa kembali data NIK.` }
     }
   }
 
@@ -55,7 +56,7 @@ export async function createStaffSync(values: StaffFormValues) {
       .maybeSingle()
     if (conflictNip) {
       const outletName = (conflictNip as any).outlets?.name || 'Pusat'
-      throw new Error(`NIP "${cleanNip}" sudah terdaftar atas nama karyawan "${conflictNip.name}" (${outletName}). Mohon periksa kembali data NIP.`)
+      return { ok: false, error: `NIP "${cleanNip}" sudah terdaftar atas nama karyawan "${conflictNip.name}" (${outletName}). Mohon periksa kembali data NIP.` }
     }
   }
 
@@ -68,7 +69,7 @@ export async function createStaffSync(values: StaffFormValues) {
     email_confirm: true,
     user_metadata: { role, name, outlet_id },
   })
-  if (createError) throw new Error(`Gagal membuat akun auth: ${createError.message}`)
+  if (createError) return { ok: false, error: `Gagal membuat akun auth: ${createError.message}` }
 
   const staffId = newUser.user.id
 
@@ -103,15 +104,15 @@ export async function createStaffSync(values: StaffFormValues) {
   if (insertError) {
     await admin.auth.admin.deleteUser(staffId)
     if (insertError.code === '23505' || insertError.message.includes('outlet_staff_nik_key')) {
-      throw new Error(`NIK "${cleanNik}" sudah terdaftar pada karyawan lain. Mohon gunakan NIK yang berbeda.`)
+      return { ok: false, error: `NIK "${cleanNik}" sudah terdaftar pada karyawan lain. Mohon gunakan NIK yang berbeda.` }
     }
     if (insertError.code === '23505' || insertError.message.includes('outlet_staff_nip_key')) {
-      throw new Error(`NIP "${cleanNip}" sudah terdaftar pada karyawan lain.`)
+      return { ok: false, error: `NIP "${cleanNip}" sudah terdaftar pada karyawan lain.` }
     }
     if (insertError.code === '23505' || insertError.message.includes('outlet_staff_username_key')) {
-      throw new Error(`Username sudah terdaftar pada karyawan lain.`)
+      return { ok: false, error: `Username sudah terdaftar pada karyawan lain.` }
     }
-    throw new Error(`Gagal menyimpan data staff: ${insertError.message}`)
+    return { ok: false, error: `Gagal menyimpan data staff: ${insertError.message}` }
   }
 
   // 3. Financials
@@ -152,291 +153,311 @@ export async function createStaffSync(values: StaffFormValues) {
     await admin.from('staff_outlets').insert(rows)
   }
 
-  return { ok: true, staff_id: staffId }
+    return { ok: true, staff_id: staffId }
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Terjadi kesalahan sistem saat membuat staf' }
+  }
 }
 
-export async function updateStaffSync(vars: { staff_id: string } & Partial<StaffFormValues>) {
-  await requireRole(['admin', 'owner', 'admin_hr'])
+export async function updateStaffSync(vars: { staff_id: string } & Partial<StaffFormValues>): Promise<{ ok: boolean; staff_id?: string; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
 
-  const admin = getAdminSupabase()
-  const { staff_id, ...values } = vars
-  if (!staff_id) throw new Error('ID staf tidak valid')
+    const admin = getAdminSupabase()
+    const { staff_id, ...values } = vars
+    if (!staff_id) return { ok: false, error: 'ID staf tidak valid' }
 
-  const {
-    name, role, outlet_id, outlet_ids, status, is_bonus_eligible,
-    nik, email: personal_email, phone, address_ktp, address_domicile,
-    birth_place, birth_date, gender, religion,
-    emergency_name, emergency_relationship, emergency_phone,
-    nip, contract_type, join_date, resign_date, leave_quota,
-    basic_salary, allowance_position, allowance_presence,
-    allowance_meal, allowance_transport, allowance_communication,
-    sales_bonus, deduction_kasbon, deduction_bpjs,
-    bank_name, bank_account_number, bank_account_name,
-    npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
-  } = values as any
+    const {
+      name, role, outlet_id, outlet_ids, status, is_bonus_eligible,
+      nik, email: personal_email, phone, address_ktp, address_domicile,
+      birth_place, birth_date, gender, religion,
+      emergency_name, emergency_relationship, emergency_phone,
+      nip, contract_type, join_date, resign_date, leave_quota,
+      basic_salary, allowance_position, allowance_presence,
+      allowance_meal, allowance_transport, allowance_communication,
+      sales_bonus, deduction_kasbon, deduction_bpjs,
+      bank_name, bank_account_number, bank_account_name,
+      npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
+    } = values as any
 
-  const cleanNik = typeof nik === 'string' && nik.trim() ? nik.trim() : null
-  const cleanNip = typeof nip === 'string' && nip.trim() ? nip.trim() : null
-  const cleanPersonalEmail = typeof personal_email === 'string' && personal_email.trim() ? personal_email.trim() : null
-  const cleanPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : null
+    const cleanNik = typeof nik === 'string' && nik.trim() ? nik.trim() : null
+    const cleanNip = typeof nip === 'string' && nip.trim() ? nip.trim() : null
+    const cleanPersonalEmail = typeof personal_email === 'string' && personal_email.trim() ? personal_email.trim() : null
+    const cleanPhone = typeof phone === 'string' && phone.trim() ? phone.trim() : null
 
-  // 1. Check duplicate NIK if provided
-  if (cleanNik) {
-    const { data: conflictNik } = await admin
-      .from('outlet_staff')
-      .select('id, name, username, outlets(name)')
-      .eq('nik', cleanNik)
-      .neq('id', staff_id)
-      .maybeSingle()
+    // 1. Check duplicate NIK if provided
+    if (cleanNik) {
+      const { data: conflictNik } = await admin
+        .from('outlet_staff')
+        .select('id, name, username, outlets(name)')
+        .eq('nik', cleanNik)
+        .neq('id', staff_id)
+        .maybeSingle()
 
-    if (conflictNik) {
-      const outletName = (conflictNik as any).outlets?.name || 'Pusat'
-      throw new Error(`NIK "${cleanNik}" sudah terdaftar atas nama karyawan "${conflictNik.name}" (${outletName}). Mohon periksa kembali NIK yang dimasukkan.`)
-    }
-  }
-
-  // 2. Check duplicate NIP if provided
-  if (cleanNip) {
-    const { data: conflictNip } = await admin
-      .from('outlet_staff')
-      .select('id, name, username, outlets(name)')
-      .eq('nip', cleanNip)
-      .neq('id', staff_id)
-      .maybeSingle()
-
-    if (conflictNip) {
-      const outletName = (conflictNip as any).outlets?.name || 'Pusat'
-      throw new Error(`NIP "${cleanNip}" sudah terdaftar atas nama karyawan "${conflictNip.name}" (${outletName}). Mohon periksa kembali NIP yang dimasukkan.`)
-    }
-  }
-
-  // 3. Build outlet_staff patch
-  const patch: Record<string, unknown> = {}
-  if (name !== undefined) patch.name = name
-  if (role !== undefined) patch.role = role
-  if (outlet_id !== undefined) patch.outlet_id = outlet_id || null
-  if (status !== undefined) patch.status = status
-  if (is_bonus_eligible !== undefined) patch.is_bonus_eligible = Boolean(is_bonus_eligible)
-  if (nik !== undefined) patch.nik = cleanNik
-  if (personal_email !== undefined) patch.email = cleanPersonalEmail
-  if (phone !== undefined) patch.phone = cleanPhone
-  if (address_ktp !== undefined) patch.address_ktp = address_ktp || null
-  if (address_domicile !== undefined) patch.address_domicile = address_domicile || null
-  if (birth_place !== undefined) patch.birth_place = birth_place || null
-  if (birth_date !== undefined) patch.birth_date = birth_date || null
-  if (gender !== undefined) patch.gender = gender || null
-  if (religion !== undefined) patch.religion = religion || null
-  if (emergency_name !== undefined) patch.emergency_name = emergency_name || null
-  if (emergency_relationship !== undefined) patch.emergency_relationship = emergency_relationship || null
-  if (emergency_phone !== undefined) patch.emergency_phone = emergency_phone || null
-  if (nip !== undefined) patch.nip = cleanNip
-  if (contract_type !== undefined) patch.contract_type = contract_type || null
-  if (join_date !== undefined) patch.join_date = join_date || null
-  if (resign_date !== undefined) patch.resign_date = resign_date || null
-  if (leave_quota !== undefined) patch.leave_quota = leave_quota !== null ? Number(leave_quota) : 12
-
-  if (Object.keys(patch).length > 0) {
-    const { error: updateError } = await admin.from('outlet_staff').update(patch).eq('id', staff_id)
-    if (updateError) {
-      if (updateError.code === '23505' || updateError.message.includes('outlet_staff_nik_key')) {
-        throw new Error(`NIK yang dimasukkan sudah terdaftar pada karyawan lain. Mohon gunakan NIK yang berbeda.`)
+      if (conflictNik) {
+        const outletName = (conflictNik as any).outlets?.name || 'Pusat'
+        return { ok: false, error: `NIK "${cleanNik}" sudah terdaftar atas nama karyawan "${conflictNik.name}" (${outletName}). Mohon periksa kembali NIK yang dimasukkan.` }
       }
-      if (updateError.code === '23505' || updateError.message.includes('outlet_staff_nip_key')) {
-        throw new Error(`NIP yang dimasukkan sudah terdaftar pada karyawan lain.`)
+    }
+
+    // 2. Check duplicate NIP if provided
+    if (cleanNip) {
+      const { data: conflictNip } = await admin
+        .from('outlet_staff')
+        .select('id, name, username, outlets(name)')
+        .eq('nip', cleanNip)
+        .neq('id', staff_id)
+        .maybeSingle()
+
+      if (conflictNip) {
+        const outletName = (conflictNip as any).outlets?.name || 'Pusat'
+        return { ok: false, error: `NIP "${cleanNip}" sudah terdaftar atas nama karyawan "${conflictNip.name}" (${outletName}). Mohon periksa kembali NIP yang dimasukkan.` }
       }
-      if (updateError.code === '23505' || updateError.message.includes('outlet_staff_username_key')) {
-        throw new Error(`Username sudah digunakan oleh akun lain.`)
+    }
+
+    // 3. Build outlet_staff patch
+    const patch: Record<string, unknown> = {}
+    if (name !== undefined) patch.name = name
+    if (role !== undefined) patch.role = role
+    if (outlet_id !== undefined) patch.outlet_id = outlet_id || null
+    if (status !== undefined) patch.status = status
+    if (is_bonus_eligible !== undefined) patch.is_bonus_eligible = Boolean(is_bonus_eligible)
+    if (nik !== undefined) patch.nik = cleanNik
+    if (personal_email !== undefined) patch.email = cleanPersonalEmail
+    if (phone !== undefined) patch.phone = cleanPhone
+    if (address_ktp !== undefined) patch.address_ktp = address_ktp || null
+    if (address_domicile !== undefined) patch.address_domicile = address_domicile || null
+    if (birth_place !== undefined) patch.birth_place = birth_place || null
+    if (birth_date !== undefined) patch.birth_date = birth_date || null
+    if (gender !== undefined) patch.gender = gender || null
+    if (religion !== undefined) patch.religion = religion || null
+    if (emergency_name !== undefined) patch.emergency_name = emergency_name || null
+    if (emergency_relationship !== undefined) patch.emergency_relationship = emergency_relationship || null
+    if (emergency_phone !== undefined) patch.emergency_phone = emergency_phone || null
+    if (nip !== undefined) patch.nip = cleanNip
+    if (contract_type !== undefined) patch.contract_type = contract_type || null
+    if (join_date !== undefined) patch.join_date = join_date || null
+    if (resign_date !== undefined) patch.resign_date = resign_date || null
+    if (leave_quota !== undefined) patch.leave_quota = leave_quota !== null ? Number(leave_quota) : 12
+
+    if (Object.keys(patch).length > 0) {
+      const { error: updateError } = await admin.from('outlet_staff').update(patch).eq('id', staff_id)
+      if (updateError) {
+        if (updateError.code === '23505' || updateError.message.includes('outlet_staff_nik_key')) {
+          return { ok: false, error: `NIK yang dimasukkan sudah terdaftar pada karyawan lain. Mohon gunakan NIK yang berbeda.` }
+        }
+        if (updateError.code === '23505' || updateError.message.includes('outlet_staff_nip_key')) {
+          return { ok: false, error: `NIP yang dimasukkan sudah terdaftar pada karyawan lain.` }
+        }
+        if (updateError.code === '23505' || updateError.message.includes('outlet_staff_username_key')) {
+          return { ok: false, error: `Username sudah digunakan oleh akun lain.` }
+        }
+        return { ok: false, error: `Gagal memperbarui profil staf: ${updateError.message}` }
       }
-      throw new Error(`Gagal memperbarui profil staf: ${updateError.message}`)
-    }
-  }
-
-  // 4. Update / Upsert staff_financials
-  const hasFinancialsInput =
-    basic_salary !== undefined ||
-    allowance_meal !== undefined ||
-    allowance_transport !== undefined ||
-    allowance_communication !== undefined ||
-    sales_bonus !== undefined ||
-    deduction_kasbon !== undefined ||
-    deduction_bpjs !== undefined ||
-    allowance_position !== undefined ||
-    allowance_presence !== undefined ||
-    bank_name !== undefined ||
-    bank_account_number !== undefined ||
-    bank_account_name !== undefined ||
-    npwp !== undefined ||
-    bpjs_ketenagakerjaan !== undefined ||
-    bpjs_kesehatan !== undefined
-
-  if (hasFinancialsInput) {
-    const finPayload = {
-      staff_id,
-      basic_salary: basic_salary || 0,
-      allowance_meal: allowance_meal || 0,
-      allowance_transport: allowance_transport || 0,
-      allowance_communication: allowance_communication || 0,
-      sales_bonus: sales_bonus || 0,
-      deduction_kasbon: deduction_kasbon || 0,
-      deduction_bpjs: deduction_bpjs || 0,
-      allowance_position: allowance_position || 0,
-      allowance_presence: allowance_presence || 0,
-      bank_name: bank_name || '',
-      bank_account_number: bank_account_number || '',
-      bank_account_name: bank_account_name || '',
-      npwp: (typeof npwp === 'string' && npwp.trim()) || null,
-      bpjs_ketenagakerjaan: (typeof bpjs_ketenagakerjaan === 'string' && bpjs_ketenagakerjaan.trim()) || null,
-      bpjs_kesehatan: (typeof bpjs_kesehatan === 'string' && bpjs_kesehatan.trim()) || null,
-      updated_at: new Date().toISOString(),
     }
 
-    const { error: finError } = await admin.from('staff_financials').upsert(finPayload, { onConflict: 'staff_id' })
-    if (finError) throw new Error(`Gagal menyimpan data finansial: ${finError.message}`)
-  }
+    // 4. Update / Upsert staff_financials
+    const hasFinancialsInput =
+      basic_salary !== undefined ||
+      allowance_meal !== undefined ||
+      allowance_transport !== undefined ||
+      allowance_communication !== undefined ||
+      sales_bonus !== undefined ||
+      deduction_kasbon !== undefined ||
+      deduction_bpjs !== undefined ||
+      allowance_position !== undefined ||
+      allowance_presence !== undefined ||
+      bank_name !== undefined ||
+      bank_account_number !== undefined ||
+      bank_account_name !== undefined ||
+      npwp !== undefined ||
+      bpjs_ketenagakerjaan !== undefined ||
+      bpjs_kesehatan !== undefined
 
-  // 5. Update staff_outlets if leader
-  if ((role === 'leader' || role === 'area_manager') && Array.isArray(outlet_ids)) {
-    await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
-    if (outlet_ids.length > 0) {
-      const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }))
-      await admin.from('staff_outlets').insert(rows)
+    if (hasFinancialsInput) {
+      const finPayload = {
+        staff_id,
+        basic_salary: basic_salary || 0,
+        allowance_meal: allowance_meal || 0,
+        allowance_transport: allowance_transport || 0,
+        allowance_communication: allowance_communication || 0,
+        sales_bonus: sales_bonus || 0,
+        deduction_kasbon: deduction_kasbon || 0,
+        deduction_bpjs: deduction_bpjs || 0,
+        allowance_position: allowance_position || 0,
+        allowance_presence: allowance_presence || 0,
+        bank_name: bank_name || '',
+        bank_account_number: bank_account_number || '',
+        bank_account_name: bank_account_name || '',
+        npwp: (typeof npwp === 'string' && npwp.trim()) || null,
+        bpjs_ketenagakerjaan: (typeof bpjs_ketenagakerjaan === 'string' && bpjs_ketenagakerjaan.trim()) || null,
+        bpjs_kesehatan: (typeof bpjs_kesehatan === 'string' && bpjs_kesehatan.trim()) || null,
+        updated_at: new Date().toISOString(),
+      }
+
+      const { error: finError } = await admin.from('staff_financials').upsert(finPayload, { onConflict: 'staff_id' })
+      if (finError) return { ok: false, error: `Gagal menyimpan data finansial: ${finError.message}` }
     }
-  }
 
-  return { ok: true, staff_id }
+    // 5. Update staff_outlets if leader
+    if ((role === 'leader' || role === 'area_manager') && Array.isArray(outlet_ids)) {
+      await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
+      if (outlet_ids.length > 0) {
+        const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }))
+        await admin.from('staff_outlets').insert(rows)
+      }
+    }
+
+    return { ok: true, staff_id }
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Terjadi kesalahan sistem saat memperbarui staf' }
+  }
 }
 
-export async function toggleStaffBonusEligibility(staffId: string, isBonusEligible: boolean) {
-  await requireRole(['admin', 'owner', 'admin_hr'])
-  const admin = getAdminSupabase()
-  const { error } = await admin
-    .from('outlet_staff')
-    .update({ is_bonus_eligible: isBonusEligible })
-    .eq('id', staffId)
+export async function toggleStaffBonusEligibility(staffId: string, isBonusEligible: boolean): Promise<{ ok: boolean; error?: string }> {
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
+    const admin = getAdminSupabase()
+    const { error } = await admin
+      .from('outlet_staff')
+      .update({ is_bonus_eligible: isBonusEligible })
+      .eq('id', staffId)
 
-  if (error) {
-    throw new Error(`Gagal mengubah status bonus: ${error.message}`)
+    if (error) {
+      return { ok: false, error: `Gagal mengubah status bonus: ${error.message}` }
+    }
+
+    return { ok: true }
+  } catch (err: any) {
+    return { ok: false, error: err.message || 'Gagal mengubah status bonus' }
   }
-
-  return { ok: true }
 }
 
 export async function deleteStaffSync(staffId: string): Promise<{
   ok: boolean
   archived?: boolean
   message: string
+  error?: string
 }> {
-  await requireRole(['admin', 'owner', 'admin_hr'])
+  try {
+    await requireRole(['admin', 'owner', 'admin_hr'])
 
-  if (!staffId) throw new Error('ID staf tidak valid')
-  const admin = getAdminSupabase()
+    if (!staffId) return { ok: false, message: 'ID staf tidak valid', error: 'ID staf tidak valid' }
+    const admin = getAdminSupabase()
 
-  // 1. Fetch staff info
-  const { data: staff, error: staffErr } = await admin
-    .from('outlet_staff')
-    .select('id, name, status, outlet_id, resign_date')
-    .eq('id', staffId)
-    .single()
-
-  if (staffErr || !staff) {
-    throw new Error('Data karyawan tidak ditemukan')
-  }
-
-  // 2. Check operational records: shifts & attendance
-  const { count: shiftCount } = await admin
-    .from('shifts')
-    .select('*', { count: 'exact', head: true })
-    .or(`staff_id.eq.${staffId},closed_by.eq.${staffId}`)
-
-  const { count: attendanceCount } = await admin
-    .from('attendance')
-    .select('*', { count: 'exact', head: true })
-    .eq('outlet_staff_id', staffId)
-
-  const hasOperationalHistory = (shiftCount ?? 0) > 0 || (attendanceCount ?? 0) > 0
-
-  if (hasOperationalHistory) {
-    const today = new Date().toISOString().split('T')[0]
-
-    // Soft delete / archive
-    const { error: updateErr } = await admin
+    // 1. Fetch staff info
+    const { data: staff, error: staffErr } = await admin
       .from('outlet_staff')
-      .update({
-        status: 'inactive',
-        is_active: false,
-        inactive_reason: 'Diarsipkan oleh HR (memiliki riwayat operasional shift/absensi)',
-        resign_date: staff.resign_date || today,
-      })
+      .select('id, name, status, outlet_id, resign_date')
       .eq('id', staffId)
+      .single()
 
-    if (updateErr) {
-      throw new Error(`Gagal menonaktifkan karyawan: ${updateErr.message}`)
+    if (staffErr || !staff) {
+      return { ok: false, message: 'Data karyawan tidak ditemukan', error: 'Data karyawan tidak ditemukan' }
     }
 
-    // Unassign from all outlets
-    await admin.from('staff_outlets').delete().eq('staff_id', staffId)
+    // 2. Check operational records: shifts & attendance
+    const { count: shiftCount } = await admin
+      .from('shifts')
+      .select('*', { count: 'exact', head: true })
+      .or(`staff_id.eq.${staffId},closed_by.eq.${staffId}`)
 
-    // Remove or revoke login credentials from auth.users
-    try {
-      await admin.auth.admin.deleteUser(staffId)
-    } catch (authErr) {
-      console.warn('Gagal menghapus user auth (kemungkinan sudah dihapus atau ada relasi auth):', authErr)
-      try {
-        await admin.auth.admin.updateUserById(staffId, {
-          ban_duration: '876000h',
-          user_metadata: { deactivated: true },
-        })
-      } catch (_) {}
-    }
+    const { count: attendanceCount } = await admin
+      .from('attendance')
+      .select('*', { count: 'exact', head: true })
+      .eq('outlet_staff_id', staffId)
 
-    return {
-      ok: true,
-      archived: true,
-      message: `Karyawan "${staff.name}" memiliki riwayat operasional (${shiftCount || 0} shift, ${attendanceCount || 0} absensi). Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut demi integritas data keuangan.`,
-    }
-  }
+    const hasOperationalHistory = (shiftCount ?? 0) > 0 || (attendanceCount ?? 0) > 0
 
-  // 3. No operational history -> Try hard delete
-  await admin.from('staff_outlets').delete().eq('staff_id', staffId)
-  await admin.from('staff_financials').delete().eq('staff_id', staffId)
-
-  const { error: deleteError } = await admin.from('outlet_staff').delete().eq('id', staffId)
-  if (deleteError) {
-    if (deleteError.code === '23503' || deleteError.message.includes('foreign key constraint')) {
+    if (hasOperationalHistory) {
       const today = new Date().toISOString().split('T')[0]
-      await admin
+
+      // Soft delete / archive
+      const { error: updateErr } = await admin
         .from('outlet_staff')
         .update({
           status: 'inactive',
           is_active: false,
-          inactive_reason: 'Diarsipkan oleh HR (terkait data historis)',
+          inactive_reason: 'Diarsipkan oleh HR (memiliki riwayat operasional shift/absensi)',
           resign_date: staff.resign_date || today,
         })
         .eq('id', staffId)
 
+      if (updateErr) {
+        return { ok: false, message: `Gagal menonaktifkan karyawan: ${updateErr.message}`, error: updateErr.message }
+      }
+
+      // Unassign from all outlets
+      await admin.from('staff_outlets').delete().eq('staff_id', staffId)
+
+      // Remove or revoke login credentials from auth.users
       try {
         await admin.auth.admin.deleteUser(staffId)
-      } catch (_) {}
+      } catch (authErr) {
+        console.warn('Gagal menghapus user auth (kemungkinan sudah dihapus atau ada relasi auth):', authErr)
+        try {
+          await admin.auth.admin.updateUserById(staffId, {
+            ban_duration: '876000h',
+            user_metadata: { deactivated: true },
+          })
+        } catch (_) {}
+      }
 
       return {
         ok: true,
         archived: true,
-        message: `Karyawan "${staff.name}" terkait dengan data sistem. Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut.`,
+        message: `Karyawan "${staff.name}" memiliki riwayat operasional (${shiftCount || 0} shift, ${attendanceCount || 0} absensi). Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut demi integritas data keuangan.`,
       }
     }
-    throw new Error(`Gagal menghapus karyawan: ${deleteError.message}`)
-  }
 
-  // Delete auth user
-  try {
-    await admin.auth.admin.deleteUser(staffId)
-  } catch (authErr) {
-    console.warn('Gagal menghapus auth user:', authErr)
-  }
+    // 3. No operational history -> Try hard delete
+    await admin.from('staff_outlets').delete().eq('staff_id', staffId)
+    await admin.from('staff_financials').delete().eq('staff_id', staffId)
 
-  return {
-    ok: true,
-    archived: false,
-    message: `Karyawan "${staff.name}" berhasil dihapus permanen.`,
+    const { error: deleteError } = await admin.from('outlet_staff').delete().eq('id', staffId)
+    if (deleteError) {
+      if (deleteError.code === '23503' || deleteError.message.includes('foreign key constraint')) {
+        const today = new Date().toISOString().split('T')[0]
+        await admin
+          .from('outlet_staff')
+          .update({
+            status: 'inactive',
+            is_active: false,
+            inactive_reason: 'Diarsipkan oleh HR (terkait data historis)',
+            resign_date: staff.resign_date || today,
+          })
+          .eq('id', staffId)
+
+        try {
+          await admin.auth.admin.deleteUser(staffId)
+        } catch (_) {}
+
+        return {
+          ok: true,
+          archived: true,
+          message: `Karyawan "${staff.name}" terkait dengan data sistem. Akun berhasil diarsipkan (status Nonaktif) & akses login dicabut.`,
+        }
+      }
+      return { ok: false, message: `Gagal menghapus karyawan: ${deleteError.message}`, error: deleteError.message }
+    }
+
+    // Delete auth user
+    try {
+      await admin.auth.admin.deleteUser(staffId)
+    } catch (authErr) {
+      console.warn('Gagal menghapus auth user:', authErr)
+    }
+
+    return {
+      ok: true,
+      archived: false,
+      message: `Karyawan "${staff.name}" berhasil dihapus permanen.`,
+    }
+  } catch (err: any) {
+    return {
+      ok: false,
+      message: err.message || 'Gagal menghapus karyawan',
+      error: err.message || 'Gagal menghapus karyawan',
+    }
   }
 }

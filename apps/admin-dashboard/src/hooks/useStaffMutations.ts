@@ -21,7 +21,11 @@ export function useStaffMutations() {
   }
 
   const create = useMutation({
-    mutationFn: (values: StaffFormValues) => createStaffSync(values),
+    mutationFn: async (values: StaffFormValues) => {
+      const res = await createStaffSync(values)
+      if (!res.ok) throw new Error(res.error || 'Gagal menambahkan staf')
+      return res
+    },
     onSuccess: invalidate,
   })
   const update = useMutation({
@@ -39,8 +43,11 @@ export function useStaffMutations() {
     onSuccess: invalidate,
   })
   const toggleBonusEligibility = useMutation({
-    mutationFn: (vars: { staff_id: string; is_bonus_eligible: boolean }) =>
-      toggleStaffBonusEligibility(vars.staff_id, vars.is_bonus_eligible),
+    mutationFn: async (vars: { staff_id: string; is_bonus_eligible: boolean }) => {
+      const res = await toggleStaffBonusEligibility(vars.staff_id, vars.is_bonus_eligible)
+      if (!res.ok) throw new Error(res.error || 'Gagal mengubah status bonus')
+      return res
+    },
     onSuccess: invalidate,
   })
   const remove = useMutation({

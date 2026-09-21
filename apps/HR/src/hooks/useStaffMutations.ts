@@ -18,12 +18,19 @@ export function useStaffMutations() {
   }
 
   const create = useMutation({
-    mutationFn: (values: StaffFormValues) => createStaffSync(values),
+    mutationFn: async (values: StaffFormValues) => {
+      const res = await createStaffSync(values)
+      if (!res.ok) throw new Error(res.error || 'Gagal menambahkan staf')
+      return res
+    },
     onSuccess: invalidate,
   })
   const update = useMutation({
-    mutationFn: (vars: { staff_id: string } & Partial<StaffFormValues>) =>
-      updateStaffSync(vars),
+    mutationFn: async (vars: { staff_id: string } & Partial<StaffFormValues>) => {
+      const res = await updateStaffSync(vars)
+      if (!res.ok) throw new Error(res.error || 'Gagal memperbarui staf')
+      return res
+    },
     onSuccess: invalidate,
   })
   const resetPassword = useMutation({
@@ -36,12 +43,19 @@ export function useStaffMutations() {
     onSuccess: invalidate,
   })
   const toggleBonusEligibility = useMutation({
-    mutationFn: (vars: { staff_id: string; is_bonus_eligible: boolean }) =>
-      toggleStaffBonusEligibility(vars.staff_id, vars.is_bonus_eligible),
+    mutationFn: async (vars: { staff_id: string; is_bonus_eligible: boolean }) => {
+      const res = await toggleStaffBonusEligibility(vars.staff_id, vars.is_bonus_eligible)
+      if (!res.ok) throw new Error(res.error || 'Gagal mengubah status bonus')
+      return res
+    },
     onSuccess: invalidate,
   })
   const remove = useMutation({
-    mutationFn: (staff_id: string) => deleteStaffSync(staff_id),
+    mutationFn: async (staff_id: string) => {
+      const res = await deleteStaffSync(staff_id)
+      if (!res.ok) throw new Error(res.error || res.message || 'Gagal menghapus staf')
+      return res
+    },
     onSuccess: invalidate,
   })
 

@@ -381,6 +381,13 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
   const marginKotor = actualGrossRevenue > 0 ? (labaKotor / actualGrossRevenue) * 100 : 0
   
   // Laba bersih outlet: untuk mitra, dipotong management fee pusat
+  // Apakah ada transaksi antar-kantong (pusat <-> mitra) di scope ini, dan
+  // apakah KEDUA sisinya berada di layar yang sama. Kalau ya, angka gabungan
+  // wajib diberi keterangan: tanpa itu, laba global yang (benar) lebih kecil
+  // dari penjumlahan kasar tampak seperti ada laba yang hilang.
+  const adaAntarKantong = managementFeeReceived > 0 || mitraHppMarginReceived > 0 || managementFeeExpense > 0
+  const duaSisiDiLayarSama = managementFeeReceived > 0 && managementFeeExpense > 0
+
   // managementFeeExpense sudah dipotong di netRevenue (blok antar-kantong).
   const labaBersih = labaKotor - pengeluaranOutlet - totalWaste
   
@@ -1274,7 +1281,7 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
             ? 'Omzet, beban pokok, dan biaya operasional khusus outlet kemitraan (di luar biaya kantor pusat)'
             : scope === 'internal'
               ? 'Omzet, beban pokok, dan biaya operasional outlet milik pusat, termasuk biaya kantor pusat'
-              : 'Seluruh outlet — pusat dan kemitraan — digabung, termasuk biaya kantor pusat'
+              : 'Seluruh outlet — pusat dan kemitraan — digabung, termasuk biaya kantor pusat. Sama dengan Laba Internal + Laba Mitra: fee manajemen & margin bahan antar-kantong dibukukan kedua sisinya, jadi tidak terhitung dua kali.'
         }
         icon={Calculator}
       >
@@ -1545,6 +1552,20 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       <span>Potongan Merchant</span>
                       <span className="font-semibold">-{rupiah(totalDeductions)}</span>
                     </div>
+                    {adaAntarKantong && (
+                      <div className="pt-2 mt-1 border-t border-dashed border-suka-gray-300">
+                        <p className="text-[11px] font-bold text-suka-brown/80 uppercase tracking-wide">
+                          Transaksi Antar-Kantong (Pusat &harr; Mitra)
+                        </p>
+                        <p className="text-[10px] text-suka-gray-500 leading-snug mt-0.5">
+                          {duaSisiDiLayarSama
+                            ? 'Kedua sisinya ada di layar ini, jadi saling menghapus — tidak menambah maupun mengurangi laba gabungan. Bukan penjualan ke pelanggan, karena itu tidak ikut ke Omzet Kotor.'
+                            : scope === 'mitra'
+                              ? 'Sisi beban. Pasangan pendapatannya ada di tab Internal.'
+                              : 'Sisi pendapatan. Pasangan bebannya ada di tab Mitra. Bukan penjualan ke pelanggan, karena itu tidak ikut ke Omzet Kotor.'}
+                        </p>
+                      </div>
+                    )}
                     {managementFeeReceived > 0 && (
                       <div className="flex justify-between items-center text-xs text-blue-700 pl-4 border-l-2 border-blue-400 bg-blue-50/50 py-1 pr-2 rounded-r-lg">
                         <div>
@@ -1673,6 +1694,15 @@ export default function ProfitView({ scope = 'all' }: { scope?: ProfitScope }) {
                       </span>
                     </div>
                     <p className="text-xs text-suka-gray-500 mt-1">Keuntungan bersih riil setelah dikurangi seluruh beban dan biaya</p>
+                    {duaSisiDiLayarSama && (
+                      <p className="text-[11px] text-suka-brown/70 mt-1.5 leading-snug max-w-xl">
+                        <span className="font-bold">Laba Rugi Global = Laba Internal + Laba Mitra.</span>{' '}
+                        Management fee {rupiah(managementFeeExpense)} sudah dibukukan{' '}
+                        <span className="font-semibold">kedua sisinya</span> di sini — pendapatan pusat dan
+                        bebannya di mitra — jadi tak ada laba yang terhitung dua kali. Angka ini memang lebih
+                        kecil dari sekadar menjumlahkan omzet semua outlet, dan itu yang benar.
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
                     <span className={`text-2xl sm:text-3xl font-black tracking-tight ${displayLaba >= 0 ? 'text-suka-brown' : 'text-rose-600'}`}>

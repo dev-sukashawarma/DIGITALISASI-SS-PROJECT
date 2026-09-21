@@ -110,7 +110,24 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
     'Nominal (Rp)'
   ]
 
-  const rows = items.map((r, idx) => [
+  // Sort items berdasarkan outlet (Kantor Pusat di awal, lalu cabang A-Z, dan tanggal kronologis)
+  const sortedItems = [...items].sort((a, b) => {
+    const nameA = (a.outlet_name || '-').trim()
+    const nameB = (b.outlet_name || '-').trim()
+
+    const isPusatA = nameA.toLowerCase().includes('kantor pusat') || nameA.toLowerCase() === 'pusat'
+    const isPusatB = nameB.toLowerCase().includes('kantor pusat') || nameB.toLowerCase() === 'pusat'
+
+    if (isPusatA && !isPusatB) return -1
+    if (!isPusatA && isPusatB) return 1
+
+    const cmp = nameA.localeCompare(nameB, 'id', { sensitivity: 'base' })
+    if (cmp !== 0) return cmp
+
+    return a.date.localeCompare(b.date)
+  })
+
+  const rows = sortedItems.map((r, idx) => [
     idx + 1,
     r.date,
     r.outlet_name || '-',

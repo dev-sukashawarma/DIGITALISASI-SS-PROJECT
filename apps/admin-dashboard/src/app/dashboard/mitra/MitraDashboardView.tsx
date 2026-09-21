@@ -740,7 +740,7 @@ export function MitraDashboardView({
                       <div key={ord.id} className="pt-2 flex items-center justify-between gap-3 text-xs">
                         <div className="flex items-center gap-3 min-w-0">
                           <div className="w-8 h-8 rounded-xl bg-suka-gray-50 flex items-center justify-center font-mono font-bold text-[10px] text-suka-gray-500 shrink-0">
-                            #{ord.receipt_number ? ord.receipt_number.slice(-4) : 'ORD'}
+                            #{ord.order_number ?? 'ORD'}
                           </div>
                           <div className="min-w-0">
                             <span className="font-bold text-suka-brown block truncate">

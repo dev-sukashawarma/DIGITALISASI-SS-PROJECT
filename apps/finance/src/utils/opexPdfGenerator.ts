@@ -64,11 +64,8 @@ export async function generateOpexReportPDF(options: OpexPdfOptions): Promise<vo
   doc.text('KANTOR PUSAT & HEAD OFFICE - DIVISI KEUANGAN', 32, 16.5)
 
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10.5)
-  doc.text('LAPORAN PENGELUARAN (OPEX)', 196, 11, { align: 'right' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(7.5)
-  doc.text('DOKUMEN RESMI KAS & BANK', 196, 16.5, { align: 'right' })
+  doc.setFontSize(11)
+  doc.text('LAPORAN PENGELUARAN (OPEX)', 196, 13.5, { align: 'right' })
 
   // 2. Metadata Box (Bersihkan icon/emoji agar tidak corrupt di jsPDF)
   const cleanTarget = (targetLabel || 'Semua Outlet')

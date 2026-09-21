@@ -46,10 +46,17 @@ export async function GET(request: Request) {
   // Anti-join: mana yang BELUM punya pasangan di pos-kasir.
   // Menggantikan limit(10) lama yang membuat order lama terlewat permanen.
   const ids = paidOrders.map((o) => o.id)
-  const { data: alreadyPulled } = await posDb
+  const { data: alreadyPulled, error: pulledErr } = await posDb
     .from('orders')
     .select('external_order_id')
     .in('external_order_id', ids)
+
+  // Kalau anti-join gagal (mis. URL terlalu panjang), jangan anggap semuanya
+  // belum ditarik — itu memicu ratusan POST pull-online dalam satu menit.
+  if (pulledErr) {
+    console.error('pull-online-orders: gagal cek order yang sudah ditarik', pulledErr)
+    return NextResponse.json({ error: pulledErr.message }, { status: 500 })
+  }
 
   const pulledSet = new Set((alreadyPulled ?? []).map((r) => r.external_order_id))
   const missing = ids.filter((id) => !pulledSet.has(id))

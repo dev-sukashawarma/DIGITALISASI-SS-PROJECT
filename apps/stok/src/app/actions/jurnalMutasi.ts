@@ -1182,17 +1182,18 @@ export async function fetchProofDetails(type: 'surat_jalan' | 'waste' | 'order',
         document_number,
         status,
         created_at,
-        verified_at,
-        catatan,
+        auto_verified_at,
+        notes,
         outlets(name),
         surat_jalan_item(
           id,
           qty_dikirim,
-          qty_diterima,
+          qty_terima,
           harga_snapshot,
           bahan_baku(nama, satuan)
         )
       `)
+
       .eq('id', id)
       .single()
 

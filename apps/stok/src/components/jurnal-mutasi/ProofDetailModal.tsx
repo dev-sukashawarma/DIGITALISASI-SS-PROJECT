@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { X, Loader2, FileText, Trash2, ShoppingBag, AlertTriangle } from 'lucide-react'
+import { X, Loader2, FileText, Trash2, ShoppingBag, AlertTriangle, Bot } from 'lucide-react'
+
 import { fetchProofDetails } from '@/app/actions/jurnalMutasi'
 
 interface ProofDetailModalProps {
@@ -106,21 +107,31 @@ export function ProofDetailModal({ type, id, onClose }: ProofDetailModalProps) {
                         {new Date(data.created_at).toLocaleString('id-ID')}
                       </span>
                     </div>
-                    {data.verified_at && (
+                    {data.auto_verified_at ? (
+                      <div className="flex justify-between items-center text-purple-700 bg-purple-50 p-2.5 rounded-xl border border-purple-200">
+                        <span className="font-bold flex items-center gap-1.5 text-xs">
+                          <Bot size={14} className="text-purple-600" /> Diverifikasi Sistem (Auto):
+                        </span>
+                        <span className="font-black text-xs">
+                          {new Date(data.auto_verified_at).toLocaleString('id-ID')}
+                        </span>
+                      </div>
+                    ) : data.verified_at ? (
                       <div className="flex justify-between items-center text-emerald-700">
                         <span className="font-bold">Diverifikasi Outlet:</span>
                         <span className="font-medium">
                           {new Date(data.verified_at).toLocaleString('id-ID')}
                         </span>
                       </div>
-                    )}
+                    ) : null}
                   </div>
 
-                  {data.catatan && (
+                  {(data.notes || data.catatan) && (
                     <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-800">
-                      <span className="font-bold">Catatan Pengiriman:</span> {data.catatan}
+                      <span className="font-bold">Catatan Pengiriman:</span> {data.notes || data.catatan}
                     </div>
                   )}
+
 
                   <div>
                     <h4 className="font-black text-suka-brown mb-2 uppercase tracking-wider text-[11px]">
@@ -146,8 +157,9 @@ export function ProofDetailModal({ type, id, onClose }: ProofDetailModalProps) {
                                 {item.qty_dikirim} {item.bahan_baku?.satuan}
                               </td>
                               <td className="p-2.5 text-right font-bold text-emerald-700">
-                                {item.qty_diterima ?? item.qty_dikirim} {item.bahan_baku?.satuan}
+                                {item.qty_terima ?? item.qty_diterima ?? item.qty_dikirim} {item.bahan_baku?.satuan}
                               </td>
+
                               <td className="p-2.5 text-right text-suka-brown/70 font-medium">
                                 {item.harga_snapshot ? `Rp ${Math.round(item.harga_snapshot).toLocaleString('id-ID')}` : '-'}
                               </td>

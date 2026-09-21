@@ -293,7 +293,7 @@ export function HistoryView() {
           } rounded-t-xl`}
         >
           <Wallet size={18} />
-          Setoran Kas Pusat (Hop-1 Treasury)
+          Penerimaan Setoran Finance (Bank / Kas)
           <span className={`px-2 py-0.5 text-xs rounded-full ${
             activeTab === 'kas_pusat' ? 'bg-suka-orange text-white' : 'bg-suka-gray-100 text-suka-gray-600'
           }`}>
@@ -305,7 +305,7 @@ export function HistoryView() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard 
-          label={`Total Setoran ${activeTab === 'shift_pos' ? 'Kasir POS' : 'Kas Pusat'} (Tersaring)`}
+          label={`Total Setoran ${activeTab === 'shift_pos' ? 'Kasir POS' : 'Finance'} (Tersaring)`}
           value={rupiah(currentTotal)} 
           icon={<Banknote size={22} />} 
           tone="green" 

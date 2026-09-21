@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner, CurrencyInput } from '@suka/design-system'
-import { Banknote, ArrowRight } from 'lucide-react'
+import { Banknote, Landmark } from 'lucide-react'
 import { useCashOverview, useCashTransactions } from '@/hooks/useCashData'
 import { useOutlets, useCashDeposit } from '@/hooks/useCashDeposit'
 import { useExpectedCash } from '@/hooks/useExpectedCash'
@@ -12,6 +12,8 @@ import { rupiah, tanggalWaktu } from '@/lib/format'
 import { StatCard, SectionCard, TxStatusBadge } from '@/components/ui'
 import { summarizeBalances } from '@/lib/cashSummary'
 import type { CashLocation, CashBalance, CashTransaction } from '@/lib/types'
+
+type DepositMethod = 'transfer' | 'langsung'
 
 export function SetoranView({
   initialLocations,
@@ -23,11 +25,11 @@ export function SetoranView({
   initialTxs?: CashTransaction[];
 }) {
   const { locations } = useCashOverview(initialLocations, initialBalances)
-  const cashLocations = locations.filter((l) => l.kind === 'cash')
   const { data: outlets = [] } = useOutlets()
   const { data: txs = [] } = useCashTransactions(100, initialTxs)
   const deposit = useCashDeposit()
 
+  const [depositMethod, setDepositMethod] = useState<DepositMethod>('transfer')
   const [location, setLocation] = useState('')
   const [outletId, setOutletId] = useState('')
   const [amount, setAmount] = useState('')
@@ -36,17 +38,44 @@ export function SetoranView({
   const [salesDate, setSalesDate] = useState(() => new Date().toISOString().split('T')[0])
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
+  // Otomatis pilih akun sesuai metode setoran
+  useEffect(() => {
+    const targetKind = depositMethod === 'transfer' ? 'bank' : 'cash'
+    const matched = locations.find((l) => l.kind === targetKind)
+    if (matched) {
+      setLocation(matched.id)
+    } else if (locations.length > 0 && !location) {
+      setLocation(locations[0].id)
+    }
+  }, [depositMethod, locations])
+
+  const selectedLocation = locations.find((l) => l.id === location)
   const { data: expectedCash = 0, isLoading: isLoadingExpected } = useExpectedCash(outletId || null, salesDate)
 
   const summary = summarizeBalances(locations)
   const deposits = txs.filter((t) => t.source_type === 'cash_deposit')
 
-  const reset = () => { setLocation(''); setOutletId(''); setAmount(''); setNote(''); setProofFile(null) }
+  const reset = () => {
+    setOutletId('')
+    setAmount('')
+    setNote('')
+    setProofFile(null)
+  }
 
   const handleSubmit = () => {
     const amt = Number(amount)
-    if (!location) { toast.error('Pilih Kas Pusat tujuan'); return }
-    if (!amt || amt <= 0) { toast.error('Nominal harus lebih dari 0'); return }
+    if (!outletId) {
+      toast.error('Pilih outlet asal setoran')
+      return
+    }
+    if (!location) {
+      toast.error('Pilih rekening atau kas tujuan')
+      return
+    }
+    if (!amt || amt <= 0) {
+      toast.error('Nominal harus lebih dari 0')
+      return
+    }
     
     if (outletId && amt !== expectedCash && !note.trim()) {
       toast.error('Nominal fisik berbeda dengan estimasi POS. Wajib mengisi kolom Catatan!')
@@ -62,7 +91,8 @@ export function SetoranView({
       { location, amount: amt, outletId: outletId || null, note: note.trim() || null, proofFile },
       {
         onSuccess: () => { 
-          toast.success('Setoran berhasil dicatat & masuk Kas Pusat!')
+          const destinationLabel = depositMethod === 'transfer' ? 'Rekening Bank BCA' : 'Kas Tunai Kantor'
+          toast.success(`Setoran berhasil dicatat & masuk ${destinationLabel}!`)
           setShowConfirmModal(false)
           reset() 
         },
@@ -76,44 +106,104 @@ export function SetoranView({
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <p className="text-suka-orange font-bold uppercase tracking-wider text-sm mb-1">Arus Kas</p>
-          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Setoran Tunai</h1>
+          <h1 className="font-display text-4xl md:text-5xl text-suka-brown tracking-wide">Setoran Penjualan</h1>
           <p className="text-suka-ink/60 mt-2 font-medium">
-            <b>Hop-1:</b> outlet setor tunai ke Kas Pusat. Setelah tervalidasi, setor Kas Pusat ke bank di{' '}
-            <Link href="/transfer" className="font-semibold text-suka-orange underline">Transfer</Link> (Hop-2).
+            Pencatatan setoran dari outlet: <b>Transfer Bank</b> (ATM CDM / M-Banking) atau <b>Setor Langsung</b> (Uang Tunai).
           </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <StatCard label="Kas Tunai (mengendap di Kas Pusat)" value={rupiah(summary.totalCash)} icon={<Banknote size={22} />} tone="orange" hint="Belum disetor ke bank" />
-        <div className="flex items-center gap-3 rounded-2xl border border-suka-gray-200 bg-white p-5 shadow-sm">
-          <span className="text-sm text-suka-gray-500">Setelah Kas Pusat terisi, setor ke bank:</span>
-          <Link href="/transfer"><Button className="flex items-center gap-1 px-3 py-1 text-sm">Transfer <ArrowRight size={14} /></Button></Link>
-        </div>
+        <StatCard label="Total Rekening Bank" value={rupiah(summary.totalBank)} icon={<Landmark size={22} />} tone="blue" hint="Saldo rekening bank aktif" />
+        <StatCard label="Total Kas Fisik Kantor" value={rupiah(summary.totalCash)} icon={<Banknote size={22} />} tone="orange" hint="Saldo kas fisik tunai" />
       </div>
 
-      <SectionCard title="Catat Setoran (Outlet → Kas Pusat)">
-        {cashLocations.length === 0 ? (
+      <SectionCard title="Catat Setoran Baru">
+        {locations.length === 0 ? (
           <p className="py-4 text-center text-amber-600">
-            Belum ada lokasi <b>Kas Tunai</b>. Buat dulu di <Link href="/lokasi" className="underline">Rekening &amp; Kas</Link>.
+            Belum ada rekening atau lokasi kas. Buat dulu di <Link href="/lokasi" className="underline">Rekening &amp; Kas</Link>.
           </p>
         ) : (
-          <>
+          <div className="space-y-6">
+            {/* Pilihan Metode: Transfer vs Setor Langsung */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-suka-gray-500 mb-2 block">
+                Metode Setoran
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDepositMethod('transfer')}
+                  className={`flex items-center gap-3.5 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                    depositMethod === 'transfer'
+                      ? 'border-suka-orange bg-orange-50/60 shadow-sm ring-1 ring-suka-orange/20'
+                      : 'border-suka-gray-200 bg-white hover:border-suka-gray-300 hover:bg-suka-gray-50'
+                  }`}
+                >
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                    depositMethod === 'transfer' ? 'bg-suka-orange text-white' : 'bg-suka-gray-100 text-suka-gray-500'
+                  }`}>
+                    <Landmark size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`font-bold text-sm ${depositMethod === 'transfer' ? 'text-suka-brown' : 'text-suka-ink'}`}>
+                      Transfer Bank / ATM CDM
+                    </p>
+                    <p className="text-xs text-suka-gray-500 truncate mt-0.5">
+                      Disetor via transfer atau mesin ATM setor tunai
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDepositMethod('langsung')}
+                  className={`flex items-center gap-3.5 p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                    depositMethod === 'langsung'
+                      ? 'border-suka-orange bg-orange-50/60 shadow-sm ring-1 ring-suka-orange/20'
+                      : 'border-suka-gray-200 bg-white hover:border-suka-gray-300 hover:bg-suka-gray-50'
+                  }`}
+                >
+                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${
+                    depositMethod === 'langsung' ? 'bg-suka-orange text-white' : 'bg-suka-gray-100 text-suka-gray-500'
+                  }`}>
+                    <Banknote size={22} />
+                  </div>
+                  <div className="min-w-0">
+                    <p className={`font-bold text-sm ${depositMethod === 'langsung' ? 'text-suka-brown' : 'text-suka-ink'}`}>
+                      Setor Langsung (Tunai Fisik)
+                    </p>
+                    <p className="text-xs text-suka-gray-500 truncate mt-0.5">
+                      Uang tunai diserahkan langsung ke kasir kantor
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Input Form */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="text-sm font-semibold text-suka-gray-600">
-                Kas Pusat Tujuan
-                <select value={location} onChange={(e) => setLocation(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange">
-                  <option value="">— pilih —</option>
-                  {cashLocations.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
+                Outlet Asal <span className="text-red-500">*</span>
+                <select value={outletId} onChange={(e) => setOutletId(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange bg-white">
+                  <option value="">— pilih outlet asal —</option>
+                  {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
                 </select>
               </label>
+
               <label className="text-sm font-semibold text-suka-gray-600">
-                Outlet Asal (opsional)
-                <select value={outletId} onChange={(e) => setOutletId(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange">
-                  <option value="">— tidak ditentukan —</option>
-                  {outlets.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                {depositMethod === 'transfer' ? 'Rekening Bank Tujuan' : 'Kas Fisik Penerima'}
+                <select 
+                  value={location} 
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange bg-white"
+                >
+                  {locations
+                    .filter(l => l.kind === (depositMethod === 'transfer' ? 'bank' : 'cash'))
+                    .map((l) => (
+                      <option key={l.id} value={l.id}>{l.label} · Saldo: {rupiah(l.saldo)}</option>
+                    ))}
                 </select>
               </label>
               
@@ -134,7 +224,7 @@ export function SetoranView({
                   </div>
                   {amount && Number(amount) !== expectedCash && (
                     <p className="text-xs text-red-600 mt-2 font-medium">
-                      ⚠️ Terdapat selisih antara nominal fisik dengan estimasi POS. Harap jelaskan alasannya di kolom Catatan.
+                      ⚠️ Terdapat selisih antara nominal setoran dengan estimasi POS. Harap jelaskan alasannya di kolom Catatan.
                     </p>
                   )}
                 </div>
@@ -142,42 +232,49 @@ export function SetoranView({
 
               <div className="text-sm font-semibold text-suka-gray-600">
                 <CurrencyInput
-                  label="Nominal (Rp)"
+                  label="Nominal Setoran (Rp)"
                   value={amount}
                   onChange={(v) => setAmount(String(v || ''))}
                   className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange"
                 />
               </div>
+
               <label className="text-sm font-semibold text-suka-gray-600">
-                Bukti Serah-Terima (opsional)
+                {depositMethod === 'transfer' ? 'Bukti Transfer / Struk ATM (opsional)' : 'Bukti Serah Terima Tunai (opsional)'}
                 <input type="file" accept="image/*" onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
                   className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-suka-cream file:px-3 file:py-1 file:text-suka-brown" />
               </label>
+
               <label className="text-sm font-semibold text-suka-gray-600 sm:col-span-2">
                 Catatan
-                <input value={note} onChange={(e) => setNote(e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange" />
+                <input 
+                  value={note} 
+                  onChange={(e) => setNote(e.target.value)} 
+                  placeholder={depositMethod === 'transfer' ? 'mis. Transfer m-banking closing shift malam' : 'mis. Uang tunai diserahkan langsung ke kasir kantor'}
+                  className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange" 
+                />
               </label>
             </div>
+
             <div className="mt-4">
               <Button onClick={handleSubmit} disabled={deposit.isPending}>
                 {deposit.isPending ? <Spinner size={16} /> : 'Catat Setoran'}
               </Button>
             </div>
-          </>
+          </div>
         )}
       </SectionCard>
 
       <SectionCard title="Setoran Terbaru" action={<Link href="/setoran/history" className="text-sm font-medium text-suka-orange hover:underline">Lihat Riwayat Lengkap &rarr;</Link>}>
         {deposits.length === 0 ? (
-          <p className="py-6 text-center text-suka-gray-400">Belum ada setoran tunai.</p>
+          <p className="py-6 text-center text-suka-gray-400">Belum ada setoran.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-suka-gray-500">
                   <th className="py-2 px-3">Waktu</th>
-                  <th className="py-2 px-3">Kas Tujuan</th>
+                  <th className="py-2 px-3">Metode &amp; Akun</th>
                   <th className="py-2 px-3">Outlet Asal</th>
                   <th className="py-2 px-3 text-right">Nominal</th>
                   <th className="py-2 px-3">Status</th>
@@ -187,8 +284,21 @@ export function SetoranView({
                 {deposits.map((t) => (
                   <tr key={t.id}>
                     <td className="py-3 px-3 text-suka-gray-500">{tanggalWaktu(t.occurred_at)}</td>
-                    <td className="py-3 px-3 font-semibold text-suka-ink">{t.cash_location?.label ?? '—'}</td>
-                    <td className="py-3 px-3 text-suka-gray-500">{t.outlet?.name ?? '—'}</td>
+                    <td className="py-3 px-3">
+                      {t.cash_location?.kind === 'bank' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <Landmark size={12} /> Transfer Bank
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          <Banknote size={12} /> Setor Langsung
+                        </span>
+                      )}
+                      <p className="text-[11px] text-suka-gray-500 mt-1 truncate font-medium">
+                        {t.cash_location?.label ?? '—'}
+                      </p>
+                    </td>
+                    <td className="py-3 px-3 text-suka-gray-500 font-medium">{t.outlet?.name ?? '—'}</td>
                     <td className="py-3 px-3 text-right font-bold text-emerald-600">+{rupiah(t.amount)}</td>
                     <td className="py-3 px-3"><TxStatusBadge status={t.status} /></td>
                   </tr>
@@ -205,11 +315,25 @@ export function SetoranView({
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6">
               <h3 className="text-xl font-bold text-suka-brown mb-2">Konfirmasi Setoran</h3>
-              <p className="text-suka-gray-600 mb-4">
+              <p className="text-suka-gray-600 mb-3">
                 Anda yakin ingin mencatat setoran sebesar <span className="font-bold text-suka-ink">{rupiah(Number(amount))}</span>?
               </p>
-              <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-sm border border-amber-100">
-                ⚠️ Pastikan jumlah uang fisik yang Anda terima sudah dihitung dengan benar dan sesuai dengan nominal ini.
+              
+              <div className="bg-suka-cream/50 rounded-xl p-3 border border-suka-brown/10 text-xs space-y-1.5 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-suka-gray-500">Metode:</span>
+                  <span className="font-bold text-suka-brown">
+                    {depositMethod === 'transfer' ? '💳 Transfer Bank / ATM CDM' : '💵 Setor Langsung (Tunai)'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-suka-gray-500">Tujuan:</span>
+                  <span className="font-bold text-suka-ink">{selectedLocation?.label}</span>
+                </div>
+              </div>
+
+              <div className="bg-amber-50 text-amber-800 p-3 rounded-xl text-xs border border-amber-100">
+                ⚠️ Pastikan dana sudah valid (cek mutasi bank jika transfer/ATM CDM, atau hitung fisik jika diserahkan tunai).
               </div>
             </div>
             <div className="bg-suka-gray-50 px-6 py-4 flex justify-end gap-3 border-t border-suka-gray-100">

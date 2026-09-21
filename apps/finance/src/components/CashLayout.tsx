@@ -2,7 +2,7 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Repeat, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2 } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Wallet, Truck, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2 } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -27,7 +27,6 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'ARUS KAS',
     items: [
       { href: '/setoran', label: 'Setoran', icon: Banknote },
-      { href: '/transfer', label: 'Transfer', icon: Repeat },
       { href: '/transaksi', label: 'Transaksi Manual', icon: ArrowLeftRight },
     ],
   },

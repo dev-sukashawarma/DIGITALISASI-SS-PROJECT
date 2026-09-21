@@ -47,6 +47,18 @@ export async function savePromosAction(
 
   const promoKey = (p: any) => promoOutletKey(p)
 
+  // Pengecualian menu hanya bermakna untuk promo global persentase/nominal.
+  // Id disaring ke katalog menu yang benar-benar ada supaya kolom uuid[] di DB
+  // tidak menolak input sampah, dan supaya menu yang sudah dihapus tidak
+  // terus terbawa. Urutan mengikuti katalog agar hasil simpan stabil.
+  const knownMenuIds = Array.from(new Set<string>((availableMenuItems || []).map((item: any) => String(item.id))))
+  const sanitizeExcludedMenuIds = (p: any): string[] => {
+    if (p.scope !== 'global' || p.discount_type === 'buy_one_get_one') return []
+    const raw = Array.isArray(p.excluded_menu_item_ids) ? p.excluded_menu_item_ids : []
+    const wanted = new Set(raw.map((id: unknown) => String(id)))
+    return knownMenuIds.filter(id => wanted.has(id))
+  }
+
   // Outlet tujuan tiap promo. Daftar kosong tetap berarti "semua outlet aktif",
   // jadi payload lama yang belum mengenal pemilihan outlet tidak berubah artinya.
   const targetOutletsByPromo = new Map<string, string[]>()
@@ -230,7 +242,8 @@ export async function savePromosAction(
         get_quantity: p.discount_type === 'buy_one_get_one' ? Number(p.get_quantity) : 1,
         reward_menu_item_id: p.discount_type === 'buy_one_get_one'
           ? rewardMenuForOutlet(outletId)?.id || null
-          : null
+          : null,
+        excluded_menu_item_ids: sanitizeExcludedMenuIds(p)
       })
     }
   }
@@ -328,6 +341,9 @@ export async function savePromosAction(
           // Website hanya boleh menawarkan promo ini di outlet yang dipilih admin.
           outlet_ids: targetsFor(p),
           item_ids: p.scope === 'item' ? [p.menu_item_id] : null,
+          // Catatan: skema promo Order Online belum punya kolom pengecualian menu,
+          // jadi excluded_menu_item_ids tidak ikut ke website — di sana promo
+          // global tetap berlaku untuk semua menu.
         })
       }
       

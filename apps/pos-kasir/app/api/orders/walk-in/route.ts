@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
-import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, calculateItemDiscount, isPromoEligible, isMenuExcludedFromPromo, isScheduledPromo, BasePromo } from '@/lib/promo-calculator'
 
 // Endpoint dipanggil dari halaman /kasir/order-manual (tab "Kasir Langsung")
 // saat kasir mencatat pesanan pelanggan yang datang LANGSUNG ke kasir.
@@ -247,7 +247,7 @@ export async function POST(request: Request) {
     if (menuItem && item.unit_price < menuItem.price) {
       // Find if it was global or item promo. In calculateItemPrice, global promo has priority.
       let globalApplied = false
-      if (globalPromo && isPromoEligible(globalPromo as BasePromo)) {
+      if (globalPromo && isPromoEligible(globalPromo as BasePromo) && !isMenuExcludedFromPromo(globalPromo as BasePromo, item.menu_item_id)) {
         if (!globalPromo.min_purchase || (baseSubtotal >= globalPromo.min_purchase)) {
           globalApplied = true
           appliedPromoIds.add(globalPromo.id)

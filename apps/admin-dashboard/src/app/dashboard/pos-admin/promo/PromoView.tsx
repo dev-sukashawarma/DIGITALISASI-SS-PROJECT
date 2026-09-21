@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check, Store } from 'lucide-react'
+import { Loader2, Tag, Percent, CheckCircle2, AlertCircle, Search, CalendarClock, Check, Store, Ban, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { CurrencyInput } from '@suka/design-system'
 import { savePromosAction } from './actions'
@@ -43,6 +43,8 @@ type OutletPromo = {
   reward_menu_item_id?: string | null
   /** Outlet yang dituju promo ini. Tidak diisi = semua outlet aktif (perilaku lama). */
   outlet_ids?: string[]
+  /** Menu yang dikecualikan dari promo global. Kosong = semua menu ikut. Hanya scope global. */
+  excluded_menu_item_ids?: string[] | null
 }
 
 type Outlet = {
@@ -258,6 +260,112 @@ function OutletScopePicker({
   )
 }
 
+/**
+ * Pemilih menu yang DIKECUALIKAN dari promo global.
+ *
+ * Multi-select berbasis daftar centang + pencarian, dengan chip untuk menu
+ * yang sudah dipilih supaya admin bisa melihat sekilas apa saja yang tidak
+ * ikut promo tanpa menggulir daftar. Daftar menunya panjang (puluhan item),
+ * jadi daftar centang dibatasi tingginya dan bisa dicari.
+ */
+function MenuExclusionPicker({
+  menuItems,
+  selectedIds,
+  onChange,
+}: {
+  menuItems: MenuItem[]
+  selectedIds: string[]
+  onChange: (ids: string[]) => void
+}) {
+  const [query, setQuery] = useState('')
+  const keyword = query.trim().toLowerCase()
+  const visible = keyword ? menuItems.filter(m => m.name.toLowerCase().includes(keyword)) : menuItems
+  const allIds = menuItems.map(m => m.id)
+  const selected = menuItems.filter(m => selectedIds.includes(m.id))
+
+  const toggle = (id: string) => {
+    const next = selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id]
+    // Urutan disamakan dengan daftar menu supaya hasil simpan stabil.
+    onChange(allIds.filter(x => next.includes(x)))
+  }
+
+  return (
+    <div className="rounded-xl border border-rose-100 bg-rose-50/40 p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <Ban className="w-4 h-4 shrink-0 text-rose-500" />
+          <h3 className="text-sm font-bold text-gray-800">Menu yang Dikecualikan</h3>
+        </div>
+        <p className="text-xs font-semibold text-gray-500">
+          {selected.length === 0 ? 'Semua menu ikut promo.' : `${selected.length} menu tidak ikut promo.`}
+        </p>
+      </div>
+      <p className="text-xs text-gray-500">
+        Menu yang dipilih di sini <b>tidak</b> mendapat diskon dari promo ini. Jika menu tersebut punya
+        Promo Per Menu, promo per menu itulah yang dipakai.
+      </p>
+
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map(m => (
+            <span
+              key={m.id}
+              className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700"
+            >
+              {m.name}
+              <button
+                type="button"
+                onClick={() => toggle(m.id)}
+                aria-label={`Hapus ${m.name} dari pengecualian`}
+                className="rounded-full p-0.5 text-rose-400 hover:bg-rose-100 hover:text-rose-700"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          <button type="button" onClick={() => onChange([])} className="text-xs font-bold text-gray-500 hover:text-gray-800 px-1">
+            Kosongkan
+          </button>
+        </div>
+      )}
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Cari menu untuk dikecualikan..."
+          className="w-full rounded-lg border border-gray-200 bg-white pl-9 pr-3 py-2 text-sm font-medium text-gray-900 outline-none transition-colors focus:border-gray-400"
+        />
+      </div>
+
+      <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-100">
+        {visible.length === 0 ? (
+          <p className="px-3 py-4 text-xs font-medium text-gray-500">Menu tidak ditemukan.</p>
+        ) : (
+          visible.map(m => {
+            const active = selectedIds.includes(m.id)
+            return (
+              <label key={m.id} className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-gray-50">
+                <input
+                  type="checkbox"
+                  checked={active}
+                  onChange={() => toggle(m.id)}
+                  className="h-4 w-4 shrink-0 rounded border-gray-300 accent-rose-500"
+                />
+                <span className={`flex-1 min-w-0 truncate text-sm font-semibold ${active ? 'text-rose-700 line-through decoration-rose-300' : 'text-gray-700'}`}>
+                  {m.name}
+                </span>
+                <span className="text-xs font-medium text-gray-400 shrink-0">Rp {Number(m.price || 0).toLocaleString('id-ID')}</span>
+              </label>
+            )
+          })
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function PromoView({ initialMenuItems, initialOutlets, initialPromos }: PromoViewProps) {
   const [menuItems] = useState<MenuItem[]>(initialMenuItems)
   const [promos, setPromos] = useState<OutletPromo[]>(initialPromos)
@@ -296,7 +404,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
     ,promo_name: '',
     buy_quantity: 1,
     get_quantity: 1,
-    outlet_ids: allOutletIds
+    outlet_ids: allOutletIds,
+    excluded_menu_item_ids: []
   } as OutletPromo
 
   const isGlobalActive = globalPromo.is_active
@@ -325,6 +434,7 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 min_purchase: null,
                 apply_to_food_apps: false,
                 sync_to_order_online: false,
+                excluded_menu_item_ids: [],
                 buy_quantity: updated[idx].buy_quantity ?? 1,
                 get_quantity: updated[idx].get_quantity ?? 1,
                 quota_scope: updated[idx].quota_scope ?? 'per_outlet',
@@ -350,7 +460,8 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
           promo_name: '',
           buy_quantity: 1,
           get_quantity: 1,
-          outlet_ids: allOutletIds
+          outlet_ids: allOutletIds,
+          excluded_menu_item_ids: []
         }
         updated.push({ ...defaultGlobal, [field]: value })
       }
@@ -475,6 +586,15 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 {mounted && <StatusBadge status={getPromoStatus(globalPromo, now)} />}
                 <OutletScopeBadge outlets={outlets} selectedIds={outletIdsOf(globalPromo)} />
+                {!isGlobalBuyOneGetOne && (globalPromo.excluded_menu_item_ids?.length || 0) > 0 && (
+                  <span
+                    title={menuItems.filter(m => globalPromo.excluded_menu_item_ids!.includes(m.id)).map(m => m.name).join(', ')}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-bold bg-rose-50 text-rose-700 border-rose-200"
+                  >
+                    <Ban className="w-3.5 h-3.5" />
+                    {globalPromo.excluded_menu_item_ids!.length} menu dikecualikan
+                  </span>
+                )}
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
@@ -572,6 +692,16 @@ export default function PromoView({ initialMenuItems, initialOutlets, initialPro
                 onChange={ids => handleGlobalPromoChange('outlet_ids', ids)}
                 accent="amber"
               />
+
+              {/* Menu yang dikecualikan dari promo global. Buy X Get Y tidak
+                  memotong harga per menu, jadi pengecualian tidak berlaku di sana. */}
+              {!isGlobalBuyOneGetOne && (
+                <MenuExclusionPicker
+                  menuItems={menuItems}
+                  selectedIds={Array.isArray(globalPromo.excluded_menu_item_ids) ? globalPromo.excluded_menu_item_ids : []}
+                  onChange={ids => handleGlobalPromoChange('excluded_menu_item_ids', ids)}
+                />
+              )}
 
               {/* Jadwal promo */}
               <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4 sm:p-5 space-y-4">

@@ -5,6 +5,7 @@ import {
   calculateItemPrice,
   isPromoEligible,
   isPromoScheduleRunning,
+  isMenuExcludedFromPromo,
   type BasePromo,
 } from './promo-calculator'
 
@@ -151,5 +152,34 @@ describe('calculateItemPrice — jadwal promo', () => {
     vi.setSystemTime(Date.parse('2026-08-14T11:00:00.000Z'))
     const promos = [globalPromo({ start_date: '2026-08-14T11:00:00.000Z' }), itemPromo()]
     expect(calculateItemPrice(40000, 'menu-1', promos)).toBe(20000)
+  })
+})
+
+// ── Pengecualian menu pada promo global ────────────────────────────────
+describe('calculateItemPrice — menu yang dikecualikan dari promo global', () => {
+  it('menu di daftar pengecualian tidak dipotong promo global', () => {
+    const promos = [globalPromo({ excluded_menu_item_ids: ['menu-1'] })]
+    expect(calculateItemPrice(40000, 'menu-1', promos)).toBe(40000)
+  })
+
+  it('menu lain tetap dipotong promo global yang sama', () => {
+    const promos = [globalPromo({ excluded_menu_item_ids: ['menu-1'] })]
+    expect(calculateItemPrice(40000, 'menu-2', promos)).toBe(20000)
+  })
+
+  it('menu yang dikecualikan jatuh ke promo per-menu bila ada', () => {
+    const promos = [globalPromo({ excluded_menu_item_ids: ['menu-1'] }), itemPromo()]
+    expect(calculateItemPrice(40000, 'menu-1', promos)).toBe(30000)
+  })
+
+  it('daftar kosong / null = perilaku lama, semua menu ikut', () => {
+    expect(calculateItemPrice(40000, 'menu-1', [globalPromo({ excluded_menu_item_ids: [] })])).toBe(20000)
+    expect(calculateItemPrice(40000, 'menu-1', [globalPromo({ excluded_menu_item_ids: null })])).toBe(20000)
+    expect(calculateItemPrice(40000, 'menu-1', [globalPromo()])).toBe(20000)
+  })
+
+  it('isMenuExcludedFromPromo aman terhadap nilai yang bukan array', () => {
+    expect(isMenuExcludedFromPromo({ excluded_menu_item_ids: undefined }, 'menu-1')).toBe(false)
+    expect(isMenuExcludedFromPromo({ excluded_menu_item_ids: ['menu-1'] }, 'menu-1')).toBe(true)
   })
 })

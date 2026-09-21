@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { calculateItemPrice, calculateGlobalDiscount, isPromoEligible } from './promo-calculator'
+import { calculateItemPrice, calculateGlobalDiscount, isPromoEligible, isMenuExcludedFromPromo } from './promo-calculator'
 import { db } from '@/lib/db'
 
 export type OutletPromo = {
@@ -24,6 +24,8 @@ export type OutletPromo = {
   apply_to_food_apps?: boolean
   buy_quantity?: number
   get_quantity?: number
+  /** Menu yang dikecualikan dari promo global. Kosong = semua menu ikut. */
+  excluded_menu_item_ids?: string[] | null
 }
 
 export function usePromos(outletId: string | undefined) {
@@ -121,7 +123,7 @@ export function usePromos(outletId: string | undefined) {
 
   /** Promo yang sedang AKTIF dan berada di dalam jendela jadwal. */
   const getPromoForMenu = (menuId: string): OutletPromo | null => {
-    if (activeGlobalPromo) return activeGlobalPromo
+    if (activeGlobalPromo && !isMenuExcludedFromPromo(activeGlobalPromo, menuId)) return activeGlobalPromo
     return activeItemPromos.find(p => p.menu_item_id === menuId) ?? null
   }
 
@@ -142,7 +144,7 @@ export function usePromos(outletId: string | undefined) {
       return !isNaN(start) && start > now
     }
 
-    const globalSched = promos.find(p => p.scope === 'global' && isScheduled(p))
+    const globalSched = promos.find(p => p.scope === 'global' && isScheduled(p) && !isMenuExcludedFromPromo(p, menuId))
     if (globalSched) return globalSched
 
     return promos.find(p => p.scope === 'item' && p.menu_item_id === menuId && isScheduled(p)) ?? null

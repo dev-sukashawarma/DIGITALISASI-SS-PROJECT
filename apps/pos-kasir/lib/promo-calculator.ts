@@ -22,6 +22,17 @@ export interface BasePromo {
   apply_to_food_apps?: boolean;
   buy_quantity?: number;
   get_quantity?: number;
+  /**
+   * Menu yang dikecualikan dari promo GLOBAL. Kosong/null = semua menu ikut.
+   * Menu yang dikecualikan jatuh ke promo per-menu bila ada.
+   */
+  excluded_menu_item_ids?: string[] | null;
+}
+
+/** Menu ini dikecualikan admin dari promo tersebut? (hanya bermakna untuk scope global) */
+export function isMenuExcludedFromPromo(promo: Pick<BasePromo, 'excluded_menu_item_ids'>, menuId: string): boolean {
+  const list = promo.excluded_menu_item_ids;
+  return Array.isArray(list) && list.length > 0 && list.includes(menuId);
 }
 
 export function isScheduledPromo(promo: BasePromo): boolean {
@@ -135,8 +146,9 @@ export function calculateItemPrice(
   const globalPromo = promos.find(p => p.scope === 'global' && isPromoEligible(p, now));
   const itemPromos = promos.filter(p => p.scope === 'item' && isPromoEligible(p, now));
 
-  // Global promo berlaku untuk SEMUA item, asalkan di dalam jadwal & kuota.
-  if (globalPromo && (!isFoodApp || globalPromo.apply_to_food_apps)) {
+  // Global promo berlaku untuk semua item KECUALI yang dikecualikan admin,
+  // asalkan di dalam jadwal & kuota. Menu yang dikecualikan jatuh ke promo per item.
+  if (globalPromo && !isMenuExcludedFromPromo(globalPromo, menuId) && (!isFoodApp || globalPromo.apply_to_food_apps)) {
     if (!isPromoEligible(globalPromo, now)) {
       // Belum mulai / sudah lewat / kuota habis → jatuh ke promo per item.
     } else {

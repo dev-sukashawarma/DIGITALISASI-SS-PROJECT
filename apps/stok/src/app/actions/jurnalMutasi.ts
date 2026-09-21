@@ -767,7 +767,11 @@ export async function fetchReconciliationSnapshot(
   ])
 
   const hargaMap = new Map((hargaRes.data || []).map((h) => [h.bahan_baku_id, h]))
-  const bahanList = bahanRes.data || []
+  // ASET (mis. printer) & PERLENGKAPAN (mis. ID card) bukan bahan baku -> tak ikut rekonsiliasi stok.
+  const KATEGORI_NON_BAHAN = ['ASET', 'PERLENGKAPAN']
+  const bahanList = (bahanRes.data || []).filter(
+    (b) => !KATEGORI_NON_BAHAN.includes(String(b.kategori || '').toUpperCase())
+  )
 
   // 4. Ambil mutasi dari ledger_stok antara startIso dan endIso
   let ledgerQuery = supabase

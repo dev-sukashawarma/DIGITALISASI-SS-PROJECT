@@ -32,8 +32,10 @@ import {
   Ban,
   RefreshCw,
   Lock,
-  Loader2
+  Loader2,
+  Bot
 } from 'lucide-react'
+
 import { toast } from 'sonner'
 
 interface SaldoVendor {
@@ -641,12 +643,18 @@ export function SuratJalanDetail({ id }: { id: string }) {
                   <span className={`w-2 h-2 rounded-full ${currentStatus.dot}`} />
                   {currentStatus.label}
                 </span>
+                {data.auto_verified_at && (
+                  <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-purple-50 text-purple-700 border border-purple-200 flex items-center gap-1.5 shadow-2xs">
+                    <Bot size={13} className="text-purple-600" /> Auto-Verif Sistem
+                  </span>
+                )}
                 {hasProblem && (
                   <span className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase bg-red-50 text-red-700 border border-red-200 flex items-center gap-1">
                     <AlertTriangle size={13} /> Selisih Terdeteksi
                   </span>
                 )}
               </div>
+
             </div>
 
             {/* 4-Step Interactive Logistics Pipeline Tracker or Cancelled Banner */}
@@ -753,7 +761,28 @@ export function SuratJalanDetail({ id }: { id: string }) {
             </div>
           )}
 
+          {/* Banner Informasi Auto-Verifikasi Sistem */}
+          {data.auto_verified_at && (
+            <div className="p-4 bg-purple-50/80 border border-purple-200 rounded-3xl flex items-start gap-3 shadow-xs">
+              <div className="p-2 bg-purple-100 text-purple-700 rounded-xl shrink-0 mt-0.5">
+                <Bot size={18} />
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h4 className="font-black text-xs text-purple-900 uppercase tracking-wider font-display flex flex-wrap items-center gap-2">
+                  Diverifikasi Otomatis oleh Sistem
+                  <span className="text-[10px] bg-purple-200/80 text-purple-800 px-2 py-0.5 rounded-md font-bold">
+                    {new Date(data.auto_verified_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}, {new Date(data.auto_verified_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                  </span>
+                </h4>
+                <p className="text-xs text-purple-800 font-medium leading-relaxed">
+                  Surat Jalan ini ditutup otomatis oleh sistem karena melewati batas waktu pemeriksaan fisik outlet (pukul 21:00 WIB). Seluruh Qty Terima disesuaikan penuh dengan Qty Kirim dan <strong>angka stok telah dibukukan masuk ke kartu stok outlet</strong>.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 2. Manifest Items List (Dense, High-Density Table with Badges) */}
+
           <div className="bg-white/85 backdrop-blur-md rounded-3xl border border-suka-brown/10 shadow-sm overflow-hidden space-y-0">
             {/* Manifest Header */}
             <div className="px-6 py-4 border-b border-suka-brown/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#fff8f1]/80">
@@ -915,12 +944,20 @@ export function SuratJalanDetail({ id }: { id: string }) {
                             >
                               {isRusak ? 'Rusak' : isKurang ? 'Kurang Kirim' : 'Sesuai'}
                             </span>
+                          ) : data.auto_verified_at ? (
+                            <span
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200"
+                              title="Diverifikasi otomatis oleh sistem (cron)"
+                            >
+                              <Bot size={11} className="text-purple-600" /> Auto-Verif
+                            </span>
                           ) : (
                             <span className="text-[9px] font-bold text-suka-gray-400 bg-gray-100 px-2.5 py-1 rounded-xl">
                               Belum Dicek
                             </span>
                           )}
                         </td>
+
                       </tr>
                     )
                   })}

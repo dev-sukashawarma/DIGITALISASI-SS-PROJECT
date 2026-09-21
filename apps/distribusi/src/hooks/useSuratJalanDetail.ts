@@ -38,7 +38,10 @@ interface SuratJalanDetail {
   receipt_signatures?: any[]
   document_number?: string
   verification_code?: string
+  auto_verified_at?: string | null
+  ditutup_administratif_at?: string | null
 }
+
 
 export function useSuratJalanDetail(id: string) {
   const [data, setData] = useState<SuratJalanDetail | null>(null)
@@ -56,7 +59,7 @@ export function useSuratJalanDetail(id: string) {
       const { data: sj, error: sjError } = await supabase
         .from('surat_jalan')
         .select(
-          'id, outlet_id, status, created_at, notes, signatures, receipt_signatures, document_number, verification_code, outlets(name), surat_jalan_item(*, vendor:supplier!surat_jalan_item_vendor_id_fkey(id, nama), bahan_baku(id, nama, satuan, kategori, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan))'
+          'id, outlet_id, status, created_at, notes, signatures, receipt_signatures, document_number, verification_code, auto_verified_at, ditutup_administratif_at, outlets(name), surat_jalan_item(*, vendor:supplier!surat_jalan_item_vendor_id_fkey(id, nama), bahan_baku(id, nama, satuan, kategori, satuan_distribusi, satuan_tengah, satuan_kecil, faktor_tengah, faktor_tampilan))'
         )
         .eq('id', id)
         .single()

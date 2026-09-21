@@ -31,6 +31,7 @@ import {
   Wallet,
   Receipt,
   RotateCcw,
+  Scale,
 } from 'lucide-react'
 import { usePendingReturBadge } from '@/hooks/useRetur'
 
@@ -82,6 +83,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // yang memang lebih longgar karena halaman Master Harga memakai Server Action
   // ber-service-role.
   const canViewNilaiPersediaan = ['admin', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(role ?? '')
+  const canViewJurnalMutasi = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
   // Terima dari Vendor (drop-ship) -- siapa pun yang terhubung ke satu outlet
   // (outlet_staff.outlet_id). RPC memeriksa ulang, ini hanya menentukan tampil-
   // tidaknya menu (spec 2026-09-11 §6). "Cocokkan Nota Vendor" (pengesah) SENGAJA
@@ -296,6 +298,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
                 label: 'Inbound / Outbound',
                 href: '/stok/inbound-outbound',
                 icon: ArrowDownUp,
+              },
+            ]
+          : []),
+        ...(canViewJurnalMutasi
+          ? [
+              {
+                label: 'Jurnal & Rekonsiliasi',
+                href: '/stok/jurnal-mutasi',
+                icon: Scale,
               },
             ]
           : []),

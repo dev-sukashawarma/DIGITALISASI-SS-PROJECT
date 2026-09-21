@@ -196,6 +196,14 @@ export default function OpnameApprovalPage() {
                     </div>
                   )}
 
+                  {/* Audit Shortcut Link */}
+                  <Link
+                    href={`/stok/jurnal-mutasi?outletId=${opname.outlet_id}&opnameId=${opname.id}`}
+                    className="block text-center text-xs font-black py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl transition-all shadow-2xs"
+                  >
+                    🔍 Audit Jurnal & Rekonsiliasi
+                  </Link>
+
                   {/* Detail Link */}
                   <Link href={`/stok/opname/${opname.id}`} className="block text-center text-[10px] font-bold text-[#f29744] hover:text-orange-600 underline underline-offset-2">
                     Lihat Detail Lengkap →

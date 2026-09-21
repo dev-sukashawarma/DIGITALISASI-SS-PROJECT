@@ -1,5 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
+import { Scale } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@suka/auth'
 import type { Opname, OpnameItem } from '@/types/stok'
@@ -207,6 +209,18 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
               <span className="text-xs font-medium text-gray-600 bg-[#fff8f1]/50 p-2.5 rounded-lg border border-[#d9c2b2]/20">
                 {opname.notes}
               </span>
+            </div>
+          )}
+
+          {canViewThresholdAndLoss && (
+            <div className="pt-2 border-t border-[#d9c2b2]/10">
+              <Link
+                href={`/stok/jurnal-mutasi?outletId=${opname.outlet_id}&opnameId=${opname.id}`}
+                className="w-full py-2.5 px-4 bg-suka-orange hover:bg-orange-600 active:bg-orange-700 text-white rounded-xl font-black text-xs transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+              >
+                <Scale className="w-4 h-4" />
+                <span>🔍 Audit Jurnal & Rekonsiliasi Bahan</span>
+              </Link>
             </div>
           )}
         </div>

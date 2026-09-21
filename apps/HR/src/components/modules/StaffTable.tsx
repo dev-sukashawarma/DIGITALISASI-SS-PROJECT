@@ -18,7 +18,8 @@ import {
   ArrowDown,
 } from 'lucide-react'
 import { StatusToggle } from './StatusToggle'
-import type { StaffRow, StaffStatus, StaffSortKey, SortOrder } from '@/lib/types'
+import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory } from '@/lib/types'
+import { ACCOUNT_CATEGORY_LABELS } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 
 function statusBadge(status: StaffStatus) {
@@ -31,6 +32,26 @@ function statusBadge(status: StaffStatus) {
   return (
     <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${map[status]}`}>
       {label[status]}
+    </span>
+  )
+}
+
+function categoryBadge(category?: AccountCategory) {
+  const cat = category || 'employee'
+  if (cat === 'employee') return null
+
+  const map: Record<AccountCategory, { bg: string; label: string }> = {
+    employee: { bg: 'bg-stone-100 text-stone-700 border-stone-200', label: 'Karyawan' },
+    system_bot: { bg: 'bg-purple-50 text-purple-700 border-purple-200', label: 'Bot / AI' },
+    kiosk: { bg: 'bg-cyan-50 text-cyan-700 border-cyan-200', label: 'Kiosk' },
+    mitra_owner: { bg: 'bg-indigo-50 text-indigo-700 border-indigo-200', label: 'Mitra Owner' },
+    testing: { bg: 'bg-amber-50 text-amber-700 border-amber-200', label: 'Testing' },
+  }
+
+  const info = map[cat] || { bg: 'bg-stone-100 text-stone-600 border-stone-200', label: cat }
+  return (
+    <span className={`inline-flex items-center rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${info.bg}`}>
+      {info.label}
     </span>
   )
 }
@@ -154,9 +175,12 @@ export function StaffTable({
                   </td>
                   <td className="px-4 py-3 text-gray-700">
                     <div className="flex flex-col gap-1 items-start">
-                      <span className="font-semibold text-xs text-suka-brown uppercase">
-                        {s.role.replace('_', ' ')}
-                      </span>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-semibold text-xs text-suka-brown uppercase">
+                          {s.role.replace('_', ' ')}
+                        </span>
+                        {categoryBadge(s.account_category)}
+                      </div>
                       {onToggleBonus && (
                         <button
                           type="button"
@@ -293,6 +317,15 @@ export function StaffTable({
                     <span className="font-medium text-suka-ink mt-0.5 block">
                       {formatContract(selectedStaff.contract_type)}
                     </span>
+                  </div>
+                  <div>
+                    <span className="text-suka-gray-500 block">Kategori Akun</span>
+                    <div className="mt-0.5 flex items-center gap-1.5">
+                      <span className="font-semibold text-suka-ink">
+                        {ACCOUNT_CATEGORY_LABELS[selectedStaff.account_category || 'employee'] || selectedStaff.account_category}
+                      </span>
+                      {categoryBadge(selectedStaff.account_category)}
+                    </div>
                   </div>
                   <div>
                     <span className="text-suka-gray-500 block">Sisa Cuti Tahunan</span>

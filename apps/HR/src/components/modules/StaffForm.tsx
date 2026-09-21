@@ -37,6 +37,7 @@ const getStaffFormSchema = (isEditing: boolean) =>
           .min(1, 'Username wajib diisi')
           .regex(/^[a-z0-9_]*$/, 'Username hanya boleh huruf kecil, angka, dan underscore'),
     password: isEditing ? z.string().optional() : z.string().min(1, 'Password Sementara wajib diisi'),
+    account_category: z.enum(['employee', 'system_bot', 'kiosk', 'mitra_owner', 'testing']).optional(),
     role: z.enum([
       'admin',
       'admin_hr',

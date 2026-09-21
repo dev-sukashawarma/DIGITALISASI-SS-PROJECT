@@ -5,6 +5,7 @@ export interface StaffFilterCandidate {
   name?: string | null
   username?: string | null
   role?: string | null
+  account_category?: string | null
   email?: string | null
   outlet_id?: string | null
   outlets?: { id?: string | null; name?: string | null; slug?: string | null } | null
@@ -16,6 +17,11 @@ export interface StaffFilterCandidate {
  */
 export function isTestOrDevStaff(s?: StaffFilterCandidate | null): boolean {
   if (!s) return false
+
+  // 0. Explicit account_category check (Database driven)
+  if (s.account_category) {
+    return s.account_category !== 'employee'
+  }
 
   // 1. Role checks
   const role = (s.role || '').toLowerCase()

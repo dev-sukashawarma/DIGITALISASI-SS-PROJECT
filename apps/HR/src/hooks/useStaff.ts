@@ -6,7 +6,8 @@ import { createClient } from '@/lib/supabase'
 import type { StaffRow } from '@/lib/types'
 import { isTestOrDevStaff } from '@/lib/staffFilters'
 
-export function useStaff() {
+export function useStaff(options?: { includeAllCategories?: boolean }) {
+  const includeAll = options?.includeAllCategories ?? false
   const supabase = createClient()
   const queryClient = useQueryClient()
 
@@ -36,14 +37,14 @@ export function useStaff() {
   }, [supabase, queryClient])
 
   return useQuery<StaffRow[]>({
-    queryKey: ['staff'],
+    queryKey: ['staff', { includeAll }],
     staleTime: 30_000,
     refetchInterval: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, status, username, outlet_id, is_bonus_eligible,
+          id, name, role, status, username, outlet_id, is_bonus_eligible, account_category,
           nik, email, phone, address_ktp, address_domicile,
           birth_place, birth_date, gender, religion,
           emergency_name, emergency_relationship, emergency_phone,
@@ -63,11 +64,16 @@ export function useStaff() {
       if (error) throw error
       const mapped = (data ?? []).map((r: any) => ({
         ...r,
+        account_category: r.account_category || 'employee',
         outlet_ids: (r.staff_outlets ?? []).map((s: any) => s.outlet_id),
         financials: Array.isArray(r.staff_financials)
           ? r.staff_financials[0]
           : (r.staff_financials || null),
       })) as StaffRow[]
+
+      if (includeAll) {
+        return mapped
+      }
 
       return mapped.filter((s) => !isTestOrDevStaff(s))
     },

@@ -95,6 +95,20 @@ export function StaffFilters({
         <option value="on_leave">Cuti</option>
       </select>
 
+      <select
+        aria-label="Filter Kategori Akun"
+        className={`${inputCls} font-medium ${value.category && value.category !== 'employee' ? 'text-amber-700 bg-amber-50 border-amber-300' : ''}`}
+        value={value.category ?? 'employee'}
+        onChange={(e) => set({ category: e.target.value })}
+      >
+        <option value="employee">Karyawan Saja</option>
+        <option value="all">Semua Kategori</option>
+        <option value="system_bot">Bot / AI</option>
+        <option value="kiosk">Kiosk / Perangkat</option>
+        <option value="mitra_owner">Mitra Owner</option>
+        <option value="testing">Akun Testing</option>
+      </select>
+
       {/* Sort Selector Dropdown */}
       <div className="flex items-center gap-1.5 bg-stone-50 border border-suka-gray-200 rounded-xl px-2.5 py-1.5 shadow-xs">
         <ArrowUpDown size={14} className="text-suka-orange shrink-0" />

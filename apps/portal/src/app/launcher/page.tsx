@@ -67,6 +67,11 @@ export default async function LauncherPage() {
   }
   const apps = accessibleApps(staff.role, staff.username)
 
+  // Suka Review = app eksternal (Vercel), bukan bagian AppName/@suka/auth.
+  // Khusus admin & owner; gerbangnya di server component ini.
+  const REVIEW_URL = process.env.NEXT_PUBLIC_APP_URL_REVIEW || 'https://suka-review.vercel.app'
+  const canSeeReview = ['admin', 'owner'].includes(staff.role)
+
   const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
     'admin-dashboard': { 
       label: staff.role === 'leader' ? 'Leader Dashboard' : staff.role === 'purchasing' ? 'Pembelian & PO' : 'Admin Dashboard',  
@@ -254,10 +259,18 @@ export default async function LauncherPage() {
               Aplikasi Anda
             </h2>
             <span className="text-[10px] font-black text-suka-brown/40 tabular-nums">
-              {apps.length} modul
+              {apps.length + (canSeeReview ? 1 : 0)} modul
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {canSeeReview && (
+              <AppTile
+                key="suka-review"
+                label="Suka Review"
+                url={REVIEW_URL}
+                desc="Aplikasi review eksternal Suka Shawarma"
+              />
+            )}
             {apps.map(appName => {
               const meta = APP_META[appName]
               return (

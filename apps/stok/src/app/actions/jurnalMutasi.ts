@@ -357,6 +357,12 @@ export interface ReconciliationTotals {
   bahan_berselisih_count: number
   anomali_skala_count: number
   ekstrem_count: number
+  // Efisiensi bahan: omzet periode vs biaya bahan
+  omzet_rp: number // omzet KOTOR (sebelum diskon/promo)
+  potongan_rp: number
+  order_count: number
+  teoritis_pakai_rp: number
+  teoritis_tidak_terhitung: number
 }
 
 export interface MenuBomIngredient {
@@ -959,13 +965,15 @@ export async function fetchReconciliationSnapshot(
 
   const { data: ordersData } = await supabase
     .from('orders')
-    .select('id')
+    .select('id, total_amount, discount_amount, promo_subsidy')
     .eq('outlet_id', outletId)
     .eq('status', 'completed')
     .gte('created_at', startIso)
     .lte('created_at', endIso)
 
   const completedOrderIds = (ordersData || []).map((o) => o.id)
+  let omzetRp = 0 // omzet kotor; diisi setelah subtotal item terkumpul
+  let potonganRp = 0
 
   if (completedOrderIds.length > 0) {
     const chunkArray = <T>(arr: T[], size: number): T[][] => {
@@ -978,18 +986,36 @@ export async function fetchReconciliationSnapshot(
 
     const orderChunks = chunkArray(completedOrderIds, 200)
     const allOrderItems: { menu_item_id: string; menu_item_name: string | null; quantity: number }[] = []
+    const itemValueByOrder = new Map<string, { n: number; value: number }>()
 
     for (const chunk of orderChunks) {
       const { data: oiList } = await supabase
         .from('order_items')
-        .select('menu_item_id, menu_item_name, quantity')
+        .select('order_id, menu_item_id, menu_item_name, quantity, subtotal')
         .in('order_id', chunk)
-        .not('menu_item_id', 'is', null)
 
-      if (oiList) {
-        allOrderItems.push(...(oiList as any))
+      for (const oi of (oiList || []) as any[]) {
+        const cur = itemValueByOrder.get(oi.order_id) || { n: 0, value: 0 }
+        cur.n++
+        cur.value += Number(oi.subtotal || 0)
+        itemValueByOrder.set(oi.order_id, cur)
+        if (oi.menu_item_id !== null && oi.menu_item_id !== undefined) allOrderItems.push(oi)
       }
     }
+
+    // Omzet KOTOR: acuan yang sama dengan laporan mitra --
+    // max(total_amount, jumlah subtotal item); tanpa item: total + diskon + subsidi promo.
+    for (const o of (ordersData || []) as any[]) {
+      const total = Number(o.total_amount || 0)
+      const it = itemValueByOrder.get(o.id)
+      const gross = it && it.n > 0
+        ? Math.max(total, it.value)
+        : total + Number(o.discount_amount || 0) + Number(o.promo_subsidy || 0)
+      omzetRp += gross
+      potonganRp += gross - total
+    }
+    omzetRp = Math.round(omzetRp)
+    potonganRp = Math.round(potonganRp)
 
     const soldMenuMap = new Map<string, { name: string; totalPorsi: number }>()
     for (const oi of allOrderItems) {
@@ -1258,6 +1284,30 @@ export async function fetchReconciliationSnapshot(
     }
   }
 
+  // Biaya bahan menurut resep (teoritis) = kebutuhan resep x harga master per satuan kecil.
+  // Baris tanpa harga master (unit price 0) dilewati & dihitung jumlahnya.
+  let teoritisPakaiRp = 0
+  let teoritisTidakTerhitung = 0
+  {
+    const bahanById = new Map(bahanList.map((b) => [b.id, b]))
+    for (const mb of menuBreakdownList) {
+      for (const ing of mb.ingredients) {
+        const b = bahanById.get(ing.bahan_baku_id)
+        const h = hargaMap.get(ing.bahan_baku_id)
+        const kemasan = Number(b?.faktor_tampilan) || Number(h?.kemasan_qty) || 1
+        const unit = kemasan > 0 ? (h?.harga_beli || 0) / kemasan : 0
+        // Potongan stok BOM selalu dalam satuan kecil bahan; label satuan resep (mis. "pcs",
+        // "lembar") hanya penamaan -- jadi tidak dipakai untuk menolak baris.
+        if (b && unit > 0) {
+          teoritisPakaiRp += ing.total_kebutuhan * unit
+        } else {
+          teoritisTidakTerhitung++
+        }
+      }
+    }
+    teoritisPakaiRp = Math.round(teoritisPakaiRp)
+  }
+
   // 6. Susun tabel rekonsiliasi item per item
   const reconciliationItems: ReconciliationItem[] = []
 
@@ -1468,6 +1518,11 @@ export async function fetchReconciliationSnapshot(
       bahan_berselisih_count: berselisihCount,
       anomali_skala_count: anomaliSkalaCount,
       ekstrem_count: ekstremCount,
+      omzet_rp: omzetRp,
+      potongan_rp: potonganRp,
+      order_count: completedOrderIds.length,
+      teoritis_pakai_rp: teoritisPakaiRp,
+      teoritis_tidak_terhitung: teoritisTidakTerhitung,
     },
     menu_breakdown: menuBreakdownList,
     audit_note: auditNote,

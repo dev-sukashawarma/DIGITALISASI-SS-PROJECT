@@ -201,6 +201,57 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
     },
   })
 
+  // ── Efisiensi Bahan: omzet vs biaya bahan ──
+  {
+    const t = data.totals
+    const pct = (v: number) => (t.omzet_rp > 0 ? `${((v / t.omzet_rp) * 100).toFixed(1)}%` : '-')
+    const sisaPakai = t.total_pakai_rp
+    const selisihResep = sisaPakai - t.teoritis_pakai_rp
+    let yE = (doc as any).lastAutoTable.finalY + 6
+    if (yE + 42 > pageHeight) {
+      doc.addPage()
+      yE = 16
+    }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(64, 10, 7)
+    doc.text('EFISIENSI BAHAN: OMZET vs BIAYA BAHAN', margin, yE)
+    autoTable(doc, {
+      startY: yE + 2,
+      theme: 'grid',
+      head: [['Komponen', 'Nilai (Rp)', '% Omzet', 'Keterangan']],
+      body: [
+        ['Omzet kotor periode', formatRp(t.omzet_rp), '100%', `${t.order_count} order selesai${t.potongan_rp > 0 ? `, diskon/promo ${formatRp(t.potongan_rp)}` : ''}`],
+        ['Pemakaian bahan aktual (ledger)', formatRp(t.total_pakai_rp), pct(t.total_pakai_rp), 'Food cost aktual'],
+        [
+          'Pemakaian menurut resep (teoritis)',
+          formatRp(t.teoritis_pakai_rp),
+          pct(t.teoritis_pakai_rp),
+          t.teoritis_tidak_terhitung > 0
+            ? `Food cost seharusnya (${t.teoritis_tidak_terhitung} baris resep tanpa harga master tak dihitung)`
+            : 'Food cost seharusnya',
+        ],
+        [
+          'Selisih aktual - resep',
+          `${selisihResep > 0 ? '+' : ''}${formatRp(selisihResep)}`,
+          pct(Math.abs(selisihResep)),
+          selisihResep > 0 ? 'Aktual lebih boros dari resep' : 'Aktual di bawah resep',
+        ],
+        ['Waste tercatat', formatRp(t.total_waste_rp), pct(t.total_waste_rp), 'Bahan terbuang'],
+        [
+          'Sisa stok akhir (belum terpakai)',
+          formatRp(t.total_fisik_rp > 0 ? t.total_fisik_rp : t.total_sistem_rp),
+          pct(t.total_fisik_rp > 0 ? t.total_fisik_rp : t.total_sistem_rp),
+          t.total_fisik_rp > 0 ? 'Berdasarkan hitung fisik opname' : 'Berdasarkan stok sistem (belum ada opname)',
+        ],
+      ],
+      styles: { fontSize: 8, cellPadding: 1.8 },
+      headStyles: { fillColor: [112, 22, 4], textColor: 255 },
+      columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' } },
+      margin: { left: margin, right: margin },
+    })
+  }
+
   // ── Kolom Tanda Tangan Audit ──
   let finalY = (doc as any).lastAutoTable.finalY + 8
 
@@ -236,6 +287,9 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
   doc.text('Nama: .......................................', col3X, signY + 24)
 
   // ── 2. Halaman Lampiran: Breakdown Menu Terjual & Perhitungan BOM ──
+  const itemsWithUsage = data.items
+    .filter((i) => i.menu_usages && i.menu_usages.length > 0)
+    .map((i) => ({ id: i.bahan_baku_id, nama: i.nama, menu_usages: i.menu_usages }))
   const menuBreakdown =
     data.menu_breakdown && data.menu_breakdown.length > 0
       ? data.menu_breakdown

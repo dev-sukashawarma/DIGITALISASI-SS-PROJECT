@@ -110,8 +110,10 @@ export function mapPositionToRole(pos: string): { role: Role; label: string } {
   const p = pos.toUpperCase().trim()
   if (p.includes('DRIVER')) return { role: 'staff_pusat', label: 'Driver Operasional' }
   if (p.includes('KITCHEN')) return { role: 'kitchen', label: 'Kitchen Crew' }
+  if (p.includes('BACKUP')) return { role: 'crew', label: 'Crew Backup' }
   if (p.includes('OUTLET CREW') || p === 'CREW') return { role: 'crew', label: 'Outlet Crew' }
-  if (p.includes('KORLAP') || p.includes('AREA MANAGER') || p.includes('FC'))
+  if (p.includes('REGIONAL') || p === 'RM') return { role: 'regional_manager', label: 'Regional Manager' }
+  if (p.includes('KORLAP') || p.includes('AREA MANAGER') || p.includes('FC') || p === 'AM')
     return { role: 'area_manager', label: 'Korlap / Area Manager' }
   if (p.includes('STOCK CONTROLLER') || p.includes('SC'))
     return { role: 'spv', label: 'Stock Controller' }
@@ -138,10 +140,10 @@ export function mapStatus(stat: string): { status: StaffStatus; contractType: 'p
     return { status: 'active', contractType: 'intern', label: 'Trainee' }
   }
   if (s.includes('RESIGN') || s.includes('EXPEL') || s.includes('KELUAR') || s.includes('NONAKTIF')) {
-    return { status: 'inactive', contractType: 'contract', label: 'Non-Aktif' }
+    return { status: 'inactive', contractType: 'contract', label: 'Resign / Nonaktif' }
   }
   if (s.includes('TETAP') || s.includes('PERMANENT')) {
-    return { status: 'active', contractType: 'permanent', label: 'Tetap' }
+    return { status: 'active', contractType: 'permanent', label: 'Karyawan Tetap' }
   }
   return { status: 'active', contractType: 'contract', label: 'Full Time (Kontrak)' }
 }
@@ -162,7 +164,9 @@ export function matchOutlet(
     role === 'admin_hr' ||
     role === 'admin' ||
     role === 'admin_finance' ||
-    role === 'purchasing'
+    role === 'purchasing' ||
+    role === 'regional_manager' ||
+    role === 'area_manager'
   ) {
     return {
       outletId: kantorPusat ? kantorPusat.id : (outlets[0]?.id || ''),

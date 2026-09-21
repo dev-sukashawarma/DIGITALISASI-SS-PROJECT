@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Award,
   Sparkles,
+  GraduationCap,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -38,6 +39,7 @@ export const NAV_GROUPS: NavGroup[] = [
     icon: Users,
     items: [
       { href: '/staff', label: 'Database Karyawan', shortLabel: 'Karyawan', icon: Users },
+      { href: '/onboarding', label: 'Onboarding & Training', shortLabel: 'Training', icon: GraduationCap },
       { href: '/contracts', label: 'Monitoring Kontrak', shortLabel: 'Kontrak', icon: FileText },
     ],
   },

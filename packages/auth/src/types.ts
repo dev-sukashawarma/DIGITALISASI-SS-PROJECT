@@ -34,11 +34,18 @@ export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 
 export type AccountCategory = 'employee' | 'system_bot' | 'kiosk' | 'mitra_owner' | 'testing'
 
+export type CrewSubRole = 'crew_regular' | 'crew_backup'
+
+export type OnboardingStage = 'training_7_days' | 'ojt' | 'graduated' | 'regular' | 'failed'
+
 export type OutletStaffProfile = {
   id: string
   outlet_id: string | null
   name: string
   role: Role
+  sub_role?: CrewSubRole | null
+  onboarding_stage?: OnboardingStage | null
+  training_start_date?: string | null
   status: StaffStatus
   account_category?: AccountCategory
   username: string | null

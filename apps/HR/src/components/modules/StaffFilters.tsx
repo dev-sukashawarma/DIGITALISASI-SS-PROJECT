@@ -28,6 +28,7 @@ const SORT_OPTIONS: { id: string; label: string; key: StaffSortKey; order: SortO
   { id: 'role_asc', label: 'Jabatan / Role', key: 'role', order: 'asc' },
   { id: 'date_desc', label: 'Tanggal Masuk (Terbaru)', key: 'date', order: 'desc' },
   { id: 'date_asc', label: 'Tanggal Masuk (Terlama)', key: 'date', order: 'asc' },
+  { id: 'flag_asc', label: 'Flag Status', key: 'flag_status', order: 'asc' },
 ]
 
 export function StaffFilters({
@@ -83,6 +84,29 @@ export function StaffFilters({
             {r.replace('_', ' ').toUpperCase()}
           </option>
         ))}
+      </select>
+
+      <select
+        className={inputCls}
+        value={value.subRole || ''}
+        onChange={(e) => set({ subRole: e.target.value })}
+      >
+        <option value="">Semua Sub-Role</option>
+        <option value="crew_regular">Crew Reguler</option>
+        <option value="crew_backup">Crew Backup</option>
+      </select>
+      <select
+        aria-label="Filter Flag Status"
+        className={inputCls}
+        value={value.onboardingStage || ''}
+        onChange={(e) => set({ onboardingStage: e.target.value })}
+      >
+        <option value="">Semua Flag Status</option>
+        <option value="training_7_days">Training (7 Hari)</option>
+        <option value="ojt">Masa OJT</option>
+        <option value="graduated">Lulus PKWT</option>
+        <option value="regular">Karyawan Reguler</option>
+        <option value="failed">Tidak Lolos (Gugur)</option>
       </select>
       <select
         className={inputCls}

@@ -1,6 +1,6 @@
-import type { Role, StaffStatus, AccountCategory } from '@suka/auth'
+import type { Role, StaffStatus, AccountCategory, CrewSubRole, OnboardingStage } from '@suka/auth'
 
-export type { Role, StaffStatus, AccountCategory }
+export type { Role, StaffStatus, AccountCategory, CrewSubRole, OnboardingStage }
 
 export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = {
   employee: 'Karyawan',
@@ -8,6 +8,19 @@ export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = {
   kiosk: 'Kiosk / Perangkat',
   mitra_owner: 'Mitra Owner',
   testing: 'Akun Testing',
+}
+
+export const CREW_SUB_ROLE_LABELS: Record<CrewSubRole, string> = {
+  crew_regular: 'Crew Reguler',
+  crew_backup: 'Crew Backup',
+}
+
+export const ONBOARDING_STAGE_LABELS: Record<OnboardingStage, string> = {
+  training_7_days: 'Training (7 Hari)',
+  ojt: 'On Job Training (OJT)',
+  graduated: 'Lulus PKWT',
+  regular: 'Karyawan Reguler',
+  failed: 'Tidak Lolos (Gugur)',
 }
 
 export interface Outlet {
@@ -26,6 +39,9 @@ export interface StaffRow {
   id: string
   name: string
   role: Role
+  sub_role?: CrewSubRole | null
+  onboarding_stage?: OnboardingStage | null
+  training_start_date?: string | null
   status: StaffStatus
   account_category?: AccountCategory
   username: string | null
@@ -74,6 +90,9 @@ export interface StaffFormValues {
   username: string
   password?: string
   role: Role
+  sub_role?: CrewSubRole
+  onboarding_stage?: OnboardingStage
+  training_start_date?: string | null
   account_category?: AccountCategory
   outlet_id: string
   outlet_ids: string[]
@@ -112,17 +131,45 @@ export interface StaffFormValues {
   bpjs_kesehatan?: string | null
 }
 
-export type StaffSortKey = 'name' | 'username' | 'role' | 'outlet' | 'status' | 'salary' | 'date'
+export type StaffSortKey = 'name' | 'username' | 'role' | 'outlet' | 'status' | 'salary' | 'date' | 'flag_status'
 export type SortOrder = 'asc' | 'desc'
 
 export interface StaffFilterValues {
   search: string
   outletId: string
   role: string
+  subRole?: string
+  onboardingStage?: string
   status: string
   category?: string
   sortBy?: StaffSortKey
   sortOrder?: SortOrder
+}
+
+// ── Onboarding & Evaluation ──────────────────────────────────
+export interface CrewOnboardingEvaluation {
+  id: string
+  staff_id: string
+  evaluator_id: string | null
+  outlet_id: string | null
+  evaluation_date: string
+  day_count_at_eval: number
+  decision: 'pass_pkwt' | 'extend_ojt' | 'failed'
+  scores: {
+    technical?: number
+    sop?: number
+    hygiene?: number
+    attendance?: number
+    attitude?: number
+    [key: string]: any
+  }
+  notes: string | null
+  status: 'draft' | 'submitted' | 'verified_hr'
+  created_at?: string
+  updated_at?: string
+  outlet_staff?: { name: string; role: string; sub_role?: string; outlets?: { name: string } | null }
+  evaluator?: { name: string; role: string }
+  outlets?: { name: string }
 }
 
 // ── Attendance ──────────────────────────────────────────────

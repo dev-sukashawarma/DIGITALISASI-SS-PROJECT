@@ -97,6 +97,16 @@ export async function bulkImportStaffAction(
         // Create new staff
         const email = `${cleanUsernameKey}@outlet.local`
 
+        const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+        const targetOutletId =
+          row.role === 'regional_manager' || row.role === 'area_manager'
+            ? KANTOR_PUSAT_ID
+            : (row.outletId || null)
+
+        const isBackupCrew =
+          row.role === 'crew' &&
+          (row.name.toLowerCase().includes('backup') || (row as any).label?.toLowerCase().includes('backup'))
+
         // 1. Create Auth User
         const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
           email,
@@ -105,7 +115,7 @@ export async function bulkImportStaffAction(
           user_metadata: {
             role: row.role,
             name: row.name,
-            outlet_id: row.outletId,
+            outlet_id: targetOutletId,
           },
         })
 
@@ -118,10 +128,12 @@ export async function bulkImportStaffAction(
         // 2. Insert into outlet_staff
         const { error: insertStaffErr } = await admin.from('outlet_staff').insert({
           id: staffId,
-          outlet_id: row.outletId || null,
+          outlet_id: targetOutletId,
           name: row.name,
           username: row.username,
           role: row.role,
+          sub_role: isBackupCrew ? 'crew_backup' : (row.role === 'crew' ? 'crew_regular' : null),
+          onboarding_stage: 'regular',
           status: row.status,
           contract_type: row.contractType,
           is_bonus_eligible: true,

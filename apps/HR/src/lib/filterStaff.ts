@@ -11,6 +11,8 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
     if (q && !r.name.toLowerCase().includes(q) && !(r.username ?? '').toLowerCase().includes(q)) return false
     if (f.outletId && r.outlet_id !== f.outletId) return false
     if (f.role && r.role !== f.role) return false
+    if (f.subRole && r.sub_role !== f.subRole) return false
+    if (f.onboardingStage && r.onboarding_stage !== f.onboardingStage) return false
     if (f.status && r.status !== f.status) return false
     return true
   })
@@ -44,6 +46,11 @@ export function filterStaff(rows: StaffRow[], f: StaffFilterValues): StaffRow[] 
         const dateA = a.join_date || ''
         const dateB = b.join_date || ''
         return dateA.localeCompare(dateB) * mult
+      }
+      case 'flag_status': {
+        const stageA = a.onboarding_stage || 'regular'
+        const stageB = b.onboarding_stage || 'regular'
+        return stageA.localeCompare(stageB, 'id') * mult
       }
       default:
         return 0

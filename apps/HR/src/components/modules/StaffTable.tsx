@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Avatar, Button } from '@suka/design-system'
 import {
   Edit,
@@ -16,9 +16,14 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  Users,
+  Building2,
 } from 'lucide-react'
 import { StatusToggle } from './StatusToggle'
-import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory } from '@/lib/types'
+import type { StaffRow, StaffStatus, StaffSortKey, SortOrder, AccountCategory, Outlet } from '@/lib/types'
 import { ACCOUNT_CATEGORY_LABELS } from '@/lib/types'
 import { formatRupiah } from '@/lib/format'
 
@@ -33,6 +38,55 @@ function statusBadge(status: StaffStatus) {
     <span className={`inline-flex rounded-full border px-2.5 py-0.5 text-xs font-bold ${map[status]}`}>
       {label[status]}
     </span>
+  )
+}
+
+function flagStatusBadge(s: StaffRow) {
+  const stage = s.onboarding_stage || 'regular'
+
+  return (
+    <div className="flex flex-col gap-1 items-start">
+      {stage === 'training_7_days' && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-0.5 text-[10px] font-extrabold animate-pulse">
+          <Clock size={11} className="text-amber-700 shrink-0" />
+          Training (7 Hari)
+        </span>
+      )}
+      {stage === 'ojt' && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-900 border border-blue-300 px-2.5 py-0.5 text-[10px] font-extrabold">
+          <Users size={11} className="text-blue-700 shrink-0" />
+          Masa OJT
+        </span>
+      )}
+      {stage === 'graduated' && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300 px-2.5 py-0.5 text-[10px] font-extrabold">
+          <CheckCircle2 size={11} className="text-emerald-700 shrink-0" />
+          Lulus PKWT
+        </span>
+      )}
+      {stage === 'failed' && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 text-rose-900 border border-rose-300 px-2.5 py-0.5 text-[10px] font-extrabold">
+          <AlertCircle size={11} className="text-rose-700 shrink-0" />
+          Gugur
+        </span>
+      )}
+      {stage === 'regular' && (
+        <span className="inline-flex items-center rounded-full bg-stone-100 text-stone-700 border border-stone-200 px-2 py-0.5 text-[10px] font-bold">
+          Reguler
+        </span>
+      )}
+
+      {s.role === 'crew' && s.sub_role === 'crew_backup' && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.5 text-[9px] font-extrabold">
+          Crew Backup
+        </span>
+      )}
+      {s.role === 'crew' && s.sub_role === 'crew_regular' && stage !== 'regular' && (
+        <span className="inline-flex items-center text-[9px] font-semibold text-stone-500">
+          Crew Reguler
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -58,6 +112,7 @@ function categoryBadge(category?: AccountCategory) {
 
 export function StaffTable({
   rows,
+  outlets = [],
   onEdit,
   onResetPassword,
   onToggleStatus,
@@ -68,6 +123,7 @@ export function StaffTable({
   onSort,
 }: {
   rows: StaffRow[]
+  outlets?: Outlet[]
   onEdit: (s: StaffRow) => void
   onResetPassword: (s: StaffRow) => void
   onToggleStatus: (s: StaffRow, next: StaffStatus) => void
@@ -78,6 +134,107 @@ export function StaffTable({
   onSort?: (key: StaffSortKey) => void
 }) {
   const [selectedStaff, setSelectedStaff] = useState<StaffRow | null>(null)
+
+  const outletMap = useMemo(() => {
+    const map = new Map<string, string>()
+    outlets?.forEach((o) => map.set(o.id, o.name))
+    return map
+  }, [outlets])
+
+  const getStaffOutletNames = (s: StaffRow) => {
+    const list: string[] = []
+    if (s.outlets?.name && s.role !== 'regional_manager' && s.role !== 'area_manager') {
+      list.push(s.outlets.name)
+    }
+    if (s.outlet_ids && s.outlet_ids.length > 0) {
+      for (const id of s.outlet_ids) {
+        const name = outletMap.get(id)
+        if (name && !list.includes(name)) {
+          list.push(name)
+        }
+      }
+    }
+    return list
+  }
+
+  const renderOutletCell = (s: StaffRow) => {
+    if (s.role === 'regional_manager') {
+      return (
+        <div>
+          <span className="font-bold text-xs text-suka-ink">KANTOR PUSAT</span>
+          <div className="text-[10px] font-semibold text-emerald-700">
+            Supervisi Seluruh Outlet
+          </div>
+        </div>
+      )
+    }
+
+    if (s.role === 'area_manager') {
+      const amOutlets = (s.outlet_ids || [])
+        .map((id) => outletMap.get(id))
+        .filter((n): n is string => Boolean(n))
+
+      return (
+        <div className="space-y-1">
+          <span className="font-bold text-xs text-suka-ink block">KANTOR PUSAT</span>
+          {amOutlets.length > 0 ? (
+            <div className="space-y-0.5">
+              <span className="text-[10px] font-bold text-amber-800 block">
+                Binaan ({amOutlets.length} outlet):
+              </span>
+              <div className="flex flex-col gap-0.5">
+                {amOutlets.map((name, i) => (
+                  <div key={i} className="flex items-center gap-1.5 text-[11px] font-medium text-stone-700">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                    <span>{name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <span className="text-[10px] text-suka-gray-500 italic block">Belum ada outlet binaan</span>
+          )}
+        </div>
+      )
+    }
+
+    if (s.role === 'crew' && s.sub_role === 'crew_backup') {
+      const names = getStaffOutletNames(s)
+      return (
+        <div className="space-y-1">
+          <div className="inline-flex items-center gap-1 text-[10px] font-extrabold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-200">
+            <span>Floating ({names.length} outlet)</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            {names.map((name, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs font-semibold text-suka-ink">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shrink-0" />
+                <span>{name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    if (s.outlet_ids && s.outlet_ids.length > 1) {
+      const names = getStaffOutletNames(s)
+      return (
+        <div className="space-y-1">
+          <div className="flex flex-col gap-0.5">
+            {names.map((name, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-xs font-semibold text-suka-ink">
+                <span className="w-1.5 h-1.5 rounded-full bg-suka-orange shrink-0" />
+                <span>{name}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
+    return <span>{s.outlets?.name ?? '-'}</span>
+  }
 
   const formatContract = (c?: string | null) => {
     const map: Record<string, string> = {
@@ -123,6 +280,15 @@ export function StaffTable({
                   <div className="flex items-center gap-1.5">
                     <span>Role / Jabatan</span>
                     {renderSortIcon('role')}
+                  </div>
+                </th>
+                <th
+                  onClick={() => onSort?.('flag_status')}
+                  className="px-4 py-3.5 cursor-pointer select-none group hover:bg-stone-100/60 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>Flag Status</span>
+                    {renderSortIcon('flag_status')}
                   </div>
                 </th>
                 <th
@@ -205,8 +371,11 @@ export function StaffTable({
                       )}
                     </div>
                   </td>
+                  <td className="px-4 py-3">
+                    {flagStatusBadge(s)}
+                  </td>
                   <td className="px-4 py-3 text-xs font-semibold text-suka-ink">
-                    {s.outlets?.name ?? '-'}
+                    {renderOutletCell(s)}
                   </td>
                   <td className="px-4 py-3 text-right font-mono font-bold text-xs text-stone-800 hidden sm:table-cell">
                     {formatRupiah(s.financials?.basic_salary || 0)}
@@ -249,7 +418,7 @@ export function StaffTable({
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
+                  <td colSpan={7} className="px-4 py-12 text-center text-suka-gray-500 font-medium">
                     Tidak ada data karyawan yang cocok.
                   </td>
                 </tr>
@@ -301,16 +470,62 @@ export function StaffTable({
                     <div className="mt-0.5">{statusBadge(selectedStaff.status)}</div>
                   </div>
                   <div>
+                    <span className="text-suka-gray-500 block">Flag Status / Tahapan</span>
+                    <div className="mt-0.5">{flagStatusBadge(selectedStaff)}</div>
+                  </div>
+                  <div>
                     <span className="text-suka-gray-500 block">Jabatan / Role</span>
                     <span className="font-bold uppercase text-suka-brown mt-0.5 block">
                       {selectedStaff.role.replace('_', ' ')}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-suka-gray-500 block">Outlet Home</span>
-                    <span className="font-semibold text-suka-ink mt-0.5 block">
-                      {selectedStaff.outlets?.name ?? '-'}
+                  <div className={selectedStaff.role === 'crew' && selectedStaff.sub_role === 'crew_backup' ? 'col-span-2' : ''}>
+                    <span className="text-suka-gray-500 block">
+                      {selectedStaff.role === 'crew' && selectedStaff.sub_role === 'crew_backup'
+                        ? 'Outlet Penugasan (Floating)'
+                        : selectedStaff.role === 'area_manager'
+                        ? 'Outlet Supervisi (Binaan)'
+                        : 'Outlet Penugasan'}
                     </span>
+                    {selectedStaff.role === 'crew' && selectedStaff.sub_role === 'crew_backup' ? (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {getStaffOutletNames(selectedStaff).map((name, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 text-purple-900 border border-purple-200 text-xs font-bold"
+                          >
+                            <Building2 size={12} className="text-purple-600 shrink-0" />
+                            {name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : selectedStaff.role === 'area_manager' ? (
+                      <div className="mt-1 space-y-1">
+                        <span className="font-semibold text-suka-ink block">KANTOR PUSAT</span>
+                        {(selectedStaff.outlet_ids || []).length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-0.5">
+                            {(selectedStaff.outlet_ids || []).map((id) => (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-medium"
+                              >
+                                <Building2 size={10} className="text-amber-600 shrink-0" />
+                                {outletMap.get(id) || id}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ) : selectedStaff.role === 'regional_manager' ? (
+                      <div className="mt-0.5">
+                        <span className="font-bold text-suka-ink block">KANTOR PUSAT</span>
+                        <span className="text-[10px] text-emerald-700 font-semibold block">Supervisi Seluruh Outlet</span>
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-suka-ink mt-0.5 block">
+                        {selectedStaff.outlets?.name ?? '-'}
+                      </span>
+                    )}
                   </div>
                   <div>
                     <span className="text-suka-gray-500 block">Jenis Kontrak</span>

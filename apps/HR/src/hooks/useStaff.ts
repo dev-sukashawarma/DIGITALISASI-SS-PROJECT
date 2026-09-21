@@ -44,7 +44,7 @@ export function useStaff(options?: { includeAllCategories?: boolean }) {
       const { data, error } = await supabase
         .from('outlet_staff')
         .select(`
-          id, name, role, status, username, outlet_id, is_bonus_eligible, account_category,
+          id, name, role, sub_role, onboarding_stage, training_start_date, status, username, outlet_id, is_bonus_eligible, account_category,
           nik, email, phone, address_ktp, address_domicile,
           birth_place, birth_date, gender, religion,
           emergency_name, emergency_relationship, emergency_phone,

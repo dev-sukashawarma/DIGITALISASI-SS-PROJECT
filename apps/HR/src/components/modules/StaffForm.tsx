@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Button, CurrencyInput } from '@suka/design-system'
-import { DollarSign, ShieldAlert } from 'lucide-react'
+import { DollarSign, ShieldAlert, Building2 } from 'lucide-react'
 import { OutletMultiSelect } from './OutletMultiSelect'
 import type { Outlet, StaffFormValues, Role, StaffRow } from '@/lib/types'
 import { generateTempPassword } from '@/lib/generatePassword'
 import { formatRupiah } from '@/lib/format'
+import { toast } from 'sonner'
+
+export const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
 const ROLES: Role[] = [
   'admin',
@@ -37,7 +40,7 @@ const getStaffFormSchema = (isEditing: boolean) =>
           .min(1, 'Username wajib diisi')
           .regex(/^[a-z0-9_]*$/, 'Username hanya boleh huruf kecil, angka, dan underscore'),
     password: isEditing ? z.string().optional() : z.string().min(1, 'Password Sementara wajib diisi'),
-    account_category: z.enum(['employee', 'system_bot', 'kiosk', 'mitra_owner', 'testing']).optional(),
+    account_category: z.enum(['employee', 'system_bot', 'kiosk', 'mitra_owner', 'testing']).optional().or(z.literal('')),
     role: z.enum([
       'admin',
       'admin_hr',
@@ -54,7 +57,10 @@ const getStaffFormSchema = (isEditing: boolean) =>
       'area_manager',
       'purchasing',
     ] as [string, ...string[]]),
-    outlet_id: z.string().min(1, 'Outlet wajib dipilih'),
+    sub_role: z.enum(['crew_regular', 'crew_backup']).nullable().optional().or(z.literal('')),
+    onboarding_stage: z.enum(['training_7_days', 'ojt', 'graduated', 'regular', 'failed']).nullable().optional().or(z.literal('')),
+    training_start_date: z.string().nullable().optional(),
+    outlet_id: z.string().optional().or(z.literal('')),
     outlet_ids: z.array(z.string()).optional(),
     is_bonus_eligible: z.boolean().optional(),
     nip: z.string().nullable().optional(),
@@ -69,7 +75,7 @@ const getStaffFormSchema = (isEditing: boolean) =>
     address_domicile: z.string().nullable().optional(),
     birth_place: z.string().nullable().optional(),
     birth_date: z.string().nullable().optional(),
-    gender: z.enum(['male', 'female']).nullable().optional(),
+    gender: z.enum(['male', 'female']).nullable().optional().or(z.literal('')),
     religion: z.string().nullable().optional(),
 
     emergency_name: z.string().nullable().optional(),
@@ -96,7 +102,23 @@ const getStaffFormSchema = (isEditing: boolean) =>
 type FormData = z.infer<ReturnType<typeof getStaffFormSchema>>
 
 const stepFields: Record<string, (keyof FormData)[]> = {
-  utama: ['name', 'username', 'password', 'role', 'outlet_id', 'outlet_ids', 'is_bonus_eligible', 'nip', 'contract_type', 'join_date', 'resign_date', 'leave_quota'],
+  utama: [
+    'name',
+    'username',
+    'password',
+    'role',
+    'sub_role',
+    'onboarding_stage',
+    'training_start_date',
+    'outlet_id',
+    'outlet_ids',
+    'is_bonus_eligible',
+    'nip',
+    'contract_type',
+    'join_date',
+    'resign_date',
+    'leave_quota',
+  ],
   pribadi: ['nik', 'email', 'phone', 'address_ktp', 'address_domicile', 'birth_place', 'birth_date', 'gender', 'religion'],
   darurat: ['emergency_name', 'emergency_relationship', 'emergency_phone'],
   keuangan: [
@@ -142,6 +164,7 @@ export function StaffForm({
     trigger,
     control,
     watch,
+    setValue,
     setError,
     formState: { errors },
   } = useForm<any>({
@@ -151,7 +174,13 @@ export function StaffForm({
       username: initial?.username ?? '',
       password: initial?.password ?? (isEditing ? '' : generateTempPassword()),
       role: initial?.role ?? 'crew',
-      outlet_id: initial?.outlet_id ?? (outlets[0]?.id ?? ''),
+      sub_role: (initial as any)?.sub_role ?? 'crew_regular',
+      onboarding_stage: (initial as any)?.onboarding_stage ?? 'regular',
+      training_start_date: (initial as any)?.training_start_date ?? '',
+      outlet_id:
+        initial?.role === 'regional_manager' || initial?.role === 'area_manager'
+          ? KANTOR_PUSAT_ID
+          : (initial?.outlet_id ?? (outlets[0]?.id ?? '')),
       outlet_ids: initial?.outlet_ids ?? [],
       is_bonus_eligible: initial?.is_bonus_eligible ?? true,
       nip: initial?.nip ?? '',
@@ -191,8 +220,23 @@ export function StaffForm({
   })
 
   const watchRole = watch('role')
+  const watchSubRole = watch('sub_role')
+  const watchOnboardingStage = watch('onboarding_stage')
   const watchNik = watch('nik')
   const watchNip = watch('nip')
+
+  useEffect(() => {
+    if (watchRole === 'regional_manager' || watchRole === 'area_manager') {
+      const pusat =
+        outlets.find((o) => o.id === KANTOR_PUSAT_ID) ||
+        outlets.find((o) => o.name.toUpperCase().includes('PUSAT'))
+      if (pusat) {
+        setValue('outlet_id', pusat.id)
+      } else {
+        setValue('outlet_id', KANTOR_PUSAT_ID)
+      }
+    }
+  }, [watchRole, outlets, setValue])
 
   // Real-time duplicate check against existing staff database
   const duplicateNikOwner = (() => {
@@ -253,22 +297,35 @@ export function StaffForm({
     if (stepId === 'utama') {
       if (duplicateNipOwner) {
         setError('nip', { type: 'manual', message: `NIP sudah terdaftar atas nama ${duplicateNipOwner}` })
+        toast.error(`NIP sudah terdaftar atas nama ${duplicateNipOwner}`)
         return false
       }
     }
     if (stepId === 'pribadi') {
       if (duplicateNikOwner) {
         setError('nik', { type: 'manual', message: `NIK sudah terdaftar atas nama ${duplicateNikOwner}` })
+        toast.error(`NIK sudah terdaftar atas nama ${duplicateNikOwner}`)
         return false
       }
       const rawNik = (watch('nik') || '').trim()
       if (rawNik && rawNik.length !== 16) {
         setError('nik', { type: 'manual', message: 'NIK harus terdiri dari 16 digit angka' })
+        toast.error('NIK KTP harus terdiri dari 16 digit angka')
         return false
       }
     }
     const fields = stepFields[stepId]
-    return await trigger(fields as any)
+    const valid = await trigger(fields as any)
+    if (!valid) {
+      const currentErrors = (control as any)._formState?.errors || {}
+      const failedField = fields?.find((f) => currentErrors[f])
+      if (failedField && currentErrors[failedField]?.message) {
+        toast.error(String(currentErrors[failedField]?.message))
+      } else {
+        toast.error('Mohon periksa data yang belum valid pada formulir.')
+      }
+    }
+    return valid
   }
 
   async function validateThrough(targetIndex: number): Promise<boolean> {
@@ -284,7 +341,8 @@ export function StaffForm({
   }
 
   async function handleNext() {
-    if (await validateStep(activeTab)) {
+    const isValid = await validateStep(activeTab)
+    if (isValid) {
       if (!isLastStep) setActiveTab(tabs[currentIndex + 1].id as any)
     }
   }
@@ -322,12 +380,31 @@ export function StaffForm({
     const cleanPersonalEmail = (data.email || '').trim() ? (data.email || '').trim() : null
     const cleanPhone = (data.phone || '').trim() ? (data.phone || '').trim() : null
 
+    const isPusatRole = data.role === 'regional_manager' || data.role === 'area_manager'
+    let finalOutletId = isPusatRole
+      ? (outlets.find((o) => o.id === KANTOR_PUSAT_ID)?.id || KANTOR_PUSAT_ID)
+      : data.outlet_id
+
+    if (data.role === 'crew' && data.sub_role === 'crew_backup') {
+      finalOutletId = (data.outlet_ids && data.outlet_ids.length > 0)
+        ? data.outlet_ids[0]
+        : (outlets.find((o) => o.id === KANTOR_PUSAT_ID)?.id || KANTOR_PUSAT_ID)
+    }
+
+    const isMultiOutletRole =
+      data.role === 'leader' ||
+      data.role === 'area_manager' ||
+      (data.role === 'crew' && data.sub_role === 'crew_backup')
+
     const payload: StaffFormValues = {
       name: data.name.trim(),
       username: data.username ? data.username.trim() : '',
       role: data.role as Role,
-      outlet_id: data.outlet_id,
-      outlet_ids: data.role === 'leader' || data.role === 'area_manager' ? (data.outlet_ids ?? []) : [],
+      sub_role: data.role === 'crew' ? (data.sub_role || 'crew_regular') : undefined,
+      onboarding_stage: data.role === 'crew' ? (data.onboarding_stage || 'regular') : 'regular',
+      training_start_date: data.training_start_date || null,
+      outlet_id: finalOutletId || (outlets[0]?.id || KANTOR_PUSAT_ID),
+      outlet_ids: isMultiOutletRole ? (data.outlet_ids ?? []) : [],
       is_bonus_eligible: data.is_bonus_eligible !== undefined ? data.is_bonus_eligible : true,
       nik: cleanNik,
       email: cleanPersonalEmail,
@@ -465,18 +542,71 @@ export function StaffForm({
               </select>
             </div>
 
-            <div>
-              <label htmlFor="sf-outlet" className={labelCls}>
-                Outlet Penugasan <span className="text-red-500">*</span>
-              </label>
-              <select id="sf-outlet" className={inputCls} {...register('outlet_id')}>
-                {outlets.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {watchRole === 'crew' && (
+              <div>
+                <label htmlFor="sf-sub-role" className={labelCls}>
+                  Sub-Role Crew <span className="text-red-500">*</span>
+                </label>
+                <select id="sf-sub-role" className={inputCls} {...register('sub_role')}>
+                  <option value="crew_regular">Crew Reguler (Penugasan Tetap)</option>
+                  <option value="crew_backup">Crew Backup (Floating / Cadangan)</option>
+                </select>
+              </div>
+            )}
+
+            {!(watchRole === 'crew' && watchSubRole === 'crew_backup') && (
+              <div>
+                <label htmlFor="sf-outlet" className={labelCls}>
+                  Outlet Penugasan <span className="text-red-500">*</span>
+                </label>
+                {watchRole === 'regional_manager' || watchRole === 'area_manager' ? (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm font-bold shadow-xs">
+                    <Building2 size={16} className="text-amber-700 shrink-0" />
+                    <span>KANTOR PUSAT (Otomatis)</span>
+                  </div>
+                ) : (
+                  <select id="sf-outlet" className={inputCls} {...register('outlet_id')}>
+                    {outlets
+                      .filter(
+                        (o) =>
+                          o.id !== '00000000-0000-0000-0000-000000000000' &&
+                          o.name.toUpperCase() !== 'SS BACKUP' &&
+                          !o.name.toLowerCase().includes('tes')
+                      )
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {watchRole === 'crew' && (
+              <>
+                <div>
+                  <label htmlFor="sf-onboarding-stage" className={labelCls}>Tahap Kepegawaian</label>
+                  <select id="sf-onboarding-stage" className={inputCls} {...register('onboarding_stage')}>
+                    <option value="regular">Karyawan Reguler (Langsung Aktif)</option>
+                    <option value="training_7_days">Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)</option>
+                    <option value="ojt">Tahap 2: On Job Training (OJT)</option>
+                    <option value="graduated">Lulus PKWT</option>
+                    <option value="failed">Tidak Lolos (Gugur)</option>
+                  </select>
+                </div>
+
+                {(watchOnboardingStage === 'training_7_days' || watchOnboardingStage === 'ojt') && (
+                  <div>
+                    <label htmlFor="sf-training-date" className={labelCls}>Tanggal Mulai Training</label>
+                    <input id="sf-training-date" type="date" className={inputCls} {...register('training_start_date')} />
+                    <span className="text-[11px] text-suka-gray-500 mt-1 block">
+                      Patokan Hari ke-1 s/d Hari ke-15+ untuk evaluasi kelayakan Area Manager.
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
 
             <div>
               <label htmlFor="sf-contract" className={labelCls}>Jenis Kontrak</label>
@@ -503,9 +633,20 @@ export function StaffForm({
               <input id="sf-resign" type="date" className={inputCls} {...register('resign_date')} />
             </div>
 
-            {(watchRole === 'leader' || watchRole === 'area_manager') && (
+            {(watchRole === 'leader' ||
+              watchRole === 'area_manager' ||
+              (watchRole === 'crew' && watchSubRole === 'crew_backup')) && (
               <div className="col-span-1 md:col-span-2 mt-2">
-                <label className={labelCls}>Outlet Binaan / Supervisi</label>
+                <label className={labelCls}>
+                  {watchRole === 'crew'
+                    ? 'Outlet Penugasan Floating (Crew Backup)'
+                    : 'Outlet Binaan / Supervisi'}
+                </label>
+                <p className="text-[11px] text-suka-gray-500 mb-1.5">
+                  {watchRole === 'crew'
+                    ? 'Pilih outlet-outlet tempat crew backup ini dapat dijadwalkan shift dan melakukan absensi.'
+                    : 'Pilih outlet-outlet yang berada di bawah pengawasan supervisi staf ini.'}
+                </p>
                 <Controller
                   name="outlet_ids"
                   control={control}
@@ -513,6 +654,15 @@ export function StaffForm({
                     <OutletMultiSelect outlets={outlets} selected={field.value} onChange={field.onChange} />
                   )}
                 />
+              </div>
+            )}
+
+            {watchRole === 'regional_manager' && (
+              <div className="col-span-1 md:col-span-2 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs font-semibold text-amber-900 flex items-center gap-2.5">
+                <Building2 size={18} className="text-amber-700 shrink-0" />
+                <span>
+                  Regional Manager berpusat di Kantor Pusat dan secara otomatis memiliki hak supervisi &amp; akses monitoring ke seluruh outlet.
+                </span>
               </div>
             )}
           </div>
@@ -543,11 +693,21 @@ export function StaffForm({
             <div>
               <label htmlFor="sf-email" className={labelCls}>Email Pribadi</label>
               <input id="sf-email" type="email" className={inputCls} placeholder="nama@email.com" {...register('email')} />
+              {errors.email && (
+                <span className="text-xs text-red-500 mt-1 block font-medium">
+                  {errors.email.message?.toString()}
+                </span>
+              )}
             </div>
 
             <div>
               <label htmlFor="sf-phone" className={labelCls}>No. WhatsApp / Telepon</label>
               <input id="sf-phone" className={inputCls} placeholder="08xxxxxxxxxx" {...register('phone')} />
+              {errors.phone && (
+                <span className="text-xs text-red-500 mt-1 block font-medium">
+                  {errors.phone.message?.toString()}
+                </span>
+              )}
             </div>
 
             <div>
@@ -557,6 +717,11 @@ export function StaffForm({
                 <option value="male">Laki-laki</option>
                 <option value="female">Perempuan</option>
               </select>
+              {errors.gender && (
+                <span className="text-xs text-red-500 mt-1 block font-medium">
+                  {errors.gender.message?.toString()}
+                </span>
+              )}
             </div>
 
             <div>

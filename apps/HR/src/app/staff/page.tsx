@@ -24,6 +24,8 @@ export default function StaffPage() {
     search: '',
     outletId: '',
     role: '',
+    subRole: '',
+    onboardingStage: '',
     status: '',
     category: 'employee',
     sortBy: 'name',
@@ -252,6 +254,7 @@ export default function StaffPage() {
       ) : (
         <StaffTable
           rows={filteredStaff}
+          outlets={outlets}
           sortBy={filter.sortBy}
           sortOrder={filter.sortOrder}
           onSort={handleSort}
@@ -299,6 +302,9 @@ export default function StaffPage() {
                       name: editingStaff.name,
                       username: editingStaff.username || '',
                       role: editingStaff.role,
+                      sub_role: editingStaff.sub_role || 'crew_regular',
+                      onboarding_stage: editingStaff.onboarding_stage || 'regular',
+                      training_start_date: editingStaff.training_start_date || '',
                       outlet_id: editingStaff.outlet_id || '',
                       outlet_ids: editingStaff.outlet_ids || [],
                       is_bonus_eligible: editingStaff.is_bonus_eligible !== false,
@@ -314,7 +320,7 @@ export default function StaffPage() {
                       address_domicile: editingStaff.address_domicile || '',
                       birth_place: editingStaff.birth_place || '',
                       birth_date: editingStaff.birth_date || '',
-                      gender: editingStaff.gender || undefined,
+                      gender: (editingStaff.gender as any) || '',
                       religion: editingStaff.religion || '',
                       emergency_name: editingStaff.emergency_name || '',
                       emergency_relationship: editingStaff.emergency_relationship || '',

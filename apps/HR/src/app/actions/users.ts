@@ -16,8 +16,11 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
 
     const admin = getAdminSupabase()
   
+  const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+
   const {
-    name, username, password, role, outlet_id, outlet_ids,
+    name, username, password, role, sub_role, onboarding_stage, training_start_date,
+    outlet_id, outlet_ids,
     nik, email: personal_email, phone, address_ktp, address_domicile,
     birth_place, birth_date, gender, religion,
     emergency_name, emergency_relationship, emergency_phone,
@@ -28,6 +31,12 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     bank_name, bank_account_number, bank_account_name,
     npwp, bpjs_ketenagakerjaan, bpjs_kesehatan
   } = values as any
+
+  const isPusatRole = role === 'regional_manager' || role === 'area_manager'
+  let finalOutletId = isPusatRole ? KANTOR_PUSAT_ID : (outlet_id || null)
+  if (role === 'crew' && sub_role === 'crew_backup') {
+    finalOutletId = (outlet_ids && outlet_ids.length > 0) ? outlet_ids[0] : (outlet_id || KANTOR_PUSAT_ID)
+  }
 
   const cleanNik = typeof nik === 'string' && nik.trim() ? nik.trim() : null
   const cleanNip = typeof nip === 'string' && nip.trim() ? nip.trim() : null
@@ -67,7 +76,7 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     email,
     password: password || '123456',
     email_confirm: true,
-    user_metadata: { role, name, outlet_id },
+    user_metadata: { role, name, outlet_id: finalOutletId },
   })
   if (createError) return { ok: false, error: `Gagal membuat akun auth: ${createError.message}` }
 
@@ -76,9 +85,14 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
   // 2. Insert into outlet_staff
   const { error: insertError } = await admin.from('outlet_staff').insert({
     id: staffId,
-    outlet_id: outlet_id || null,
+    outlet_id: finalOutletId,
     name,
     role,
+    sub_role: role === 'crew' ? (sub_role || 'crew_regular') : null,
+    onboarding_stage: role === 'crew' ? (onboarding_stage || 'regular') : 'regular',
+    training_start_date: (role === 'crew' && (onboarding_stage === 'training_7_days' || onboarding_stage === 'ojt'))
+      ? (training_start_date || join_date || new Date().toISOString().split('T')[0])
+      : null,
     username,
     status: 'active',
     is_bonus_eligible: values.is_bonus_eligible !== undefined ? values.is_bonus_eligible : true,
@@ -148,7 +162,8 @@ export async function createStaffSync(values: StaffFormValues): Promise<{ ok: bo
     })
   }
 
-  if (role === 'leader' && Array.isArray(outlet_ids)) {
+  const isMultiOutlet = role === 'leader' || role === 'area_manager' || (role === 'crew' && sub_role === 'crew_backup')
+  if (isMultiOutlet && Array.isArray(outlet_ids) && outlet_ids.length > 0) {
     const rows = outlet_ids.map((oid: string) => ({ staff_id: staffId, outlet_id: oid }))
     await admin.from('staff_outlets').insert(rows)
   }
@@ -167,8 +182,11 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
     const { staff_id, ...values } = vars
     if (!staff_id) return { ok: false, error: 'ID staf tidak valid' }
 
+    const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
+
     const {
-      name, role, outlet_id, outlet_ids, status, is_bonus_eligible,
+      name, role, sub_role, onboarding_stage, training_start_date,
+      outlet_id, outlet_ids, status, is_bonus_eligible,
       nik, email: personal_email, phone, address_ktp, address_domicile,
       birth_place, birth_date, gender, religion,
       emergency_name, emergency_relationship, emergency_phone,
@@ -219,7 +237,16 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
     const patch: Record<string, unknown> = {}
     if (name !== undefined) patch.name = name
     if (role !== undefined) patch.role = role
-    if (outlet_id !== undefined) patch.outlet_id = outlet_id || null
+    if (role === 'regional_manager' || role === 'area_manager') {
+      patch.outlet_id = KANTOR_PUSAT_ID
+    } else if (role === 'crew' && sub_role === 'crew_backup') {
+      patch.outlet_id = (outlet_ids && outlet_ids.length > 0) ? outlet_ids[0] : (outlet_id || KANTOR_PUSAT_ID)
+    } else if (outlet_id !== undefined) {
+      patch.outlet_id = outlet_id || null
+    }
+    if (sub_role !== undefined) patch.sub_role = role === 'crew' ? (sub_role || 'crew_regular') : null
+    if (onboarding_stage !== undefined) patch.onboarding_stage = onboarding_stage
+    if (training_start_date !== undefined) patch.training_start_date = training_start_date || null
     if (status !== undefined) patch.status = status
     if (is_bonus_eligible !== undefined) patch.is_bonus_eligible = Boolean(is_bonus_eligible)
     if (nik !== undefined) patch.nik = cleanNik
@@ -299,8 +326,13 @@ export async function updateStaffSync(vars: { staff_id: string } & Partial<Staff
       if (finError) return { ok: false, error: `Gagal menyimpan data finansial: ${finError.message}` }
     }
 
-    // 5. Update staff_outlets if leader
-    if ((role === 'leader' || role === 'area_manager') && Array.isArray(outlet_ids)) {
+    // 5. Update staff_outlets if leader, area_manager, or crew_backup
+    const isMultiOutlet =
+      role === 'leader' ||
+      role === 'area_manager' ||
+      (role === 'crew' && sub_role === 'crew_backup')
+
+    if (isMultiOutlet && Array.isArray(outlet_ids)) {
       await admin.from('staff_outlets').delete().eq('staff_id', staff_id)
       if (outlet_ids.length > 0) {
         const rows = outlet_ids.map((oid: string) => ({ staff_id, outlet_id: oid }))

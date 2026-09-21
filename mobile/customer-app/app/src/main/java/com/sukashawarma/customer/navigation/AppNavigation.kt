@@ -61,6 +61,7 @@ import com.sukashawarma.customer.ui.payment.PaymentWaitScreen
 import com.sukashawarma.customer.ui.payment.SuccessScreen
 import com.sukashawarma.customer.ui.product.ItemDetailScreen
 import com.sukashawarma.customer.ui.product.ItemDetailViewModel
+import com.sukashawarma.customer.ui.profile.InformasiAkunScreen
 import com.sukashawarma.customer.ui.profile.LoginScreen
 import com.sukashawarma.customer.ui.profile.LoginViewModel
 import com.sukashawarma.customer.ui.profile.ProfileScreen
@@ -289,6 +290,13 @@ fun CustomerAppRoot(container: AppContainer) {
                     onKembali = if (navController.previousBackStackEntry != null) {
                         { navController.popBackStack() }
                     } else null
+                )
+            }
+
+            composable(Rute.INFO_AKUN) {
+                InformasiAkunScreen(
+                    sesi = container.sessionStore.baca(),
+                    onKembali = { navController.popBackStack() }
                 )
             }
 
@@ -612,6 +620,7 @@ fun CustomerAppRoot(container: AppContainer) {
                             popUpTo(navController.graph.id) { inclusive = true }
                         }
                     },
+                    onBukaInfoAkun = { navController.navigate(Rute.INFO_AKUN) },
                     onLihatRiwayat = {
                         navController.navigate(Rute.RIWAYAT) {
                             popUpTo(navController.graph.findStartDestination().id) {

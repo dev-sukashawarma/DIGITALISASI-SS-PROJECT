@@ -26,5 +26,6 @@ object Rute {
     fun status(orderId: String) = "status/$orderId"
     const val RIWAYAT = "riwayat"
     const val PROFIL = "profil"
+    const val INFO_AKUN = "info-akun"
     const val NOTIFIKASI = "notifikasi"
 }

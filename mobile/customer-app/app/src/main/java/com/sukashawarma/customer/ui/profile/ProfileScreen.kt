@@ -75,6 +75,7 @@ fun ProfileScreen(
     sesi: SessionData?,
     onKeluar: () -> Unit,
     onLihatRiwayat: () -> Unit,
+    onBukaInfoAkun: () -> Unit,
     onKembali: () -> Unit,
     statusPesananAktif: Boolean = true,
     promoAktif: Boolean = true,
@@ -347,7 +348,7 @@ fun ProfileScreen(
                         icon = Icons.Filled.Person,
                         title = "Informasi Akun",
                         subtitle = sesi?.email ?: "Akun Pelanggan",
-                        onClick = {}
+                        onClick = onBukaInfoAkun
                     )
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
                     ProfileMenuItem(

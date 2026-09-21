@@ -120,10 +120,10 @@ export default function InputPengeluaranPage() {
   }, [outlets])
 
   const selectOptions = useMemo(() => [
-    { label: '🏢 Semua Unit (Cabang & Pusat)', value: 'all' },
-    { label: '🏪 Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
-    ...(isAdmin ? [{ label: '🏢 Pengeluaran Pusat (OPEX)', value: 'PUSAT' }] : []),
-    ...validOutlets.map(o => ({ label: `🏪 ${o.name}`, value: o.id }))
+    { label: 'Semua Unit (Cabang & Pusat)', value: 'all' },
+    { label: 'Semua Outlet (Khusus Cabang)', value: 'ALL_OUTLETS' },
+    ...(isAdmin ? [{ label: 'Pengeluaran Pusat (OPEX)', value: 'PUSAT' }] : []),
+    ...validOutlets.map(o => ({ label: o.name, value: o.id }))
   ], [isAdmin, validOutlets])
 
   const loading = expensesLoading
@@ -138,6 +138,7 @@ export default function InputPengeluaranPage() {
             options={selectOptions}
             value={target}
             onChange={setTarget}
+            icon={null}
             placeholder="— Pilih target —"
           />
           <Button

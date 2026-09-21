@@ -15,7 +15,7 @@ interface TargetComboboxProps {
   onChange: (val: string) => void
   placeholder?: string
   className?: string
-  icon?: React.ReactNode
+  icon?: React.ReactNode | null
 }
 
 export function TargetCombobox({
@@ -66,16 +66,20 @@ export function TargetCombobox({
     }
   }, [open])
 
+  const currentIcon = selectedOption?.icon !== undefined ? selectedOption.icon : icon
+
   return (
     <div ref={rootRef} className={`relative w-full sm:w-auto ${className}`}>
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full sm:w-auto flex items-center gap-2 pl-9 pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[180px]"
+        className={`w-full sm:w-auto flex items-center gap-2 ${currentIcon ? 'pl-9' : 'pl-3.5'} pr-8 py-2.5 sm:py-2 bg-suka-cream/30 border border-suka-gray-200 focus:border-suka-orange focus:ring-2 focus:ring-suka-orange/10 rounded-xl text-xs font-bold text-suka-brown outline-none cursor-pointer transition-all relative sm:min-w-[180px]`}
       >
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
-          {selectedOption?.icon ?? icon}
-        </span>
+        {currentIcon && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-suka-brown/50">
+            {currentIcon}
+          </span>
+        )}
         <span className="truncate text-left flex-1">{selectedLabel}</span>
         <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-suka-brown/40 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>

@@ -1,16 +1,17 @@
 import { createClient } from '@supabase/supabase-js'
 
 const DEFAULT_SUPABASE_URL = 'https://khpkoreaaucvyqfhynfq.supabase.co'
-const FALLBACK_SERVICE_ROLE_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtocGtvcmVhYXVjdnlxZmh5bmZxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MDk2MzI5MiwiZXhwIjoyMDk2NTM5MjkyfQ.Dy0QMAHfB8EU9BK-JuyRrBidpG6iM94t9RtiJ_viZz8'
 
 export function getPosSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL
   const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  const key =
-    rawKey && rawKey.trim().length > 0 && rawKey !== 'undefined'
-      ? rawKey.trim()
-      : FALLBACK_SERVICE_ROLE_KEY
+  if (!rawKey || rawKey.trim().length === 0 || rawKey === 'undefined') {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY belum di-set. Set di panel Coolify app ini ' +
+        '(dan pastikan ARG/ENV-nya ada di stage runner Dockerfile), lalu redeploy.'
+    )
+  }
+  const key = rawKey.trim()
 
   return createClient(url, key, {
     auth: {

@@ -1,5 +1,17 @@
 import { ReconciliationSnapshotResponse } from '@/app/actions/jurnalMutasi'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
+import { getMaterialType, getThresholdPersen, isSelisihFlagged, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
+
+// Urutan kategori sama dengan tabel Rekonsiliasi & papan monitoring; kategori lain di akhir.
+const KATEGORI_ORDER = ['FOOD & BEVERAGE', 'BUMBU', 'PACKAGING', 'OPERASIONAL']
+const kategoriRank = (k: string | null | undefined) => {
+  const i = KATEGORI_ORDER.indexOf((k || '').toUpperCase())
+  return i === -1 ? KATEGORI_ORDER.length : i
+}
+const TIPE_LABEL = {
+  bulk: `BULK MATERIAL (ditimbang / diukur) -- toleransi ${THRESHOLD_BULK_PERSEN}%, Ayam & Sapi 40%`,
+  count: 'COUNT MATERIAL (dihitung per satuan) -- toleransi 0%',
+} as const
 
 function formatRp(val: number): string {
   return `Rp ${Math.round(val).toLocaleString('id-ID')}`
@@ -94,10 +106,50 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
     'Stok Sistem',
     'Stok Fisik',
     'Selisih (Qty)',
+    'Threshold',
     'Selisih (Rp)',
   ]
 
-  const tableBody = data.items.map((item, idx) => {
+  // Urutkan: Bulk dulu lalu Count (sama dengan detail opname), di dalamnya per kategori, lalu nama.
+  const tipeOf = (item: (typeof data.items)[number]) => getMaterialType(item.satuan, item.satuan_kecil, item.nama)
+  const sortedItems = [...data.items].sort(
+    (a, b) =>
+      (tipeOf(a) === tipeOf(b) ? 0 : tipeOf(a) === 'bulk' ? -1 : 1) ||
+      kategoriRank(a.kategori) - kategoriRank(b.kategori) ||
+      (a.kategori || '').localeCompare(b.kategori || '') ||
+      a.nama.localeCompare(b.nama)
+  )
+
+  // Toleransi selisih opname -- aturan yang sama dengan form opname & approval.
+  // Hanya dinilai bila ada hitung fisik; tanpa itu selisih tidak bermakna.
+  const lewat = (item: (typeof data.items)[number]) =>
+    item.stok_fisik_qty !== null &&
+    isSelisihFlagged(item.selisih_qty, item.stok_sistem_qty, item.satuan, item.satuan_kecil, item.nama)
+  const jumlahLewat = sortedItems.filter(lewat).length
+
+  // Tiap baris body membawa jenisnya: judul tipe, judul kategori, atau bahan.
+  type RowMeta = { jenis: 'tipe' | 'kategori' } | { jenis: 'item'; item: (typeof data.items)[number] }
+  const rowMeta: RowMeta[] = []
+  const tableBody: any[] = []
+  const COLS = tableHeaders.length
+  let no = 0
+  let tipeAktif: string | null = null
+  let kategoriAktif: string | null = null
+  for (const item of sortedItems) {
+    const tipe = tipeOf(item)
+    if (tipe !== tipeAktif) {
+      tipeAktif = tipe
+      kategoriAktif = null
+      rowMeta.push({ jenis: 'tipe' })
+      tableBody.push([{ content: TIPE_LABEL[tipe], colSpan: COLS }])
+    }
+    const kat = (item.kategori || 'LAINNYA').toUpperCase()
+    if (kat !== kategoriAktif) {
+      kategoriAktif = kat
+      rowMeta.push({ jenis: 'kategori' })
+      tableBody.push([{ content: kat, colSpan: COLS }])
+    }
+
     const selisihQtyStr =
       item.selisih_qty === 0
         ? '0'
@@ -110,8 +162,9 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
         ? 'Rp 0'
         : `${item.selisih_rp > 0 ? '+' : ''}${formatRp(item.selisih_rp)}`
 
-    return [
-      idx + 1,
+    rowMeta.push({ jenis: 'item', item })
+    tableBody.push([
+      ++no,
       item.nama,
       item.satuan,
       formatQty(item.saldo_awal_qty, item),
@@ -121,9 +174,10 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
       formatQty(item.stok_sistem_qty, item),
       item.stok_fisik_qty !== null ? formatQty(item.stok_fisik_qty, item) : '-',
       selisihQtyStr,
+      `${getThresholdPersen(item.satuan, item.satuan_kecil, item.nama)}%${lewat(item) ? ' !' : ''}`,
       selisihRpStr,
-    ]
-  })
+    ])
+  }
 
   // Tambahkan baris total
   const totalSelisihStr = `${data.totals.total_selisih_rp > 0 ? '+' : ''}${formatRp(data.totals.total_selisih_rp)}`
@@ -143,6 +197,7 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
         formatRp(data.totals.total_sistem_rp),
         formatRp(data.totals.total_fisik_rp),
         `${data.totals.bahan_berselisih_count} Bahan`,
+        `${jumlahLewat} lewat`,
         totalSelisihStr,
       ],
     ],
@@ -172,26 +227,49 @@ export async function exportReconciliationToPdf(data: ReconciliationSnapshotResp
       0: { halign: 'center', cellWidth: 8 },
       1: { fontStyle: 'bold' },
       2: { halign: 'center', cellWidth: 14 },
-      3: { halign: 'right', cellWidth: 24 },
-      4: { halign: 'right', cellWidth: 24 },
-      5: { halign: 'right', cellWidth: 24 },
+      3: { halign: 'right', cellWidth: 22 },
+      4: { halign: 'right', cellWidth: 22 },
+      5: { halign: 'right', cellWidth: 22 },
       6: { halign: 'right', cellWidth: 22 },
-      7: { halign: 'right', cellWidth: 26 },
-      8: { halign: 'right', cellWidth: 26 },
-      9: { halign: 'right', cellWidth: 26 },
-      10: { halign: 'right', fontStyle: 'bold', cellWidth: 32 },
+      7: { halign: 'right', cellWidth: 24 },
+      8: { halign: 'right', cellWidth: 24 },
+      9: { halign: 'right', cellWidth: 24 },
+      10: { halign: 'center', cellWidth: 16 },
+      11: { halign: 'right', fontStyle: 'bold', cellWidth: 30 },
     },
     didParseCell: (hookData) => {
+      const meta = hookData.section === 'body' ? rowMeta[hookData.row.index] : undefined
+      if (meta?.jenis === 'tipe') {
+        hookData.cell.styles.fillColor = [254, 243, 199]
+        hookData.cell.styles.textColor = [146, 64, 14]
+        hookData.cell.styles.fontStyle = 'bold'
+        hookData.cell.styles.halign = 'left'
+        hookData.cell.styles.fontSize = 7.5
+        return
+      }
+      if (meta?.jenis === 'kategori') {
+        hookData.cell.styles.fillColor = [241, 245, 249]
+        hookData.cell.styles.textColor = [71, 85, 105]
+        hookData.cell.styles.fontStyle = 'bold'
+        hookData.cell.styles.halign = 'left'
+        return
+      }
+      const rowItem = meta?.jenis === 'item' ? meta.item : undefined
+      // Threshold: merah tebal bila selisih melewati toleransi
+      if (hookData.column.index === 10 && rowItem && lewat(rowItem)) {
+        hookData.cell.styles.textColor = [185, 28, 28]
+        hookData.cell.styles.fontStyle = 'bold'
+      }
       // Pewarnaan selisih pada baris data dan foot
-      if (hookData.section === 'body' && hookData.column.index === 10) {
-        const item = data.items[hookData.row.index]
+      if (hookData.column.index === 11 && rowItem) {
+        const item = rowItem
         if (item && item.selisih_rp < 0) {
           hookData.cell.styles.textColor = [185, 28, 28] // Merah
         } else if (item && item.selisih_rp > 0) {
           hookData.cell.styles.textColor = [16, 149, 106] // Hijau
         }
       }
-      if (hookData.section === 'foot' && hookData.column.index === 10) {
+      if (hookData.section === 'foot' && hookData.column.index === 11) {
         if (data.totals.total_selisih_rp < 0) {
           hookData.cell.styles.textColor = [185, 28, 28]
         } else if (data.totals.total_selisih_rp > 0) {

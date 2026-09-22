@@ -50,6 +50,7 @@ import {
 import EndorsementFinanceView from './EndorsementFinanceView'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
 import VideoPreviewModal from './VideoPreviewModal'
+import Pagination from '@/components/dashboard/Pagination'
 import {
   PlatformIcon,
   TikTokIcon,
@@ -402,6 +403,21 @@ export default function EndorsementList({
   // Analytics specific filters
   const [performanceFilter, setPerformanceFilter] = useState<string>('ALL')
   const [sortBy, setSortBy] = useState<'views' | 'er' | 'cpv' | 'engagement'>('views')
+
+  // Pagination states
+  const [opsPage, setOpsPage] = useState(1)
+  const [opsPageSize, setOpsPageSize] = useState(15)
+  const [analyticsPage, setAnalyticsPage] = useState(1)
+  const [analyticsPageSize, setAnalyticsPageSize] = useState(15)
+
+  // Reset page when filters change
+  useEffect(() => {
+    setOpsPage(1)
+  }, [search, outletFilter, visitFilter, postFilter, typeFilter, datePreset, customDateFrom, customDateTo])
+
+  useEffect(() => {
+    setAnalyticsPage(1)
+  }, [search, outletFilter, performanceFilter, sortBy])
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -861,6 +877,22 @@ export default function EndorsementList({
     0
   )
   const activeCountOps = filteredOperations.filter((i) => i.postStatus === 'ON').length
+
+  // Operations Pagination
+  const totalOpsPages = Math.max(1, Math.ceil(filteredOperations.length / opsPageSize))
+  const safeOpsPage = Math.min(opsPage, totalOpsPages)
+  const paginatedOperations = useMemo(() => {
+    const start = (safeOpsPage - 1) * opsPageSize
+    return filteredOperations.slice(start, start + opsPageSize)
+  }, [filteredOperations, safeOpsPage, opsPageSize])
+
+  // Analytics Pagination
+  const totalAnalyticsPages = Math.max(1, Math.ceil(filteredAnalytics.length / analyticsPageSize))
+  const safeAnalyticsPage = Math.min(analyticsPage, totalAnalyticsPages)
+  const paginatedAnalytics = useMemo(() => {
+    const start = (safeAnalyticsPage - 1) * analyticsPageSize
+    return filteredAnalytics.slice(start, start + analyticsPageSize)
+  }, [filteredAnalytics, safeAnalyticsPage, analyticsPageSize])
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -1604,7 +1636,7 @@ export default function EndorsementList({
                       </td>
                     </tr>
                   ) : (
-                    filteredOperations.map((item) => (
+                    paginatedOperations.map((item) => (
                       <tr key={item.id} className="group hover:bg-amber-50/30 transition-colors">
                         {/* KOL / Influencer */}
                         <td className="py-3.5 px-4 align-middle">
@@ -1913,6 +1945,23 @@ export default function EndorsementList({
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredOperations.length > 0 && (
+              <Pagination
+                currentPage={safeOpsPage}
+                totalPages={totalOpsPages}
+                totalItems={filteredOperations.length}
+                pageSize={opsPageSize}
+                pageSizeOptions={[10, 15, 25, 50, 100]}
+                onPageChange={(page) => setOpsPage(page)}
+                onPageSizeChange={(size) => {
+                  setOpsPageSize(size)
+                  setOpsPage(1)
+                }}
+                itemName="endorsement"
+              />
+            )}
           </div>
         </div>
       )}
@@ -2125,13 +2174,13 @@ export default function EndorsementList({
                       </td>
                     </tr>
                   ) : (
-                    filteredAnalytics.map((item, idx) => (
+                    paginatedAnalytics.map((item, idx) => (
                       <tr key={item.id} className="group hover:bg-[#FAF8F5]/80 transition-colors">
                         {/* Influencer */}
                         <td className="py-3.5 px-4 sm:px-6 align-top">
                           <div className="flex items-start gap-3">
                             <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
-                              #{idx + 1}
+                              #{(safeAnalyticsPage - 1) * analyticsPageSize + idx + 1}
                             </div>
                             <div className="min-w-0">
                               <div className="font-bold text-[#1A1715] text-sm truncate" title={item.kol.name}>
@@ -2468,6 +2517,23 @@ export default function EndorsementList({
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {filteredAnalytics.length > 0 && (
+              <Pagination
+                currentPage={safeAnalyticsPage}
+                totalPages={totalAnalyticsPages}
+                totalItems={filteredAnalytics.length}
+                pageSize={analyticsPageSize}
+                pageSizeOptions={[10, 15, 25, 50, 100]}
+                onPageChange={(page) => setAnalyticsPage(page)}
+                onPageSizeChange={(size) => {
+                  setAnalyticsPageSize(size)
+                  setAnalyticsPage(1)
+                }}
+                itemName="video / konten"
+              />
+            )}
           </div>
         </div>
       )}

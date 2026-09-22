@@ -17,10 +17,42 @@ export default async function EndorsementsPage() {
     prisma.endorsement.findMany({
       orderBy: { scheduleDate: 'desc' },
       include: {
-        kol: true,
-        outlet: true,
+        kol: {
+          select: {
+            id: true,
+            name: true,
+            tiktokUrl: true,
+            instagramUrl: true,
+            youtubeUrl: true,
+            facebookUrl: true,
+            threadsUrl: true,
+            phoneNumber: true,
+            bankAccount: true,
+          },
+        },
+        outlet: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+          },
+        },
         posts: {
           orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            endorsementId: true,
+            platform: true,
+            customPlatformName: true,
+            postUrl: true,
+            status: true,
+            views: true,
+            likes: true,
+            comments: true,
+            shares: true,
+            saves: true,
+            postedAt: true,
+          },
         },
       },
     }),

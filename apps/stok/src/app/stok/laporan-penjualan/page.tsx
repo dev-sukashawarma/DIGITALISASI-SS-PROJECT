@@ -84,14 +84,18 @@ export default async function LaporanPenjualanPage({
     p_end = getJakartaBoundary(0, false);
   }
 
-  // Handle pagination untuk > 1000 orders
+  // Handle pagination untuk > 1000 orders. baseQuery WAJIB punya ORDER BY unik
+  // (lihat ordersQuery di bawah) -- tanpa itu batas halaman tidak stabil dan
+  // order bisa terhitung dobel atau terlewat antar halaman. Error dilempar,
+  // bukan dihentikan diam-diam: laporan yang separuh lebih buruk dari error.
   const fetchAllPages = async (baseQuery: any): Promise<any[]> => {
     const PAGE = 1000;
     let all: any[] = [];
     let from = 0;
     while (true) {
       const { data, error } = await baseQuery.range(from, from + PAGE - 1);
-      if (error || !data || data.length === 0) break;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
       all = all.concat(data);
       if (data.length < PAGE) break;
       from += PAGE;
@@ -140,6 +144,9 @@ export default async function LaporanPenjualanPage({
       n.includes('GLOBAL SYSTEM')
     );
   };
+
+  // Urutan unik untuk paginasi stabil (lihat fetchAllPages).
+  ordersQuery = ordersQuery.order('created_at', { ascending: true }).order('id', { ascending: true });
 
   // Fetch Outlets & Orders
   const [ordersData, { data: outletsData }] = await Promise.all([

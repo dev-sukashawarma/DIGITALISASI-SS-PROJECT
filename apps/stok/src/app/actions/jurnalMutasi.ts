@@ -26,6 +26,24 @@ function makeServiceClient() {
   return createClient(url, key)
 }
 
+/**
+ * PostgREST memotong tiap request di max-rows server (1000) TANPA error --
+ * query yang melampauinya diam-diam kehilangan sisa barisnya. Ambil per
+ * halaman sampai habis. `build` wajib membuat query BARU tiap panggilan dan
+ * sudah memuat ORDER BY yang unik (mis. created_at + id): tanpa urutan unik,
+ * batas halaman tidak stabil dan baris bisa dobel/terlewat.
+ */
+async function fetchAllPages<T>(build: () => any, pageSize = 1000): Promise<T[]> {
+  const all: T[] = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await build().range(from, from + pageSize - 1)
+    if (error) throw error
+    const rows = (data ?? []) as T[]
+    all.push(...rows)
+    if (rows.length < pageSize) return all
+  }
+}
+
 async function getAuthedClient() {
   const cookieStore = await cookies()
   return createSupabaseServerClient({
@@ -887,17 +905,26 @@ export async function fetchReconciliationSnapshot(
     (b) => !KATEGORI_NON_BAHAN.includes(String(b.kategori || '').toUpperCase())
   )
 
-  // 4. Ambil mutasi dari ledger_stok antara startIso dan endIso
-  let ledgerQuery = supabase
-    .from('ledger_stok')
-    .select('id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_opname_id, ref_terima_vendor_id, ref_po_id, saldo_sebelum, saldo_sesudah')
-    .eq('outlet_id', outletId)
-    .gte('created_at', startIso)
-    .lte('created_at', endIso)
-    .order('created_at', { ascending: true })
-
-  const { data: rawLedgerRows, error: ledgerErr } = await ledgerQuery
-  if (ledgerErr) throw new Error(`Gagal memuat mutasi ledger: ${ledgerErr.message}`)
+  // 4. Ambil mutasi dari ledger_stok antara startIso dan endIso.
+  // WAJIB berhalaman: 40% periode opname September melampaui 1000 baris
+  // (terbanyak 6.054) -- dulu satu request polos diam-diam hanya membawa 1000
+  // baris TERLAMA, sehingga mutasi terbaru hilang dari rekonsiliasi.
+  let rawLedgerRows: any[]
+  try {
+    rawLedgerRows = await fetchAllPages<any>(() =>
+      supabase
+        .from('ledger_stok')
+        .select('id, bahan_baku_id, tipe, qty, created_at, ref_shipment_id, ref_opname_id, ref_terima_vendor_id, ref_po_id, saldo_sebelum, saldo_sesudah')
+        .eq('outlet_id', outletId)
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
+        .neq('tipe', 'opname_selisih')
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+    )
+  } catch (e: any) {
+    throw new Error(`Gagal memuat mutasi ledger: ${e?.message ?? e}`)
+  }
 
   // Filter keluar baris 'opname_selisih' di JavaScript:
   // Catatan: 'opname_selisih' BUKAN mutasi operasional (bukan kiriman, pemakaian, atau waste).
@@ -963,13 +990,23 @@ export async function fetchReconciliationSnapshot(
   const menuBreakdownList: MenuBomBreakdownItem[] = []
 
 
-  const { data: ordersData } = await supabase
-    .from('orders')
-    .select('id, total_amount, discount_amount, promo_subsidy')
-    .eq('outlet_id', outletId)
-    .eq('status', 'completed')
-    .gte('created_at', startIso)
-    .lte('created_at', endIso)
+  // Berhalaman: mode rentang tanggal bisa melampaui 1000 order (cap PostgREST).
+  let ordersData: any[]
+  try {
+    ordersData = await fetchAllPages<any>(() =>
+      supabase
+        .from('orders')
+        .select('id, total_amount, discount_amount, promo_subsidy')
+        .eq('outlet_id', outletId)
+        .eq('status', 'completed')
+        .gte('created_at', startIso)
+        .lte('created_at', endIso)
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true })
+    )
+  } catch (e: any) {
+    throw new Error(`Gagal memuat penjualan: ${e?.message ?? e}`)
+  }
 
   const completedOrderIds = (ordersData || []).map((o) => o.id)
   let omzetRp = 0 // omzet kotor; diisi setelah subtotal item terkumpul
@@ -989,12 +1026,21 @@ export async function fetchReconciliationSnapshot(
     const itemValueByOrder = new Map<string, { n: number; value: number }>()
 
     for (const chunk of orderChunks) {
-      const { data: oiList } = await supabase
-        .from('order_items')
-        .select('order_id, menu_item_id, menu_item_name, quantity, subtotal')
-        .in('order_id', chunk)
+      // 200 order bisa > 1000 item (order besar/paket) -> tetap berhalaman.
+      let oiList: any[]
+      try {
+        oiList = await fetchAllPages<any>(() =>
+          supabase
+            .from('order_items')
+            .select('order_id, menu_item_id, menu_item_name, quantity, subtotal')
+            .in('order_id', chunk)
+            .order('id', { ascending: true })
+        )
+      } catch (e: any) {
+        throw new Error(`Gagal memuat item penjualan: ${e?.message ?? e}`)
+      }
 
-      for (const oi of (oiList || []) as any[]) {
+      for (const oi of oiList) {
         const cur = itemValueByOrder.get(oi.order_id) || { n: 0, value: 0 }
         cur.n++
         cur.value += Number(oi.subtotal || 0)

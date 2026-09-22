@@ -198,6 +198,13 @@ export function detectPlatformFromUrl(url: string): string {
   return 'TIKTOK'
 }
 
+export function getLocalDateString(d: Date): string {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 export function getPlatformBadgeConfig(platform: string, customName?: string | null) {
   switch (platform) {
     case 'TIKTOK':
@@ -384,6 +391,13 @@ export default function EndorsementList({
   const [visitFilter, setVisitFilter] = useState('')
   const [postFilter, setPostFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'VISIT' | 'DELIVERY'>('ALL')
+
+  // Date filter states for operations tab
+  const [datePreset, setDatePreset] = useState<
+    'ALL' | 'TODAY' | 'TOMORROW' | 'THIS_WEEK' | 'THIS_MONTH' | 'NEXT_MONTH' | 'UPCOMING' | 'PAST' | 'CUSTOM'
+  >('ALL')
+  const [customDateFrom, setCustomDateFrom] = useState('')
+  const [customDateTo, setCustomDateTo] = useState('')
 
   // Analytics specific filters
   const [performanceFilter, setPerformanceFilter] = useState<string>('ALL')
@@ -659,18 +673,112 @@ export default function EndorsementList({
   }, [deleteTarget, videoMetricsTarget, editingEndorsement, isCreateOpen, isImportModalOpen])
 
   // Filter endorsements for operations tab
-  const filteredOperations = initialEndorsements.filter((item) => {
-    const matchesSearch =
-      item.kol.name.toLowerCase().includes(search.toLowerCase()) ||
-      item.outlet.name.toLowerCase().includes(search.toLowerCase())
+  const filteredOperations = useMemo(() => {
+    const today = new Date()
+    const todayStr = getLocalDateString(today)
 
-    const matchesOutlet = outletFilter ? item.outletId === outletFilter : true
-    const matchesVisit = visitFilter ? item.visitStatus === visitFilter : true
-    const matchesPost = postFilter ? item.postStatus === postFilter : true
-    const matchesType = typeFilter === 'ALL' ? true : (item.type || 'VISIT') === typeFilter
+    // Tomorrow
+    const tomorrow = new Date(today)
+    tomorrow.setDate(today.getDate() + 1)
+    const tomorrowStr = getLocalDateString(tomorrow)
 
-    return matchesSearch && matchesOutlet && matchesVisit && matchesPost && matchesType
-  })
+    // This Week (Monday to Sunday)
+    const currentDay = today.getDay() // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const diffToMonday = (currentDay + 6) % 7 // Monday = 0, Sunday = 6
+    const monday = new Date(today)
+    monday.setDate(today.getDate() - diffToMonday)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const mondayStr = getLocalDateString(monday)
+    const sundayStr = getLocalDateString(sunday)
+
+    // This Month
+    const firstDayMonthStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    const lastDayMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0)
+    const lastDayMonthStr = getLocalDateString(lastDayMonth)
+
+    // Next Month
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1)
+    const firstDayNextMonthStr = getLocalDateString(nextMonth)
+    const lastDayNextMonth = new Date(today.getFullYear(), today.getMonth() + 2, 0)
+    const lastDayNextMonthStr = getLocalDateString(lastDayNextMonth)
+
+    return initialEndorsements.filter((item) => {
+      const matchesSearch =
+        item.kol.name.toLowerCase().includes(search.toLowerCase()) ||
+        item.outlet.name.toLowerCase().includes(search.toLowerCase())
+
+      const matchesOutlet = outletFilter ? item.outletId === outletFilter : true
+      const matchesVisit = visitFilter ? item.visitStatus === visitFilter : true
+      const matchesPost = postFilter ? item.postStatus === postFilter : true
+      const matchesType = typeFilter === 'ALL' ? true : (item.type || 'VISIT') === typeFilter
+
+      // Date filtering
+      let matchesDate = true
+      const sched = item.scheduleDate // format YYYY-MM-DD
+      if (datePreset === 'TODAY') {
+        matchesDate = sched === todayStr
+      } else if (datePreset === 'TOMORROW') {
+        matchesDate = sched === tomorrowStr
+      } else if (datePreset === 'THIS_WEEK') {
+        matchesDate = sched >= mondayStr && sched <= sundayStr
+      } else if (datePreset === 'THIS_MONTH') {
+        matchesDate = sched >= firstDayMonthStr && sched <= lastDayMonthStr
+      } else if (datePreset === 'NEXT_MONTH') {
+        matchesDate = sched >= firstDayNextMonthStr && sched <= lastDayNextMonthStr
+      } else if (datePreset === 'UPCOMING') {
+        matchesDate = sched >= todayStr
+      } else if (datePreset === 'PAST') {
+        matchesDate = sched < todayStr
+      } else if (datePreset === 'CUSTOM') {
+        if (customDateFrom && customDateTo) {
+          matchesDate = sched >= customDateFrom && sched <= customDateTo
+        } else if (customDateFrom) {
+          matchesDate = sched >= customDateFrom
+        } else if (customDateTo) {
+          matchesDate = sched <= customDateTo
+        }
+      }
+
+      return matchesSearch && matchesOutlet && matchesVisit && matchesPost && matchesType && matchesDate
+    })
+  }, [
+    initialEndorsements,
+    search,
+    outletFilter,
+    visitFilter,
+    postFilter,
+    typeFilter,
+    datePreset,
+    customDateFrom,
+    customDateTo,
+  ])
+
+  const dateFilterLabel = useMemo(() => {
+    switch (datePreset) {
+      case 'TODAY':
+        return 'Hari Ini'
+      case 'TOMORROW':
+        return 'Besok'
+      case 'THIS_WEEK':
+        return 'Minggu Ini'
+      case 'THIS_MONTH':
+        return 'Bulan Ini'
+      case 'NEXT_MONTH':
+        return 'Bulan Depan'
+      case 'UPCOMING':
+        return 'Jadwal Mendatang'
+      case 'PAST':
+        return 'Sudah Terlewat'
+      case 'CUSTOM':
+        if (customDateFrom && customDateTo) return `${customDateFrom} s/d ${customDateTo}`
+        if (customDateFrom) return `Mulai ${customDateFrom}`
+        if (customDateTo) return `Sampai ${customDateTo}`
+        return 'Rentang Kustom'
+      default:
+        return ''
+    }
+  }, [datePreset, customDateFrom, customDateTo])
 
   // Calculations for analytics tab
   const processedAnalytics = useMemo(() => {
@@ -1290,7 +1398,73 @@ export default function EndorsementList({
           </div>
 
           {/* Filters Bar */}
-          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3">
+          <div className="bg-white p-4 sm:p-5 rounded-3xl border border-[#EFE8DE] shadow-2xs space-y-3.5">
+            {/* Quick Date Presets Bar */}
+            <div className="flex items-center justify-between gap-3 flex-wrap pb-1 border-b border-[#EFE8DE]/70">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-xs font-bold text-stone-400 uppercase tracking-wider mr-1 flex items-center gap-1 shrink-0">
+                  <Calendar className="w-3.5 h-3.5 text-[#D9480F]" />
+                  <span>Filter Tanggal:</span>
+                </span>
+                {[
+                  { id: 'ALL', label: 'Semua Tanggal' },
+                  { id: 'TODAY', label: 'Hari Ini' },
+                  { id: 'TOMORROW', label: 'Besok' },
+                  { id: 'THIS_WEEK', label: 'Minggu Ini' },
+                  { id: 'THIS_MONTH', label: 'Bulan Ini' },
+                  { id: 'NEXT_MONTH', label: 'Bulan Depan' },
+                  { id: 'UPCOMING', label: 'Jadwal Mendatang' },
+                  { id: 'PAST', label: 'Terlewat' },
+                  { id: 'CUSTOM', label: 'Kustom Rentang...' },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setDatePreset(p.id as any)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      datePreset === p.id
+                        ? 'bg-[#1A1715] text-white shadow-xs'
+                        : 'bg-[#FAF8F5] text-stone-600 hover:text-[#1A1715] hover:bg-stone-200/60 border border-[#EFE8DE]'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {datePreset === 'CUSTOM' && (
+                <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F5] p-1.5 px-2.5 rounded-xl border border-[#EFE8DE] animate-in fade-in duration-150">
+                  <span className="text-xs font-bold text-stone-600">Dari:</span>
+                  <input
+                    type="date"
+                    value={customDateFrom}
+                    onChange={(e) => setCustomDateFrom(e.target.value)}
+                    className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                  />
+                  <span className="text-xs text-stone-400 font-bold">s/d</span>
+                  <input
+                    type="date"
+                    value={customDateTo}
+                    onChange={(e) => setCustomDateTo(e.target.value)}
+                    className="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#EFE8DE] bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F]"
+                  />
+                  {(customDateFrom || customDateTo) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCustomDateFrom('')
+                        setCustomDateTo('')
+                      }}
+                      className="text-stone-400 hover:text-stone-700 p-0.5"
+                      title="Hapus rentang tanggal"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-5 gap-3">
               {/* Search */}
               <div className="relative">
@@ -1363,16 +1537,29 @@ export default function EndorsementList({
             </div>
 
             <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE]">
-              <span>
-                Ditemukan <span className="font-bold text-[#1A1715]">{filteredOperations.length}</span> data endorsement
-              </span>
-              {(search || outletFilter || visitFilter || postFilter) && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <span>
+                  Ditemukan <span className="font-bold text-[#1A1715]">{filteredOperations.length}</span> data endorsement
+                </span>
+                {datePreset !== 'ALL' && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#FFF4ED] text-[#D9480F] text-[11px] font-bold border border-[#D9480F]/20">
+                    <Calendar className="w-3 h-3" />
+                    <span>Jadwal: {dateFilterLabel}</span>
+                  </span>
+                )}
+              </div>
+              {(search || outletFilter || visitFilter || postFilter || typeFilter !== 'ALL' || datePreset !== 'ALL' || customDateFrom || customDateTo) && (
                 <button
+                  type="button"
                   onClick={() => {
                     setSearch('')
                     setOutletFilter('')
                     setVisitFilter('')
                     setPostFilter('')
+                    setTypeFilter('ALL')
+                    setDatePreset('ALL')
+                    setCustomDateFrom('')
+                    setCustomDateTo('')
                   }}
                   className="text-[#D9480F] hover:underline font-bold cursor-pointer"
                 >

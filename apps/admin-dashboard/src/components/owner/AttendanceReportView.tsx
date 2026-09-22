@@ -25,6 +25,9 @@ export interface AttendanceRecordExt {
   staff_role: string
   outlet_id: string
   outlet_name: string
+  /** Terisi bila absen pulang dilakukan di outlet lain dari absen masuk. */
+  out_outlet_id?: string | null
+  out_outlet_name?: string | null
   date: string
   clock_in: string | null
   clock_out: string | null
@@ -68,7 +71,7 @@ export function AttendanceReportView({
   const filteredData = useMemo(() => {
     return records.filter((r) => {
       // Filter Outlet
-      if (selectedOutletId !== 'all' && r.outlet_id !== selectedOutletId) {
+      if (selectedOutletId !== 'all' && r.outlet_id !== selectedOutletId && r.out_outlet_id !== selectedOutletId) {
         return false
       }
       // Filter Status
@@ -80,7 +83,8 @@ export function AttendanceReportView({
         const q = searchQuery.toLowerCase()
         const matchName = r.staff_name.toLowerCase().includes(q)
         const matchRole = r.staff_role.toLowerCase().includes(q)
-        const matchOutlet = r.outlet_name.toLowerCase().includes(q)
+        const matchOutlet =
+          r.outlet_name.toLowerCase().includes(q) || (r.out_outlet_name?.toLowerCase().includes(q) ?? false)
         const matchNotes = r.notes?.toLowerCase().includes(q) ?? false
         if (!matchName && !matchRole && !matchOutlet && !matchNotes) {
           return false
@@ -241,6 +245,12 @@ export function AttendanceReportView({
                         <Building2 size={12} className="text-suka-orange" />
                         {row.outlet_name}
                       </div>
+                      {row.out_outlet_name && (
+                        <div className="text-[10px] text-blue-600 font-semibold flex items-center gap-1 mt-0.5">
+                          <LogOut size={11} />
+                          Pulang di {row.out_outlet_name}
+                        </div>
+                      )}
                     </td>
 
                     {/* Jam Masuk & Foto Kamera */}
@@ -328,7 +338,7 @@ export function AttendanceReportView({
                               title: `Foto Presensi Pulang - ${row.staff_name}`,
                               timestamp: `${formatDate(row.date)} Jam ${row.clock_out ? row.clock_out.slice(0, 5) : ''} WIB`,
                               staffName: row.staff_name,
-                              outletName: row.outlet_name,
+                              outletName: row.out_outlet_name ?? row.outlet_name,
                               actionType: 'Presensi Pulang (Selesai Shift)',
                               notes: row.notes ?? undefined,
                             })

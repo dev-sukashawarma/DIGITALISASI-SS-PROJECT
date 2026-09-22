@@ -201,6 +201,9 @@ export interface AttendanceLog {
   updated_at?: string
   outlet_staff?: { name: string; role: string }
   outlets?: { name: string }
+  /** Terisi bila absen pulang dilakukan di outlet lain dari absen masuk. */
+  out_outlet_id?: string | null
+  out_outlets?: { name: string } | null
 }
 
 export interface AttendanceFilterValues {

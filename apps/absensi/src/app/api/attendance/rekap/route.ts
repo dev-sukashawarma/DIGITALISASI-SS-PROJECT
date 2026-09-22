@@ -7,6 +7,8 @@ import timezone from 'dayjs/plugin/timezone';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+const ATT_COLS = 'id, type, ts_server, ts_client, status, selfie_url, outlet_id, outlet_staff_id, telat_menit, is_manual_button, source, shift_jam_masuk, shift_jam_keluar';
+
 export async function GET(request: Request) {
   const supabaseService = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -73,7 +75,7 @@ export async function GET(request: Request) {
 
     let attQuery = supabaseService
       .from('attendance')
-      .select('id, type, ts_server, ts_client, status, selfie_url, outlet_staff_id, telat_menit, is_manual_button, source, shift_jam_masuk, shift_jam_keluar')
+      .select(ATT_COLS)
       .gte('ts_server', `${start_date}T00:00:00+07:00`)
       .lte('ts_server', `${end_date}T23:59:59+07:00`)
       .order('ts_server', { ascending: false });
@@ -86,9 +88,46 @@ export async function GET(request: Request) {
 
     const attRes = await attQuery;
 
-    const rawRows = attRes.data || [];
+    let rawRows: any[] = attRes.data || [];
+
+    // Manajer lintas outlet bisa absen masuk di outlet ini lalu pulang di outlet
+    // lain (atau sebaliknya). Ambil pasangan absennya untuk staf & tanggal yang
+    // sama agar jam & foto pulang/masuknya tetap tampil di rekap outlet ini.
+    const wibDate = (ts: string) => dayjs(ts).tz('Asia/Jakarta').format('YYYY-MM-DD');
+    const rowsHere = rawRows.filter((r) => r.outlet_id === outlet_id);
+    const dayKeys = new Set(rowsHere.map((r) => `${r.outlet_staff_id}|${wibDate(r.ts_server)}`));
+    const visitorIds = Array.from(new Set(rowsHere.map((r) => r.outlet_staff_id).filter((id) => id && !activeStaffMap.has(id))));
+    if (visitorIds.length > 0) {
+      const { data: pairRows } = await supabaseService
+        .from('attendance')
+        .select(ATT_COLS)
+        .in('outlet_staff_id', visitorIds)
+        .neq('outlet_id', outlet_id)
+        .gte('ts_server', `${start_date}T00:00:00+07:00`)
+        .lte('ts_server', `${end_date}T23:59:59+07:00`);
+      const seen = new Set(rawRows.map((r) => r.id));
+      for (const r of pairRows || []) {
+        if (!seen.has(r.id) && dayKeys.has(`${r.outlet_staff_id}|${wibDate(r.ts_server)}`)) rawRows.push(r);
+      }
+    }
+
+    // Nama untuk staf tamu (bukan staf outlet ini) + nama outlet tiap baris.
+    const missingNameIds = Array.from(new Set(rawRows.map((r) => r.outlet_staff_id).filter((id) => id && !nameById.has(id))));
+    const outletIds = Array.from(new Set(rawRows.map((r) => r.outlet_id).filter(Boolean)));
+    const [extraStaffRes, outletsRes] = await Promise.all([
+      missingNameIds.length > 0
+        ? supabaseService.from('outlet_staff').select('id, name').in('id', missingNameIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+      outletIds.length > 0
+        ? supabaseService.from('outlets').select('id, name').in('id', outletIds)
+        : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+    ]);
+    (extraStaffRes.data || []).forEach((s) => nameById.set(s.id, s.name));
+    const outletNameById = new Map((outletsRes.data || []).map((o) => [o.id, o.name]));
+
     const dbRows = rawRows.map((r) => ({
       ...r,
+      outlet_name: outletNameById.get(r.outlet_id) ?? null,
       outlet_staff: { name: nameById.get(r.outlet_staff_id) ?? '-' },
     }));
 

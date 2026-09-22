@@ -64,6 +64,33 @@ export function useAttendance(filter: AttendanceFilterValues) {
 
       let { data: rawRows, error } = await query
 
+      const wibDate = (ts: string | null) =>
+        ts ? new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) : ''
+
+      // Manajer lintas outlet bisa masuk di outlet A lalu pulang di outlet B.
+      // Saat difilter per outlet, ambil juga pasangan absennya di outlet lain
+      // (staf & tanggal sama) agar jam & foto pulangnya tetap tampil.
+      if (!error && rawRows && rawRows.length > 0 && filter.outletId && filter.outletId !== 'all') {
+        const dayKeys = new Set(rawRows.map((r) => `${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
+        const staffIds = Array.from(new Set(rawRows.map((r) => r.outlet_staff_id).filter(Boolean)))
+        let pairQuery = supabase
+          .from('attendance')
+          .select(`
+            id, outlet_staff_id, outlet_id, type, ts_server, status,
+            selfie_url, gps_lat, gps_lng, telat_menit, is_manual_button,
+            outlets!attendance_outlet_id_fkey(name)
+          `)
+          .in('outlet_staff_id', staffIds)
+          .neq('outlet_id', filter.outletId)
+          .order('ts_server', { ascending: false })
+          .limit(1000)
+        if (filter.dateFrom) pairQuery = pairQuery.gte('ts_server', `${filter.dateFrom}T00:00:00.000+07:00`)
+        if (filter.dateTo) pairQuery = pairQuery.lte('ts_server', `${filter.dateTo}T23:59:59.999+07:00`)
+        const { data: pairRows } = await pairQuery
+        const pasangan = (pairRows ?? []).filter((r) => dayKeys.has(`${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
+        rawRows = [...rawRows, ...pasangan]
+      }
+
       if (error || !rawRows) {
         // Fallback to attendance_logs if attendance query fails
         let logQuery = supabase
@@ -125,10 +152,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
       const grouped = new Map<string, AttendanceLog>()
 
       for (const r of rawRows) {
-        const dateStr = r.ts_server
-          ? new Date(r.ts_server).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
-          : ''
-        const key = `${r.outlet_staff_id}|${r.outlet_id}|${dateStr}`
+        const dateStr = wibDate(r.ts_server)
+        // Satu baris per staf per tanggal, walau masuk & pulang di outlet berbeda.
+        const key = `${r.outlet_staff_id}|${dateStr}`
 
         if (!grouped.has(key)) {
           grouped.set(key, {
@@ -154,6 +180,9 @@ export function useAttendance(filter: AttendanceFilterValues) {
 
         const item = grouped.get(key)!
         if (r.type === 'in') {
+          // Outlet baris mengikuti outlet absen masuk.
+          item.outlet_id = r.outlet_id
+          item.outlets = r.outlets
           item.clock_in = r.ts_server
           item.photo_url = r.selfie_url
             ? (r.selfie_url.startsWith('http') ? r.selfie_url : supabase.storage.from('selfies').getPublicUrl(r.selfie_url).data.publicUrl)
@@ -170,6 +199,8 @@ export function useAttendance(filter: AttendanceFilterValues) {
             item.notes = item.notes ? item.notes + ', Telat dalam toleransi' : 'Telat dalam toleransi'
           }
         } else if (r.type === 'out') {
+          item.out_outlet_id = r.outlet_id
+          item.out_outlets = r.outlets
           item.clock_out = r.ts_server
           item.clock_out_photo_url = r.selfie_url
             ? (r.selfie_url.startsWith('http') ? r.selfie_url : supabase.storage.from('selfies').getPublicUrl(r.selfie_url).data.publicUrl)

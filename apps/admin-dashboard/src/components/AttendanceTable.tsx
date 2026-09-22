@@ -94,6 +94,8 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
               const staffName = row.outlet_staff?.name ?? '—'
               const staffRole = row.outlet_staff?.role ?? ''
               const outletName = row.outlets?.name ?? '—'
+              const outletPulang =
+                row.out_outlet_id && row.out_outlet_id !== row.outlet_id ? row.out_outlets?.name ?? null : null
 
               return (
                 <tr key={row.id} className="transition-colors hover:bg-suka-gray-50/50">
@@ -106,7 +108,12 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
                   </td>
 
                   {/* Outlet */}
-                  <td className="px-4 py-3 text-suka-gray-600">{outletName}</td>
+                  <td className="px-4 py-3 text-suka-gray-600">
+                    {outletName}
+                    {outletPulang && (
+                      <div className="text-xs font-medium text-blue-600">Pulang di {outletPulang}</div>
+                    )}
+                  </td>
 
                   {/* Tanggal */}
                   <td className="px-4 py-3 tabular-nums text-suka-gray-600">
@@ -145,6 +152,7 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
 
                   {/* Foto Selfie */}
                   <td className="px-4 py-3 text-center">
+                    <div className="flex flex-col items-center gap-1">
                     {row.photo_url ? (
                       <button
                         type="button"
@@ -169,6 +177,26 @@ export function AttendanceTable({ rows, onEdit, onDelete }: Props) {
                     ) : (
                       <span className="text-xs text-suka-gray-400 font-medium">—</span>
                     )}
+                    {row.clock_out_photo_url && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setActivePhoto({
+                            url: row.clock_out_photo_url!,
+                            title: `Presensi Pulang: ${staffName}`,
+                            staffName,
+                            outletName: outletPulang ?? outletName,
+                            timestamp: `${fmtDate(row.date)} ${fmtTime(row.clock_out)}`,
+                            actionType: 'Clock Out Selfie',
+                          })
+                        }
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold text-blue-900 transition-colors cursor-pointer"
+                      >
+                        <Eye size={13} />
+                        <span>Foto Pulang</span>
+                      </button>
+                    )}
+                    </div>
                   </td>
 
                   {/* GPS Map */}

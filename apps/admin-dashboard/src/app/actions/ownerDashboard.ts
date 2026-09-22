@@ -820,14 +820,41 @@ export async function getAttendanceReportData(
     query = query.eq('outlet_id', filter.outletId)
   }
 
-  const { data: attRows, error } = await query
+  const { data: outletRows, error } = await query
 
-  if (error || !attRows) {
+  if (error || !outletRows) {
     console.error('Error querying table attendance from DB:', error?.message)
     return []
   }
 
-  // Group attendance entries by `${outlet_staff_id}|${outlet_id}|${date}`
+  const wibDate = (ts: string | null) =>
+    ts ? new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) : ''
+
+  // Manajer lintas outlet bisa absen masuk di outlet A lalu pulang di outlet B.
+  // Saat difilter per outlet, ambil juga pasangan absennya di outlet lain untuk
+  // staf & tanggal yang sama supaya jam & foto pulang/masuknya tetap tampil.
+  let attRows = outletRows
+  if (filter.outletId && filter.outletId !== 'all' && outletRows.length > 0) {
+    const dayKeys = new Set(outletRows.map((r) => `${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
+    const staffIds = Array.from(new Set(outletRows.map((r) => r.outlet_staff_id).filter(Boolean)))
+    let pairQuery = supabase
+      .from('attendance')
+      .select('*')
+      .in('outlet_staff_id', staffIds)
+      .neq('outlet_id', filter.outletId)
+      .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
+      .order('ts_server', { ascending: false })
+      .limit(1000)
+    if (filter.from) pairQuery = pairQuery.gte('ts_server', `${filter.from}T00:00:00.000+07:00`)
+    if (filter.to) pairQuery = pairQuery.lte('ts_server', `${filter.to}T23:59:59.999+07:00`)
+    const { data: pairRows, error: pairError } = await pairQuery
+    if (pairError) console.error('Error querying cross-outlet attendance:', pairError.message)
+    const pasangan = (pairRows || []).filter((r) => dayKeys.has(`${r.outlet_staff_id}|${wibDate(r.ts_server)}`))
+    attRows = [...outletRows, ...pasangan]
+  }
+
+  // Satu baris per staf per tanggal (WIB), walau masuk & pulang di outlet berbeda.
+  // Outlet baris = outlet absen masuk; outlet pulang dicatat terpisah bila berbeda.
   const grouped = new Map<string, {
     id: string
     staff_id: string
@@ -835,6 +862,8 @@ export async function getAttendanceReportData(
     staff_role: string
     outlet_id: string
     outlet_name: string
+    out_outlet_id: string | null
+    out_outlet_name: string | null
     date: string
     clock_in: string | null
     clock_out: string | null
@@ -854,10 +883,8 @@ export async function getAttendanceReportData(
   }>()
 
   for (const r of attRows) {
-    const dateStr = r.ts_server
-      ? new Date(r.ts_server).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' })
-      : ''
-    const key = `${r.outlet_staff_id}|${r.outlet_id}|${dateStr}`
+    const dateStr = wibDate(r.ts_server)
+    const key = `${r.outlet_staff_id}|${dateStr}`
     const st = staffMap.get(r.outlet_staff_id)
     const outletName = outletMap.get(r.outlet_id)
 
@@ -869,6 +896,8 @@ export async function getAttendanceReportData(
         staff_role: (st?.role || 'CREW').toUpperCase(),
         outlet_id: r.outlet_id || '',
         outlet_name: outletName || 'Outlet Utama',
+        out_outlet_id: null,
+        out_outlet_name: null,
         date: dateStr,
         clock_in: null,
         clock_out: null,
@@ -890,6 +919,8 @@ export async function getAttendanceReportData(
 
     const item = grouped.get(key)!
     if (r.type === 'in') {
+      item.outlet_id = r.outlet_id || ''
+      item.outlet_name = outletName || 'Outlet Utama'
       item.clock_in = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
       item.raw_photo_in = r.selfie_url || null
       item.clock_in_source = r.source === 'native' ? 'native' : 'web'
@@ -904,6 +935,8 @@ export async function getAttendanceReportData(
       }
     } else if (r.type === 'out') {
       item.clock_out = new Date(r.ts_server).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+      item.out_outlet_id = r.outlet_id || null
+      item.out_outlet_name = outletName || null
       item.raw_photo_out = r.selfie_url || null
       item.clock_out_source = r.source === 'native' ? 'native' : 'web'
       if (r.gps_lat) item.gps_lat_out = Number(r.gps_lat)
@@ -954,6 +987,8 @@ export async function getAttendanceReportData(
       staff_role: item.staff_role,
       outlet_id: item.outlet_id,
       outlet_name: item.outlet_name,
+      out_outlet_id: item.out_outlet_id && item.out_outlet_id !== item.outlet_id ? item.out_outlet_id : null,
+      out_outlet_name: item.out_outlet_id && item.out_outlet_id !== item.outlet_id ? item.out_outlet_name : null,
       date: item.date,
       clock_in: item.clock_in,
       clock_out: item.clock_out,

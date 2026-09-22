@@ -26,6 +26,8 @@ type Row = {
   status: "tepat" | "telat" | "telat_toleransi" | "alpha" | "lebih_awal" | "pulang_telat";
   selfie_url: string | null;
   outlet_staff_id: string;
+  outlet_id?: string | null;
+  outlet_name?: string | null;
   outlet_staff: { name: string } | null;
   delay_minutes?: number | null;
   telat_menit?: number | null;
@@ -552,6 +554,11 @@ export default function RekapPage() {
                                       <Smartphone size={11} /> Native
                                     </span>
                                   )}
+                                  {day.in?.outlet_id && day.in.outlet_id !== selectedOutletId && (
+                                    <span title="Absen di outlet lain" className="flex items-center gap-1 text-[9px] font-bold text-violet-700 bg-violet-100 border border-violet-200 px-1.5 py-0.5 rounded">
+                                      <Store size={11} /> di {day.in.outlet_name ?? "outlet lain"}
+                                    </span>
+                                  )}
                                 </div>
                             </div>
                           </div>
@@ -598,6 +605,11 @@ export default function RekapPage() {
                                   {day.out?.source === "native" && (
                                     <span title="Absen dari aplikasi native" className="flex items-center gap-1 text-[9px] font-bold text-blue-700 bg-blue-100 border border-blue-200 px-1.5 py-0.5 rounded">
                                       <Smartphone size={11} /> Native
+                                    </span>
+                                  )}
+                                  {day.out?.outlet_id && day.out.outlet_id !== selectedOutletId && (
+                                    <span title="Absen di outlet lain" className="flex items-center gap-1 text-[9px] font-bold text-violet-700 bg-violet-100 border border-violet-200 px-1.5 py-0.5 rounded">
+                                      <Store size={11} /> di {day.out.outlet_name ?? "outlet lain"}
                                     </span>
                                   )}
                                 </div>

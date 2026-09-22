@@ -7,7 +7,7 @@ import { useAuth } from '@suka/auth'
 import type { Opname, OpnameItem } from '@/types/stok'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
-import { getThresholdPersen, computeSelisihPersen } from '@/lib/stok/selisih'
+import { getThresholdPersen, computeSelisihPersen, getMaterialType, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
 
 const TIPE_LABEL: Record<string, string> = {
@@ -254,7 +254,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                   Analisis Threshold & Loss ({roleLabel})
                 </h4>
                 <p className="text-[10px] text-[#544437]/75 font-medium">
-                  Toleransi: <strong className="text-[#701604]">±5%</strong> (Item Timbang) • <strong className="text-[#701604]">0%</strong> (Item Hitung)
+                  Toleransi: <strong className="text-[#701604]">±{THRESHOLD_BULK_PERSEN}%</strong> (Bulk) • <strong className="text-[#701604]">±40%</strong> (Ayam, Sapi) • <strong className="text-[#701604]">0%</strong> (Count)
                 </p>
               </div>
             </div>
@@ -313,159 +313,22 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
         </div>
 
         {activeTab === 'opnamed' ? (
-          <div className="space-y-2.5">
-            {items.map(it => {
-              const bahan = bahanMap[it.bahan_baku_id];
-              const name = bahan ? bahan.nama : `Bahan ${it.bahan_baku_id.slice(0, 8)}`;
-              const unit = bahan ? bahan.satuan : '';
-              const category = bahan ? bahan.kategori : '';
-
-              const thresholdPersen = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil, bahan?.nama);
-              const selisihPersenInfo = computeSelisihPersen(it.selisih, it.qty_system);
-
-              // qty_fisik/qty_system/selisih SELALU dalam satuan kecil (gram) --
-              // OpnameForm.calculateTotalFisik menghitungnya begitu, tanpa
-              // pengecualian (beda dari stok_balance.saldo yang campur besar/gram).
-              // Jangan tempel `unit` (satuan besar) langsung ke angka mentahnya --
-              // itu bug yang sama dengan SPVTable/CrewList sebelum diperbaiki
-              // (mis. 11278 gram tampil "11278 Kg" alih-alih "11 Kg + 278 Gram").
-              const formatGram = (qty: number) =>
-                bahan
-                  ? formatTriUnitSaldoFromGram(qty, bahan.satuan, bahan.satuan_tengah, bahan.faktor_tengah, bahan.satuan_kecil, bahan.faktor_tampilan)
-                  : `${qty} ${unit}`
-
-              let qtyFisikText = it.qty_fisik !== null ? formatGram(it.qty_fisik) : '-';
-
-              // Cek apakah ada data target kitchen di field catatan
-              let targetKitchenText: string | null = null;
-              try {
-                const parsed = JSON.parse(String(it.catatan || '').replace(/^\[RAW\]\s*/, ''));
-                if (parsed?.t) targetKitchenText = parsed.t as string;
-              } catch {
-                // catatan bukan format JSON — lewati
-              }
-
+          <div className="space-y-5">
+            {(['bulk', 'count'] as const).map((tipe) => {
+              const rows = items.filter((it) => {
+                const b = bahanMap[it.bahan_baku_id]
+                return getMaterialType(b?.satuan, b?.satuan_kecil, b?.nama) === tipe
+              })
+              if (rows.length === 0) return null
               return (
-                <div
-                  key={it.id}
-                  className={`p-4 rounded-xl border flex justify-between items-center transition-all duration-200 ${
-                    it.flagged
-                      ? 'bg-[#ffdad6]/10 border-[#ba1a1a]/30 shadow-[0_2px_8px_rgba(186,26,26,0.03)]'
-                      : 'bg-white border-[#d9c2b2]/45 shadow-[0_2px_8px_rgba(144,77,0,0.015)] hover:border-[#f29744]/30'
-                  }`}
-                >
-                  {/* Left: Material Name and Category Badge */}
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[8px] font-bold uppercase tracking-wider text-[#701604]/60 bg-[#faf2e9] px-1.5 py-0.5 rounded border border-[#d9c2b2]/25">
-                        {category || 'Bahan'}
-                      </span>
-                      {it.flagged && (
-                        <span className="text-[8px] font-bold uppercase bg-[#ffdad6] text-[#ba1a1a] px-1.5 py-0.5 rounded border border-[#ba1a1a]/10">
-                          ⚠️ Selisih Kritis
-                        </span>
-                      )}
-                    </div>
-                    <h4 className="font-bold text-[#1e1b15] text-xs uppercase tracking-wide truncate">
-                      {name}
-                    </h4>
-                    <p className="text-[9px] text-[#544437]/65">
-                      Fisik Crew: <span className="font-bold text-[#1e1b15]">{qtyFisikText}</span> • Sistem: <span className="font-semibold">{formatGram(it.qty_system)}</span>
-                    </p>
-                    {bomUsage[it.bahan_baku_id] !== undefined && bomUsage[it.bahan_baku_id] > 0 && (
-                      <p className="text-[9px] font-semibold text-[#a43c26] bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md inline-flex items-center gap-1 mt-0.5">
-                        <span>🍽️</span> Terpakai Penjualan (BOM): <span className="font-bold">{formatGram(bomUsage[it.bahan_baku_id])}</span>
-                      </p>
-                    )}
-                    {targetKitchenText && (
-                      <p className="text-[9px] font-bold text-[#0a7d2c] mt-0.5">
-                        🎯 Target Kitchen: <span>{targetKitchenText}</span>
-                      </p>
-                    )}
-                    {it.catatan && !it.catatan.startsWith('[RAW]') && (
-                      <p className="text-[8px] text-gray-500 font-medium italic mt-0.5">
-                        * {it.catatan}
-                      </p>
-                    )}
-
-                    {/* Keterangan Threshold & Persentase Loss Khusus Kitchen, Admin, Finance */}
-                    {canViewThresholdAndLoss && it.qty_fisik !== null && (
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
-                        {/* Persentase Loss / Surplus */}
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded border inline-flex items-center gap-1 ${
-                          selisihPersenInfo.isLoss
-                            ? it.flagged
-                              ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/25'
-                              : 'bg-orange-100 text-orange-800 border-orange-200'
-                            : selisihPersenInfo.isSurplus
-                              ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-                              : 'bg-gray-100 text-gray-700 border-gray-200'
-                        }`}>
-                          <span>{selisihPersenInfo.isLoss ? '📉' : selisihPersenInfo.isSurplus ? '📈' : '⚖️'}</span>
-                          <span>
-                            {selisihPersenInfo.isLoss
-                              ? `Loss: ${selisihPersenInfo.formatted}`
-                              : selisihPersenInfo.isSurplus
-                                ? `Surplus: ${selisihPersenInfo.formatted}`
-                                : '0.0% (Pas)'}
-                          </span>
-                        </span>
-
-                        {/* Nilai Toleransi Threshold */}
-                        <span className="text-[9px] font-medium text-[#544437]/80 bg-[#faf2e9] border border-[#d9c2b2]/40 px-2 py-0.5 rounded">
-                          Threshold: <strong className="text-[#701604] font-bold">±{thresholdPersen}%</strong>
-                          <span className="text-[8px] text-[#544437]/60 ml-0.5">({thresholdPersen === 0 ? 'Hitung' : 'Timbang'})</span>
-                        </span>
-
-                        {/* Status Terhadap Threshold */}
-                        {it.selisih !== 0 && (
-                          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border ${
-                            it.flagged
-                              ? 'bg-red-50 text-[#ba1a1a] border-red-200 animate-pulse-subtle'
-                              : 'bg-emerald-50 text-[#0a7d2c] border-emerald-200'
-                          }`}>
-                            {it.flagged ? '⚠️ Melebihi Toleransi' : '✅ Dalam Batas'}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Right: Discrepancy indicator */}
-                  <div className="text-right flex-shrink-0 pl-3">
-                    {it.qty_fisik === null ? (
-                      <span className="text-[10px] text-gray-400 font-bold italic">Belum terhitung</span>
-                    ) : it.selisih === 0 ? (
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-gray-500 font-bold bg-[#faf2e9]/50 border border-[#d9c2b2]/20 px-2.5 py-0.5 rounded">
-                          Pas (0)
-                        </span>
-                        {canViewThresholdAndLoss && (
-                          <span className="text-[9px] font-semibold text-gray-400 mt-0.5">0.0%</span>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-end">
-                        <span className={`text-[10px] font-black px-2.5 py-0.5 rounded border ${
-                          it.flagged
-                            ? 'bg-[#ffdad6] text-[#ba1a1a] border-[#ba1a1a]/15 font-black animate-pulse-subtle'
-                            : it.selisih < 0
-                              ? 'bg-orange-50 text-orange-700 border-orange-100'
-                              : 'bg-green-50 text-green-700 border-green-100'
-                        }`}>
-                          {it.selisih > 0 ? '+' : ''}{formatGram(it.selisih)}
-                        </span>
-                        {canViewThresholdAndLoss && (
-                          <span className={`text-[9px] font-black mt-0.5 ${
-                            it.flagged ? 'text-[#ba1a1a]' : it.selisih < 0 ? 'text-orange-700' : 'text-green-700'
-                          }`}>
-                            {selisihPersenInfo.formatted}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <OpnameItemTable
+                  key={tipe}
+                  tipe={tipe}
+                  rows={rows}
+                  bahanMap={bahanMap}
+                  bomUsage={bomUsage}
+                  showAnalisis={canViewThresholdAndLoss}
+                />
               )
             })}
           </div>
@@ -497,5 +360,169 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
         )}
       </div>
     </div>
+  )
+}
+
+type BahanInfo = {
+  nama: string; satuan: string; kategori: string
+  satuan_tengah: string | null; faktor_tengah: number | null
+  satuan_kecil: string | null; faktor_tampilan: number | null
+}
+
+const TIPE_META = {
+  bulk: {
+    judul: 'Bulk Material',
+    sub: 'Ditimbang / diukur',
+    badge: 'bg-[#fff4e5] text-[#904d00] border-[#f29744]/35',
+  },
+  count: {
+    judul: 'Count Material',
+    sub: 'Dihitung per satuan',
+    badge: 'bg-[#eef2ff] text-[#3730a3] border-[#6366f1]/25',
+  },
+} as const
+
+/**
+ * Tabel item opname untuk satu kelompok material. Kolom %, Threshold & Status
+ * hanya untuk role analisis (sama dengan `canViewThresholdAndLoss`). Status
+ * membaca `opname_item.flagged` yang tersimpan saat opname, bukan dihitung ulang.
+ */
+function OpnameItemTable({
+  tipe,
+  rows,
+  bahanMap,
+  bomUsage,
+  showAnalisis,
+}: {
+  tipe: 'bulk' | 'count'
+  rows: OpnameItem[]
+  bahanMap: Record<string, BahanInfo>
+  bomUsage: Record<string, number>
+  showAnalisis: boolean
+}) {
+  const meta = TIPE_META[tipe]
+  const jmlFlag = rows.filter((it) => it.qty_fisik !== null && it.flagged).length
+
+  // Yang melebihi toleransi di atas, lalu urut nama
+  const sorted = [...rows].sort((a, b) => {
+    if (a.flagged !== b.flagged) return a.flagged ? -1 : 1
+    const na = bahanMap[a.bahan_baku_id]?.nama ?? ''
+    const nb = bahanMap[b.bahan_baku_id]?.nama ?? ''
+    return na.localeCompare(nb)
+  })
+
+  return (
+    <section className="space-y-2">
+      <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center gap-2">
+          <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${meta.badge}`}>
+            {meta.judul}
+          </span>
+          <span className="text-[10px] text-[#544437]/60 font-medium">{meta.sub} · {rows.length} bahan</span>
+        </div>
+        {showAnalisis && jmlFlag > 0 && (
+          <span className="text-[9px] font-bold text-[#ba1a1a]">⚠️ {jmlFlag} melebihi toleransi</span>
+        )}
+      </div>
+
+      <div className="overflow-x-auto rounded-xl border border-[#d9c2b2]/45 bg-white shadow-[0px_4px_12px_rgba(144,77,0,0.03)]">
+        <table className={`w-full text-[11px] border-collapse ${showAnalisis ? 'min-w-[640px]' : 'min-w-[420px]'}`}>
+          <thead>
+            <tr className="bg-[#faf2e9] text-[9px] font-black uppercase tracking-wider text-[#544437]/70 text-left">
+              <th className="sticky left-0 z-10 bg-[#faf2e9] px-3 py-2.5 min-w-[150px]">Bahan</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Fisik</th>
+              <th className="px-3 py-2.5 whitespace-nowrap">Sistem</th>
+              <th className="px-3 py-2.5 whitespace-nowrap text-right">Selisih</th>
+              {showAnalisis && (
+                <>
+                  <th className="px-3 py-2.5 whitespace-nowrap text-right">%</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap text-right">Threshold</th>
+                  <th className="px-3 py-2.5 whitespace-nowrap">Status</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((it) => {
+              const bahan = bahanMap[it.bahan_baku_id]
+              const nama = bahan ? bahan.nama : `Bahan ${it.bahan_baku_id.slice(0, 8)}`
+              // qty_fisik/qty_system/selisih SELALU satuan kecil -- jangan tempel
+              // satuan besar ke angka mentah (lihat formatTriUnitSaldoFromGram).
+              const fmt = (qty: number) =>
+                bahan
+                  ? formatTriUnitSaldoFromGram(qty, bahan.satuan, bahan.satuan_tengah, bahan.faktor_tengah, bahan.satuan_kecil, bahan.faktor_tampilan)
+                  : `${qty}`
+              const threshold = getThresholdPersen(bahan?.satuan, bahan?.satuan_kecil, bahan?.nama)
+              const persen = computeSelisihPersen(it.selisih, it.qty_system)
+              const belum = it.qty_fisik === null
+              const pas = !belum && it.selisih === 0
+              const bom = bomUsage[it.bahan_baku_id]
+
+              let targetKitchen: string | null = null
+              try {
+                const parsed = JSON.parse(String(it.catatan || '').replace(/^\[RAW\]\s*/, ''))
+                if (parsed?.t) targetKitchen = parsed.t as string
+              } catch {
+                // catatan bukan JSON -- lewati
+              }
+
+              const rowBg = it.flagged ? 'bg-[#fff5f4]' : 'bg-white'
+              const selisihColor = it.flagged
+                ? 'text-[#ba1a1a]'
+                : it.selisih < 0
+                  ? 'text-orange-700'
+                  : it.selisih > 0
+                    ? 'text-green-700'
+                    : 'text-gray-500'
+
+              return (
+                <tr key={it.id} className={`border-t border-[#d9c2b2]/25 align-top ${rowBg}`}>
+                  <td className={`sticky left-0 z-10 px-3 py-2.5 ${rowBg}`}>
+                    <p className="font-bold text-[#1e1b15] uppercase tracking-wide leading-tight">{nama}</p>
+                    {bom !== undefined && bom > 0 && (
+                      <p className="text-[9px] text-[#a43c26] mt-0.5">🍽️ BOM: {fmt(bom)}</p>
+                    )}
+                    {targetKitchen && (
+                      <p className="text-[9px] font-bold text-[#0a7d2c] mt-0.5">🎯 Target: {targetKitchen}</p>
+                    )}
+                    {it.catatan && !it.catatan.startsWith('[RAW]') && (
+                      <p className="text-[9px] text-gray-500 italic mt-0.5">* {it.catatan}</p>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap font-bold text-[#1e1b15]">
+                    {belum ? <span className="text-gray-400 italic font-medium">Belum terhitung</span> : fmt(it.qty_fisik as number)}
+                  </td>
+                  <td className="px-3 py-2.5 whitespace-nowrap text-[#544437]">{fmt(it.qty_system)}</td>
+                  <td className={`px-3 py-2.5 whitespace-nowrap text-right font-black ${selisihColor}`}>
+                    {belum ? '—' : pas ? 'Pas' : `${it.selisih > 0 ? '+' : ''}${fmt(it.selisih)}`}
+                  </td>
+                  {showAnalisis && (
+                    <>
+                      <td className={`px-3 py-2.5 whitespace-nowrap text-right font-bold tabular-nums ${selisihColor}`}>
+                        {belum ? '—' : persen.formatted}
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap text-right font-bold text-[#701604] tabular-nums">
+                        ±{threshold}%
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {belum ? (
+                          <span className="text-gray-400">—</span>
+                        ) : it.flagged ? (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-red-50 text-[#ba1a1a] border-red-200">⚠️ Melebihi</span>
+                        ) : pas ? (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-gray-50 text-gray-600 border-gray-200">⚖️ Pas</span>
+                        ) : (
+                          <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border bg-emerald-50 text-[#0a7d2c] border-emerald-200">✅ Dalam batas</span>
+                        )}
+                      </td>
+                    </>
+                  )}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   )
 }

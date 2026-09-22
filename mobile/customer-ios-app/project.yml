@@ -1,0 +1,84 @@
+# Sumber kebenaran proyek Xcode. `SukaShawarma.xcodeproj` DIHASILKAN dari
+# berkas ini -- jangan sunting pengaturan proyek lewat Xcode, sunting di sini
+# lalu jalankan `xcodegen generate`.
+name: SukaShawarma
+options:
+  bundleIdPrefix: com.sukashawarma
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: id
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+configs:
+  Debug: debug
+  Release: release
+targets:
+  SukaShawarma:
+    type: application
+    platform: iOS
+    sources:
+      - path: SukaShawarma
+        excludes:
+          - "Config/*.xcconfig"
+          - "Config/*.entitlements"
+    configFiles:
+      Debug: SukaShawarma/Config/Base.xcconfig
+      Release: SukaShawarma/Config/Base.xcconfig
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sukashawarma.customer
+        PRODUCT_NAME: SukaShawarma
+        # Isi Team ID akun Apple Developer (10 karakter) saat akun sudah ada —
+        # dibutuhkan untuk iPhone fisik & TestFlight. Simulator tidak butuh.
+        DEVELOPMENT_TEAM: ""
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: SukaShawarma/Config/SukaShawarma.entitlements
+        TARGETED_DEVICE_FAMILY: "1"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: SukaShawarma/Config/Info.plist
+        INFOPLIST_KEY_CFBundleDisplayName: Suka Shawarma
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_UIUserInterfaceStyle: Light
+  SukaShawarmaTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [SukaShawarmaTests]
+    dependencies:
+      - target: SukaShawarma
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sukashawarma.customer.tests
+  # Uji perjalanan pelanggan (padanan journey_testing/ di Android). Memakai
+  # gateway PRODUKSI, jadi bukan bagian `⌘U` biasa — jalankan skema
+  # SukaShawarmaJourney secara sengaja.
+  SukaShawarmaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [SukaShawarmaUITests]
+    dependencies:
+      - target: SukaShawarma
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.sukashawarma.customer.uitests
+        TEST_TARGET_NAME: SukaShawarma
+schemes:
+  SukaShawarma:
+    build:
+      targets:
+        SukaShawarma: all
+    test:
+      targets: [SukaShawarmaTests]
+  SukaShawarmaJourney:
+    build:
+      targets:
+        SukaShawarma: all
+        SukaShawarmaUITests: [test]
+    test:
+      targets: [SukaShawarmaUITests]

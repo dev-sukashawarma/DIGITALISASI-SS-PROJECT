@@ -15,6 +15,7 @@ import { totalSubVendor, singleVendorBesar, filterResumableInputs, type SubVendo
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
+import { sembunyikanKolomBesar } from '@/lib/stok/satuanOpname';
 
 /** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
 interface VendorInfo {
@@ -855,6 +856,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         {filteredBahan.map((b) => {
           const inp = inputs[b.id] || {};
           const tgt = targets[b.id] || {};
+          const tanpaBesar = sembunyikanKolomBesar(b, { isGudangPusat, nilaiBesar: inp.besar });
           const isSaved = inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined;
           const hasTarget = isKitchen && (tgt.besar !== undefined || tgt.tengah !== undefined || tgt.kecil !== undefined);
 
@@ -886,8 +888,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                     {b.nama}
                   </h3>
                   <p className="text-[10px] text-[#544437]/60 font-semibold mt-1">
-                    Satuan: <span className="text-gray-700 font-bold">{b.satuan}</span>
-                    {b.satuan_tengah && ` ➜ ${b.satuan_tengah}`}
+                    Satuan: <span className="text-gray-700 font-bold">{tanpaBesar ? b.satuan_tengah : b.satuan}</span>
+                    {b.satuan_tengah && !tanpaBesar && ` ➜ ${b.satuan_tengah}`}
                     {b.satuan_kecil && ` ➜ ${b.satuan_kecil}`}
                   </p>
                 </div>
@@ -994,7 +996,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                     Stok Fisik Crew
                   </span>
                   <div className="mt-1.5 flex flex-wrap gap-2 items-center justify-end">
-                    {/* Input untuk Satuan Besar */}
+                    {/* Input untuk Satuan Besar -- disembunyikan di outlet bila barang dikirim per satuan tengah */}
+                    {!tanpaBesar && (
                     <div className="flex flex-col items-center">
                       <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan}</span>
                       <input
@@ -1007,11 +1010,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
                         onChange={(e) => handleInputChange(b.id, 'besar', e.target.value)}
                       />
                     </div>
+                    )}
 
                     {/* Input untuk Satuan Tengah */}
                     {b.satuan_tengah && (
                       <>
-                        <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                        {!tanpaBesar && (
+                          <span className="text-[10px] font-bold text-[#544437]/40 mt-3">+</span>
+                        )}
                         <div className="flex flex-col items-center">
                           <span className="text-[9px] font-bold text-[#544437]/60 uppercase mb-1">{b.satuan_tengah}</span>
                           <input

@@ -73,6 +73,7 @@ struct LoginView: View {
                 .padding(.leading, 8)
             }
         }
+        .latarBilahStatus()
         .toolbar(.hidden, for: .navigationBar)
         .onChange(of: vm.berhasil) { _, ok in if ok { onBerhasil() } }
     }

@@ -398,3 +398,11 @@ Gateway lokal/staging: buat `SukaShawarma/Config/Local.xcconfig` (tak di-commit)
 - **⚠️ Beda sengaja: TANPA gerbang masuk di awal.** Android membuka layar Masuk saat belum ada sesi. Pedoman App Store **5.1.1(v)** menolak aplikasi yang mewajibkan akun hanya untuk menjelajah. Di iOS pelanggan menjelajah menu bebas; masuk diminta tepat saat butuh akun (checkout, riwayat, profil).
 - **Belum bisa diuji ujung-ke-ujung:** Google butuh iOS client ID; Apple butuh endpoint gateway + App ID dengan capability Sign in with Apple. Yang diuji: seluruh logika (PKCE, URL, callback, nonce, pertukaran ke gateway lewat gateway palsu) dan tampilan layar.
 - **Catatan uji perjalanan:** dua uji sempat gagal karena gateway produksi sesaat tak terjangkau (aplikasi menampilkan "Tidak bisa terhubung" dengan benar); diulang dan lulus. Uji perjalanan bergantung jaringan & data produksi — kegagalan tunggal perlu diulang sebelum disimpulkan sebagai bug.
+
+### Perbaikan: bilah status cokelat + ikon putih (2026-09-22)
+
+- **Masalah:** di Beranda area bilah status (jam, sinyal, baterai) berwarna krem dengan ikon hitam, karena kepala Beranda ada di dalam ScrollView sehingga latarnya tak menjangkau ke belakang bilah status. Layar berkepala krem (bayar, status pesanan, sukses, masuk, pilih outlet) juga krem di sana.
+- **Perbaikan:** `latarBilahStatus()` (UI/Theme/SukaGaya.swift) menggambar strip `#4A0E03` (warna teratas gradien kepala, jadi menyatu) setinggi bilah status di layar-layar tadi; ikon bilah status dibuat **putih** di seluruh aplikasi.
+- **Gotcha (sudah dicoba, tidak berhasil):**
+  - `UIStatusBarStyle` + `UIViewControllerBasedStatusBarAppearance = NO` di Info.plist **diabaikan** iOS terbaru. Yang bekerja: `.preferredColorScheme(.dark)` di akar (gaya bilah status mengikuti skema jendela) + `.environment(\.colorScheme, .light)` agar seluruh isi tetap terang. Konsekuensi: papan ketik & dialog sistem (mis. konfirmasi "Keluar") tampil gelap.
+  - Strip setinggi 0 + `ignoresSafeArea`, maupun `GeometryReader.safeAreaInsets`, memberi tinggi 0 di layar yang akarnya sudah selayar penuh. Tinggi diambil dari `UIWindow.safeAreaInsets.top`.

@@ -84,6 +84,7 @@ struct SuccessView: View {
             }
         }
         .background(Color.sukaCream.ignoresSafeArea())
+        .latarBilahStatus()
         .toolbar(.hidden, for: .navigationBar)
         .navigationBarBackButtonHidden()
         .onAppear {

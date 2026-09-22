@@ -19,6 +19,7 @@ struct HomeView: View {
             Color.sukaCream.ignoresSafeArea()
             isi
         }
+        .latarBilahStatus()
     }
 
     @ViewBuilder private var isi: some View {

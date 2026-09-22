@@ -17,7 +17,31 @@ enum SukaGradien {
         startPoint: .top, endPoint: .bottom)
 }
 
+extension Color {
+    /// Warna bilah status = warna teratas gradien kepala, supaya menyatu.
+    static let sukaBilahStatus = Color(hex: 0x4A0E03)
+}
+
 extension View {
+    /// Mewarnai area bilah status (jam, sinyal, baterai) cokelat Suka.
+    ///
+    /// Kepala Beranda berada di dalam ScrollView sehingga latarnya tak bisa
+    /// menjangkau ke belakang bilah status; layar berkepala krem (bayar, status,
+    /// sukses, masuk, pilih outlet) juga krem di sana. Ikon status selalu putih
+    /// (lihat SukaShawarmaApp), jadi area itu WAJIB cokelat agar terbaca.
+    ///
+    /// Pasang pada tampilan akar layar.
+    func latarBilahStatus() -> some View {
+        overlay {
+            Color.sukaBilahStatus
+                .frame(height: tinggiBilahStatus())
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+
     /// Padanan `Surface(shadowElevation = n)` — bayangan lembut Material.
     func bayangan(_ elevasi: CGFloat) -> some View {
         shadow(color: .black.opacity(0.10), radius: elevasi, x: 0, y: elevasi / 2)
@@ -47,6 +71,16 @@ struct MentulStyle: ButtonStyle {
 
 extension ButtonStyle where Self == MentulStyle {
     static func mentul(_ skala: CGFloat = 0.96) -> MentulStyle { MentulStyle(skala: skala) }
+}
+
+/// Tinggi bilah status sungguhan, dibaca dari jendela aktif. (GeometryReader
+/// melaporkan 0 di sini karena tampilan induknya sudah selayar penuh.)
+@MainActor
+private func tinggiBilahStatus() -> CGFloat {
+    let jendela = UIApplication.shared.connectedScenes
+        .compactMap { ($0 as? UIWindowScene)?.windows.first { $0.isKeyWindow } ?? ($0 as? UIWindowScene)?.windows.first }
+        .first
+    return jendela?.safeAreaInsets.top ?? 0
 }
 
 /// Semua layar memakai kepala kustom (bilah navigasi sistem disembunyikan).

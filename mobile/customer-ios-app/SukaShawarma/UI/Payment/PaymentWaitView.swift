@@ -40,6 +40,7 @@ struct PaymentWaitView: View {
             }
         }
         .background(Color.sukaCream.ignoresSafeArea())
+        .latarBilahStatus()
         .toolbar(.hidden, for: .navigationBar)
         .task { await vm.mulai() }
         .onChange(of: vm.dibayar) { _, dibayar in

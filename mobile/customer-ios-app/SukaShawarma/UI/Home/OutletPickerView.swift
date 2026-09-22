@@ -25,6 +25,7 @@ struct OutletPickerView: View {
             }
         }
         .background(Color.sukaCream.ignoresSafeArea())
+        .latarBilahStatus()
         .task { await vm.muat() }
     }
 

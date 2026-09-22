@@ -29,6 +29,13 @@ struct SukaShawarmaApp: App {
             }
             .environment(container)
             .tint(.sukaBrown)
+            // Ikon bilah status (jam, sinyal, baterai) PUTIH di atas latar cokelat.
+            // SwiftUI menurunkan gaya bilah status dari skema warna JENDELA, jadi
+            // jendela diberi skema gelap, sementara SELURUH isi aplikasi tetap
+            // dirender terang lewat `.environment(\.colorScheme, .light)` di bawah.
+            // (Info.plist UIStatusBarStyle diabaikan iOS terbaru.)
+            .environment(\.colorScheme, .light)
+            .preferredColorScheme(.dark)
             .task(priority: .background) {
                 // Untuk pembukaan BERIKUTNYA; kegagalan diabaikan (lihat perbaruiSplash).
                 await perbaruiSplash(repository: container.repository, store: container.splashStore)

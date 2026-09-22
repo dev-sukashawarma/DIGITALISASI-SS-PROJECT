@@ -21,6 +21,7 @@ struct OrderStatusView: View {
             isi.frame(maxHeight: .infinity)
         }
         .background(Color.sukaCream.ignoresSafeArea())
+        .latarBilahStatus()
         .toolbar(.hidden, for: .navigationBar)
         .task { await vm.pantau() }
     }

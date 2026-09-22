@@ -33,7 +33,12 @@ final class PerjalananPelangganUITests: XCTestCase {
     private func tambahMenuPertamaLaluBukaKeranjang() {
         let nantiSaja = app.buttons["Nanti Saja"]
         if nantiSaja.exists { nantiSaja.tap(); sleep(1) }
-        app.buttons["tab-menu"].tap()
+        // Tunggu animasi awal (splash memudar, pil keranjang muncul) selesai
+        // sebelum mengetuk tab — ketukan saat animasi pernah mendarat di tab tetangga.
+        sleep(1)
+        let tabMenu = app.buttons["tab-menu"]
+        tabMenu.tap()
+        if !tabMenu.isSelected { sleep(1); tabMenu.tap() }
         let kartu = app.buttons["kartu-menu"].firstMatch
         XCTAssertTrue(kartu.waitForExistence(timeout: 10))
         kartu.tap()

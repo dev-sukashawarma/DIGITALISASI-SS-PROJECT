@@ -120,7 +120,7 @@ export default function EndorsementMenuSelector({
           <p className="text-[11px] text-stone-500 mt-0.5">Pilih dari katalog menu di bawah ini.</p>
         </div>
       ) : (
-        <div className="space-y-2 bg-white p-2.5 rounded-xl border border-[#EFE8DE]">
+        <div className="space-y-2 bg-white p-2.5 rounded-xl border border-[#EFE8DE] max-h-48 overflow-y-auto scrollbar-thin">
           {selectedItems.map((item, idx) => (
             <div
               key={item.menuItemId + idx}
@@ -202,7 +202,7 @@ export default function EndorsementMenuSelector({
         </div>
 
         {/* Menu Items Quick Pick List */}
-        <div className="max-h-36 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
+        <div className="max-h-44 sm:max-h-52 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
           {filteredMenuItems.slice(0, 15).map((menu) => {
             const isSelected = selectedItems.some((i) => i.menuItemId === menu.id)
             return (

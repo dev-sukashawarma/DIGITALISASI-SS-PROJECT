@@ -84,7 +84,7 @@ export default function BukuKasPage() {
     source: 'monthly' as const
   }), [startDate, endDate, target, isPusat, isAllOutlets])
 
-  const { rows: expenseRows = [], loading: expensesLoading, error: expensesError } = useExpenses(filter)
+  const { rows: expenseRows = [], loading: expensesLoading, error: expensesError, refetch: refetchExpenses } = useExpenses(filter)
 
   // Pure OPEX Expense Rows
   const allTransactions = useMemo(() => {
@@ -538,6 +538,28 @@ export default function BukuKasPage() {
         )}
       </div>
 
+      {/* Error Alert Banner */}
+      {expensesError && (
+        <div className="bg-rose-50 border border-rose-200 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-100 text-rose-600 rounded-xl shrink-0">
+              <AlertTriangle size={20} />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-rose-900 uppercase tracking-wider">Gagal Memuat Data Pengeluaran</h4>
+              <p className="text-xs text-rose-700 mt-0.5">{expensesError}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetchExpenses()}
+            className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs"
+          >
+            Coba Lagi
+          </button>
+        </div>
+      )}
+
       {/* SUMMARY STATS (PURE OPEX) */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {/* Total OPEX */}
@@ -611,6 +633,19 @@ export default function BukuKasPage() {
           <div className="p-12 text-center text-gray-400 font-medium">
             <div className="w-8 h-8 border-3 border-suka-orange border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
             Memuat data pengeluaran...
+          </div>
+        ) : expensesError ? (
+          <div className="p-12 text-center text-gray-400">
+            <AlertTriangle size={40} className="mx-auto mb-3 text-rose-500 opacity-70" />
+            <p className="font-bold text-rose-700">Terjadi Kesalahan Saat Mengambil Data</p>
+            <p className="text-xs text-gray-500 mt-1 max-w-md mx-auto">{expensesError}</p>
+            <button
+              type="button"
+              onClick={() => refetchExpenses()}
+              className="mt-4 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-2xs inline-flex items-center gap-1.5"
+            >
+              Muat Ulang Data
+            </button>
           </div>
         ) : allTransactions.length === 0 ? (
           <div className="p-12 text-center text-gray-400">

@@ -179,42 +179,53 @@ export async function createSingleExpenseAction(input: {
 }
 
 export async function getExpensesAction(filter: { from: string; to: string; outletId: string; source?: string }) {
-  const supabase = getServiceSupabase()
-  const PAGE_SIZE = 1000
+  try {
+    const supabase = getServiceSupabase()
+    const PAGE_SIZE = 1000
 
-  const buildQuery = () => {
-    let q = supabase
-      .from('expenses')
-      .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
-      .eq('type', 'expense')
-      .gte('expense_date', filter.from)
-      .lte('expense_date', filter.to)
-      .order('expense_date', { ascending: false })
-      .order('id', { ascending: false })
+    const buildQuery = () => {
+      let q = supabase
+        .from('expenses')
+        .select('id, outlet_id, category, amount, description, expense_date, period_month, receipt_url, type, outlets(name)')
+        .eq('type', 'expense')
+        .gte('expense_date', filter.from)
+        .lte('expense_date', filter.to)
+        .order('expense_date', { ascending: false })
+        .order('id', { ascending: false })
 
-    if (filter.outletId && filter.outletId !== 'all') {
-      if (filter.outletId === 'PUSAT') {
-        q = q.or('outlet_id.is.null,outlet_id.eq.ffffffff-ffff-ffff-ffff-ffffffffffff')
-      } else {
-        q = q.eq('outlet_id', filter.outletId)
+      if (filter.outletId && filter.outletId !== 'all') {
+        if (filter.outletId === 'PUSAT') {
+          q = q.or('outlet_id.is.null,outlet_id.eq.ffffffff-ffff-ffff-ffff-ffffffffffff')
+        } else {
+          q = q.eq('outlet_id', filter.outletId)
+        }
       }
+
+      return q
     }
 
-    return q
-  }
+    const allExpenses: any[] = []
+    for (let offset = 0; ; offset += PAGE_SIZE) {
+      const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
+      if (error) throw error
+      const page = data ?? []
+      allExpenses.push(...page)
+      if (page.length < PAGE_SIZE) break
+    }
 
-  const allExpenses: any[] = []
-  for (let offset = 0; ; offset += PAGE_SIZE) {
-    const { data, error } = await buildQuery().range(offset, offset + PAGE_SIZE - 1)
-    if (error) throw error
-    const page = data ?? []
-    allExpenses.push(...page)
-    if (page.length < PAGE_SIZE) break
-  }
-
-  return {
-    expenses: allExpenses,
-    pettyCashExpenses: []
+    return {
+      success: true,
+      expenses: allExpenses,
+      pettyCashExpenses: []
+    }
+  } catch (err: any) {
+    console.error('Error in getExpensesAction:', err)
+    return {
+      success: false,
+      error: err?.message || 'Gagal mengambil data pengeluaran',
+      expenses: [],
+      pettyCashExpenses: []
+    }
   }
 }
 

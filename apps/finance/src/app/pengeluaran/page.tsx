@@ -189,6 +189,11 @@ export default function InputPengeluaranPage() {
         
         {loading ? (
           <div className="p-8 text-center text-suka-gray-500 text-sm">Memuat data...</div>
+        ) : expensesError ? (
+          <div className="p-12 flex flex-col items-center justify-center text-center">
+            <p className="text-rose-600 font-bold">Terjadi Kesalahan Saat Mengambil Data</p>
+            <p className="text-suka-gray-500 text-sm mt-1">{expensesError}</p>
+          </div>
         ) : allTransactions.length === 0 ? (
           <div className="p-12 flex flex-col items-center justify-center text-center">
             <FileText className="w-12 h-12 text-suka-gray-300 mb-3" />

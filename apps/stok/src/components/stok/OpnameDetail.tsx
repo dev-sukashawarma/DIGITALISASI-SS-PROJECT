@@ -9,6 +9,7 @@ import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
 import { getThresholdPersen, computeSelisihPersen, getMaterialType, THRESHOLD_BULK_PERSEN } from '@/lib/stok/selisih'
 import { isBahanOpname } from '@/lib/stok/opnameScope'
+import { ringkasWasteOpname, type WasteReportRow, type WasteOpnameRingkas } from '@/lib/stok/wasteOpname'
 
 const TIPE_LABEL: Record<string, string> = {
   harian: 'Harian 📅',
@@ -23,6 +24,9 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
   const [opname, setOpname] = useState<Opname | null>(null)
   const [items, setItems] = useState<OpnameItem[]>([])
   const [bomUsage, setBomUsage] = useState<Record<string, number>>({})
+  const [wasteRaw, setWasteRaw] = useState<{
+    reports: WasteReportRow[]; approvedAt: Record<string, string>; start: string; cutoff: string
+  } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { bahanBaku, loading: bahanLoading } = useBahanBaku()
 
@@ -41,6 +45,13 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
     }
     return map
   }, [bahanBaku])
+
+  const wasteByBahan = useMemo(() => {
+    if (!wasteRaw) return {} as Record<string, WasteOpnameRingkas>
+    const faktor: Record<string, number | null> = {}
+    for (const b of bahanBaku) faktor[b.id] = b.faktor_tampilan
+    return ringkasWasteOpname({ ...wasteRaw, faktor })
+  }, [wasteRaw, bahanBaku])
 
   useEffect(() => {
     setError(null)
@@ -76,6 +87,75 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
             usageMap[row.bahan_baku_id] = (usageMap[row.bahan_baku_id] || 0) + Math.abs(row.qty || 0)
           }
           setBomUsage(usageMap)
+        }
+
+        // Waste sejak opname sebelumnya: mana yang sudah memotong Sistem,
+        // mana yang belum (lihat lib/stok/wasteOpname.ts). Gagal di sini tak
+        // boleh menjatuhkan halaman -- kartu cukup tampil tanpa info waste.
+        if (opData?.outlet_id) {
+          try {
+            const cutoff = opData.updated_at || opData.created_at
+            const { data: prevOp } = await supabase
+              .from('opname')
+              .select('updated_at')
+              .eq('outlet_id', opData.outlet_id)
+              .eq('status', 'finalized')
+              .neq('id', opData.id)
+              .lt('updated_at', cutoff)
+              .order('updated_at', { ascending: false })
+              .limit(1)
+              .maybeSingle()
+            const start = prevOp?.updated_at ?? `${opData.tanggal}T00:00:00+07:00`
+
+            const [repRes, ledRes] = await Promise.all([
+              supabase
+                .from('stok_waste_reports')
+                .select('id, bahan_baku_id, qty, status, created_at')
+                .eq('outlet_id', opData.outlet_id)
+                .gt('created_at', start)
+                .lte('created_at', cutoff),
+              supabase
+                .from('ledger_stok')
+                .select('ref_waste_id')
+                .eq('outlet_id', opData.outlet_id)
+                .eq('tipe', 'waste')
+                .gt('created_at', start)
+                .lte('created_at', cutoff)
+                .not('ref_waste_id', 'is', null),
+            ])
+            if (repRes.error) throw repRes.error
+            if (ledRes.error) throw ledRes.error
+
+            const reports = (repRes.data ?? []) as WasteReportRow[]
+            // Dilaporkan sebelum opname lalu tapi baru disetujui dalam periode ini
+            const known = new Set(reports.map((r) => r.id))
+            const extraIds = [...new Set((ledRes.data ?? []).map((l) => l.ref_waste_id as string))].filter((id) => !known.has(id))
+            if (extraIds.length) {
+              const { data: extra, error: extraErr } = await supabase
+                .from('stok_waste_reports')
+                .select('id, bahan_baku_id, qty, status, created_at')
+                .in('id', extraIds)
+              if (extraErr) throw extraErr
+              reports.push(...((extra ?? []) as WasteReportRow[]))
+            }
+
+            const approvedAt: Record<string, string> = {}
+            if (reports.length) {
+              const { data: appr, error: apprErr } = await supabase
+                .from('ledger_stok')
+                .select('ref_waste_id, created_at')
+                .eq('tipe', 'waste')
+                .in('ref_waste_id', reports.map((r) => r.id))
+              if (apprErr) throw apprErr
+              for (const a of appr ?? []) {
+                const id = a.ref_waste_id as string
+                if (!approvedAt[id] || a.created_at < approvedAt[id]) approvedAt[id] = a.created_at
+              }
+            }
+            setWasteRaw({ reports, approvedAt, start, cutoff })
+          } catch (wErr) {
+            console.warn('Info waste opname gagal dimuat', wErr)
+          }
         }
       } catch (err: any) {
         setError(`Gagal memuat detail opname: ${err.message || err}`)
@@ -396,6 +476,17 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
                           {bomUsage[it.bahan_baku_id] !== undefined && bomUsage[it.bahan_baku_id] > 0 && (
                             <p className="text-[9px] font-semibold text-[#a43c26] bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md inline-flex items-center gap-1 mt-0.5">
                               <span>🍽️</span> Terpakai Penjualan (BOM): <span className="font-bold">{formatGram(bomUsage[it.bahan_baku_id])}</span>
+                            </p>
+                          )}
+                          {wasteByBahan[it.bahan_baku_id]?.masuk > 0 && (
+                            <p className="text-[9px] font-semibold text-[#544437] bg-gray-500/10 border border-gray-400/25 px-2 py-0.5 rounded-md flex w-fit flex-wrap items-center gap-1 mt-0.5">
+                              <span>🗑️</span> Waste disetujui (sudah memotong Sistem): <span className="font-bold">{formatGram(wasteByBahan[it.bahan_baku_id].masuk)}</span>
+                            </p>
+                          )}
+                          {wasteByBahan[it.bahan_baku_id]?.belum > 0 && (
+                            <p className="text-[9px] font-semibold text-[#ba1a1a] bg-[#ffdad6]/60 border border-[#ba1a1a]/20 px-2 py-0.5 rounded-md flex w-fit flex-wrap items-center gap-1 mt-0.5">
+                              <span>⏳</span> Waste belum disetujui saat opname: <span className="font-bold">{formatGram(wasteByBahan[it.bahan_baku_id].belum)}</span>
+                              <span className="font-medium text-[#ba1a1a]/80">({wasteByBahan[it.bahan_baku_id].jmlBelum} laporan · ikut terbaca sebagai loss)</span>
                             </p>
                           )}
                           {targetKitchenText && (

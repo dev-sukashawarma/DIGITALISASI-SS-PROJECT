@@ -10,7 +10,7 @@ const nextConfig = {
   turbopack: {
     root: workspaceRoot,
   },
-  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue', '@suka/realtime'],
+  transpilePackages: ['@suka/auth', '@suka/design-system', '@suka/offline-queue', '@suka/realtime', '@suka/cache'],
   typescript: {
     ignoreBuildErrors: true,
   },

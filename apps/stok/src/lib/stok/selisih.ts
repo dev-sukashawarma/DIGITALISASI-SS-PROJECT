@@ -4,6 +4,9 @@ export function computeSelisih(qtyFisik: number | null, qtySystem: number): numb
 
 const MEASURABLE_UNITS = ['gram', 'ml', 'kg', 'liter']
 
+/** Toleransi default barang BULK (timbang/ukur) -- keputusan owner 22 Sep 2026 (sebelumnya 5%). */
+export const THRESHOLD_BULK_PERSEN = 20
+
 /**
  * Toleransi khusus per bahan (keputusan owner): selisih opname yang masih di bawah
  * persentase ini dianggap aman dan tidak di-flag. Kunci = nama bahan (huruf besar).
@@ -16,8 +19,8 @@ const THRESHOLD_PER_BAHAN: Record<string, number> = {
 
 /**
  * Mengambil nilai persentase threshold / batas toleransi untuk suatu bahan.
- * - Satuan timbang/ukur (gram, kg, ml, liter) → 5%
- * - Satuan hitung / countable (pcs, pack, box, dll) → 0%
+ * - Satuan timbang/ukur (gram, kg, ml, liter) → 20% (BULK)
+ * - Satuan hitung / countable (pcs, pack, box, dll) → 0% (COUNT)
  * - Fallback jika satuan tidak disediakan → 15%
  * - Bahan dengan toleransi khusus (SAPI/AYAM 40%, KENTANG 20%) → mengalahkan aturan satuan
  */
@@ -35,18 +38,33 @@ export function getThresholdPersen(
   const sk = satuanKecil?.toLowerCase() ?? '';
 
   if (MEASURABLE_UNITS.includes(s)) {
-    // Satuan utama sudah timbang (kg, gram, liter, ml) → 5%
-    return 5;
+    // Satuan utama sudah timbang (kg, gram, liter, ml) → bulk
+    return THRESHOLD_BULK_PERSEN;
   } else if (MEASURABLE_UNITS.includes(sk)) {
     // Satuan utama countable TAPI satuan kecilnya timbang
     // Contoh: SAPI (blok + gram), GAS (pcs + gram → tetap 0% karena dihitung per tabung)
     // Hanya berlaku jika satuan_kecil adalah gram/ml/liter dan satuan utama BUKAN pcs
     if (['gram', 'ml', 'liter'].includes(sk) && s !== 'pcs') {
-      return 5;
+      return THRESHOLD_BULK_PERSEN;
     }
   }
 
   return 0;
+}
+
+export type MaterialType = 'count' | 'bulk'
+
+/**
+ * Kelompok bahan di opname: COUNT (dihitung per satuan, toleransi 0%) vs
+ * BULK (ditimbang/diukur, toleransi > 0%). Diturunkan dari getThresholdPersen
+ * supaya kelompok & toleransi tak pernah bertentangan.
+ */
+export function getMaterialType(
+  satuan?: string,
+  satuanKecil?: string | null,
+  nama?: string | null,
+): MaterialType {
+  return getThresholdPersen(satuan, satuanKecil, nama) > 0 ? 'bulk' : 'count'
 }
 
 export interface SelisihPersenResult {
@@ -94,7 +112,7 @@ export function computeSelisihPersen(
  * Menentukan apakah selisih opname perlu di-flag (butuh approval leader).
  *
  * Aturan threshold:
- * - Item TIMBANG (satuan atau satuan_kecil = gram/ml/kg/liter) → toleransi 5%
+ * - Item TIMBANG / BULK (satuan atau satuan_kecil = gram/ml/kg/liter) → toleransi 20%
  *   Contoh: AYAM (kg), SAPI (blok+gram), MINYAK (kompan+ml)
  * - Item HITUNG / countable (pcs, pack, blok murni, dll)        → toleransi 0%
  *   Apapun selisihnya langsung flag.

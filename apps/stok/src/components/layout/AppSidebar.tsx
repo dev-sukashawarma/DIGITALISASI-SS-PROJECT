@@ -10,6 +10,7 @@ import { useApprovalList } from '@/hooks/usePermintaan'
 import { useMutasiBadge } from '@/hooks/useMutasi'
 import { canViewPermintaanQueue, canCatatTerimaVendor, canLihatNotaVendor } from '@/lib/stok/approver'
 import { canLihatKirimanVendor } from '@/lib/stok/kirimanVendor'
+import * as navAccess from '@/lib/stok/navAccess'
 import { useQuery } from '@tanstack/react-query'
 import { fetchPendingWasteReports } from '@/app/actions/waste'
 import {
@@ -68,10 +69,10 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
 
   // Role permissions
   const isApprover = canViewPermintaanQueue(role)
-  const canReceivePO = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'developer'].includes(role ?? '')
-  const canViewVendorPrices = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
-  const canApproveWaste = ['area_manager', 'regional_manager', 'admin', 'kitchen', 'developer'].includes(role ?? '')
-  const canViewSales = ['kitchen', 'admin', 'owner', 'admin_finance', 'developer', 'purchasing'].includes(role ?? '')
+  const canReceivePO = navAccess.canReceivePO(role)
+  const canViewVendorPrices = navAccess.canViewVendorPrices(role)
+  const canApproveWaste = navAccess.canApproveWaste(role)
+  const canViewSales = navAccess.canViewSales(role)
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
   // diakses oleh staff gudang, admin, dan purchasing.
   const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing'].includes(role ?? '')
@@ -83,7 +84,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // yang memang lebih longgar karena halaman Master Harga memakai Server Action
   // ber-service-role.
   const canViewNilaiPersediaan = ['admin', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(role ?? '')
-  const canViewJurnalMutasi = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'leader', 'area_manager', 'developer'].includes(role ?? '')
+  const canViewJurnalMutasi = navAccess.canViewJurnalMutasi(role)
   // Terima dari Vendor (drop-ship) -- siapa pun yang terhubung ke satu outlet
   // (outlet_staff.outlet_id). RPC memeriksa ulang, ini hanya menentukan tampil-
   // tidaknya menu (spec 2026-09-11 §6). "Cocokkan Nota Vendor" (pengesah) SENGAJA

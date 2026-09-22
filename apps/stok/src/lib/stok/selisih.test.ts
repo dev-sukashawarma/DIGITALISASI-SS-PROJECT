@@ -4,6 +4,7 @@ import {
   getThresholdPersen,
   computeSelisihPersen,
   isSelisihFlagged,
+  getMaterialType,
 } from './selisih'
 
 describe('selisih logic & threshold helpers', () => {
@@ -20,16 +21,16 @@ describe('selisih logic & threshold helpers', () => {
   })
 
   describe('getThresholdPersen', () => {
-    it('returns 5% for measurable primary units', () => {
-      expect(getThresholdPersen('kg')).toBe(5)
-      expect(getThresholdPersen('gram')).toBe(5)
-      expect(getThresholdPersen('liter')).toBe(5)
-      expect(getThresholdPersen('ml')).toBe(5)
+    it('returns 20% for measurable primary units (bulk)', () => {
+      expect(getThresholdPersen('kg')).toBe(20)
+      expect(getThresholdPersen('gram')).toBe(20)
+      expect(getThresholdPersen('liter')).toBe(20)
+      expect(getThresholdPersen('ml')).toBe(20)
     })
 
-    it('returns 5% for countable primary unit with measurable secondary unit (e.g. Sapi blok + gram)', () => {
-      expect(getThresholdPersen('blok', 'gram')).toBe(5)
-      expect(getThresholdPersen('kompan', 'ml')).toBe(5)
+    it('returns 20% for countable primary unit with measurable secondary unit (e.g. Sapi blok + gram)', () => {
+      expect(getThresholdPersen('blok', 'gram')).toBe(20)
+      expect(getThresholdPersen('kompan', 'ml')).toBe(20)
     })
 
     it('returns 0% for countable primary unit with pcs (e.g. gas pcs + gram)', () => {
@@ -91,12 +92,12 @@ describe('selisih logic & threshold helpers', () => {
   })
 
   describe('isSelisihFlagged', () => {
-    it('flags when discrepancy exceeds 5% for measurable items', () => {
-      // 10,000g system stock -> threshold is 5% = 500g
-      expect(isSelisihFlagged(-500, 10000, 'kg', 'gram')).toBe(false) // 5% -> not flagged (strictly > threshold)
-      expect(isSelisihFlagged(-501, 10000, 'kg', 'gram')).toBe(true) // >5% -> flagged
-      expect(isSelisihFlagged(400, 10000, 'kg', 'gram')).toBe(false)
-      expect(isSelisihFlagged(600, 10000, 'kg', 'gram')).toBe(true)
+    it('flags when discrepancy exceeds 20% for measurable items', () => {
+      // 10,000g system stock -> threshold is 20% = 2000g
+      expect(isSelisihFlagged(-2000, 10000, 'kg', 'gram')).toBe(false) // tepat 20% -> tidak di-flag (strictly > threshold)
+      expect(isSelisihFlagged(-2001, 10000, 'kg', 'gram')).toBe(true) // >20% -> flagged
+      expect(isSelisihFlagged(1900, 10000, 'kg', 'gram')).toBe(false)
+      expect(isSelisihFlagged(2100, 10000, 'kg', 'gram')).toBe(true)
     })
 
     it('flags any non-zero discrepancy for countable items (0% threshold)', () => {
@@ -119,7 +120,30 @@ describe('selisih logic & threshold helpers', () => {
       expect(isSelisihFlagged(-2100, 10000, 'dus', 'gram', 'KENTANG')).toBe(true)
     })
     it('bahan lain tetap memakai aturan satuan', () => {
-      expect(isSelisihFlagged(-600, 10000, 'kg', 'gram', 'MINYAK')).toBe(true)
+      expect(isSelisihFlagged(-1900, 10000, 'kg', 'gram', 'MINYAK')).toBe(false)
+      expect(isSelisihFlagged(-2100, 10000, 'kg', 'gram', 'MINYAK')).toBe(true)
     })
+  })
+})
+
+describe('getMaterialType', () => {
+  it('count = toleransi 0% (barang hitung)', () => {
+    expect(getMaterialType('Pcs', null, 'AQUA')).toBe('count')
+    expect(getMaterialType('Pack', 'Lembar', 'KULIT 25')).toBe('count')
+  })
+
+  it('bulk = toleransi di atas 0% (timbang/ukur & toleransi khusus)', () => {
+    expect(getMaterialType('kg', 'gram', 'TEPUNG')).toBe('bulk')
+    expect(getMaterialType('Blok', 'gram', 'SAPI')).toBe('bulk')
+    expect(getMaterialType('Kg', 'gram', 'AYAM')).toBe('bulk')
+  })
+
+  it('selalu sepakat dengan getThresholdPersen', () => {
+    const kasus: [string, string | null, string][] = [
+      ['Pcs', null, 'AQUA'], ['kg', 'gram', 'TEPUNG'], ['Kg', 'gram', 'KENTANG'],
+    ]
+    for (const [s, sk, n] of kasus) {
+      expect(getMaterialType(s, sk, n) === 'bulk').toBe(getThresholdPersen(s, sk, n) > 0)
+    }
   })
 })

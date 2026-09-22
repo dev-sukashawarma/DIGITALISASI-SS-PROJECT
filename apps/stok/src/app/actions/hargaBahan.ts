@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
+import { canViewVendorPrices } from '@/lib/stok/navAccess'
 
 const AUTHORIZED_ROLES = ['admin', 'owner', 'finance', 'purchasing', 'spv'] as const
 
@@ -45,6 +46,29 @@ async function requirePriceMasterEditor(): Promise<{ userId: string; userRole: s
   }
 
   return { userId, userRole: staff.role, userName: staff.name || 'User' }
+}
+
+// Gerbang BACA harga master. Action di file ini memakai service-role client
+// (bypass RLS) dan tiap export 'use server' adalah endpoint POST publik —
+// menyembunyikan menu tidak melindungi apa pun. Daftar role = navAccess
+// (sama dengan menu), supaya menu & server tak bisa beda aturan.
+async function requirePriceReader(): Promise<void> {
+  const authedClient = await getAuthedClient()
+  const { data: { user }, error: userError } = await authedClient.auth.getUser()
+  if (userError || !user) {
+    throw new Error('Unauthorized: Tidak ada sesi aktif pengguna')
+  }
+
+  const { data: staff, error } = await makeServiceClient()
+    .from('outlet_staff')
+    .select('role, status')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!staff || staff.status !== 'active' || !canViewVendorPrices(staff.role)) {
+    throw new Error('Forbidden: role Anda tidak berhak melihat Harga Master')
+  }
 }
 
 export type SyncMasterItemInput = {
@@ -154,6 +178,7 @@ export type FluktuasiHargaItem = {
 }
 
 export async function getFluktuasiHargaAction(days: number | null = 30): Promise<FluktuasiHargaItem[]> {
+  await requirePriceReader()
   const supabase = makeServiceClient()
   const sinceDate = days ? new Date(Date.now() - days * 86400000).toISOString().split('T')[0] : null
 

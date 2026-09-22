@@ -126,4 +126,12 @@ BEGIN
   ORDER BY f.created_at DESC
   LIMIT p_limit OFFSET p_offset;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
+-- Dikoreksi 2026-09-22 (lihat 20260922220000): semula SECURITY DEFINER tanpa
+-- cek pemanggil + EXECUTE ke anon -> order semua outlet terbaca tanpa login.
+-- INVOKER agar RLS orders/order_items menentukan outlet yang boleh dibaca.
+
+REVOKE ALL ON FUNCTION public.search_outlet_orders(uuid, timestamptz, timestamptz, text, int, int)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.search_outlet_orders(uuid, timestamptz, timestamptz, text, int, int)
+  TO authenticated, service_role;

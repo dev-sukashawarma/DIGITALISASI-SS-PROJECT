@@ -6,19 +6,8 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { getDistribusiFactor } from '@/lib/format/compositeUnit'
 import { attributeFifo, labelFifo, type FifoWindowRow } from '@/lib/stok/vendorFifo'
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
+import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 
-const MANAGEMENT_ROLES = [
-  'admin',
-  'owner',
-  'spv',
-  'regional_manager',
-  'area_manager',
-  'leader',
-  'kitchen',
-  'purchasing',
-  'admin_finance',
-  'developer',
-] as const
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -74,8 +63,8 @@ async function requireManagementAuth(outletId?: string) {
     throw new Error('Unauthorized: Akun staff tidak aktif')
   }
 
-  if (!MANAGEMENT_ROLES.includes(staff.role as any)) {
-    throw new Error('Forbidden: Laporan ini khusus untuk Manajemen (Owner, Admin, SPV, Leader, Kitchen, Finance)')
+  if (!canViewJurnalMutasi(staff.role)) {
+    throw new Error('Forbidden: Laporan ini khusus untuk Manajemen Pusat (Owner, Admin, SPV, RM, Kitchen, Purchasing, Finance)')
   }
 
   if (outletId) {

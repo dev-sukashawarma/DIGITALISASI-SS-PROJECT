@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>GatewayBaseURL</key>
+	<string>$(GATEWAY_BASE_URL)</string>
+	<key>GoogleWebClientID</key>
+	<string>$(GOOGLE_WEB_CLIENT_ID)</string>
+	<key>GoogleIOSClientID</key>
+	<string>$(GOOGLE_IOS_CLIENT_ID)</string>
+	<!-- Hanya HTTPS standar (tanpa enkripsi sendiri): bebas dokumen ekspor. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>UILaunchScreen</key>
+	<dict>
+		<!-- Cokelat Suka, supaya peralihan ke splash aplikasi tidak berkedip putih. -->
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UIAppFonts</key>
+	<array>
+		<string>lilita_one.ttf</string>
+		<string>plus_jakarta_sans_regular.ttf</string>
+		<string>plus_jakarta_sans_medium.ttf</string>
+		<string>plus_jakarta_sans_bold.ttf</string>
+	</array>
+</dict>
+</plist>

@@ -15,6 +15,13 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import { createKol, updateKol, deleteKol } from '@/app/actions/kols'
+import {
+  TikTokIcon,
+  InstagramIcon,
+  YouTubeIcon,
+  FacebookIcon,
+  ThreadsIcon,
+} from '@/components/icons/SocialIcons'
 
 export interface SerializedKol {
   id: string
@@ -199,8 +206,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-stone-800 hover:text-[#D9480F] font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
-                            <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white text-[9px] font-black flex-shrink-0">
-                              TT
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white flex-shrink-0">
+                              <TikTokIcon className="w-2.5 h-2.5" />
                             </span>
                             <span className="truncate">{kol.tiktokUrl.replace(/^https?:\/\/(www\.)?tiktok\.com\/@?/, '@')}</span>
                             <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
@@ -214,8 +221,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-rose-700 hover:text-rose-800 font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
-                            <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white text-[9px] font-black flex-shrink-0">
-                              IG
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white flex-shrink-0">
+                              <InstagramIcon className="w-2.5 h-2.5" />
                             </span>
                             <span className="truncate">{kol.instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//, '@')}</span>
                             <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
@@ -229,8 +236,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-red-600 hover:text-red-700 font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
-                            <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white text-[9px] font-black flex-shrink-0">
-                              YT
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white flex-shrink-0">
+                              <YouTubeIcon className="w-2.5 h-2.5" />
                             </span>
                             <span className="truncate">{kol.youtubeUrl.replace(/^https?:\/\/(www\.)?youtube\.com\/@?/, '@')}</span>
                             <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
@@ -244,8 +251,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
-                            <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white text-[9px] font-black flex-shrink-0">
-                              FB
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white flex-shrink-0">
+                              <FacebookIcon className="w-2.5 h-2.5" />
                             </span>
                             <span className="truncate">{kol.facebookUrl.replace(/^https?:\/\/(www\.)?facebook\.com\//, '')}</span>
                             <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
@@ -259,8 +266,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 text-stone-800 hover:text-[#D9480F] font-semibold truncate max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]"
                           >
-                            <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white text-[9px] font-black flex-shrink-0">
-                              TH
+                            <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white flex-shrink-0">
+                              <ThreadsIcon className="w-2.5 h-2.5" />
                             </span>
                             <span className="truncate">{kol.threadsUrl.replace(/^https?:\/\/(www\.)?threads\.net\/@?/, '@')}</span>
                             <ExternalLink className="w-3 h-3 text-stone-400 flex-shrink-0" />
@@ -350,13 +357,14 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
               </button>
             </div>
 
-            <form onSubmit={handleCreate} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
-              {errorMessage && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
+            <form onSubmit={handleCreate} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+                {errorMessage && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
@@ -384,8 +392,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white text-[8px] font-black">
-                        IG
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white flex-shrink-0">
+                        <InstagramIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>Instagram</span>
                     </label>
@@ -399,8 +407,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white text-[8px] font-black">
-                        TT
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white flex-shrink-0">
+                        <TikTokIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>TikTok</span>
                     </label>
@@ -414,8 +422,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white text-[8px] font-black">
-                        YT
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white flex-shrink-0">
+                        <YouTubeIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>YouTube</span>
                     </label>
@@ -429,8 +437,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white text-[8px] font-black">
-                        FB
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white flex-shrink-0">
+                        <FacebookIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>Facebook</span>
                     </label>
@@ -444,8 +452,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white text-[8px] font-black">
-                        TH
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white flex-shrink-0">
+                        <ThreadsIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>Threads</span>
                     </label>
@@ -483,8 +491,9 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
+              <div className="flex items-center justify-end space-x-3 px-5 sm:px-6 py-3.5 sm:py-4 border-t border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsCreateOpen(false)}
@@ -527,13 +536,14 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
               </button>
             </div>
 
-            <form onSubmit={handleUpdate} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
-              {errorMessage && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                  <span>{errorMessage}</span>
-                </div>
-              )}
+            <form onSubmit={handleUpdate} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 overscroll-contain">
+                {errorMessage && (
+                  <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-xl flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{errorMessage}</span>
+                  </div>
+                )}
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
@@ -560,8 +570,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white text-[8px] font-black">
-                        IG
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-gradient-to-tr from-yellow-500 via-rose-500 to-purple-600 text-white flex-shrink-0">
+                        <InstagramIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>Instagram</span>
                     </label>
@@ -576,8 +586,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white text-[8px] font-black">
-                        TT
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-black text-white flex-shrink-0">
+                        <TikTokIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>TikTok</span>
                     </label>
@@ -592,8 +602,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white text-[8px] font-black">
-                        YT
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-red-600 text-white flex-shrink-0">
+                        <YouTubeIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>YouTube</span>
                     </label>
@@ -608,8 +618,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div>
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white text-[8px] font-black">
-                        FB
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-[#1877F2] text-white flex-shrink-0">
+                        <FacebookIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>Facebook</span>
                     </label>
@@ -624,8 +634,8 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
 
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] font-bold text-stone-600 mb-1 flex items-center gap-1.5">
-                      <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white text-[8px] font-black">
-                        TH
+                      <span className="w-4 h-4 flex items-center justify-center rounded bg-stone-900 text-white flex-shrink-0">
+                        <ThreadsIcon className="w-2.5 h-2.5" />
                       </span>
                       <span>Threads</span>
                     </label>
@@ -664,8 +674,9 @@ export default function KolList({ initialKols, userRole }: KolListProps) {
                   />
                 </div>
               </div>
+            </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-[#EFE8DE] sticky bottom-0 bg-white/95 backdrop-blur-xs -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 px-5 sm:px-6 py-3.5 z-10">
+              <div className="flex items-center justify-end space-x-3 px-5 sm:px-6 py-3.5 sm:py-4 border-t border-[#EFE8DE] bg-[#FAF8F5] flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => setEditingKol(null)}

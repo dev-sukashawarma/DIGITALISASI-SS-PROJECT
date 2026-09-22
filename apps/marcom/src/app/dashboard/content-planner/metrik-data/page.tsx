@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { getContentTypes } from '@/app/actions/content'
+import { getLastVideoSyncTime } from '@/app/actions/sync'
 import ContentMetricsView, { SerializedInternalContent } from '../ContentMetricsView'
 
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,7 @@ export const metadata = {
 export default async function ContentMetricsPage() {
   const user = await getCurrentUser()
 
-  const [contents, outlets, contentTypes] = await Promise.all([
+  const [contents, outlets, contentTypes, lastSyncedAt] = await Promise.all([
     prisma.internalContent.findMany({
       orderBy: { postDate: 'desc' },
       include: {
@@ -25,6 +26,7 @@ export default async function ContentMetricsPage() {
       select: { id: true, name: true },
     }),
     getContentTypes(),
+    getLastVideoSyncTime(),
   ])
 
   const serializedContents: SerializedInternalContent[] = contents.map((item: any) => ({
@@ -65,6 +67,7 @@ export default async function ContentMetricsPage() {
       outlets={serializedOutlets}
       userRole={user?.role || 'VIEWER'}
       initialContentTypes={contentTypes.map((c) => c.name)}
+      initialLastSyncedAt={lastSyncedAt}
     />
   )
 }

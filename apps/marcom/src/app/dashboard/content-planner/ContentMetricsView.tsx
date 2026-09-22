@@ -53,6 +53,7 @@ import {
   syncSingleContentVideo,
   syncAllActiveVideos,
 } from '@/app/actions/sync'
+import { formatLastUpdate, formatFullDateTime } from '@/lib/format-date'
 
 export interface SerializedInternalContent {
   id: string
@@ -86,6 +87,7 @@ interface ContentMetricsViewProps {
   outlets: Array<{ id: string; name: string }>
   userRole: string
   initialContentTypes?: string[]
+  initialLastSyncedAt?: string | null
 }
 
 export const PILLARS: Record<string, { label: string; color: string; badgeBg: string; text: string; border: string }> = {
@@ -406,6 +408,7 @@ export default function ContentMetricsView({
   outlets,
   userRole,
   initialContentTypes,
+  initialLastSyncedAt,
 }: ContentMetricsViewProps) {
   const contentTypesList = useMemo(() => {
     return initialContentTypes && initialContentTypes.length > 0 ? initialContentTypes : CONTENT_TYPES
@@ -452,6 +455,24 @@ export default function ContentMetricsView({
   const [isSyncingAll, setIsSyncingAll] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncBanner, setSyncBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(initialLastSyncedAt || null)
+  const [, setTick] = useState(0)
+
+  // Hydrate from localStorage if initialLastSyncedAt was not available
+  useEffect(() => {
+    if (!lastSyncTime && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('marcom_last_video_sync')
+        if (saved) setLastSyncTime(saved)
+      } catch {}
+    }
+  }, [lastSyncTime])
+
+  // Periodic tick to re-evaluate relative time label (e.g. "Baru saja" -> "1 menit lalu")
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Create modal state - Multi-platform support
   const [createPlatforms, setCreatePlatforms] = useState<string[]>(['TIKTOK'])
@@ -761,6 +782,11 @@ export default function ContentMetricsView({
     try {
       const res = await syncAllActiveVideos()
       if (res.success) {
+        const nowIso = res.lastSyncedAt || new Date().toISOString()
+        setLastSyncTime(nowIso)
+        try {
+          localStorage.setItem('marcom_last_video_sync', nowIso)
+        } catch {}
         setSyncBanner({
           type: 'success',
           message: res.message || `Berhasil menyinkronkan ${res.updatedCount} video!`,
@@ -787,6 +813,11 @@ export default function ContentMetricsView({
     try {
       const res = await syncSingleContentVideo(id)
       if (res.success) {
+        const nowIso = new Date().toISOString()
+        setLastSyncTime(nowIso)
+        try {
+          localStorage.setItem('marcom_last_video_sync', nowIso)
+        } catch {}
         setSyncBanner({
           type: 'success',
           message: `Metrik video berhasil diupdate otomatis (${(res.metrics?.views || 0).toLocaleString('id-ID')} views)!`,
@@ -906,20 +937,32 @@ export default function ContentMetricsView({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleSyncAll}
-            disabled={isSyncingAll}
-            className="inline-flex items-center justify-center space-x-2 px-3.5 py-2.5 bg-white hover:bg-[#FAF8F5] text-stone-700 border border-[#EFE8DE] rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:border-[#D9480F]/40 transition-all cursor-pointer disabled:opacity-50"
-            title="Update metrik seluruh video TikTok, IG Reels, dan YouTube Shorts secara otomatis"
-          >
-            <RefreshCw className={`w-4 h-4 text-[#D9480F] ${isSyncingAll ? 'animate-spin' : ''}`} />
-            <span>{isSyncingAll ? 'Menyinkronkan...' : 'Sync Semua Video'}</span>
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex flex-col items-start sm:items-end">
+            <button
+              onClick={handleSyncAll}
+              disabled={isSyncingAll}
+              className="inline-flex items-center justify-center space-x-2 px-3.5 py-2 bg-white hover:bg-[#FAF8F5] text-stone-700 border border-[#EFE8DE] rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:border-[#D9480F]/40 transition-all cursor-pointer disabled:opacity-50 w-full sm:w-auto"
+              title="Update metrik seluruh video TikTok, IG Reels, dan YouTube Shorts secara otomatis"
+            >
+              <RefreshCw className={`w-4 h-4 text-[#D9480F] ${isSyncingAll ? 'animate-spin' : ''}`} />
+              <span>{isSyncingAll ? 'Menyinkronkan...' : 'Sync Semua Video'}</span>
+            </button>
+            <div
+              className="flex items-center gap-1.5 mt-1 text-[11px] text-stone-500 font-medium select-none"
+              title={formatFullDateTime(lastSyncTime)}
+            >
+              <Clock className="w-3 h-3 text-stone-400 shrink-0" />
+              <span>Terakhir diupdate:</span>
+              <span className="font-semibold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200/60">
+                {formatLastUpdate(lastSyncTime)}
+              </span>
+            </div>
+          </div>
 
           <button
             onClick={openCreateModal}
-            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer"
+            className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer h-fit"
           >
             <Plus className="w-4 h-4" />
             <span>Tambah Video Internal</span>
@@ -1714,9 +1757,18 @@ export default function ContentMetricsView({
           <div className="bg-white w-full max-w-lg rounded-3xl border border-[#EFE8DE] shadow-xl overflow-hidden">
             <div className="p-6 border-b border-[#EFE8DE] flex items-center justify-between">
               <div>
-                <span className="text-[10px] font-bold text-[#D9480F] uppercase tracking-wider">
-                  Update Metrik Cepat & EBR Calculator
-                </span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-bold text-[#D9480F] uppercase tracking-wider">
+                    Update Metrik Cepat & EBR Calculator
+                  </span>
+                  <span
+                    className="inline-flex items-center gap-1 text-[10px] font-medium text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200/60 select-none"
+                    title={formatFullDateTime(lastSyncTime)}
+                  >
+                    <Clock className="w-2.5 h-2.5 text-stone-400 shrink-0" />
+                    <span>Last update: {formatLastUpdate(lastSyncTime)}</span>
+                  </span>
+                </div>
                 <h2 className="text-lg font-extrabold text-[#1A1715] truncate max-w-sm mt-0.5">
                   {metricTarget.title}
                 </h2>

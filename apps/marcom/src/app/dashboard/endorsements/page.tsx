@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { fetchPosMenuItems } from '@/lib/supabase-pos'
 import { syncClaimedEndorsements } from '@/app/actions/endorsements'
+import { getLastVideoSyncTime } from '@/app/actions/sync'
 import EndorsementList, { SerializedEndorsement } from './EndorsementList'
 
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,7 @@ export default async function EndorsementsPage() {
   // Sinkronisasi otomatis klaim POS yang berstatus CLAIMED
   await syncClaimedEndorsements()
 
-  const [endorsements, outlets, kols, posMenuItems] = await Promise.all([
+  const [endorsements, outlets, kols, posMenuItems, lastSyncedAt] = await Promise.all([
     prisma.endorsement.findMany({
       orderBy: { scheduleDate: 'desc' },
       include: {
@@ -41,6 +42,7 @@ export default async function EndorsementsPage() {
       select: { id: true, name: true, phoneNumber: true, bankAccount: true },
     }),
     fetchPosMenuItems(),
+    getLastVideoSyncTime(),
   ])
 
   const serializedEndorsements: SerializedEndorsement[] = endorsements.map((item: any) => {
@@ -141,6 +143,7 @@ export default async function EndorsementsPage() {
       kols={serializedKols}
       userRole={user?.role || 'MARCOM'}
       posMenuItems={posMenuItems}
+      initialLastSyncedAt={lastSyncedAt}
     />
   )
 }

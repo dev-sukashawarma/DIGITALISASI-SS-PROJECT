@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Video,
   Plus,
@@ -32,6 +33,7 @@ import {
   Truck,
   UserPlus,
   ArrowLeft,
+  Clock,
 } from 'lucide-react'
 import {
   createEndorsement,
@@ -47,8 +49,18 @@ import {
 } from '@/app/actions/sync'
 import EndorsementFinanceView from './EndorsementFinanceView'
 import ImportExcelModal from '@/components/dashboard/ImportExcelModal'
+import VideoPreviewModal from './VideoPreviewModal'
+import {
+  PlatformIcon,
+  TikTokIcon,
+  InstagramIcon,
+  YouTubeIcon,
+  FacebookIcon,
+  ThreadsIcon,
+} from '@/components/icons/SocialIcons'
 import EndorsementMenuSelector, { SelectedMenuItem } from '@/components/dashboard/EndorsementMenuSelector'
 import type { PosMenuItem } from '@/lib/supabase-pos'
+import { formatLastUpdate, formatFullDateTime } from '@/lib/format-date'
 
 export interface SerializedEndorsementPost {
   id: string
@@ -63,6 +75,18 @@ export interface SerializedEndorsementPost {
   shares: number
   saves: number
   postedAt: string | null
+}
+
+export interface PostMetricState {
+  id: string
+  platform: string
+  customPlatformName?: string | null
+  postUrl: string
+  views: number
+  likes: number
+  comments: number
+  shares: number
+  saves: number
 }
 
 export interface SerializedEndorsement {
@@ -133,6 +157,7 @@ interface EndorsementListProps {
   kols: Array<{ id: string; name: string; phoneNumber?: string | null; bankAccount?: string | null }>
   userRole: string
   posMenuItems?: PosMenuItem[]
+  initialLastSyncedAt?: string | null
 }
 
 export type SocialPlatform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'FACEBOOK' | 'THREADS'
@@ -141,6 +166,201 @@ export interface KolSocialEntry {
   id: string
   platform: SocialPlatform
   handle: string
+}
+
+export interface VideoPostEntry {
+  id: string
+  platform: string
+  postUrl: string
+  customPlatformName?: string
+}
+
+export const VIDEO_PLATFORM_OPTIONS = [
+  { value: 'TIKTOK', label: 'TikTok Video', icon: '🎵', placeholder: 'https://www.tiktok.com/@username/video/...' },
+  { value: 'IG_REEL', label: 'Instagram Reel', icon: '📸', placeholder: 'https://www.instagram.com/reel/...' },
+  { value: 'IG_STORY', label: 'Instagram Story', icon: '⚡', placeholder: 'https://www.instagram.com/stories/...' },
+  { value: 'YOUTUBE_SHORTS', label: 'YouTube Shorts', icon: '▶️', placeholder: 'https://youtube.com/shorts/...' },
+  { value: 'FACEBOOK', label: 'Facebook Video', icon: '👍', placeholder: 'https://www.facebook.com/.../videos/...' },
+  { value: 'THREADS', label: 'Threads', icon: '🧵', placeholder: 'https://www.threads.net/@.../post/...' },
+  { value: 'CUSTOM', label: 'Platform Kustom (Lainnya)', icon: '🌐', placeholder: 'https://...' },
+] as const
+
+export function detectPlatformFromUrl(url: string): string {
+  const u = url.toLowerCase().trim()
+  if (u.includes('tiktok.com')) return 'TIKTOK'
+  if (u.includes('instagram.com') || u.includes('instagr.am')) {
+    if (u.includes('/stories/')) return 'IG_STORY'
+    return 'IG_REEL'
+  }
+  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'YOUTUBE_SHORTS'
+  if (u.includes('facebook.com') || u.includes('fb.watch') || u.includes('fb.com')) return 'FACEBOOK'
+  if (u.includes('threads.net')) return 'THREADS'
+  return 'TIKTOK'
+}
+
+export function getPlatformBadgeConfig(platform: string, customName?: string | null) {
+  switch (platform) {
+    case 'TIKTOK':
+      return { label: 'TikTok', shortLabel: 'TT Video', badgeClass: 'bg-stone-900 text-white border border-stone-800' }
+    case 'IG_REEL':
+      return { label: 'Instagram Reel', shortLabel: 'IG Reel', badgeClass: 'bg-gradient-to-r from-purple-600 to-pink-600 text-white border border-purple-500' }
+    case 'IG_STORY':
+      return { label: 'Instagram Story', shortLabel: 'IG Story', badgeClass: 'bg-purple-600 text-white border border-purple-500' }
+    case 'YOUTUBE_SHORTS':
+      return { label: 'YouTube Shorts', shortLabel: 'YT Shorts', badgeClass: 'bg-red-600 text-white border border-red-500' }
+    case 'FACEBOOK':
+      return { label: 'Facebook', shortLabel: 'FB Video', badgeClass: 'bg-blue-600 text-white border border-blue-500' }
+    case 'THREADS':
+      return { label: 'Threads', shortLabel: 'Threads', badgeClass: 'bg-stone-800 text-white border border-stone-700' }
+    case 'CUSTOM':
+    default:
+      return {
+        label: customName || 'Video',
+        shortLabel: customName ? customName.slice(0, 10) : 'Video',
+        badgeClass: 'bg-amber-600 text-white border border-amber-500',
+      }
+  }
+}
+
+function VideoPlatformLinksEditor({
+  videoLinks,
+  onAdd,
+  onRemove,
+  onPlatformChange,
+  onUrlChange,
+  onCustomNameChange,
+  title = 'Link Video & Konten Multi-Platform',
+  description = 'Pilih platform terlebih dahulu, lalu masukkan link URL postingan video.',
+}: {
+  videoLinks: VideoPostEntry[]
+  onAdd: () => void
+  onRemove: (id: string) => void
+  onPlatformChange: (id: string, platform: string) => void
+  onUrlChange: (id: string, url: string) => void
+  onCustomNameChange: (id: string, name: string) => void
+  title?: string
+  description?: string
+}) {
+  return (
+    <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE8DE] space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="flex items-center gap-1.5">
+            <Video className="w-3.5 h-3.5 text-[#D9480F]" />
+            <label className="text-[11px] font-bold text-stone-700 uppercase tracking-wider">
+              {title}
+            </label>
+            {videoLinks.filter((v) => v.postUrl.trim()).length > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[#FFF4ED] text-[#D9480F] border border-[#D9480F]/20">
+                {videoLinks.filter((v) => v.postUrl.trim()).length} link
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-stone-500 mt-0.5">{description}</p>
+        </div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#D9480F] bg-white hover:bg-[#FFF4ED] border border-[#D9480F]/30 rounded-xl transition-all cursor-pointer shadow-2xs hover:shadow-xs shrink-0"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>Tambah Video</span>
+        </button>
+      </div>
+
+      {videoLinks.length === 0 ? (
+        <div className="py-4 px-3 bg-white border border-dashed border-stone-300 rounded-xl text-center">
+          <p className="text-xs text-stone-500 mb-2">Belum ada link video konten.</p>
+          <button
+            type="button"
+            onClick={onAdd}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#D9480F] bg-[#FFF4ED] border border-[#D9480F]/30 rounded-xl hover:bg-[#FFE8D9] transition-colors cursor-pointer"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Pilih Platform & Tambah Link Video</span>
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {videoLinks.map((item) => {
+            const platformConfig =
+              VIDEO_PLATFORM_OPTIONS.find((p) => p.value === item.platform) ||
+              VIDEO_PLATFORM_OPTIONS[0]
+            return (
+              <div
+                key={item.id}
+                className="p-2.5 bg-white border border-stone-200 rounded-xl space-y-2 shadow-2xs"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0">
+                    <PlatformIcon platform={item.platform} className="w-4 h-4 text-stone-700" />
+                  </div>
+                  <div className="w-36 sm:w-44 shrink-0">
+                    <select
+                      value={item.platform}
+                      onChange={(e) => onPlatformChange(item.id, e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs font-bold border border-stone-200 rounded-lg bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F] cursor-pointer"
+                    >
+                      {VIDEO_PLATFORM_OPTIONS.map((p) => (
+                        <option key={p.value} value={p.value}>
+                          {p.icon} {p.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex-1 relative flex items-center min-w-0">
+                    <input
+                      type="url"
+                      value={item.postUrl}
+                      onChange={(e) => onUrlChange(item.id, e.target.value)}
+                      placeholder={platformConfig.placeholder}
+                      className="w-full pl-2.5 pr-7 py-1.5 text-xs border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-[#D9480F] font-mono"
+                    />
+                    {item.postUrl.trim() && (
+                      <a
+                        href={item.postUrl.trim()}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="absolute right-2 text-stone-400 hover:text-[#D9480F] transition-colors"
+                        title="Buka link video di tab baru"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => onRemove(item.id)}
+                    className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer shrink-0"
+                    title="Hapus platform video ini"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {item.platform === 'CUSTOM' && (
+                  <div className="flex items-center gap-2 pl-1 pt-0.5">
+                    <span className="text-[10px] font-semibold text-stone-500 whitespace-nowrap">
+                      Nama Platform:
+                    </span>
+                    <input
+                      type="text"
+                      value={item.customPlatformName || ''}
+                      onChange={(e) => onCustomNameChange(item.id, e.target.value)}
+                      placeholder="e.g. SnackVideo, Lemon8, X"
+                      className="px-2 py-1 text-xs border border-stone-200 rounded-lg bg-stone-50 focus:bg-white focus:outline-none w-48"
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
 }
 
 const VISIT_STATUSES = ['PENDING', 'VISITED', 'CANCELED']
@@ -152,7 +372,9 @@ export default function EndorsementList({
   kols,
   userRole,
   posMenuItems = [],
+  initialLastSyncedAt,
 }: EndorsementListProps) {
+  const router = useRouter()
   // Tab Switcher state
   const [activeTab, setActiveTab] = useState<'operations' | 'finance' | 'analytics'>('operations')
 
@@ -173,6 +395,20 @@ export default function EndorsementList({
   const [editingEndorsement, setEditingEndorsement] = useState<SerializedEndorsement | null>(null)
   const [videoMetricsTarget, setVideoMetricsTarget] = useState<SerializedEndorsement | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<SerializedEndorsement | null>(null)
+  const [videoPreviewTarget, setVideoPreviewTarget] = useState<{
+    endorsement: SerializedEndorsement
+    initialPostId?: string | null
+  } | null>(null)
+
+  const openVideoPreview = (endorsement: SerializedEndorsement, postId?: string | null) => {
+    setVideoPreviewTarget({ endorsement, initialPostId: postId })
+  }
+
+  const navigateToAnalytics = (kolName: string) => {
+    setSearch(kolName)
+    setPerformanceFilter('ALL')
+    setActiveTab('analytics')
+  }
 
   const [errorMessage, setErrorMessage] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -224,7 +460,142 @@ export default function EndorsementList({
   const [editRateCard, setEditRateCard] = useState<string>('0')
   const [editMenuItems, setEditMenuItems] = useState<SelectedMenuItem[]>([])
 
+  // Multi-platform video links states
+  const [createVideoLinks, setCreateVideoLinks] = useState<VideoPostEntry[]>([])
+  const [editVideoLinks, setEditVideoLinks] = useState<VideoPostEntry[]>([])
+
+  const addCreateVideoLink = () => {
+    setCreateVideoLinks((prev) => [
+      ...prev,
+      { id: Date.now().toString(), platform: 'TIKTOK', postUrl: '', customPlatformName: '' },
+    ])
+  }
+
+  const removeCreateVideoLink = (id: string) => {
+    setCreateVideoLinks((prev) => prev.filter((v) => v.id !== id))
+  }
+
+  const updateCreateVideoPlatform = (id: string, platform: string) => {
+    setCreateVideoLinks((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, platform } : v))
+    )
+  }
+
+  const updateCreateVideoUrl = (id: string, url: string) => {
+    setCreateVideoLinks((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+        const detected = detectPlatformFromUrl(url)
+        const trimmed = url.toLowerCase().trim()
+        let updatedPlatform = item.platform
+        if (
+          item.platform !== 'CUSTOM' &&
+          (trimmed.includes('tiktok.com') ||
+            trimmed.includes('instagram.com') ||
+            trimmed.includes('instagr.am') ||
+            trimmed.includes('youtube.com') ||
+            trimmed.includes('youtu.be') ||
+            trimmed.includes('facebook.com') ||
+            trimmed.includes('fb.watch') ||
+            trimmed.includes('threads.net'))
+        ) {
+          updatedPlatform = detected
+        }
+        return { ...item, postUrl: url, platform: updatedPlatform }
+      })
+    )
+  }
+
+  const updateCreateCustomPlatformName = (id: string, customPlatformName: string) => {
+    setCreateVideoLinks((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, customPlatformName } : v))
+    )
+  }
+
+  const addEditVideoLink = () => {
+    setEditVideoLinks((prev) => [
+      ...prev,
+      { id: Date.now().toString(), platform: 'TIKTOK', postUrl: '', customPlatformName: '' },
+    ])
+  }
+
+  const removeEditVideoLink = (id: string) => {
+    setEditVideoLinks((prev) => prev.filter((v) => v.id !== id))
+  }
+
+  const updateEditVideoPlatform = (id: string, platform: string) => {
+    setEditVideoLinks((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, platform } : v))
+    )
+  }
+
+  const updateEditVideoUrl = (id: string, url: string) => {
+    setEditVideoLinks((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item
+        const detected = detectPlatformFromUrl(url)
+        const trimmed = url.toLowerCase().trim()
+        let updatedPlatform = item.platform
+        if (
+          item.platform !== 'CUSTOM' &&
+          (trimmed.includes('tiktok.com') ||
+            trimmed.includes('instagram.com') ||
+            trimmed.includes('instagr.am') ||
+            trimmed.includes('youtube.com') ||
+            trimmed.includes('youtu.be') ||
+            trimmed.includes('facebook.com') ||
+            trimmed.includes('fb.watch') ||
+            trimmed.includes('threads.net'))
+        ) {
+          updatedPlatform = detected
+        }
+        return { ...item, postUrl: url, platform: updatedPlatform }
+      })
+    )
+  }
+
+  const updateEditCustomPlatformName = (id: string, customPlatformName: string) => {
+    setEditVideoLinks((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, customPlatformName } : v))
+    )
+  }
+
+  const openEditEndorsement = (item: SerializedEndorsement) => {
+    setErrorMessage('')
+    setEditingEndorsement(item)
+    setEditType((item.type as any) || 'VISIT')
+    setEditShippingCost(item.shippingCost?.toString() || '0')
+    setEditMenuName(item.menuGiven || '')
+    setEditHpp(item.hppMenu || 0)
+    setEditRateCard(item.rateCard.toString())
+    setEditMenuItems(item.menuItems ? (item.menuItems as any) : [])
+
+    if (item.posts && item.posts.length > 0) {
+      setEditVideoLinks(
+        item.posts.map((p, idx) => ({
+          id: p.id || `post-${idx}`,
+          platform: p.platform || 'TIKTOK',
+          postUrl: p.postUrl || '',
+          customPlatformName: p.customPlatformName || '',
+        }))
+      )
+    } else if (item.postUrl) {
+      setEditVideoLinks([
+        {
+          id: '1',
+          platform: detectPlatformFromUrl(item.postUrl),
+          postUrl: item.postUrl,
+          customPlatformName: '',
+        },
+      ])
+    } else {
+      setEditVideoLinks([])
+    }
+  }
+
   // Live calculation state inside the Video Metrics Modal
+  const [targetPostMetrics, setTargetPostMetrics] = useState<PostMetricState[]>([])
+  const [activeMetricTabPostId, setActiveMetricTabPostId] = useState<string>('')
   const [metricViews, setMetricViews] = useState<number>(0)
   const [metricLikes, setMetricLikes] = useState<number>(0)
   const [metricComments, setMetricComments] = useState<number>(0)
@@ -235,6 +606,37 @@ export default function EndorsementList({
   const [isSyncingAll, setIsSyncingAll] = useState(false)
   const [syncingId, setSyncingId] = useState<string | null>(null)
   const [syncBanner, setSyncBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(initialLastSyncedAt || null)
+  const [, setTick] = useState(0)
+
+  // Per-endorsement row sync times
+  const [rowSyncTimes, setRowSyncTimes] = useState<Record<string, string>>({})
+
+  // Hydrate from localStorage if initialLastSyncedAt was not available
+  useEffect(() => {
+    if (!lastSyncTime && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('marcom_last_video_sync')
+        if (saved) setLastSyncTime(saved)
+      } catch {}
+    }
+  }, [lastSyncTime])
+
+  // Hydrate row sync times from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('marcom_endorsement_row_sync_map')
+        if (saved) setRowSyncTimes(JSON.parse(saved))
+      } catch {}
+    }
+  }, [])
+
+  // Periodic tick to re-evaluate relative time label (e.g. "Baru saja" -> "1 menit lalu")
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 30000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Auto-fetch state inside modal
   const [endorsementUrl, setEndorsementUrl] = useState('')
@@ -407,7 +809,17 @@ export default function EndorsementList({
       if (res?.error) {
         setErrorMessage(res.error)
       } else {
+        const nowIso = new Date().toISOString()
+        setLastSyncTime(nowIso)
+        setRowSyncTimes((prev) => {
+          const next = { ...prev, [videoMetricsTarget.id]: nowIso }
+          try {
+            localStorage.setItem('marcom_endorsement_row_sync_map', JSON.stringify(next))
+          } catch {}
+          return next
+        })
         setVideoMetricsTarget(null)
+        router.refresh()
       }
     })
   }
@@ -428,67 +840,171 @@ export default function EndorsementList({
 
   const openVideoMetricsModal = (item: SerializedEndorsement) => {
     setVideoMetricsTarget(item)
-    setEndorsementUrl(item.postUrl || '')
-    setMetricViews(item.finalViews ?? item.initialViews ?? 0)
-    setMetricLikes(item.likes ?? 0)
-    setMetricComments(item.comments ?? 0)
-    setMetricShares(item.shares ?? 0)
-    setMetricSaves(item.saves ?? 0)
+    const initialPosts: PostMetricState[] =
+      item.posts && item.posts.length > 0
+        ? item.posts.map((p) => ({
+            id: p.id,
+            platform: p.platform,
+            customPlatformName: p.customPlatformName,
+            postUrl: p.postUrl || '',
+            views: p.views || 0,
+            likes: p.likes || 0,
+            comments: p.comments || 0,
+            shares: p.shares || 0,
+            saves: p.saves || 0,
+          }))
+        : [
+            {
+              id: 'legacy',
+              platform: item.postUrl ? detectPlatformFromUrl(item.postUrl) : 'TIKTOK',
+              customPlatformName: '',
+              postUrl: item.postUrl || '',
+              views: item.finalViews ?? item.initialViews ?? 0,
+              likes: item.likes ?? 0,
+              comments: item.comments ?? 0,
+              shares: item.shares ?? 0,
+              saves: item.saves ?? 0,
+            },
+          ]
+
+    setTargetPostMetrics(initialPosts)
+    const firstPost = initialPosts[0]
+    setActiveMetricTabPostId(firstPost.id)
+    setEndorsementUrl(firstPost.postUrl)
+    setMetricViews(firstPost.views)
+    setMetricLikes(firstPost.likes)
+    setMetricComments(firstPost.comments)
+    setMetricShares(firstPost.shares)
+    setMetricSaves(firstPost.saves)
     setFetchEndorsementNotice(null)
     setErrorMessage('')
+  }
+
+  const updateMetricField = (
+    field: 'views' | 'likes' | 'comments' | 'shares' | 'saves',
+    val: number
+  ) => {
+    if (field === 'views') setMetricViews(val)
+    else if (field === 'likes') setMetricLikes(val)
+    else if (field === 'comments') setMetricComments(val)
+    else if (field === 'shares') setMetricShares(val)
+    else if (field === 'saves') setMetricSaves(val)
+
+    if (activeMetricTabPostId) {
+      setTargetPostMetrics((prev) =>
+        prev.map((p) => (p.id === activeMetricTabPostId ? { ...p, [field]: val } : p))
+      )
+    }
+  }
+
+  const handleUrlChangeInMetricsModal = (newUrl: string) => {
+    setEndorsementUrl(newUrl)
+    if (activeMetricTabPostId) {
+      setTargetPostMetrics((prev) =>
+        prev.map((p) => (p.id === activeMetricTabPostId ? { ...p, postUrl: newUrl } : p))
+      )
+    }
+  }
+
+  const handleSwitchMetricTab = (targetPostId: string) => {
+    const target = targetPostMetrics.find((p) => p.id === targetPostId)
+    if (!target) return
+    setActiveMetricTabPostId(targetPostId)
+    setEndorsementUrl(target.postUrl)
+    setMetricViews(target.views)
+    setMetricLikes(target.likes)
+    setMetricComments(target.comments)
+    setMetricShares(target.shares)
+    setMetricSaves(target.saves)
+    setFetchEndorsementNotice(null)
   }
 
   const handleSyncAll = async () => {
     setIsSyncingAll(true)
     setSyncBanner(null)
     setErrorMessage('')
-    try {
-      const res = await syncAllActiveVideos()
-      if (res.success) {
-        setSyncBanner({
-          type: 'success',
-          message: res.message || `${res.updatedCount} video endorsement berhasil disinkronkan.`,
-        })
-      } else {
+    startTransition(async () => {
+      try {
+        const res = await syncAllActiveVideos()
+        if (res.success) {
+          const nowIso = res.lastSyncedAt || new Date().toISOString()
+          setLastSyncTime(nowIso)
+          setRowSyncTimes((prev) => {
+            const next = { ...prev }
+            initialEndorsements.forEach((e) => {
+              if (e.postUrl || (e.posts && e.posts.length > 0)) {
+                next[e.id] = nowIso
+              }
+            })
+            try {
+              localStorage.setItem('marcom_endorsement_row_sync_map', JSON.stringify(next))
+            } catch {}
+            return next
+          })
+          try {
+            localStorage.setItem('marcom_last_video_sync', nowIso)
+          } catch {}
+          router.refresh()
+          setSyncBanner({
+            type: 'success',
+            message: res.message || `${res.updatedCount} video endorsement berhasil disinkronkan.`,
+          })
+        } else {
+          setSyncBanner({
+            type: 'error',
+            message: res.message || 'Gagal menyinkronkan video endorsement.',
+          })
+        }
+      } catch (err: any) {
         setSyncBanner({
           type: 'error',
-          message: res.message || 'Gagal menyinkronkan video endorsement.',
+          message: err?.message || 'Terjadi kesalahan sistem saat sync.',
         })
+      } finally {
+        setIsSyncingAll(false)
       }
-    } catch (err: any) {
-      setSyncBanner({
-        type: 'error',
-        message: err?.message || 'Terjadi kesalahan sistem saat sync.',
-      })
-    } finally {
-      setIsSyncingAll(false)
-    }
+    })
   }
 
   const handleSyncSingleEndorsement = async (id: string) => {
     setSyncingId(id)
     setSyncBanner(null)
-    try {
-      const res = await syncSingleEndorsementVideo(id)
-      if (res.success) {
-        setSyncBanner({
-          type: 'success',
-          message: `Metrik video endorsement berhasil diupdate (${(res.metrics?.views || 0).toLocaleString('id-ID')} views)!`,
-        })
-      } else {
+    startTransition(async () => {
+      try {
+        const res = await syncSingleEndorsementVideo(id)
+        if (res.success) {
+          const nowIso = new Date().toISOString()
+          setLastSyncTime(nowIso)
+          setRowSyncTimes((prev) => {
+            const next = { ...prev, [id]: nowIso }
+            try {
+              localStorage.setItem('marcom_endorsement_row_sync_map', JSON.stringify(next))
+            } catch {}
+            return next
+          })
+          try {
+            localStorage.setItem('marcom_last_video_sync', nowIso)
+          } catch {}
+          router.refresh()
+          setSyncBanner({
+            type: 'success',
+            message: `Metrik video endorsement berhasil diupdate (${(res.metrics?.views || 0).toLocaleString('id-ID')} views)!`,
+          })
+        } else {
+          setSyncBanner({
+            type: 'error',
+            message: res.error || 'Gagal sync video endorsement ini.',
+          })
+        }
+      } catch (err: any) {
         setSyncBanner({
           type: 'error',
-          message: res.error || 'Gagal sync video endorsement ini.',
+          message: err?.message || 'Terjadi kesalahan saat sync endorsement.',
         })
+      } finally {
+        setSyncingId(null)
       }
-    } catch (err: any) {
-      setSyncBanner({
-        type: 'error',
-        message: err?.message || 'Terjadi kesalahan saat sync endorsement.',
-      })
-    } finally {
-      setSyncingId(null)
-    }
+    })
   }
 
   const handleAutoFetchEndorsement = async () => {
@@ -504,11 +1020,34 @@ export default function EndorsementList({
     try {
       const res = await autoFetchVideoMetrics(endorsementUrl)
       if (res.success && res.data) {
-        if (res.data.views !== undefined && res.data.views > 0) setMetricViews(res.data.views)
-        if (res.data.likes !== undefined && res.data.likes > 0) setMetricLikes(res.data.likes)
-        if (res.data.comments !== undefined && res.data.comments > 0) setMetricComments(res.data.comments)
-        if (res.data.shares !== undefined && res.data.shares > 0) setMetricShares(res.data.shares)
-        if (res.data.saves !== undefined && res.data.saves > 0) setMetricSaves(res.data.saves)
+        const v = res.data.views !== undefined && res.data.views > 0 ? res.data.views : 0
+        const l = res.data.likes !== undefined && res.data.likes > 0 ? res.data.likes : 0
+        const c = res.data.comments !== undefined && res.data.comments > 0 ? res.data.comments : 0
+        const sh = res.data.shares !== undefined && res.data.shares > 0 ? res.data.shares : 0
+        const sa = res.data.saves !== undefined && res.data.saves > 0 ? res.data.saves : 0
+
+        if (v > 0) setMetricViews(v)
+        if (l > 0) setMetricLikes(l)
+        if (c > 0) setMetricComments(c)
+        if (sh > 0) setMetricShares(sh)
+        if (sa > 0) setMetricSaves(sa)
+
+        if (activeMetricTabPostId) {
+          setTargetPostMetrics((prev) =>
+            prev.map((p) => {
+              if (p.id !== activeMetricTabPostId) return p
+              return {
+                ...p,
+                views: v > 0 ? v : p.views,
+                likes: l > 0 ? l : p.likes,
+                comments: c > 0 ? c : p.comments,
+                shares: sh > 0 ? sh : p.shares,
+                saves: sa > 0 ? sa : p.saves,
+              }
+            })
+          )
+        }
+
         setFetchEndorsementNotice({
           type: 'success',
           message: `✅ Metrik ditarik: ${(res.data.views || 0).toLocaleString('id-ID')} views, ${(res.data.likes || 0).toLocaleString('id-ID')} likes!`,
@@ -554,16 +1093,28 @@ export default function EndorsementList({
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={handleSyncAll}
-            disabled={isSyncingAll}
-            className="inline-flex items-center justify-center space-x-2 px-3.5 py-2.5 bg-white hover:bg-[#FAF8F5] text-stone-700 border border-[#EFE8DE] rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:border-[#D9480F]/40 transition-all cursor-pointer disabled:opacity-50"
-            title="Update metrik seluruh video endorsement secara otomatis dari URL"
-          >
-            <RefreshCw className={`w-4 h-4 text-[#D9480F] ${isSyncingAll ? 'animate-spin' : ''}`} />
-            <span>{isSyncingAll ? 'Menyinkronkan...' : 'Sync Semua Video'}</span>
-          </button>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+          <div className="flex flex-col items-start sm:items-end">
+            <button
+              onClick={handleSyncAll}
+              disabled={isSyncingAll}
+              className="inline-flex items-center justify-center space-x-2 px-3.5 py-2 bg-white hover:bg-[#FAF8F5] text-stone-700 border border-[#EFE8DE] rounded-xl text-xs sm:text-sm font-bold shadow-2xs hover:border-[#D9480F]/40 transition-all cursor-pointer disabled:opacity-50 w-full sm:w-auto"
+              title="Update metrik seluruh video endorsement secara otomatis dari URL"
+            >
+              <RefreshCw className={`w-4 h-4 text-[#D9480F] ${isSyncingAll ? 'animate-spin' : ''}`} />
+              <span>{isSyncingAll ? 'Menyinkronkan...' : 'Sync Semua Video'}</span>
+            </button>
+            <div
+              className="flex items-center gap-1.5 mt-1 text-[11px] text-stone-500 font-medium select-none"
+              title={formatFullDateTime(lastSyncTime)}
+            >
+              <Clock className="w-3 h-3 text-stone-400 shrink-0" />
+              <span>Terakhir diupdate:</span>
+              <span className="font-semibold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200/60">
+                {formatLastUpdate(lastSyncTime)}
+              </span>
+            </div>
+          </div>
 
           <button
             onClick={() => setIsImportModalOpen(true)}
@@ -582,6 +1133,7 @@ export default function EndorsementList({
               setNewKolName('')
               setNewKolPhone('')
               setNewKolSocials([{ id: '1', platform: 'INSTAGRAM', handle: '' }])
+              setCreateVideoLinks([])
               setIsCreateOpen(true)
             }}
             className="inline-flex items-center justify-center space-x-2 px-4 py-2.5 bg-[#D9480F] hover:bg-[#B83808] text-white rounded-xl text-xs sm:text-sm font-bold shadow-sm transition-all duration-150 hover:shadow-md cursor-pointer"
@@ -835,13 +1387,13 @@ export default function EndorsementList({
             <div className="overflow-x-auto">
               <table className="w-full table-fixed min-w-[1080px] text-left text-xs sm:text-sm text-stone-600">
                 <colgroup>
-                  <col className="w-[23%]" />
-                  <col className="w-[14%]" />
+                  <col className="w-[20%]" />
+                  <col className="w-[13%]" />
                   <col className="w-[12%]" />
                   <col className="w-[13%]" />
                   <col className="w-[14%]" />
-                  <col className="w-[10%]" />
-                  <col className="w-[9%]" />
+                  <col className="w-[12%]" />
+                  <col className="w-[11%]" />
                   <col className="w-[5%]" />
                 </colgroup>
                 <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE] sticky top-0 z-10 shadow-2xs">
@@ -883,11 +1435,12 @@ export default function EndorsementList({
                                     href={item.kol.instagramUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/80 hover:bg-rose-100 hover:text-rose-700 transition-colors"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200/80 hover:bg-rose-100 hover:text-rose-800 transition-colors"
                                     title="Instagram"
                                   >
+                                    <InstagramIcon className="w-3 h-3 text-rose-600" />
                                     <span>IG</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                                   </a>
                                 )}
                                 {item.kol.tiktokUrl && (
@@ -895,11 +1448,12 @@ export default function EndorsementList({
                                     href={item.kol.tiktokUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-700 border border-stone-200 hover:bg-stone-200 hover:text-stone-900 transition-colors"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-800 border border-stone-200 hover:bg-stone-200 hover:text-stone-950 transition-colors"
                                     title="TikTok"
                                   >
+                                    <TikTokIcon className="w-3 h-3 text-black" />
                                     <span>TT</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                                   </a>
                                 )}
                                 {item.kol.youtubeUrl && (
@@ -907,11 +1461,12 @@ export default function EndorsementList({
                                     href={item.kol.youtubeUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-600 border border-red-200/80 hover:bg-red-100 hover:text-red-700 transition-colors"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-50 text-red-700 border border-red-200/80 hover:bg-red-100 transition-colors"
                                     title="YouTube"
                                   >
+                                    <YouTubeIcon className="w-3 h-3 text-red-600" />
                                     <span>YT</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                                   </a>
                                 )}
                                 {item.kol.facebookUrl && (
@@ -919,11 +1474,12 @@ export default function EndorsementList({
                                     href={item.kol.facebookUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200/80 hover:bg-blue-100 hover:text-blue-700 transition-colors"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/80 hover:bg-blue-100 transition-colors"
                                     title="Facebook"
                                   >
+                                    <FacebookIcon className="w-3 h-3 text-[#1877F2]" />
                                     <span>FB</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                                   </a>
                                 )}
                                 {item.kol.threadsUrl && (
@@ -931,11 +1487,12 @@ export default function EndorsementList({
                                     href={item.kol.threadsUrl}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-800 border border-stone-300 hover:bg-stone-200 hover:text-stone-950 transition-colors"
+                                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-800 border border-stone-300 hover:bg-stone-200 hover:text-stone-950 transition-colors"
                                     title="Threads"
                                   >
+                                    <ThreadsIcon className="w-3 h-3 text-stone-900" />
                                     <span>TH</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                                    <ExternalLink className="w-2.5 h-2.5 opacity-60" />
                                   </a>
                                 )}
                                 {!item.kol.instagramUrl && !item.kol.tiktokUrl && !item.kol.youtubeUrl && !item.kol.facebookUrl && !item.kol.threadsUrl && (
@@ -1049,7 +1606,7 @@ export default function EndorsementList({
 
                         {/* Status Tayang */}
                         <td className="py-3.5 px-3 align-middle text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center">
+                          <div className="flex flex-col items-center justify-center gap-1.5">
                             <select
                               value={item.postStatus}
                               onChange={(e) =>
@@ -1068,63 +1625,82 @@ export default function EndorsementList({
                               <option value="ON">ON</option>
                               <option value="TAKE_DOWN">TAKE_DOWN</option>
                             </select>
+
+                            {/* Video Post Links / Badges */}
+                            {item.posts && item.posts.length > 0 ? (
+                              <div className="flex items-center justify-center gap-1 flex-wrap max-w-[130px]">
+                                {item.posts.map((p) => {
+                                  const pConfig = getPlatformBadgeConfig(p.platform, p.customPlatformName)
+                                  return (
+                                    <div key={p.id} className="inline-flex items-center gap-0.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => openVideoPreview(item, p.id)}
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${pConfig.badgeClass} hover:opacity-90 transition-opacity cursor-pointer`}
+                                        title={`Preview Video ${pConfig.label}`}
+                                      >
+                                        <PlatformIcon platform={p.platform} className="w-2.5 h-2.5 shrink-0" />
+                                        <span>{pConfig.shortLabel}</span>
+                                      </button>
+                                      {p.postUrl && (
+                                        <a
+                                          href={p.postUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-stone-400 hover:text-stone-700 transition-colors p-0.5"
+                                          title={`Buka ${pConfig.label} di tab baru`}
+                                        >
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </a>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            ) : item.postUrl ? (
+                              <div className="inline-flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => openVideoPreview(item)}
+                                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-stone-100 text-stone-800 border border-stone-200 hover:bg-stone-200 transition-colors cursor-pointer"
+                                  title="Preview Video Konten"
+                                >
+                                  <Video className="w-2.5 h-2.5 shrink-0" />
+                                  <span>Video</span>
+                                </button>
+                                <a
+                                  href={item.postUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-stone-400 hover:text-stone-700 transition-colors p-0.5"
+                                  title="Buka link video di tab baru"
+                                >
+                                  <ExternalLink className="w-2.5 h-2.5" />
+                                </a>
+                              </div>
+                            ) : null}
                           </div>
                         </td>
 
                         {/* Metrik Video */}
                         <td className="py-3.5 px-3 align-middle text-center whitespace-nowrap">
-                          <div className="inline-flex items-center justify-center gap-1.5">
-                            {item.postUrl && (
-                              <button
-                                onClick={() => handleSyncSingleEndorsement(item.id)}
-                                disabled={syncingId === item.id}
-                                className="w-8 h-8 flex items-center justify-center text-stone-400 hover:text-[#D9480F] hover:bg-[#FFF4ED] rounded-lg border border-transparent hover:border-[#D9480F]/20 transition-all cursor-pointer disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
-                                title="Sync metrik langsung dari link video"
-                                aria-label={`Sinkronisasi metrik video ${item.kol.name}`}
-                              >
-                                <RefreshCw
-                                  className={`w-3.5 h-3.5 ${
-                                    syncingId === item.id ? 'animate-spin text-[#D9480F] motion-reduce:animate-none' : ''
-                                  }`}
-                                />
-                              </button>
-                            )}
-                            <button
-                              onClick={() => openVideoMetricsModal(item)}
-                              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F] ${
-                                (item.finalViews || item.initialViews)
-                                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 hover:border-emerald-300'
-                                  : 'bg-stone-100 text-stone-600 border border-dashed border-stone-300 hover:bg-[#FFF4ED] hover:text-[#D9480F] hover:border-[#D9480F]/40'
-                              }`}
-                              title="Update Metrik Views & Engagement Video"
-                              aria-label={`Update metrik video ${item.kol.name}`}
-                            >
-                              <BarChart3 className="w-3.5 h-3.5 shrink-0" />
-                              <span>
-                                {(item.finalViews || item.initialViews) ? (
-                                  `${(item.finalViews || item.initialViews)?.toLocaleString('id-ID')} views`
-                                ) : (
-                                  '+ Metrik'
-                                )}
-                              </span>
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => navigateToAnalytics(item.kol.name)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-[#FFF4ED] text-stone-700 hover:text-[#D9480F] border border-stone-200/80 hover:border-[#D9480F]/30 text-xs font-bold transition-all cursor-pointer group shadow-2xs"
+                            title={`Lihat metrik analitik video ${item.kol.name} di Tab Video Analytics`}
+                          >
+                            <BarChart3 className="w-3.5 h-3.5 text-stone-400 group-hover:text-[#D9480F] transition-colors" />
+                            <span>Metrik Video</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-40 group-hover:opacity-100 transition-opacity" />
+                          </button>
                         </td>
 
                         {/* Aksi */}
                         <td className="py-3.5 px-3 align-middle text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-amber-50/40 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
                           <div className="flex items-center justify-center gap-1">
                             <button
-                              onClick={() => {
-                                setErrorMessage('')
-                                setEditingEndorsement(item)
-                                setEditType((item.type as any) || 'VISIT')
-                                setEditShippingCost(item.shippingCost?.toString() || '0')
-                                setEditMenuName(item.menuGiven || '')
-                                setEditHpp(item.hppMenu || 0)
-                                setEditRateCard(item.rateCard.toString())
-                                setEditMenuItems(item.menuItems ? (item.menuItems as any) : [])
-                              }}
+                              onClick={() => openEditEndorsement(item)}
                               className="w-8 h-8 flex items-center justify-center text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D9480F]"
                               title="Edit Data Endorsement"
                               aria-label={`Edit data endorsement ${item.kol.name}`}
@@ -1306,10 +1882,23 @@ export default function EndorsementList({
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE]">
-              <span>
-                Menampilkan <span className="font-bold text-[#1A1715]">{filteredAnalytics.length}</span> video dianalisis
-              </span>
+            <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE] flex-wrap gap-2">
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <span>
+                  Menampilkan <span className="font-bold text-[#1A1715]">{filteredAnalytics.length}</span> video dianalisis
+                </span>
+                <span className="text-stone-300 select-none">•</span>
+                <div
+                  className="inline-flex items-center gap-1.5 text-[11px] text-stone-500 font-medium select-none"
+                  title={formatFullDateTime(lastSyncTime)}
+                >
+                  <Clock className="w-3 h-3 text-stone-400 shrink-0" />
+                  <span>Last sync:</span>
+                  <span className="font-semibold text-stone-700 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200/60">
+                    {formatLastUpdate(lastSyncTime)}
+                  </span>
+                </div>
+              </div>
               {(search || outletFilter || performanceFilter !== 'ALL') && (
                 <button
                   onClick={() => {
@@ -1331,10 +1920,9 @@ export default function EndorsementList({
               <table className="w-full min-w-[900px] text-left text-xs sm:text-sm text-stone-600">
                 <thead className="bg-[#FAF8F5] text-stone-500 font-bold uppercase tracking-wider text-[11px] border-b border-[#EFE8DE]">
                   <tr>
-                    <th className="py-4 px-4 sm:px-6">Video & Influencer</th>
+                    <th className="py-4 px-4 sm:px-6">Influencer</th>
                     <th className="py-4 px-4">Cabang</th>
-                    <th className="py-4 px-4">Views Video</th>
-                    <th className="py-4 px-4">Rincian Interaksi (Like/Komen/Share)</th>
+                    <th className="py-4 px-4">Performa & Interaksi Video</th>
                     <th className="py-4 px-4">Engagement Rate</th>
                     <th className="py-4 px-4">Efisiensi Biaya (CPV)</th>
                     <th className="py-4 px-4">Status Kinerja</th>
@@ -1344,7 +1932,7 @@ export default function EndorsementList({
                 <tbody className="divide-y divide-[#EFE8DE]">
                   {filteredAnalytics.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-stone-400">
+                      <td colSpan={7} className="py-12 text-center text-stone-400">
                         <BarChart3 className="w-10 h-10 mx-auto mb-2 text-stone-300" />
                         <p className="font-semibold text-stone-600">Tidak ada data video yang sesuai kriteria filter.</p>
                       </td>
@@ -1352,26 +1940,15 @@ export default function EndorsementList({
                   ) : (
                     filteredAnalytics.map((item, idx) => (
                       <tr key={item.id} className="group hover:bg-[#FAF8F5]/80 transition-colors">
-                        {/* Video & Influencer */}
-                        <td className="py-4 px-4 sm:px-6">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-black text-xs flex items-center justify-center flex-shrink-0">
+                        {/* Influencer */}
+                        <td className="py-3.5 px-4 sm:px-6 align-top">
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] font-black text-xs flex items-center justify-center flex-shrink-0 mt-0.5">
                               #{idx + 1}
                             </div>
-                            <div>
-                              <div className="font-bold text-[#1A1715] flex items-center gap-1.5">
-                                <span>{item.kol.name}</span>
-                                {item.postUrl && (
-                                  <a
-                                    href={item.postUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-[#D9480F] hover:text-[#B83808]"
-                                    title="Tonton Video Konten"
-                                  >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                  </a>
-                                )}
+                            <div className="min-w-0">
+                              <div className="font-bold text-[#1A1715] text-sm truncate" title={item.kol.name}>
+                                {item.kol.name}
                               </div>
                               <div className="text-[11px] text-stone-400 mt-0.5">
                                 Rate: {formatRupiah(item.rateCard)}
@@ -1381,143 +1958,321 @@ export default function EndorsementList({
                         </td>
 
                         {/* Outlet */}
-                        <td className="py-4 px-4 font-semibold text-stone-800">
-                          {item.outlet.name}
+                        <td className="py-3.5 px-4 align-top font-semibold text-stone-800">
+                          <div className="py-0.5">{item.outlet.name}</div>
                         </td>
 
-                        {/* Views */}
-                        <td className="py-4 px-4">
-                          <div className="font-extrabold font-mono text-stone-900 text-sm">
-                            {item.effectiveViews.toLocaleString('id-ID')}
+                        {/* Performa & Interaksi Video */}
+                        <td className="py-3.5 px-4 align-top min-w-[320px]">
+                          <div className="flex items-center gap-2 h-6 flex-wrap">
+                            <span className="font-extrabold font-mono text-stone-900 text-sm">
+                              {item.effectiveViews.toLocaleString('id-ID')}
+                              <span className="text-stone-400 text-xs font-normal ml-1">views</span>
+                            </span>
+                            <span className="text-stone-300">•</span>
+                            <span className="text-xs font-bold text-stone-600 font-mono">
+                              {item.totalEngagement.toLocaleString('id-ID')}
+                              <span className="text-stone-400 font-normal ml-1">interaksi</span>
+                            </span>
                           </div>
-                          {item.initialViews && item.finalViews && (
-                            <div className="text-[10px] text-emerald-600 font-semibold flex items-center gap-1 mt-0.5">
-                              <span>+{Math.max(0, item.finalViews - item.initialViews).toLocaleString('id-ID')} views</span>
+
+                          {item.posts && item.posts.length > 0 ? (
+                            <div className="mt-1.5 space-y-1.5">
+                              {item.posts.map((p) => {
+                                const pConfig = getPlatformBadgeConfig(p.platform, p.customPlatformName)
+                                const postEng = (p.likes || 0) + (p.comments || 0) + (p.shares || 0) + (p.saves || 0)
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className="flex items-center gap-2 border-t border-stone-100/90 pt-1.5 flex-wrap"
+                                  >
+                                    {/* Platform Badge & Preview */}
+                                    <div className="inline-flex items-center gap-0.5 flex-shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={() => openVideoPreview(item, p.id)}
+                                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${pConfig.badgeClass} hover:opacity-90 transition-opacity cursor-pointer`}
+                                        title={`Tonton / Preview ${pConfig.label}`}
+                                      >
+                                        <PlatformIcon platform={p.platform} className="w-2.5 h-2.5 shrink-0" />
+                                        <span>{pConfig.shortLabel}</span>
+                                      </button>
+                                      {p.postUrl && (
+                                        <a
+                                          href={p.postUrl}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-stone-400 hover:text-stone-700 transition-colors p-0.5"
+                                          title={`Buka ${pConfig.label} di tab baru`}
+                                        >
+                                          <ExternalLink className="w-2.5 h-2.5" />
+                                        </a>
+                                      )}
+                                    </div>
+
+                                    {/* Views per platform */}
+                                    <span
+                                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-stone-100 text-stone-800 font-mono text-[11px] font-bold shrink-0"
+                                      title="Views di platform ini"
+                                    >
+                                      <Eye className="w-2.5 h-2.5 text-stone-500" />
+                                      <span>{(p.views || 0).toLocaleString('id-ID')}</span>
+                                    </span>
+
+                                    {/* Reaction pills */}
+                                    {postEng === 0 ? (
+                                      <span className="text-[10px] text-stone-400 italic">
+                                        Belum ada interaksi
+                                      </span>
+                                    ) : (
+                                      <div className="flex items-center gap-1.5 flex-nowrap text-[11px]">
+                                        {(p.likes || 0) > 0 && (
+                                          <span
+                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-700 font-semibold"
+                                            title="Likes"
+                                          >
+                                            <Heart className="w-2.5 h-2.5 text-rose-500 fill-rose-500" />
+                                            <span>{p.likes.toLocaleString('id-ID')}</span>
+                                          </span>
+                                        )}
+                                        {(p.comments || 0) > 0 && (
+                                          <span
+                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold"
+                                            title="Comments"
+                                          >
+                                            <MessageSquare className="w-2.5 h-2.5 text-blue-500" />
+                                            <span>{p.comments.toLocaleString('id-ID')}</span>
+                                          </span>
+                                        )}
+                                        {(p.shares || 0) > 0 && (
+                                          <span
+                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold"
+                                            title="Shares"
+                                          >
+                                            <Share2 className="w-2.5 h-2.5 text-emerald-500" />
+                                            <span>{p.shares.toLocaleString('id-ID')}</span>
+                                          </span>
+                                        )}
+                                        {(p.saves || 0) > 0 && (
+                                          <span
+                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-semibold"
+                                            title="Saves"
+                                          >
+                                            <Bookmark className="w-2.5 h-2.5 text-amber-500 fill-amber-500" />
+                                            <span>{p.saves.toLocaleString('id-ID')}</span>
+                                          </span>
+                                        )}
+                                        <span className="text-[10px] text-stone-400 font-mono">
+                                          ({postEng.toLocaleString('id-ID')})
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          ) : (
+                            <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                              {item.postUrl && (() => {
+                                const detectedPlatform = detectPlatformFromUrl(item.postUrl)
+                                const pConfig = getPlatformBadgeConfig(detectedPlatform)
+                                return (
+                                  <div className="inline-flex items-center gap-0.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => openVideoPreview(item, null)}
+                                      className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold ${pConfig.badgeClass} hover:opacity-90 transition-opacity cursor-pointer`}
+                                      title={`Tonton / Preview ${pConfig.label}`}
+                                    >
+                                      <PlatformIcon platform={detectedPlatform} className="w-2.5 h-2.5 shrink-0" />
+                                      <span>{pConfig.shortLabel}</span>
+                                    </button>
+                                    <a
+                                      href={item.postUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-stone-400 hover:text-stone-700 transition-colors p-0.5"
+                                      title={`Buka di tab baru (${pConfig.label})`}
+                                    >
+                                      <ExternalLink className="w-2.5 h-2.5" />
+                                    </a>
+                                  </div>
+                                )
+                              })()}
+
+                              {item.initialViews && item.finalViews && (
+                                <span className="text-[10px] text-emerald-600 font-semibold">
+                                  +{Math.max(0, item.finalViews - item.initialViews).toLocaleString('id-ID')} views
+                                </span>
+                              )}
+
+                              {item.totalEngagement === 0 ? (
+                                <span className="text-[11px] text-stone-400 italic">Belum ada data interaksi</span>
+                              ) : (
+                                <div className="flex items-center gap-1.5 flex-wrap text-xs">
+                                  {item.likes > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-semibold" title="Likes">
+                                      <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
+                                      <span>{item.likes.toLocaleString('id-ID')}</span>
+                                    </span>
+                                  )}
+                                  {item.comments > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold" title="Comments">
+                                      <MessageSquare className="w-3 h-3 text-blue-500" />
+                                      <span>{item.comments.toLocaleString('id-ID')}</span>
+                                    </span>
+                                  )}
+                                  {item.shares > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold" title="Shares">
+                                      <Share2 className="w-3 h-3 text-emerald-500" />
+                                      <span>{item.shares.toLocaleString('id-ID')}</span>
+                                    </span>
+                                  )}
+                                  {item.saves > 0 && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold" title="Saves">
+                                      <Bookmark className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                      <span>{item.saves.toLocaleString('id-ID')}</span>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
-                        </td>
-
-                        {/* Engagement breakdown */}
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2 flex-wrap text-xs">
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 font-semibold" title="Likes">
-                              <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
-                              <span>{item.likes.toLocaleString('id-ID')}</span>
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold" title="Comments">
-                              <MessageSquare className="w-3 h-3 text-blue-500" />
-                              <span>{item.comments.toLocaleString('id-ID')}</span>
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-semibold" title="Shares">
-                              <Share2 className="w-3 h-3 text-emerald-500" />
-                              <span>{item.shares.toLocaleString('id-ID')}</span>
-                            </span>
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold" title="Saves">
-                              <Bookmark className="w-3 h-3 text-amber-500 fill-amber-500" />
-                              <span>{item.saves.toLocaleString('id-ID')}</span>
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-stone-400 font-medium mt-1">
-                            Total: <strong className="text-stone-700">{item.totalEngagement.toLocaleString('id-ID')}</strong> interaksi
-                          </div>
                         </td>
 
                         {/* Engagement Rate */}
-                        <td className="py-4 px-4">
-                          <div className="flex items-center gap-2">
-                            <div className="font-extrabold font-mono text-stone-900 text-sm">
-                              {item.engagementRate.toFixed(2)}%
+                        <td className="py-3.5 px-4 align-top">
+                          <div className="py-0.5">
+                            <div className="flex items-center gap-2">
+                              <div className="font-extrabold font-mono text-stone-900 text-sm">
+                                {item.engagementRate.toFixed(2)}%
+                              </div>
+                              <div className="w-12 bg-stone-100 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className={`h-1.5 rounded-full ${
+                                    item.engagementRate >= 7.0
+                                      ? 'bg-emerald-500'
+                                      : item.engagementRate >= 3.0
+                                      ? 'bg-amber-500'
+                                      : 'bg-stone-300'
+                                  }`}
+                                  style={{ width: `${Math.min(100, item.engagementRate * 10)}%` }}
+                                />
+                              </div>
                             </div>
-                            <div className="w-12 bg-stone-100 rounded-full h-1.5 overflow-hidden">
-                              <div
-                                className={`h-1.5 rounded-full ${
-                                  item.engagementRate >= 7.0
-                                    ? 'bg-emerald-500'
-                                    : item.engagementRate >= 3.0
-                                    ? 'bg-amber-500'
-                                    : 'bg-stone-300'
-                                }`}
-                                style={{ width: `${Math.min(100, item.engagementRate * 10)}%` }}
-                              />
-                            </div>
+                            <span className="text-[10px] text-stone-400">
+                              {item.engagementRate >= 7.0
+                                ? 'Sangat Tinggi'
+                                : item.engagementRate >= 3.0
+                                ? 'Normal'
+                                : 'Rendah'}
+                            </span>
                           </div>
-                          <span className="text-[10px] text-stone-400">
-                            {item.engagementRate >= 7.0
-                              ? 'Sangat Tinggi'
-                              : item.engagementRate >= 3.0
-                              ? 'Normal'
-                              : 'Rendah'}
-                          </span>
                         </td>
 
                         {/* Cost Per View */}
-                        <td className="py-4 px-4">
-                          {item.effectiveViews > 0 ? (
-                            <div>
-                              <div className="font-extrabold font-mono text-stone-900">
-                                {formatRupiah(item.cpv)}
-                                <span className="text-[10px] text-stone-400 font-normal"> / view</span>
+                        <td className="py-3.5 px-4 align-top">
+                          <div className="py-0.5">
+                            {item.effectiveViews > 0 ? (
+                              <div>
+                                <div className="font-extrabold font-mono text-stone-900">
+                                  {formatRupiah(item.cpv)}
+                                  <span className="text-[10px] text-stone-400 font-normal"> / view</span>
+                                </div>
+                                <div className="text-[10px] text-stone-400 font-mono">
+                                  CPE: {formatRupiah(item.cpe)}
+                                </div>
                               </div>
-                              <div className="text-[10px] text-stone-400 font-mono">
-                                CPE: {formatRupiah(item.cpe)}
-                              </div>
-                            </div>
-                          ) : (
-                            <span className="text-stone-400 text-xs">-</span>
-                          )}
+                            ) : (
+                              <span className="text-stone-400 text-xs">-</span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Performance Category Badge */}
-                        <td className="py-4 px-4">
-                          {item.category === 'VIRAL' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              <Flame className="w-3 h-3 fill-emerald-500 text-emerald-500" />
-                              <span>Viral / Top</span>
-                            </span>
-                          )}
-                          {item.category === 'EFFICIENT' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
-                              <CheckCircle2 className="w-3 h-3 text-amber-600" />
-                              <span>Efisien</span>
-                            </span>
-                          )}
-                          {item.category === 'UNDERPERFORMING' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
-                              <AlertCircle className="w-3 h-3 text-rose-500" />
-                              <span>Evaluasi</span>
-                            </span>
-                          )}
-                          {item.category === 'PENDING' && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider bg-stone-100 text-stone-500 border border-stone-200">
-                              <span>Menunggu Data</span>
-                            </span>
-                          )}
+                        <td className="py-3.5 px-4 align-top">
+                          <div className="py-0.5">
+                            {item.category === 'VIRAL' && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                <Flame className="w-3 h-3 fill-emerald-500 text-emerald-500" />
+                                <span>Viral / Top</span>
+                              </span>
+                            )}
+                            {item.category === 'EFFICIENT' && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200">
+                                <CheckCircle2 className="w-3 h-3 text-amber-600" />
+                                <span>Efisien</span>
+                              </span>
+                            )}
+                            {item.category === 'UNDERPERFORMING' && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200">
+                                <AlertCircle className="w-3 h-3 text-rose-500" />
+                                <span>Evaluasi</span>
+                              </span>
+                            )}
+                            {item.category === 'PENDING' && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wider bg-stone-100 text-stone-500 border border-stone-200">
+                                <span>Menunggu Data</span>
+                              </span>
+                            )}
+                          </div>
                         </td>
 
                         {/* Action */}
-                        <td className="py-4 px-4 sm:px-6 text-right sticky right-0 z-10 bg-white group-hover:bg-[#FAF8F5]/80 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
-                          <div className="flex items-center justify-end space-x-1.5">
-                            {item.postUrl && (
+                        <td className="py-3.5 px-4 sm:px-6 align-top text-right sticky right-0 z-10 bg-white group-hover:bg-[#FAF8F5]/80 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.08)]">
+                          <div className="flex flex-col items-end gap-1">
+                            <div className="flex items-center justify-end space-x-1.5 py-0.5">
                               <button
                                 onClick={() => handleSyncSingleEndorsement(item.id)}
-                                disabled={syncingId === item.id}
-                                className="p-1.5 text-stone-400 hover:text-[#D9480F] hover:bg-[#FFF4ED] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
-                                title="Sync metrik langsung dari link video"
+                                disabled={syncingId === item.id || (!item.postUrl && (!item.posts || item.posts.length === 0))}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D9480F] hover:bg-[#B83808] text-white text-xs font-bold transition-all shadow-2xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={
+                                  !item.postUrl && (!item.posts || item.posts.length === 0)
+                                    ? 'Belum ada link video untuk di-sync'
+                                    : 'Tarik data views & interaksi terbaru secara otomatis'
+                                }
                               >
                                 <RefreshCw
                                   className={`w-3.5 h-3.5 ${
-                                    syncingId === item.id ? 'animate-spin text-[#D9480F]' : ''
+                                    syncingId === item.id ? 'animate-spin' : ''
                                   }`}
                                 />
+                                <span>{syncingId === item.id ? 'Syncing...' : 'Sync Metrik'}</span>
                               </button>
-                            )}
-                            <button
-                              onClick={() => openVideoMetricsModal(item)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#D9480F] hover:bg-[#B83808] text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+
+                              <button
+                                onClick={() => openVideoMetricsModal(item)}
+                                className="p-1.5 text-stone-400 hover:text-stone-800 hover:bg-stone-100 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-stone-200"
+                                title="Koreksi / Input Metrik Manual"
+                                aria-label={`Edit manual metrik ${item.kol.name}`}
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            {/* Keterangan Last Sync */}
+                            <div
+                              className="inline-flex items-center gap-1 text-[10px] text-stone-400 font-medium select-none"
+                              title={formatFullDateTime(
+                                rowSyncTimes[item.id] ||
+                                  (item.finalViews || item.totalEngagement > 0
+                                    ? lastSyncTime
+                                    : null)
+                              )}
                             >
-                              <TrendingUp className="w-3.5 h-3.5" />
-                              <span>Update</span>
-                            </button>
+                              <Clock className="w-2.5 h-2.5 text-stone-400 shrink-0" />
+                              <span>
+                                Last sync:{' '}
+                                <strong className="font-semibold text-stone-600">
+                                  {formatLastUpdate(
+                                    rowSyncTimes[item.id] ||
+                                      (item.finalViews || item.totalEngagement > 0
+                                        ? lastSyncTime
+                                        : null)
+                                  )}
+                                </strong>
+                              </span>
+                            </div>
                           </div>
                         </td>
                       </tr>
@@ -1537,7 +2292,7 @@ export default function EndorsementList({
           outlets={outlets}
           userRole={userRole}
           onEdit={(item) => {
-            setEditingEndorsement(item)
+            openEditEndorsement(item)
           }}
         />
       )}
@@ -1550,19 +2305,29 @@ export default function EndorsementList({
             if (e.target === e.currentTarget) setVideoMetricsTarget(null)
           }}
         >
-          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
+          <div className="bg-white rounded-3xl shadow-xl border border-[#EFE8DE] max-w-3xl lg:max-w-4xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col max-h-[90vh] my-auto">
             <div className="p-5 sm:p-6 border-b border-[#EFE8DE] flex items-center justify-between bg-[#FAF8F5] flex-shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
                   <BarChart3 className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-[#1A1715] text-base sm:text-lg">
-                    Update Metrik Video Endorsement
-                  </h3>
-                  <p className="text-xs text-stone-500">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-extrabold text-[#1A1715] text-base sm:text-lg">
+                      Koreksi / Input Metrik Manual
+                    </h3>
+                    <span
+                      className="inline-flex items-center gap-1 text-[10px] font-medium text-stone-500 bg-stone-100 px-1.5 py-0.5 rounded border border-stone-200/60 select-none"
+                      title={formatFullDateTime(lastSyncTime)}
+                    >
+                      <Clock className="w-2.5 h-2.5 text-stone-400 shrink-0" />
+                      <span>Last sync: {formatLastUpdate(lastSyncTime)}</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-0.5">
                     KOL: <strong className="text-[#1A1715]">{videoMetricsTarget.kol.name}</strong> •{' '}
-                    Cabang: <strong className="text-[#1A1715]">{videoMetricsTarget.outlet.name}</strong>
+                    Cabang: <strong className="text-[#1A1715]">{videoMetricsTarget.outlet.name}</strong> •{' '}
+                    <span className="text-amber-700 font-medium">Input manual jika auto-scraping gagal atau untuk data Story</span>
                   </p>
                 </div>
               </div>
@@ -1582,20 +2347,72 @@ export default function EndorsementList({
                 </div>
               )}
 
+              {/* Multi-Platform Switcher Tab */}
+              {targetPostMetrics.length > 1 && (
+                <div className="bg-[#FAF8F5] p-3 rounded-2xl border border-[#EFE8DE] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-stone-600 uppercase tracking-wider">
+                      Pilih Platform Video Untuk Diinput:
+                    </span>
+                    <span className="text-[10px] text-[#D9480F] font-bold bg-[#FFF4ED] px-2 py-0.5 rounded-full border border-[#D9480F]/20">
+                      {targetPostMetrics.length} Platform Terdaftar
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {targetPostMetrics.map((p) => {
+                      const pConfig = getPlatformBadgeConfig(p.platform, p.customPlatformName)
+                      const isSelected = activeMetricTabPostId === p.id
+                      const postViews = p.views || 0
+                      const postEng = (p.likes || 0) + (p.comments || 0) + (p.shares || 0) + (p.saves || 0)
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => handleSwitchMetricTab(p.id)}
+                          className={`p-2.5 rounded-xl text-left border transition-all cursor-pointer flex flex-col justify-between gap-1.5 ${
+                            isSelected
+                              ? 'bg-white border-[#D9480F] ring-2 ring-[#D9480F]/20 shadow-xs'
+                              : 'bg-white/60 border-stone-200 hover:border-stone-300 hover:bg-white'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold ${pConfig.badgeClass}`}>
+                              {pConfig.shortLabel}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] font-extrabold text-[#D9480F] uppercase tracking-wider">
+                                Sedang Diedit
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs">
+                            <div className="font-extrabold font-mono text-stone-900">
+                              {postViews.toLocaleString('id-ID')} <span className="text-[10px] font-normal text-stone-400">views</span>
+                            </div>
+                            <div className="text-[10px] text-stone-500">
+                              {postEng.toLocaleString('id-ID')} interaksi
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* URL Video Konten */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                    Link URL Video Konten
+                    Link URL Video Konten {targetPostMetrics.length > 1 ? `(${getPlatformBadgeConfig(targetPostMetrics.find((p) => p.id === activeMetricTabPostId)?.platform || '', targetPostMetrics.find((p) => p.id === activeMetricTabPostId)?.customPlatformName).label})` : ''}
                   </label>
-                  <span className="text-[10px] text-stone-500 font-semibold">5 Platform: TikTok, IG, YT, FB, Threads</span>
+                  <span className="text-[10px] text-stone-500 font-semibold">Tiktok, IG, YT, FB, Threads</span>
                 </div>
                 <div className="flex gap-2">
                   <input
-                    name="postUrl"
                     type="url"
                     value={endorsementUrl}
-                    onChange={(e) => setEndorsementUrl(e.target.value)}
+                    onChange={(e) => handleUrlChangeInMetricsModal(e.target.value)}
                     placeholder="https://... (TikTok, IG Reel/Post, YT Shorts, Facebook Reel/Video, Threads)"
                     className="w-full px-4 py-2.5 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                   />
@@ -1604,7 +2421,7 @@ export default function EndorsementList({
                     onClick={handleAutoFetchEndorsement}
                     disabled={isFetchingEndorsementMetric || !endorsementUrl.trim()}
                     className="flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 bg-[#FFF4ED] hover:bg-[#FFE8D9] text-[#D9480F] border border-[#D9480F]/30 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-2xs"
-                    title="Tarik views & engagement terkini dari URL"
+                    title="Tarik views & engagement terkini dari URL platform ini"
                   >
                     <Zap className={`w-3.5 h-3.5 ${isFetchingEndorsementMetric ? 'animate-spin' : ''}`} />
                     <span>{isFetchingEndorsementMetric ? 'Menarik...' : 'Tarik Metrik'}</span>
@@ -1630,30 +2447,31 @@ export default function EndorsementList({
 
               {/* Views Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Views Awal (24 Jam Pertama)
-                  </label>
-                  <input
-                    name="initialViews"
-                    type="number"
-                    min="0"
-                    defaultValue={videoMetricsTarget.initialViews ?? ''}
-                    placeholder="Contoh: 15000"
-                    className="w-full px-4 py-2.5 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                  />
-                </div>
+                {targetPostMetrics.length <= 1 && (
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                      Views Awal (24 Jam Pertama)
+                    </label>
+                    <input
+                      name="initialViews"
+                      type="number"
+                      min="0"
+                      defaultValue={videoMetricsTarget.initialViews ?? ''}
+                      placeholder="Contoh: 15000"
+                      className="w-full px-4 py-2.5 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
+                    />
+                  </div>
+                )}
 
-                <div>
+                <div className={targetPostMetrics.length > 1 ? 'sm:col-span-2' : ''}>
                   <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                    Views Terkini / Akhir
+                    Views Video {targetPostMetrics.length > 1 ? `(${getPlatformBadgeConfig(targetPostMetrics.find((p) => p.id === activeMetricTabPostId)?.platform || '', targetPostMetrics.find((p) => p.id === activeMetricTabPostId)?.customPlatformName).label})` : 'Terkini / Akhir'}
                   </label>
                   <input
-                    name="finalViews"
                     type="number"
                     min="0"
                     value={metricViews}
-                    onChange={(e) => setMetricViews(parseInt(e.target.value, 10) || 0)}
+                    onChange={(e) => updateMetricField('views', parseInt(e.target.value, 10) || 0)}
                     placeholder="Contoh: 65000"
                     className="w-full px-4 py-2.5 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                   />
@@ -1663,7 +2481,7 @@ export default function EndorsementList({
               {/* Engagement Inputs */}
               <div>
                 <span className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
-                  Metrik Interaksi Audiens
+                  Metrik Interaksi Audiens {targetPostMetrics.length > 1 ? `(${getPlatformBadgeConfig(targetPostMetrics.find((p) => p.id === activeMetricTabPostId)?.platform || '', targetPostMetrics.find((p) => p.id === activeMetricTabPostId)?.customPlatformName).label})` : ''}
                 </span>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div>
@@ -1672,11 +2490,10 @@ export default function EndorsementList({
                       <span>Likes</span>
                     </label>
                     <input
-                      name="likes"
                       type="number"
                       min="0"
                       value={metricLikes}
-                      onChange={(e) => setMetricLikes(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => updateMetricField('likes', parseInt(e.target.value, 10) || 0)}
                       className="w-full px-3 py-2 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                     />
                   </div>
@@ -1687,11 +2504,10 @@ export default function EndorsementList({
                       <span>Comments</span>
                     </label>
                     <input
-                      name="comments"
                       type="number"
                       min="0"
                       value={metricComments}
-                      onChange={(e) => setMetricComments(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => updateMetricField('comments', parseInt(e.target.value, 10) || 0)}
                       className="w-full px-3 py-2 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                     />
                   </div>
@@ -1702,11 +2518,10 @@ export default function EndorsementList({
                       <span>Shares</span>
                     </label>
                     <input
-                      name="shares"
                       type="number"
                       min="0"
                       value={metricShares}
-                      onChange={(e) => setMetricShares(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => updateMetricField('shares', parseInt(e.target.value, 10) || 0)}
                       className="w-full px-3 py-2 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                     />
                   </div>
@@ -1717,42 +2532,101 @@ export default function EndorsementList({
                       <span>Saves</span>
                     </label>
                     <input
-                      name="saves"
                       type="number"
                       min="0"
                       value={metricSaves}
-                      onChange={(e) => setMetricSaves(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => updateMetricField('saves', parseInt(e.target.value, 10) || 0)}
                       className="w-full px-3 py-2 text-xs sm:text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                     />
                   </div>
                 </div>
               </div>
 
+              {/* Hidden inputs to pass data to server action */}
+              <input type="hidden" name="postUrl" value={endorsementUrl} />
+              <input type="hidden" name="postsMetrics" value={JSON.stringify(targetPostMetrics)} />
+              <input
+                type="hidden"
+                name="finalViews"
+                value={targetPostMetrics.length > 1 ? targetPostMetrics.reduce((sum, p) => sum + (p.views || 0), 0) : metricViews}
+              />
+              <input
+                type="hidden"
+                name="likes"
+                value={targetPostMetrics.length > 1 ? targetPostMetrics.reduce((sum, p) => sum + (p.likes || 0), 0) : metricLikes}
+              />
+              <input
+                type="hidden"
+                name="comments"
+                value={targetPostMetrics.length > 1 ? targetPostMetrics.reduce((sum, p) => sum + (p.comments || 0), 0) : metricComments}
+              />
+              <input
+                type="hidden"
+                name="shares"
+                value={targetPostMetrics.length > 1 ? targetPostMetrics.reduce((sum, p) => sum + (p.shares || 0), 0) : metricShares}
+              />
+              <input
+                type="hidden"
+                name="saves"
+                value={targetPostMetrics.length > 1 ? targetPostMetrics.reduce((sum, p) => sum + (p.saves || 0), 0) : metricSaves}
+              />
+
               {/* Live Preview Box */}
               {(() => {
-                const totalEng = metricLikes + metricComments + metricShares + metricSaves
-                const er = metricViews > 0 ? (totalEng / metricViews) * 100 : 0
-                const cpv = metricViews > 0 ? videoMetricsTarget.rateCard / metricViews : 0
+                const totalViewsCombined =
+                  targetPostMetrics.length > 1
+                    ? targetPostMetrics.reduce((sum, p) => sum + (p.views || 0), 0)
+                    : metricViews
+                const totalLikesCombined =
+                  targetPostMetrics.length > 1
+                    ? targetPostMetrics.reduce((sum, p) => sum + (p.likes || 0), 0)
+                    : metricLikes
+                const totalCommentsCombined =
+                  targetPostMetrics.length > 1
+                    ? targetPostMetrics.reduce((sum, p) => sum + (p.comments || 0), 0)
+                    : metricComments
+                const totalSharesCombined =
+                  targetPostMetrics.length > 1
+                    ? targetPostMetrics.reduce((sum, p) => sum + (p.shares || 0), 0)
+                    : metricShares
+                const totalSavesCombined =
+                  targetPostMetrics.length > 1
+                    ? targetPostMetrics.reduce((sum, p) => sum + (p.saves || 0), 0)
+                    : metricSaves
+                const totalEng = totalLikesCombined + totalCommentsCombined + totalSharesCombined + totalSavesCombined
+                const er = totalViewsCombined > 0 ? (totalEng / totalViewsCombined) * 100 : 0
+                const cpv = totalViewsCombined > 0 ? videoMetricsTarget.rateCard / totalViewsCombined : 0
                 const cpe = totalEng > 0 ? videoMetricsTarget.rateCard / totalEng : 0
 
                 return (
-                  <div className="p-4 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] space-y-2">
-                    <div className="flex items-center justify-between text-xs font-bold text-[#D9480F] uppercase tracking-wider">
+                  <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EFE8DE] space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-[#D9480F] uppercase tracking-wider">
                       <span>Kalkulasi Otomatis Sistem</span>
                       <span>Rate Card: {formatRupiah(videoMetricsTarget.rateCard)}</span>
                     </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <div className="bg-white p-2.5 rounded-xl border border-[#EFE8DE]">
-                        <span className="text-[10px] text-stone-400 block font-bold uppercase">Total Engagement</span>
-                        <span className="text-sm font-extrabold text-[#1A1715]">
+                        <span className="text-[10px] text-stone-400 block font-bold uppercase">
+                          {targetPostMetrics.length > 1 ? 'Total Views Gabungan' : 'Total Views'}
+                        </span>
+                        <span className="text-sm font-extrabold text-[#1A1715] font-mono">
+                          {totalViewsCombined.toLocaleString('id-ID')}
+                        </span>
+                      </div>
+
+                      <div className="bg-white p-2.5 rounded-xl border border-[#EFE8DE]">
+                        <span className="text-[10px] text-stone-400 block font-bold uppercase">
+                          {targetPostMetrics.length > 1 ? 'Total Interaksi' : 'Total Engagement'}
+                        </span>
+                        <span className="text-sm font-extrabold text-[#1A1715] font-mono">
                           {totalEng.toLocaleString('id-ID')}
                         </span>
                       </div>
 
                       <div className="bg-white p-2.5 rounded-xl border border-[#EFE8DE]">
                         <span className="text-[10px] text-stone-400 block font-bold uppercase">Engagement Rate</span>
-                        <span className="text-sm font-extrabold text-amber-700">
+                        <span className="text-sm font-extrabold text-amber-700 font-mono">
                           {er.toFixed(2)}%
                         </span>
                       </div>
@@ -1761,13 +2635,6 @@ export default function EndorsementList({
                         <span className="text-[10px] text-stone-400 block font-bold uppercase">Cost Per View (CPV)</span>
                         <span className="text-sm font-extrabold text-emerald-700 font-mono">
                           {formatRupiah(cpv)}
-                        </span>
-                      </div>
-
-                      <div className="bg-white p-2.5 rounded-xl border border-[#EFE8DE]">
-                        <span className="text-[10px] text-stone-400 block font-bold uppercase">Cost Per Eng. (CPE)</span>
-                        <span className="text-sm font-extrabold text-stone-800 font-mono">
-                          {formatRupiah(cpe)}
                         </span>
                       </div>
                     </div>
@@ -1970,6 +2837,9 @@ export default function EndorsementList({
                           <div className="space-y-2">
                             {newKolSocials.map((entry) => (
                               <div key={entry.id} className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-xl bg-stone-100 border border-stone-200 flex items-center justify-center shrink-0">
+                                  <PlatformIcon platform={entry.platform} className="w-4 h-4 text-stone-700" />
+                                </div>
                                 {/* Dropdown Platform */}
                                 <div className="relative w-36 sm:w-44 flex-shrink-0">
                                   <select
@@ -1979,11 +2849,11 @@ export default function EndorsementList({
                                     }
                                     className="w-full px-2.5 py-2 text-xs font-bold border border-[#EFE8DE] bg-white rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D9480F] text-stone-800 cursor-pointer shadow-2xs"
                                   >
-                                    <option value="INSTAGRAM">📸 Instagram (IG)</option>
-                                    <option value="TIKTOK">🎵 TikTok</option>
-                                    <option value="YOUTUBE">▶️ YouTube Shorts</option>
-                                    <option value="FACEBOOK">👥 Facebook</option>
-                                    <option value="THREADS">🧵 Threads</option>
+                                    <option value="INSTAGRAM">Instagram (IG)</option>
+                                    <option value="TIKTOK">TikTok</option>
+                                    <option value="YOUTUBE">YouTube Shorts</option>
+                                    <option value="FACEBOOK">Facebook</option>
+                                    <option value="THREADS">Threads</option>
                                   </select>
                                 </div>
 
@@ -2236,6 +3106,28 @@ export default function EndorsementList({
                       💡 Catatan ini otomatis terbaca oleh kasir POS saat influencer datang ke cabang outlet. Link video TikTok/IG dan metrik konten dapat diisi setelah visit selesai.
                     </p>
                   </div>
+
+                  {/* Multi-Platform Video Links in Create */}
+                  <input
+                    type="hidden"
+                    name="videoPosts"
+                    value={JSON.stringify(createVideoLinks.filter((v) => v.postUrl.trim()))}
+                  />
+                  <input
+                    type="hidden"
+                    name="postUrl"
+                    value={createVideoLinks.find((v) => v.postUrl.trim())?.postUrl.trim() || ''}
+                  />
+                  <VideoPlatformLinksEditor
+                    videoLinks={createVideoLinks}
+                    onAdd={addCreateVideoLink}
+                    onRemove={removeCreateVideoLink}
+                    onPlatformChange={updateCreateVideoPlatform}
+                    onUrlChange={updateCreateVideoUrl}
+                    onCustomNameChange={updateCreateCustomPlatformName}
+                    title="Link Video Konten (Opsional)"
+                    description="Pilih platform terlebih dahulu jika link video konten sudah tersedia."
+                  />
                 </div>
 
                 {/* Kolom Kanan: Menu Jatah POS & Ringkasan HPP */}
@@ -2553,18 +3445,27 @@ export default function EndorsementList({
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
-                      Link URL Konten
-                    </label>
-                    <input
-                      name="postUrl"
-                      type="url"
-                      defaultValue={editingEndorsement.postUrl || ''}
-                      placeholder="https://..."
-                      className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
-                    />
-                  </div>
+                  {/* Multi-Platform Video Links in Edit */}
+                  <input
+                    type="hidden"
+                    name="videoPosts"
+                    value={JSON.stringify(editVideoLinks.filter((v) => v.postUrl.trim()))}
+                  />
+                  <input
+                    type="hidden"
+                    name="postUrl"
+                    value={editVideoLinks.find((v) => v.postUrl.trim())?.postUrl.trim() || ''}
+                  />
+                  <VideoPlatformLinksEditor
+                    videoLinks={editVideoLinks}
+                    onAdd={addEditVideoLink}
+                    onRemove={removeEditVideoLink}
+                    onPlatformChange={updateEditVideoPlatform}
+                    onUrlChange={updateEditVideoUrl}
+                    onCustomNameChange={updateEditCustomPlatformName}
+                    title="Link Video & Konten Multi-Platform"
+                    description="Pilih platform terlebih dahulu, lalu masukkan link URL postingan video."
+                  />
 
                   {/* Draft & Payment Status in Edit */}
                   <div className="p-3.5 bg-[#FAF8F5] rounded-2xl border border-[#EFE8DE] space-y-3">
@@ -2775,6 +3676,14 @@ export default function EndorsementList({
       <ImportExcelModal
         isOpen={isImportModalOpen}
         onClose={() => setIsImportModalOpen(false)}
+      />
+
+      {/* Video Preview Modal (Option 1) */}
+      <VideoPreviewModal
+        isOpen={!!videoPreviewTarget}
+        onClose={() => setVideoPreviewTarget(null)}
+        endorsement={videoPreviewTarget?.endorsement || null}
+        initialPostId={videoPreviewTarget?.initialPostId}
       />
     </div>
   )

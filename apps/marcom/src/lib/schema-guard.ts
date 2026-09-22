@@ -81,6 +81,12 @@ const CREATE_TABLES = [
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "internal_contents_pkey" PRIMARY KEY ("id")
   )`,
+  `CREATE TABLE IF NOT EXISTS "marcom_settings" (
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "marcom_settings_pkey" PRIMARY KEY ("key")
+  )`,
 ]
 
 /** [tabel, kolom, tipe + default] — setiap kolom non-PK dari schema.prisma. */
@@ -135,6 +141,7 @@ const COLUMNS: Array<[string, string, string]> = [
   ['endorsements', 'shipping_date', 'DATE'],
   ['endorsements', 'rate_card_expense_id', 'TEXT'],
   ['endorsements', 'shipping_expense_id', 'TEXT'],
+  ['endorsements', 'last_synced_at', 'TIMESTAMPTZ'],
 
   ['endorsement_posts', 'platform', `TEXT NOT NULL DEFAULT 'TIKTOK'`],
   ['endorsement_posts', 'custom_platform_name', 'TEXT'],
@@ -182,6 +189,7 @@ const COLUMNS: Array<[string, string, string]> = [
   ['internal_contents', 'shares', 'INTEGER NOT NULL DEFAULT 0'],
   ['internal_contents', 'saves', 'INTEGER NOT NULL DEFAULT 0'],
   ['internal_contents', 'followers_baseline', 'INTEGER'],
+  ['internal_contents', 'last_synced_at', 'TIMESTAMPTZ'],
 ]
 
 const INDEXES = [

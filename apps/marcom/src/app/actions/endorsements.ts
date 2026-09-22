@@ -34,6 +34,7 @@ export async function createEndorsement(
   const menuGiven = (formData.get('menuGiven') as string)?.trim() || null
   const menuItemsStr = formData.get('menuItems') as string
   const hppMenuStr = (formData.get('hppMenu') as string) || '0'
+  const videoPostsStr = (formData.get('videoPosts') as string)?.trim() || null
   const postUrl = (formData.get('postUrl') as string)?.trim() || null
   const postUrlIg = (formData.get('postUrlIg') as string)?.trim() || null
   const initialViewsStr = formData.get('initialViews') as string
@@ -151,6 +152,17 @@ export async function createEndorsement(
     const paymentDate = paymentDateStr ? new Date(paymentDateStr) : null
     const shippingDate = shippingDateStr ? new Date(shippingDateStr) : (isShipped ? new Date() : null)
 
+    let videoPosts: Array<{ platform: string; postUrl: string; customPlatformName?: string }> = []
+    if (videoPostsStr) {
+      try {
+        videoPosts = JSON.parse(videoPostsStr)
+      } catch (e) {
+        console.error('Invalid videoPosts JSON in createEndorsement:', e)
+      }
+    }
+
+    const firstValidPostUrl = videoPosts.find((v) => v.postUrl?.trim())?.postUrl?.trim() || postUrl || postUrlIg || null
+
     const endorsement = await prisma.endorsement.create({
       data: {
         kolId,
@@ -160,7 +172,7 @@ export async function createEndorsement(
         menuGiven: finalMenuGiven,
         menuItems: menuItems.length > 0 ? menuItems : undefined,
         hppMenu,
-        postUrl: postUrl || postUrlIg || null,
+        postUrl: firstValidPostUrl,
         initialViews,
         finalViews,
         visitStatus,
@@ -216,28 +228,52 @@ export async function createEndorsement(
     }
 
     // Create post links if provided
-    if (postUrl) {
-      await prisma.endorsementPost.create({
-        data: {
+    const validVideoPosts = videoPosts.filter((p) => p.postUrl && p.postUrl.trim())
+    if (validVideoPosts.length > 0) {
+      await prisma.endorsementPost.createMany({
+        data: validVideoPosts.map((p) => ({
           endorsementId: endorsement.id,
-          platform: 'TIKTOK',
-          postUrl,
+          platform: p.platform || 'TIKTOK',
+          postUrl: p.postUrl.trim(),
+          customPlatformName: p.customPlatformName || null,
           status: 'POSTED',
           postedAt: scheduleDate,
-        },
+        })),
       })
+    } else {
+      if (postUrl) {
+        await prisma.endorsementPost.create({
+          data: {
+            endorsementId: endorsement.id,
+            platform: 'TIKTOK',
+            postUrl,
+            status: 'POSTED',
+            postedAt: scheduleDate,
+          },
+        })
+      }
+
+      if (postUrlIg) {
+        await prisma.endorsementPost.create({
+          data: {
+            endorsementId: endorsement.id,
+            platform: 'IG_REEL',
+            postUrl: postUrlIg,
+            status: 'POSTED',
+            postedAt: scheduleDate,
+          },
+        })
+      }
     }
 
-    if (postUrlIg) {
-      await prisma.endorsementPost.create({
-        data: {
-          endorsementId: endorsement.id,
-          platform: 'IG_REEL',
-          postUrl: postUrlIg,
-          status: 'POSTED',
-          postedAt: scheduleDate,
-        },
-      })
+    // Auto-scrape any video links that were added
+    try {
+      if (validVideoPosts.length > 0 || postUrl || postUrlIg) {
+        const { syncSingleEndorsementVideo } = await import('@/app/actions/sync')
+        await syncSingleEndorsementVideo(endorsement.id.toString())
+      }
+    } catch (scrapeErr) {
+      console.warn('Auto-scrape on create endorsement warning:', scrapeErr)
     }
 
     // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
@@ -271,6 +307,7 @@ export async function updateEndorsement(
   const menuGiven = (formData.get('menuGiven') as string)?.trim() || null
   const menuItemsStr = formData.get('menuItems') as string
   const hppMenuStr = (formData.get('hppMenu') as string) || '0'
+  const videoPostsStr = (formData.get('videoPosts') as string)?.trim() || null
   const postUrl = (formData.get('postUrl') as string)?.trim() || null
   const initialViewsStr = formData.get('initialViews') as string
   const finalViewsStr = formData.get('finalViews') as string
@@ -307,6 +344,15 @@ export async function updateEndorsement(
     finalMenuGiven = menuItems.map((m: any) => `${m.quantity}x ${m.name}`).join(', ')
   }
 
+  let videoPosts: Array<{ platform: string; postUrl: string; customPlatformName?: string }> | null = null
+  if (videoPostsStr !== null && videoPostsStr !== undefined) {
+    try {
+      videoPosts = JSON.parse(videoPostsStr)
+    } catch (e) {
+      console.error('Invalid videoPosts JSON in updateEndorsement:', e)
+    }
+  }
+
   try {
     const endorsementId = BigInt(id)
     const kolId = BigInt(kolIdStr)
@@ -320,6 +366,10 @@ export async function updateEndorsement(
     const paymentDate = paymentDateStr ? new Date(paymentDateStr) : null
     const shippingDate = shippingDateStr ? new Date(shippingDateStr) : (isShipped ? new Date() : null)
 
+    const firstValidPostUrl = videoPosts !== null
+      ? (videoPosts.find((v) => v.postUrl?.trim())?.postUrl?.trim() || null)
+      : postUrl
+
     await prisma.endorsement.update({
       where: { id: endorsementId },
       data: {
@@ -330,7 +380,7 @@ export async function updateEndorsement(
         menuGiven: finalMenuGiven,
         ...(menuItems !== null ? { menuItems } : {}),
         hppMenu,
-        ...(postUrl !== null ? { postUrl } : {}),
+        ...(videoPosts !== null ? { postUrl: firstValidPostUrl } : (postUrl !== null ? { postUrl } : {})),
         initialViews,
         finalViews,
         visitStatus,
@@ -385,6 +435,47 @@ export async function updateEndorsement(
       }
     } catch (syncErr) {
       console.error('Error syncing endorsement update to POS Supabase:', syncErr)
+    }
+
+    // Sinkronisasi data endorsementPost multi-platform
+    if (videoPosts !== null) {
+      const validVideoPosts = videoPosts.filter((p) => p.postUrl && p.postUrl.trim())
+      const existingPosts = await prisma.endorsementPost.findMany({
+        where: { endorsementId },
+      })
+      const existingMap = new Map(existingPosts.map((ep) => [ep.postUrl.trim(), ep]))
+
+      await prisma.endorsementPost.deleteMany({
+        where: { endorsementId },
+      })
+      if (validVideoPosts.length > 0) {
+        await prisma.endorsementPost.createMany({
+          data: validVideoPosts.map((p) => {
+            const existing = existingMap.get(p.postUrl.trim())
+            return {
+              endorsementId,
+              platform: p.platform || 'TIKTOK',
+              postUrl: p.postUrl.trim(),
+              customPlatformName: p.customPlatformName || null,
+              status: 'POSTED',
+              postedAt: scheduleDate,
+              views: existing?.views || 0,
+              likes: existing?.likes || 0,
+              comments: existing?.comments || 0,
+              shares: existing?.shares || 0,
+              saves: existing?.saves || 0,
+            }
+          }),
+        })
+
+        // Auto-scrape any video links that have 0 views or are newly added
+        try {
+          const { syncSingleEndorsementVideo } = await import('@/app/actions/sync')
+          await syncSingleEndorsementVideo(endorsementId.toString())
+        } catch (scrapeErr) {
+          console.warn('Auto-scrape on update endorsement warning:', scrapeErr)
+        }
+      }
     }
 
     // Sinkronisasi otomatis ke OPEX Finance & Admin Dashboard
@@ -667,6 +758,7 @@ export async function updateVideoMetrics(
     return { error: 'Unauthorized: Harap login terlebih dahulu' }
   }
 
+  const postsMetricsStr = (formData.get('postsMetrics') as string)?.trim() || null
   const finalViewsStr = formData.get('finalViews') as string
   const initialViewsStr = formData.get('initialViews') as string
   const likesStr = formData.get('likes') as string
@@ -677,26 +769,98 @@ export async function updateVideoMetrics(
 
   try {
     const endorsementId = BigInt(id)
-    const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null
-    const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
-    const likes = likesStr !== '' ? parseInt(likesStr, 10) : 0
-    const comments = commentsStr !== '' ? parseInt(commentsStr, 10) : 0
-    const shares = sharesStr !== '' ? parseInt(sharesStr, 10) : 0
-    const saves = savesStr !== '' ? parseInt(savesStr, 10) : 0
 
-    await prisma.endorsement.update({
-      where: { id: endorsementId },
-      data: {
-        ...(finalViews !== null ? { finalViews } : {}),
-        ...(initialViews !== null ? { initialViews } : {}),
-        likes,
-        comments,
-        shares,
-        saves,
-        ...(postUrl ? { postUrl } : {}),
-        ...((finalViews || likes || comments) ? { postStatus: 'ON' } : {}),
-      },
-    })
+    let postsMetrics: Array<{
+      id: string
+      postUrl?: string
+      views?: number
+      likes?: number
+      comments?: number
+      shares?: number
+      saves?: number
+    }> = []
+
+    if (postsMetricsStr) {
+      try {
+        postsMetrics = JSON.parse(postsMetricsStr)
+      } catch (e) {
+        console.error('Invalid postsMetrics JSON:', e)
+      }
+    }
+
+    if (postsMetrics.length > 0) {
+      let totalViews = 0
+      let totalLikes = 0
+      let totalComments = 0
+      let totalShares = 0
+      let totalSaves = 0
+
+      for (const pm of postsMetrics) {
+        const v = Math.max(0, Number(pm.views || 0))
+        const l = Math.max(0, Number(pm.likes || 0))
+        const c = Math.max(0, Number(pm.comments || 0))
+        const sh = Math.max(0, Number(pm.shares || 0))
+        const sa = Math.max(0, Number(pm.saves || 0))
+
+        totalViews += v
+        totalLikes += l
+        totalComments += c
+        totalShares += sh
+        totalSaves += sa
+
+        if (pm.id && pm.id !== 'legacy') {
+          try {
+            await prisma.endorsementPost.update({
+              where: { id: BigInt(pm.id) },
+              data: {
+                views: v,
+                likes: l,
+                comments: c,
+                shares: sh,
+                saves: sa,
+                status: 'POSTED',
+                ...(pm.postUrl ? { postUrl: pm.postUrl } : {}),
+              },
+            })
+          } catch (pErr) {
+            console.error(`Failed to update post ${pm.id} metrics:`, pErr)
+          }
+        }
+      }
+
+      await prisma.endorsement.update({
+        where: { id: endorsementId },
+        data: {
+          finalViews: totalViews,
+          likes: totalLikes,
+          comments: totalComments,
+          shares: totalShares,
+          saves: totalSaves,
+          ...((totalViews > 0 || totalLikes > 0) ? { postStatus: 'ON' } : {}),
+        },
+      })
+    } else {
+      const finalViews = finalViewsStr ? parseInt(finalViewsStr, 10) : null
+      const initialViews = initialViewsStr ? parseInt(initialViewsStr, 10) : null
+      const likes = likesStr !== '' ? parseInt(likesStr, 10) : 0
+      const comments = commentsStr !== '' ? parseInt(commentsStr, 10) : 0
+      const shares = sharesStr !== '' ? parseInt(sharesStr, 10) : 0
+      const saves = savesStr !== '' ? parseInt(savesStr, 10) : 0
+
+      await prisma.endorsement.update({
+        where: { id: endorsementId },
+        data: {
+          ...(finalViews !== null ? { finalViews } : {}),
+          ...(initialViews !== null ? { initialViews } : {}),
+          likes,
+          comments,
+          shares,
+          saves,
+          ...(postUrl ? { postUrl } : {}),
+          ...((finalViews || likes || comments) ? { postStatus: 'ON' } : {}),
+        },
+      })
+    }
 
     revalidatePath('/dashboard/endorsements')
     revalidatePath('/dashboard')
@@ -745,3 +909,103 @@ export async function syncClaimedEndorsements(): Promise<{ syncedCount: number }
   }
 }
 
+export interface VideoEmbedInfo {
+  platform: string
+  embedUrl: string | null
+  rawUrl: string
+  canEmbed: boolean
+}
+
+export async function resolveVideoEmbedInfo(
+  url: string,
+  platformHint?: string
+): Promise<VideoEmbedInfo> {
+  const trimmedUrl = (url || '').trim()
+  const lowerUrl = trimmedUrl.toLowerCase()
+
+  if (!trimmedUrl) {
+    return { platform: platformHint || 'CUSTOM', embedUrl: null, rawUrl: '', canEmbed: false }
+  }
+
+  // 1. Instagram Reel / Post
+  if (lowerUrl.includes('instagram.com') || lowerUrl.includes('instagr.am')) {
+    const reelMatch = trimmedUrl.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/i)
+    if (reelMatch && reelMatch[2]) {
+      return {
+        platform: 'IG_REEL',
+        embedUrl: `https://www.instagram.com/reel/${reelMatch[2]}/embed/`,
+        rawUrl: trimmedUrl,
+        canEmbed: true,
+      }
+    }
+  }
+
+  // 2. TikTok
+  if (lowerUrl.includes('tiktok.com')) {
+    let targetUrl = trimmedUrl
+    if (lowerUrl.includes('vt.tiktok.com') || lowerUrl.includes('vm.tiktok.com')) {
+      try {
+        const res = await fetch(trimmedUrl, {
+          method: 'HEAD',
+          redirect: 'follow',
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          },
+        })
+        targetUrl = res.url || trimmedUrl
+      } catch (err) {
+        console.warn('Failed to resolve TikTok short URL:', err)
+      }
+    }
+
+    const videoMatch = targetUrl.match(/\/video\/(\d+)/i)
+    if (videoMatch && videoMatch[1]) {
+      return {
+        platform: 'TIKTOK',
+        embedUrl: `https://www.tiktok.com/embed/v2/${videoMatch[1]}`,
+        rawUrl: trimmedUrl,
+        canEmbed: true,
+      }
+    }
+  }
+
+  // 3. YouTube Shorts / Video
+  if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) {
+    let videoId = ''
+    const shortsMatch = trimmedUrl.match(/\/shorts\/([A-Za-z0-9_-]+)/i)
+    if (shortsMatch && shortsMatch[1]) {
+      videoId = shortsMatch[1]
+    } else {
+      const vMatch = trimmedUrl.match(/(?:v=|\/)([A-Za-z0-9_-]{11})(?:\?|&|$)/i)
+      if (vMatch && vMatch[1]) videoId = vMatch[1]
+    }
+
+    if (videoId) {
+      return {
+        platform: 'YOUTUBE_SHORTS',
+        embedUrl: `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0`,
+        rawUrl: trimmedUrl,
+        canEmbed: true,
+      }
+    }
+  }
+
+  // 4. Facebook Video
+  if (lowerUrl.includes('facebook.com') || lowerUrl.includes('fb.watch')) {
+    return {
+      platform: 'FACEBOOK',
+      embedUrl: `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(trimmedUrl)}&show_text=false`,
+      rawUrl: trimmedUrl,
+      canEmbed: true,
+    }
+  }
+
+  // Fallback
+  return {
+    platform: platformHint || 'CUSTOM',
+    embedUrl: null,
+    rawUrl: trimmedUrl,
+    canEmbed: false,
+  }
+}

@@ -116,6 +116,9 @@ struct LoginView: View {
                                                           preferredBrowserSession: .shared)
             let kode = try MasukGoogle.kodeDari(callback: callback, stateDiharapkan: state)
             let token = try await MasukGoogle.tukarKode(kode, clientID: googleClientID, pkce: pkce)
+            #if DEBUG
+            print("[MasukGoogle] klaim ID token:", klaimAmanIdToken(token))
+            #endif
             await vm.tukarGoogle(idToken: token)
         } catch let e as ASWebAuthenticationSessionError where e.code == .canceledLogin {
             vm.dibatalkan()

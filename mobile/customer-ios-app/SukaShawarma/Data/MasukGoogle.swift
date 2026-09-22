@@ -98,6 +98,21 @@ enum MasukGoogle {
     }
 }
 
+/// Klaim yang aman dicatat dari sebuah ID token (JWT) — TANPA tanda tangan,
+/// tanpa token utuh. Untuk diagnosis "ditolak" di build Debug saja.
+func klaimAmanIdToken(_ jwt: String) -> [String: String] {
+    let bagian = jwt.split(separator: ".")
+    guard bagian.count >= 2 else { return [:] }
+    var b64 = bagian[1].replacingOccurrences(of: "-", with: "+").replacingOccurrences(of: "_", with: "/")
+    while b64.count % 4 != 0 { b64 += "=" }
+    guard let data = Data(base64Encoded: b64),
+          let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return [:] }
+    var hasil: [String: String] = [:]
+    for k in ["aud", "azp", "iss", "email"] { if let v = json[k] { hasil[k] = "\(v)" } }
+    hasil["nonce"] = json["nonce"] == nil ? "tidak ada" : "ada"
+    return hasil
+}
+
 func base64URL(_ data: Data) -> String {
     data.base64EncodedString()
         .replacingOccurrences(of: "+", with: "-")

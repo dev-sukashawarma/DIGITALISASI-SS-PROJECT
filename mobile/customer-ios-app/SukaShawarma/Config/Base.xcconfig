@@ -7,11 +7,11 @@ GATEWAY_BASE_URL = https:/$()/retail.sukashawarma.com
 
 // Web client ID Google -- project Google Cloud yang sama dengan provider
 // Google di Supabase. Bukan rahasia (lihat komentar di build.gradle.kts).
-GOOGLE_WEB_CLIENT_ID = 401597244561-qegnpf2mgcgs43u9hlqvklmmripd1s0m.apps.googleusercontent.com
+GOOGLE_WEB_CLIENT_ID=401597244561-qegnpf2mgcgs43u9hlqvklmmripd1s0m.apps.googleusercontent.com
 
 // iOS client ID -- BELUM ADA. Wajib dibuat di project Google Cloud yang sama
 // (tipe iOS, bundle ID com.sukashawarma.customer). Selama kosong, tombol
 // "Masuk dengan Google" menampilkan "belum diaktifkan". Bukan rahasia.
-GOOGLE_IOS_CLIENT_ID =
+GOOGLE_IOS_CLIENT_ID=401597244561-5rs53jls8am8r5ts3pgppk60r0g4dk45.apps.googleusercontent.com
 
 #include? "Local.xcconfig"

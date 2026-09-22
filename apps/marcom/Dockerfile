@@ -56,6 +56,13 @@ ENV PORT=3999
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DOCKER_BUILD=true
 
+# Secret server-only WAJIB di stage runner: Docker tak membawa ARG/ENV lintas
+# stage, dan Server Action membacanya di RUNTIME (lihat CLAUDE.md "Gotcha
+# kritikal #1"). Tanpa ini marcom dulu jalan hanya berkat kunci literal di
+# src/lib/supabase-pos.ts -- yang membocorkan service role key ke repo publik.
+ARG SUPABASE_SERVICE_ROLE_KEY
+ENV SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY
+
 # Copy necessary artifacts from builder stage
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules ./node_modules

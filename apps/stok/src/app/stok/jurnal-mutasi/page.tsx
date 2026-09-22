@@ -8,19 +8,8 @@ import { OutletSwitcher } from '@/components/common/OutletSwitcher'
 import { UserAvatarDropdown } from '@/components/common/UserAvatarDropdown'
 import { JurnalMutasiDashboard } from '@/components/jurnal-mutasi/JurnalMutasiDashboard'
 import { Loader2, ShieldAlert } from 'lucide-react'
+import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 
-const MANAGEMENT_ROLES = [
-  'admin',
-  'owner',
-  'spv',
-  'regional_manager',
-  'area_manager',
-  'leader',
-  'kitchen',
-  'purchasing',
-  'admin_finance',
-  'developer',
-]
 
 export default function JurnalMutasiPage() {
   const { outletStaff, loading: authLoading } = useAuth()
@@ -40,7 +29,7 @@ export default function JurnalMutasiPage() {
   }
 
   const role = outletStaff.role || ''
-  const isAuthorized = MANAGEMENT_ROLES.includes(role)
+  const isAuthorized = canViewJurnalMutasi(role)
 
   if (!isAuthorized) {
     return (
@@ -52,7 +41,7 @@ export default function JurnalMutasiPage() {
             </div>
             <h2 className="text-lg font-black text-suka-brown">Akses Khusus Manajemen</h2>
             <p className="text-xs text-suka-brown/70 leading-relaxed">
-              Laporan Jurnal & Rekonsiliasi Pergerakan Bahan Baku memuat data valuasi finansial dan harga beli. Halaman ini hanya dapat diakses oleh Owner, Admin, SPV, Area Leader, Kitchen, dan Finance.
+              Laporan Jurnal & Rekonsiliasi Pergerakan Bahan Baku memuat data valuasi finansial dan harga beli. Halaman ini hanya dapat diakses oleh Owner, Admin, SPV, Regional Manager, Kitchen, Purchasing, dan Finance.
             </p>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canApproveWaste, canReceivePO, canViewBudgetOutlet, canViewVendorPrices, canViewWasteList } from './navAccess'
+import { canApproveWaste, canReceivePO, canViewBudgetOutlet, canViewVendorPrices, canViewWasteList, canViewJurnalMutasi } from './navAccess'
 import { canViewPermintaanQueue } from './approver'
 
 describe('navAccess — tab dashboard monitoring', () => {
@@ -17,6 +17,11 @@ describe('navAccess — tab dashboard monitoring', () => {
   it('leader melihat daftar waste, tapi tidak menjadi penyetuju', () => {
     expect(canViewWasteList('leader')).toBe(true)
     expect(canApproveWaste('leader')).toBe(false)
+  })
+
+  it('Jurnal & Rekonsiliasi tertutup untuk crew, leader, dan area_manager', () => {
+    for (const r of ['crew', 'leader', 'area_manager']) expect(canViewJurnalMutasi(r)).toBe(false)
+    for (const r of ['kitchen', 'admin', 'owner', 'spv', 'regional_manager']) expect(canViewJurnalMutasi(r)).toBe(true)
   })
 
   it('kitchen melihat semua tab operasional', () => {

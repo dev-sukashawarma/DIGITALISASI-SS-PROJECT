@@ -127,6 +127,10 @@ serve(async (req) => {
           sender: sender_name || 'Anggota tim',
           sender_id: sender_id || '',
           sender_avatar: sender_avatar || '',
+          // Dibawa ke perangkat supaya aplikasi bisa memastikan sendiri bahwa
+          // pesan ini memang untuk pemilik sesi — lapis kedua setelah
+          // penyaringan token di atas.
+          recipient_id: recipient_id,
           message_id: message_id || '',
           url: `/chat/private?from=${sender_id || ''}`,
         }

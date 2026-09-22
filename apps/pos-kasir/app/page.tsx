@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getCachedMenuItems, getCachedCategories } from '@suka/cache'
 import KioskMenuClient, { type KioskInitialData } from './KioskMenuClient'
 import type { MenuItem, Category } from '@/types'
 
@@ -19,10 +20,10 @@ export default async function KioskHomePage() {
     outletId = profile?.outlet_id || PUSAT_OUTLET_ID
   }
 
-  // 2. Fetch data menu SSR — paralel, satu round-trip dari server ke Supabase
-  const [items_result, cats_result, outlet_result, settings_result] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order'),
-    supabase.from('categories').select('*').order('sort_order'),
+  // 2. Fetch data menu SSR — dari L1/L2 Redis Cache (sub-millisecond) dengan database fallback
+  const [itemsData, catsData, outlet_result, settings_result] = await Promise.all([
+    getCachedMenuItems(supabase),
+    getCachedCategories(supabase),
     supabase.from('outlets').select('name').eq('id', outletId).single(),
     supabase.from('kiosk_settings').select('key, value, outlet_id')
       .or(`outlet_id.is.null,outlet_id.eq.550e8400-e29b-41d4-a716-446655440001,outlet_id.eq.${outletId}`)
@@ -65,9 +66,9 @@ export default async function KioskHomePage() {
   const autoUnavailableIds: string[] = parseIds(autoUnav)
   const forceAvailableIds: string[] = parseIds(forceAvail)
   
-  let rawItems = (items_result.data as MenuItem[]) ?? []
-  if (items_result.data) {
-    rawItems = (items_result.data as any[]).filter((item: any) => {
+  let rawItems = (itemsData as MenuItem[]) ?? []
+  if (itemsData && itemsData.length > 0) {
+    rawItems = (itemsData as any[]).filter((item: any) => {
       if (item.available_outlets && Array.isArray(item.available_outlets) && item.available_outlets.length > 0) {
         return item.available_outlets.includes(outletId);
       }
@@ -90,7 +91,7 @@ export default async function KioskHomePage() {
 
   const initialData: KioskInitialData = {
     menuItems,
-    categories: (cats_result.data as Category[]) ?? [],
+    categories: (catsData as Category[]) ?? [],
     bestsellerIds: parseIds(bs),
     coverUrl: cover ?? null,
     outletName: outlet_result?.data?.name ?? 'Pusat',

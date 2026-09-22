@@ -26,6 +26,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@suka/cache": [
+        "../../packages/cache/src"
       ]
     }
   },

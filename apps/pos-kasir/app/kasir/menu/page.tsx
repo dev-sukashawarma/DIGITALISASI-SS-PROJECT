@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getCachedMenuItems, getCachedCategories } from '@suka/cache'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import KasirMenuClient, { type MenuQueryData } from './KasirMenuClient'
@@ -37,12 +38,12 @@ export default async function KasirMenuServerPage() {
     return <KasirMenuClient initialData={emptyData} serverOutletId="" />
   }
 
-  // 3. Fetch data menu SSR
+  // 3. Fetch data menu SSR dari L1/L2 Redis Cache
   const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 
-  const [{ data: m }, { data: c }, { data: settings }] = await Promise.all([
-    supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order'),
-    supabase.from('categories').select('*').order('sort_order'),
+  const [m, c, { data: settings }] = await Promise.all([
+    getCachedMenuItems(supabase),
+    getCachedCategories(supabase),
     supabase.from('kiosk_settings').select('key, value, outlet_id')
       .or(`outlet_id.is.null,outlet_id.eq.${PUSAT_OUTLET_ID},outlet_id.eq.${outletId}`)
       .in('key', ['bestseller_ids', 'upsell_ids', 'unavailable_menu_ids', 'recommendation_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])

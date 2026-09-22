@@ -29,6 +29,14 @@ const footerLinks = {
   ],
 };
 
+const contactInfo = {
+  website: { label: "sukashawarma.com", href: "https://sukashawarma.com" },
+  alamat:
+    "Jalan Bukit Nirwana Raya No. 3, Desa/Kelurahan Mulya Harja, Kec. Bogor Selatan, Kota Bogor, Provinsi Jawa Barat 16135",
+  email: "ptsukashawarma@gmail.com",
+  telepon: "0818-0454-1031",
+};
+
 export default function Footer() {
   return (
     <footer id="contact" className="bg-gradient-to-b from-[#FAF7F2] to-[#f0e9df] border-t border-black/[0.06]">
@@ -56,7 +64,7 @@ export default function Footer() {
         </div>
 
         {/* Link columns */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-8 mb-12">
           {Object.entries(footerLinks).map(([category, links]) => (
             <div key={category}>
               <h4 className="text-xs font-semibold tracking-[0.15em] uppercase text-[#111111] mb-4">
@@ -90,6 +98,42 @@ export default function Footer() {
               </ul>
             </div>
           ))}
+
+          {/* Kontak */}
+          <div>
+            <h4 className="text-xs font-semibold tracking-[0.15em] uppercase text-[#111111] mb-4">
+              Kontak
+            </h4>
+            <ul className="space-y-2.5 text-sm text-[#111111]/55">
+              <li>
+                <a
+                  href={contactInfo.website.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-[#6E1A10] transition-colors duration-200"
+                >
+                  {contactInfo.website.label}
+                </a>
+              </li>
+              <li className="leading-relaxed">{contactInfo.alamat}</li>
+              <li>
+                <a
+                  href={`mailto:${contactInfo.email}`}
+                  className="hover:text-[#6E1A10] transition-colors duration-200"
+                >
+                  {contactInfo.email}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={`tel:+62${contactInfo.telepon.replace(/\D/g, "").slice(1)}`}
+                  className="hover:text-[#6E1A10] transition-colors duration-200"
+                >
+                  {contactInfo.telepon}
+                </a>
+              </li>
+            </ul>
+          </div>
         </div>
 
         {/* Bottom bar */}

@@ -322,12 +322,12 @@ export default function OutletMap({ outlets }: { outlets: Outlet[] }) {
 
       leafletMap.current = map;
 
-      // Tile layer — CartoDB Positron (clean, minimal, premium)
+      // Tile layer — OpenStreetMap standard (gratis, tanpa API key)
       L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
         {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
-          subdomains: "abcd",
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          subdomains: "abc",
           maxZoom: 19,
         }
       ).addTo(map);

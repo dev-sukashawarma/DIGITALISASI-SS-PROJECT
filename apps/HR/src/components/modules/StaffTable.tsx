@@ -81,6 +81,11 @@ function flagStatusBadge(s: StaffRow) {
           Crew Backup
         </span>
       )}
+      {s.role === 'crew' && s.sub_role === 'crew_trainee' && (
+        <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 text-amber-800 border border-amber-300 px-1.5 py-0.5 text-[9px] font-extrabold">
+          Trainee
+        </span>
+      )}
       {s.role === 'crew' && s.sub_role === 'crew_regular' && stage !== 'regular' && (
         <span className="inline-flex items-center text-[9px] font-semibold text-stone-500">
           Crew Reguler

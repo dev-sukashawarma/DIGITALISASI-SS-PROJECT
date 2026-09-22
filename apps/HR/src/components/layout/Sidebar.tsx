@@ -11,7 +11,7 @@ import { ConfirmLogoutDialog } from './ConfirmLogoutDialog'
 
 export const Sidebar = () => {
   const pathname = usePathname()
-  const { pendingCount } = useLeaveNotifications()
+  const { pendingLeavesCount, pendingKasbonCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
   const { signOut } = useAuth()
 
@@ -65,6 +65,11 @@ export const Sidebar = () => {
                   <span className="text-xs font-bold uppercase tracking-wider text-suka-orange/80 group-hover:text-suka-orange transition-colors">
                     {group.title}
                   </span>
+                  {group.title === 'Perizinan' && !isOpen && (pendingLeavesCount + pendingKasbonCount > 0) && (
+                    <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full animate-pulse">
+                      {pendingLeavesCount + pendingKasbonCount}
+                    </span>
+                  )}
                 </div>
                 <ChevronDown size={14} className={`text-white/40 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -86,9 +91,14 @@ export const Sidebar = () => {
                       >
                         <Icon size={16} className={active ? 'text-[#4A1713]' : 'text-white/50 group-hover:text-white/80'} />
                         <span className="flex-1 text-[13px]">{label}</span>
-                        {href === '/leave' && pendingCount > 0 && (
+                        {(href === '/perizinan/izin' || href === '/leave') && pendingLeavesCount > 0 && (
                           <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
-                            {pendingCount}
+                            {pendingLeavesCount}
+                          </span>
+                        )}
+                        {href === '/perizinan/kasbon' && pendingKasbonCount > 0 && (
+                          <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">
+                            {pendingKasbonCount}
                           </span>
                         )}
                       </Link>

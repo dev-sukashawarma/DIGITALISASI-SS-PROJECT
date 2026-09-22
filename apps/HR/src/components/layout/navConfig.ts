@@ -3,6 +3,7 @@ import {
   Users,
   CalendarClock,
   CalendarHeart,
+  CreditCard,
   Banknote,
   FileText,
   Calendar,
@@ -10,6 +11,7 @@ import {
   Award,
   Sparkles,
   GraduationCap,
+  FileCheck,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -49,7 +51,14 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: '/attendance', label: 'Absensi & Log Foto', shortLabel: 'Absensi', icon: CalendarClock },
       { href: '/roster', label: 'Shift Roster', shortLabel: 'Roster', icon: Calendar },
-      { href: '/leave', label: 'Cuti & Izin', shortLabel: 'Cuti', icon: CalendarHeart },
+    ],
+  },
+  {
+    title: 'Perizinan',
+    icon: FileCheck,
+    items: [
+      { href: '/perizinan/izin', label: 'Izin & Cuti', shortLabel: 'Izin', icon: CalendarHeart },
+      { href: '/perizinan/kasbon', label: 'Kasbon & Pinjaman', shortLabel: 'Kasbon', icon: CreditCard },
     ],
   },
   {

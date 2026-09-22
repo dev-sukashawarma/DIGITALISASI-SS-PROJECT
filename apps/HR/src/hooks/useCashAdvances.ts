@@ -10,6 +10,8 @@ interface CashAdvanceRow extends CashAdvance {
   outlet_staff: {
     name: string
     role: string
+    outlet_id?: string | null
+    outlets?: { name: string } | null
   }
   cash_advance_payments: CashAdvancePayment[]
 }
@@ -51,7 +53,7 @@ export function useCashAdvances() {
         .from('cash_advances')
         .select(`
           *,
-          outlet_staff!cash_advances_staff_id_fkey(name, role),
+          outlet_staff!cash_advances_staff_id_fkey(name, role, outlet_id, outlets(name)),
           cash_advance_payments(
             id,
             amount,

@@ -107,6 +107,13 @@ export async function bulkImportStaffAction(
           row.role === 'crew' &&
           (row.name.toLowerCase().includes('backup') || (row as any).label?.toLowerCase().includes('backup'))
 
+        const isTrainee =
+          row.role === 'crew' &&
+          (row.name.toLowerCase().includes('trainee') ||
+            row.contractType === 'intern' ||
+            row.statusLabel?.toLowerCase().includes('trainee') ||
+            row.positionLabel?.toLowerCase().includes('trainee'))
+
         // 1. Create Auth User
         const { data: authUser, error: authErr } = await admin.auth.admin.createUser({
           email,
@@ -132,8 +139,8 @@ export async function bulkImportStaffAction(
           name: row.name,
           username: row.username,
           role: row.role,
-          sub_role: isBackupCrew ? 'crew_backup' : (row.role === 'crew' ? 'crew_regular' : null),
-          onboarding_stage: 'regular',
+          sub_role: isBackupCrew ? 'crew_backup' : isTrainee ? 'crew_trainee' : (row.role === 'crew' ? 'crew_regular' : null),
+          onboarding_stage: isTrainee ? 'training_7_days' : 'regular',
           status: row.status,
           contract_type: row.contractType,
           is_bonus_eligible: true,

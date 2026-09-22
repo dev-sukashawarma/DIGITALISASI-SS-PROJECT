@@ -6,7 +6,6 @@ import {
   Users,
   UserCheck,
   Clock,
-  CalendarDays,
   FileCheck,
   AlertTriangle,
   ArrowRight,
@@ -18,6 +17,7 @@ import { PageHeader } from '@/components/ui/PageHeader'
 import { useStaff } from '@/hooks/useStaff'
 import { useAttendance } from '@/hooks/useAttendance'
 import { useLeaveRequests } from '@/hooks/useLeaveRequests'
+import { useCashAdvances } from '@/hooks/useCashAdvances'
 import { useContracts } from '@/hooks/useContracts'
 import { useHrActivity } from '@/hooks/useHrActivity'
 
@@ -32,6 +32,7 @@ export default function HrDashboardOverview() {
     status: 'all',
   })
   const { data: leaveRequests = [] } = useLeaveRequests()
+  const { data: kasbonList = [] } = useCashAdvances()
   const { data: contracts = [] } = useContracts('all')
   const { data: activities = [] } = useHrActivity()
 
@@ -55,6 +56,13 @@ export default function HrDashboardOverview() {
     () => leaveRequests.filter((l) => l.status === 'pending').length,
     [leaveRequests]
   )
+
+  const pendingKasbon = useMemo(
+    () => kasbonList.filter((k) => k.status === 'pending').length,
+    [kasbonList]
+  )
+
+  const totalPendingRequests = pendingLeaves + pendingKasbon
 
   const expiringContracts = useMemo(
     () => contracts.filter((c) => c.status === 'expiring_soon' || c.status === 'expired').length,
@@ -117,16 +125,28 @@ export default function HrDashboardOverview() {
           </div>
         </div>
 
-        {/* Cuti Pending */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 border border-blue-100">
-            <CalendarDays size={22} />
+        {/* Pengajuan Pending (Cuti + Kasbon) */}
+        <Link
+          href="/perizinan/izin"
+          className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5 hover:border-suka-orange/50 hover:shadow-md transition-all group cursor-pointer"
+        >
+          <div className="w-11 h-11 rounded-xl bg-orange-50 text-suka-orange flex items-center justify-center shrink-0 border border-orange-100 group-hover:scale-105 transition-transform">
+            <FileCheck size={22} />
           </div>
           <div>
-            <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider">Cuti Pending</p>
-            <p className="text-2xl font-black text-suka-ink mt-0.5">{pendingLeaves} Pengajuan</p>
+            <p className="text-xs font-bold text-suka-gray-500 uppercase tracking-wider group-hover:text-suka-orange transition-colors">
+              Pengajuan Pending
+            </p>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <p className="text-2xl font-black text-suka-ink">{totalPendingRequests}</p>
+              {totalPendingRequests > 0 && (
+                <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded-md border border-amber-200">
+                  {pendingLeaves} izin / {pendingKasbon} kasbon
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        </Link>
 
         {/* Kontrak Habis / H-30 */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-suka-gray-200 shadow-sm flex items-center gap-3.5">
@@ -183,6 +203,21 @@ export default function HrDashboardOverview() {
               </Link>
 
               <Link
+                href="/perizinan/izin"
+                className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-lg bg-orange-100 text-suka-orange flex items-center justify-center mb-2.5 font-bold group-hover:scale-105 transition-transform">
+                  <FileCheck size={18} />
+                </div>
+                <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
+                  Perizinan &amp; Kasbon
+                </h4>
+                <p className="text-xs text-suka-gray-500 mt-0.5">
+                  Approval cuti, izin sakit, dan pinjaman kasbon.
+                </p>
+              </Link>
+
+              <Link
                 href="/payroll"
                 className="p-4 rounded-xl border border-suka-brown/10 bg-[#FDF9F3] hover:bg-orange-50/60 hover:border-suka-orange/40 transition-all group cursor-pointer"
               >
@@ -190,10 +225,10 @@ export default function HrDashboardOverview() {
                   <DollarSign size={18} />
                 </div>
                 <h4 className="font-extrabold text-suka-ink text-sm group-hover:text-suka-orange transition-colors">
-                  Slip Gaji &amp; Kasbon
+                  Payroll &amp; Slip Gaji
                 </h4>
                 <p className="text-xs text-suka-gray-500 mt-0.5">
-                  Cetak PDF A5, kirim WA, dan kelola kasbon.
+                  Kalkulasi gaji, cetak slip A5, dan kirim via WA.
                 </p>
               </Link>
 
@@ -304,23 +339,36 @@ export default function HrDashboardOverview() {
 
         {/* Right 1 Col: Live Activity Feed + Pending Approvals */}
         <div className="space-y-6">
-          {/* Pending Leaves Alert Box */}
-          {pendingLeaves > 0 && (
+          {/* Pending Approvals Alert Box */}
+          {totalPendingRequests > 0 && (
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 rounded-2xl p-4.5 space-y-2.5 shadow-xs">
               <div className="flex items-center gap-2 text-amber-900 font-extrabold text-sm">
                 <AlertCircleIcon className="w-5 h-5 text-amber-600" />
-                <span>Persetujuan Cuti Menunggu</span>
+                <span>Persetujuan Menunggu HR</span>
               </div>
               <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                Terdapat <strong>{pendingLeaves} pengajuan cuti</strong> dari staf yang memerlukan persetujuan Admin HR.
+                Terdapat <strong>{pendingLeaves} cuti/izin</strong> dan <strong>{pendingKasbon} pinjaman kasbon</strong> yang memerlukan persetujuan Admin HR.
               </p>
-              <Link
-                href="/leave"
-                className="inline-flex items-center gap-1.5 text-xs font-black text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-all"
-              >
-                <span>Tinjau Pengajuan</span>
-                <ArrowRight size={13} />
-              </Link>
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
+                {pendingLeaves > 0 && (
+                  <Link
+                    href="/perizinan?tab=izin"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-all"
+                  >
+                    <span>Cuti/Izin ({pendingLeaves})</span>
+                    <ArrowRight size={13} />
+                  </Link>
+                )}
+                {pendingKasbon > 0 && (
+                  <Link
+                    href="/perizinan?tab=kasbon"
+                    className="inline-flex items-center gap-1.5 text-xs font-black text-amber-900 bg-amber-200/80 hover:bg-amber-200 px-3 py-1.5 rounded-xl transition-all"
+                  >
+                    <span>Kasbon ({pendingKasbon})</span>
+                    <ArrowRight size={13} />
+                  </Link>
+                )}
+              </div>
             </div>
           )}
 
@@ -331,18 +379,31 @@ export default function HrDashboardOverview() {
             </h3>
 
             <div className="space-y-3">
-              {activities.map((act) => (
-                <div key={act.id} className="flex gap-3 text-xs pb-3 border-b border-suka-gray-100 last:border-0 last:pb-0">
-                  <div className="w-2 h-2 rounded-full bg-suka-orange mt-1.5 shrink-0" />
-                  <div>
-                    <p className="font-bold text-suka-ink">{act.title}</p>
-                    <p className="text-suka-gray-500 mt-0.5">{act.description}</p>
-                    <span className="text-[10px] font-mono text-suka-gray-400 mt-1 block">
-                      {new Date(act.timestamp).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
-                    </span>
-                  </div>
-                </div>
-              ))}
+              {activities.map((act) => {
+                const href =
+                  act.type === 'leave'
+                    ? '/perizinan?tab=izin'
+                    : act.type === 'cash_advance'
+                    ? '/perizinan?tab=kasbon'
+                    : '/attendance'
+
+                return (
+                  <Link
+                    key={act.id}
+                    href={href}
+                    className="flex gap-3 text-xs pb-3 border-b border-suka-gray-100 last:border-0 last:pb-0 hover:bg-orange-50/40 p-1.5 -mx-1.5 rounded-xl transition-all group"
+                  >
+                    <div className="w-2 h-2 rounded-full bg-suka-orange mt-1.5 shrink-0 group-hover:scale-125 transition-transform" />
+                    <div className="flex-1">
+                      <p className="font-bold text-suka-ink group-hover:text-suka-orange transition-colors">{act.title}</p>
+                      <p className="text-suka-gray-500 mt-0.5">{act.description}</p>
+                      <span className="text-[10px] font-mono text-suka-gray-400 mt-1 block">
+                        {new Date(act.timestamp).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })}
+                      </span>
+                    </div>
+                  </Link>
+                )
+              })}
 
               {activities.length === 0 && (
                 <p className="py-6 text-center text-xs text-suka-gray-400">

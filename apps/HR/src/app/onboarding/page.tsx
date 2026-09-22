@@ -224,6 +224,7 @@ export default function OnboardingPage() {
             <option value="all">Semua Sub-Role</option>
             <option value="crew_regular">Crew Reguler</option>
             <option value="crew_backup">Crew Backup</option>
+            <option value="crew_trainee">Trainee</option>
           </select>
 
           {/* Stage Filter */}
@@ -294,6 +295,10 @@ export default function OnboardingPage() {
                         {trainee.sub_role === 'crew_backup' ? (
                           <span className="inline-flex items-center gap-1 rounded-md bg-purple-100 px-1.5 py-0.5 text-[10px] font-extrabold text-purple-800">
                             Crew Backup ({trainee.outlet_ids?.length || 0} floating)
+                          </span>
+                        ) : trainee.sub_role === 'crew_trainee' ? (
+                          <span className="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-extrabold text-amber-800">
+                            Trainee
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] font-extrabold text-emerald-800">

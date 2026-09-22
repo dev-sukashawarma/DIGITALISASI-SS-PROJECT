@@ -34,7 +34,7 @@ export type StaffStatus = 'active' | 'inactive' | 'on_leave'
 
 export type AccountCategory = 'employee' | 'system_bot' | 'kiosk' | 'mitra_owner' | 'testing'
 
-export type CrewSubRole = 'crew_regular' | 'crew_backup'
+export type CrewSubRole = 'crew_regular' | 'crew_backup' | 'crew_trainee'
 
 export type OnboardingStage = 'training_7_days' | 'ojt' | 'graduated' | 'regular' | 'failed'
 

@@ -94,6 +94,7 @@ export function StaffFilters({
         <option value="">Semua Sub-Role</option>
         <option value="crew_regular">Crew Reguler</option>
         <option value="crew_backup">Crew Backup</option>
+        <option value="crew_trainee">Trainee</option>
       </select>
       <select
         aria-label="Filter Flag Status"

@@ -13,7 +13,7 @@ export const BottomNav = () => {
   const pathname = usePathname()
   const [sheetOpen, setSheetOpen] = useState(false)
   const [isLogoutOpen, setIsLogoutOpen] = useState(false)
-  const { pendingCount } = useLeaveNotifications()
+  const { pendingLeavesCount, pendingKasbonCount } = useLeaveNotifications()
 
   // Primary 4 items on bottom bar
   const inline = ALL_NAV_ITEMS.slice(0, 4)
@@ -52,9 +52,14 @@ export const BottomNav = () => {
                     size={20}
                     className={`shrink-0 transition-colors ${isActive ? 'text-white' : 'text-suka-gray-400'}`}
                   />
-                  {href === '/leave' && pendingCount > 0 && (
+                  {href === '/perizinan/izin' && pendingLeavesCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm animate-pulse">
-                      {pendingCount}
+                      {pendingLeavesCount}
+                    </span>
+                  )}
+                  {href === '/perizinan/kasbon' && pendingKasbonCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full border-2 border-white shadow-sm animate-pulse">
+                      {pendingKasbonCount}
                     </span>
                   )}
                 </span>
@@ -140,9 +145,14 @@ export const BottomNav = () => {
                         >
                           <Icon size={18} className={isActive ? 'text-white' : 'text-suka-orange'} />
                           <span className="truncate flex-1">{label}</span>
-                          {href === '/leave' && pendingCount > 0 && (
+                          {(href === '/perizinan/izin' || href === '/leave') && pendingLeavesCount > 0 && (
                             <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 shadow-sm border border-white">
-                              {pendingCount}
+                              {pendingLeavesCount}
+                            </span>
+                          )}
+                          {href === '/perizinan/kasbon' && pendingKasbonCount > 0 && (
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 shadow-sm border border-white">
+                              {pendingKasbonCount}
                             </span>
                           )}
                         </Link>

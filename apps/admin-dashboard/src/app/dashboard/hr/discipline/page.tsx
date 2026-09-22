@@ -9,6 +9,7 @@ import { useDiscipline } from '@/hooks/useDiscipline'
 import { DisciplineTable } from '@/components/modules/DisciplineTable'
 import { DisciplineFormModal } from '@/components/modules/DisciplineFormModal'
 import type { DisciplineRecord } from '@/lib/types'
+import { isRecordActive } from '@/lib/disciplineUtils'
 
 export default function DisciplinePage() {
   const [showModal, setShowModal] = useState(false)
@@ -16,7 +17,7 @@ export default function DisciplinePage() {
 
   const { data: records = [], isLoading, issueWarning, resolveWarning } = useDiscipline()
 
-  // Summary Metrics
+  // Summary Metrics: hanya menghitung SP yang masih aktif (berlaku <= 3 bulan)
   const summary = useMemo(() => {
     let active = 0
     let sp1 = 0
@@ -24,7 +25,7 @@ export default function DisciplinePage() {
     let sp3 = 0
 
     records.forEach((r) => {
-      if (r.status === 'active') {
+      if (isRecordActive(r)) {
         active++
         if (r.warning_level === 'SP1') sp1++
         else if (r.warning_level === 'SP2') sp2++
@@ -37,7 +38,8 @@ export default function DisciplinePage() {
 
   const filteredRows = useMemo(() => {
     if (statusFilter === 'all') return records
-    return records.filter((r) => r.status === statusFilter)
+    if (statusFilter === 'active') return records.filter((r) => isRecordActive(r))
+    return records.filter((r) => !isRecordActive(r))
   }, [records, statusFilter])
 
   const handleIssueWarning = (data: Omit<DisciplineRecord, 'id'>) => {
@@ -161,7 +163,11 @@ export default function DisciplinePage() {
 
       {/* Modal */}
       {showModal && (
-        <DisciplineFormModal onClose={() => setShowModal(false)} onSubmit={handleIssueWarning} />
+        <DisciplineFormModal
+          existingRecords={records}
+          onClose={() => setShowModal(false)}
+          onSubmit={handleIssueWarning}
+        />
       )}
     </div>
   )

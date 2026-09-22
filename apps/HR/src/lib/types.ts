@@ -13,6 +13,7 @@ export const ACCOUNT_CATEGORY_LABELS: Record<AccountCategory, string> = {
 export const CREW_SUB_ROLE_LABELS: Record<CrewSubRole, string> = {
   crew_regular: 'Crew Reguler',
   crew_backup: 'Crew Backup',
+  crew_trainee: 'Trainee',
 }
 
 export const ONBOARDING_STAGE_LABELS: Record<OnboardingStage, string> = {
@@ -220,7 +221,13 @@ export interface LeaveRequest {
   rejection_note: string | null
   attachment_url?: string | null
   created_at: string
-  outlet_staff?: { name: string; role: string; leave_quota: number | null }
+  outlet_staff?: {
+    name: string
+    role: string
+    leave_quota: number | null
+    outlet_id?: string | null
+    outlets?: { name: string } | null
+  }
 }
 
 // ── Payroll ─────────────────────────────────────────────────

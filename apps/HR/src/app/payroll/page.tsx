@@ -1,24 +1,20 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { Button, Spinner } from '@suka/design-system'
-import { Download, Plus, DollarSign, Users, CreditCard, MessageSquare, Zap } from 'lucide-react'
+import { Download, DollarSign, Users, CreditCard, MessageSquare, Zap, ArrowRight } from 'lucide-react'
 import { PageHeader } from '@/components/ui/PageHeader'
 import { usePayroll } from '@/hooks/usePayroll'
 import { usePayrollMutations } from '@/hooks/usePayrollMutations'
-import { useCashAdvances } from '@/hooks/useCashAdvances'
-import { useCashAdvanceMutations } from '@/hooks/useCashAdvanceMutations'
 import { PayrollTable } from '@/components/modules/PayrollTable'
 import { PayrollSlipForm } from '@/components/modules/PayrollSlipForm'
-import { CashAdvanceTable } from '@/components/modules/CashAdvanceTable'
-import { CashAdvanceForm } from '@/components/modules/CashAdvanceForm'
 import { BulkWAModal } from '@/components/modules/BulkWAModal'
 import { formatRupiah } from '@/lib/format'
 import { exportCsv } from '@/lib/exportCsv'
 import { getPayrollBreakdown } from '@/lib/payrollBreakdown'
 import type { PayrollRecord } from '@/lib/types'
-import type { CashAdvanceRow } from '@/hooks/useCashAdvances'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -26,24 +22,15 @@ const MONTHS = [
 ]
 
 export default function PayrollPage() {
-  const [activeTab, setActiveTab] = useState<'payroll' | 'kasbon'>('payroll')
-
   // Payroll states
   const [month, setMonth] = useState(new Date().getMonth() + 1)
   const [year, setYear] = useState(new Date().getFullYear())
   const [editingSlip, setEditingSlip] = useState<PayrollRecord | null>(null)
   const [showBulkWAModal, setShowBulkWAModal] = useState(false)
 
-  // Kasbon states
-  const [showKasbonForm, setShowKasbonForm] = useState(false)
-  const [payingKasbon, setPayingKasbon] = useState<CashAdvanceRow | null>(null)
-
   // Hooks
   const { data: payrollData = [], isLoading: loadingPayroll } = usePayroll(month, year)
   const payrollMutations = usePayrollMutations()
-
-  const { data: kasbonData = [], isLoading: loadingKasbon } = useCashAdvances()
-  const kasbonMutations = useCashAdvanceMutations()
 
   // Payroll Actions
   const handleGenerate = () => {
@@ -136,57 +123,11 @@ export default function PayrollPage() {
     toast.success('Data payroll berhasil diexport ke CSV')
   }
 
-  // Kasbon Actions
-  const handleCreateKasbon = (values: any) => {
-    kasbonMutations.create.mutate(values, {
-      onSuccess: () => {
-        toast.success('Pengajuan kasbon berhasil dicatat!')
-        setShowKasbonForm(false)
-      },
-      onError: (e: any) => toast.error(e.message || 'Gagal membuat kasbon'),
-    })
-  }
-
-  const handleAddPayment = (values: any) => {
-    if (!payingKasbon) return
-    kasbonMutations.addPayment.mutate(
-      {
-        cash_advance_id: payingKasbon.id,
-        amount: Number(values.amount),
-        note: values.note ?? null,
-        currentRemaining: payingKasbon.remaining,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Pembayaran cicilan kasbon berhasil dicatat!')
-          setPayingKasbon(null)
-        },
-        onError: (e: any) => toast.error(e.message || 'Gagal mencatat pembayaran'),
-      }
-    )
-  }
-
-  const handleApproveKasbon = (id: string) => {
-    if (!confirm('Setujui pengajuan kasbon ini?')) return
-    kasbonMutations.approve.mutate(id, {
-      onSuccess: () => toast.success('Kasbon disetujui'),
-      onError: (e: any) => toast.error(e.message),
-    })
-  }
-
-  const handleRejectKasbon = (id: string) => {
-    if (!confirm('Tolak pengajuan kasbon ini?')) return
-    kasbonMutations.reject.mutate(id, {
-      onSuccess: () => toast.success('Kasbon ditolak'),
-      onError: (e: any) => toast.error(e.message),
-    })
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Penggajian (Payroll) &amp; Kasbon"
-        description="Kalkulasi gaji otomatis, cetak slip resmi A5, pengiriman slip via WhatsApp (WAHA), dan cicilan kasbon."
+        title="Penggajian (Payroll) &amp; Slip Gaji"
+        description="Kalkulasi gaji otomatis, cetak slip resmi A5, pengiriman slip via WhatsApp (WAHA), dan sinkronisasi potongan denda absensi &amp; kasbon."
       >
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-bold shadow-2xs">
           <span className="relative flex h-2 w-2">
@@ -197,33 +138,30 @@ export default function PayrollPage() {
         </div>
       </PageHeader>
 
-      {/* Tabs */}
-      <div className="flex gap-2 border-b border-suka-gray-200 pb-3">
-        <button
-          onClick={() => setActiveTab('payroll')}
-          className={`px-4 py-2 font-extrabold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
-            activeTab === 'payroll'
-              ? 'bg-suka-brown text-white shadow-md'
-              : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
-          }`}
+      {/* Quick Link Banner to Perizinan & Kasbon */}
+      <div className="bg-[#FDF9F3] border border-suka-orange/20 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-orange-100 text-suka-orange flex items-center justify-center shrink-0 font-bold">
+            <CreditCard size={18} />
+          </div>
+          <div>
+            <p className="text-xs font-extrabold text-suka-brown">Modul Kasbon &amp; Perizinan Terpadu</p>
+            <p className="text-[11px] text-suka-gray-500">
+              Pengajuan kasbon, persetujuan pinjaman, dan pembayaran cicilan kini dikelola di Pusat Perizinan &amp; Kasbon.
+            </p>
+          </div>
+        </div>
+        <Link
+          href="/perizinan/kasbon"
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-orange-50 border border-suka-orange/30 text-suka-orange rounded-xl text-xs font-extrabold transition-all shrink-0 self-start sm:self-center"
         >
-          Slip Gaji Karyawan
-        </button>
-        <button
-          onClick={() => setActiveTab('kasbon')}
-          className={`px-4 py-2 font-extrabold text-xs sm:text-sm rounded-xl transition-all cursor-pointer ${
-            activeTab === 'kasbon'
-              ? 'bg-suka-brown text-white shadow-md'
-              : 'bg-white text-suka-brown border border-suka-gray-200 hover:bg-suka-cream'
-          }`}
-        >
-          Kasbon &amp; Pinjaman
-        </button>
+          <span>Buka Modul Kasbon</span>
+          <ArrowRight size={13} />
+        </Link>
       </div>
 
-      {activeTab === 'payroll' && (
-        <div className="space-y-6 animate-in fade-in">
-          {/* Controls Toolbar */}
+      <div className="space-y-6">
+        {/* Controls Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
             <div className="flex items-center gap-2">
               <select
@@ -375,59 +313,6 @@ export default function PayrollPage() {
             />
           )}
         </div>
-      )}
-
-      {activeTab === 'kasbon' && (
-        <div className="space-y-6 animate-in fade-in">
-          <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-suka-gray-200 shadow-sm">
-            <div>
-              <h3 className="font-extrabold text-suka-brown text-sm">Pinjaman Kasbon Staf</h3>
-              <p className="text-xs text-suka-gray-500">Kelola batas kasbon, persetujuan pinjaman, dan cicilan potongan gaji.</p>
-            </div>
-            <Button
-              type="button"
-              onClick={() => setShowKasbonForm(true)}
-              className="bg-suka-orange hover:bg-suka-orange/90 text-white font-bold rounded-xl text-xs flex items-center gap-1.5"
-            >
-              <Plus size={15} /> Tambah Kasbon
-            </Button>
-          </div>
-
-          {loadingKasbon ? (
-            <div className="flex justify-center p-12">
-              <Spinner />
-            </div>
-          ) : (
-            <CashAdvanceTable
-              rows={kasbonData}
-              onAddPayment={setPayingKasbon}
-              onApprove={handleApproveKasbon}
-              onReject={handleRejectKasbon}
-            />
-          )}
-
-          {/* Create Kasbon Modal */}
-          {showKasbonForm && (
-            <CashAdvanceForm
-              mode="kasbon"
-              onSubmit={handleCreateKasbon}
-              submitting={kasbonMutations.create.isPending}
-              onCancel={() => setShowKasbonForm(false)}
-            />
-          )}
-
-          {/* Pay Installment Modal */}
-          {payingKasbon && (
-            <CashAdvanceForm
-              mode="payment"
-              maxAmount={payingKasbon.remaining}
-              onSubmit={handleAddPayment}
-              submitting={kasbonMutations.addPayment.isPending}
-              onCancel={() => setPayingKasbon(null)}
-            />
-          )}
-        </div>
-      )}
     </div>
   )
 }

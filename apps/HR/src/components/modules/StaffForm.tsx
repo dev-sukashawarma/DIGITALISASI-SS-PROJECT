@@ -14,6 +14,22 @@ import { toast } from 'sonner'
 
 export const KANTOR_PUSAT_ID = 'ffffffff-ffff-ffff-ffff-ffffffffffff'
 
+function addDays(dateStr: string, days: number): string {
+  if (!dateStr) return ''
+  const parts = dateStr.split('-')
+  if (parts.length !== 3) return ''
+  const year = parseInt(parts[0], 10)
+  const month = parseInt(parts[1], 10) - 1
+  const day = parseInt(parts[2], 10)
+  const d = new Date(year, month, day)
+  if (isNaN(d.getTime())) return ''
+  d.setDate(d.getDate() + days)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dt = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dt}`
+}
+
 const ROLES: Role[] = [
   'admin',
   'admin_hr',
@@ -57,7 +73,7 @@ const getStaffFormSchema = (isEditing: boolean) =>
       'area_manager',
       'purchasing',
     ] as [string, ...string[]]),
-    sub_role: z.enum(['crew_regular', 'crew_backup']).nullable().optional().or(z.literal('')),
+    sub_role: z.enum(['crew_regular', 'crew_backup', 'crew_trainee']).nullable().optional().or(z.literal('')),
     onboarding_stage: z.enum(['training_7_days', 'ojt', 'graduated', 'regular', 'failed']).nullable().optional().or(z.literal('')),
     training_start_date: z.string().nullable().optional(),
     outlet_id: z.string().optional().or(z.literal('')),
@@ -222,6 +238,7 @@ export function StaffForm({
   const watchRole = watch('role')
   const watchSubRole = watch('sub_role')
   const watchOnboardingStage = watch('onboarding_stage')
+  const watchJoinDate = watch('join_date')
   const watchNik = watch('nik')
   const watchNip = watch('nip')
 
@@ -237,6 +254,29 @@ export function StaffForm({
       }
     }
   }, [watchRole, outlets, setValue])
+
+  // Otomatisasi pembatasan tahap kepegawaian untuk Crew Trainee (hanya Tahap 1 & Tahap 2)
+  useEffect(() => {
+    if (watchRole === 'crew' && watchSubRole === 'crew_trainee') {
+      if (watchOnboardingStage !== 'training_7_days' && watchOnboardingStage !== 'ojt') {
+        setValue('onboarding_stage', 'training_7_days')
+      }
+    }
+  }, [watchRole, watchSubRole, watchOnboardingStage, setValue])
+
+  // Otomatisasi perhitungan tanggal selesai 7 hari dan sinkronisasi tanggal mulai training untuk Crew Trainee
+  useEffect(() => {
+    if (watchRole === 'crew' && watchSubRole === 'crew_trainee') {
+      if (watchJoinDate) {
+        setValue('training_start_date', watchJoinDate)
+        if (watchOnboardingStage === 'training_7_days') {
+          // 7 hari kalender inklusif: hari ke-1 s/d hari ke-7 (+6 hari)
+          const autoResignDate = addDays(watchJoinDate, 6)
+          setValue('resign_date', autoResignDate)
+        }
+      }
+    }
+  }, [watchRole, watchSubRole, watchOnboardingStage, watchJoinDate, setValue])
 
   // Real-time duplicate check against existing staff database
   const duplicateNikOwner = (() => {
@@ -396,13 +436,19 @@ export function StaffForm({
       data.role === 'area_manager' ||
       (data.role === 'crew' && data.sub_role === 'crew_backup')
 
+    const isTrainee = data.role === 'crew' && data.sub_role === 'crew_trainee'
+    let calculatedResignDate = data.resign_date || null
+    if (isTrainee && data.onboarding_stage === 'training_7_days' && data.join_date) {
+      calculatedResignDate = addDays(data.join_date, 6)
+    }
+
     const payload: StaffFormValues = {
       name: data.name.trim(),
       username: data.username ? data.username.trim() : '',
       role: data.role as Role,
       sub_role: data.role === 'crew' ? (data.sub_role || 'crew_regular') : undefined,
       onboarding_stage: data.role === 'crew' ? (data.onboarding_stage || 'regular') : 'regular',
-      training_start_date: data.training_start_date || null,
+      training_start_date: isTrainee ? (data.join_date || data.training_start_date || null) : (data.training_start_date || null),
       outlet_id: finalOutletId || (outlets[0]?.id || KANTOR_PUSAT_ID),
       outlet_ids: isMultiOutletRole ? (data.outlet_ids ?? []) : [],
       is_bonus_eligible: data.is_bonus_eligible !== undefined ? data.is_bonus_eligible : true,
@@ -419,10 +465,10 @@ export function StaffForm({
       emergency_relationship: data.emergency_relationship || null,
       emergency_phone: data.emergency_phone || null,
       nip: cleanNip,
-      contract_type: (data.contract_type as any) || null,
+      contract_type: isTrainee ? null : ((data.contract_type as any) || null),
       join_date: data.join_date || null,
-      resign_date: data.resign_date || null,
-      leave_quota: data.leave_quota || 0,
+      resign_date: calculatedResignDate,
+      leave_quota: isTrainee ? 0 : (data.leave_quota || 0),
       basic_salary: data.basic_salary || 0,
       allowance_meal: data.allowance_meal || 0,
       allowance_transport: data.allowance_transport || 0,
@@ -550,6 +596,7 @@ export function StaffForm({
                 <select id="sf-sub-role" className={inputCls} {...register('sub_role')}>
                   <option value="crew_regular">Crew Reguler (Penugasan Tetap)</option>
                   <option value="crew_backup">Crew Backup (Floating / Cadangan)</option>
+                  <option value="crew_trainee">Trainee</option>
                 </select>
               </div>
             )}
@@ -588,49 +635,91 @@ export function StaffForm({
                 <div>
                   <label htmlFor="sf-onboarding-stage" className={labelCls}>Tahap Kepegawaian</label>
                   <select id="sf-onboarding-stage" className={inputCls} {...register('onboarding_stage')}>
-                    <option value="regular">Karyawan Reguler (Langsung Aktif)</option>
-                    <option value="training_7_days">Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)</option>
-                    <option value="ojt">Tahap 2: On Job Training (OJT)</option>
-                    <option value="graduated">Lulus PKWT</option>
-                    <option value="failed">Tidak Lolos (Gugur)</option>
+                    {watchSubRole === 'crew_trainee' ? (
+                      <>
+                        <option value="training_7_days">Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)</option>
+                        <option value="ojt">Tahap 2: On Job Training (OJT)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="regular">Karyawan Reguler (Langsung Aktif)</option>
+                        <option value="training_7_days">Tahap 1: Training (7 Hari — Uang Makan Rp 15rb/hari)</option>
+                        <option value="ojt">Tahap 2: On Job Training (OJT)</option>
+                        <option value="graduated">Lulus PKWT</option>
+                        <option value="failed">Tidak Lolos (Gugur)</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
-                {(watchOnboardingStage === 'training_7_days' || watchOnboardingStage === 'ojt') && (
-                  <div>
-                    <label htmlFor="sf-training-date" className={labelCls}>Tanggal Mulai Training</label>
-                    <input id="sf-training-date" type="date" className={inputCls} {...register('training_start_date')} />
-                    <span className="text-[11px] text-suka-gray-500 mt-1 block">
-                      Patokan Hari ke-1 s/d Hari ke-15+ untuk evaluasi kelayakan Area Manager.
-                    </span>
-                  </div>
+                {watchSubRole !== 'crew_trainee' &&
+                  (watchOnboardingStage === 'training_7_days' || watchOnboardingStage === 'ojt') && (
+                    <div>
+                      <label htmlFor="sf-training-date" className={labelCls}>Tanggal Mulai Training</label>
+                      <input id="sf-training-date" type="date" className={inputCls} {...register('training_start_date')} />
+                      <span className="text-[11px] text-suka-gray-500 mt-1 block">
+                        Patokan Hari ke-1 s/d Hari ke-15+ untuk evaluasi kelayakan Area Manager.
+                      </span>
+                    </div>
                 )}
               </>
             )}
 
-            <div>
-              <label htmlFor="sf-contract" className={labelCls}>Jenis Kontrak</label>
-              <select id="sf-contract" className={inputCls} {...register('contract_type')}>
-                <option value="permanent">Tetap (Permanent)</option>
-                <option value="contract">Kontrak (PKWT)</option>
-                <option value="intern">Magang (Internship)</option>
-                <option value="daily">Harian / Freelance</option>
-              </select>
-            </div>
+            {!(watchRole === 'crew' && watchSubRole === 'crew_trainee') && (
+              <>
+                <div>
+                  <label htmlFor="sf-contract" className={labelCls}>Jenis Kontrak</label>
+                  <select id="sf-contract" className={inputCls} {...register('contract_type')}>
+                    <option value="permanent">Tetap (Permanent)</option>
+                    <option value="contract">Kontrak (PKWT)</option>
+                    <option value="intern">Magang (Internship)</option>
+                    <option value="daily">Harian / Freelance</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="sf-leave" className={labelCls}>Kuota Cuti Tahunan (Hari)</label>
+                  <input id="sf-leave" type="number" min={0} className={inputCls} {...register('leave_quota')} />
+                </div>
+              </>
+            )}
 
             <div>
-              <label htmlFor="sf-leave" className={labelCls}>Kuota Cuti Tahunan (Hari)</label>
-              <input id="sf-leave" type="number" min={0} className={inputCls} {...register('leave_quota')} />
-            </div>
-
-            <div>
-              <label htmlFor="sf-join" className={labelCls}>Tanggal Mulai Bekerja</label>
+              <label htmlFor="sf-join" className={labelCls}>
+                {watchRole === 'crew' && watchSubRole === 'crew_trainee'
+                  ? (watchOnboardingStage === 'training_7_days'
+                      ? 'Tanggal Mulai Training (Tahap 1)'
+                      : 'Tanggal Mulai OJT (Tahap 2)')
+                  : 'Tanggal Mulai Bekerja'}
+              </label>
               <input id="sf-join" type="date" className={inputCls} {...register('join_date')} />
             </div>
 
             <div>
-              <label htmlFor="sf-resign" className={labelCls}>Tanggal Selesai / Habis Kontrak</label>
-              <input id="sf-resign" type="date" className={inputCls} {...register('resign_date')} />
+              <label htmlFor="sf-resign" className={labelCls}>
+                {watchRole === 'crew' && watchSubRole === 'crew_trainee'
+                  ? (watchOnboardingStage === 'training_7_days'
+                      ? 'Tanggal Selesai Training (Otomatis 7 Hari)'
+                      : 'Tanggal Selesai OJT')
+                  : 'Tanggal Selesai / Habis Kontrak'}
+              </label>
+              {watchRole === 'crew' && watchSubRole === 'crew_trainee' && watchOnboardingStage === 'training_7_days' ? (
+                <div>
+                  <input
+                    id="sf-resign"
+                    type="date"
+                    readOnly
+                    tabIndex={-1}
+                    className={`${inputCls} bg-stone-100 text-stone-700 border-dashed cursor-not-allowed font-semibold`}
+                    {...register('resign_date')}
+                  />
+                  <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2 py-0.5 mt-1 inline-flex items-center gap-1 font-semibold">
+                    ⚡ Otomatis 7 hari kalender dari tanggal mulai bekerja
+                  </span>
+                </div>
+              ) : (
+                <input id="sf-resign" type="date" className={inputCls} {...register('resign_date')} />
+              )}
             </div>
 
             {(watchRole === 'leader' ||

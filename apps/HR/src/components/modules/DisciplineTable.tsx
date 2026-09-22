@@ -1,7 +1,8 @@
 'use client'
 
-import { CheckCircle2 } from 'lucide-react'
+import { CheckCircle2, Clock } from 'lucide-react'
 import type { DisciplineRecord, WarningLevel } from '@/lib/types'
+import { isRecordActive } from '@/lib/disciplineUtils'
 
 const LEVEL_BADGES: Record<WarningLevel, { bg: string; text: string; border: string }> = {
   'Teguran': { bg: 'bg-stone-100', text: 'text-stone-700', border: 'border-stone-200' },
@@ -22,6 +23,10 @@ export function DisciplineTable({
   const fmtDate = (iso?: string | null) => {
     if (!iso) return '—'
     try {
+      const parts = iso.split('T')[0].split('-')
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`
+      }
       const d = new Date(iso)
       const dd = String(d.getDate()).padStart(2, '0')
       const mm = String(d.getMonth() + 1).padStart(2, '0')
@@ -41,9 +46,9 @@ export function DisciplineTable({
               <th className="px-4 py-3.5">Nama &amp; Outlet</th>
               <th className="px-4 py-3.5">Tingkat SP</th>
               <th className="px-4 py-3.5">Tgl Pelanggaran</th>
+              <th className="px-4 py-3.5">Berlaku Sampai</th>
               <th className="px-4 py-3.5">Alasan / Kronologi</th>
               <th className="px-4 py-3.5">Rencana Perbaikan</th>
-              <th className="px-4 py-3.5">Berlaku Sampai</th>
               <th className="px-4 py-3.5">Status</th>
               <th className="px-4 py-3.5 text-right">Aksi</th>
             </tr>
@@ -51,6 +56,9 @@ export function DisciplineTable({
           <tbody className="divide-y divide-suka-gray-100">
             {rows.map((r) => {
               const badge = LEVEL_BADGES[r.warning_level] || LEVEL_BADGES.SP1
+              const isActive = isRecordActive(r)
+              const isResolved = r.status === 'resolved'
+
               return (
                 <tr key={r.id} className="hover:bg-amber-50/30 transition-colors">
                   <td className="px-4 py-3">
@@ -69,6 +77,9 @@ export function DisciplineTable({
                   <td className="px-4 py-3 text-xs font-mono text-gray-600">
                     {fmtDate(r.incident_date || r.issue_date)}
                   </td>
+                  <td className="px-4 py-3 text-xs font-mono text-gray-600">
+                    {fmtDate(r.expires_at || r.expiry_date)}
+                  </td>
                   <td className="px-4 py-3 text-xs text-gray-700 max-w-[220px]">
                     <p className="font-medium truncate" title={r.reason}>
                       {r.reason}
@@ -77,22 +88,23 @@ export function DisciplineTable({
                   <td className="px-4 py-3 text-xs text-gray-500 max-w-[180px] truncate">
                     {r.action_plan || '—'}
                   </td>
-                  <td className="px-4 py-3 text-xs font-mono text-gray-600">
-                    {fmtDate(r.expires_at || r.expiry_date)}
-                  </td>
                   <td className="px-4 py-3">
-                    {r.status === 'active' ? (
+                    {isResolved ? (
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <CheckCircle2 size={11} /> Selesai
+                      </span>
+                    ) : isActive ? (
                       <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
                         Aktif
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                        <CheckCircle2 size={11} /> Selesai
+                      <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold bg-stone-100 text-stone-600 border border-stone-300">
+                        <Clock size={11} /> Gugur (Berakhir)
                       </span>
                     )}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    {r.status === 'active' && (
+                    {isActive && (
                       <button
                         onClick={() => onResolve(r.id)}
                         className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700 shadow-2xs hover:bg-emerald-100 transition-all cursor-pointer"

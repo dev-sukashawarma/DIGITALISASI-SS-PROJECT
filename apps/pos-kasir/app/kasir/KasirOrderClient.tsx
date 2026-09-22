@@ -20,7 +20,6 @@ import { formatRupiah } from '@/lib/validations'
 import { getOrderGrossAmount } from '@/lib/channel-filter'
 import ChannelBadge from '@/components/ChannelBadge'
 import StockMarquee from '@/components/StockMarquee'
-import { useStockAlerts } from '@/lib/useStockAlerts'
 import type { OrderWithItems, OrderStatus } from '@/types'
 import { postToNative } from '@suka/design-system'
 import { useDialogStore } from '@/lib/dialogStore'
@@ -653,28 +652,6 @@ export default function KasirOrderClient({
   const { brandLogo } = useBrand()
   const { device, isConnecting } = usePrinterStore()
   const outletId = clientOutletId || serverOutletId // Fallback to SSR outletId to prevent flash
-
-  const { criticalItems } = useStockAlerts(outletId)
-  
-  const shawarmaRemaining = useMemo(() => {
-    if (!criticalItems || criticalItems.length === 0) return null;
-    let minPortions = Infinity;
-    criticalItems.forEach(item => {
-      if (!item.projection_text) return
-      const parts = item.projection_text.split(' atau ')
-      parts.forEach(part => {
-        const match = part.match(/(.*?)\s*\((\d+)\s*porsi\)/)
-        if (match) {
-          const menuName = match[1].trim()
-          const portions = parseInt(match[2], 10)
-          if (menuName.toLowerCase().includes('shawarma')) {
-            minPortions = Math.min(minPortions, portions)
-          }
-        }
-      })
-    })
-    return minPortions === Infinity ? null : minPortions;
-  }, [criticalItems])
 
   const { data: serverOrders = (initialOrders || []), isLoading: loading, isFetched: ordersFetched } = useQuery({
     queryKey: ['orders', outletId],
@@ -1330,12 +1307,6 @@ export default function KasirOrderClient({
                 <Store className="w-4 h-4 text-[#f29744] shrink-0" />
                 <span className="truncate">Anda berada di cabang: <strong className="text-[#1e1b15]">{outletName}</strong></span>
               </p>
-              {shawarmaRemaining !== null && shawarmaRemaining < 7 && (
-                <Link href="/kasir/info-porsi" className="text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 px-2.5 py-1.5 rounded-lg flex items-center w-max transition-colors shadow-sm">
-                  <Flame className="w-3.5 h-3.5 mr-1.5 animate-pulse" />
-                  Sisa Shawarma: {shawarmaRemaining === 0 ? 'HABIS' : `${shawarmaRemaining} Porsi`} <span className="ml-1 text-red-500/70 font-normal">(Klik Detail)</span>
-                </Link>
-              )}
             </div>
           )}
         </div>

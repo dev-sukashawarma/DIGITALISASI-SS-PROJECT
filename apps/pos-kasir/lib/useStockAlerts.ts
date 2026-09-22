@@ -14,7 +14,6 @@ export interface StockAlertItem {
   current_qty: number
   threshold: number
   status: StockStatus
-  projection_text: string | null
 }
 
 async function fetchStockAlerts(outletId: string): Promise<StockAlertItem[]> {
@@ -22,7 +21,7 @@ async function fetchStockAlerts(outletId: string): Promise<StockAlertItem[]> {
 
   const { data, error } = await supabase
     .from('monitoring_view_crew')
-    .select('bahan_baku_id, item_name, satuan, kategori, current_qty, threshold, status, projection_text')
+    .select('bahan_baku_id, item_name, satuan, kategori, current_qty, threshold, status')
     .eq('outlet_id', outletId)
     .in('status', ['below', 'warning'])
     .order('status')

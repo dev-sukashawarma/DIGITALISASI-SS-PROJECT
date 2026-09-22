@@ -21,8 +21,7 @@ const links = [
     label: 'Order', 
     icon: Bell,
     subItems: [
-      { href: '/kasir', label: 'Pesanan Kasir' },
-      { href: '/kasir/info-porsi', label: 'Info Porsi & Stok' }
+      { href: '/kasir', label: 'Pesanan Kasir' }
     ]
   },
   { href: '/kasir/menu',       label: 'Manajemen Menu',icon: Sandwich },

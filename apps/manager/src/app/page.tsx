@@ -57,7 +57,7 @@ const getAMName = (outletId: string, outletName: string, amMap: Map<string, stri
   if (name.includes('CIBINONG') || name.includes('CISEENG') || name.includes('SENTUL') || name.includes('PAJAJARAN')) {
     return 'Muchtar';
   }
-  if (name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('CIRENDEU') || name.includes('JAGAKARSA')) {
+  if (name.includes('SUKMAJAYA') || name.includes('BEJI') || name.includes('SAWANGAN') || name.includes('CIRENDEU') || name.includes('JAGAKARSA') || name.includes('PAMULANG')) {
     return 'Chairul Rizky';
   }
   if (name.includes('KALISARI') || name.includes('CIBUBUR') || name.includes('CILENGSI') || name.includes('CILEUNGSI')) {

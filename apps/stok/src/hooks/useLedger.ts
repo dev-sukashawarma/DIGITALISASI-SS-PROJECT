@@ -12,6 +12,21 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
   const { data, isLoading, error } = useQuery({
     queryKey: ['ledger-transaksi', outletId, page],
     queryFn: async () => {
+      // Fast path for Page 0: Redis Smart Cache via Next.js API route (< 2ms response)
+      if (page === 0 && outletId) {
+        try {
+          const res = await fetch(`/api/ledger?outletId=${encodeURIComponent(outletId)}&page=0`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && Array.isArray(json.data)) {
+              return json.data as LedgerTransaksiSummary[];
+            }
+          }
+        } catch (apiErr) {
+          console.warn('[useLedger] API smart cache missed or unavailable, falling back to direct DB query', apiErr);
+        }
+      }
+
       const supabase = createClient()
       // RPC ledger_transaksi_page (migration 20260922160000): hasil identik
       // dengan view ledger_transaksi_ringkas, tapi hanya mengagregasi jendela
@@ -99,11 +114,8 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
     enabled: !!outletId,
     debounceMs: 800,
     subs: [
-      {
-        table: 'ledger_stok',
-        filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
-        queryKeys: [['ledger-transaksi', outletId], ['ledger-transaksi-detail', outletId]],
-      },
+      // Catatan Performa: ledger_stok dicabut dari realtime database (858k+ baris).
+      // Web mengandalkan React Query staleTime/refetch + waste report realtime.
       {
         table: 'stok_waste_reports',
         filter: outletId ? `outlet_id=eq.${outletId}` : undefined,
@@ -164,6 +176,18 @@ export interface ManualEntryBatchItem {
   signedOverride?: number
 }
 
+async function invalidateServerLedgerCache(outletId?: string) {
+  try {
+    await fetch('/api/ledger/invalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outletId }),
+    })
+  } catch {
+    // Non-blocking fire-and-forget
+  }
+}
+
 export function useLedgerActions() {
   const supabase = createClient()
   const addManual = useCallback(async (input: ManualEntryInput, signedOverride?: number) => {
@@ -173,6 +197,7 @@ export function useLedgerActions() {
       tipe: input.tipe, qty, catatan: input.catatan, created_by: input.createdBy,
     })
     if (error) throw new Error(error.message)
+    invalidateServerLedgerCache(input.outletId)
   }, [])
 
   const addManualBatch = useCallback(async (
@@ -194,6 +219,7 @@ export function useLedgerActions() {
     })
     const { error } = await supabase.from('ledger_stok').insert(records)
     if (error) throw new Error(error.message)
+    invalidateServerLedgerCache(outletId)
   }, [])
 
   // Penyesuaian/transfer keluar bahan multi-vendor di Gudang Pusat: ledger +
@@ -202,6 +228,7 @@ export function useLedgerActions() {
     if (!items.length) return
     const { error } = await supabase.rpc('catat_penyesuaian_gudang_vendor', { p_items: items })
     if (error) throw new Error(error.message)
+    invalidateServerLedgerCache()
   }, [])
 
   return { addManual, addManualBatch, addPenyesuaianVendor }

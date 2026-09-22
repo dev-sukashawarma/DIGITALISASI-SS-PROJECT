@@ -227,7 +227,15 @@ export default function KasirMenuClient({
   const autoUnavailableIds = data?.autoUnavailableIds ?? []
   const forceAvailableIds = data?.forceAvailableIds ?? []
 
-  const invalidateMenu = () => queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
+  const invalidateMenu = () => {
+    queryClient.invalidateQueries({ queryKey: ['menu', outletId] })
+    // Purge L1 In-Memory + L2 Redis Cache on server
+    fetch('/api/menu/invalidate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ outletId }),
+    }).catch(() => {})
+  }
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {

@@ -21,46 +21,51 @@ export const dynamic = 'force-dynamic'
 export default async function DashboardPage() {
   const user = await getCurrentUser()
 
-  const [outletCount, kolCount, endorsementCount, adCount] = await Promise.all([
+  // Get upcoming agenda start date
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+
+  // Execute counts, database-level aggregations, and agenda queries in parallel
+  const [
+    outletCount,
+    kolCount,
+    endorsementCount,
+    adCount,
+    endorseAgg,
+    adsAgg,
+    recentEndorsements,
+    upcomingEndorsements,
+    upcomingAds,
+    upcomingPromos,
+  ] = await Promise.all([
     prisma.outlet.count(),
     prisma.kol.count(),
     prisma.endorsement.count(),
     prisma.ad.count(),
-  ])
-
-  // Aggregate total views and spend
-  const [endorsements, ads] = await Promise.all([
+    // DB-level aggregation for Endorsements (spend & views)
+    prisma.$queryRaw<Array<{ total_spend: number | null; total_views: bigint | number | null }>>`
+      SELECT 
+        COALESCE(SUM(rate_card), 0)::float AS total_spend,
+        COALESCE(SUM(COALESCE(final_views, initial_views, 0)), 0)::bigint AS total_views
+      FROM endorsements
+    `,
+    // DB-level aggregation for Ads (spend & views)
+    prisma.$queryRaw<Array<{ total_spend: number | null; total_views: bigint | number | null }>>`
+      SELECT 
+        COALESCE(SUM(budget), 0)::float AS total_spend,
+        COALESCE(SUM(COALESCE(final_views, initial_views, 0)), 0)::bigint AS total_views
+      FROM ads
+    `,
+    // Get recent 5 endorsements
     prisma.endorsement.findMany({
-      select: { rateCard: true, initialViews: true, finalViews: true },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        outlet: true,
+        kol: true,
+      },
     }),
-    prisma.ad.findMany({
-      select: { budget: true, initialViews: true, finalViews: true },
-    }),
-  ])
-
-  const totalEndorseSpend = endorsements.reduce((sum, e) => sum + Number(e.rateCard), 0)
-  const totalAdsSpend = ads.reduce((sum, a) => sum + Number(a.budget), 0)
-  const totalCombinedBudget = totalEndorseSpend + totalAdsSpend
-
-  const totalViews =
-    endorsements.reduce((sum, e) => sum + (e.finalViews || e.initialViews || 0), 0) +
-    ads.reduce((sum, a) => sum + (a.finalViews || a.initialViews || 0), 0)
-
-  // Get recent 5 endorsements
-  const recentEndorsements = await prisma.endorsement.findMany({
-    take: 5,
-    orderBy: { createdAt: 'desc' },
-    include: {
-      outlet: true,
-      kol: true,
-    },
-  })
-
-  // Get upcoming agenda items
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-
-  const [upcomingEndorsements, upcomingAds, upcomingPromos] = await Promise.all([
+    // Upcoming agenda items
     prisma.endorsement.findMany({
       where: { scheduleDate: { gte: todayStart } },
       take: 4,
@@ -80,6 +85,13 @@ export default async function DashboardPage() {
       include: { outlet: true },
     }),
   ])
+
+  const totalEndorseSpend = Number(endorseAgg[0]?.total_spend || 0)
+  const totalAdsSpend = Number(adsAgg[0]?.total_spend || 0)
+  const totalCombinedBudget = totalEndorseSpend + totalAdsSpend
+
+  const totalViews =
+    Number(endorseAgg[0]?.total_views || 0) + Number(adsAgg[0]?.total_views || 0)
 
   const upcomingAgendas = [
     ...upcomingEndorsements.map((e: any) => ({

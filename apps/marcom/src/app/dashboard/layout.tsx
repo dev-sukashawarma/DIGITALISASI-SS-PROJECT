@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getCurrentUser } from '@/lib/auth'
 import { ensureDatabaseSchema } from '@/lib/prisma'
-import Sidebar from '@/components/dashboard/Sidebar'
+import DashboardShell from '@/components/dashboard/DashboardShell'
 
 export default async function DashboardLayout({
   children,
@@ -16,13 +16,8 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAF8F5] text-[#1A1715] font-sans antialiased selection:bg-amber-200 selection:text-amber-950">
-      <Sidebar user={user} />
-      <div className="lg:pl-64 flex flex-col min-h-screen">
-        <main className="flex-1 p-4 sm:p-5 lg:p-6 xl:p-8 w-full space-y-6">
-          {children}
-        </main>
-      </div>
-    </div>
+    <DashboardShell user={user}>
+      {children}
+    </DashboardShell>
   )
 }

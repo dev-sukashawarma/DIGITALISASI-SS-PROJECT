@@ -109,7 +109,9 @@ model Endorsement {
   @@index([kolId], name: "idx_endorsements_kol_id")
   @@index([outletId], name: "idx_endorsements_outlet_id")
   @@index([scheduleDate], name: "idx_endorsements_date")
-  @@index([paymentStatus], name: "idx_endorsements_payment_status")
+  @@index([outletId, scheduleDate], name: "idx_endorsements_outlet_schedule")
+  @@index([visitStatus, scheduleDate], name: "idx_endorsements_visit_schedule")
+  @@index([paymentStatus, scheduleDate], name: "idx_endorsements_payment_schedule")
   @@index([type], name: "idx_endorsements_type")
   @@map("endorsements")
 }
@@ -132,6 +134,7 @@ model EndorsementPost {
   endorsement        Endorsement @relation(fields: [endorsementId], references: [id], onDelete: Cascade)
 
   @@index([endorsementId], name: "idx_endorsement_posts_endorsement_id")
+  @@index([endorsementId, createdAt], name: "idx_endorsement_posts_endorsement_created")
   @@map("endorsement_posts")
 }
 
@@ -159,6 +162,8 @@ model Ad {
   @@index([outletId], name: "idx_ads_outlet_id")
   @@index([category], name: "idx_ads_category")
   @@index([scheduleDate], name: "idx_ads_schedule_date")
+  @@index([outletId, scheduleDate], name: "idx_ads_outlet_schedule")
+  @@index([status, scheduleDate], name: "idx_ads_status_schedule")
   @@map("ads")
 }
 
@@ -224,6 +229,9 @@ model InternalContent {
   @@index([isAds], name: "idx_internal_content_ads")
   @@index([postDate], name: "idx_internal_content_date")
   @@index([outletId], name: "idx_internal_content_outlet")
+  @@index([outletId, postDate], name: "idx_internal_content_outlet_date")
+  @@index([platform, postDate], name: "idx_internal_content_platform_date")
+  @@index([pillar, postDate], name: "idx_internal_content_pillar_date")
   @@index([groupId], name: "idx_internal_content_group_id")
   @@map("internal_contents")
 }

@@ -403,17 +403,32 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
               const meta = TIPE_META[tipe]
               const jmlFlag = rows.filter((it) => it.qty_fisik !== null && it.flagged).length
               return (
-                <section key={tipe} className="space-y-2.5">
-                  <div className="flex items-center justify-between gap-2 px-1">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${meta.badge}`}>
-                        {meta.judul}
+                <section key={tipe} className="space-y-2.5 pt-2">
+                  <div className={`flex items-center justify-between gap-3 rounded-xl border border-l-[6px] px-4 py-3 ${meta.header}`}>
+                    <div className="flex items-center gap-3 min-w-0">
+                      <span className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-lg ${meta.iconBg}`} aria-hidden>
+                        {meta.icon}
                       </span>
-                      <span className="text-[10px] text-[#544437]/60 font-medium">{meta.sub} · {rows.length} bahan</span>
+                      <div className="min-w-0">
+                        <h4 className={`text-sm font-black uppercase tracking-wider leading-tight ${meta.title}`}>
+                          {meta.judul}
+                        </h4>
+                        <p className="text-[10px] font-medium text-[#544437]/75 mt-0.5">
+                          {meta.sub}
+                          {canViewThresholdAndLoss && <> · Toleransi {meta.toleransi}</>}
+                        </p>
+                      </div>
                     </div>
-                    {canViewThresholdAndLoss && jmlFlag > 0 && (
-                      <span className="text-[9px] font-bold text-[#ba1a1a]">⚠️ {jmlFlag} melebihi toleransi</span>
-                    )}
+                    <div className="flex flex-shrink-0 flex-col items-end gap-1">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${meta.countChip}`}>
+                        {rows.length} bahan
+                      </span>
+                      {canViewThresholdAndLoss && jmlFlag > 0 && (
+                        <span className="text-[9px] font-black uppercase tracking-wider text-[#ba1a1a] bg-red-50 border border-red-200 px-2 py-0.5 rounded-md">
+                          ⚠️ {jmlFlag} melebihi
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {rows.map(it => {
                     const bahan = bahanMap[it.bahan_baku_id];
@@ -619,11 +634,21 @@ const TIPE_META = {
   bulk: {
     judul: 'Bulk Material',
     sub: 'Ditimbang / diukur',
-    badge: 'bg-[#fff4e5] text-[#904d00] border-[#f29744]/35',
+    toleransi: `±${THRESHOLD_BULK_PERSEN}% (Ayam & Sapi ±40%)`,
+    icon: '⚖️',
+    header: 'bg-[#fff4e5] border-[#f29744]/40 border-l-[#f29744]',
+    iconBg: 'bg-[#f29744]/20',
+    title: 'text-[#904d00]',
+    countChip: 'bg-[#f29744]/20 text-[#904d00]',
   },
   count: {
     judul: 'Count Material',
     sub: 'Dihitung per satuan',
-    badge: 'bg-[#eef2ff] text-[#3730a3] border-[#6366f1]/25',
+    toleransi: '0%',
+    icon: '🔢',
+    header: 'bg-[#eef2ff] border-[#6366f1]/30 border-l-[#6366f1]',
+    iconBg: 'bg-[#6366f1]/15',
+    title: 'text-[#3730a3]',
+    countChip: 'bg-[#6366f1]/15 text-[#3730a3]',
   },
 } as const

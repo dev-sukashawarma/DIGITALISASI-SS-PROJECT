@@ -25,6 +25,8 @@ import { useQuery } from '@tanstack/react-query';
 import { updateThresholdAction } from '@/app/actions/threshold';
 import { useOutletScope } from '@/hooks/useOutletScope';
 import { useDaftarRetur } from '@/hooks/useRetur';
+import { canViewPermintaanQueue } from '@/lib/stok/approver';
+import * as navAccess from '@/lib/stok/navAccess';
 
 const getOutletRegion = (outletName: string): 'Central Kitchen' | 'Bogor' | 'Jakarta' | 'Depok' | 'Bekasi' | 'Tangerang' | 'Developer' => {
   const name = outletName.toUpperCase();
@@ -100,6 +102,11 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   // Auth context for username
   const { outletStaff } = useAuth();
   const isOwner = outletStaff?.role === 'owner';
+  const role = outletStaff?.role;
+  // Aturan tab = aturan sidebar (lib/stok/navAccess.ts). Jangan tulis daftar
+  // role baru di sini.
+  const canSeeApproval = canViewPermintaanQueue(role);
+  const canSeeWasteApproval = navAccess.canApproveWaste(role);
 
   const isLeaderScoped = !!allowedOutletIds;
   const spvQuery = useSPVMonitoringData(!isLeaderScoped);
@@ -110,11 +117,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
   const wasteTodayQuery = useWasteToday();
 
   // Pending request approvals hook
-  const { permintaan: pendingApprovals } = useApprovalList();
+  const { permintaan: pendingApprovals } = useApprovalList(canSeeApproval);
 
   const { data: pendingWaste } = useQuery({
     queryKey: ['waste_pending_all'],
     queryFn: () => fetchPendingWasteReports(),
+    enabled: canSeeWasteApproval,
     refetchInterval: 30000
   });
 
@@ -468,7 +476,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           } else if (tab === 'retur_approval') {
             router.push('/stok/refund?tab=manager');
           } else if (tab === 'waste_approval') {
-            router.push('/stok/waste/approval');
+            router.push(canSeeWasteApproval ? '/stok/waste/approval' : '/stok/waste/history');
           } else if (tab === 'po_inbound') {
             router.push('/stok/penerimaan-po');
           } else if (tab === 'harga_bahan') {
@@ -486,7 +494,12 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
         approvalCount={pendingApprovals.length}
         returApprovalCount={pendingReturCount}
         wasteApprovalCount={pendingWaste?.length ?? 0}
-        showPOInbound={true}
+        showApproval={canSeeApproval}
+        showBudgetOutlet={navAccess.canViewBudgetOutlet(role)}
+        showWasteApproval={navAccess.canViewWasteList(role)}
+        wasteTabLabel={canSeeWasteApproval ? 'Approval Waste' : 'Riwayat Waste'}
+        showPOInbound={navAccess.canReceivePO(role)}
+        showHargaBahan={navAccess.canViewVendorPrices(role)}
         showReturApproval={isManagerRole}
       />
 
@@ -523,7 +536,7 @@ export function SPVDashboard({ allowedOutletIds }: { allowedOutletIds?: string[]
           </div>
         )}
 
-        {activeTab === 'budget_outlet' ? (
+        {activeTab === 'budget_outlet' && navAccess.canViewBudgetOutlet(role) ? (
           <BudgetOutletTabContent />
         ) : isLoading && !data ? (
           <div className="flex-1 p-6 space-y-6">

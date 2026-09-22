@@ -23,6 +23,11 @@ interface SPVTabsProps {
   readOnlyTabs?: boolean;
   showPOInbound?: boolean;
   showReturApproval?: boolean;
+  showApproval?: boolean;
+  showBudgetOutlet?: boolean;
+  showWasteApproval?: boolean;
+  showHargaBahan?: boolean;
+  wasteTabLabel?: string;
 }
 
 export function SPVTabs({ 
@@ -36,16 +41,21 @@ export function SPVTabs({
   readOnlyTabs = false,
   showPOInbound = false,
   showReturApproval = false,
+  showApproval = false,
+  showBudgetOutlet = false,
+  showWasteApproval = false,
+  showHargaBahan = false,
+  wasteTabLabel = 'Approval Waste',
 }: SPVTabsProps) {
   const allTabs: { id: SPVTabId; label: string; count: number | null }[] = [
     { id: 'overview', label: 'Overview Stok', count: null },
     { id: 'alerts', label: 'Peringatan Stok', count: alertCount },
-    { id: 'approval', label: 'Approval Permintaan', count: approvalCount },
+    ...(showApproval ? [{ id: 'approval' as SPVTabId, label: 'Approval Permintaan', count: approvalCount }] : []),
     ...(showReturApproval ? [{ id: 'retur_approval' as SPVTabId, label: 'Approval Retur', count: returApprovalCount || 0 }] : []),
-    { id: 'budget_outlet', label: 'Plafon & Belanja Outlet', count: null },
-    { id: 'waste_approval', label: 'Approval Waste', count: wasteApprovalCount || 0 },
+    ...(showBudgetOutlet ? [{ id: 'budget_outlet' as SPVTabId, label: 'Plafon & Belanja Outlet', count: null }] : []),
+    ...(showWasteApproval ? [{ id: 'waste_approval' as SPVTabId, label: wasteTabLabel, count: wasteApprovalCount || 0 }] : []),
     ...(showPOInbound ? [{ id: 'po_inbound' as SPVTabId, label: 'Penerimaan PO Supplier', count: poInboundCount || 0 }] : []),
-    { id: 'harga_bahan', label: 'Master Harga Bahan Baku', count: null },
+    ...(showHargaBahan ? [{ id: 'harga_bahan' as SPVTabId, label: 'Master Harga Bahan Baku', count: null }] : []),
   ];
 
   const tabs = readOnlyTabs

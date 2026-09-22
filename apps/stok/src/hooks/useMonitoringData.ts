@@ -197,8 +197,12 @@ export function useCrewMonitoringData() {
  * Realtime invalidation untuk seluruh query di bawah namespace ['monitoring'].
  * Dipanggil sekali per halaman dashboard (Monitoring-Live, SPV, Crew), bukan
  * per data-hook, supaya tidak membuka banyak channel duplikat untuk sumber
- * data yang sama. Debounce 2.5s karena ledger_stok/stok_balance bergerak
- * sangat sering saat outlet ramai (tiap order kasir).
+ * data yang sama. Debounce 2.5s karena stok_balance bergerak sangat sering
+ * saat outlet ramai (tiap order kasir).
+ *
+ * Hanya stok_balance: ledger_stok TIDAK ada di publication supabase_realtime
+ * (subscription ke sana tak pernah menerima event), dan setiap insert
+ * ledger_stok sudah meng-upsert stok_balance lewat trigger ledger_stamp_saldo.
  */
 export function useMonitoringRealtime() {
   const instanceId = useId();
@@ -207,7 +211,6 @@ export function useMonitoringRealtime() {
     debounceMs: 2500,
     subs: [
       { table: 'stok_balance', queryKeys: [['monitoring']] },
-      { table: 'ledger_stok', queryKeys: [['monitoring']] },
     ],
   });
 }

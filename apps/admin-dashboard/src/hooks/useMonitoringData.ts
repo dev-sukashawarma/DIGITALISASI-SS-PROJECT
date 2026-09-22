@@ -125,6 +125,10 @@ export function useLeaderMonitoringData(enabled = true) {
 
 /**
  * Realtime invalidation for query keys under ['monitoring'].
+ *
+ * Hanya stok_balance: ledger_stok TIDAK ada di publication supabase_realtime
+ * (subscription ke sana tak pernah menerima event), dan setiap insert
+ * ledger_stok sudah meng-upsert stok_balance lewat trigger ledger_stamp_saldo.
  */
 export function useMonitoringRealtime() {
   const instanceId = useId();
@@ -132,7 +136,6 @@ export function useMonitoringRealtime() {
     channelName: `monitoring_realtime_${instanceId}`,
     subs: [
       { table: 'stok_balance', queryKeys: [['monitoring']] },
-      { table: 'ledger_stok', queryKeys: [['monitoring']] },
     ],
   });
 }

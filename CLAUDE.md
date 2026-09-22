@@ -43,7 +43,7 @@ Grid: 18 outlet, 3 kolom, spacious cards (340px × 280px)
 - **`ledger_service_insert`** — service_role bisa insert ke mana saja (untuk trigger/RPC).
 - Jangan pakai `.single()` saat query `ledger_stok` — gunakan `.maybeSingle()` atau handle `null` agar tidak crash saat RLS memblokir atau data tidak ditemukan.
 
-**View:** `ledger_transaksi_ringkas` — agregasi per transaksi (join ref_order_id/ref_opname_id/ref_shipment_id/ref_transfer_id). Ikut RLS `ledger_stok` (bukan security definer). Di-query via `useLedgerTransaksiList` hook.
+**View:** `ledger_transaksi_ringkas` — agregasi per transaksi (join ref_order_id/ref_opname_id/ref_shipment_id/ref_transfer_id). ⚠️ Sampai 2026-09-22 view ini **TIDAK** ikut RLS (dimiliki `postgres` tanpa `security_invoker` → anon & crew bisa membaca ledger semua outlet); ditutup migration `20260922170000` (`security_invoker = true`, anon dicabut). Pelajaran: view di atas tabel ber-RLS **wajib** `security_invoker = true`, kecuali memang sengaja definer — cek `pg_class.reloptions`, jangan percaya komentar. Daftar Ledger (`useLedgerTransaksiList`) kini memakai RPC `ledger_transaksi_page` (migration `20260922160000`, SECURITY INVOKER): hasil identik dengan view, tapi hanya mengagregasi jendela baris terbaru (~12 ms vs ~300 ms / 5 dtk dingin di outlet tersibuk).
 
 **Riwayat migration:** Remote sering diverged (objek sudah ada tapi riwayat tak ter-stempel). Solusi: `migration repair --status applied/reverted` sebelum `db push`.
 

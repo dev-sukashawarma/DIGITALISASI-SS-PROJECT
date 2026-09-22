@@ -774,6 +774,8 @@ export async function getPettyCashData(
 
 /* ── Fetch REAL Attendance Rekap & Stealth Photos from `attendance` ──── */
 
+const ATTENDANCE_REPORT_COLS = 'id, outlet_staff_id, outlet_id, type, ts_server, selfie_url, source, gps_lat, gps_lng, status, telat_menit'
+
 export async function getAttendanceReportData(
   filter: PeriodFilterValue,
   outlets: Outlet[]
@@ -805,7 +807,7 @@ export async function getAttendanceReportData(
   // 2. Query REAL table `attendance` (singular) where all stealth camera photos are recorded
   let query = supabase
     .from('attendance')
-    .select('*')
+    .select(ATTENDANCE_REPORT_COLS)
     .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
     .order('ts_server', { ascending: false })
     .limit(1000)
@@ -839,7 +841,7 @@ export async function getAttendanceReportData(
     const staffIds = Array.from(new Set(outletRows.map((r) => r.outlet_staff_id).filter(Boolean)))
     let pairQuery = supabase
       .from('attendance')
-      .select('*')
+      .select(ATTENDANCE_REPORT_COLS)
       .in('outlet_staff_id', staffIds)
       .neq('outlet_id', filter.outletId)
       .neq('outlet_id', 'eb174b2b-ff69-47eb-97af-b6c824d3ce4a')
@@ -946,39 +948,19 @@ export async function getAttendanceReportData(
     }
   }
 
-  // Gather all unique photo paths
-  const pathsToSign = new Set<string>()
-  for (const item of grouped.values()) {
-    if (item.raw_photo_in && !item.raw_photo_in.startsWith('http')) pathsToSign.add(item.raw_photo_in)
-    if (item.raw_photo_out && !item.raw_photo_out.startsWith('http')) pathsToSign.add(item.raw_photo_out)
+  // Foto disajikan lewat /api/absensi/selfie (thumbnail hasil transform, ditandatangani
+  // per <img> yang terlihat) — BUKAN ditandatangani di sini. Dulu semua foto
+  // ditandatangani apa adanya lalu browser mengunduh ratusan JPEG kamera 0,4–5 MB
+  // untuk ditampilkan 40×40 px: itulah penyebab halaman ini berat & nge-lag.
+  const selfieSrc = (raw: string | null, size: 'thumb' | 'full') => {
+    if (!raw) return null
+    if (raw.startsWith('http')) return raw
+    return `/api/absensi/selfie?size=${size}&path=${encodeURIComponent(raw)}`
   }
 
-  // Batch sign the URLs in chunks of 100 to avoid overloading the API
-  const pathArray = Array.from(pathsToSign)
-  const signedUrlsMap = new Map<string, string>()
-  const chunkSize = 100
-  
-  for (let i = 0; i < pathArray.length; i += chunkSize) {
-    const chunk = pathArray.slice(i, i + chunkSize)
-    const { data: signedUrls } = await supabase.storage.from('selfies').createSignedUrls(chunk, 3600)
-    if (signedUrls) {
-      for (const su of signedUrls) {
-        if (su.signedUrl) signedUrlsMap.set(su.path, su.signedUrl)
-      }
-    }
-  }
-
-  // Convert grouped items to AttendanceRecordExt with Signed Stealth Photo URLs & Out Status
   const result: AttendanceRecordExt[] = Array.from(grouped.values()).map((item) => {
-    let signedIn = item.raw_photo_in
-    if (signedIn && !signedIn.startsWith('http')) {
-      signedIn = signedUrlsMap.get(signedIn) || null
-    }
-
-    let signedOut = item.raw_photo_out
-    if (signedOut && !signedOut.startsWith('http')) {
-      signedOut = signedUrlsMap.get(signedOut) || null
-    }
+    const signedIn = selfieSrc(item.raw_photo_in, 'full')
+    const signedOut = selfieSrc(item.raw_photo_out, 'full')
 
     return {
       id: item.id,
@@ -999,6 +981,8 @@ export async function getAttendanceReportData(
       notes: item.notes,
       stealth_photo_in_url: signedIn,
       stealth_photo_out_url: signedOut,
+      stealth_photo_in_thumb_url: selfieSrc(item.raw_photo_in, 'thumb'),
+      stealth_photo_out_thumb_url: selfieSrc(item.raw_photo_out, 'thumb'),
       gps_lat_in: item.gps_lat_in,
       gps_lng_in: item.gps_lng_in,
       clock_in_source: item.clock_in_source,

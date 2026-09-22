@@ -1,7 +1,7 @@
 // @ts-nocheck
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useDeferredValue } from 'react'
 import {
   CheckCircle2,
   Clock,
@@ -38,6 +38,9 @@ export interface AttendanceRecordExt {
   notes: string | null
   stealth_photo_in_url?: string | null
   stealth_photo_out_url?: string | null
+  /** Thumbnail kecil (hasil transform) untuk sel tabel; *_url dipakai untuk modal. */
+  stealth_photo_in_thumb_url?: string | null
+  stealth_photo_out_thumb_url?: string | null
   gps_lat_in?: number | null
   gps_lng_in?: number | null
   clock_in_source?: 'web' | 'native'
@@ -66,6 +69,8 @@ export function AttendanceReportView({
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [activePhoto, setActivePhoto] = useState<StealthPhotoInfo | null>(null)
+  // Ketik di kotak cari tetap responsif walau tabel ratusan baris.
+  const deferredSearch = useDeferredValue(searchQuery)
 
   // Filtered records
   const filteredData = useMemo(() => {
@@ -79,8 +84,8 @@ export function AttendanceReportView({
         return false
       }
       // Search Query
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase()
+      if (deferredSearch.trim()) {
+        const q = deferredSearch.toLowerCase()
         const matchName = r.staff_name.toLowerCase().includes(q)
         const matchRole = r.staff_role.toLowerCase().includes(q)
         const matchOutlet =
@@ -92,7 +97,7 @@ export function AttendanceReportView({
       }
       return true
     })
-  }, [records, selectedOutletId, statusFilter, searchQuery])
+  }, [records, selectedOutletId, statusFilter, deferredSearch])
 
   // Summary Metrics
   const summary = useMemo(() => {
@@ -290,7 +295,11 @@ export function AttendanceReportView({
                           className="mt-1 relative inline-block overflow-hidden rounded-xl border-2 border-emerald-500 shadow-sm hover:scale-105 transition-transform group"
                         >
                           <img
-                            src={row.stealth_photo_in_url}
+                            src={row.stealth_photo_in_thumb_url ?? row.stealth_photo_in_url}
+                            width={40}
+                            height={40}
+                            loading="lazy"
+                            decoding="async"
                             alt="Foto Presensi Masuk"
                             className="h-10 w-10 object-cover"
                           />
@@ -346,7 +355,11 @@ export function AttendanceReportView({
                           className="mt-1 relative inline-block overflow-hidden rounded-xl border-2 border-blue-500 shadow-sm hover:scale-105 transition-transform group"
                         >
                           <img
-                            src={row.stealth_photo_out_url}
+                            src={row.stealth_photo_out_thumb_url ?? row.stealth_photo_out_url}
+                            width={40}
+                            height={40}
+                            loading="lazy"
+                            decoding="async"
                             alt="Foto Presensi Pulang"
                             className="h-10 w-10 object-cover"
                           />

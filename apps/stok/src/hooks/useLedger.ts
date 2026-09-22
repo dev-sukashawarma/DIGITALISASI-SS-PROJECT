@@ -13,12 +13,15 @@ export function useLedgerTransaksiList(outletId: string | null | undefined, page
     queryKey: ['ledger-transaksi', outletId, page],
     queryFn: async () => {
       const supabase = createClient()
-      const { data: rows, error: err } = await supabase
-        .from('ledger_transaksi_ringkas')
-        .select('transaksi_key, outlet_id, created_at, jumlah_bahan, ref_order_id, ref_opname_id, ref_shipment_id, ref_transfer_id, single_bahan_baku_id, single_tipe, single_qty, single_catatan, single_saldo_sesudah')
-        .eq('outlet_id', outletId)
-        .order('created_at', { ascending: false })
-        .range(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE - 1)
+      // RPC ledger_transaksi_page (migration 20260922160000): hasil identik
+      // dengan view ledger_transaksi_ringkas, tapi hanya mengagregasi jendela
+      // baris terbaru -- view meng-GROUP BY seluruh riwayat outlet tiap kali
+      // (outlet tersibuk ~300 ms hangat / 5 dtk dingin vs ~12 ms).
+      const { data: rows, error: err } = await supabase.rpc('ledger_transaksi_page', {
+        p_outlet: outletId,
+        p_offset: page * PAGE_SIZE,
+        p_limit: PAGE_SIZE,
+      })
       if (err) throw err
 
       let summaries = (rows as Omit<LedgerTransaksiSummary, 'order_number' | 'order_items_names' | 'opname_tanggal' | 'opname_tipe'>[]) ?? []

@@ -5,6 +5,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { canApproveOpname } from '@/lib/stok/approver'
 import { assertOutletAccessible, getAccessibleOutletIds, assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { getEffectiveTodayWIB } from '@/lib/stok/opnameDate'
+import { isBahanOpname } from '@/lib/stok/opnameScope'
 import type { Opname, OpnameItem } from '@/types/stok'
 
 function makeServiceClient() {
@@ -225,9 +226,24 @@ export async function upsertOpnameItems(
       return { error: 'Anda telah melakukan opname hari ini. Opname harian hanya bisa dilakukan satu kali per outlet.' }
     }
 
+    // Aset & perlengkapan (PRINTER THERMAL, ID CARD) bukan bagian opname.
+    // Dibuang diam-diam, bukan ditolak: klien versi lama tanpa filter form
+    // tetap bisa finalisasi, cuma item itu yang tak ikut tersimpan.
+    const bahanIds = [...new Set(items.map((i) => i.bahan_baku_id))]
+    const { data: bahanRows, error: bahanErr } = await serviceClient
+      .from('bahan_baku')
+      .select('id, nama, kategori')
+      .in('id', bahanIds)
+    if (bahanErr) return { error: `DB error: ${bahanErr.message}` }
+    const nonOpname = new Set(
+      (bahanRows ?? []).filter((b) => !isBahanOpname(b)).map((b) => b.id)
+    )
+    const itemsOpname = items.filter((i) => !nonOpname.has(i.bahan_baku_id))
+    if (!itemsOpname.length) return { error: null }
+
     const { error } = await serviceClient
       .from('opname_item')
-      .upsert(items, { onConflict: 'opname_id,bahan_baku_id' })
+      .upsert(itemsOpname, { onConflict: 'opname_id,bahan_baku_id' })
 
     if (error) return { error: `Upsert gagal: ${error.message}` }
     return { error: null }

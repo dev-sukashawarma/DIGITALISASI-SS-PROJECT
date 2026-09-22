@@ -8,6 +8,7 @@ import type { Opname, OpnameItem } from '@/types/stok'
 import { useBahanBaku } from '@/hooks/useBahanBaku'
 import { formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit'
 import { getThresholdPersen, computeSelisihPersen } from '@/lib/stok/selisih'
+import { isBahanOpname } from '@/lib/stok/opnameScope'
 
 const TIPE_LABEL: Record<string, string> = {
   harian: 'Harian 📅',
@@ -118,7 +119,7 @@ export function OpnameDetail({ opnameId }: { opnameId: string }) {
 
   const opnamedBahanIds = useMemo(() => new Set(items.map(it => it.bahan_baku_id)), [items]);
   const skippedBahan = useMemo(() => {
-    return bahanBaku.filter(b => !opnamedBahanIds.has(b.id));
+    return bahanBaku.filter(b => isBahanOpname(b) && !opnamedBahanIds.has(b.id));
   }, [bahanBaku, opnamedBahanIds]);
 
   if (error) return <p className="text-xs font-bold text-[#ba1a1a] bg-[#ffdad6] border border-[#ba1a1a]/20 p-4 rounded-xl">{error}</p>

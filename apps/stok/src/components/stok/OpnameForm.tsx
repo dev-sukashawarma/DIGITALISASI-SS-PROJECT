@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchOutletsList } from '@/lib/queries/monitoring';
 import { getBahanBakuSource } from '@suka/design-system';
 import { computeSelisih, isSelisihFlagged } from '@/lib/stok/selisih';
+import { isBahanOpname } from '@/lib/stok/opnameScope';
 import { isSuspiciousZero } from '@/lib/stok/zeroGuard';
 import { totalSubVendor, singleVendorBesar, filterResumableInputs, type SubVendorInput } from '@/lib/stok/opnameVendor';
 import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/compositeUnit';
@@ -292,11 +293,8 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
 
   const relevantBahan = useMemo(() => {
     return bahanBaku.filter((b) => {
-      const kat = b.kategori?.toUpperCase();
-      const nama = b.nama?.toUpperCase();
       // Aset hardware & atribut perlengkapan tidak di-opname pada opname bahan baku harian
-      if (kat === 'ASET' || kat === 'PERLENGKAPAN') return false;
-      if (nama === 'PRINTER THERMAL' || nama === 'ID CARD') return false;
+      if (!isBahanOpname(b)) return false;
 
       const source = getBahanBakuSource(b.nama);
       if (source === 'GUDANG_PUSAT' && !isGudang) return false;
@@ -484,6 +482,9 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   function buildItemsToSave(opnameId: string) {
     return bahanBaku
       .filter((b) => {
+         // Isian lama (draft localStorage/server) untuk item di luar opname
+         // tidak boleh ikut tersimpan walau kolomnya tak lagi tampil.
+         if (!isBahanOpname(b)) return false;
          const inp = inputs[b.id];
          return inp && (inp.besar !== undefined || inp.tengah !== undefined || inp.kecil !== undefined);
       })

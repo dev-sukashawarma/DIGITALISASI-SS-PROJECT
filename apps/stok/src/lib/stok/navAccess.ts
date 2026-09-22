@@ -28,5 +28,12 @@ export const canApproveWaste = (role: Role) => has(PENYETUJU_WASTE, role)
 // approve/reject ditolak di server (requireApproverIdentity, actions/waste.ts).
 export const canViewWasteList = (role: Role) => canApproveWaste(role) || role === 'leader'
 export const canViewSales = (role: Role) => has(PEMBACA_PENJUALAN, role)
+// Jurnal & Rekonsiliasi memuat valuasi & harga beli — manajemen pusat saja.
+// Leader, area_manager, dan crew SENGAJA tidak termasuk (keputusan owner
+// 2026-09-22). Dipakai juga oleh Server Action actions/jurnalMutasi.ts.
+const PEMBACA_JURNAL_MUTASI = [
+  'kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer',
+] as const
+export const canViewJurnalMutasi = (role: Role) => has(PEMBACA_JURNAL_MUTASI, role)
 // Plafon & Belanja Outlet ikut grup Laporan Penjualan di sidebar.
 export const canViewBudgetOutlet = canViewSales

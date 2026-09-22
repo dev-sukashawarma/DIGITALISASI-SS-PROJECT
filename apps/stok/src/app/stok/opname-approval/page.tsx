@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@suka/auth'
+import { canViewJurnalMutasi } from '@/lib/stok/navAccess'
 import Link from 'next/link'
 import { approveOpname, rejectOpname, fetchPendingOpnameApprovals } from '@/app/actions/opname'
 import { BottomNav } from '@/components/common/BottomNav'
@@ -197,12 +198,14 @@ export default function OpnameApprovalPage() {
                   )}
 
                   {/* Audit Shortcut Link */}
-                  <Link
-                    href={`/stok/jurnal-mutasi?outletId=${opname.outlet_id}&opnameId=${opname.id}`}
-                    className="block text-center text-xs font-black py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl transition-all shadow-2xs"
-                  >
-                    🔍 Audit Jurnal & Rekonsiliasi
-                  </Link>
+                  {canViewJurnalMutasi(outletStaff?.role) && (
+                    <Link
+                      href={`/stok/jurnal-mutasi?outletId=${opname.outlet_id}&opnameId=${opname.id}`}
+                      className="block text-center text-xs font-black py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl transition-all shadow-2xs"
+                    >
+                      🔍 Audit Jurnal & Rekonsiliasi
+                    </Link>
+                  )}
 
                   {/* Detail Link */}
                   <Link href={`/stok/opname/${opname.id}`} className="block text-center text-[10px] font-bold text-[#f29744] hover:text-orange-600 underline underline-offset-2">

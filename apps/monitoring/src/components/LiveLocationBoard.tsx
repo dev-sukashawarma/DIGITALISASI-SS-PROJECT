@@ -1,13 +1,12 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  ArrowLeft,
   Battery,
   Crosshair,
   Gauge,
+  LogOut,
   MapPin,
   Radio,
   Route,
@@ -16,6 +15,7 @@ import {
   Users,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { portalUrl } from '@/lib/portal'
 import {
   accuracyText,
   batteryText,
@@ -309,13 +309,17 @@ export default function LiveLocationBoard() {
       <div className="mx-auto max-w-[1500px]">
         <header className="mb-6 flex flex-col gap-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-7">
           <div className="flex items-center gap-4">
-            <Link
-              href="/dashboard"
-              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors duration-200 hover:border-orange-200 hover:bg-orange-50 hover:text-orange-600 focus:outline-none focus:ring-2 focus:ring-orange-300"
-              aria-label="Kembali ke dashboard"
+            <button
+              type="button"
+              onClick={async () => {
+                await supabase.auth.signOut()
+                window.location.href = portalUrl()
+              }}
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors duration-200 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 focus:outline-none focus:ring-2 focus:ring-orange-300"
+              aria-label="Keluar"
             >
-              <ArrowLeft size={18} />
-            </Link>
+              <LogOut size={18} />
+            </button>
             <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-orange-50 text-orange-600">
               <MapPin size={24} />
             </div>

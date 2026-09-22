@@ -3,7 +3,7 @@ import { enforceAppAccess } from '@suka/auth'
 import type { NextRequest } from 'next/server'
 
 export function proxy(request: NextRequest) {
-  return enforceAppAccess(request, 'monitoring', { rootRewritePath: '/dashboard' })
+  return enforceAppAccess(request, 'monitoring', { rootRewritePath: '/lokasi' })
 }
 
 export const config = {

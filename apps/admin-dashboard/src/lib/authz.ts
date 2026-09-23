@@ -1,3 +1,4 @@
+import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -41,16 +42,14 @@ export async function requireRole(
 }
 
 /**
- * Scope-check outlet_id yang dikirim client terhadap `accessible_outlet_ids()`
- * milik caller (sumber kebenaran yang sama dipakai RLS). Pakai ini untuk
- * action yang menerima `outletId` dari client — role check saja tidak cukup
- * untuk role multi-outlet-scoped (leader/korlap).
+ * `accessible_outlet_ids()` milik caller, di-memo per request lewat React
+ * `cache()` — beberapa assert dalam satu render/action cukup 1 RPC.
  */
-export async function assertOutletAccessible(outletId: string): Promise<void> {
+const getAccessibleOutletSet = cache(async (): Promise<Set<string>> => {
   const supabase = await createClient()
   const { data, error } = await supabase.rpc('accessible_outlet_ids')
   if (error) throw new Error(error.message)
-  const allowed = new Set(
+  return new Set(
     (Array.isArray(data) ? data : [])
       .map((row: unknown) =>
         typeof row === 'string'
@@ -59,6 +58,16 @@ export async function assertOutletAccessible(outletId: string): Promise<void> {
       )
       .filter((id): id is string => !!id)
   )
+})
+
+/**
+ * Scope-check outlet_id yang dikirim client terhadap `accessible_outlet_ids()`
+ * milik caller (sumber kebenaran yang sama dipakai RLS). Pakai ini untuk
+ * action yang menerima `outletId` dari client — role check saja tidak cukup
+ * untuk role multi-outlet-scoped (leader/korlap).
+ */
+export async function assertOutletAccessible(outletId: string): Promise<void> {
+  const allowed = await getAccessibleOutletSet()
   if (!allowed.has(outletId)) {
     throw new Error('Forbidden: outlet di luar scope akses Anda')
   }

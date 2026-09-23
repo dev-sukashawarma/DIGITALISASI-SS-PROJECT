@@ -24,20 +24,37 @@ export default function ShiftBlockerMount() {
     if (outletId && loaded) {
       checkShiftState()
 
+      // Rentetan event realtime digabung jadi 1 cek. Saat tab tersembunyi
+      // dilewati — cek sekali ketika tab terlihat lagi.
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null
+      const scheduleCheck = () => {
+        if (debounceTimer) clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+          if (!document.hidden) checkShiftState(true)
+        }, 1000)
+      }
+
       const channelName = `shift-blocker-${outletId}`
       const channel = supabase
         .channel(channelName)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts', filter: `outlet_id=eq.${outletId}` }, () => {
-          checkShiftState(true)
-        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'shifts', filter: `outlet_id=eq.${outletId}` }, scheduleCheck)
         .subscribe()
 
+      // Polling hanya cadangan realtime: 120 dtk, dilewati saat tab tersembunyi.
       const interval = setInterval(() => {
+        if (document.hidden) return
         checkShiftState(true)
-      }, 30000)
+      }, 120000)
+      // Tab kembali terlihat → cek sekali.
+      const onVisible = () => {
+        if (!document.hidden) checkShiftState(true)
+      }
+      document.addEventListener('visibilitychange', onVisible)
 
       return () => {
+        if (debounceTimer) clearTimeout(debounceTimer)
         clearInterval(interval)
+        document.removeEventListener('visibilitychange', onVisible)
         supabase.removeChannel(channel)
       }
     } else if (loaded && !outletId) {

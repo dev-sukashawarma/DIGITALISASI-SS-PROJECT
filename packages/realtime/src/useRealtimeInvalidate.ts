@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRealtimeChannel } from './useRealtimeChannel'
 import { createDebouncer } from './debounce'
@@ -17,12 +17,33 @@ export function useRealtimeInvalidate(opts: {
   enabled?: boolean
   subs: InvalidateSub[]
   debounceMs?: number
+  /**
+   * Jarak minimum (ms) antar-sinkronisasi ulang saat channel join lagi.
+   * Reconnect yang lebih rapat digabung jadi satu sinkronisasi di akhir
+   * jendela. Default 0 = sinkron di tiap reconnect (perilaku lama).
+   */
+  resubscribeMinIntervalMs?: number
 }) {
-  const { channelName, enabled = true, subs, debounceMs = 500 } = opts
+  const { channelName, enabled = true, subs, debounceMs = 500, resubscribeMinIntervalMs = 0 } = opts
   const qc = useQueryClient()
   const debouncer = useMemo(() => createDebouncer(debounceMs), [debounceMs])
+  const lastResyncAt = useRef(0)
+  const pendingResync = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => () => debouncer.cancelAll(), [debouncer])
+  useEffect(
+    () => () => {
+      if (pendingResync.current) clearTimeout(pendingResync.current)
+    },
+    []
+  )
+
+  const resyncAll = () => {
+    lastResyncAt.current = Date.now()
+    subs.forEach((s) =>
+      s.queryKeys.forEach((qk) => qc.invalidateQueries({ queryKey: qk }))
+    )
+  }
 
   useRealtimeChannel({
     channelName,
@@ -30,9 +51,16 @@ export function useRealtimeInvalidate(opts: {
     // Event selama socket putus tidak di-replay server → sinkronkan ulang
     // begitu channel join lagi, supaya tak perlu refresh manual.
     onResubscribe: () => {
-      subs.forEach((s) =>
-        s.queryKeys.forEach((qk) => qc.invalidateQueries({ queryKey: qk }))
-      )
+      const wait = lastResyncAt.current + resubscribeMinIntervalMs - Date.now()
+      if (wait <= 0) {
+        resyncAll()
+        return
+      }
+      if (pendingResync.current) return
+      pendingResync.current = setTimeout(() => {
+        pendingResync.current = null
+        resyncAll()
+      }, wait)
     },
     subs: subs.map((s) => ({
       table: s.table,

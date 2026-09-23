@@ -4,6 +4,7 @@ DO $$
 DECLARE
   v_purch uuid; v_kitchen uuid; v_bahan uuid; v_sup uuid; v_bbs uuid; v_ok boolean; v_msg text;
   v_bahan2 uuid; v_sup2a uuid; v_sup2b uuid; v_bbs2a uuid; v_bbs2b uuid;
+  v_bahan3 uuid; v_sup_i uuid; v_sup_j uuid;
 BEGIN
   SELECT id INTO v_purch   FROM outlet_staff WHERE role='purchasing' AND status='active' LIMIT 1;
   SELECT id INTO v_kitchen FROM outlet_staff WHERE role='kitchen'    AND status='active' LIMIT 1;
@@ -16,6 +17,9 @@ BEGIN
   INSERT INTO bahan_baku (nama, satuan, satuan_kecil, faktor_tampilan, kategori)
   VALUES ('UJI T6 KEDUA', 'Pack', 'Pcs', 10, 'UJI') RETURNING id INTO v_bahan2;
   INSERT INTO bahan_baku_harga (bahan_baku_id, harga_beli) VALUES (v_bahan2, 1000);
+
+  INSERT INTO bahan_baku (nama, satuan, satuan_kecil, faktor_tampilan, kategori)
+  VALUES ('UJI T6 GRAM', 'Dus', 'gram', 5000, 'UJI') RETURNING id INTO v_bahan3;
 
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_purch, 'role','authenticated')::text, true);
   SET LOCAL ROLE authenticated;
@@ -85,6 +89,29 @@ BEGIN
   IF (SELECT harga_updated_at FROM bahan_baku_supplier WHERE id = v_bbs2a) <= (SELECT harga_updated_at FROM bahan_baku_supplier WHERE id = v_bbs2b) THEN
     RAISE EXCEPTION 'GAGAL (h): harga_updated_at A tak dibumbungkan melewati B';
   END IF;
+
+  -- (i) label 'kg' tak dikenal hitung_faktor_po(), tapi bahan bersatuan kecil gram —
+  -- perlakukan isi master sebagai 1000 (aturan K1/(a) fix round 1) supaya guard isi
+  -- normal berlaku: isi 1 (salah) ditolak, isi 1000 (benar) diterima & master ikut.
+  v_sup_i := public.simpan_supplier(NULL, jsonb_build_object('nama','UJI T6 VENDOR GRAM'), 'uji t6 vendor gram');
+  v_ok := false;
+  BEGIN PERFORM public.simpan_harga_vendor(v_bahan3, v_sup_i, 200, 'kg', 1, 'uji t6 kg isi salah');
+  EXCEPTION WHEN raise_exception THEN v_ok := true; END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (i-1): label kg dengan isi 1 (salah) diterima, harusnya ditolak guard isi'; END IF;
+
+  PERFORM public.simpan_harga_vendor(v_bahan3, v_sup_i, 200, 'kg', 1000, 'uji t6 kg isi benar');
+  IF abs((SELECT harga_beli FROM bahan_baku_harga WHERE bahan_baku_id = v_bahan3) - 1000) > 0.01 THEN
+    RAISE EXCEPTION 'GAGAL (i-2): master kg/gram salah (%)', (SELECT harga_beli FROM bahan_baku_harga WHERE bahan_baku_id = v_bahan3);
+  END IF;
+
+  -- (j) label 'rol' (typo, bukan tingkat mana pun) ditolak 22023 tanpa paksa;
+  -- diterima dengan p_paksa=true.
+  v_sup_j := public.simpan_supplier(NULL, jsonb_build_object('nama','UJI T6 VENDOR ROL'), 'uji t6 vendor rol');
+  v_ok := false;
+  BEGIN PERFORM public.simpan_harga_vendor(v_bahan, v_sup_j, 11554, 'rol', 760, 'uji t6 label rol tanpa paksa');
+  EXCEPTION WHEN invalid_parameter_value THEN v_ok := true; END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (j-1): label rol (typo) diterima tanpa paksa'; END IF;
+  PERFORM public.simpan_harga_vendor(v_bahan, v_sup_j, 11554, 'rol', 760, 'uji t6 label rol paksa', true);
 
   -- (g) kitchen ditolak
   RESET ROLE;

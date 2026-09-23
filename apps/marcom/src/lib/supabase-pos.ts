@@ -4,11 +4,11 @@ const DEFAULT_SUPABASE_URL = 'https://khpkoreaaucvyqfhynfq.supabase.co'
 
 export function getPosSupabase() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL
-  const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const rawKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!rawKey || rawKey.trim().length === 0 || rawKey === 'undefined') {
     throw new Error(
-      'SUPABASE_SERVICE_ROLE_KEY belum di-set. Set di panel Coolify app ini ' +
-        '(dan pastikan ARG/ENV-nya ada di stage runner Dockerfile), lalu redeploy.'
+      'SUPABASE_SERVICE_ROLE_KEY atau NEXT_PUBLIC_SUPABASE_ANON_KEY belum di-set. ' +
+        'Set di .env atau panel Coolify app ini.'
     )
   }
   const key = rawKey.trim()

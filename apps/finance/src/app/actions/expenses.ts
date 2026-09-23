@@ -3,6 +3,7 @@
 import { requireRole } from '@/lib/authz'
 import type { UpsertExpenseInput } from '@/hooks/useUpsertExpenses'
 import { getServiceSupabase } from '@/lib/supabase-service'
+import { deserializeVoucherFromRow, serializeVoucherToDescription } from '@/lib/officeVoucher'
 
 export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
   // Server Action = endpoint POST publik; ini melewati RPC upsert_expense
@@ -259,5 +260,162 @@ export async function deleteTransactionAction(params: { id: string; isTopup?: bo
   }
 
   return { success: true }
+}
+
+export async function updateSingleExpenseAction(input: {
+  id: string
+  outletId: string | null
+  category: string
+  amount: number
+  description: string
+  expenseDate: string
+  periodMonth?: string
+  receipt_url?: string | null
+  recipient_name?: string | null
+  division?: string | null
+}) {
+  try {
+    const supabase = getServiceSupabase()
+
+    if (input.outletId && input.outletId !== 'PUSAT') {
+      const { data: targetOutlet } = await supabase
+        .from('outlets')
+        .select('name, type')
+        .eq('id', input.outletId)
+        .maybeSingle()
+
+      if (targetOutlet?.type === 'mitra') {
+        const cat = (input.category || '').toLowerCase()
+        const desc = (input.description || '').toLowerCase()
+        if (
+          cat === 'gaji_staff_kantor' ||
+          cat === 'pengeluaran_global' ||
+          desc.includes('gaji kantor') ||
+          desc.includes('staf kantor') ||
+          desc.includes('staff kantor') ||
+          desc.includes('kantor pusat')
+        ) {
+          return {
+            success: false,
+            error: `Pengeluaran gaji staf kantor / kantor pusat dilarang dialokasikan ke outlet mitra (${targetOutlet.name}). Harap alokasikan ke Pusat atau outlet internal.`
+          }
+        }
+      }
+    }
+
+    const isPusat = !input.outletId || input.outletId === 'PUSAT'
+    const actualOutletId = isPusat ? null : input.outletId
+
+    // Find current record
+    const { data: currentExpense, error: fetchErr } = await supabase
+      .from('expenses')
+      .select('*')
+      .eq('id', input.id)
+      .maybeSingle()
+
+    if (fetchErr) {
+      console.error('Error fetching expense to update:', fetchErr)
+      return { success: false, error: fetchErr.message }
+    }
+
+    if (!currentExpense) {
+      // Fallback check petty_cash_expenses
+      const { data: currentPetty } = await supabase
+        .from('petty_cash_expenses')
+        .select('*')
+        .eq('id', input.id)
+        .maybeSingle()
+
+      if (currentPetty) {
+        const { data: updatedPetty, error: updatePettyErr } = await supabase
+          .from('petty_cash_expenses')
+          .update({
+            amount: input.amount,
+            description: input.description,
+            expense_date: input.expenseDate,
+            receipt_url: input.receipt_url !== undefined ? input.receipt_url : currentPetty.receipt_url
+          })
+          .eq('id', input.id)
+          .select()
+          .single()
+
+        if (updatePettyErr) throw updatePettyErr
+        return { success: true, data: updatedPetty }
+      }
+
+      return { success: false, error: 'Data transaksi tidak ditemukan' }
+    }
+
+    let dbCategory = input.category
+    let dbDescription = input.description
+
+    // If existing record is an OFFICE_VCR, preserve its structure
+    if (currentExpense.description && currentExpense.description.includes('[OFFICE_VCR]')) {
+      const v = deserializeVoucherFromRow(currentExpense)
+      if (v) {
+        dbCategory = isPusat ? 'pengeluaran_global' : input.category
+        dbDescription = serializeVoucherToDescription({
+          voucherNumber: v.voucherNumber,
+          division: input.division || v.division,
+          recipientName: input.recipient_name || v.recipientName,
+          category: input.category,
+          reason: input.description,
+          advanceAmount: v.advanceAmount,
+          realizedAmount: input.amount,
+          refundAmount: Math.max(0, v.advanceAmount - input.amount),
+          status: v.status,
+          verifiedAt: v.verifiedAt,
+          verifiedBy: v.verifiedBy,
+          notes: v.notes
+        })
+      }
+    } else {
+      if (isPusat) {
+        // Enforce DB constraint: pusat must be 'pengeluaran_global' or 'gaji_staff_kantor'
+        if (input.category === 'gaji_staff_kantor') {
+          dbCategory = 'gaji_staff_kantor'
+        } else {
+          dbCategory = 'pengeluaran_global'
+        }
+        if (input.category !== 'pengeluaran_global' && input.category !== 'gaji_staff_kantor') {
+          dbDescription = `[Kategori: ${input.category}] ${input.description}`
+        }
+      }
+    }
+
+    const yyyyMm = input.expenseDate.slice(0, 7)
+    const periodMonth = input.periodMonth || `${yyyyMm}-01`
+
+    const updatePayload: Record<string, any> = {
+      outlet_id: actualOutletId,
+      category: dbCategory,
+      amount: input.amount,
+      description: dbDescription,
+      expense_date: input.expenseDate,
+      period_month: periodMonth,
+      payment_source: actualOutletId ? 'petty_cash' : 'transfer_pusat'
+    }
+
+    if (input.receipt_url !== undefined) {
+      updatePayload.receipt_url = input.receipt_url
+    }
+
+    const { data, error: updateErr } = await supabase
+      .from('expenses')
+      .update(updatePayload)
+      .eq('id', input.id)
+      .select()
+      .single()
+
+    if (updateErr) {
+      console.error('Error updating single expense:', updateErr)
+      return { success: false, error: updateErr.message }
+    }
+
+    return { success: true, data }
+  } catch (err: any) {
+    console.error('Exception in updateSingleExpenseAction:', err)
+    return { success: false, error: err?.message || 'Gagal memperbarui transaksi' }
+  }
 }
 

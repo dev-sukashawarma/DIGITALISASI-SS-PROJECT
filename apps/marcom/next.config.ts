@@ -8,8 +8,10 @@ const workspaceRoot = process.env.DOCKER_BUILD === "true"
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: workspaceRoot,
+  turbopack: {
+    root: workspaceRoot,
+  },
   serverExternalPackages: ["@prisma/client", "prisma"],
-  // Turbopack removed — use Webpack (stable with Prisma, avoids module hash bug)
 };
 
 export default nextConfig;

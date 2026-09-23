@@ -11,12 +11,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+enum class StatusLokasi { MENCARI, AKTIF, TANPA_IZIN, TIDAK_TERSEDIA }
+
 data class OutletPickerState(
     val memuat: Boolean = true,
     val galat: GatewayError? = null,
     val kueri: String = "",
     val semua: List<OutletDto> = emptyList(),
-    val tampil: List<OutletDto> = emptyList()
+    val tampil: List<OutletDto> = emptyList(),
+    /** `null` = jarak tidak ditampilkan dan urutan jatuh ke alfabetis. */
+    val posisi: Koordinat? = null,
+    val statusLokasi: StatusLokasi = StatusLokasi.MENCARI
 )
 
 /**
@@ -33,23 +38,52 @@ fun saringOutlet(outlets: List<OutletDto>, kueri: String): List<OutletDto> {
     }
 }
 
-/**
- * Mengurutkan outlet: yang buka di atas, lalu alfabetis.
- *
- * Artboard mengurutkan berdasarkan jarak. Gateway tidak mengirim koordinat
- * pelanggan dan aplikasi belum meminta izin lokasi, jadi jarak tidak dihitung
- * di sini sama sekali -- bukan diisi angka perkiraan.
- */
-fun urutkanOutlet(outlets: List<OutletDto>): List<OutletDto> =
-    outlets.sortedWith(compareByDescending<OutletDto> { it.isActive }.thenBy { it.name.lowercase() })
-
-class OutletPickerViewModel(private val repository: Repository) : ViewModel() {
+class OutletPickerViewModel(
+    private val repository: Repository,
+    private val lokasi: LokasiPelanggan
+) : ViewModel() {
 
     private val _state = MutableStateFlow(OutletPickerState())
     val state: StateFlow<OutletPickerState> = _state.asStateFlow()
 
     init {
         muat()
+        perbaruiLokasi()
+    }
+
+    /** Dipanggil saat layar dibuka, setelah izin dijawab, dan dari tombol lokasi. */
+    fun perbaruiLokasi() {
+        if (!lokasi.punyaIzin()) {
+            _state.value = _state.value.copy(statusLokasi = StatusLokasi.TANPA_IZIN)
+            return
+        }
+        _state.value = _state.value.copy(statusLokasi = StatusLokasi.MENCARI)
+        viewModelScope.launch {
+            val hasil = lokasi.ambil()
+            // State dibaca SETELAH menunggu lokasi (bisa sampai 10 dtk): daftar
+            // outlet mungkin selesai dimuat selama itu dan tidak boleh tertimpa.
+            val s = _state.value
+            _state.value = when (hasil) {
+                is HasilLokasi.Ada -> urutUlang(
+                    s.copy(posisi = hasil.koordinat, statusLokasi = StatusLokasi.AKTIF)
+                )
+                HasilLokasi.TanpaIzin -> s.copy(statusLokasi = StatusLokasi.TANPA_IZIN)
+                // Posisi lama (kalau ada) dibiarkan: urutan yang sudah benar tidak dirusak.
+                HasilLokasi.TidakTersedia -> s.copy(
+                    statusLokasi = if (s.posisi != null) StatusLokasi.AKTIF else StatusLokasi.TIDAK_TERSEDIA
+                )
+            }
+        }
+    }
+
+    /** Pelanggan kembali dari Pengaturan: izin mungkin baru saja diberikan di sana. */
+    fun cekIzinUlang() {
+        if (_state.value.statusLokasi == StatusLokasi.TANPA_IZIN && lokasi.punyaIzin()) perbaruiLokasi()
+    }
+
+    private fun urutUlang(s: OutletPickerState): OutletPickerState {
+        val urut = urutkanOutlet(s.semua, s.posisi)
+        return s.copy(semua = urut, tampil = saringOutlet(urut, s.kueri))
     }
 
     fun muat() {
@@ -59,12 +93,8 @@ class OutletPickerViewModel(private val repository: Repository) : ViewModel() {
                 is GatewayResult.Gagal ->
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 is GatewayResult.Sukses -> {
-                    val urut = urutkanOutlet(hasil.data)
-                    _state.value = _state.value.copy(
-                        memuat = false,
-                        galat = null,
-                        semua = urut,
-                        tampil = saringOutlet(urut, _state.value.kueri)
+                    _state.value = urutUlang(
+                        _state.value.copy(memuat = false, galat = null, semua = hasil.data)
                     )
                 }
             }

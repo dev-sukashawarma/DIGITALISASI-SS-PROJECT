@@ -65,8 +65,9 @@ export async function getMonthlyBudgetMatrix(
   const startDate = new Date(Date.UTC(year, month - 1, 1))
   const endDate = new Date(Date.UTC(year, month, 0, 23, 59, 59))
 
-  // Fetch all outlets with their budget for this period
+  // Fetch all active outlets with their budget for this period
   const outlets = await prisma.outlet.findMany({
+    where: { isActive: true },
     orderBy: { name: 'asc' },
     include: {
       budgets: {
@@ -214,3 +215,69 @@ export async function upsertOutletBudget(
     return { error: err?.message || 'Gagal memperbarui budget outlet' }
   }
 }
+
+/**
+ * Menyalin target budget dan kuota KOL dari bulan sebelumnya ke bulan target
+ */
+export async function copyPreviousMonthBudgets(
+  targetMonth: number,
+  targetYear: number
+): Promise<{ success?: boolean; copiedCount?: number; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { error: 'Unauthorized: Harap login terlebih dahulu' }
+  }
+
+  try {
+    const prevMonth = targetMonth === 1 ? 12 : targetMonth - 1
+    const prevYear = targetMonth === 1 ? targetYear - 1 : targetYear
+
+    const previousBudgets = await prisma.outletBudget.findMany({
+      where: {
+        periodMonth: prevMonth,
+        periodYear: prevYear,
+      },
+    })
+
+    if (previousBudgets.length === 0) {
+      return {
+        error: `Tidak ada data target budget pada bulan sebelumnya (${prevMonth}/${prevYear}) untuk disalin.`,
+      }
+    }
+
+    let copiedCount = 0
+    for (const pb of previousBudgets) {
+      // Upsert target ke bulan yang dipilih
+      await prisma.outletBudget.upsert({
+        where: {
+          idx_outlet_budget_period: {
+            outletId: pb.outletId,
+            periodMonth: targetMonth,
+            periodYear: targetYear,
+          },
+        },
+        update: {
+          targetBudget: pb.targetBudget,
+          targetKolCount: pb.targetKolCount,
+          notes: pb.notes || `Disalin dari ${prevMonth}/${prevYear}`,
+        },
+        create: {
+          outletId: pb.outletId,
+          periodMonth: targetMonth,
+          periodYear: targetYear,
+          targetBudget: pb.targetBudget,
+          targetKolCount: pb.targetKolCount,
+          notes: pb.notes || `Disalin dari ${prevMonth}/${prevYear}`,
+        },
+      })
+      copiedCount++
+    }
+
+    revalidatePath('/dashboard/budget')
+    return { success: true, copiedCount }
+  } catch (err: any) {
+    console.error('Failed to copy previous month budgets:', err)
+    return { error: err?.message || 'Gagal menyalin target budget dari bulan sebelumnya' }
+  }
+}
+

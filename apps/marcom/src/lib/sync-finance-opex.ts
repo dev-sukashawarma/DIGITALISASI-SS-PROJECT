@@ -142,6 +142,46 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
       }
     }
 
+    // ==========================================
+    // 3. Sinkronisasi Biaya HPP Menu Complimentary (Jatah KOL)
+    // ==========================================
+    const hppMenu = Number(endorsement.hppMenu) || 0
+    const hppDate = toDateString(endorsement.scheduleDate)
+    const isHppAfterCutoff = hppDate >= OPEX_CUTOFF_DATE
+    const isHppValid = hppMenu > 0 && isHppAfterCutoff
+
+    // Gunakan deterministic UUID berbasis ID endorsement agar idempotent tanpa perlu alter schema
+    const hash = crypto.createHash('md5').update(`marcom-hpp-expense-${id}`).digest('hex')
+    const hppExpenseId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
+
+    if (isHppValid) {
+      const periodMonth = toPeriodMonth(hppDate)
+      const category = posOutletId ? 'promo' : 'pengeluaran_global'
+      const menuDesc = endorsement.menuGiven ? ` - Menu: ${endorsement.menuGiven}` : ''
+      const description = `[MARCOM: HPP Menu KOL - ${kolName}]${menuDesc} (Outlet: ${outletName})`
+
+      const { error: upsertErr } = await supabase.from('expenses').upsert(
+        {
+          id: hppExpenseId,
+          outlet_id: posOutletId,
+          category,
+          amount: hppMenu,
+          description,
+          expense_date: hppDate,
+          period_month: periodMonth,
+          payment_source: 'transfer_pusat',
+          type: 'expense',
+        },
+        { onConflict: 'id' }
+      )
+
+      if (upsertErr) {
+        console.error(`[syncEndorsementOpex] Error upserting HPP expense for Endorsement #${id}:`, upsertErr)
+      }
+    } else {
+      await supabase.from('expenses').delete().eq('id', hppExpenseId)
+    }
+
     return { success: true }
   } catch (err: any) {
     console.error(`[syncEndorsementOpex] Exception:`, err)
@@ -237,21 +277,113 @@ export async function deleteOpexByExpenseId(expenseId: string | null | undefined
 }
 
 /**
+ * Sinkronisasi pengeluaran manual Marcom ke OPEX Supabase Finance
+ */
+export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | string) {
+  try {
+    const id = BigInt(marcomExpenseId)
+    const expense = await prisma.marcomExpense.findUnique({
+      where: { id },
+      include: { outlet: true },
+    })
+
+    if (!expense) return { success: false, error: 'Data pengeluaran tidak ditemukan' }
+
+    const supabase = getPosSupabase()
+    const posOutletId = expense.outlet?.posOutletId || null
+    const outletName = expense.outlet?.name || 'Kantor Pusat/Global'
+    const amount = Number(expense.amount) || 0
+    const expenseDate = toDateString(expense.expenseDate)
+    const isAfterCutoff = expenseDate >= OPEX_CUTOFF_DATE
+
+    if (amount > 0 && isAfterCutoff) {
+      const periodMonth = toPeriodMonth(expenseDate)
+
+      // Map kategori Marcom ke kategori Finance
+      let category = 'pengeluaran_global'
+      if (posOutletId) {
+        if (expense.category === 'OPERASIONAL_TRANSPORT') category = 'transport'
+        else if (expense.category === 'CETAK_BRANDING' || expense.category === 'EVENT_AKTIVASI') category = 'promo'
+        else category = 'pengeluaran_outlet'
+      } else {
+        if (expense.category === 'OPERASIONAL_TRANSPORT') category = 'transport'
+        else category = 'pengeluaran_global'
+      }
+
+      const categoryLabelMap: Record<string, string> = {
+        CETAK_BRANDING: 'Cetak & Branding',
+        PRODUKSI_KONTEN: 'Produksi Konten',
+        SOFTWARE_TOOLS: 'Software & Tools',
+        EVENT_AKTIVASI: 'Event & Aktivasi',
+        OPERASIONAL_TRANSPORT: 'Transport & Lapangan',
+        LAINNYA: 'Operasional Marcom',
+      }
+      const catLabel = categoryLabelMap[expense.category] || expense.category
+      const description = `[MARCOM: ${catLabel}] ${expense.description} (Alokasi: ${outletName})`
+      const expenseId = expense.expenseId || crypto.randomUUID()
+
+      const { error: upsertErr } = await supabase.from('expenses').upsert(
+        {
+          id: expenseId,
+          outlet_id: posOutletId,
+          category,
+          amount,
+          description,
+          expense_date: expenseDate,
+          period_month: periodMonth,
+          payment_source: expense.paymentSource || 'transfer_pusat',
+          type: 'expense',
+        },
+        { onConflict: 'id' }
+      )
+
+      if (upsertErr) {
+        console.error(`[syncManualExpenseOpex] Error upserting expense for #${id}:`, upsertErr)
+      } else if (!expense.expenseId) {
+        await prisma.marcomExpense.update({
+          where: { id },
+          data: { expenseId },
+        })
+      }
+    } else if (expense.expenseId) {
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', expense.expenseId)
+      if (delErr) {
+        console.error(`[syncManualExpenseOpex] Error deleting expense ${expense.expenseId}:`, delErr)
+      } else {
+        await prisma.marcomExpense.update({
+          where: { id },
+          data: { expenseId: null },
+        })
+      }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error(`[syncManualExpenseOpex] Exception:`, err)
+    return { success: false, error: err?.message || 'Gagal sinkronisasi pengeluaran ke OPEX' }
+  }
+}
+
+/**
  * Sinkronisasi massal seluruh data historis MARCOM ke OPEX Supabase
  */
 export async function syncAllHistoricalMarcomToOpex() {
   try {
-    const [endorsements, ads] = await Promise.all([
+    const [endorsements, ads, manualExpenses] = await Promise.all([
       prisma.endorsement.findMany({
         select: { id: true },
       }),
       prisma.ad.findMany({
         select: { id: true },
       }),
+      prisma.marcomExpense.findMany({
+        select: { id: true },
+      }),
     ])
 
     let syncedEndorsements = 0
     let syncedAds = 0
+    let syncedManual = 0
     let errorsCount = 0
 
     for (const e of endorsements) {
@@ -272,11 +404,21 @@ export async function syncAllHistoricalMarcomToOpex() {
       }
     }
 
+    for (const m of manualExpenses) {
+      const res = await syncManualExpenseOpex(m.id)
+      if (res.success) {
+        syncedManual++
+      } else {
+        errorsCount++
+      }
+    }
+
     return {
       success: true,
-      totalProcessed: endorsements.length + ads.length,
+      totalProcessed: endorsements.length + ads.length + manualExpenses.length,
       syncedEndorsements,
       syncedAds,
+      syncedManual,
       errorsCount,
     }
   } catch (err: any) {

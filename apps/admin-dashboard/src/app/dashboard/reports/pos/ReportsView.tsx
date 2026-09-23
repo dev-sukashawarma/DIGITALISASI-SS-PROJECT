@@ -13,7 +13,7 @@ import { formatRupiah } from '@/lib/validations'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
+import { computePosReportKpi, computeNetRevenueVoidAware, computeOrderDeduction, computeOrderGross, computeItemShares } from '@/lib/posReportKpi'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -166,7 +166,7 @@ interface ReportsViewProps {
   initialOutlets: Outlet[]
 }
 
-// â”€â”€â”€ Helper for extracting packages/combos â”€â”€â”€
+// ─── Helper for extracting packages/combos ───
 function extractOrderPackages(order: OrderRow) {
   const pkgs: { name: string; qty: number; choices?: Record<string, string> }[] = []
   
@@ -304,7 +304,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return false
   }, [range, dateStrRange, customEndDate, todayJakarta])
 
-  // Pawoon data hanya tersedia s.d. Juli 2026 â€” sembunyikan filter Pawoon
+  // Pawoon data hanya tersedia s.d. Juli 2026 — sembunyikan filter Pawoon
   // jika rentang filter tidak mencakup satupun hari di Juli 2026 atau sebelumnya.
   const PAWOON_CUTOFF = '2026-08-01'
   const isPawoonVisible = useMemo(() => {
@@ -364,7 +364,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const fetchOrdersRequestId = useRef(0)
 
   const fetchOrders = useCallback(async () => {
-    // Kustom Tanggal butuh KEDUA input terisi â€” kalau salah satu masih kosong
+    // Kustom Tanggal butuh KEDUA input terisi — kalau salah satu masih kosong
     // (state transisi normal saat user baru pindah ke "Kustom Tanggal" atau
     // baru isi satu input), jangan fetch sama sekali. Selain sia-sia, fetch
     // ini tanpa bound tanggal akan menarik SELURUH riwayat order 19 outlet.
@@ -478,10 +478,10 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // dan tidak lagi membebani PostgREST dengan nested joins 4-tingkat.
     const PAGE_SIZE = 1000
     // Halaman ditarik per-gelombang secara paralel, bukan satu per satu.
-    // Rentang 30 hari â‰ˆ 31 halaman; sebelumnya itu berarti 31 round-trip
+    // Rentang 30 hari ≈ 31 halaman; sebelumnya itu berarti 31 round-trip
     // BERURUTAN (tiap halaman menunggu halaman sebelumnya selesai). Sekarang
     // 4 halaman ditembak berbarengan lalu berhenti begitu ada halaman pendek
-    // (tanda sudah mentok) â€” tanpa perlu query COUNT tambahan.
+    // (tanda sudah mentok) — tanpa perlu query COUNT tambahan.
     // Ini murni perubahan cara mengambil data; urutan hasil tetap dijaga
     // (gelombang diproses berurutan) dan tidak ada logika agregasi yang berubah.
     const PAGE_CONCURRENCY = 4
@@ -608,7 +608,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       qSettlements
     ])
 
-    // Abaikan hasil fetch basi â€” request lebih baru (mis. user selesai memilih
+    // Abaikan hasil fetch basi — request lebih baru (mis. user selesai memilih
     // custom date setelah sebelumnya sempat fire fetch tanpa bound tanggal)
     // bisa resolve lebih dulu; tanpa guard ini, respons lama yang telat datang
     // akan menimpa balik data yang sudah benar dengan hasil unbounded.
@@ -637,10 +637,10 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let pendingWhileHidden = false
 
     // Tiap order masuk dari outlet MANA PUN memicu penarikan ulang seluruh
-    // rentang (30 hari â‰ˆ puluhan ribu baris). Dengan debounce 600ms, di jam
+    // rentang (30 hari ≈ puluhan ribu baris). Dengan debounce 600ms, di jam
     // sibuk halaman ini praktis menarik ulang terus-menerus dan itulah yang
     // paling terasa sebagai "lemot". Dua peredam:
-    //  1. Jendela debounce diperlebar â€” laporan periode panjang tidak butuh
+    //  1. Jendela debounce diperlebar — laporan periode panjang tidak butuh
     //     kesegaran sub-detik.
     //  2. Saat tab tidak terlihat, penarikan ditunda sampai user kembali,
     //     supaya tab yang dibiarkan terbuka berhenti membebani DB.
@@ -695,12 +695,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }
   }, [isSSOnlineSelected])
 
-  // â”€â”€â”€ Available Channels â”€â”€â”€
+  // ─── Available Channels ───
   const PAWOON_KEYS = useMemo(() => new Set(['pos_pawoon_all', 'pos_pawoon', 'pos_fa']), [])
   const availableChannels = useMemo(() => {
     const map = new Map<string, { key: string; label: string }>()
 
-    // Channel standar â€” Pawoon hanya dimasukkan jika range mencakup Juli 2026 atau sebelumnya
+    // Channel standar — Pawoon hanya dimasukkan jika range mencakup Juli 2026 atau sebelumnya
     const defaults = [
       { key: 'pos_kasir', label: 'POS KASIR (Internal)' },
       ...(isPawoonVisible ? [
@@ -754,7 +754,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return src === target
   }
 
-  // â”€â”€â”€ Derived Analytics â”€â”€â”€
+  // ─── Derived Analytics ───
   const analytics = useMemo(() => {
 
     const filteredOrders = selectedChannels.includes('all') 
@@ -776,7 +776,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // NET methodology (konsisten dengan halaman Laba Kotor, keputusan owner
     // 2026-07-29): order completed ditambah, order cancelled (void) DIKURANGKAN.
     // Cakupan lain di halaman ini (jumlah item terjual, best seller, breakdown
-    // pembayaran) SENGAJA tetap completed-only untuk saat ini â€” hanya kartu
+    // pembayaran) SENGAJA tetap completed-only untuk saat ini — hanya kartu
     // Gross Revenue/Gross Profit yang diperbaiki (2026-07-31, kasus EMPANG
     // 24 Juli: void P7KY2P6LD8NY7 Rp94.000 dulu tidak mengurangi apa pun).
     const actualNetRevenue = computeNetRevenueVoidAware(filteredOrders)
@@ -822,8 +822,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     completed.forEach(o => {
       const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
+      // PDF Eksekutif: revenue per item = porsi gross order (acuan sama dengan
+      // kartu Gross Revenue), supaya kolom "% Kontribusi Omzet" berjumlah 100%.
+      const pdfOrderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const pdfShares = computeItemShares(o.order_items || [])
 
-      o.order_items.forEach(oi => {
+      o.order_items.forEach((oi, idx) => {
         const key = cleanItemName(oi.menu_item_name)
         if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, revenue: 0 }
         itemMap[key].qty += oi.quantity
@@ -832,7 +836,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         const pdfKey = `${key}__${channelName}`
         if (!itemPdfMap[pdfKey]) itemPdfMap[pdfKey] = { name: key, channel: channelName, qty: 0, revenue: 0 }
         itemPdfMap[pdfKey].qty += oi.quantity
-        itemPdfMap[pdfKey].revenue += oi.subtotal
+        itemPdfMap[pdfKey].revenue += pdfShares[idx] * pdfOrderGross
 
         // Simple logic to detect Category: if parentId exists or "Extra" in name -> Add-on
         if (oi.menu_item_name.includes('|PARENT|') || oi.menu_item_name.toLowerCase().includes('extra')) {
@@ -883,30 +887,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // menghitung subsidi platform dua kali -- Rp 95 juta se-perusahaan pada
     // Agustus 2026. Selisih nilai menu vs total_amount selalu benar, apa pun
     // konvensi yang berlaku saat order dibuat.
-    const totalDeductions = isSSOnlineSelected
-      ? completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0), 0)
-      : completed.reduce((s, o) => {
-          const items = (o as any).order_items || []
-          const total = Number(o.total_amount) || 0
-          // Baris SS Online adalah baris SINTETIS dari `ecommerce_sales`:
-          // `total_amount` sudah net dan `discount_amount` sudah memuat beban
-          // platform yang benar, sementara item-nya tidak selalu rekonsiliasi
-          // dengan total order. Memakai selisih item di sini menggeser beban
-          // platform Agustus 2026 dari Rp 12,48 jt jadi Rp 20,24 jt (998 dari
-          // 1.377 baris berubah). Jadi baris ini tetap memakai discount_amount.
-          if ((o as any).outlet_id === 'ss-online') {
-            return s + (Number((o as any).discount_amount) || 0)
-          }
-          if (items.length === 0) {
-            // Tanpa baris item tak ada nilai menu untuk dibandingkan.
-            return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
-          }
-          const itemValue = items.reduce(
-            (sum: number, i: any) => sum + (Number(i.subtotal) || (Number(i.quantity) * Number(i.unit_price)) || 0),
-            0
-          )
-          return s + Math.max(0, itemValue - total)
-        }, 0)
+    // Rumusnya ada di computeOrderDeduction (lib/posReportKpi) supaya kartu
+    // ini dan SEMUA ekspor (PDF/CSV/Excel) memakai satu acuan yang sama.
+    const totalDeductions = completed.reduce(
+      (s, o) => s + computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected }),
+      0
+    )
 
     // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom
     // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak
@@ -1006,7 +992,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     unknown: { label: 'Lainnya', color: '#6b7280', bg: 'bg-gray-50', icon: Package },
   }
 
-  // â”€â”€â”€ Available Payment Methods â”€â”€â”€
+  // ─── Available Payment Methods ───
   const availablePaymentMethods = useMemo(() => {
     const map = new Map<string, string>()
     map.set('cash', 'Tunai (Cash)')
@@ -1202,7 +1188,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }> = {}
 
     // "Total Revenue" per item HARUS bersumber dari rumus gross yang sama
-    // dengan kartu KPI di layar (total_amount + diskon + promo per order),
+    // dengan kartu KPI di layar (computeOrderGross: total_amount + potongan),
     // bukan dari sekadar menjumlahkan order_items.subtotal.
     //
     // Sebelumnya kode ini menjumlahkan oi.subtotal apa adanya sebagai
@@ -1262,13 +1248,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const catData = categoryMap[categoryName]
 
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      const orderGross = Number(o.total_amount) + disc + promo
-      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const itemShares = computeItemShares(o.order_items || [])
 
       if (o.order_items && o.order_items.length > 0) {
-        o.order_items.forEach(oi => {
+        o.order_items.forEach((oi, idx) => {
           const key = cleanItemName(oi.menu_item_name)
           if (!catData.itemMap[key]) {
             catData.itemMap[key] = {
@@ -1282,7 +1266,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
           const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
           const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
-          const itemRevenue = orderItemsGross > 0 ? (Number(oi.subtotal) / orderItemsGross) * orderGross : 0
+          const itemRevenue = itemShares[idx] * orderGross
 
           catData.itemMap[key].qty += oi.quantity
           catData.itemMap[key].revenue += itemRevenue
@@ -1358,7 +1342,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }> = {}
 
     // "Total Revenue" per item HARUS bersumber dari rumus gross yang sama
-    // dengan kartu KPI di layar (total_amount + diskon + promo per order),
+    // dengan kartu KPI di layar (computeOrderGross: total_amount + potongan),
     // bukan dari sekadar menjumlahkan order_items.subtotal — lihat penjelasan
     // lengkap di komentar blok PDF Kategori (fungsi downloadPDFAllChannels)
     // yang punya perbaikan identik. Grand Total di CSV sebelumnya berbeda
@@ -1405,17 +1389,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const catData = categoryMap[categoryName]
 
-      // Rumus SAMA dengan kartu KPI di layar dan blok PDF Kategori.
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      const orderGross = Number(o.total_amount) + disc + promo
-      const orderTotalDeductions = disc + promo
-      // Pembagi untuk membagi gross & potongan pesanan secara proporsional
-      // ke tiap item, berdasarkan porsi subtotal masing-masing.
-      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      // Rumus SAMA dengan kartu KPI di layar dan blok PDF Kategori (lib/posReportKpi).
+      const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const orderTotalDeductions = computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected })
+      // Bobot untuk membagi gross & potongan order ke tiap item.
+      const itemShares = computeItemShares(o.order_items || [])
 
       if (o.order_items && o.order_items.length > 0) {
-        o.order_items.forEach(oi => {
+        o.order_items.forEach((oi, idx) => {
           const key = cleanItemName(oi.menu_item_name)
           if (!catData.itemMap[key]) {
             catData.itemMap[key] = {
@@ -1432,7 +1413,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
           const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           const itemHpp = hppPerUnit * oi.quantity
-          const itemWeight = orderItemsGross > 0 ? Number(oi.subtotal) / orderItemsGross : 0
+          const itemWeight = itemShares[idx]
           const itemRevenue = itemWeight * orderGross
           const itemDeduction = itemWeight * orderTotalDeductions
           const itemGrossProfit = itemRevenue - itemHpp - itemDeduction
@@ -1514,7 +1495,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   return (
     <div className="space-y-8 pb-12 animate-fade-in" id="report-content">
 
-      {/* â”€â”€ Header Web (Hidden on Print) â”€â”€ */}
+      {/* ── Header Web (Hidden on Print) ── */}
       <div className="no-print flex flex-col xl:flex-row items-start xl:items-center justify-between gap-5 bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-3">
@@ -1642,7 +1623,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span>Live Realtime Â· Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+                <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
               </span>
             )}
           </div>
@@ -1658,7 +1639,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         </div>
       
 
-      {/* â”€â”€ Header Print (Only Visible on Print) â”€â”€ */}
+      {/* ── Header Print (Only Visible on Print) ── */}
       <div className="hidden print:flex bg-white py-4 mb-6 border-b-2 border-gray-900 items-start justify-between">
         <div>
           <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
@@ -1680,7 +1661,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         </div>
       ) : (
         <>
-          {/* â”€â”€ KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) â”€â”€ */}
+          {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
             <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
@@ -1905,7 +1886,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           </div>
 
           <div className="grid grid-cols-1 gap-6">
-            {/* â”€â”€ Best Sellers â”€â”€ */}
+            {/* ── Best Sellers ── */}
             <div className="card bg-white p-6 sm:p-8 rounded-[2rem] shadow-[0_4px_24px_rgba(0,0,0,0.02)] border border-gray-100/80">
               <div className="flex items-center gap-2 mb-5">
                 <Award className="w-5 h-5 text-amber-500" />
@@ -1919,7 +1900,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                   {analytics.bestSellers.map((item, idx) => {
                     const maxQty = analytics.bestSellers[0].qty
                     const pct = (item.qty / maxQty) * 100
-                    const medals = ['ðŸ¥‡', 'ðŸ¥ˆ', 'ðŸ¥‰']
+                    const medals = ['🥇', '🥈', '🥉']
                     return (
                       <div key={item.name} className="group">
                         <div className="flex items-center gap-3 mb-1.5">
@@ -2127,7 +2108,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                                 <div key={idx} className="whitespace-normal leading-tight text-[13px] flex items-start gap-1.5">
                                   <span className="font-bold text-gray-900 bg-gray-100 px-1.5 py-0.5 rounded text-[11px] whitespace-nowrap">{i.quantity}x</span> 
                                   <span className={i.is_promo_reward ? 'text-emerald-700 font-semibold' : ''}>
-                                    {i.is_promo_reward ? `Gratis Â· ${cleanItemName(i.menu_item_name)}` : cleanItemName(i.menu_item_name)}
+                                    {i.is_promo_reward ? `Gratis · ${cleanItemName(i.menu_item_name)}` : cleanItemName(i.menu_item_name)}
                                   </span>
                                 </div>
                               ))}

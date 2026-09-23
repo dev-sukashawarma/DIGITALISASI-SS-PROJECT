@@ -18,6 +18,8 @@ export interface ExpenseRow {
   type?: string
   recipient_name?: string | null
   division?: string | null
+  raw_description?: string | null
+  raw_category?: string | null
 }
 
 const EMPTY_ROWS: ExpenseRow[] = []
@@ -60,6 +62,12 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
           } catch (e) {
             // ignore
           }
+        } else if (displayDesc.startsWith('[Kategori: ') && displayDesc.includes('] ')) {
+          const match = displayDesc.match(/^\[Kategori:\s*([^\]]+)\]\s*(.*)$/)
+          if (match) {
+            cat = match[1]
+            displayDesc = match[2]
+          }
         }
 
         const isPusat = !row.outlet_id || 
@@ -73,9 +81,11 @@ export function useExpenses(filter: PeriodFilterValue, initialData?: ExpenseRow[
           outlet_id: row.outlet_id,
           outlet_name: isPusat ? 'Kantor Pusat' : (row.outlets?.name ?? (row.outlet_id ? 'Outlet Tidak Dikenal' : 'Kantor Pusat')),
           category: cat,
+          raw_category: row.category,
           scope: isPusat ? ('pusat' as const) : ('outlet' as const),
           amount: Number(row.amount),
           description: displayDesc,
+          raw_description: row.description,
           expense_date: row.expense_date,
           period_month: row.period_month,
           receipt_url: row.receipt_url,

@@ -274,7 +274,8 @@ fun HomeBrandHeader(
                                     )
                                 }
                                 Text(
-                                    text = if (buka) "Siap saji dalam 15–20 menit" else "Tidak menerima pesanan",
+                                    // Bukan janji waktu saji -- belum ada data per outlet.
+                                    text = if (buka) "Ambil sendiri di outlet ini" else "Tidak menerima pesanan",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 11.sp,
                                         color = SukaMuted

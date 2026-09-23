@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { getPosSupabase } from '@/lib/supabase-pos'
+import { getPosSupabase, fetchPosMenuItems, type PosMenuItem } from '@/lib/supabase-pos'
 import { syncEndorsementOpex, deleteOpexByExpenseId } from '@/lib/sync-finance-opex'
 
 export type ActionState = {
@@ -1009,3 +1009,8 @@ export async function resolveVideoEmbedInfo(
     canEmbed: false,
   }
 }
+
+export async function getPosMenuItemsAction(): Promise<PosMenuItem[]> {
+  return await fetchPosMenuItems()
+}
+

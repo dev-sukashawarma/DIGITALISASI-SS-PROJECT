@@ -60,6 +60,7 @@ import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
+import com.sukashawarma.customer.ui.components.PerluPilihOutletState
 import com.sukashawarma.customer.ui.components.HomeBrandHeader
 import com.sukashawarma.customer.ui.components.RangkaBeranda
 import com.sukashawarma.customer.ui.components.OutletHeader
@@ -150,6 +151,8 @@ fun HomeScreen(
                     judul = "Belum ada outlet",
                     penjelasan = "Pemesanan lewat aplikasi belum dibuka di outlet mana pun. Coba lagi nanti."
                 )
+
+                state.perluPilihOutlet -> PerluPilihOutletState(onPilihOutlet = onGantiOutlet)
 
                 state.galat != null -> ErrorState(
                     error = state.galat!!,
@@ -311,14 +314,10 @@ private fun HomeContentList(
                     ) {
                         bestSellerItems.take(2).forEachIndexed { index, item ->
                             val rank = index + 1
-                            val rating = if (index == 0) "4.9" else "4.8"
-                            val reviewCount = if (index == 0) "480+" else "320+"
                             Box(modifier = Modifier.weight(1f)) {
                                 BestSellerCard(
                                     item = item,
                                     rank = rank,
-                                    rating = rating,
-                                    reviewCount = reviewCount,
                                     onKlik = onPilihItem
                                 )
                             }
@@ -351,8 +350,6 @@ private fun HomeContentList(
 private fun BestSellerCard(
     item: MenuItemDto,
     rank: Int,
-    rating: String,
-    reviewCount: String,
     onKlik: (MenuItemDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -409,28 +406,8 @@ private fun BestSellerCard(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Rating
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "★ $rating",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = SukaOrange,
-                            fontSize = 11.sp
-                        )
-                    )
-                    Text(
-                        text = "($reviewCount)",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = SukaMuted,
-                            fontSize = 11.sp
-                        )
-                    )
-                }
-
+                // Rating sengaja tidak ditampilkan: aplikasi belum punya
+                // ulasan pelanggan, dan angka karangan menyesatkan.
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.titleSmall.copy(

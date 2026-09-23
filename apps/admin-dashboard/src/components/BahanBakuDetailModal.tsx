@@ -394,14 +394,14 @@ export function BahanBakuDetailModal({
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-100 space-y-4">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Konversi Satuan Bertingkat</label>
-                  {!isEditingSatuan && (
-                    <button 
-                      onClick={() => setIsEditingSatuan(true)}
-                      className="text-suka-orange flex items-center gap-1 text-xs font-semibold hover:bg-orange-50 px-2 py-1 rounded transition-colors"
-                    >
-                      <Pencil size={12} /> Edit
-                    </button>
-                  )}
+                  {/* Edit satuan DIKUNCI sementara (2026-09-23). Jalur ini menulis
+                      faktor_tampilan langsung tanpa ikut memperbarui faktor_konversi /
+                      kemasan_qty dan tanpa cek dokumen berjalan (SJ/PO/opname) — kelas
+                      bug FOIL 48x. Diganti tombol "Ganti Satuan" (spec
+                      docs/superpowers/specs/2026-09-23-master-bahan-baku-satu-tempat-design.md K4). */}
+                  <span className="text-[11px] font-semibold text-gray-400" title="Perubahan satuan sementara hanya lewat developer, sampai fitur Ganti Satuan selesai.">
+                    Terkunci — hubungi developer
+                  </span>
                 </div>
                 
                 {isEditingSatuan ? (

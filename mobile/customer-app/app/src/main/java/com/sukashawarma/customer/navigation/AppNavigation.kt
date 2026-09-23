@@ -377,7 +377,7 @@ fun CustomerAppRoot(container: AppContainer) {
                 }
             ) {
                 val outletViewModel: OutletPickerViewModel = viewModel(
-                    factory = pabrik { OutletPickerViewModel(container.repository) }
+                    factory = pabrik { OutletPickerViewModel(container.repository, container.lokasiPelanggan) }
                 )
                 OutletPickerScreen(
                     viewModel = outletViewModel,
@@ -389,7 +389,8 @@ fun CustomerAppRoot(container: AppContainer) {
                         cartViewModel.segarkan()
                         navController.popBackStack()
                     },
-                    onTutup = { navController.popBackStack() }
+                    onTutup = { navController.popBackStack() },
+                    terpilihId = catalogState.outlet?.id
                 )
             }
 

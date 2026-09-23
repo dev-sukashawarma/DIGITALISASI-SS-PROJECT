@@ -293,7 +293,7 @@ fun OutletHeader(
                             .background(if (buka) SukaGreen else SukaMuted)
                     )
                     Text(
-                        text = if (buka) "Buka • Siap dalam 15-20 mnt" else "Belum buka",
+                        text = if (buka) "Buka" else "Belum buka",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,

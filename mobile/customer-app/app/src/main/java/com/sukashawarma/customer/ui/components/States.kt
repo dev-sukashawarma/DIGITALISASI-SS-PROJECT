@@ -48,6 +48,33 @@ fun EmptyState(
 }
 
 /**
+ * Belum ada outlet terpilih dan aplikasi tidak bisa menentukannya sendiri --
+ * pemasangan baru dengan >1 outlet, atau outlet tersimpan sudah dicabut dari
+ * aplikasi. Tombolnya wajib: tanpa itu layar jatuh ke katalog kosong tanpa
+ * kepala outlet, dan pelanggan tak punya jalan keluar.
+ */
+@Composable
+fun PerluPilihOutletState(
+    onPilihOutlet: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Pilih outlet dulu", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Pilih outlet Suka Shawarma terdekat untuk melihat menu dan memesan.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
+        Button(onClick = onPilihOutlet) { Text("Pilih Outlet") }
+    }
+}
+
+/**
  * Menerjemahkan galat gateway jadi kalimat yang bisa ditindak pelanggan.
  *
  * Fungsi murni supaya bisa diuji tanpa menyalakan Compose, dan supaya tidak

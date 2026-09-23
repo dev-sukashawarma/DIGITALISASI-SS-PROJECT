@@ -57,6 +57,7 @@ export default async function EndorsementsPage() {
       },
     }),
     prisma.outlet.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
       select: {
         id: true,

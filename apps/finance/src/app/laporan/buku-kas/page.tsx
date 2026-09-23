@@ -17,7 +17,8 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
-  Users
+  Users,
+  Pencil
 } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
@@ -70,9 +71,10 @@ export default function BukuKasPage() {
   const [isImportOpen, setIsImportOpen] = useState(false)
   const [previewReceiptUrl, setPreviewReceiptUrl] = useState<string | null>(null)
 
-  // Delete transaction state
+  // Delete and Edit transaction state
   const [deletingTx, setDeletingTx] = useState<any | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [editingTx, setEditingTx] = useState<any | null>(null)
 
   const isPusat = target === 'PUSAT'
   const isAllOutlets = target === 'ALL_OUTLETS'
@@ -100,13 +102,17 @@ export default function BukuKasPage() {
         date: r.expense_date,
         category: r.category,
         outlet_name: r.outlet_name ?? (r.scope === 'pusat' ? 'Kantor Pusat' : '-'),
+        outlet_id: r.outlet_id,
         recipient_name: r.recipient_name ?? '-',
         division: r.division ?? (r.scope === 'pusat' ? 'General' : '-'),
         description: r.description,
         amount: r.amount,
         type: 'expense',
         receipt_url: r.receipt_url || null,
-        isTopup: false
+        isTopup: false,
+        raw_description: r.raw_description || r.description,
+        raw_category: r.raw_category || r.category,
+        scope: r.scope
       })
     })
 
@@ -719,14 +725,24 @@ export default function BukuKasPage() {
                         -{rupiah(tx.amount)}
                       </td>
                       <td className="px-3 py-3.5 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          onClick={() => setDeletingTx(tx)}
-                          title="Hapus Transaksi"
-                          className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
-                        >
-                          <Trash2 size={13} />
-                        </button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingTx(tx)}
+                            title="Edit Transaksi OPEX"
+                            className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingTx(tx)}
+                            title="Hapus Transaksi"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -861,6 +877,20 @@ export default function BukuKasPage() {
           onClose={() => setIsFormOpen(false)}
           onSuccess={() => {
             setIsFormOpen(false)
+            queryClient.invalidateQueries({ queryKey: ['expenses'] })
+          }}
+        />
+      )}
+
+      {editingTx && (
+        <ExpenseFormModal
+          isOpen={Boolean(editingTx)}
+          initialData={editingTx}
+          outlets={outlets as any}
+          isAdmin={isChecker}
+          onClose={() => setEditingTx(null)}
+          onSuccess={() => {
+            setEditingTx(null)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
           }}
         />

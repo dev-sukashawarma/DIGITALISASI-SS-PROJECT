@@ -60,6 +60,7 @@ import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
+import com.sukashawarma.customer.ui.components.PerluPilihOutletState
 import com.sukashawarma.customer.ui.components.HomeBrandHeader
 import com.sukashawarma.customer.ui.components.RangkaBeranda
 import com.sukashawarma.customer.ui.components.OutletHeader
@@ -150,6 +151,8 @@ fun HomeScreen(
                     judul = "Belum ada outlet",
                     penjelasan = "Pemesanan lewat aplikasi belum dibuka di outlet mana pun. Coba lagi nanti."
                 )
+
+                state.perluPilihOutlet -> PerluPilihOutletState(onPilihOutlet = onGantiOutlet)
 
                 state.galat != null -> ErrorState(
                     error = state.galat!!,

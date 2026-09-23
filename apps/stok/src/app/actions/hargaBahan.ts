@@ -5,7 +5,9 @@ import { cookies } from 'next/headers'
 import { createSupabaseServerClient } from '@suka/auth'
 import { canViewVendorPrices } from '@/lib/stok/navAccess'
 
-const AUTHORIZED_ROLES = ['admin', 'owner', 'finance', 'purchasing', 'spv'] as const
+// Spec 2026-09-23 K1: harga master hanya admin, owner, purchasing. ('finance' bukan
+// role yang ada; spv hanya lihat.)
+const AUTHORIZED_ROLES = ['admin', 'owner', 'purchasing'] as const
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL! || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -42,7 +44,7 @@ async function requirePriceMasterEditor(): Promise<{ userId: string; userRole: s
   
   // Jika staff aktif dan role ada di daftar otorisasi
   if (!staff || staff.status !== 'active' || !(AUTHORIZED_ROLES as readonly string[]).includes(staff.role)) {
-    throw new Error('Forbidden: Hanya Admin / Finance / Purchasing / SPV yang berhak mengubah Harga Master')
+    throw new Error('Forbidden: Hanya Admin / Owner / Purchasing yang berhak mengubah Harga Master')
   }
 
   return { userId, userRole: staff.role, userName: staff.name || 'User' }
@@ -105,7 +107,8 @@ export async function syncMasterPriceAction(items: SyncMasterItemInput[]) {
         .upsert({
           bahan_baku_id: item.bahan_baku_id,
           harga_beli: item.harga_baru,
-          updated_at: new Date().toISOString()
+          harga_updated_at: new Date().toISOString(),
+          updated_by: userId,
         }, {
           onConflict: 'bahan_baku_id'
         })

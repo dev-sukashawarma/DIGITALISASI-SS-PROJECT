@@ -1,5 +1,5 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@suka/design-system'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
@@ -9,9 +9,9 @@ import {
   type ExpenseCategory
 } from '@/lib/expenseCategories'
 import type { Outlet } from '@/lib/types'
-import { Upload, X, FileText, Loader2 } from 'lucide-react'
+import { Upload, X, FileText, Loader2, Eye } from 'lucide-react'
 import { useOutlets } from '@/hooks/useOutlets'
-import { createSingleExpenseAction, uploadExpenseInvoiceAction } from '@/app/actions/expenses'
+import { createSingleExpenseAction, updateSingleExpenseAction, uploadExpenseInvoiceAction } from '@/app/actions/expenses'
 
 const inputCls =
   'w-full rounded-xl border border-suka-gray-200 px-3 py-2 text-sm outline-none focus:border-suka-orange bg-white'
@@ -20,15 +20,18 @@ export function ExpenseFormModal({
   isOpen = true,
   outlets: propOutlets,
   isAdmin = true,
+  initialData = null,
   onClose,
   onSuccess
 }: {
   isOpen?: boolean
   outlets?: Outlet[]
   isAdmin?: boolean
+  initialData?: any | null
   onClose: () => void
   onSuccess: () => void
 }) {
+  const isEdit = Boolean(initialData)
   const { data: fetchedOutlets = [] } = useOutlets()
   const outletsList = propOutlets && propOutlets.length > 0 ? propOutlets : fetchedOutlets
 
@@ -41,11 +44,54 @@ export function ExpenseFormModal({
   const [amount, setAmount] = useState<number | ''>('')
   const [description, setDescription] = useState('')
   const [expenseDate, setExpenseDate] = useState(today)
+  const [recipientName, setRecipientName] = useState('')
+  const [division, setDivision] = useState('')
 
   // File upload state for invoice / receipt proof
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [existingReceiptUrl, setExistingReceiptUrl] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+
+  useEffect(() => {
+    if (initialData) {
+      const isKantorPusat = 
+        !initialData.outlet_id || 
+        initialData.outlet_id === 'ffffffff-ffff-ffff-ffff-ffffffffffff' ||
+        initialData.scope === 'pusat' ||
+        initialData.outlet_name === 'Kantor Pusat' ||
+        initialData.outlet_name === 'Pusat'
+
+      setOutletId(isKantorPusat ? 'PUSAT' : (initialData.outlet_id || 'PUSAT'))
+      
+      const cat = (initialData.category || PENGELUARAN_CATEGORIES[0]) as ExpenseCategory
+      setCategory(cat)
+      
+      setAmount(initialData.amount !== undefined && initialData.amount !== null ? Number(initialData.amount) : '')
+      setDescription(initialData.description || '')
+      setExpenseDate(initialData.date || initialData.expense_date || today)
+      setRecipientName(
+        initialData.recipient_name && initialData.recipient_name !== '-' ? initialData.recipient_name : ''
+      )
+      setDivision(
+        initialData.division && initialData.division !== '-' ? initialData.division : ''
+      )
+      setExistingReceiptUrl(initialData.receipt_url || null)
+      setPreviewUrl(initialData.receipt_url || null)
+      setSelectedFile(null)
+    } else {
+      setOutletId('PUSAT')
+      setCategory(PENGELUARAN_CATEGORIES[0])
+      setAmount('')
+      setDescription('')
+      setExpenseDate(today)
+      setRecipientName('')
+      setDivision('')
+      setExistingReceiptUrl(null)
+      setPreviewUrl(null)
+      setSelectedFile(null)
+    }
+  }, [initialData, isOpen, today])
 
   if (isOpen === false) return null
 
@@ -69,6 +115,10 @@ export function ExpenseFormModal({
       return
     }
 
+    if (previewUrl && previewUrl.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrl)
+    }
+
     setSelectedFile(file)
     if (file.type.startsWith('image/')) {
       const objUrl = URL.createObjectURL(file)
@@ -79,10 +129,11 @@ export function ExpenseFormModal({
   }
 
   const handleRemoveFile = () => {
-    if (previewUrl) {
+    if (previewUrl && previewUrl.startsWith('blob:')) {
       URL.revokeObjectURL(previewUrl)
     }
     setSelectedFile(null)
+    setExistingReceiptUrl(null)
     setPreviewUrl(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
@@ -91,7 +142,7 @@ export function ExpenseFormModal({
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (!amount || amount <= 0) {
+    if (!amount || Number(amount) <= 0) {
       toast.error('Jumlah harus lebih dari 0')
       return
     }
@@ -109,7 +160,7 @@ export function ExpenseFormModal({
 
     setSubmitting(true)
     try {
-      let receiptUrl: string | null = null
+      let receiptUrl: string | null = existingReceiptUrl
 
       // Upload invoice image/document if selected
       if (selectedFile) {
@@ -125,36 +176,61 @@ export function ExpenseFormModal({
           return
         }
         receiptUrl = uploadRes.url
+      } else if (!existingReceiptUrl) {
+        receiptUrl = null
       }
 
-      setSubmitMessage('Menyimpan data pengeluaran...')
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      const userId = session?.user?.id
-
+      setSubmitMessage(isEdit ? 'Menyimpan perubahan...' : 'Menyimpan data pengeluaran...')
       const yyyyMm = expenseDate.slice(0, 7)
       const periodMonth = `${yyyyMm}-01`
       const isPusat = outletId === 'PUSAT'
 
-      const res = await createSingleExpenseAction({
-        outletId: isPusat ? null : outletId,
-        category,
-        amount: Number(amount),
-        description,
-        expenseDate: expenseDate,
-        periodMonth: periodMonth,
-        type: 'expense',
-        created_by: userId,
-        receipt_url: receiptUrl
-      })
+      if (isEdit && initialData?.id) {
+        const res = await updateSingleExpenseAction({
+          id: initialData.id,
+          outletId: isPusat ? null : outletId,
+          category,
+          amount: Number(amount),
+          description: description.trim(),
+          expenseDate: expenseDate,
+          periodMonth: periodMonth,
+          receipt_url: receiptUrl,
+          recipient_name: recipientName.trim() || null,
+          division: division.trim() || null
+        })
 
-      if (!res.success) {
-        toast.error('Gagal menyimpan pengeluaran: ' + (res.error || 'Error'))
-        return
+        if (!res.success) {
+          toast.error('Gagal memperbarui pengeluaran: ' + (res.error || 'Error'))
+          return
+        }
+
+        toast.success('Pengeluaran OPEX berhasil diperbarui')
+      } else {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const userId = session?.user?.id
+
+        const res = await createSingleExpenseAction({
+          outletId: isPusat ? null : outletId,
+          category,
+          amount: Number(amount),
+          description: description.trim(),
+          expenseDate: expenseDate,
+          periodMonth: periodMonth,
+          type: 'expense',
+          created_by: userId,
+          receipt_url: receiptUrl
+        })
+
+        if (!res.success) {
+          toast.error('Gagal menyimpan pengeluaran: ' + (res.error || 'Error'))
+          return
+        }
+
+        toast.success('Pengeluaran OPEX berhasil ditambahkan')
       }
 
-      toast.success('Pengeluaran OPEX berhasil ditambahkan')
-      if (previewUrl) {
+      if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl)
       }
       onSuccess()
@@ -171,8 +247,12 @@ export function ExpenseFormModal({
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl max-h-[92vh] overflow-y-auto">
         <div className="mb-4 flex items-center justify-between pb-3 border-b border-suka-gray-100">
           <div>
-            <h3 className="text-lg font-bold text-suka-ink">Input Pengeluaran Baru (OPEX)</h3>
-            <p className="text-xs text-suka-gray-500">Catat transaksi pengeluaran operasional cabang / pusat</p>
+            <h3 className="text-lg font-bold text-suka-ink">
+              {isEdit ? 'Edit Pengeluaran (OPEX)' : 'Input Pengeluaran Baru (OPEX)'}
+            </h3>
+            <p className="text-xs text-suka-gray-500">
+              {isEdit ? 'Perbarui rincian transaksi beban operasional' : 'Catat transaksi pengeluaran operasional cabang / pusat'}
+            </p>
           </div>
           <button
             type="button"
@@ -218,6 +298,35 @@ export function ExpenseFormModal({
               ))}
             </select>
           </label>
+
+          {/* Nama Pemohon & Divisi (Opsional) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-suka-ink">
+                Nama Pemohon <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+              </span>
+              <input
+                type="text"
+                className={inputCls}
+                value={recipientName}
+                onChange={(e) => setRecipientName(e.target.value)}
+                placeholder="Contoh: Budi Santoso"
+              />
+            </label>
+
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-suka-ink">
+                Divisi <span className="text-xs text-suka-gray-400 font-normal">(Opsional)</span>
+              </span>
+              <input
+                type="text"
+                className={inputCls}
+                value={division}
+                onChange={(e) => setDivision(e.target.value)}
+                placeholder="Contoh: Operasional / GA"
+              />
+            </label>
+          </div>
 
           <label className="text-sm">
             <span className="mb-1 block font-medium text-suka-ink">Jumlah (Rp)</span>
@@ -266,7 +375,7 @@ export function ExpenseFormModal({
               onChange={handleFileChange}
             />
 
-            {!selectedFile ? (
+            {!selectedFile && !existingReceiptUrl ? (
               <div
                 onClick={() => fileInputRef.current?.click()}
                 className="group border-2 border-dashed border-suka-gray-200 hover:border-suka-orange rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer bg-suka-gray-50/60 hover:bg-orange-50/40 transition-all text-center"
@@ -279,7 +388,7 @@ export function ExpenseFormModal({
                 </div>
                 <p className="text-[11px] text-suka-gray-400">JPG, PNG, WEBP, atau PDF (maks. 10MB)</p>
               </div>
-            ) : (
+            ) : selectedFile ? (
               <div className="border border-suka-gray-200 rounded-xl p-3 bg-suka-gray-50 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 overflow-hidden">
                   {previewUrl ? (
@@ -296,7 +405,7 @@ export function ExpenseFormModal({
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-suka-ink truncate">{selectedFile.name}</p>
                     <p className="text-[11px] text-suka-gray-500">
-                      {(selectedFile.size / 1024).toFixed(1)} KB
+                      {(selectedFile.size / 1024).toFixed(1)} KB (File Baru)
                     </p>
                   </div>
                 </div>
@@ -319,6 +428,59 @@ export function ExpenseFormModal({
                   </button>
                 </div>
               </div>
+            ) : (
+              /* Existing receipt */
+              <div className="border border-emerald-200 rounded-xl p-3 bg-emerald-50/50 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 overflow-hidden">
+                  {previewUrl?.toLowerCase().endsWith('.pdf') ? (
+                    <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  ) : previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt="Nota Tersimpan"
+                      className="w-12 h-12 rounded-lg object-cover border border-emerald-200 shrink-0 shadow-2xs"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                      <Eye size={12} />
+                      Bukti Nota Tersimpan
+                    </p>
+                    <a
+                      href={existingReceiptUrl!}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-emerald-600 hover:underline truncate block"
+                    >
+                      Buka dokumen nota
+                    </a>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-[11px] text-suka-orange hover:underline font-medium px-2 py-1"
+                  >
+                    Ganti
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveFile}
+                    className="p-1 text-suka-gray-400 hover:text-red-500 transition-colors"
+                    title="Hapus nota"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             )}
           </div>
 
@@ -335,10 +497,10 @@ export function ExpenseFormModal({
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{submitMessage || 'Menyimpan...'}</span>
+                  <span>{submitMessage || (isEdit ? 'Menyimpan perubahan...' : 'Menyimpan...')}</span>
                 </>
               ) : (
-                'Simpan Pengeluaran'
+                isEdit ? 'Simpan Perubahan' : 'Simpan Pengeluaran'
               )}
             </Button>
           </div>

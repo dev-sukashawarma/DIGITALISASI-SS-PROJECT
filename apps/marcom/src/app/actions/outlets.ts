@@ -25,6 +25,20 @@ function cleanOutletName(sbName: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1)
 }
 
+function isHiddenOutlet(name: string): boolean {
+  const lower = name.toLowerCase()
+  return (
+    lower.includes('gudang pusat') ||
+    lower.includes('gudang ss online') ||
+    lower.includes('kantor pusat') ||
+    lower.includes('ss backup') ||
+    lower.includes('central kitchen') ||
+    lower.includes('shopee') ||
+    lower.includes('shoppee') ||
+    lower.includes('tiktok shop')
+  )
+}
+
 export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
   const user = await getCurrentUser()
   if (!user) {
@@ -68,6 +82,8 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
         })
       }
 
+      const shouldBeInactive = isHiddenOutlet(sb.name) || (match ? isHiddenOutlet(match.name) : false)
+
       if (match) {
         await prisma.outlet.update({
           where: { id: match.id },
@@ -78,7 +94,7 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
             region: sb.region || match.region,
             address: sb.address || match.address,
             phone: sb.phone || match.phone,
-            isActive: sb.is_active ?? true,
+            isActive: shouldBeInactive ? false : (sb.is_active ?? true),
             type: marcomType,
           },
         })
@@ -89,6 +105,7 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
           (m) => m.name.toLowerCase() === friendlyName.toLowerCase()
         )
         const finalName = nameConflict ? sb.name : friendlyName
+        const isFinalHidden = isHiddenOutlet(finalName) || isHiddenOutlet(sb.name)
 
         await prisma.outlet.create({
           data: {
@@ -100,7 +117,7 @@ export async function syncOutletsFromPosSupabase(): Promise<ActionState> {
             region: sb.region,
             address: sb.address,
             phone: sb.phone,
-            isActive: sb.is_active ?? true,
+            isActive: isFinalHidden ? false : (sb.is_active ?? true),
           },
         })
         createdCount++

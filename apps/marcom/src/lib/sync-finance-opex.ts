@@ -237,21 +237,113 @@ export async function deleteOpexByExpenseId(expenseId: string | null | undefined
 }
 
 /**
+ * Sinkronisasi pengeluaran manual Marcom ke OPEX Supabase Finance
+ */
+export async function syncManualExpenseOpex(marcomExpenseId: bigint | number | string) {
+  try {
+    const id = BigInt(marcomExpenseId)
+    const expense = await prisma.marcomExpense.findUnique({
+      where: { id },
+      include: { outlet: true },
+    })
+
+    if (!expense) return { success: false, error: 'Data pengeluaran tidak ditemukan' }
+
+    const supabase = getPosSupabase()
+    const posOutletId = expense.outlet?.posOutletId || null
+    const outletName = expense.outlet?.name || 'Kantor Pusat/Global'
+    const amount = Number(expense.amount) || 0
+    const expenseDate = toDateString(expense.expenseDate)
+    const isAfterCutoff = expenseDate >= OPEX_CUTOFF_DATE
+
+    if (amount > 0 && isAfterCutoff) {
+      const periodMonth = toPeriodMonth(expenseDate)
+
+      // Map kategori Marcom ke kategori Finance
+      let category = 'pengeluaran_global'
+      if (posOutletId) {
+        if (expense.category === 'OPERASIONAL_TRANSPORT') category = 'transport'
+        else if (expense.category === 'CETAK_BRANDING' || expense.category === 'EVENT_AKTIVASI') category = 'promo'
+        else category = 'pengeluaran_outlet'
+      } else {
+        if (expense.category === 'OPERASIONAL_TRANSPORT') category = 'transport'
+        else category = 'pengeluaran_global'
+      }
+
+      const categoryLabelMap: Record<string, string> = {
+        CETAK_BRANDING: 'Cetak & Branding',
+        PRODUKSI_KONTEN: 'Produksi Konten',
+        SOFTWARE_TOOLS: 'Software & Tools',
+        EVENT_AKTIVASI: 'Event & Aktivasi',
+        OPERASIONAL_TRANSPORT: 'Transport & Lapangan',
+        LAINNYA: 'Operasional Marcom',
+      }
+      const catLabel = categoryLabelMap[expense.category] || expense.category
+      const description = `[MARCOM: ${catLabel}] ${expense.description} (Alokasi: ${outletName})`
+      const expenseId = expense.expenseId || crypto.randomUUID()
+
+      const { error: upsertErr } = await supabase.from('expenses').upsert(
+        {
+          id: expenseId,
+          outlet_id: posOutletId,
+          category,
+          amount,
+          description,
+          expense_date: expenseDate,
+          period_month: periodMonth,
+          payment_source: expense.paymentSource || 'transfer_pusat',
+          type: 'expense',
+        },
+        { onConflict: 'id' }
+      )
+
+      if (upsertErr) {
+        console.error(`[syncManualExpenseOpex] Error upserting expense for #${id}:`, upsertErr)
+      } else if (!expense.expenseId) {
+        await prisma.marcomExpense.update({
+          where: { id },
+          data: { expenseId },
+        })
+      }
+    } else if (expense.expenseId) {
+      const { error: delErr } = await supabase.from('expenses').delete().eq('id', expense.expenseId)
+      if (delErr) {
+        console.error(`[syncManualExpenseOpex] Error deleting expense ${expense.expenseId}:`, delErr)
+      } else {
+        await prisma.marcomExpense.update({
+          where: { id },
+          data: { expenseId: null },
+        })
+      }
+    }
+
+    return { success: true }
+  } catch (err: any) {
+    console.error(`[syncManualExpenseOpex] Exception:`, err)
+    return { success: false, error: err?.message || 'Gagal sinkronisasi pengeluaran ke OPEX' }
+  }
+}
+
+/**
  * Sinkronisasi massal seluruh data historis MARCOM ke OPEX Supabase
  */
 export async function syncAllHistoricalMarcomToOpex() {
   try {
-    const [endorsements, ads] = await Promise.all([
+    const [endorsements, ads, manualExpenses] = await Promise.all([
       prisma.endorsement.findMany({
         select: { id: true },
       }),
       prisma.ad.findMany({
         select: { id: true },
       }),
+      prisma.marcomExpense.findMany({
+        select: { id: true },
+      }),
     ])
 
     let syncedEndorsements = 0
     let syncedAds = 0
+    let syncedManual = 0
     let errorsCount = 0
 
     for (const e of endorsements) {
@@ -272,11 +364,21 @@ export async function syncAllHistoricalMarcomToOpex() {
       }
     }
 
+    for (const m of manualExpenses) {
+      const res = await syncManualExpenseOpex(m.id)
+      if (res.success) {
+        syncedManual++
+      } else {
+        errorsCount++
+      }
+    }
+
     return {
       success: true,
-      totalProcessed: endorsements.length + ads.length,
+      totalProcessed: endorsements.length + ads.length + manualExpenses.length,
       syncedEndorsements,
       syncedAds,
+      syncedManual,
       errorsCount,
     }
   } catch (err: any) {

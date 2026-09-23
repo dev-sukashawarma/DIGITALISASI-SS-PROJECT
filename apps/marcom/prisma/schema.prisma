@@ -25,6 +25,7 @@ model Outlet {
   promoEvents  PromoEvent[]
   internalContents InternalContent[]
   budgets      OutletBudget[]
+  marcomExpenses MarcomExpense[]
 
   @@map("outlets")
 }
@@ -243,5 +244,27 @@ model ContentType {
 
   @@map("content_types")
 }
+
+model MarcomExpense {
+  id            BigInt    @id @default(autoincrement())
+  outletId      BigInt?   @map("outlet_id")
+  category      String    // CETAK_BRANDING, PRODUKSI_KONTEN, SOFTWARE_TOOLS, EVENT_AKTIVASI, OPERASIONAL_TRANSPORT, LAINNYA
+  amount        Decimal   @db.Decimal(12,2)
+  description   String
+  expenseDate   DateTime  @map("expense_date") @db.Date
+  paymentSource String    @default("transfer_pusat") @map("payment_source") // transfer_pusat, petty_cash, reimburse
+  receiptUrl    String?   @map("receipt_url")
+  expenseId     String?   @map("expense_id") // ID di Supabase expenses
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  outlet        Outlet?   @relation(fields: [outletId], references: [id], onDelete: SetNull)
+
+  @@index([outletId], name: "idx_marcom_expenses_outlet")
+  @@index([expenseDate], name: "idx_marcom_expenses_date")
+  @@index([category], name: "idx_marcom_expenses_category")
+  @@map("marcom_expenses")
+}
+
 
 

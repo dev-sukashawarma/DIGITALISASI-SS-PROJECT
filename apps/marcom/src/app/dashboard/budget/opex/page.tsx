@@ -2,11 +2,16 @@ import { getCurrentUser } from '@/lib/auth'
 import { getMonthlyBudgetMatrix } from '@/app/actions/budgets'
 import { getOpexData } from '@/app/actions/opex'
 import { prisma, ensureDatabaseSchema } from '@/lib/prisma'
-import BudgetMatrixView from './BudgetMatrixView'
+import BudgetMatrixView from '../BudgetMatrixView'
 
 export const dynamic = 'force-dynamic'
 
-export default async function BudgetPage() {
+export const metadata = {
+  title: 'OPEX & Pengeluaran Marcom',
+  description: 'Konsolidasi realisasi operasional biaya marcom dan sinkronisasi ke Finance.',
+}
+
+export default async function OpexPage() {
   await ensureDatabaseSchema()
   const user = await getCurrentUser()
   const now = new Date()
@@ -35,6 +40,7 @@ export default async function BudgetPage() {
       initialOpexSummary={opexSummary}
       outlets={serializedOutlets}
       userRole={user?.role || 'MARCOM'}
+      initialTab="opex"
     />
   )
 }

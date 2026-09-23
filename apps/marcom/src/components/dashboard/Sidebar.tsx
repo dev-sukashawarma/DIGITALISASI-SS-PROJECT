@@ -16,13 +16,9 @@ import {
   Menu,
   X,
   Flame,
-  BarChart3,
-  CalendarDays,
   ChevronDown,
   DollarSign,
   ExternalLink,
-  TrendingUp,
-  Settings2,
   PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
@@ -34,7 +30,7 @@ export type SidebarMode = 'expanded' | 'collapsed' | 'hidden'
 interface NavChild {
   name: string
   href: string
-  icon: any
+  icon?: any
   badge?: string | null
 }
 
@@ -68,6 +64,7 @@ export default function Sidebar({
   const pathname = usePathname()
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     '/dashboard/content-planner': true,
+    '/dashboard/budget': true,
   })
 
   const toggleMenu = (href: string, e: React.MouseEvent) => {
@@ -99,10 +96,22 @@ export default function Sidebar({
       badge: null,
     },
     {
-      name: 'Budget Outlet',
+      name: 'Budget & OPEX',
       href: '/dashboard/budget',
       icon: DollarSign,
       badge: null,
+      children: [
+        {
+          name: 'Matriks Budget Outlet',
+          href: '/dashboard/budget',
+          badge: null,
+        },
+        {
+          name: 'OPEX & Pengeluaran',
+          href: '/dashboard/budget/opex',
+          badge: null,
+        },
+      ],
     },
     {
       name: 'Database KOL',
@@ -131,25 +140,21 @@ export default function Sidebar({
         {
           name: 'Rencana Konten',
           href: '/dashboard/content-planner',
-          icon: CalendarDays,
           badge: null,
         },
         {
           name: 'Metrik Data',
           href: '/dashboard/content-planner/metrik-data',
-          icon: BarChart3,
           badge: null,
         },
         {
           name: 'Referensi Data',
           href: '/dashboard/content-planner/referensi-data',
-          icon: TrendingUp,
           badge: null,
         },
         {
           name: 'Pengaturan Konten',
           href: '/dashboard/content-planner/pengaturan',
-          icon: Settings2,
           badge: null,
         },
       ],
@@ -347,10 +352,9 @@ export default function Sidebar({
                   {hasChildren && isExpanded && (
                     <div className="ml-3 pl-3 border-l-2 border-stone-800 space-y-1 py-1 animate-in fade-in duration-150">
                       {item.children!.map((child) => {
-                        const ChildIcon = child.icon
                         const isChildActive =
-                          child.href === '/dashboard/content-planner'
-                            ? pathname === '/dashboard/content-planner'
+                          child.href === '/dashboard/content-planner' || child.href === '/dashboard/budget'
+                            ? pathname === child.href
                             : pathname === child.href || pathname.startsWith(child.href)
 
                         return (
@@ -358,20 +362,13 @@ export default function Sidebar({
                             key={child.href}
                             href={child.href}
                             onClick={closeMobile}
-                            className={`flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
                               isChildActive
                                 ? 'bg-[#D9480F] text-white shadow-xs font-bold'
                                 : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
                             }`}
                           >
-                            <div className="flex items-center space-x-2.5 min-w-0">
-                              <ChildIcon
-                                className={`w-3.5 h-3.5 shrink-0 ${
-                                  isChildActive ? 'text-white' : 'text-stone-500'
-                                }`}
-                              />
-                              <span className="truncate">{child.name}</span>
-                            </div>
+                            <span className="truncate">{child.name}</span>
 
                             {child.badge && (
                               <span
@@ -516,23 +513,21 @@ export default function Sidebar({
                     {hasChildren && (
                       <div className="space-y-0.5">
                         {item.children!.map((child) => {
-                          const ChildIcon = child.icon
                           const isChildActive =
-                            child.href === '/dashboard/content-planner'
-                              ? pathname === '/dashboard/content-planner'
+                            child.href === '/dashboard/content-planner' || child.href === '/dashboard/budget'
+                              ? pathname === child.href
                               : pathname === child.href || pathname.startsWith(child.href)
 
                           return (
                             <Link
                               key={child.href}
                               href={child.href}
-                              className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              className={`block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                 isChildActive
                                   ? 'bg-[#D9480F] text-white font-bold'
                                   : 'text-stone-400 hover:text-white hover:bg-stone-800/80'
                               }`}
                             >
-                              <ChildIcon className="w-3.5 h-3.5 shrink-0" />
                               <span className="truncate">{child.name}</span>
                             </Link>
                           )

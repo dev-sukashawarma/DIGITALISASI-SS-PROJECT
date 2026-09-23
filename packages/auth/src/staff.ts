@@ -1,20 +1,36 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { OutletStaffProfile } from './types'
+import { jakartaDayStartIso } from './jakarta-day'
 
 /** Ambil profil outlet_staff kanonik untuk user id. null jika tidak ada. */
 export async function getOutletStaff(
   supabase: SupabaseClient,
   userId: string
 ): Promise<{ staff: OutletStaffProfile | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('outlet_staff')
-    // Disambiguate the embed to the DIRECT FK (outlet_staff.outlet_id → outlets.id).
-    // staff_outlets (many-to-many) adds a second outlet_staff↔outlets relationship,
-    // so a bare `outlets(name)` errors: "more than one relationship was found".
-    .select('id, outlet_id, name, role, status, ref_photo_url, username, allow_manual_button, outlets!outlet_staff_outlet_id_fkey(name)')
-    .eq('id', userId)
-    .maybeSingle()
+  // Dua query dijalankan paralel (satu jeda jaringan). Tidak bisa digabung jadi
+  // satu embed PostgREST: attendance.outlet_staff_id tidak punya FK ke outlet_staff.
+  const [staffRes, attRes] = await Promise.all([
+    supabase
+      .from('outlet_staff')
+      // Disambiguate the embed to the DIRECT FK (outlet_staff.outlet_id → outlets.id).
+      // staff_outlets (many-to-many) adds a second outlet_staff↔outlets relationship,
+      // so a bare `outlets(name)` errors: "more than one relationship was found".
+      .select('id, outlet_id, name, role, status, ref_photo_url, username, allow_manual_button, outlets!outlet_staff_outlet_id_fkey(name)')
+      .eq('id', userId)
+      .maybeSingle(),
+    // Override outlet_id berdasarkan lokasi absen hari ini (jika karyawan BKO/mutasi harian).
+    // "Hari ini" = hari kalender Asia/Jakarta, bukan zona waktu server.
+    supabase
+      .from('attendance')
+      .select('outlet_id, outlets(name)')
+      .eq('outlet_staff_id', userId)
+      .gte('created_at', jakartaDayStartIso())
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
+  const { data, error } = staffRes
   if (error) return { staff: null, error: error.message }
 
   // Transform data to match OutletStaffProfile type
@@ -33,18 +49,7 @@ export async function getOutletStaff(
     outlets: Array.isArray(data.outlets) ? data.outlets[0] : (data.outlets || null),
   }
 
-  // Override outlet_id berdasarkan lokasi absen hari ini (jika karyawan BKO/mutasi harian)
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  
-  const { data: attData } = await supabase.from('attendance')
-    .select('outlet_id, outlets(name)')
-    .eq('outlet_staff_id', userId)
-    .gte('created_at', today.toISOString())
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
+  const attData = attRes.data
   if (attData && attData.outlet_id) {
     staff.outlet_id = attData.outlet_id;
     if (staff.outlets && attData.outlets) {

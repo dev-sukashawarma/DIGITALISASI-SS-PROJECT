@@ -87,10 +87,33 @@ const CREATE_TABLES = [
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "marcom_settings_pkey" PRIMARY KEY ("key")
   )`,
+  `CREATE TABLE IF NOT EXISTS "marcom_expenses" (
+    "id" BIGSERIAL NOT NULL,
+    "outlet_id" BIGINT,
+    "category" TEXT NOT NULL,
+    "amount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+    "description" TEXT NOT NULL,
+    "expense_date" DATE NOT NULL,
+    "payment_source" TEXT NOT NULL DEFAULT 'transfer_pusat',
+    "receipt_url" TEXT,
+    "expense_id" TEXT,
+    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "marcom_expenses_pkey" PRIMARY KEY ("id")
+  )`,
 ]
 
 /** [tabel, kolom, tipe + default] — setiap kolom non-PK dari schema.prisma. */
 const COLUMNS: Array<[string, string, string]> = [
+  ['marcom_expenses', 'outlet_id', 'BIGINT'],
+  ['marcom_expenses', 'category', `TEXT NOT NULL DEFAULT 'LAINNYA'`],
+  ['marcom_expenses', 'amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0'],
+  ['marcom_expenses', 'description', 'TEXT NOT NULL DEFAULT \'\''],
+  ['marcom_expenses', 'expense_date', 'DATE NOT NULL DEFAULT CURRENT_DATE'],
+  ['marcom_expenses', 'payment_source', `TEXT NOT NULL DEFAULT 'transfer_pusat'`],
+  ['marcom_expenses', 'receipt_url', 'TEXT'],
+  ['marcom_expenses', 'expense_id', 'TEXT'],
+  ['marcom_expenses', 'updated_at', 'TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP'],
   ['outlets', 'type', `TEXT NOT NULL DEFAULT 'INTERNAL'`],
   ['outlets', 'pos_outlet_id', 'TEXT'],
   ['outlets', 'pos_name', 'TEXT'],
@@ -215,10 +238,18 @@ const INDEXES = [
   `CREATE INDEX IF NOT EXISTS "idx_internal_content_ads" ON "internal_contents"("is_ads")`,
   `CREATE INDEX IF NOT EXISTS "idx_internal_content_date" ON "internal_contents"("post_date")`,
   `CREATE INDEX IF NOT EXISTS "idx_internal_content_outlet" ON "internal_contents"("outlet_id")`,
+  `CREATE INDEX IF NOT EXISTS "idx_marcom_expenses_outlet" ON "marcom_expenses"("outlet_id")`,
+  `CREATE INDEX IF NOT EXISTS "idx_marcom_expenses_date" ON "marcom_expenses"("expense_date")`,
+  `CREATE INDEX IF NOT EXISTS "idx_marcom_expenses_category" ON "marcom_expenses"("category")`,
 ]
 
 /** [nama constraint, tabel, definisi FK] */
 const FOREIGN_KEYS: Array<[string, string, string]> = [
+  [
+    'marcom_expenses_outlet_id_fkey',
+    'marcom_expenses',
+    'FOREIGN KEY ("outlet_id") REFERENCES "outlets"("id") ON DELETE SET NULL ON UPDATE CASCADE',
+  ],
   [
     'outlet_budgets_outlet_id_fkey',
     'outlet_budgets',
@@ -256,6 +287,28 @@ const FOREIGN_KEYS: Array<[string, string, string]> = [
   ],
 ]
 
+const DATA_PATCHES = [
+  // Hide non-store entities (warehouses, central kitchen, marketplace online channels, HQ backup)
+  `UPDATE "outlets" SET "is_active" = false WHERE "is_active" = true AND (
+    LOWER("name") IN (
+      'gudang pusat (hq)',
+      'gudang ss online',
+      'kantor pusat',
+      'ss backup',
+      'ss central kitchen',
+      'shopee',
+      'tiktok shop'
+    )
+    OR LOWER("name") LIKE '%gudang pusat%'
+    OR LOWER("name") LIKE '%gudang ss online%'
+    OR LOWER("name") LIKE '%kantor pusat%'
+    OR LOWER("name") LIKE '%ss backup%'
+    OR LOWER("name") LIKE '%central kitchen%'
+    OR LOWER("name") LIKE '%shopee%'
+    OR LOWER("name") LIKE '%tiktok shop%'
+  )`,
+]
+
 export function buildSchemaGuardStatements(): string[] {
   return [
     ...CREATE_TABLES,
@@ -272,5 +325,6 @@ BEGIN
   END IF;
 END $$`
     ),
+    ...DATA_PATCHES,
   ]
 }

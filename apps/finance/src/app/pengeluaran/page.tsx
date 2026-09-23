@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
-import { Plus, Wallet, FileText, ArrowDownRight, ArrowUpRight, Building2, ArrowRight, Eye, X } from 'lucide-react'
+import { Plus, Wallet, FileText, ArrowDownRight, ArrowUpRight, Building2, ArrowRight, Eye, X, Pencil, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@suka/design-system'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -12,8 +12,10 @@ import { useExpenses } from '@/hooks/useExpenses'
 import { useOutlets } from '@/hooks/useOutlets'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { ExpenseFormModal } from '@/components/ExpenseFormModal'
+import { deleteTransactionAction } from '@/app/actions/expenses'
 import { CATEGORY_META } from '@/lib/expenseCategories'
 import { isExcludedOutlet } from '@/lib/outletFilters'
+import { rupiah } from '@/lib/format'
 import { generateOpexReportPDF } from '@/utils/opexPdfGenerator'
 
 const labelOf = (c: string) => CATEGORY_META[c as keyof typeof CATEGORY_META]?.label ?? c
@@ -34,6 +36,9 @@ export default function InputPengeluaranPage() {
   const [target, setTarget] = useState<string>('all')       // 'all' | 'PUSAT' | outletId
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null)
+  const [editingTx, setEditingTx] = useState<any | null>(null)
+  const [deletingTx, setDeletingTx] = useState<any | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const isPusat = target === 'PUSAT'
   const periodMonth = firstOfMonth(month)
@@ -63,11 +68,17 @@ export default function InputPengeluaranPage() {
         date: r.expense_date,
         category: r.category,
         outlet_name: r.outlet_name ?? (r.scope === 'pusat' ? 'Pusat' : '-'),
+        outlet_id: r.outlet_id,
+        recipient_name: r.recipient_name ?? '-',
+        division: r.division ?? (r.scope === 'pusat' ? 'General' : '-'),
         description: r.description,
         amount: r.amount,
         type: r.type || 'expense', // 'income' or 'expense'
         receipt_url: r.receipt_url,
-        isTopup: false
+        isTopup: false,
+        raw_description: r.raw_description || r.description,
+        raw_category: r.raw_category || r.category,
+        scope: r.scope
       })
     })
 
@@ -75,6 +86,21 @@ export default function InputPengeluaranPage() {
     list.sort((a, b) => b.date.localeCompare(a.date))
     return list
   }, [expenseRows, target])
+
+  const handleConfirmDelete = async () => {
+    if (!deletingTx) return
+    setIsDeleting(true)
+    try {
+      await deleteTransactionAction({ id: deletingTx.id })
+      queryClient.invalidateQueries({ queryKey: ['expenses'] })
+      toast.success('Transaksi berhasil dihapus!')
+      setDeletingTx(null)
+    } catch (err: any) {
+      toast.error('Gagal menghapus transaksi: ' + (err?.message || 'Terjadi kesalahan'))
+    } finally {
+      setIsDeleting(false)
+    }
+  }
 
   const totalAmount = useMemo(() => {
     return allTransactions.reduce((acc, curr) => acc + Number(curr.amount || 0), 0)
@@ -212,6 +238,7 @@ export default function InputPengeluaranPage() {
                   <th className="px-4 py-3 font-medium">Keterangan</th>
                   <th className="px-3 py-3 font-medium text-center">Bukti Nota</th>
                   <th className="px-4 py-3 font-medium text-right">Jumlah</th>
+                  <th className="px-3 py-3 font-medium text-center">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-suka-gray-100">
@@ -269,6 +296,26 @@ export default function InputPengeluaranPage() {
                       <td className={`px-4 py-3 text-right font-medium ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
                         {isIncome ? '+' : '-'}Rp {r.amount.toLocaleString('id-ID')}
                       </td>
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => setEditingTx(r)}
+                            title="Edit Transaksi OPEX"
+                            className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 transition-colors cursor-pointer"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeletingTx(r)}
+                            title="Hapus Transaksi"
+                            className="p-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
@@ -324,6 +371,71 @@ export default function InputPengeluaranPage() {
         </div>
       )}
 
+      {/* Modal Konfirmasi Hapus Transaksi */}
+      {deletingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-gray-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center font-bold">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900 text-sm">Hapus Transaksi Ini?</h3>
+                <p className="text-xs text-gray-500">Data yang dihapus tidak dapat dipulihkan.</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-3 text-xs space-y-1.5 text-gray-700 border border-gray-200/60">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Tanggal:</span>
+                <span className="font-semibold">{deletingTx.date}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Unit / Cabang:</span>
+                <span className="font-semibold">{deletingTx.outlet_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Keterangan:</span>
+                <span className="font-semibold truncate max-w-[200px]">{deletingTx.description || '-'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Nominal:</span>
+                <span className="font-bold text-rose-600">{rupiah(deletingTx.amount)}</span>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setDeletingTx(null)}
+                className="px-4 py-2 rounded-xl text-xs font-bold bg-gray-100 hover:bg-gray-200 text-gray-700 transition-colors cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDelete}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <Loader2 size={13} className="animate-spin" />
+                    <span>Menghapus...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 size={13} />
+                    <span>Ya, Hapus</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isFormOpen && (
         <ExpenseFormModal 
           outlets={outlets as any[]} 
@@ -331,6 +443,20 @@ export default function InputPengeluaranPage() {
           onClose={() => setIsFormOpen(false)} 
           onSuccess={() => {
             setIsFormOpen(false)
+            queryClient.invalidateQueries({ queryKey: ['expenses'] })
+          }} 
+        />
+      )}
+
+      {editingTx && (
+        <ExpenseFormModal 
+          isOpen={Boolean(editingTx)}
+          initialData={editingTx}
+          outlets={outlets as any[]} 
+          isAdmin={isAdmin} 
+          onClose={() => setEditingTx(null)} 
+          onSuccess={() => {
+            setEditingTx(null)
             queryClient.invalidateQueries({ queryKey: ['expenses'] })
           }} 
         />

@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
-import { Plus, Minus, Trash2, Search, Utensils, Check, ShoppingBag } from 'lucide-react'
+import React, { useState, useMemo, useEffect } from 'react'
+import { Plus, Minus, Trash2, Search, Utensils, Check, ShoppingBag, RotateCw, Loader2 } from 'lucide-react'
 import type { PosMenuItem } from '@/lib/supabase-pos'
+import { getPosMenuItemsAction } from '@/app/actions/endorsements'
 
 export interface SelectedMenuItem {
   menuItemId: string
@@ -20,29 +21,59 @@ interface EndorsementMenuSelectorProps {
 }
 
 export default function EndorsementMenuSelector({
-  posMenuItems,
+  posMenuItems = [],
   selectedItems,
   onChange,
   onSummaryCalculated,
 }: EndorsementMenuSelectorProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
+  const [menuList, setMenuList] = useState<PosMenuItem[]>(posMenuItems || [])
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Keep synced with parent props if provided
+  useEffect(() => {
+    if (posMenuItems && posMenuItems.length > 0) {
+      setMenuList(posMenuItems)
+    }
+  }, [posMenuItems])
+
+  // Auto-fetch if initially empty
+  useEffect(() => {
+    if (!posMenuItems || posMenuItems.length === 0) {
+      handleRefresh()
+    }
+  }, [])
+
+  const handleRefresh = async () => {
+    setIsLoading(true)
+    try {
+      const fresh = await getPosMenuItemsAction()
+      if (fresh && fresh.length > 0) {
+        setMenuList(fresh)
+      }
+    } catch (err) {
+      console.error('Gagal memuat katalog menu POS:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const categories = useMemo(() => {
     const set = new Set<string>()
-    posMenuItems.forEach((item) => {
+    menuList.forEach((item) => {
       if (item.categoryName) set.add(item.categoryName)
     })
     return Array.from(set).sort()
-  }, [posMenuItems])
+  }, [menuList])
 
   const filteredMenuItems = useMemo(() => {
-    return posMenuItems.filter((item) => {
+    return menuList.filter((item) => {
       const matchCat = selectedCategory === 'all' || item.categoryName === selectedCategory
       const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase())
       return matchCat && matchSearch
     })
-  }, [posMenuItems, selectedCategory, searchTerm])
+  }, [menuList, selectedCategory, searchTerm])
 
   const handleAddItem = (menu: PosMenuItem) => {
     const existingIndex = selectedItems.findIndex((i) => i.menuItemId === menu.id)
@@ -107,9 +138,20 @@ export default function EndorsementMenuSelector({
           <Utensils className="w-3.5 h-3.5 text-[#D9480F]" />
           <span>Menu Jatah KOL (Katalog POS)</span>
         </label>
-        <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-          Otomatis di Kasir POS
-        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isLoading}
+            title="Muat ulang katalog menu POS"
+            className="p-1 rounded-md text-stone-500 hover:text-[#D9480F] hover:bg-stone-200/60 transition-colors disabled:opacity-50"
+          >
+            <RotateCw className={`w-3 h-3 ${isLoading ? 'animate-spin text-[#D9480F]' : ''}`} />
+          </button>
+          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+            Otomatis di Kasir POS
+          </span>
+        </div>
       </div>
 
       {/* Selected Items List */}
@@ -175,6 +217,17 @@ export default function EndorsementMenuSelector({
 
       {/* Catalog Search and Add */}
       <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[11px] font-semibold text-stone-600">
+            Katalog Menu POS {menuList.length > 0 && `(${filteredMenuItems.length} pilihan)`}
+          </span>
+          {isLoading && (
+            <span className="text-[10px] text-[#D9480F] flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" /> Memuat menu...
+            </span>
+          )}
+        </div>
+
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="w-3.5 h-3.5 text-stone-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -203,7 +256,7 @@ export default function EndorsementMenuSelector({
 
         {/* Menu Items Quick Pick List */}
         <div className="max-h-44 sm:max-h-52 overflow-y-auto space-y-1 pr-1 scrollbar-thin">
-          {filteredMenuItems.slice(0, 15).map((menu) => {
+          {filteredMenuItems.map((menu) => {
             const isSelected = selectedItems.some((i) => i.menuItemId === menu.id)
             return (
               <div
@@ -234,9 +287,31 @@ export default function EndorsementMenuSelector({
               </div>
             )
           })}
-          {filteredMenuItems.length === 0 && (
+
+          {isLoading && menuList.length === 0 && (
+            <div className="text-center py-4 text-stone-500 text-xs flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-[#D9480F]" />
+              <span>Memuat katalog menu POS...</span>
+            </div>
+          )}
+
+          {!isLoading && menuList.length === 0 && (
+            <div className="text-center py-4 text-stone-500 text-xs space-y-2">
+              <p>Katalog menu POS belum termuat.</p>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-lg text-xs font-medium transition-colors"
+              >
+                <RotateCw className="w-3 h-3" />
+                <span>Muat Ulang Katalog</span>
+              </button>
+            </div>
+          )}
+
+          {!isLoading && menuList.length > 0 && filteredMenuItems.length === 0 && (
             <div className="text-center py-3 text-stone-400 text-xs">
-              Menu tidak ditemukan
+              Menu tidak ditemukan untuk filter ini
             </div>
           )}
         </div>
@@ -244,3 +319,4 @@ export default function EndorsementMenuSelector({
     </div>
   )
 }
+

@@ -4,7 +4,8 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import {
   FileText, Calendar, ChevronDown, ChevronUp, Award, Banknote, Store,
-  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet
+  QrCode, CreditCard, Package, Search, CheckCircle2, XCircle, Printer, Wallet, Filter, X, FileSpreadsheet,
+  Clock, RefreshCw
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { cleanItemName } from '@/lib/order-item-name'
@@ -12,8 +13,23 @@ import { formatRupiah } from '@/lib/format'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import { useHppByChannel } from '@/hooks/useHppByChannel'
-import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
+import { computePosReportKpi, computeNetRevenueVoidAware, computeOrderDeduction, computeOrderGross, computeItemShares } from '@/lib/posReportKpi'
+
+function formatLastUpdated(dateIso?: string) {
+  if (!dateIso) return ''
+  try {
+    const d = new Date(dateIso)
+    return new Intl.DateTimeFormat('id-ID', {
+      timeZone: 'Asia/Jakarta',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(d) + ' WIB'
+  } catch {
+    return ''
+  }
+}
 
 import type { Outlet } from '@/lib/types'
 import MultiSelectDropdown from '@/components/MultiSelectDropdown'
@@ -21,8 +37,8 @@ import BranchFilter from '@/components/BranchFilter'
 import { cleanOutletName } from '@/components/OutletCombobox'
 import { splitOutletsByType } from '@/lib/marketplaceOutlets'
 import { generateExecutiveItemReportPDF, generateCategorizedReportPDF } from '@/utils/pdfExporter'
+import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { exportSalesToExcel, exportSalesToCSV, type SalesExportItem } from '@/utils/salesExportUtils'
-import CategoryPieChart from './CategoryPieChart'
 
 interface ShiftRow {
   id: string
@@ -54,6 +70,7 @@ interface OrderRow {
   external_order_id?: string | null
   order_items: {
     id: string
+    menu_item_id?: string | null
     menu_item_name: string
     quantity: number
     unit_price: number
@@ -83,9 +100,14 @@ function getItemHpp(
   outletType?: string, 
   fallbackName?: string, 
   menuItemByNameMap?: Map<string, any>,
-  channel?: string | null
+  channel?: string | null,
+  menuItemId?: string | null,
+  menuItemByIdMap?: Map<string, any>
 ): number {
   let itemObj = menuItem
+  if (!itemObj && menuItemId && menuItemByIdMap?.has(menuItemId)) {
+    itemObj = menuItemByIdMap.get(menuItemId)
+  }
   if ((!itemObj || (!itemObj.hpp_override && !itemObj.channel_hpp && !itemObj.is_package)) && fallbackName && menuItemByNameMap) {
     const cleanKey = cleanItemName(fallbackName)
     if (menuItemByNameMap.has(cleanKey)) {
@@ -186,7 +208,7 @@ function extractOrderPackages(order: OrderRow) {
 }
 
 export default function ReportsView({ initialOutlets: rawInitialOutlets }: ReportsViewProps) {
-  const initialOutlets = useMemo(() => rawInitialOutlets.filter(o => !o.name.toLowerCase().includes('outlet tes')), [rawInitialOutlets])
+  const initialOutlets = useMemo(() => rawInitialOutlets.filter(o => !isTestOutlet(o)), [rawInitialOutlets])
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
@@ -206,14 +228,27 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const branchFilterValue = selectedOutlets
   const isSSOnlineSelected = selectedOutlets.length === 1 && selectedOutlets[0] === 'ss-online'
   const [selectedChannels, setSelectedChannels] = useState<string[]>(['all'])
+  const isPosKasirOnly = !selectedChannels.includes('all') && selectedChannels.length > 0 && selectedChannels.every(c => c === 'pos_kasir' || c === 'pos_pawoon')
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('all')
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
+  const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
 
   const menuItemByNameMap = useMemo(() => {
     const map = new Map<string, any>()
     menuItems.forEach(mi => {
       if (mi.name) {
         map.set(cleanItemName(mi.name), mi)
+      }
+    })
+    return map
+  }, [menuItems])
+
+  const menuItemByIdMap = useMemo(() => {
+    const map = new Map<string, any>()
+    menuItems.forEach(mi => {
+      if (mi.id) {
+        map.set(mi.id, mi)
       }
     })
     return map
@@ -263,6 +298,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     return { from: '2000-01-01', to: fmt(today) }
   }, [range, customStartDate, customEndDate])
 
+  const isPast = useMemo(() => {
+    if (range === 'yesterday' || range === '7days' || range === '30days') {
+      if (dateStrRange.to && dateStrRange.to < todayJakarta) return true
+    }
+    if (range === 'custom' && customEndDate && customEndDate < todayJakarta) return true
+    return false
+  }, [range, dateStrRange, customEndDate, todayJakarta])
+
   // Pawoon data hanya tersedia s.d. Juli 2026 — sembunyikan filter Pawoon
   // jika rentang filter tidak mencakup satupun hari di Juli 2026 atau sebelumnya.
   const PAWOON_CUTOFF = '2026-08-01'
@@ -272,8 +315,6 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     if (!from) return false
     return new Date(from) < new Date(PAWOON_CUTOFF)
   }, [range, dateStrRange.from])
-
-  const { rows: hppRows } = useHppByChannel(dateStrRange.from, dateStrRange.to)
 
   // Table State
   const [searchQuery, setSearchQuery] = useState('')
@@ -299,8 +340,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .from('petty_cash_expenses')
       .select('*')
       .eq('outlet_id', shift.outlet_id)
+      .is('deleted_at', null)
       .gte('created_at', shift.start_time)
       .lte('created_at', shift.end_time || new Date().toISOString())
+      // Daftar ini ikut dijumlahkan jadi total shift, jadi baris ter-void harus
+      // dibuang agar totalnya cocok dengan get_petty_cash_balance() di DB.
+      .is('deleted_at', null)
       .order('created_at', { ascending: true })
 
     const topupsPromise = supabase
@@ -378,7 +423,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildOrdersQuery = () => {
       let query = supabase
         .from('orders')
-        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)')
+        .neq('outlet_id', TEST_OUTLET_ID)
         .order('id', { ascending: false })
       if (!selectedOutlets.includes('all')) query = query.in('outlet_id', selectedOutlets)
       if (ordersGte) query = query.gte('created_at', ordersGte)
@@ -391,6 +437,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     let qShifts = supabase
       .from('shifts')
       .select('id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance')
+      .neq('outlet_id', TEST_OUTLET_ID)
       .eq('status', 'closed')
       .order('end_time', { ascending: false })
       
@@ -432,20 +479,42 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // Query yang sudah dirampingkan (lean select) jauh lebih cepat (~90% lebih ringan)
     // dan tidak lagi membebani PostgREST dengan nested joins 4-tingkat.
     const PAGE_SIZE = 1000
-    const fetchAllOrders = async () => {
-      const all: OrderRow[] = []
+    // Halaman ditarik per-gelombang secara paralel, bukan satu per satu.
+    // Rentang 30 hari ≈ 31 halaman; sebelumnya itu berarti 31 round-trip
+    // BERURUTAN (tiap halaman menunggu halaman sebelumnya selesai). Sekarang
+    // 4 halaman ditembak berbarengan lalu berhenti begitu ada halaman pendek
+    // (tanda sudah mentok) — tanpa perlu query COUNT tambahan.
+    // Ini murni perubahan cara mengambil data; urutan hasil tetap dijaga
+    // (gelombang diproses berurutan) dan tidak ada logika agregasi yang berubah.
+    const PAGE_CONCURRENCY = 4
+
+    const fetchAllPaged = async <T,>(buildQuery: () => any, label: string): Promise<T[]> => {
+      const all: T[] = []
       let offset = 0
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const { data, error } = await buildOrdersQuery().range(offset, offset + PAGE_SIZE - 1)
-        if (error) throw error
-        const page = data ?? []
-        all.push(...(page as OrderRow[]))
-        if (page.length < PAGE_SIZE) break
-        offset += PAGE_SIZE
+        const wave = await Promise.all(
+          Array.from({ length: PAGE_CONCURRENCY }, (_, i) =>
+            buildQuery().range(offset + i * PAGE_SIZE, offset + (i + 1) * PAGE_SIZE - 1)
+          )
+        )
+        let reachedEnd = false
+        for (const { data, error } of wave) {
+          if (error) {
+            console.error(`${label} error:`, error)
+            throw error
+          }
+          const page = (data ?? []) as T[]
+          all.push(...page)
+          if (page.length < PAGE_SIZE) reachedEnd = true
+        }
+        if (reachedEnd) break
+        offset += PAGE_CONCURRENCY * PAGE_SIZE
       }
       return all
     }
+
+    const fetchAllOrders = () => fetchAllPaged<OrderRow>(buildOrdersQuery, 'fetchAllOrders')
 
     const buildEcommerceQuery = () => {
       let query = supabase
@@ -463,49 +532,52 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const fetchEcommerceOrders = async () => {
       if (!selectedOutlets.includes('all') && !selectedOutlets.includes('ss-online')) return []
 
-      const allEc: any[] = []
-      let offset = 0
-      while (true) {
-        const { data, error } = await buildEcommerceQuery().range(offset, offset + PAGE_SIZE - 1)
-        if (error) {
-          console.error("fetchEcommerceOrders error:", error)
-          throw error
-        }
-        const page = data ?? []
-        allEc.push(...page)
-        if (page.length < PAGE_SIZE) break
-        offset += PAGE_SIZE
-      }
+      const ecommerceSalesList = await fetchAllPaged<any>(buildEcommerceQuery, 'fetchEcommerceOrders')
 
       // Map to OrderRow format
-      return allEc.map((ec: any) => {
-        const raw = ec.raw_data || {}
-        const totalPotongan = Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0
-        return {
-          id: ec.id,
+      return ecommerceSalesList.map((saleRecord: any) => {
+        const raw = saleRecord.raw_data || {}
+        const totalPotongan = Math.abs(Number(raw.total_potongan || raw.admin_fee || raw.discount_amount) || 0)
+        // `ecommerce_sales.total_amount` sudah bernilai KOTOR (sebelum fee platform).
+        // Sebelumnya nilai itu dipetakan apa adanya ke `total_amount` sementara fee
+        // juga diisikan ke `discount_amount`. Karena KPI menghitung
+        // gross = total_amount + potongan, fee platform jadi terhitung DUA KALI
+        // dan Gross Revenue kelebihan sebesar fee (Rp 12,5 juta pada Agustus 2026).
+        //
+        // Dipetakan ke NET agar konsisten dengan useSalesDaily (Untung Rugi) dan
+        // ownerDashboard (Ringkasan Bisnis), yang keduanya menyimpan omzet net +
+        // potongan terpisah sehingga gross-nya kembali tepat sama dengan kotor.
+        // Fee tetap tampil di kartu "Admin Platform & Promo" lewat discount_amount.
+        const omzetNet = Math.max(0, (Number(saleRecord.total_amount) || 0) - totalPotongan)
+                return {
+          id: saleRecord.id,
           order_number: 0,
           status: 'completed',
-          payment_method: ec.channel_id,
-          total_amount: ec.total_amount,
+          payment_method: saleRecord.channel_id,
+          total_amount: omzetNet,
           discount_amount: totalPotongan,
           promo_subsidy: 0,
-          created_at: ec.order_date,
+          created_at: saleRecord.order_date,
           outlet_id: 'ss-online',
-          channel: ec.channel_id,
+          channel: saleRecord.channel_id,
           sales_source: 'Online',
           customer_name: 'SS Online Customer',
           cashier_name: null,
-          external_order_id: ec.order_id,
+          external_order_id: saleRecord.order_id,
           raw_data: raw,
-          order_items: (ec.ecommerce_sale_items || []).map((item: any) => ({
-            id: item.id,
-            menu_item_name: item.menu_items?.name || 'Unknown Item',
-            quantity: item.quantity,
-            unit_price: item.price,
-            subtotal: item.subtotal,
-            package_choices: null,
-            menu_items: item.menu_items
-          }))
+          order_items: (saleRecord.ecommerce_sale_items || []).map((item: any) => {
+            const menuItemName = item.menu_items?.name || 'Unknown Item'
+            return {
+              id: item.id,
+              menu_item_id: item.menu_id,
+              menu_item_name: menuItemName,
+              quantity: item.quantity,
+              unit_price: item.price,
+              subtotal: item.subtotal,
+              package_choices: null,
+              menu_items: item.menu_items
+            }
+          })
         }
       }) as OrderRow[]
     }
@@ -544,11 +616,16 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // akan menimpa balik data yang sudah benar dengan hasil unbounded.
     if (requestId !== fetchOrdersRequestId.current) return
 
-    setOrders([...ordersData, ...ecommerceData].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+    setOrders(
+      [...ordersData, ...ecommerceData]
+        .filter((o) => !isTestOutlet(o.outlet_id))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    )
     setShifts(shiftsData ?? [])
     setMenuItems(menuItemsData ?? [])
     setSettlements(settlementsData ?? [])
     setLoading(false)
+    setLastUpdated(new Date().toISOString())
   }, [range, selectedOutlets, customStartDate, customEndDate, dateStrRange, marketplaceOutletIds])
 
   useEffect(() => { fetchOrders() }, [fetchOrders])
@@ -559,10 +636,37 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   useEffect(() => {
     const supabase = createClient()
     let timer: ReturnType<typeof setTimeout> | null = null
+    let pendingWhileHidden = false
+
+    // Tiap order masuk dari outlet MANA PUN memicu penarikan ulang seluruh
+    // rentang (30 hari ≈ puluhan ribu baris). Dengan debounce 600ms, di jam
+    // sibuk halaman ini praktis menarik ulang terus-menerus dan itulah yang
+    // paling terasa sebagai "lemot". Dua peredam:
+    //  1. Jendela debounce diperlebar — laporan periode panjang tidak butuh
+    //     kesegaran sub-detik.
+    //  2. Saat tab tidak terlihat, penarikan ditunda sampai user kembali,
+    //     supaya tab yang dibiarkan terbuka berhenti membebani DB.
+    const REFRESH_DEBOUNCE_MS = 4000
+
+    const runRefresh = () => {
+      if (typeof document !== 'undefined' && document.hidden) {
+        pendingWhileHidden = true
+        return
+      }
+      fetchOrders()
+    }
     const refresh = () => {
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => fetchOrders(), 600)
+      timer = setTimeout(runRefresh, REFRESH_DEBOUNCE_MS)
     }
+    const onVisible = () => {
+      if (!document.hidden && pendingWhileHidden) {
+        pendingWhileHidden = false
+        fetchOrders()
+      }
+    }
+
+    document.addEventListener('visibilitychange', onVisible)
     const realtime = supabase
       .channel('pos-reports-orders-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
@@ -570,6 +674,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .subscribe()
     return () => {
       if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
       supabase.removeChannel(realtime)
     }
   }, [fetchOrders])
@@ -627,7 +732,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   }, [orders, isPawoonVisible, PAWOON_KEYS])
 
   // ─── Shared helper (used in analytics useMemo AND downloadCSVAllChannels) ───
-  const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'tiktok', 'tiktokgo', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
+  const isFoodApp = (ch: string) => ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps', 'foodapp', 'foodapps'].includes(ch.toLowerCase())
 
   const isChannelSelected = (target: string, order: any, src: string) => {
     if (target === 'food_apps') return isFoodApp(src)
@@ -719,8 +824,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     completed.forEach(o => {
       const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
+      // PDF Eksekutif: revenue per item = porsi gross order (acuan sama dengan
+      // kartu Gross Revenue), supaya kolom "% Kontribusi Omzet" berjumlah 100%.
+      const pdfOrderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const pdfShares = computeItemShares(o.order_items || [])
 
-      o.order_items.forEach(oi => {
+      o.order_items.forEach((oi, idx) => {
         const key = cleanItemName(oi.menu_item_name)
         if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, revenue: 0 }
         itemMap[key].qty += oi.quantity
@@ -729,7 +838,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         const pdfKey = `${key}__${channelName}`
         if (!itemPdfMap[pdfKey]) itemPdfMap[pdfKey] = { name: key, channel: channelName, qty: 0, revenue: 0 }
         itemPdfMap[pdfKey].qty += oi.quantity
-        itemPdfMap[pdfKey].revenue += oi.subtotal
+        itemPdfMap[pdfKey].revenue += pdfShares[idx] * pdfOrderGross
 
         // Simple logic to detect Category: if parentId exists or "Extra" in name -> Add-on
         if (oi.menu_item_name.includes('|PARENT|') || oi.menu_item_name.toLowerCase().includes('extra')) {
@@ -751,48 +860,55 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const cancelled = filteredOrders.filter(o => o.status === 'cancelled').length
     const successRate = filteredOrders.length > 0 ? Math.round((completed.length / filteredOrders.length) * 100) : 0
 
-    // Deductions calculation (Potongan promo subsidi food apps, diskon katalog & komisi/admin platform)
-    const totalDeductions = isSSOnlineSelected
-      ? completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0), 0)
-      : completed.reduce((s, o) => {
-          // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000).
-          // Potongan = selisih nilai menu vs uang yang tercatat. Rumus lama
-          // (disc + promo + extraDiff) memberi hasil yang benar untuk gross,
-          // tapi angka potongannya meleset Rp 5 dari acuan karena pembulatan
-          // per-order; disamakan supaya kelima dashboard identik.
-          const items = o.order_items || []
-          const total = Number(o.total_amount) || 0
-          // Baris SS Online sintetis: discount_amount sudah memuat beban
-          // platform yang benar, item-nya tidak selalu rekonsiliasi dgn total.
-          if ((o as any).outlet_id === 'ss-online') {
-            return s + (Number((o as any).discount_amount) || 0)
-          }
-          if (items.length === 0) {
-            return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
-          }
-          const itemValue = items.reduce((sum, item) => sum + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-          return s + Math.max(0, itemValue - total)
-        }, 0)
+    // Potongan = diskon + subsidi promo yang TERCATAT, tanpa menebak-nebak.
+    //
+    // Sebelumnya ada suku `extraDiff` yang menebak "diskon tak tercatat" dengan
+    // membandingkan jumlah subtotal item terhadap total_amount. Tebakan itu
+    // dihapus karena dua alasan:
+    //
+    // 1. Untuk baris SS Online (ecommerce_sales) hasilnya palsu. Tebakan itu
+    //    hanya menjumlahkan selisih POSITIF dan membuang yang negatif. Pada data
+    //    impor TikTok Shop Agustus 2026, 557 baris berselisih +Rp 13.446.000 dan
+    //    493 baris -Rp 12.920.000 -- bersihnya cuma Rp 526.000 (pembulatan
+    //    platform, wajar), tapi karena sisi negatif dibuang, angkanya
+    //    menggelembung jadi Rp 10.403.168 dan ikut menambah Gross Revenue.
+    //
+    // 2. Untuk order POS ia tidak pernah menangkap apa pun. Dari 59.812 order
+    //    selesai sepanjang Juni-Agustus 2026: Juni Rp 0, Juli Rp 0, Agustus Rp 5
+    //    (18 order, rata-rata Rp 0,28) -- murni sisa pembulatan. POS memang sudah
+    //    mencatat diskon dengan benar di discount_amount/promo_subsidy, sehingga
+    //    jaring pengaman ini tidak punya apa-apa untuk ditangkap.
+    //
+    // Dengan tebakan dihilangkan, Gross Revenue di halaman ini cocok sampai
+    // rupiah terakhir dengan Ringkasan Bisnis dan Untung Rugi.
+    // ACUAN TUNGGAL Omzet Kotor (lihat migration 20300128000000).
+    // Potongan = selisih nilai menu vs uang yang tercatat -- BUKAN
+    // discount_amount + promo_subsidy. `orders.total_amount` berubah arti sejak
+    // 19 Agustus 2026 (commit b41efc7a: Food Apps menyimpan harga UTUH),
+    // sementara `promo_subsidy` tetap diisi. Menjumlahkannya ke total_amount
+    // menghitung subsidi platform dua kali -- Rp 95 juta se-perusahaan pada
+    // Agustus 2026. Selisih nilai menu vs total_amount selalu benar, apa pun
+    // konvensi yang berlaku saat order dibuat.
+    // Rumusnya ada di computeOrderDeduction (lib/posReportKpi) supaya kartu
+    // ini dan SEMUA ekspor (PDF/CSV/Excel) memakai satu acuan yang sama.
+    const totalDeductions = completed.reduce(
+      (s, o) => s + computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected }),
+      0
+    )
+
+    // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom
+    // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak
+    // ikut omzet maupun potongan, ditampilkan sebagai kartu informasi.
+    // Baris SS Online dikecualikan: jalurnya sendiri, promo_subsidy-nya 0.
+    const totalPlatformSubsidy = completed.reduce((s, o) => {
+      if ((o as any).outlet_id === 'ss-online') return s
+      return s + (Number((o as any).promo_subsidy) || 0)
+    }, 0)
 
     const netRevenue = actualNetRevenue
 
     // Gross Revenue = total nilai kotor seluruh pesanan sebelum potongan/diskon/subsidi
-    const grossRevenue = isSSOnlineSelected
-      ? completed.reduce((sum, o) => sum + Number(o.total_amount || 0), 0)
-      : completed.reduce((sum, o) => {
-          // Omzet Kotor = total_amount + Potongan. Ditulis berjangkar pada
-          // total_amount supaya Net Revenue = total_amount secara aljabar.
-          const items = o.order_items || []
-          const total = Number(o.total_amount) || 0
-          if ((o as any).outlet_id === 'ss-online') {
-            return sum + total + (Number((o as any).discount_amount) || 0)
-          }
-          if (items.length === 0) {
-            return sum + total + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
-          }
-          const itemValue = items.reduce((s, item) => s + (Number(item.subtotal) || (Number(item.quantity) * Number(item.unit_price)) || 0), 0)
-          return sum + total + Math.max(0, itemValue - total)
-        }, 0)
+    const grossRevenue = actualNetRevenue + totalDeductions
     const grossProfit = Math.max(0, grossRevenue - (totalHPP + totalDeductions))
 
     let totalSettlement = 0
@@ -856,6 +972,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       cancelledCount: cancelled,
       grossRevenue,
       totalDeductions,
+      totalPlatformSubsidy,
       netRevenue,
       totalHPP,
       grossProfit,
@@ -864,7 +981,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       settlementDateRange,
       hasSettlementData
     }
-  }, [orders, shifts, selectedChannels, hppRows, menuItemByNameMap, settlements, isSSOnlineSelected])
+  }, [orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, settlements, isSSOnlineSelected])
 
   const selectedOutletName = selectedOutlets.includes('all') 
       ? 'Semua Cabang' 
@@ -951,7 +1068,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         }
         
         const key = `${cleanName}-${groupLabel}`
-        const hppPerUnit = getItemHpp(item.menu_items, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source)
+        const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
+        const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source, item.menu_item_id, menuItemByIdMap)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -975,7 +1093,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
-  }, [filteredTableData, outlets, menuItemByNameMap])
+  }, [filteredTableData, outlets, menuItemByNameMap, menuItemByIdMap])
 
   const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
   const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')
@@ -1071,21 +1189,38 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       itemMap: Record<string, { name: string; qty: number; revenue: number; hppTotal: number; unitPrice: number }>
     }> = {}
 
-    let totalKodeUnik = 0
-
+    // "Total Revenue" per item HARUS bersumber dari rumus gross yang sama
+    // dengan kartu KPI di layar (computeOrderGross: total_amount + potongan),
+    // bukan dari sekadar menjumlahkan order_items.subtotal.
+    //
+    // Sebelumnya kode ini menjumlahkan oi.subtotal apa adanya sebagai
+    // "revenue" per item. Untuk data produksi (Agustus 2026), jumlah subtotal
+    // item (Rp 1.830.040.996) TIDAK sama dengan gross order-level
+    // (Rp 1.925.547.615, POS saja) — subtotal item sudah memperhitungkan
+    // sebagian promo di level item (mis. item hadiah BOGO bersubtotal Rp 0)
+    // tapi belum memperhitungkan diskon/subsidi di level order. Akibatnya
+    // Grand Total di PDF (Rp 1.891.149.794 untuk 1-31 Agustus semua channel)
+    // berbeda ~Rp 87 juta dari Gross Revenue di layar (Rp 1.978.446.055).
+    //
+    // Perbaikannya: gross per order (`orderGross`, rumus sama dengan KPI)
+    // dibagi proporsional ke tiap item berdasarkan porsi subtotal-nya. Dengan
+    // begitu jumlah "revenue" seluruh item per order SELALU tepat sama dengan
+    // orderGross — sehingga bucket "Penyesuaian Sistem (Kode Unik QRIS)" yang
+    // dulu menambal selisih itu (dan hanya menambal satu arah, gejala yang
+    // sama seperti bug extraDiff) tidak lagi diperlukan dan dihapus.
     validOrders.forEach(o => {
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
       const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
       const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
-      
+
       let categoryName = srcInfo.label
       const isPawoon = o.customer_name === 'Pawoon Import' || srcKey === 'pos_pawoon' || srcKey === 'pos'
 
       if (isPawoon) {
         const hasFA = o.order_items.some(item => item.menu_item_name.includes('FA') || item.menu_item_name.includes('FOOD APPS'))
         const hasTikTok = o.order_items.some(item => item.menu_item_name.toLowerCase().includes('tiktok'))
-        
+
         if (isTikTok || hasTikTok) {
           categoryName = 'POS Pawoon (TikTok)'
         } else if (hasFA || isFoodApp) {
@@ -1108,37 +1243,39 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       }
 
       const outletType = outletTypeMap.get(o.outlet_id)
-      
+
       if (!categoryMap[categoryName]) {
         categoryMap[categoryName] = { categoryName, grossRevenue: 0, itemMap: {} }
       }
 
       const catData = categoryMap[categoryName]
 
-      let orderItemSubtotal = 0
+      const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const itemShares = computeItemShares(o.order_items || [])
+
       if (o.order_items && o.order_items.length > 0) {
-        o.order_items.forEach(oi => {
+        o.order_items.forEach((oi, idx) => {
           const key = cleanItemName(oi.menu_item_name)
           if (!catData.itemMap[key]) {
-            catData.itemMap[key] = { 
-              name: key, 
-              qty: 0, 
-              revenue: 0, 
+            catData.itemMap[key] = {
+              name: key,
+              qty: 0,
+              revenue: 0,
               hppTotal: 0,
               unitPrice: oi.unit_price || (oi.subtotal / oi.quantity) || 0
             }
           }
-          
-          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
-          
+
+          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
+          const itemRevenue = itemShares[idx] * orderGross
+
           catData.itemMap[key].qty += oi.quantity
-          catData.itemMap[key].revenue += oi.subtotal
+          catData.itemMap[key].revenue += itemRevenue
           catData.itemMap[key].hppTotal += (hppPerUnit * oi.quantity)
-          catData.grossRevenue += oi.subtotal
-          orderItemSubtotal += oi.subtotal
+          catData.grossRevenue += itemRevenue
         })
-      } else if (Number(o.total_amount) > 0 || Number((o as any).discount_amount) > 0 || Number((o as any).promo_subsidy) > 0) {
-        const grossAmount = Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+      } else if (orderGross > 0) {
         const key = `Order #${o.order_number} (${o.customer_name || 'Pelanggan'})`
         if (!catData.itemMap[key]) {
           catData.itemMap[key] = {
@@ -1146,35 +1283,14 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             qty: 0,
             revenue: 0,
             hppTotal: 0,
-            unitPrice: grossAmount
+            unitPrice: orderGross
           }
         }
         catData.itemMap[key].qty += 1
-        catData.itemMap[key].revenue += grossAmount
-        catData.grossRevenue += grossAmount
-        orderItemSubtotal += grossAmount
-      }
-
-      if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
-        totalKodeUnik += (Number(o.total_amount) - orderItemSubtotal)
+        catData.itemMap[key].revenue += orderGross
+        catData.grossRevenue += orderGross
       }
     })
-
-    if (totalKodeUnik > 0) {
-      categoryMap['Penyesuaian Sistem (Kode Unik QRIS)'] = {
-        categoryName: 'Penyesuaian Sistem (Kode Unik QRIS)',
-        grossRevenue: totalKodeUnik,
-        itemMap: {
-          'Kode Unik QRIS': {
-            name: 'Kode Unik QRIS & Penyesuaian Nominal',
-            qty: 1,
-            revenue: totalKodeUnik,
-            hppTotal: 0,
-            unitPrice: totalKodeUnik
-          }
-        }
-      }
-    }
 
     // 3. Ubah ke array dan sort
     const categories = Object.values(categoryMap).map(cat => ({
@@ -1201,8 +1317,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
   }
 
+  // Ekspor Excel/CSV khusus finance: rincian per Tanggal + Outlet + Channel + Item.
+  // Rumus revenue/potongan/HPP-nya SAMA dengan CSV admin-dashboard: gross tiap
+  // order dibagi proporsional ke item berdasarkan porsi subtotal, sehingga
+  // jumlah "Total Revenue" per order selalu sama dengan gross order-level dan
+  // tidak butuh baris penambal "Kode Unik QRIS" seperti versi lama.
+  const jakartaDateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' })
+
   const getProcessedSalesItems = (): { items: SalesExportItem[]; outletName: string; dateRangeText: string; channelSuffix: string } | null => {
-    const filteredForCSV = selectedChannels.includes('all') 
+    const filteredForCSV = selectedChannels.includes('all')
       ? orders
       : orders.filter(o => {
           const src = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).key.toLowerCase()
@@ -1227,20 +1350,22 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const itemAggMap: Record<string, SalesExportItem> = {}
 
     validOrders.forEach(o => {
-      const orderDate = o.created_at ? o.created_at.slice(0, 10) : '-'
+      // Tanggal lokal WIB — created_at tersimpan UTC, jadi slice(0,10) akan
+      // menggeser order 00:00–06:59 WIB ke tanggal sebelumnya.
+      const orderDate = o.created_at ? jakartaDateFmt.format(new Date(o.created_at)) : '-'
       const orderOutletName = outletNameMap.get(o.outlet_id) || selectedOutletName
       const srcInfo = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse)
       const srcKey = srcInfo.key.toLowerCase()
       const isTikTok = ['tiktok', 'tiktokgo'].includes(srcKey)
       const isFoodApp = ['gofood', 'grabfood', 'shopeefood', 'generic_food_app', 'food_apps'].includes(srcKey)
-      
+
       let categoryName = srcInfo.label
       const isPawoon = o.customer_name === 'Pawoon Import' || srcKey === 'pos_pawoon' || srcKey === 'pos'
 
       if (isPawoon) {
         const hasFA = (o.order_items || []).some(item => item.menu_item_name.includes('FA') || item.menu_item_name.includes('FOOD APPS'))
         const hasTikTok = (o.order_items || []).some(item => item.menu_item_name.toLowerCase().includes('tiktok'))
-        
+
         if (isTikTok || hasTikTok) {
           categoryName = 'POS Pawoon (TikTok)'
         } else if (hasFA || isFoodApp) {
@@ -1264,24 +1389,24 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const outletType = outletTypeMap.get(o.outlet_id)
 
-      // Potongan / Admin Platform per Order
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
-      const itemDiff = orderItemsGross > Number(o.total_amount) ? orderItemsGross - Number(o.total_amount) : 0
-      const extraDiff = Math.max(0, itemDiff - (disc + promo))
-      const orderTotalDeductions = disc + promo + extraDiff
+      // Rumus SAMA dengan CSV & PDF Kategori admin-dashboard.
+      const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const orderTotalDeductions = computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected })
+      // Bobot untuk membagi gross & potongan order ke tiap item.
+      const itemShares = computeItemShares(o.order_items || [])
 
-      let orderItemSubtotal = 0
       if (o.order_items && o.order_items.length > 0) {
-        o.order_items.forEach(oi => {
+        o.order_items.forEach((oi, idx) => {
           const rawName = cleanItemName(oi.menu_item_name)
           const aggKey = `${orderDate}__${o.outlet_id}__${categoryName}__${rawName}`
 
-          const hppPerUnit = getItemHpp(oi.menu_items, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source)
+          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           const itemHpp = hppPerUnit * oi.quantity
-          const itemDeduction = orderItemsGross > 0 ? (oi.subtotal / orderItemsGross) * orderTotalDeductions : 0
-          const itemGrossProfit = oi.subtotal - itemHpp - itemDeduction
+          const itemWeight = itemShares[idx]
+          const itemRevenue = itemWeight * orderGross
+          const itemDeduction = itemWeight * orderTotalDeductions
+          const itemGrossProfit = itemRevenue - itemHpp - itemDeduction
 
           if (!itemAggMap[aggKey]) {
             itemAggMap[aggKey] = {
@@ -1301,14 +1426,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           }
 
           itemAggMap[aggKey].qty += oi.quantity
-          itemAggMap[aggKey].revenue += oi.subtotal
+          itemAggMap[aggKey].revenue += itemRevenue
           itemAggMap[aggKey].hppTotal += itemHpp
           itemAggMap[aggKey].adminPlatform += itemDeduction
           itemAggMap[aggKey].grossProfit += itemGrossProfit
-          orderItemSubtotal += oi.subtotal
         })
-      } else if (Number(o.total_amount) > 0 || Number((o as any).discount_amount) > 0 || Number((o as any).promo_subsidy) > 0) {
-        const grossAmount = Number(o.total_amount) + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
+      } else if (orderGross > 0) {
         const rawName = `Order #${o.order_number} (${o.customer_name || 'Pelanggan'})`
         const aggKey = `${orderDate}__${o.outlet_id}__${categoryName}__${rawName}`
 
@@ -1318,7 +1441,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             outletName: orderOutletName,
             channelName: categoryName,
             itemName: rawName,
-            unitPrice: grossAmount,
+            unitPrice: orderGross,
             hppSatuan: 0,
             qty: 0,
             hppTotal: 0,
@@ -1329,38 +1452,10 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
           }
         }
 
-        const itemDeduction = orderTotalDeductions
-        const itemGrossProfit = grossAmount - itemDeduction
-
         itemAggMap[aggKey].qty += 1
-        itemAggMap[aggKey].revenue += grossAmount
-        itemAggMap[aggKey].adminPlatform += itemDeduction
-        itemAggMap[aggKey].grossProfit += itemGrossProfit
-        orderItemSubtotal += grossAmount
-      }
-
-      if (orderItemSubtotal > 0 && Number(o.total_amount) > orderItemSubtotal) {
-        const kodeUnik = Number(o.total_amount) - orderItemSubtotal
-        const aggKey = `${orderDate}__${o.outlet_id}__Penyesuaian Sistem (Kode Unik QRIS)__Kode Unik QRIS`
-        if (!itemAggMap[aggKey]) {
-          itemAggMap[aggKey] = {
-            date: orderDate,
-            outletName: orderOutletName,
-            channelName: 'Penyesuaian Sistem (Kode Unik QRIS)',
-            itemName: 'Kode Unik QRIS & Penyesuaian Nominal',
-            unitPrice: kodeUnik,
-            hppSatuan: 0,
-            qty: 0,
-            hppTotal: 0,
-            revenue: 0,
-            adminPlatform: 0,
-            grossProfit: 0,
-            marginGpPct: 100
-          }
-        }
-        itemAggMap[aggKey].qty += 1
-        itemAggMap[aggKey].revenue += kodeUnik
-        itemAggMap[aggKey].grossProfit += kodeUnik
+        itemAggMap[aggKey].revenue += orderGross
+        itemAggMap[aggKey].adminPlatform += orderTotalDeductions
+        itemAggMap[aggKey].grossProfit += orderGross - orderTotalDeductions
       }
     })
 
@@ -1540,6 +1635,35 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             )}
           </div>
         </div>
+
+        {/* Status Sinkronisasi / Last Updated */}
+        <div className="no-print flex flex-wrap items-center justify-between gap-2.5 -mt-4 mb-2 text-xs">
+          <div className="flex items-center gap-2">
+            {isPast ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-900 border border-amber-200/80 font-bold text-[11px] shadow-2xs">
+                <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                <span>Terakhir diperbarui: <strong>{formatLastUpdated(lastUpdated)}</strong> (Data Lampau Tersimpan)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] shadow-2xs">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span>Live Realtime · Sinkronisasi POS: <strong>{formatLastUpdated(lastUpdated)}</strong></span>
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => fetchOrders()}
+            disabled={loading}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-suka-brown hover:text-suka-ink bg-white hover:bg-suka-gray-50 border border-suka-gray-200 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+            title="Muat ulang data transaksi dari database"
+          >
+            <RefreshCw className={`w-3 h-3 text-suka-orange ${loading ? 'animate-spin' : ''}`} />
+            <span>Segarkan Data</span>
+          </button>
+        </div>
       
 
       {/* ── Header Print (Only Visible on Print) ── */}
@@ -1565,13 +1689,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       ) : (
         <>
           {/* ── KPI Cards (Gross Revenue, Total COGS, Admin Platform, Gross Profit) ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 xl:gap-5">
             {/* 1. Gross Revenue — omzet SEBELUM potongan (net + promo/diskon). */}
-            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-amber-400 to-amber-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-amber-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Revenue</p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossRevenue)}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossRevenue)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Total omset produk (Subtotal setelah diskon penjual)'
@@ -1581,11 +1705,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
 
             {/* 2. Total COGS */}
-            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-rose-400 to-rose-600 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-rose-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Total COGS</p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalHPP)}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalHPP)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Modal bahan dasar (Tarif HPP khusus SS Online)'
@@ -1595,29 +1719,31 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             </div>
 
             {/* 3. Admin Platform */}
-            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-blue-500 to-blue-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-blue-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
-                  {isSSOnlineSelected ? 'Beban Biaya Platform (P&L)' : 'Admin Platform & Promo'}
+                  {isSSOnlineSelected
+                    ? 'Beban Biaya Platform (P&L)'
+                    : 'Potongan Merchant'}
                 </p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalDeductions)}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalDeductions)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
                   {isSSOnlineSelected
                     ? 'Komisi Platform, Dinamis, Cashback, Admin Order, Logistik, Afiliasi & PPh 22 (Pengurang Laba Kotor)'
-                    : 'Potongan diskon promo & subsidi food apps'}
+                    : 'Diskon yang ditanggung outlet. Subsidi aplikasi TIDAK termasuk.'}
                 </p>
               </div>
             </div>
 
             {/* 4. Gross Profit */}
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-emerald-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
               <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
               <div className="relative z-10">
                 <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">Gross Profit</p>
-                <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.grossProfit)}</p>
+                <p className="text-2xl sm:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.grossProfit)}</p>
                 <p className="text-[11px] text-white/80 mt-2.5 font-medium leading-relaxed">
-                  Gross Revenue - (COGS + Admin Platform)
+                  Gross Revenue - (COGS + {isSSOnlineSelected ? 'Beban Platform' : isPosKasirOnly ? 'Diskon Kasir' : 'Admin Platform'})
                 </p>
               </div>
             </div>
@@ -1633,15 +1759,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </h2>
                 <p className="text-sm text-gray-500">Data ini ditarik dari hasil rekonsiliasi pembayaran platform.</p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:gap-5">
                 {/* 5. Settlement (Conditional) */}
-                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-indigo-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                   <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                   <div className="relative z-10">
                     <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
                       Total Settlement
                     </p>
-                    <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalSettlement)}</p>
+                    <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalSettlement)}</p>
                     <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
                       {isSSOnlineSelected
                         ? 'Omzet Kotor - Promo - Biaya Platform'
@@ -1657,13 +1783,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
                 </div>
 
                 {/* 6. Admin Settlement */}
-                  <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 xl:p-8 rounded-[2rem] shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
+                  <div className="bg-gradient-to-br from-violet-500 to-violet-700 text-white p-5 sm:p-6 rounded-3xl shadow-lg shadow-violet-500/20 relative overflow-hidden flex flex-col justify-between group hover:-translate-y-1 transition-transform duration-300">
                     <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/20 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500" />
                     <div className="relative z-10">
                       <p className="text-xs font-bold text-white/90 uppercase tracking-widest mb-1.5">
                         Admin Settlement
                       </p>
-                      <p className="text-3xl xl:text-[2.5rem] leading-none font-black mt-1 tracking-tight">{formatRupiah(analytics.totalRealAdmin)}</p>
+                      <p className="text-2xl sm:text-3xl xl:text-2xl 2xl:text-3xl font-black mt-1 tracking-tight leading-tight tabular-nums">{formatRupiah(analytics.totalRealAdmin)}</p>
                       <p className="text-xs text-white/70 mt-2 mb-3 leading-relaxed">
                         {isSSOnlineSelected ? 'Total biaya platform' : 'Platform commission + Creator commission + WHT'}
                       </p>
@@ -2709,6 +2835,9 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     </div>
   )
 }
+
+
+
 
 
 

@@ -37,6 +37,7 @@ export default async function CalendarPage() {
       },
     }),
     prisma.outlet.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
     }),

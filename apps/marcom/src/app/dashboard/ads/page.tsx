@@ -15,6 +15,7 @@ export default async function AdsPage() {
       },
     }),
     prisma.outlet.findMany({
+      where: { isActive: true },
       orderBy: { name: 'asc' },
       select: { id: true, name: true, type: true },
     }),

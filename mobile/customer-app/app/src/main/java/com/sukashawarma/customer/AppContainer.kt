@@ -19,6 +19,9 @@ class AppContainer(context: Context) {
 
     val sessionStore: SessionStore by lazy { SessionStore(appContext) }
     val outletStore: OutletStore by lazy { OutletStore(appContext) }
+    val lokasiPelanggan: com.sukashawarma.customer.ui.home.LokasiPelanggan by lazy {
+        com.sukashawarma.customer.ui.home.LokasiPelanggan(appContext)
+    }
     val cartStore: CartStore by lazy { CartStore.persisten(appContext) }
     val orderAttemptStore: OrderAttemptStore by lazy { OrderAttemptStore(appContext) }
     val splashStore: SplashStore by lazy { SplashStore(appContext) }

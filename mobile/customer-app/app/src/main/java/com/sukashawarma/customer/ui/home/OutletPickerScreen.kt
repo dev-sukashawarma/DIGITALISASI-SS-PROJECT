@@ -1,5 +1,14 @@
 package com.sukashawarma.customer.ui.home
 
+import android.Manifest
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +27,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -26,7 +36,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material3.Icon
@@ -38,12 +47,19 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -71,6 +87,49 @@ fun OutletPickerScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val konteks = LocalContext.current
+
+    // Diminta otomatis SEKALI saat layar pertama dibuka; setelah itu hanya
+    // lewat tombol, supaya pelanggan yang menolak tidak dikejar dialog terus.
+    var sudahDiminta by rememberSaveable { mutableStateOf(false) }
+    var sudahDitolak by rememberSaveable { mutableStateOf(false) }
+    val peluncurIzin = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { diizinkan ->
+        if (!diizinkan) sudahDitolak = true
+        viewModel.perbaruiLokasi()
+    }
+
+    LaunchedEffect(state.statusLokasi) {
+        if (state.statusLokasi == StatusLokasi.TANPA_IZIN && !sudahDiminta) {
+            sudahDiminta = true
+            peluncurIzin.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.cekIzinUlang() }
+
+    // LazyColumn ber-key menjaga item yang sedang di atas tetap di atas saat
+    // urutan berubah -- setelah lokasi masuk, pelanggan malah melihat tengah
+    // daftar, bukan outlet terdekat. Kembalikan ke puncak tiap posisi berganti.
+    val daftarState = rememberLazyListState()
+    LaunchedEffect(state.posisi) {
+        if (state.posisi != null) daftarState.scrollToItem(0)
+    }
+
+    val mintaLokasi: () -> Unit = {
+        when {
+            state.statusLokasi != StatusLokasi.TANPA_IZIN -> viewModel.perbaruiLokasi()
+            // Ditolak permanen ("Jangan tanya lagi"): dialog sistem tak akan
+            // muncul lagi, satu-satunya jalan adalah halaman izin aplikasi.
+            sudahDitolak && konteks.cariActivity()?.shouldShowRequestPermissionRationale(
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == false -> konteks.startActivity(
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    .setData(Uri.fromParts("package", konteks.packageName, null))
+            )
+            else -> peluncurIzin.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        }
+    }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -138,12 +197,13 @@ fun OutletPickerScreen(
                             modifier = Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(Color.White)
+                                .bounceClick(onClick = mintaLokasi),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.MyLocation,
-                                contentDescription = "GPS",
+                                contentDescription = "Gunakan lokasiku",
                                 tint = SukaOrange,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -254,7 +314,12 @@ fun OutletPickerScreen(
                                     )
                                 )
                                 Text(
-                                    text = "Bogor & Sekitarnya",
+                                    text = when (state.statusLokasi) {
+                                        StatusLokasi.MENCARI -> "Mencari lokasimu…"
+                                        StatusLokasi.AKTIF -> "Aktif • urut dari yang terdekat"
+                                        StatusLokasi.TANPA_IZIN -> "Belum diizinkan"
+                                        StatusLokasi.TIDAK_TERSEDIA -> "Tidak terdeteksi • nyalakan lokasi"
+                                    },
                                     style = MaterialTheme.typography.titleSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = SukaInk,
@@ -265,12 +330,17 @@ fun OutletPickerScreen(
                         }
 
                         Surface(
+                            modifier = Modifier.bounceClick(onClick = mintaLokasi),
                             shape = RoundedCornerShape(12.dp),
                             color = Color.White,
                             border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.3f))
                         ) {
                             Text(
-                                text = "Otomatis",
+                                text = when (state.statusLokasi) {
+                                    StatusLokasi.TANPA_IZIN -> "Izinkan"
+                                    StatusLokasi.TIDAK_TERSEDIA -> "Coba lagi"
+                                    else -> "Perbarui"
+                                },
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     fontWeight = FontWeight.Bold,
@@ -292,7 +362,7 @@ fun OutletPickerScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "OUTLET TERDEKAT",
+                    text = if (state.posisi != null) "OUTLET TERDEKAT" else "SEMUA OUTLET",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.ExtraBold,
                         color = SukaBrown,
@@ -345,6 +415,7 @@ fun OutletPickerScreen(
 
                 else -> {
                     LazyColumn(
+                        state = daftarState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -352,6 +423,7 @@ fun OutletPickerScreen(
                         items(state.tampil, key = { it.id }) { outlet ->
                             BarisOutletCard(
                                 outlet = outlet,
+                                jarak = state.posisi?.let { jarakOutlet(outlet, it) },
                                 onPilih = onPilih
                             )
                         }
@@ -365,6 +437,7 @@ fun OutletPickerScreen(
 @Composable
 private fun BarisOutletCard(
     outlet: OutletDto,
+    jarak: Double?,
     onPilih: (OutletDto) -> Unit
 ) {
     Surface(
@@ -418,7 +491,7 @@ private fun BarisOutletCard(
                                         .background(if (outlet.isActive) SukaGreen else SukaMuted)
                                 )
                                 Text(
-                                    text = if (outlet.isActive) "Buka • Siap 15–20 mnt" else "Belum Buka",
+                                    text = if (outlet.isActive) "Buka" else "Belum Buka",
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = if (outlet.isActive) SukaGreen else SukaMuted,
@@ -428,19 +501,23 @@ private fun BarisOutletCard(
                             }
                         }
 
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFFFFEBD8)
-                        ) {
-                            Text(
-                                text = "📍 850 m",
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = SukaBrown,
-                                    fontSize = 10.sp
+                        // Jarak garis lurus, hanya kalau lokasi pelanggan DAN
+                        // koordinat outlet sama-sama diketahui -- tak pernah ditebak.
+                        if (jarak != null) {
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFFFFEBD8)
+                            ) {
+                                Text(
+                                    text = "📍 ${labelJarak(jarak)}",
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = SukaBrown,
+                                        fontSize = 10.sp
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
@@ -486,24 +563,8 @@ private fun BarisOutletCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Schedule,
-                        contentDescription = null,
-                        tint = SukaOrange,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Text(
-                        text = "Buka: 10.00 – 22.00 WIB",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            color = SukaMuted,
-                            fontSize = 11.sp
-                        )
-                    )
-                }
+                // Jam buka sengaja tidak ditampilkan: belum ada datanya per outlet.
+                Spacer(modifier = Modifier.width(1.dp))
 
                 Text(
                     text = "Pilih Outlet →",
@@ -516,4 +577,10 @@ private fun BarisOutletCard(
             }
         }
     }
+}
+
+private tailrec fun Context.cariActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.cariActivity()
+    else -> null
 }

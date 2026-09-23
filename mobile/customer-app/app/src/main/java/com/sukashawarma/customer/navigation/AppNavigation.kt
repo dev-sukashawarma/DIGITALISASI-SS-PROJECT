@@ -377,7 +377,7 @@ fun CustomerAppRoot(container: AppContainer) {
                 }
             ) {
                 val outletViewModel: OutletPickerViewModel = viewModel(
-                    factory = pabrik { OutletPickerViewModel(container.repository) }
+                    factory = pabrik { OutletPickerViewModel(container.repository, container.lokasiPelanggan) }
                 )
                 OutletPickerScreen(
                     viewModel = outletViewModel,

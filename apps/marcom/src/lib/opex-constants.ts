@@ -24,6 +24,7 @@ export interface OpexSummary {
   totalEndorsement: number
   totalAds: number
   totalManual: number
+  totalHppMenu: number
   totalBudget: number
   remainingBudget: number
   items: OpexItem[]
@@ -40,5 +41,6 @@ export const MARCOM_EXPENSE_CATEGORIES: Record<string, string> = {
   SOFTWARE_TOOLS: 'Software & Tools (AI/Canva/Domain/Hosting)',
   EVENT_AKTIVASI: 'Event & Aktivasi (Bazaar/Merchandise)',
   OPERASIONAL_TRANSPORT: 'Transport & Operasional Lapangan',
+  HPP_MENU: 'HPP Menu (Complimentary KOL)',
   LAINNYA: 'Pengeluaran Marcom Lainnya',
 }

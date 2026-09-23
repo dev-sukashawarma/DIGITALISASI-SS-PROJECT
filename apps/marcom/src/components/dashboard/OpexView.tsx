@@ -22,6 +22,7 @@ import {
   Sparkles,
   ArrowUpDown,
   RotateCw,
+  UtensilsCrossed,
 } from 'lucide-react'
 import {
   type OpexSummary,
@@ -29,6 +30,7 @@ import {
   getOpexData,
   createMarcomExpense,
   updateMarcomExpense,
+  updateOpexItem,
   deleteMarcomExpense,
 } from '@/app/actions/opex'
 import { MARCOM_EXPENSE_CATEGORIES } from '@/lib/opex-constants'
@@ -49,7 +51,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   const [selectedMonth, setSelectedMonth] = useState<number>(initialSummary.periodMonth)
   const [selectedYear, setSelectedYear] = useState<number>(initialSummary.periodYear)
   const [outletFilter, setOutletFilter] = useState<string>('ALL')
-  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'ENDORSEMENT' | 'ADS' | 'MANUAL'>('ALL')
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | 'ENDORSEMENT' | 'HPP_MENU' | 'ADS' | 'MANUAL'>('ALL')
   const [searchTerm, setSearchTerm] = useState('')
   const [isPending, startTransition] = useTransition()
   const [bannerMessage, setBannerMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -130,18 +132,31 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     setFormError('')
 
     const formData = new FormData()
-    if (editingItem) formData.append('id', editingItem.sourceId)
-    formData.append('expenseDate', formDate)
-    formData.append('outletId', formOutletId)
-    formData.append('category', formCategory)
-    formData.append('amount', formAmount)
-    formData.append('description', formDescription)
-    formData.append('paymentSource', formPaymentSource)
-    if (formReceiptUrl) formData.append('receiptUrl', formReceiptUrl)
+    if (editingItem) {
+      formData.append('id', editingItem.sourceId)
+      formData.append('source', editingItem.source)
+      formData.append('sourceId', editingItem.sourceId)
+      formData.append('category', formCategory)
+      formData.append('date', formDate)
+      formData.append('expenseDate', formDate)
+      formData.append('outletId', formOutletId)
+      formData.append('amount', formAmount)
+      formData.append('description', formDescription)
+      formData.append('paymentSource', formPaymentSource)
+      if (formReceiptUrl) formData.append('receiptUrl', formReceiptUrl)
+    } else {
+      formData.append('expenseDate', formDate)
+      formData.append('outletId', formOutletId)
+      formData.append('category', formCategory)
+      formData.append('amount', formAmount)
+      formData.append('description', formDescription)
+      formData.append('paymentSource', formPaymentSource)
+      if (formReceiptUrl) formData.append('receiptUrl', formReceiptUrl)
+    }
 
     startTransition(async () => {
       const res = editingItem
-        ? await updateMarcomExpense({}, formData)
+        ? await updateOpexItem({}, formData)
         : await createMarcomExpense({}, formData)
 
       if (res?.error) {
@@ -151,7 +166,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
         setBannerMessage({
           type: 'success',
           text: editingItem
-            ? 'Pengeluaran berhasil diperbarui dan disinkronkan ke Finance!'
+            ? 'Perubahan pengeluaran berhasil disimpan dan disinkronkan ke Finance!'
             : 'Pengeluaran baru berhasil dicatat dan disinkronkan ke Finance!',
         })
         loadData(selectedMonth, selectedYear, outletFilter)
@@ -179,7 +194,15 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
   // Filter items based on source and search query
   const filteredItems = useMemo(() => {
     return summary.items.filter((item) => {
-      const matchSource = sourceFilter === 'ALL' || item.source === sourceFilter
+      let matchSource = true
+      if (sourceFilter === 'HPP_MENU') {
+        matchSource = item.category === 'HPP_MENU'
+      } else if (sourceFilter === 'ENDORSEMENT') {
+        matchSource = item.source === 'ENDORSEMENT' && item.category !== 'HPP_MENU'
+      } else if (sourceFilter !== 'ALL') {
+        matchSource = item.source === sourceFilter
+      }
+
       const query = searchTerm.toLowerCase().trim()
       const matchSearch =
         !query ||
@@ -194,11 +217,11 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
     const headers = ['Tanggal', 'Sumber', 'Kategori', 'Alokasi Outlet', 'Keterangan', 'Sumber Dana', 'Nominal (Rp)']
     const rows = filteredItems.map((item) => [
       `"${item.date}"`,
-      `"${item.source}"`,
+      `"${item.category === 'HPP_MENU' ? 'HPP KOL' : item.source}"`,
       `"${item.categoryLabel}"`,
       `"${item.outletName}"`,
       `"${item.description.replace(/"/g, '""')}"`,
-      `"${item.paymentSource}"`,
+      `"${item.paymentSource === 'cogs_internal' ? 'Bahan Baku (Non-Tunai)' : item.paymentSource}"`,
       item.amount,
     ])
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n')
@@ -322,7 +345,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
       </div>
 
       {/* KPI Cards Ringkasan */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         {/* Total OPEX */}
         <div className="bg-white p-4 rounded-2xl border border-[#EFE8DE] shadow-xs">
           <div className="flex items-center justify-between text-stone-500 text-xs font-medium mb-1">
@@ -331,7 +354,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
               <DollarSign className="w-3.5 h-3.5" />
             </span>
           </div>
-          <div className="text-xl font-bold font-mono text-stone-900">
+          <div className="text-xl font-bold font-mono text-stone-900 truncate">
             {formatRupiah(summary.totalOpex)}
           </div>
           <p className="text-[11px] text-stone-500 mt-1">
@@ -344,15 +367,29 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
         {/* Endorsement Cash & Ongkir */}
         <div className="bg-white p-4 rounded-2xl border border-[#EFE8DE] shadow-xs">
           <div className="flex items-center justify-between text-stone-500 text-xs font-medium mb-1">
-            <span>Endorsement & Ongkir</span>
+            <span>Endorsement Cash</span>
             <span className="p-1.5 bg-purple-50 text-purple-700 rounded-lg">
               <Receipt className="w-3.5 h-3.5" />
             </span>
           </div>
-          <div className="text-xl font-bold font-mono text-purple-900">
+          <div className="text-xl font-bold font-mono text-purple-900 truncate">
             {formatRupiah(summary.totalEndorsement)}
           </div>
-          <p className="text-[11px] text-stone-500 mt-1">Rate card paid & ongkir delivery</p>
+          <p className="text-[11px] text-stone-500 mt-1">Rate card paid & ongkir</p>
+        </div>
+
+        {/* HPP Menu Jatah KOL */}
+        <div className="bg-white p-4 rounded-2xl border border-[#EFE8DE] shadow-xs">
+          <div className="flex items-center justify-between text-stone-500 text-xs font-medium mb-1">
+            <span>HPP Menu KOL</span>
+            <span className="p-1.5 bg-rose-50 text-rose-700 rounded-lg">
+              <UtensilsCrossed className="w-3.5 h-3.5" />
+            </span>
+          </div>
+          <div className="text-xl font-bold font-mono text-rose-900 truncate">
+            {formatRupiah(summary.totalHppMenu || 0)}
+          </div>
+          <p className="text-[11px] text-stone-500 mt-1">Jatah menu complimentary</p>
         </div>
 
         {/* Ads Spent */}
@@ -363,7 +400,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
               <Layers className="w-3.5 h-3.5" />
             </span>
           </div>
-          <div className="text-xl font-bold font-mono text-blue-900">
+          <div className="text-xl font-bold font-mono text-blue-900 truncate">
             {formatRupiah(summary.totalAds)}
           </div>
           <p className="text-[11px] text-stone-500 mt-1">Realisasi spent TikTok/IG Ads</p>
@@ -377,7 +414,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
               <Sparkles className="w-3.5 h-3.5" />
             </span>
           </div>
-          <div className="text-xl font-bold font-mono text-amber-900">
+          <div className="text-xl font-bold font-mono text-amber-900 truncate">
             {formatRupiah(summary.totalManual)}
           </div>
           <p className="text-[11px] text-stone-500 mt-1">Cetak, tools, transport, event</p>
@@ -402,7 +439,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
             </span>
           </div>
           <div
-            className={`text-xl font-bold font-mono ${
+            className={`text-xl font-bold font-mono truncate ${
               summary.remainingBudget >= 0 ? 'text-emerald-700' : 'text-red-700'
             }`}
           >
@@ -422,29 +459,40 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
             <button
               type="button"
               onClick={() => setSourceFilter('ALL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                 sourceFilter === 'ALL'
                   ? 'bg-[#1C1917] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              Semua Sumber ({summary.items.length})
+              Semua ({summary.items.length})
             </button>
             <button
               type="button"
               onClick={() => setSourceFilter('ENDORSEMENT')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                 sourceFilter === 'ENDORSEMENT'
                   ? 'bg-[#1C1917] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              Endorsement
+              Endorsement Cash
+            </button>
+            <button
+              type="button"
+              onClick={() => setSourceFilter('HPP_MENU')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                sourceFilter === 'HPP_MENU'
+                  ? 'bg-[#1C1917] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900'
+              }`}
+            >
+              HPP Menu KOL
             </button>
             <button
               type="button"
               onClick={() => setSourceFilter('ADS')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                 sourceFilter === 'ADS'
                   ? 'bg-[#1C1917] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
@@ -455,13 +503,13 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
             <button
               type="button"
               onClick={() => setSourceFilter('MANUAL')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
                 sourceFilter === 'MANUAL'
                   ? 'bg-[#1C1917] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900'
               }`}
             >
-              Manual Tambahan
+              Manual
             </button>
           </div>
 
@@ -513,14 +561,16 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                       <div className="flex items-center gap-1.5">
                         <span
                           className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                            item.source === 'ENDORSEMENT'
+                            item.category === 'HPP_MENU'
+                              ? 'bg-rose-50 text-rose-700 border-rose-200'
+                              : item.source === 'ENDORSEMENT'
                               ? 'bg-purple-50 text-purple-700 border-purple-200'
                               : item.source === 'ADS'
                               ? 'bg-blue-50 text-blue-700 border-blue-200'
                               : 'bg-amber-50 text-amber-700 border-amber-200'
                           }`}
                         >
-                          {item.source}
+                          {item.category === 'HPP_MENU' ? 'HPP KOL' : item.source}
                         </span>
                         <span className="text-stone-800 font-semibold">{item.categoryLabel}</span>
                       </div>
@@ -550,8 +600,14 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                     </td>
 
                     {/* Metode Pembayaran */}
-                    <td className="py-3 px-3.5 whitespace-nowrap text-stone-600 capitalize">
-                      {item.paymentSource.replace('_', ' ')}
+                    <td className="py-3 px-3.5 whitespace-nowrap text-stone-600">
+                      {item.paymentSource === 'cogs_internal' ? (
+                        <span className="text-[11px] font-semibold text-rose-800 bg-rose-50 border border-rose-200/80 px-2 py-0.5 rounded-md">
+                          Bahan Baku / Non-Tunai
+                        </span>
+                      ) : (
+                        <span className="capitalize">{item.paymentSource.replace('_', ' ')}</span>
+                      )}
                     </td>
 
                     {/* Nominal */}
@@ -561,28 +617,26 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
 
                     {/* Aksi */}
                     <td className="py-3 px-3.5 whitespace-nowrap text-center">
-                      {item.isEditable ? (
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(item)}
-                            className="p-1 text-stone-500 hover:text-stone-800 hover:bg-stone-100 rounded-md transition-colors"
-                            title="Edit Pengeluaran"
-                          >
-                            <Edit2 className="w-3.5 h-3.5" />
-                          </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEdit(item)}
+                          className="p-1.5 text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded-lg transition-colors cursor-pointer"
+                          title="Edit Pengeluaran"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        {item.source === 'MANUAL' && (
                           <button
                             type="button"
                             onClick={() => setDeleteConfirmItem(item)}
-                            className="p-1 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                             title="Hapus Pengeluaran"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
-                        </div>
-                      ) : (
-                        <span className="text-[10px] text-stone-400 italic">Otomatis</span>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -598,16 +652,67 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
           <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-xl border border-[#EFE8DE] space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-[#EFE8DE] pb-3">
               <h3 className="text-base font-bold text-stone-900">
-                {editingItem ? 'Edit Pengeluaran OPEX' : 'Catat Pengeluaran OPEX Marcom'}
+                {editingItem
+                  ? editingItem.category === 'HPP_MENU'
+                    ? 'Edit HPP Menu Jatah KOL'
+                    : editingItem.category === 'transport'
+                    ? 'Edit Ongkir Sample Delivery'
+                    : editingItem.category === 'endorsement'
+                    ? 'Edit Fee Rate Card Endorsement'
+                    : editingItem.source === 'ADS'
+                    ? 'Edit Realisasi Biaya Ads'
+                    : 'Edit Pengeluaran Manual'
+                  : 'Catat Pengeluaran OPEX Marcom'}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="text-stone-400 hover:text-stone-600 p-1 rounded-lg"
+                className="text-stone-400 hover:text-stone-600 p-1 rounded-lg cursor-pointer"
               >
                 ✕
               </button>
             </div>
+
+            {/* Context Info Box for Endorsement / Ads */}
+            {editingItem && editingItem.source === 'ENDORSEMENT' && (
+              <div className="p-3 bg-purple-50/70 border border-purple-200/80 rounded-xl text-stone-800 text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-purple-900">
+                  <span>Sumber: Endorsement ({editingItem.outletName})</span>
+                  <a
+                    href="/dashboard/endorsements"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold"
+                  >
+                    Buka Endorsements <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <p className="text-[11px] text-stone-600">
+                  {editingItem.category === 'HPP_MENU'
+                    ? 'Perubahan nominal HPP di sini akan otomatis memperbarui nilai HPP menu pada endorsement KOL dan pagu budget outlet, serta disinkronkan ke Finance.'
+                    : 'Perubahan nominal di sini akan otomatis memperbarui data biaya endorsement KOL dan disinkronkan ke Finance.'}
+                </p>
+              </div>
+            )}
+
+            {editingItem && editingItem.source === 'ADS' && (
+              <div className="p-3 bg-blue-50/70 border border-blue-200/80 rounded-xl text-stone-800 text-xs space-y-1">
+                <div className="flex items-center justify-between font-bold text-blue-900">
+                  <span>Sumber: Ads / Paid Traffic ({editingItem.outletName})</span>
+                  <a
+                    href="/dashboard/ads"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-[#D9480F] hover:underline inline-flex items-center gap-1 font-semibold"
+                  >
+                    Buka Ads <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <p className="text-[11px] text-stone-600">
+                  Perubahan nominal spent di sini akan memperbarui realisasi biaya kampanye iklan dan disinkronkan ke Finance.
+                </p>
+              </div>
+            )}
 
             {formError && (
               <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-xl text-xs flex items-center gap-2">
@@ -636,18 +741,27 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                   <label className="block font-semibold text-stone-700 mb-1">
                     Alokasi Outlet / Pusat *
                   </label>
-                  <select
-                    value={formOutletId}
-                    onChange={(e) => setFormOutletId(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
-                  >
-                    <option value="GLOBAL">Kantor Pusat / Pengeluaran Global</option>
-                    {outlets.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
+                  {editingItem && editingItem.source !== 'MANUAL' ? (
+                    <input
+                      type="text"
+                      disabled
+                      value={editingItem.outletName}
+                      className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-stone-100 text-stone-600 cursor-not-allowed font-medium"
+                    />
+                  ) : (
+                    <select
+                      value={formOutletId}
+                      onChange={(e) => setFormOutletId(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
+                    >
+                      <option value="GLOBAL">Kantor Pusat / Pengeluaran Global</option>
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
               </div>
 
@@ -657,39 +771,69 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                   <label className="block font-semibold text-stone-700 mb-1">
                     Kategori Pengeluaran *
                   </label>
-                  <select
-                    value={formCategory}
-                    onChange={(e) => setFormCategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
-                  >
-                    {Object.entries(MARCOM_EXPENSE_CATEGORIES).map(([val, label]) => (
-                      <option key={val} value={val}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
+                  {editingItem && editingItem.source !== 'MANUAL' ? (
+                    <input
+                      type="text"
+                      disabled
+                      value={editingItem.categoryLabel}
+                      className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-stone-100 text-stone-600 cursor-not-allowed font-medium"
+                    />
+                  ) : (
+                    <select
+                      value={formCategory}
+                      onChange={(e) => setFormCategory(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
+                    >
+                      {Object.entries(MARCOM_EXPENSE_CATEGORIES).map(([val, label]) => (
+                        <option key={val} value={val}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </div>
 
                 <div>
                   <label className="block font-semibold text-stone-700 mb-1">
                     Sumber Dana / Pembayaran *
                   </label>
-                  <select
-                    value={formPaymentSource}
-                    onChange={(e) => setFormPaymentSource(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
-                  >
-                    <option value="transfer_pusat">Transfer Kantor Pusat</option>
-                    <option value="petty_cash">Kas Operasional / Petty Cash</option>
-                    <option value="reimburse">Reimburse Karyawan</option>
-                  </select>
+                  {editingItem && editingItem.source !== 'MANUAL' ? (
+                    <input
+                      type="text"
+                      disabled
+                      value={
+                        editingItem.paymentSource === 'cogs_internal'
+                          ? 'Bahan Baku / Non-Tunai'
+                          : editingItem.paymentSource.replace('_', ' ')
+                      }
+                      className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-stone-100 text-stone-600 cursor-not-allowed font-medium capitalize"
+                    />
+                  ) : (
+                    <select
+                      value={formPaymentSource}
+                      onChange={(e) => setFormPaymentSource(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
+                    >
+                      <option value="transfer_pusat">Transfer Kantor Pusat</option>
+                      <option value="petty_cash">Kas Operasional / Petty Cash</option>
+                      <option value="reimburse">Reimburse Karyawan</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
               {/* Nominal Biaya */}
               <div>
                 <label className="block font-semibold text-stone-700 mb-1">
-                  Nominal Biaya (Rp) *
+                  {editingItem?.category === 'HPP_MENU'
+                    ? 'Nominal HPP Menu (Rp) *'
+                    : editingItem?.category === 'endorsement'
+                    ? 'Nominal Fee Rate Card (Rp) *'
+                    : editingItem?.category === 'transport'
+                    ? 'Nominal Ongkir (Rp) *'
+                    : editingItem?.source === 'ADS'
+                    ? 'Nominal Spent Iklan (Rp) *'
+                    : 'Nominal Biaya (Rp) *'}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-stone-400 font-bold">
@@ -698,7 +842,7 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
                   <input
                     type="number"
                     required
-                    min="1"
+                    min="0"
                     placeholder="Contoh: 150000"
                     value={formAmount}
                     onChange={(e) => setFormAmount(e.target.value)}
@@ -710,31 +854,45 @@ export default function OpexView({ initialSummary, outlets, userRole }: OpexView
               {/* Deskripsi */}
               <div>
                 <label className="block font-semibold text-stone-700 mb-1">
-                  Keterangan / Deskripsi *
+                  {editingItem?.category === 'HPP_MENU'
+                    ? 'Rincian Menu Complimentary (Jatah KOL)'
+                    : editingItem?.category === 'endorsement'
+                    ? 'Catatan Pembayaran Fee'
+                    : editingItem?.category === 'transport'
+                    ? 'Keterangan / Nomor Resi'
+                    : editingItem?.source === 'ADS'
+                    ? 'Nama Akun / Kampanye Iklan'
+                    : 'Keterangan / Deskripsi *'}
                 </label>
                 <textarea
-                  required
+                  required={!editingItem || editingItem.source === 'MANUAL'}
                   rows={2}
-                  placeholder="Contoh: Cetak x-banner promo bundling 2 pcs cabang Pajajaran"
+                  placeholder={
+                    editingItem?.category === 'HPP_MENU'
+                      ? 'Contoh: 1x Shawarma Beef Large, 1x Ice Tea'
+                      : 'Contoh: Cetak x-banner promo bundling 2 pcs cabang Pajajaran'
+                  }
                   value={formDescription}
                   onChange={(e) => setFormDescription(e.target.value)}
                   className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
                 />
               </div>
 
-              {/* URL Nota / Bukti Struk (Opsional) */}
-              <div>
-                <label className="block font-semibold text-stone-700 mb-1">
-                  Link Bukti / Nota (Opsional)
-                </label>
-                <input
-                  type="url"
-                  placeholder="https://drive.google.com/... atau link foto bukti struk"
-                  value={formReceiptUrl}
-                  onChange={(e) => setFormReceiptUrl(e.target.value)}
-                  className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
-                />
-              </div>
+              {/* URL Nota / Bukti Struk */}
+              {(!editingItem || editingItem.source === 'MANUAL' || editingItem.source === 'ADS') && (
+                <div>
+                  <label className="block font-semibold text-stone-700 mb-1">
+                    Link Bukti / Nota (Opsional)
+                  </label>
+                  <input
+                    type="url"
+                    placeholder="https://drive.google.com/... atau link foto bukti struk"
+                    value={formReceiptUrl}
+                    onChange={(e) => setFormReceiptUrl(e.target.value)}
+                    className="w-full px-3 py-2 border border-[#EFE8DE] rounded-xl bg-white focus:outline-none focus:border-[#D9480F]"
+                  />
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#EFE8DE]">
                 <button

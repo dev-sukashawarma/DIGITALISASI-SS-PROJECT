@@ -142,6 +142,46 @@ export async function syncEndorsementOpex(endorsementId: bigint | number | strin
       }
     }
 
+    // ==========================================
+    // 3. Sinkronisasi Biaya HPP Menu Complimentary (Jatah KOL)
+    // ==========================================
+    const hppMenu = Number(endorsement.hppMenu) || 0
+    const hppDate = toDateString(endorsement.scheduleDate)
+    const isHppAfterCutoff = hppDate >= OPEX_CUTOFF_DATE
+    const isHppValid = hppMenu > 0 && isHppAfterCutoff
+
+    // Gunakan deterministic UUID berbasis ID endorsement agar idempotent tanpa perlu alter schema
+    const hash = crypto.createHash('md5').update(`marcom-hpp-expense-${id}`).digest('hex')
+    const hppExpenseId = `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`
+
+    if (isHppValid) {
+      const periodMonth = toPeriodMonth(hppDate)
+      const category = posOutletId ? 'promo' : 'pengeluaran_global'
+      const menuDesc = endorsement.menuGiven ? ` - Menu: ${endorsement.menuGiven}` : ''
+      const description = `[MARCOM: HPP Menu KOL - ${kolName}]${menuDesc} (Outlet: ${outletName})`
+
+      const { error: upsertErr } = await supabase.from('expenses').upsert(
+        {
+          id: hppExpenseId,
+          outlet_id: posOutletId,
+          category,
+          amount: hppMenu,
+          description,
+          expense_date: hppDate,
+          period_month: periodMonth,
+          payment_source: 'transfer_pusat',
+          type: 'expense',
+        },
+        { onConflict: 'id' }
+      )
+
+      if (upsertErr) {
+        console.error(`[syncEndorsementOpex] Error upserting HPP expense for Endorsement #${id}:`, upsertErr)
+      }
+    } else {
+      await supabase.from('expenses').delete().eq('id', hppExpenseId)
+    }
+
     return { success: true }
   } catch (err: any) {
     console.error(`[syncEndorsementOpex] Exception:`, err)

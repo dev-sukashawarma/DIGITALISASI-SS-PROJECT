@@ -1,9 +1,14 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
-import { syncManualExpenseOpex, deleteOpexByExpenseId } from '@/lib/sync-finance-opex'
+import { prisma } from '@/lib/prisma'
+import {
+  syncManualExpenseOpex,
+  syncEndorsementOpex,
+  syncAdOpex,
+  deleteOpexByExpenseId,
+} from '@/lib/sync-finance-opex'
 
 import {
   type OpexItemSource,
@@ -99,11 +104,13 @@ export async function getOpexData(
   let totalEndorsement = 0
   let totalAds = 0
   let totalManual = 0
+  let totalHppMenu = 0
 
   // Proses Endorsement
   for (const e of endorsements) {
     const rateCard = Number(e.rateCard) || 0
     const shippingCost = Number(e.shippingCost) || 0
+    const hppMenu = Number(e.hppMenu) || 0
     const dateStr = e.scheduleDate.toISOString().split('T')[0]
     const outletName = e.outlet?.name || 'Kantor Pusat'
     const kolName = e.kol?.name || 'KOL'
@@ -145,6 +152,27 @@ export async function getOpexData(
         outletName,
         amount: shippingCost,
         paymentSource: 'transfer_pusat',
+        paymentStatus: 'PAID',
+        receiptUrl: null,
+        isEditable: false,
+      })
+    }
+
+    // HPP Menu Jatah KOL (Complimentary)
+    if (hppMenu > 0) {
+      totalHppMenu += hppMenu
+      items.push({
+        id: `endorsement-hpp-${e.id}`,
+        source: 'ENDORSEMENT',
+        sourceId: e.id.toString(),
+        date: dateStr,
+        category: 'HPP_MENU',
+        categoryLabel: 'HPP Menu Jatah KOL',
+        description: `Jatah Menu KOL: ${kolName}${e.menuGiven ? ` (${e.menuGiven})` : ''}`,
+        outletId: e.outletId.toString(),
+        outletName,
+        amount: hppMenu,
+        paymentSource: 'cogs_internal',
         paymentStatus: 'PAID',
         receiptUrl: null,
         isEditable: false,
@@ -208,7 +236,7 @@ export async function getOpexData(
   // Urutkan item berdasarkan tanggal descending
   items.sort((a, b) => b.date.localeCompare(a.date))
 
-  const totalOpex = totalEndorsement + totalAds + totalManual
+  const totalOpex = totalEndorsement + totalAds + totalManual + totalHppMenu
   const totalBudget = budgets.reduce((sum, b) => sum + Number(b.targetBudget || 0), 0)
   const remainingBudget = totalBudget - totalOpex
 
@@ -219,6 +247,7 @@ export async function getOpexData(
     totalEndorsement,
     totalAds,
     totalManual,
+    totalHppMenu,
     totalBudget,
     remainingBudget,
     items,
@@ -380,3 +409,111 @@ export async function deleteMarcomExpense(idStr: string): Promise<ActionState> {
     return { error: err?.message || 'Gagal menghapus pengeluaran' }
   }
 }
+
+/**
+ * Memperbarui item pengeluaran OPEX secara umum (Manual, Endorsement, atau Ads)
+ */
+export async function updateOpexItem(
+  prevState: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { error: 'Unauthorized: Harap login terlebih dahulu' }
+  }
+
+  const source = formData.get('source') as OpexItemSource
+  const sourceId = formData.get('sourceId') as string
+  const category = (formData.get('category') as string)?.trim() || ''
+  const amountStr = formData.get('amount') as string
+  const dateStr = formData.get('date') as string
+  const description = (formData.get('description') as string)?.trim() || ''
+
+  if (!sourceId || !source) {
+    return { error: 'Data item pengeluaran tidak valid' }
+  }
+
+  const amount = parseFloat(amountStr.replace(/[^0-9.]/g, ''))
+  if (isNaN(amount) || amount < 0) {
+    return { error: 'Nominal pengeluaran tidak valid' }
+  }
+
+  try {
+    if (source === 'MANUAL') {
+      const id = BigInt(sourceId)
+      const outletIdStr = formData.get('outletId') as string
+      const outletId = outletIdStr && outletIdStr !== 'GLOBAL' && outletIdStr !== ''
+        ? BigInt(outletIdStr)
+        : null
+      const paymentSource = (formData.get('paymentSource') as string)?.trim() || 'transfer_pusat'
+      const receiptUrl = (formData.get('receiptUrl') as string)?.trim() || null
+
+      await prisma.marcomExpense.update({
+        where: { id },
+        data: {
+          expenseDate: new Date(dateStr),
+          outletId,
+          category,
+          amount,
+          description,
+          paymentSource,
+          receiptUrl,
+        },
+      })
+      await syncManualExpenseOpex(id)
+    } else if (source === 'ENDORSEMENT') {
+      const id = BigInt(sourceId)
+      if (category === 'HPP_MENU') {
+        await prisma.endorsement.update({
+          where: { id },
+          data: {
+            hppMenu: amount,
+            ...(description ? { menuGiven: description } : {}),
+            ...(dateStr ? { scheduleDate: new Date(dateStr) } : {}),
+          },
+        })
+      } else if (category === 'transport') {
+        await prisma.endorsement.update({
+          where: { id },
+          data: {
+            shippingCost: amount,
+            ...(dateStr ? { shippingDate: new Date(dateStr) } : {}),
+          },
+        })
+      } else {
+        // Rate Card
+        await prisma.endorsement.update({
+          where: { id },
+          data: {
+            rateCard: amount,
+            ...(description ? { paymentNotes: description } : {}),
+            ...(dateStr ? { paymentDate: new Date(dateStr) } : {}),
+          },
+        })
+      }
+      await syncEndorsementOpex(id)
+    } else if (source === 'ADS') {
+      const id = BigInt(sourceId)
+      await prisma.ad.update({
+        where: { id },
+        data: {
+          spent: amount,
+          ...(dateStr ? { scheduleDate: new Date(dateStr) } : {}),
+          ...(description ? { accountName: description } : {}),
+        },
+      })
+      await syncAdOpex(id)
+    }
+
+    revalidatePath('/dashboard/budget')
+    revalidatePath('/dashboard/budget/opex')
+    revalidatePath('/dashboard/endorsements')
+    revalidatePath('/dashboard/ads')
+
+    return { success: true }
+  } catch (err: any) {
+    console.error('Error in updateOpexItem:', err)
+    return { error: err?.message || 'Gagal memperbarui data pengeluaran' }
+  }
+}
+

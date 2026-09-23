@@ -84,6 +84,8 @@ fun OutletPickerScreen(
     viewModel: OutletPickerViewModel,
     onPilih: (OutletDto) -> Unit,
     onTutup: () -> Unit = {},
+    /** Outlet yang sedang dipakai pelanggan; hanya kartunya yang diberi centang. */
+    terpilihId: String? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -424,6 +426,7 @@ fun OutletPickerScreen(
                             BarisOutletCard(
                                 outlet = outlet,
                                 jarak = state.posisi?.let { jarakOutlet(outlet, it) },
+                                terpilih = outlet.id == terpilihId,
                                 onPilih = onPilih
                             )
                         }
@@ -438,6 +441,7 @@ fun OutletPickerScreen(
 private fun BarisOutletCard(
     outlet: OutletDto,
     jarak: Double?,
+    terpilih: Boolean,
     onPilih: (OutletDto) -> Unit
 ) {
     Surface(
@@ -522,19 +526,21 @@ private fun BarisOutletCard(
                     }
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(CircleShape)
-                        .background(if (outlet.isActive) SukaOrange else Color(0xFFE5E7EB)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = if (outlet.isActive) SukaBrown else Color.Transparent,
-                        modifier = Modifier.size(14.dp)
-                    )
+                if (terpilih) {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(SukaOrange),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "Outlet saat ini",
+                            tint = SukaBrown,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 

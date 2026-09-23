@@ -389,7 +389,8 @@ fun CustomerAppRoot(container: AppContainer) {
                         cartViewModel.segarkan()
                         navController.popBackStack()
                     },
-                    onTutup = { navController.popBackStack() }
+                    onTutup = { navController.popBackStack() },
+                    terpilihId = catalogState.outlet?.id
                 )
             }
 

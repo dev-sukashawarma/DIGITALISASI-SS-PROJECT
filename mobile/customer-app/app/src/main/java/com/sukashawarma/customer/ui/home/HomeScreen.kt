@@ -314,14 +314,10 @@ private fun HomeContentList(
                     ) {
                         bestSellerItems.take(2).forEachIndexed { index, item ->
                             val rank = index + 1
-                            val rating = if (index == 0) "4.9" else "4.8"
-                            val reviewCount = if (index == 0) "480+" else "320+"
                             Box(modifier = Modifier.weight(1f)) {
                                 BestSellerCard(
                                     item = item,
                                     rank = rank,
-                                    rating = rating,
-                                    reviewCount = reviewCount,
                                     onKlik = onPilihItem
                                 )
                             }
@@ -354,8 +350,6 @@ private fun HomeContentList(
 private fun BestSellerCard(
     item: MenuItemDto,
     rank: Int,
-    rating: String,
-    reviewCount: String,
     onKlik: (MenuItemDto) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -412,28 +406,8 @@ private fun BestSellerCard(
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
-                // Rating
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    Text(
-                        text = "★ $rating",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = SukaOrange,
-                            fontSize = 11.sp
-                        )
-                    )
-                    Text(
-                        text = "($reviewCount)",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = SukaMuted,
-                            fontSize = 11.sp
-                        )
-                    )
-                }
-
+                // Rating sengaja tidak ditampilkan: aplikasi belum punya
+                // ulasan pelanggan, dan angka karangan menyesatkan.
                 Text(
                     text = item.name,
                     style = MaterialTheme.typography.titleSmall.copy(

@@ -39,6 +39,42 @@ BEGIN
   IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (d): satuan_po liar diterima'; END IF;
   UPDATE bahan_baku SET satuan_po = 'roll', satuan_distribusi = 'Roll' WHERE nama = 'UJI T3 A';
 
+  -- (a') label distribusi 'kg' sah untuk bahan bersatuan kecil gram (getDistribusiFactor()
+  --      memetakan kg+gram -> faktor_tampilan/1000); mengubah tingkat dengan label itu juga sah
+  INSERT INTO bahan_baku (nama, satuan, satuan_kecil, faktor_tampilan, kategori)
+  VALUES ('UJI T3 G', 'Dus', 'gram', 16500, 'UJI');
+  BEGIN
+    UPDATE bahan_baku SET satuan_distribusi = 'kg' WHERE nama = 'UJI T3 G';
+    UPDATE bahan_baku SET satuan = 'Karton' WHERE nama = 'UJI T3 G';
+  EXCEPTION WHEN check_violation THEN
+    RAISE EXCEPTION 'GAGAL (a''): satuan_distribusi kg ditolak pada bahan bersatuan kecil gram: %', SQLERRM;
+  END;
+  IF (SELECT satuan || '/' || satuan_distribusi FROM bahan_baku WHERE nama = 'UJI T3 G') <> 'Karton/kg' THEN
+    RAISE EXCEPTION 'GAGAL (a''): perubahan tidak tersimpan';
+  END IF;
+
+  -- (b') label distribusi 'kg' tetap ditolak bila satuan kecil bukan gram
+  v_ok := false;
+  BEGIN
+    UPDATE bahan_baku SET satuan_distribusi = 'kg' WHERE nama = 'UJI T3 A';
+  EXCEPTION WHEN check_violation THEN v_ok := true;
+  END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (b''): satuan_distribusi kg diterima pada bahan bersatuan kecil cm'; END IF;
+
+  -- (c') pengecualian kg TIDAK berlaku untuk satuan_po (hitung_faktor_po() tak punya aturan kg)
+  v_ok := false;
+  BEGIN
+    UPDATE bahan_baku SET satuan_po = 'kg' WHERE nama = 'UJI T3 G';
+  EXCEPTION WHEN check_violation THEN v_ok := true;
+  END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (c''): satuan_po kg diterima'; END IF;
+
+  -- (d') _kanon_satuan setara hitung_faktor_po(): '-' dan '' jadi NULL, bks -> bungkus
+  IF public._kanon_satuan(' - ') IS NOT NULL OR public._kanon_satuan('  ') IS NOT NULL
+     OR public._kanon_satuan(NULL) IS NOT NULL OR public._kanon_satuan(' BKS ') <> 'bungkus' THEN
+    RAISE EXCEPTION 'GAGAL (d''): _kanon_satuan tidak setara hitung_faktor_po()';
+  END IF;
+
   -- (e) faktor_tampilan bahan ber-riwayat ditolak tanpa app.ganti_satuan
   v_ok := false;
   BEGIN

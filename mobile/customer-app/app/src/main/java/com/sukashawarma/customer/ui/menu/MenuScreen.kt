@@ -52,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
+import com.sukashawarma.customer.ui.components.PerluPilihOutletState
 import com.sukashawarma.customer.ui.components.MemuatState
 import com.sukashawarma.customer.ui.components.MenuBrandHeader
 import com.sukashawarma.customer.ui.components.MenuCard
@@ -164,6 +165,8 @@ fun MenuScreen(
                     judul = "Belum ada outlet",
                     penjelasan = "Pemesanan lewat aplikasi belum dibuka di outlet mana pun. Coba lagi nanti."
                 )
+
+                state.perluPilihOutlet -> PerluPilihOutletState(onPilihOutlet = onGantiOutlet)
 
                 state.galat != null -> ErrorState(
                     error = state.galat!!,

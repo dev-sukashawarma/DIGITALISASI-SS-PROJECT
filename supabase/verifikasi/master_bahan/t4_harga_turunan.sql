@@ -37,8 +37,11 @@ BEGIN
   END IF;
 
   -- (c) vendor lain yang lebih baru → master mengikutinya
+  -- (harga_updated_at masa depan kini dijepit ke now() — 20260923220000 — jadi yang
+  --  "lebih lama" dimundurkan, bukan yang baru dimajukan; pola t6 (h).)
+  UPDATE bahan_baku_supplier SET harga_updated_at = now() - interval '1 hour' WHERE id = v_bbs;
   INSERT INTO bahan_baku_supplier (bahan_baku_id, supplier_id, satuan_beli, isi_satuan_kecil, harga, harga_updated_at)
-  VALUES (v_bahan, v_s2, 'dus', 36480, 600000, now() + interval '1 minute');
+  VALUES (v_bahan, v_s2, 'dus', 36480, 600000, now());
   IF abs((SELECT harga_beli FROM bahan_baku_harga WHERE bahan_baku_id = v_bahan) - 600000) > 0.01 THEN
     RAISE EXCEPTION 'GAGAL (c): master tidak mengikuti vendor terbaru';
   END IF;

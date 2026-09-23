@@ -2856,8 +2856,9 @@ serupa tapi minor (1 resep, 5 outlet).
 ## Session 2026-09-23: Master Bahan Baku Satu Tempat — Tahap 0 & 1
 
 **Status:** Tahap 0 LIVE & ter-deploy (commit `8729fbe2`, GitHub Actions
-admin-dashboard/stok/finance/portal). Tahap 1 (fondasi DB) LIVE — **6 migration
-applied & terstempel, nol app diubah** (murni database, tak perlu redeploy).
+admin-dashboard/stok/finance/portal). Tahap 1 (fondasi DB) LIVE — **11 migration
+(10 Tahap 1 + 1 perbaikan review akhir) applied & terstempel, nol app diubah** (murni
+database, tak perlu redeploy).
 
 **Spec/plan:** `docs/superpowers/specs/2026-09-23-master-bahan-baku-satu-tempat-design.md`,
 `docs/superpowers/plans/2026-09-23-master-bahan-baku-tahap1-fondasi-db.md`
@@ -2868,7 +2869,7 @@ Bahan diperbaiki (`turunkanFaktorSatuan`); cek role tambah bahan; modal sinkron 
 manual dicabut (admin & finance); edit satuan di detail bahan dikunci; 2 form publik
 dihapus; **GAS 12 KG dikoreksi** (`20260923170000`).
 
-### Tahap 1 — fondasi DB (6 migration, subagent-driven per task, tiap task direview)
+### Tahap 1 — fondasi DB (10 migration: `180000`, `181000`, `182000`, `182500`, `183000`, `183500`, `184000`, `184500`, `185000`, `185500`; subagent-driven per task, tiap task direview)
 `20260923180000` kolom `peruntukan`/`is_opname` di `bahan_baku` · `20260923181000` audit
 (trigger `trg_audit_bahan_baku`/`_sku`/`trg_audit_supplier` → `master_bahan_audit`; view
 `riwayat_master_bahan`) · `20260923182000` invarian faktor (fungsi
@@ -2888,6 +2889,21 @@ resync `kemasan_qty` saat ganti satuan; validasi UPDATE `simpan_sku`) ·
 `nonaktifkan_supplier`/`nonaktifkan_harga_vendor` (label satuan beli tak dikenal wajib
 `p_paksa`; `'kg'` pada bahan gram = isi 1000). Supplier baru **"Beli Tunai / Tanpa
 Vendor"** (`kategori='lainnya'` — `'internal'` ditolak `supplier_kategori_check`).
+
+### Perbaikan review akhir — `20260923220000` (applied & terstempel)
+Timestamp `190000` yang semula direncanakan sudah dipakai migration lain
+(`golive_outlet_menu_aplikasi`). **I1:** trigger `trg_supplier_jaga_status_hapus` — ubah
+`supplier.is_active` / hapus supplier (menggeser harga master) hanya admin/owner/purchasing
+aktif bila ada `auth.uid()`; `supplier_write` sengaja tak dipersempit, jadi admin_finance
+masih bisa edit nama/kontak, tapi **tombol nonaktif supplier di app finance
+(`usePurchaseOrder.ts`) kini ditolak 42501 untuk admin_finance/kitchen/developer**.
+**I2:** `harga_vendor_terpercaya` melewati baris katalog yang isinya menyimpang >0,1% dari
+master (aturan `simpan_harga_vendor`, termasuk kg→gram=1000) — hari ini hanya FOIL/Altindo,
+bukan sumber harga FOIL, jadi nol harga master bergeser; `harga_updated_at` dijepit ke
+`now()`. Efek samping: setelah ganti isi satuan, baris katalog ber-isi lama tak lagi
+dipakai → master membeku sampai purchasing konfirmasi ulang. **M1:**
+`nonaktifkan_bahan_baku` menolak bahan yang ada di `bahan_baku_substitusi` (utama maupun
+pengganti). Uji `t8_perbaikan_final.sql`; t4 (c) & t5 (l) disesuaikan.
 
 ### Fix-up invarian (Task 3) — 8 bahan tersentuh
 HAND GLOVE, KERTAS STRUK, GALON AIR, KETUMBAR (aktif) + TUTUP, SARUNG TANGAN BENING,

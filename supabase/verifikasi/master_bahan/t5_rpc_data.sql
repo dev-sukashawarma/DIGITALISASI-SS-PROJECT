@@ -102,9 +102,12 @@ BEGIN
   v_id3 := public.simpan_bahan_baku(NULL, jsonb_build_object('nama','UJI T5 SATUAN','kategori','UJI',
     'satuan','Dus','satuan_kecil','Pcs','isi_kecil_per_tengah',10), 'uji t5 satuan');
   RESET ROLE;
+  -- Baris katalog per satuan kecil (pcs, isi 1) tetap konsisten setelah isi Dus berubah.
+  -- (Sejak 20260923220000 baris ber-isi menyimpang — mis. 'dus' isi 10 setelah Dus jadi
+  --  20 Pcs — tak lagi dipakai sebagai sumber harga master.)
   INSERT INTO bahan_baku_supplier (bahan_baku_id, supplier_id, satuan_beli, isi_satuan_kecil, harga,
                                    is_active, perlu_ditinjau, sumber, harga_updated_at)
-  VALUES (v_id3, v_sup, 'dus', 10, 1000, true, false, 'manual', now());
+  VALUES (v_id3, v_sup, 'pcs', 1, 100, true, false, 'manual', now());
   SELECT harga_beli INTO v_harga FROM bahan_baku_harga WHERE bahan_baku_id = v_id3;
   IF v_harga IS DISTINCT FROM 1000 THEN RAISE EXCEPTION 'GAGAL (l): fixture harga awal %', v_harga; END IF;
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);

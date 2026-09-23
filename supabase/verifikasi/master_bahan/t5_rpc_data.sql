@@ -2,7 +2,7 @@
 BEGIN;
 DO $$
 DECLARE v_admin uuid; v_purch uuid; v_id uuid; v_id2 uuid; v_id3 uuid; v_ok boolean; v_hg uuid; v_sku uuid; v_msg text;
-        v_sup uuid; v_harga numeric;
+        v_sup uuid; v_harga numeric; v_id4 uuid;
 BEGIN
   SELECT id INTO v_admin FROM outlet_staff WHERE role='admin' AND status='active' LIMIT 1;
   SELECT id INTO v_purch FROM outlet_staff WHERE role='purchasing' AND status='active' LIMIT 1;
@@ -117,6 +117,59 @@ BEGIN
   IF v_harga IS DISTINCT FROM 2000 THEN
     RAISE EXCEPTION 'GAGAL (l): harga master tak diturunkan ulang (harga_beli=%, harap 2000)', v_harga;
   END IF;
+
+  -- (m) ubah satuan tanpa katalog vendor: kemasan_qty harga master tetap = faktor_tampilan (K4)
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
+  SET LOCAL ROLE authenticated;
+  v_id4 := public.simpan_bahan_baku(NULL, jsonb_build_object('nama','UJI T5 KEMASAN','kategori','UJI',
+    'satuan','Dus','satuan_kecil','Pcs','isi_kecil_per_tengah',10), 'uji t5 kemasan');
+  RESET ROLE;
+  INSERT INTO bahan_baku_harga (bahan_baku_id, harga_beli) VALUES (v_id4, 5000);
+  IF (SELECT kemasan_qty FROM bahan_baku_harga WHERE bahan_baku_id = v_id4) IS DISTINCT FROM 10 THEN
+    RAISE EXCEPTION 'GAGAL (m): fixture kemasan awal';
+  END IF;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
+  SET LOCAL ROLE authenticated;
+  PERFORM public.simpan_bahan_baku(v_id4, jsonb_build_object('satuan','Dus','satuan_kecil','Pcs',
+    'isi_kecil_per_tengah',20), 'uji t5 ganti isi tanpa katalog');
+  RESET ROLE;
+  IF (SELECT h.kemasan_qty FROM bahan_baku_harga h WHERE h.bahan_baku_id = v_id4)
+     IS DISTINCT FROM (SELECT faktor_tampilan FROM bahan_baku WHERE id = v_id4)
+     OR (SELECT faktor_tampilan FROM bahan_baku WHERE id = v_id4) <> 20 THEN
+    RAISE EXCEPTION 'GAGAL (m): kemasan_qty basi (kemasan=%, faktor_tampilan=%)',
+      (SELECT kemasan_qty FROM bahan_baku_harga WHERE bahan_baku_id = v_id4),
+      (SELECT faktor_tampilan FROM bahan_baku WHERE id = v_id4);
+  END IF;
+  IF (SELECT harga_beli FROM bahan_baku_harga WHERE bahan_baku_id = v_id4) <> 5000 THEN
+    RAISE EXCEPTION 'GAGAL (m): harga manual berubah tanpa katalog';
+  END IF;
+
+  -- (n) simpan_sku UPDATE ikut divalidasi
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_admin, 'role','authenticated')::text, true);
+  SET LOCAL ROLE authenticated;
+  v_sku := public.simpan_sku(NULL, v_id2, jsonb_build_object('nama_kemasan','Pack','qty_isi',5,'harga_beli',100));
+  v_ok := false;
+  BEGIN PERFORM public.simpan_sku(v_sku, v_id2, jsonb_build_object('qty_isi', 0));
+  EXCEPTION WHEN invalid_parameter_value THEN v_ok := true; END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (n): UPDATE qty_isi 0 diterima'; END IF;
+  v_ok := false;
+  BEGIN PERFORM public.simpan_sku(v_sku, v_id2, jsonb_build_object('harga_beli', -1));
+  EXCEPTION WHEN invalid_parameter_value THEN v_ok := true; END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (n): UPDATE harga_beli negatif diterima'; END IF;
+  v_ok := false;
+  BEGIN PERFORM public.simpan_sku(v_sku, v_id2, jsonb_build_object('nama_kemasan', '  '));
+  EXCEPTION WHEN invalid_parameter_value THEN v_ok := true; END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (n): UPDATE nama_kemasan kosong diterima'; END IF;
+  v_ok := false;
+  BEGIN PERFORM public.simpan_sku(v_sku, v_id2, NULL);
+  EXCEPTION WHEN invalid_parameter_value THEN v_ok := true; END;
+  IF NOT v_ok THEN RAISE EXCEPTION 'GAGAL (n): p_data NULL diterima'; END IF;
+  IF (SELECT qty_isi FROM bahan_baku_sku WHERE id = v_sku) <> 5
+     OR (SELECT harga_beli FROM bahan_baku_sku WHERE id = v_sku) <> 100 THEN
+    RAISE EXCEPTION 'GAGAL (n): SKU berubah padahal ditolak';
+  END IF;
+  PERFORM public.simpan_sku(v_sku, v_id2, jsonb_build_object('qty_isi', 6));   -- update sah tetap jalan
+  IF (SELECT qty_isi FROM bahan_baku_sku WHERE id = v_sku) <> 6 THEN RAISE EXCEPTION 'GAGAL (n): update sah gagal'; END IF;
 
   -- (k) purchasing ditolak untuk lingkup data
   RESET ROLE;

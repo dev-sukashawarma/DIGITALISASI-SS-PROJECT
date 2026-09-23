@@ -13,7 +13,7 @@ import { formatRupiah } from '@/lib/format'
 import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
-import { computePosReportKpi, computeNetRevenueVoidAware } from '@/lib/posReportKpi'
+import { computePosReportKpi, computeNetRevenueVoidAware, computeOrderDeduction, computeOrderGross, computeItemShares } from '@/lib/posReportKpi'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -824,8 +824,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     completed.forEach(o => {
       const channelName = resolveOrderSource(o.channel, o.sales_source, o.customer_name, o.is_endorse).label
+      // PDF Eksekutif: revenue per item = porsi gross order (acuan sama dengan
+      // kartu Gross Revenue), supaya kolom "% Kontribusi Omzet" berjumlah 100%.
+      const pdfOrderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const pdfShares = computeItemShares(o.order_items || [])
 
-      o.order_items.forEach(oi => {
+      o.order_items.forEach((oi, idx) => {
         const key = cleanItemName(oi.menu_item_name)
         if (!itemMap[key]) itemMap[key] = { name: key, qty: 0, revenue: 0 }
         itemMap[key].qty += oi.quantity
@@ -834,7 +838,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         const pdfKey = `${key}__${channelName}`
         if (!itemPdfMap[pdfKey]) itemPdfMap[pdfKey] = { name: key, channel: channelName, qty: 0, revenue: 0 }
         itemPdfMap[pdfKey].qty += oi.quantity
-        itemPdfMap[pdfKey].revenue += oi.subtotal
+        itemPdfMap[pdfKey].revenue += pdfShares[idx] * pdfOrderGross
 
         // Simple logic to detect Category: if parentId exists or "Extra" in name -> Add-on
         if (oi.menu_item_name.includes('|PARENT|') || oi.menu_item_name.toLowerCase().includes('extra')) {
@@ -885,30 +889,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     // menghitung subsidi platform dua kali -- Rp 95 juta se-perusahaan pada
     // Agustus 2026. Selisih nilai menu vs total_amount selalu benar, apa pun
     // konvensi yang berlaku saat order dibuat.
-    const totalDeductions = isSSOnlineSelected
-      ? completed.reduce((s, o) => s + (Number((o as any).discount_amount) || 0), 0)
-      : completed.reduce((s, o) => {
-          const items = (o as any).order_items || []
-          const total = Number(o.total_amount) || 0
-          // Baris SS Online adalah baris SINTETIS dari `ecommerce_sales`:
-          // `total_amount` sudah net dan `discount_amount` sudah memuat beban
-          // platform yang benar, sementara item-nya tidak selalu rekonsiliasi
-          // dengan total order. Memakai selisih item di sini menggeser beban
-          // platform Agustus 2026 dari Rp 12,48 jt jadi Rp 20,24 jt (998 dari
-          // 1.377 baris berubah). Jadi baris ini tetap memakai discount_amount.
-          if ((o as any).outlet_id === 'ss-online') {
-            return s + (Number((o as any).discount_amount) || 0)
-          }
-          if (items.length === 0) {
-            // Tanpa baris item tak ada nilai menu untuk dibandingkan.
-            return s + (Number((o as any).discount_amount) || 0) + (Number((o as any).promo_subsidy) || 0)
-          }
-          const itemValue = items.reduce(
-            (sum: number, i: any) => sum + (Number(i.subtotal) || (Number(i.quantity) * Number(i.unit_price)) || 0),
-            0
-          )
-          return s + Math.max(0, itemValue - total)
-        }, 0)
+    // Rumusnya ada di computeOrderDeduction (lib/posReportKpi) supaya kartu
+    // ini dan SEMUA ekspor (PDF/CSV/Excel) memakai satu acuan yang sama.
+    const totalDeductions = completed.reduce(
+      (s, o) => s + computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected }),
+      0
+    )
 
     // Subsidi platform (Grab/Gojek/Shopee/TikTok) yang diketik kasir di kolom
     // "Promo Apps". BUKAN pendapatan outlet dan BUKAN biaya outlet -- tidak
@@ -1204,7 +1190,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }> = {}
 
     // "Total Revenue" per item HARUS bersumber dari rumus gross yang sama
-    // dengan kartu KPI di layar (total_amount + diskon + promo per order),
+    // dengan kartu KPI di layar (computeOrderGross: total_amount + potongan),
     // bukan dari sekadar menjumlahkan order_items.subtotal.
     //
     // Sebelumnya kode ini menjumlahkan oi.subtotal apa adanya sebagai
@@ -1264,13 +1250,11 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const catData = categoryMap[categoryName]
 
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      const orderGross = Number(o.total_amount) + disc + promo
-      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const itemShares = computeItemShares(o.order_items || [])
 
       if (o.order_items && o.order_items.length > 0) {
-        o.order_items.forEach(oi => {
+        o.order_items.forEach((oi, idx) => {
           const key = cleanItemName(oi.menu_item_name)
           if (!catData.itemMap[key]) {
             catData.itemMap[key] = {
@@ -1284,7 +1268,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
           const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
           const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
-          const itemRevenue = orderItemsGross > 0 ? (Number(oi.subtotal) / orderItemsGross) * orderGross : 0
+          const itemRevenue = itemShares[idx] * orderGross
 
           catData.itemMap[key].qty += oi.quantity
           catData.itemMap[key].revenue += itemRevenue
@@ -1406,21 +1390,20 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       const outletType = outletTypeMap.get(o.outlet_id)
 
       // Rumus SAMA dengan CSV & PDF Kategori admin-dashboard.
-      const disc = Number((o as any).discount_amount) || 0
-      const promo = Number((o as any).promo_subsidy) || 0
-      const orderGross = Number(o.total_amount) + disc + promo
-      const orderTotalDeductions = disc + promo
-      const orderItemsGross = (o.order_items || []).reduce((sum: number, item: any) => sum + (Number(item.subtotal) || 0), 0)
+      const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
+      const orderTotalDeductions = computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected })
+      // Bobot untuk membagi gross & potongan order ke tiap item.
+      const itemShares = computeItemShares(o.order_items || [])
 
       if (o.order_items && o.order_items.length > 0) {
-        o.order_items.forEach(oi => {
+        o.order_items.forEach((oi, idx) => {
           const rawName = cleanItemName(oi.menu_item_name)
           const aggKey = `${orderDate}__${o.outlet_id}__${categoryName}__${rawName}`
 
           const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
           const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
           const itemHpp = hppPerUnit * oi.quantity
-          const itemWeight = orderItemsGross > 0 ? Number(oi.subtotal) / orderItemsGross : 0
+          const itemWeight = itemShares[idx]
           const itemRevenue = itemWeight * orderGross
           const itemDeduction = itemWeight * orderTotalDeductions
           const itemGrossProfit = itemRevenue - itemHpp - itemDeduction

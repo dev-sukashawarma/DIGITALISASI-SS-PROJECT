@@ -6,8 +6,8 @@ import { LayoutDashboard, ArrowLeftRight, Landmark, Wallet, Truck, Banknote, Log
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { usePettyCashRequests } from '@/hooks/usePettyCash'
-import { usePendingPos } from '@/hooks/usePoApproval'
+import { usePettyCashCount } from '@/hooks/usePettyCash'
+import { usePendingPoCount } from '@/hooks/usePoApproval'
 
 type NavItem = { href: string; label: string; icon: any; isSub?: boolean }
 type NavGroup = { title: string; items: NavItem[] }
@@ -113,10 +113,9 @@ export function CashLayout({ children }: { children: ReactNode }) {
     resolvedPortalUrl = 'http://localhost:3010'
   }
 
-  const { data: pettyCashRequests } = usePettyCashRequests('forwarded_to_finance')
-  const { data: pendingPos } = usePendingPos()
-  const pettyPendingCount = pettyCashRequests?.length || 0
-  const poPendingCount = pendingPos?.length || 0
+  // Badge cukup jumlah → query count-only, bukan daftar lengkap + join.
+  const { data: pettyPendingCount = 0 } = usePettyCashCount('forwarded_to_finance')
+  const { data: poPendingCount = 0 } = usePendingPoCount()
   
   const prevPendingRef = useRef(0)
 

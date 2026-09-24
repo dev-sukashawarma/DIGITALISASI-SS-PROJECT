@@ -4,6 +4,8 @@ export type OutletApp = {
   type: string | null
   is_active: boolean
   app_enabled: boolean
+  open_hour?: string | null
+  close_hour?: string | null
 }
 
 /**

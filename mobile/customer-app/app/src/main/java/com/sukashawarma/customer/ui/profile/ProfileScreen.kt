@@ -1,5 +1,8 @@
 package com.sukashawarma.customer.ui.profile
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -49,6 +52,7 @@ import com.sukashawarma.customer.ui.components.inisialNama
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import com.sukashawarma.customer.ui.notifications.NotificationSettingsDialog
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -59,6 +63,8 @@ import com.sukashawarma.customer.ui.components.BottomNavTab
 import com.sukashawarma.customer.ui.components.PageBrandHeader
 import com.sukashawarma.customer.ui.components.SukaBottomNavBar
 import com.sukashawarma.customer.ui.components.bounceClick
+import com.sukashawarma.customer.ui.config.LocalConfigApp
+import com.sukashawarma.customer.ui.config.tautanWa
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
@@ -85,6 +91,8 @@ fun ProfileScreen(
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
+    val konteks = LocalContext.current
+    val config = LocalConfigApp.current
     var tampilkanDialogNotifikasi by remember { mutableStateOf(false) }
 
     if (tampilkanDialogNotifikasi) {
@@ -285,6 +293,8 @@ fun ProfileScreen(
                 modifier = Modifier.padding(horizontal = 4.dp)
             )
 
+            val tautanCs = tautanWa(config.waCs, "Halo CS Suka Shawarma")
+
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
@@ -298,27 +308,54 @@ fun ProfileScreen(
                         subtitle = "Pertanyaan seputar order & ambil pesanan",
                         onClick = {}
                     )
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                    ProfileMenuItem(
-                        icon = Icons.Filled.SupportAgent,
-                        title = "Hubungi Customer Care",
-                        subtitle = "WhatsApp Care: 09.00 – 22.00 WIB",
-                        onClick = {}
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                    ProfileMenuItem(
-                        icon = Icons.Filled.Security,
-                        title = "Kebijakan Privasi",
-                        subtitle = "Keamanan data pelanggan Suka Shawarma",
-                        onClick = {}
-                    )
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
-                    ProfileMenuItem(
-                        icon = Icons.Filled.Description,
-                        title = "Syarat & Ketentuan Layanan",
-                        subtitle = "Ketentuan pemesanan & pengambilan",
-                        onClick = {}
-                    )
+
+                    if (tautanCs != null) {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                        ProfileMenuItem(
+                            icon = Icons.Filled.SupportAgent,
+                            title = "Hubungi CS",
+                            subtitle = "WhatsApp Care: 09.00 – 22.00 WIB",
+                            onClick = {
+                                try {
+                                    konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tautanCs)))
+                                } catch (e: ActivityNotFoundException) {
+                                    // Tidak ada aplikasi WhatsApp terpasang; diamkan, jangan crash.
+                                }
+                            }
+                        )
+                    }
+
+                    if (!config.urlPrivasi.isNullOrBlank()) {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                        ProfileMenuItem(
+                            icon = Icons.Filled.Security,
+                            title = "Kebijakan Privasi",
+                            subtitle = "Keamanan data pelanggan Suka Shawarma",
+                            onClick = {
+                                try {
+                                    konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.urlPrivasi)))
+                                } catch (e: ActivityNotFoundException) {
+                                    // Tidak ada browser tersedia; diamkan, jangan crash.
+                                }
+                            }
+                        )
+                    }
+
+                    if (!config.urlSyarat.isNullOrBlank()) {
+                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                        ProfileMenuItem(
+                            icon = Icons.Filled.Description,
+                            title = "Syarat & Ketentuan",
+                            subtitle = "Ketentuan pemesanan & pengambilan",
+                            onClick = {
+                                try {
+                                    konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(config.urlSyarat)))
+                                } catch (e: ActivityNotFoundException) {
+                                    // Tidak ada browser tersedia; diamkan, jangan crash.
+                                }
+                            }
+                        )
+                    }
                 }
             }
 

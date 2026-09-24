@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sukashawarma.customer.ui.components.bounceClick
+import com.sukashawarma.customer.ui.config.LocalConfigApp
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
@@ -408,7 +409,7 @@ fun SuccessScreen(
                                 )
                             )
                             Text(
-                                text = "15–20 Menit",
+                                text = LocalConfigApp.current.estimasiSiap,
                                 style = MaterialTheme.typography.titleSmall.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SukaBrown,

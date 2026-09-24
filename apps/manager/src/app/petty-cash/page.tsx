@@ -282,21 +282,50 @@ function PettyCashContent() {
   useEffect(() => {
     loadRequests()
 
+    // Rentetan event realtime (mis. approve massal) digabung jadi 1 reload.
+    // Saat tab tersembunyi dilewati — reload sekali ketika tab terlihat lagi.
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    const scheduleReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        if (!document.hidden) loadRequests(true)
+      }, 1000)
+    }
+
+    // Bila satu outlet dipilih, hanya dengarkan perubahan outlet itu.
+    const outletFilter = globalOutletId !== 'all' ? `outlet_id=eq.${globalOutletId}` : undefined
     const channel = supabase
-      .channel('am-petty-cash-realtime')
+      .channel(`am-petty-cash-realtime:${globalOutletId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'petty_cash_topups' },
-        () => loadRequests(true)
+        {
+          event: '*',
+          schema: 'public',
+          table: 'petty_cash_topups',
+          ...(outletFilter ? { filter: outletFilter } : {}),
+        },
+        scheduleReload
       )
       .subscribe()
 
-    const interval = setInterval(() => loadRequests(true), 15000)
+    // Polling hanya cadangan realtime: 60 dtk, dan dilewati saat tab tersembunyi.
+    const interval = setInterval(() => {
+      if (document.hidden) return
+      loadRequests(true)
+    }, 60000)
+    // Tab kembali terlihat → segarkan sekali (tick yang terlewat).
+    const onVisible = () => {
+      if (!document.hidden) loadRequests(true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
       clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
       supabase.removeChannel(channel)
     }
-  }, [loadRequests, supabase])
+  }, [loadRequests, supabase, globalOutletId])
 
   async function handleApprove(id: string) {
     if (!confirm('Setujui pengajuan ini?')) return

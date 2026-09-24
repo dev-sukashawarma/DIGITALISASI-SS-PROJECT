@@ -194,10 +194,14 @@ export default function CashierShiftPage() {
     if (outletId) {
       fetchCurrentState()
 
+      // Rentetan event realtime digabung jadi 1 refetch. Saat tab tersembunyi
+      // dilewati — refetch dilakukan sekali ketika tab terlihat lagi.
       let debounceTimer: NodeJS.Timeout | null = null
       const triggerRefresh = () => {
         if (debounceTimer) clearTimeout(debounceTimer)
-        debounceTimer = setTimeout(() => fetchCurrentState(true), 500)
+        debounceTimer = setTimeout(() => {
+          if (!document.hidden) fetchCurrentState(true)
+        }, 1000)
       }
 
       const channelName = `shift-realtime-${outletId}`
@@ -213,14 +217,22 @@ export default function CashierShiftPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `outlet_id=eq.${outletId}` }, triggerRefresh)
         .subscribe()
 
-      // Polling fallback dipasang 30 detik untuk menghemat jaringan & CPU
+      // Polling hanya cadangan realtime (sudah difilter per outlet): 120 dtk,
+      // dan dilewati saat tab tersembunyi.
       const interval = setInterval(() => {
+        if (document.hidden) return
         fetchCurrentState(true)
-      }, 30000)
+      }, 120000)
+      // Tab kembali terlihat → segarkan sekali.
+      const onVisible = () => {
+        if (!document.hidden) fetchCurrentState(true)
+      }
+      document.addEventListener('visibilitychange', onVisible)
 
       return () => {
         if (debounceTimer) clearTimeout(debounceTimer)
         clearInterval(interval)
+        document.removeEventListener('visibilitychange', onVisible)
         supabase.removeChannel(channel)
       }
     }

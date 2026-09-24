@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.1",
-    "@supabase/supabase-js": "^2.45.0"
+    "@supabase/supabase-js": "^2.45.0",
+    "jose": "^6.1.0"
   },
   "devDependencies": {
     "next": "^16.1.6",

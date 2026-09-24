@@ -37,6 +37,27 @@ export function usePendingPos() {
   })
 }
 
+/**
+ * Jumlah PO menunggu approval finance untuk badge — query count-only (HEAD).
+ * Key berawalan ['po-pending-approval'] supaya ikut di-invalidate realtime
+ * dan approve/reject.
+ */
+export function usePendingPoCount() {
+  const supabase = useMemo(() => createClient(), [])
+  return useQuery<number>({
+    queryKey: ['po-pending-approval', 'count'],
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('purchase_order')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'menunggu_approval_finance')
+      if (error) throw error
+      return count ?? 0
+    },
+  })
+}
+
 export function useApprovePo() {
   const supabase = useMemo(() => createClient(), [])
   const qc = useQueryClient()

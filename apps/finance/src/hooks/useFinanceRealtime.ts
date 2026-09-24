@@ -17,6 +17,11 @@ import { useRealtimeInvalidate } from '@suka/realtime'
 export function useFinanceRealtime() {
   useRealtimeInvalidate({
     channelName: 'finance-global',
+    // Gabungkan rentetan event jadi 1 refetch per queryKey.
+    debounceMs: 1000,
+    // Reconnect (tab bangun / jaringan putus-sambung) memicu refetch SEMUA
+    // queryKey di bawah — batasi maks. sekali per menit.
+    resubscribeMinIntervalMs: 60_000,
     subs: [
       { table: 'cash_transaction', queryKeys: [['cash_transaction'], ['cash_balance'], ['expected_cash']] },
       { table: 'cash_balance', queryKeys: [['cash_balance']] },

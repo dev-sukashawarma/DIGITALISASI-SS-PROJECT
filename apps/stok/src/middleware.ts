@@ -9,6 +9,6 @@ export function middleware(request: NextRequest) {
 export const config = {
   // Halaman dan API handoff dikecualikan karena dipanggil sebelum cookie ada.
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|login|auth/sso|api/auth/sso|api/health|manifest.webmanifest|sw.js|workbox-|icons/|.*\\.(?:js|css|map)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|login|auth/sso|api/auth/sso|api/health|manifest.webmanifest|sw.js|workbox-|icons/|.*\\.(?:js|css|map|png|jpg|jpeg|svg|webp|gif|ico|woff2?|ttf|otf)$).*)',
   ],
 }

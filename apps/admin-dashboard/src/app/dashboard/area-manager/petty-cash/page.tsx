@@ -250,23 +250,45 @@ export default function AreaManagerPettyCashPage() {
   useEffect(() => {
     loadRequests()
 
+    // Rentetan event realtime digabung jadi 1 reload (server action + RPC saldo).
+    // Saat tab tersembunyi dilewati — reload sekali ketika tab terlihat lagi.
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null
+    const scheduleReload = () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        if (!document.hidden) loadRequests(true)
+      }, 1000)
+    }
+
     const channel = supabase
       .channel('am-petty-cash-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'petty_cash_topups' },
-        () => loadRequests(true)
+        scheduleReload
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'shifts' },
-        () => loadRequests(true)
+        scheduleReload
       )
       .subscribe()
 
-    const interval = setInterval(() => loadRequests(true), 15000)
+    // Polling hanya cadangan realtime: 60 dtk, dan dilewati saat tab tersembunyi.
+    const interval = setInterval(() => {
+      if (document.hidden) return
+      loadRequests(true)
+    }, 60000)
+    // Tab kembali terlihat → segarkan sekali (tick yang terlewat).
+    const onVisible = () => {
+      if (!document.hidden) loadRequests(true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
     return () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
       clearInterval(interval)
+      document.removeEventListener('visibilitychange', onVisible)
       supabase.removeChannel(channel)
     }
   }, [loadRequests, supabase])

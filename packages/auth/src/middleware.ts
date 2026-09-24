@@ -4,7 +4,16 @@ import { getOutletStaff } from './staff'
 import { hasAppAccess } from './access'
 import { resolveUserId } from './jwt'
 import { STAFF_HEADER, serializeStaffHeader } from './staff-header'
-import type { AppName } from './types'
+import {
+  GATE_COOKIE,
+  gateCookieOptions,
+  getGateSecret,
+  isGateEntryUsable,
+  isPrefetchRequest,
+  readGateCookie,
+  signGateCookie,
+} from './gate-cookie'
+import type { AppName, OutletStaffProfile } from './types'
 
 function getPortalUrl(request: NextRequest): string {
   const host = request.headers.get('host') || request.nextUrl.host || ''
@@ -21,8 +30,11 @@ function getPortalUrl(request: NextRequest): string {
  * atau status staff bukan `active`.
  *
  * Optimasi (lihat docs/.../2026-06-17-portal-app-navigation-perf):
- * - Identitas diverifikasi via JWT lokal (`SUPABASE_JWT_SECRET`) tanpa network;
- *   fallback ke `getUser()` bila secret belum di-set (lokal/dev).
+ * - Identitas diverifikasi via JWT lokal (JWKS ES256 / HS256) tanpa network;
+ *   fallback ke `getUser()` hanya bila verifikasi lokal mustahil.
+ * - Hasil gerbang (profil staff) di-cache 3 menit di cookie bertanda tangan
+ *   HMAC (`_suka_gate`), sehingga query outlet_staff + attendance tidak jalan
+ *   di tiap request. Prefetch boleh memakai entri basi ≤10 menit.
  * - Staff tepercaya diteruskan ke RSC/client lewat header `x-suka-staff`
  *   (klien tidak bisa memalsukan: header dari request klien dihapus dulu).
  * - `rootRewritePath` me-rewrite `/` → mis. `/dashboard` (internal, tanpa 307)
@@ -66,14 +78,43 @@ export async function enforceAppAccess(
     return response
   }
 
-  // --- Identitas: JWT lokal bila secret ada, fallback getUser() ---
+  // --- Identitas: JWT diverifikasi lokal (JWKS/HS256), fallback getUser() ---
   const userId = await resolveUserId(supabase, process.env.SUPABASE_JWT_SECRET)
   if (!userId) {
     return getRedirect(getPortalUrl(request))
   }
 
-  // --- Gate: role + status (1 RT DB; tetap dibutuhkan) ---
-  const { staff } = await getOutletStaff(supabase, userId)
+  // --- Gate: role + status. Pakai cache bertanda tangan bila masih berlaku,
+  // selain itu 1 RT DB lalu tulis ulang cookie (hanya saat di-refresh). ---
+  const gateSecret = getGateSecret()
+  const cached = gateSecret
+    ? await readGateCookie<OutletStaffProfile>(request.cookies.get(GATE_COOKIE)?.value, {
+        app,
+        sub: userId,
+        secret: gateSecret,
+      })
+    : null
+
+  let staff: OutletStaffProfile | null = null
+  if (cached && isGateEntryUsable(cached, isPrefetchRequest(request.headers))) {
+    staff = cached.data
+  } else {
+    const result = await getOutletStaff(supabase, userId)
+    staff = result.staff
+    if (gateSecret) {
+      if (staff) {
+        response.cookies.set(
+          GATE_COOKIE,
+          await signGateCookie(app, userId, staff, gateSecret),
+          gateCookieOptions()
+        )
+      } else if (!result.error && request.cookies.has(GATE_COOKIE)) {
+        // Profil staff sudah tidak ada → buang cache lama.
+        response.cookies.delete(GATE_COOKIE)
+      }
+    }
+  }
+
   if (!staff || !hasAppAccess(staff.role, app, staff.username) || staff.status !== 'active') {
     return getRedirect(getPortalUrl(request))
   }

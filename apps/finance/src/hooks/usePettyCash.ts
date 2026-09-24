@@ -44,6 +44,29 @@ export function usePettyCashRequests(status?: string, initialData?: PettyCashTop
   })
 }
 
+/**
+ * Jumlah pengajuan per status untuk badge — query count-only (HEAD), tanpa
+ * menarik baris & join. Key berawalan ['petty_cash_topups'] supaya ikut
+ * di-invalidate realtime dan mutasi yang sama dengan daftar lengkapnya.
+ */
+export function usePettyCashCount(status: string) {
+  const supabase = useMemo(() => createClient(), [])
+
+  return useQuery<number>({
+    queryKey: ['petty_cash_topups', 'count', status],
+    queryFn: async () => {
+      // Inner join outlets dipertahankan agar hitungan sama dengan daftar
+      // (baris yang outlet-nya tak terlihat oleh RLS tidak ikut dihitung).
+      const { count, error } = await supabase
+        .from('petty_cash_topups')
+        .select('id, outlets!petty_cash_topups_outlet_id_fkey!inner(id)', { count: 'exact', head: true })
+        .eq('status', status)
+      if (error) throw error
+      return count ?? 0
+    },
+  })
+}
+
 export function useCreatePettyCashTopup() {
   const supabase = useMemo(() => createClient(), [])
   const queryClient = useQueryClient()

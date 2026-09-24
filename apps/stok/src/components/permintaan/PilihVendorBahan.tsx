@@ -12,11 +12,22 @@ type Props = {
   disabled?: boolean
   /** true = sisa tidak membatasi pilihan (mis. penyesuaian barang masuk). */
   abaikanSisa?: boolean
+  /** vendor_id → harga per `satuan` (opsional, hanya tampilan). */
+  hargaPerSatuan?: Record<string, number>
 }
 
-export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange, galat, disabled, abaikanSisa }: Props) {
+export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange, galat, disabled, abaikanSisa, hargaPerSatuan }: Props) {
+  const labelHarga = (vendor_id: string) => {
+    const h = hargaPerSatuan?.[vendor_id]
+    return h === undefined ? null : `Rp ${Math.round(h).toLocaleString('id-ID')}/${satuan}`
+  }
   if (vendors.length <= 1) {
-    return vendors[0] ? <p className="text-[11px] text-[#544437]">Vendor: <b>{vendors[0].vendor_nama}</b></p> : null
+    return vendors[0] ? (
+      <p className="text-[11px] text-[#544437]">
+        Vendor: <b>{vendors[0].vendor_nama}</b>
+        {labelHarga(vendors[0].vendor_id) && <span className="ml-1 text-[#544437]/70">· {labelHarga(vendors[0].vendor_id)}</span>}
+      </p>
+    ) : null
   }
   const pecah = alokasi.length > 1
   const ubahQty = (vendor_id: string, qty: number) =>
@@ -38,7 +49,10 @@ export function PilihVendorBahan({ vendors, satuan, targetQty, alokasi, onChange
               <input type="radio" disabled={disabled || habis} checked={!!a}
                 onChange={() => pilihTunggal(v.vendor_id)} />
             )}
-            <span className="flex-1">{v.vendor_nama}</span>
+            <span className="flex-1">
+              {v.vendor_nama}
+              {labelHarga(v.vendor_id) && <span className="ml-1 font-semibold text-[#701604]">{labelHarga(v.vendor_id)}</span>}
+            </span>
             <span className="text-[#544437]/70">{v.aktif ? `sisa ${v.sisa} ${satuan}` : 'belum dihitung'}{habis ? ' · habis' : ''}</span>
             {pecah && a && (
               <input type="number" min="0" step="any" disabled={disabled} value={a.qty || ''}

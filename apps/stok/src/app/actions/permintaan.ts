@@ -6,6 +6,8 @@ import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
 import type { SaldoVendor } from '@/lib/stok/alokasiVendor'
+import type { HargaVendorMap } from '@/lib/stok/hargaVendor'
+import { muatHargaVendor } from '@/lib/stok/muatHargaVendor'
 
 // ---------------------------------------------------------------------------
 // Service role client — bypass RLS, dipakai untuk semua permintaan actions.
@@ -293,6 +295,15 @@ export async function fetchSaldoVendorGudang(bahanBakuIds: string[]): Promise<Re
     })
   }
   return hasil
+}
+
+// ---------------------------------------------------------------------------
+// fetchHargaVendor — harga katalog per vendor (satuan BESAR) untuk bahan
+// tertentu, supaya pilihan vendor di ApprovalModal menampilkan harganya.
+// ---------------------------------------------------------------------------
+export async function fetchHargaVendor(bahanBakuIds: string[]): Promise<HargaVendorMap> {
+  await requirePermintaanViewer()
+  return muatHargaVendor(makeServiceClient(), bahanBakuIds)
 }
 
 // ---------------------------------------------------------------------------

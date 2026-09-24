@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import { Check, X, Pencil } from 'lucide-react'
 import { validasiBarisKatalog, parseAngkaId, type VendorSetara } from '@/lib/katalogGroup'
+import { kapital } from '@/lib/masterBahan/tampilan'
+import { BarisTabel, Kosong, Lencana, Td } from '@/components/master-bahan/Tabel'
 
 const rupiah = (n: number) =>
   'Rp ' + Math.round(n).toLocaleString('id-ID')
+
+const perKecilFmt = (n: number) => n.toLocaleString('id-ID', { maximumFractionDigits: 4 })
 
 /** Rasio antara hitungan hidup & harga master di luar [1/5, 5] dianggap kemungkinan salah skala. */
 function pesanRasioMenyimpang(hidup: number, master: number | null): string | null {
@@ -15,6 +19,8 @@ function pesanRasioMenyimpang(hidup: number, master: number | null): string | nu
   if (rasio <= 1 / 5) return `⚠ ${(1 / rasio).toFixed(1)}× lebih rendah dari harga master`
   return null
 }
+
+const kelasInput = 'w-full rounded-lg border border-stone-300 px-2 py-1 text-sm outline-none focus:border-suka-orange'
 
 export function BarisVendor({
   v,
@@ -85,138 +91,92 @@ export function BarisVendor({
   }
 
   if (sunting) {
+    const hargaHidup = parseAngkaId(harga)
+    const isiHidup = parseAngkaId(isi)
+    const perKecil = hargaHidup !== null && isiHidup !== null && isiHidup > 0 ? hargaHidup / isiHidup : null
+    const peringatan = perKecil !== null ? pesanRasioMenyimpang(perKecil, hargaMasterPerKecil) : null
     return (
-      <tr className="border-t border-stone-100 bg-amber-50/40">
-        <td className="py-2 px-3 font-medium text-stone-700">{v.supplier_nama}</td>
-        <td className="py-2 px-3">
-          <input
-            value={satuanBeli}
-            onChange={(e) => setSatuanBeli(e.target.value)}
-            className="w-24 rounded-lg border border-stone-300 px-2 py-1 text-sm"
-            aria-label="Satuan beli"
-          />
-        </td>
-        <td className="py-2 px-3">
-          <input
-            value={isi}
-            onChange={(e) => setIsi(e.target.value)}
-            inputMode="decimal"
-            className="w-28 rounded-lg border border-stone-300 px-2 py-1 text-sm text-right"
-            aria-label={`Isi dalam ${satuanKecil}`}
-          />
-        </td>
-        <td className="py-2 px-3">
-          <input
-            value={harga}
-            onChange={(e) => setHarga(e.target.value)}
-            inputMode="decimal"
-            className="w-32 rounded-lg border border-stone-300 px-2 py-1 text-sm text-right"
-            aria-label="Harga per satuan beli"
-          />
-        </td>
-        <td className="py-2 px-3 text-right">
-          {(() => {
-            const hargaHidup = parseAngkaId(harga)
-            const isiHidup = parseAngkaId(isi)
-            if (hargaHidup === null || isiHidup === null || isiHidup <= 0) {
-              return <span className="text-stone-300">—</span>
-            }
-            const perKecil = hargaHidup / isiHidup
-            const peringatan = pesanRasioMenyimpang(perKecil, hargaMasterPerKecil)
-            return (
-              <div className="flex flex-col items-end">
-                <span className="text-stone-600">
-                  {perKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
-                </span>
-                {peringatan && (
-                  <span className="text-[11px] font-semibold text-red-600">{peringatan}</span>
-                )}
-              </div>
-            )
-          })()}
-        </td>
-        <td className="py-2 px-3 text-right text-stone-400">—</td>
-        <td className="py-2 px-3">
-          {galat && <span className="text-xs text-red-600">{galat}</span>}
-        </td>
-        <td className="py-2 px-3 text-right whitespace-nowrap">
-          <button
-            onClick={simpan}
-            disabled={menyimpan}
-            className="mr-1 rounded-lg bg-emerald-600 px-2 py-1 text-white disabled:opacity-50"
-            aria-label="Simpan"
-          >
-            <Check size={14} />
-          </button>
-          <button onClick={batal} className="rounded-lg bg-stone-200 px-2 py-1" aria-label="Batal">
-            <X size={14} />
-          </button>
-        </td>
-      </tr>
+      <BarisTabel sorot>
+        <Td><span className="font-medium text-stone-800">{v.supplier_nama}</span></Td>
+        <Td>
+          <input value={satuanBeli} onChange={(e) => setSatuanBeli(e.target.value)} className={kelasInput} aria-label="Satuan beli" />
+        </Td>
+        <Td>
+          <input value={isi} onChange={(e) => setIsi(e.target.value)} inputMode="decimal"
+            className={`${kelasInput} text-right tabular-nums`} aria-label={`Isi dalam ${satuanKecil}`} />
+        </Td>
+        <Td>
+          <input value={harga} onChange={(e) => setHarga(e.target.value)} inputMode="decimal"
+            className={`${kelasInput} text-right tabular-nums`} aria-label="Harga per satuan beli" />
+        </Td>
+        <Td angka>
+          {perKecil === null ? <Kosong /> : (
+            <div className="flex flex-col items-end">
+              <span className="text-stone-700">{perKecilFmt(perKecil)}</span>
+              {peringatan && <span className="whitespace-normal text-[11px] font-semibold text-red-600">{peringatan}</span>}
+            </div>
+          )}
+        </Td>
+        <Td angka><Kosong /></Td>
+        <Td>{galat && <span className="text-xs text-red-600">{galat}</span>}</Td>
+        <Td rata="kanan">
+          <div className="flex justify-end gap-1">
+            <button onClick={simpan} disabled={menyimpan} aria-label="Simpan"
+              className="rounded-lg bg-emerald-600 p-1.5 text-white hover:bg-emerald-700 disabled:opacity-50">
+              <Check size={14} />
+            </button>
+            <button onClick={batal} aria-label="Batal" className="rounded-lg bg-stone-200 p-1.5 text-stone-700 hover:bg-stone-300">
+              <X size={14} />
+            </button>
+          </div>
+        </Td>
+      </BarisTabel>
     )
   }
 
   return (
-    <tr className="border-t border-stone-100">
-      <td className="py-2 px-3 font-medium text-stone-700">
-        {v.supplier_nama}
-        {v.termin_hari ? <span className="ml-2 text-xs text-stone-400">tempo {v.termin_hari} hr</span> : null}
-      </td>
-      <td className="py-2 px-3 text-stone-600">{v.satuan_beli}</td>
-      <td className="py-2 px-3 text-right text-stone-600">
-        {v.isi_satuan_kecil.toLocaleString('id-ID')} {satuanKecil}
-      </td>
-      <td className="py-2 px-3 text-right">
-        {belumAdaHarga ? (
-          <span className="text-xs italic text-stone-400">belum ada harga</span>
-        ) : (
-          <span className="font-semibold text-stone-800">{rupiah(v.harga)}</span>
-        )}
-      </td>
-      <td className="py-2 px-3 text-right">
-        {belumAdaHarga || v.hargaPerSatuanKecil === null ? (
-          <span className="text-stone-300">—</span>
-        ) : (
-          <span className="text-stone-600">
-            {v.hargaPerSatuanKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
-          </span>
-        )}
-      </td>
-      <td className="py-2 px-3 text-right text-xs text-stone-400">
+    <BarisTabel>
+      <Td>
+        <p className="truncate font-medium text-stone-800" title={v.supplier_nama}>{v.supplier_nama}</p>
+        {v.termin_hari ? <p className="text-xs text-stone-500">tempo {v.termin_hari} hari</p> : null}
+      </Td>
+      <Td className="text-stone-700">{kapital(v.satuan_beli)}</Td>
+      <Td angka className="text-stone-700">
+        {v.isi_satuan_kecil.toLocaleString('id-ID')} <span className="text-stone-500">{satuanKecil}</span>
+      </Td>
+      <Td angka>
+        {belumAdaHarga
+          ? <span className="text-xs italic text-stone-500">belum ada harga</span>
+          : <span className="font-semibold text-stone-800">{rupiah(v.harga)}</span>}
+      </Td>
+      <Td angka className="text-stone-700">
+        {belumAdaHarga || v.hargaPerSatuanKecil === null ? <Kosong /> : perKecilFmt(v.hargaPerSatuanKecil)}
+      </Td>
+      <Td angka className="text-xs text-stone-500">
         {v.harga_updated_at
-          ? new Date(v.harga_updated_at).toLocaleDateString('id-ID', {
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })
-          : '—'}
-      </td>
-      <td className="py-2 px-3 text-right">
+          ? new Date(v.harga_updated_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+          : <Kosong />}
+      </Td>
+      <Td>
         {v.perlu_ditinjau ? (
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
-            perlu ditinjau
-          </span>
+          <Lencana nada="kuning">perlu ditinjau</Lencana>
         ) : v.selisihPersen === null ? (
-          <span className="text-stone-300">—</span>
+          <Kosong />
         ) : v.selisihPersen === 0 ? (
-          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
-            termurah
-          </span>
+          <Lencana nada="hijau">termurah</Lencana>
         ) : (
-          <span className="text-[11px] font-semibold text-stone-500">
-            +{v.selisihPersen.toFixed(1)}%
-          </span>
+          <span className="text-xs font-semibold tabular-nums text-stone-600">+{v.selisihPersen.toFixed(1)}%</span>
         )}
-      </td>
-      <td className="py-2 px-3 text-right">
+      </Td>
+      <Td rata="kanan">
         <button
           onClick={mulaiSunting}
-          className="rounded-lg border border-stone-200 px-2 py-1 text-stone-500 hover:bg-stone-50"
+          className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100 hover:text-suka-orange"
           aria-label={`Sunting ${v.supplier_nama}`}
         >
           <Pencil size={14} />
         </button>
-      </td>
-    </tr>
+      </Td>
+    </BarisTabel>
   )
 }

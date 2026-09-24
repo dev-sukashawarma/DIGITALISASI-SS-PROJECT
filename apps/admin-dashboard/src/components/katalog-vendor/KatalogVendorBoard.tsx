@@ -7,7 +7,12 @@ import { useKatalogVendor } from '@/hooks/useKatalogVendor'
 import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { DialogAlasan } from '@/components/master-bahan/DialogAlasan'
+import { InfoJumlah, KepalaTabel, KolomCari, LebarKolom, Tabel, Th } from '@/components/master-bahan/Tabel'
+import { kapital } from '@/lib/masterBahan/tampilan'
 import { BarisVendor } from './BarisVendor'
+
+/** Lebar kolom sama di setiap kelompok bahan, supaya kolom sejajar dari atas sampai bawah. */
+const LEBAR_KOLOM_VENDOR = ['24%', '10%', '12%', '13%', '12%', '11%', '12%', '3rem']
 
 export function KatalogVendorBoard() {
   const { rows, loading, error } = useKatalogVendor()
@@ -72,14 +77,9 @@ export function KatalogVendorBoard() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <input
-          value={cari}
-          onChange={(e) => setCari(e.target.value)}
-          placeholder="Cari bahan atau vendor…"
-          className="flex-1 min-w-[200px] rounded-xl border border-stone-200 px-3 py-2 text-sm"
-        />
-        <label className="flex items-center gap-2 text-sm text-stone-600">
+      <div className="flex flex-wrap items-center gap-4">
+        <KolomCari nilai={cari} onUbah={setCari} placeholder="Cari bahan atau vendor…" />
+        <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-600">
           <input
             type="checkbox"
             checked={hanyaPerluDiisi}
@@ -89,63 +89,68 @@ export function KatalogVendorBoard() {
         </label>
       </div>
 
+      <InfoJumlah tampil={tampil.length} total={kelompok.length} satuan="bahan" />
+
       {tampil.length === 0 ? (
-        <p className="rounded-xl border border-stone-200 p-6 text-center text-stone-500">
-          Tidak ada baris yang cocok.
+        <p className="rounded-xl border border-stone-200 bg-white p-8 text-center text-sm text-stone-500">
+          Tidak ada bahan atau vendor yang cocok.
         </p>
       ) : (
         tampil.map((k) => {
           const satuanKecil = k.satuan_kecil ?? 'satuan kecil'
           return (
-            <section key={k.bahan_baku_id} className="rounded-2xl border border-stone-200 bg-white">
-              <header className="flex flex-wrap items-baseline justify-between gap-2 border-b border-stone-100 px-4 py-3">
-                <h2 className="font-bold text-stone-800">{k.bahan}</h2>
-                <p className="text-xs text-stone-500">
-                  satuan besar <b>{k.satuan ?? '—'}</b> · satuan PO <b>{k.satuan_po ?? '—'}</b>
-                  {k.faktor_po ? <> · 1 {k.satuan_po} = <b>{k.faktor_po.toLocaleString('id-ID')}</b> satuan kecil</> : null}
-                  {' · harga master '}
-                  {k.hargaMasterPerKecil === null ? (
-                    <b className="text-stone-400">belum diisi</b>
-                  ) : (
-                    <b>
-                      {k.hargaMasterPerKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}
-                      /satuan kecil
-                    </b>
-                  )}
-                  {' · '}
-                  {k.bisaDibandingkan
-                    ? `${k.jumlahBerharga} harga bisa dibandingkan`
-                    : `${k.jumlahBerharga} dari ${k.jumlahVendor} vendor berharga`}
-                </p>
+            <section key={k.bahan_baku_id} className="space-y-2">
+              <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
+                <h2 className="font-bold text-suka-brown">{k.bahan}</h2>
+                <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-500">
+                  <div className="flex gap-1"><dt>Satuan</dt><dd className="font-semibold text-stone-700">{k.satuan ?? '—'}</dd></div>
+                  <div className="flex gap-1">
+                    <dt>PO</dt>
+                    <dd className="font-semibold text-stone-700">
+                      {k.satuan_po ? kapital(k.satuan_po) : '—'}
+                      {k.faktor_po ? ` = ${k.faktor_po.toLocaleString('id-ID')} ${satuanKecil}` : ''}
+                    </dd>
+                  </div>
+                  <div className="flex gap-1">
+                    <dt>Master</dt>
+                    <dd className="font-semibold tabular-nums text-stone-700">
+                      {k.hargaMasterPerKecil === null
+                        ? <span className="font-normal text-stone-500">belum diisi</span>
+                        : `${k.hargaMasterPerKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}/${satuanKecil}`}
+                    </dd>
+                  </div>
+                  <div className="text-stone-500">
+                    {k.bisaDibandingkan
+                      ? `${k.jumlahBerharga} harga bisa dibandingkan`
+                      : `${k.jumlahBerharga} dari ${k.jumlahVendor} vendor berharga`}
+                  </div>
+                </dl>
               </header>
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead className="text-left text-xs uppercase tracking-wide text-stone-400">
-                    <tr>
-                      <th className="py-2 px-3">Vendor</th>
-                      <th className="py-2 px-3">Satuan beli</th>
-                      <th className="py-2 px-3 text-right">Isi</th>
-                      <th className="py-2 px-3 text-right">Harga</th>
-                      <th className="py-2 px-3 text-right">Per satuan kecil</th>
-                      <th className="py-2 px-3 text-right">Terakhir</th>
-                      <th className="py-2 px-3 text-right">Status</th>
-                      <th className="py-2 px-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {k.vendors.map((v) => (
-                      <BarisVendor
-                        key={v.id}
-                        v={v}
-                        satuanKecil={satuanKecil}
-                        hargaMasterPerKecil={k.hargaMasterPerKecil}
-                        menyimpan={simpanHargaVendor.isPending}
-                        onSimpan={simpan}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <Tabel lebarMin={860} bergulir={false}>
+                <LebarKolom lebar={LEBAR_KOLOM_VENDOR} />
+                <KepalaTabel>
+                  <Th>Vendor</Th>
+                  <Th>Satuan beli</Th>
+                  <Th rata="kanan">Isi</Th>
+                  <Th rata="kanan">Harga</Th>
+                  <Th rata="kanan">Per {satuanKecil}</Th>
+                  <Th rata="kanan">Terakhir</Th>
+                  <Th>Status</Th>
+                  <Th><span className="sr-only">Sunting</span></Th>
+                </KepalaTabel>
+                <tbody>
+                  {k.vendors.map((v) => (
+                    <BarisVendor
+                      key={v.id}
+                      v={v}
+                      satuanKecil={satuanKecil}
+                      hargaMasterPerKecil={k.hargaMasterPerKecil}
+                      menyimpan={simpanHargaVendor.isPending}
+                      onSimpan={simpan}
+                    />
+                  ))}
+                </tbody>
+              </Tabel>
             </section>
           )
         })

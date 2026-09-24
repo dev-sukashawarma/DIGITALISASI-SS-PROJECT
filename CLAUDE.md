@@ -2952,5 +2952,53 @@ STRUK, SAUS X HOT) — bukan regresi, sudah diketahui; Q2 (belum dikonfirmasi ve
 
 ---
 
-**Last updated:** 2026-09-23  
+## Session 2026-09-24: Master Bahan Baku — Tahap 2 (Halaman Satu Tempat)
+
+**Status:** ✅ Kode COMPLETED. Migration `20260924100000` applied & terstempel.
+⚠️ Migration `20260924200000` (cabut tulis langsung) **DITULIS, belum di-apply** —
+urutan wajib: deploy admin-dashboard/stok/finance → smoke test → apply → jalankan t10.
+
+### Halaman baru
+`/dashboard/bahan-baku` bertab **Data Bahan · Harga · Vendor · Riwayat**
+(komponen di `src/components/master-bahan/`, hook di `src/hooks/masterBahan/`,
+fungsi murni di `src/lib/masterBahan/`). Menu: ADMIN (Produk & Stok), OWNER
+(Laporan Internal), PURCHASING (Pembelian, ditambah ke allowlist RoleContext).
+`/dashboard/pembelian/katalog-vendor` lama kini redirect ke `?tab=vendor`.
+
+### Satu jalur tulis
+Semua tulis dari layar lewat RPC Tahap 1 (via `useMutasiMasterBahan`) — harga
+master **tidak bisa diketik** di layar mana pun. Hook supplier admin kini
+memanggil `simpan_supplier`/`nonaktifkan_supplier`.
+
+### Temuan review: parsing angka format Indonesia
+Rencana awal memakai `Number(...)` polos untuk input harga vendor — salah baca
+`"11.554"` sebagai `11.554` (1000× terlalu kecil), padahal titik di situ adalah
+pemisah ribuan. Diperbaiki dengan `bacaAngka` (`src/lib/masterBahan/angka.ts`)
+yang dipakai di semua input numerik layar ini.
+
+### Dihapus (jalur tulis lama, digantikan RPC)
+Modal detail/tambah & mutasi tabel langsung admin lama; server action tambah
+bahan admin & stok (service-role); sinkron harga PO manual stok; halaman
+supplier finance (kini notice) + hook tulisnya + entri nav; kode threshold mati
+(`useOutletThresholds`, halaman kitchen/threshold).
+
+### Konsekuensi
+`admin_finance` tidak lagi bisa mengedit supplier (manajemen supplier kini
+admin/owner/purchasing saja) — sengaja, mengikuti RLS Tahap 1.
+
+### ⚠️ Konflik dengan WIP checkout `main`
+Ada berkas WIP belum ter-commit di checkout `main` (bahan-baku admin/stok:
+`peruntukan`/`is_opname` di modal lama; `opnameScope` stok) yang **digantikan/
+dihapus** oleh branch ini. Owner perlu `git checkout -- <berkas>` untuk
+membuang WIP itu sebelum `git pull`, kalau tidak pull akan konflik.
+
+### Belum: Tahap 3
+Tombol Ganti Satuan, app stok membaca `peruntukan`/`is_opname` menggantikan
+tebakan nama.
+
+**⚠️ Perlu redeploy:** admin-dashboard, stok, finance.
+
+---
+
+**Last updated:** 2026-09-24  
 **Owner:** Dev Suka Shawarma

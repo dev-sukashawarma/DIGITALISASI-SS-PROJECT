@@ -1,7 +1,7 @@
 # Master Bahan Baku — Satu Tempat
 
 **Tanggal:** 2026-09-23
-**Status:** Disetujui owner (sesi grilling 2026-09-23). Tahap 0 LIVE (8729fbe2). Tahap 1 (fondasi DB) LIVE — lihat plan 2026-09-23-master-bahan-baku-tahap1-fondasi-db.md.
+**Status:** Disetujui owner (sesi grilling 2026-09-23). Tahap 0 LIVE (8729fbe2). Tahap 1 (fondasi DB) LIVE. Tahap 2 (halaman satu tempat) selesai di kode — lihat plan 2026-09-24-master-bahan-baku-tahap2-halaman-satu-tempat.md; migration cabut tulis langsung (20260924200000) menunggu deploy.
 **App utama:** `apps/admin-dashboard` (`/dashboard/bahan-baku`). Terdampak: stok, finance, portal.
 **Terkait:** `2026-06-30-hpp-bahan-baku-master-harga-design.md` (asal `bahan_baku_harga`),
 `2026-09-08-katalog-harga-vendor-design.md` (asal `bahan_baku_supplier`).

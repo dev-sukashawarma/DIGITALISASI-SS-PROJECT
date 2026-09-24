@@ -53,7 +53,11 @@ export function TabHarga() {
                 <td className="text-right">{s.harga_master ? rupiah(s.harga_master) : '—'}</td>
                 <td className="max-w-xs text-xs text-gray-600">
                   {s.asal_catatan ?? '—'}
-                  {s.asal_waktu && <span className="block text-gray-400">{new Date(s.asal_waktu).toLocaleString('id-ID')}</span>}
+                  {s.asal_waktu && (
+                    <span className="block text-gray-400">
+                      {new Date(s.asal_waktu).toLocaleString('id-ID')} · oleh {s.asal_oleh ?? 'sistem'}
+                    </span>
+                  )}
                 </td>
                 <td>
                   <span className={`rounded-full px-2 py-0.5 text-xs ${s.status === 'terkonfirmasi' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>

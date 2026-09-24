@@ -94,8 +94,12 @@ HPP Dinamis / `fill_harga_snapshot`. Surat jalan sejak 12 Sep sudah memakai harg
 ### K6 — Peralihan (pilihan B)
 25 bahan aktif belum punya harga vendor terpercaya (7 tanpa vendor, 18 `perlu_ditinjau`).
 Harga master mereka **dibekukan** di nilai sekarang, ditandai "belum dikonfirmasi vendor",
-dan muncul di **daftar kerja** tab Vendor. Begitu purchasing mengisi harga vendor
-terpercaya, master otomatis mengikuti. Tak ada harga yang mendadak jadi nol.
+dan muncul di **daftar kerja** tab **Harga** (bukan tab Vendor — implementasi Tahap 2
+menaruh daftar "N bahan belum punya harga vendor terpercaya" + tombol "Isi harga vendor"
+per baris di `TabHarga.tsx`, dipasok `useStatusHarga`/view `bahan_baku_status_harga`; tab
+Vendor sendiri hanya mendaftar supplier & katalog per-bahan, bukan pekerjaan yang tersisa).
+Begitu purchasing mengisi harga vendor terpercaya, master otomatis mengikuti. Tak ada
+harga yang mendadak jadi nol.
 
 ### K7 — Hapus / nonaktif / gabung
 | Aksi | Syarat | Efek |

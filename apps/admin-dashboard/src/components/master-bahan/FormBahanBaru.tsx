@@ -1,12 +1,12 @@
 'use client'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useSuppliers } from '@/hooks/usePurchaseOrder'
 import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc } from '@/lib/masterBahan/galatRpc'
-import { bacaAngka } from '@/lib/masterBahan/angka'
+import { bacaIsian } from '@/lib/masterBahan/angka'
 import { pilihanSatuanBeli } from '@/lib/masterBahan/satuanBeli'
-import { IsianSatuanFields, faktorTampilanDari, keDataSatuan, type NilaiSatuan } from './IsianSatuanFields'
+import { IsianSatuanFields, faktorTampilanDari, keDataSatuan, satuanInvalid, type NilaiSatuan } from './IsianSatuanFields'
 
 const BELI_TUNAI = 'Beli Tunai / Tanpa Vendor'
 
@@ -36,21 +36,28 @@ export function FormBahanBaru({
     satuan_kecil: dataSatuan.satuan_kecil ?? null,
     faktor_tampilan: faktorTampilanDari(dataSatuan),
   })
-  const vendorAwal = supplierId || aktif.find((s) => s.nama === BELI_TUNAI)?.id || ''
   const pilihanBeli = pilihan.find((p) => p.label === labelBeli) ?? pilihan[0]
   const memproses = simpanBahan.isPending || simpanHargaVendor.isPending
 
+  // Vendor awal: default ke "Beli Tunai" HANYA sekali saat daftar supplier termuat —
+  // sesudahnya pilihan "— vendor —" (string kosong) tetap kosong, tidak diam-diam
+  // dikembalikan ke Beli Tunai oleh `||` (itulah bug yang diperbaiki di sini).
+  const diinisialisasi = useRef(false)
+  useEffect(() => {
+    if (diinisialisasi.current || aktif.length === 0) return
+    diinisialisasi.current = true
+    const beliTunai = aktif.find((s) => s.nama === BELI_TUNAI)
+    if (beliTunai) setSupplierId(beliTunai.id)
+  }, [aktif])
+
   // Batas minimum: kosong = 0 (bawaan); terisi tapi tak terbaca = tahan tombol, jangan diam-diam jadi 0.
-  const batasTrim = batas.trim()
-  const nilaiBatas = batasTrim === '' ? 0 : bacaAngka(batas)
-  const batasInvalid = batasTrim !== '' && nilaiBatas === null
+  const { nilai: nilaiBatas, invalid: batasInvalid } = bacaIsian(batas, 0)
 
   // Harga awal opsional: kosong = tak ada harga awal sama sekali; terisi tapi tak terbaca = tahan tombol.
-  const hargaTrim = harga.trim()
-  const nilaiHarga = hargaTrim === '' ? null : bacaAngka(harga)
-  const hargaInvalid = hargaTrim !== '' && nilaiHarga === null
+  const { nilai: nilaiHarga, invalid: hargaInvalid } = bacaIsian(harga, null)
 
-  const lengkap = nama.trim() !== '' && kategori.trim() !== '' && satuan.satuan.trim() !== '' && !batasInvalid && !hargaInvalid
+  const lengkap =
+    nama.trim() !== '' && kategori.trim() !== '' && !satuanInvalid(satuan) && !batasInvalid && !hargaInvalid
 
   async function simpan() {
     setGalat(null)
@@ -68,10 +75,10 @@ export function FormBahanBaru({
       setGalat(bacaGalatRpc(e).pesan)
       return
     }
-    if (nilaiHarga !== null && nilaiHarga > 0 && vendorAwal && pilihanBeli) {
+    if (nilaiHarga !== null && nilaiHarga > 0 && supplierId && pilihanBeli) {
       try {
         await simpanHargaVendor.mutateAsync({
-          bahanId: id, supplierId: vendorAwal, harga: nilaiHarga, satuanBeli: pilihanBeli.label,
+          bahanId: id, supplierId, harga: nilaiHarga, satuanBeli: pilihanBeli.label,
           isi: pilihanBeli.isi, alasan: 'Harga awal saat bahan dibuat',
         })
       } catch (e) {
@@ -118,7 +125,7 @@ export function FormBahanBaru({
           <h3 className="text-sm font-bold text-suka-brown">Harga awal (opsional)</h3>
           <p className="text-xs text-gray-500">Dicatat sebagai harga vendor. Tanpa vendor tetap, pilih “{BELI_TUNAI}”.</p>
           <div className="grid grid-cols-3 gap-2">
-            <select value={vendorAwal} onChange={(e) => setSupplierId(e.target.value)} className={kelas}>
+            <select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} className={kelas}>
               <option value="">— vendor —</option>
               {aktif.map((s) => <option key={s.id} value={s.id}>{s.nama}</option>)}
             </select>

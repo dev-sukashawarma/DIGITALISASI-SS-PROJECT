@@ -2987,10 +2987,33 @@ supplier finance (kini notice) + hook tulisnya + entri nav; kode threshold mati
 admin/owner/purchasing saja) — sengaja, mengikuti RLS Tahap 1.
 
 ### ⚠️ Konflik dengan WIP checkout `main`
-Ada berkas WIP belum ter-commit di checkout `main` (bahan-baku admin/stok:
-`peruntukan`/`is_opname` di modal lama; `opnameScope` stok) yang **digantikan/
-dihapus** oleh branch ini. Owner perlu `git checkout -- <berkas>` untuk
-membuang WIP itu sebelum `git pull`, kalau tidak pull akan konflik.
+Ada berkas WIP belum ter-commit di checkout `main` (bahan-baku admin:
+`peruntukan`/`is_opname` di modal lama) yang **digantikan/dihapus** oleh
+branch ini. **Koreksi:** branch ini **TIDAK menyentuh** `apps/stok/src/lib/stok/opnameScope.ts`
+(nol commit di riwayat branch ini menyinggung berkas itu) — hanya WIP admin
+bahan-baku yang disuperseded. `opnameScope.ts` WIP di `main` (bila ada) berdiri
+sendiri, tidak terkait pull request ini. Owner perlu `git checkout -- <berkas
+admin bahan-baku>` untuk membuang WIP admin itu sebelum `git pull`, kalau
+tidak pull akan konflik.
+
+### ⚠️ Riwayat migration memuat baris yatim
+`schema_migrations` mencatat **dua baris** untuk migration yang sama: `20260924090450`
+(nama `simpan_supplier_bahan_baku_ids`, tercatat otomatis oleh `apply_migration` saat
+migration ini pertama kali diterapkan) berdampingan dengan stempel manual `20260924100000`
+(nama sama). Isinya identik — **SENGAJA tidak dihapus** (keputusan owner, hindari
+menyentuh tabel riwayat migration DB bersama tanpa perlu). `supabase migration list`
+akan menampilkan `20260924090450` sebagai remote-only (tanpa berkas lokal) — itu bukan
+drift yang perlu di-`repair`, sudah diketahui.
+
+### ⚠️ Perubahan supplier belum tampil di tab Riwayat
+View `riwayat_master_bahan` (migration `20260923181000`) menyaring baris `data` dari
+`master_bahan_audit` dengan `WHERE a.bahan_baku_id IS NOT NULL` — audit trigger
+`trg_audit_supplier` menulis baris dengan `bahan_baku_id` NULL (perubahan supplier
+bukan perubahan bahan tertentu), jadi baris itu **tersaring keluar**. Efeknya: edit/
+nonaktifkan supplier lewat tab Vendor (`useUpdateSupplier`/`useDeleteSupplier`) tercatat
+di `master_bahan_audit` tapi **tidak muncul** di tab Riwayat sama sekali. Tindak lanjut:
+longgarkan filter view (mis. UNION baris supplier terpisah tanpa syarat `bahan_baku_id`)
+atau tampilkan kolom "bahan" sebagai "—" untuk baris supplier-level.
 
 ### Belum: Tahap 3
 Tombol Ganti Satuan, app stok membaca `peruntukan`/`is_opname` menggantikan

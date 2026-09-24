@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import type { BahanBakuWithHarga } from '@/lib/bahanBaku'
 import { useMutasiMasterBahan, type LevelFoto } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc } from '@/lib/masterBahan/galatRpc'
-import { bacaAngka } from '@/lib/masterBahan/angka'
+import { bacaIsian } from '@/lib/masterBahan/angka'
 import { rupiah } from '@/lib/format'
 
 const FOTO: { level: LevelFoto; label: string; kolom: 'image_url' | 'image_url_tengah' | 'image_url_kecil' }[] = [
@@ -22,13 +22,8 @@ export function SeksiFotoSku({ bahan, bolehData }: { bahan: BahanBakuWithHarga; 
   const [hargaSku, setHargaSku] = useState('')
 
   // Isi SKU wajib terisi & terbaca (tak boleh diam-diam jadi 0). Harga SKU opsional: kosong = 0.
-  const isiTrim = isi.trim()
-  const nilaiIsi = bacaAngka(isi)
-  const isiInvalid = isiTrim !== '' && nilaiIsi === null
-
-  const hargaSkuTrim = hargaSku.trim()
-  const nilaiHargaSku = hargaSkuTrim === '' ? 0 : bacaAngka(hargaSku)
-  const hargaSkuInvalid = hargaSkuTrim !== '' && nilaiHargaSku === null
+  const { nilai: nilaiIsi, invalid: isiInvalid } = bacaIsian(isi, null)
+  const { nilai: nilaiHargaSku, invalid: hargaSkuInvalid } = bacaIsian(hargaSku, 0)
 
   async function beritahu(p: Promise<unknown>, sukses: string): Promise<boolean> {
     try {

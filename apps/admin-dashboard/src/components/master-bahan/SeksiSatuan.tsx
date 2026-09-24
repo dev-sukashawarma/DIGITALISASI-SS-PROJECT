@@ -6,7 +6,7 @@ import { useMutasiMasterBahan, type DataBahan } from '@/hooks/masterBahan/useMut
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { pilihanSatuanBeli } from '@/lib/masterBahan/satuanBeli'
 import { DialogAlasan } from './DialogAlasan'
-import { IsianSatuanFields, keDataSatuan, nilaiSatuanDari, type NilaiSatuan } from './IsianSatuanFields'
+import { IsianSatuanFields, keDataSatuan, nilaiSatuanDari, satuanInvalid, type NilaiSatuan } from './IsianSatuanFields'
 
 export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; bolehData: boolean }) {
   const { simpanBahan } = useMutasiMasterBahan()
@@ -26,6 +26,9 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
   // Kunci satuan hanya dikirim bila isiannya berubah: menghitung ulang isi per tengah
   // dari faktor master bisa berbeda pecahan dan membuat RPC mengira satuan diubah.
   const satuanBerubah = (Object.keys(awal) as (keyof NilaiSatuan)[]).some((k) => nilai[k].trim() !== awal[k].trim())
+  // Tak boleh kirim satuan baru yang isiannya tak lengkap/tak dikenali — hanya relevan
+  // kalau memang diubah; satuan lama (belum disentuh) selalu dianggap valid.
+  const satuanTidakValid = satuanBerubah && satuanInvalid(nilai)
   const ubahan: DataBahan = satuanBerubah ? { ...keDataSatuan(nilai) } : {}
   if ((satuanPo || null) !== (bahan.satuan_po ?? null)) ubahan.satuan_po = satuanPo || null
   if ((satuanDist || null) !== (bahan.satuan_distribusi ?? null)) ubahan.satuan_distribusi = satuanDist || null
@@ -67,7 +70,7 @@ export function SeksiSatuan({ bahan, bolehData }: { bahan: BahanBakuWithHarga; b
         </label>
       </div>
       {bolehData && (
-        <button onClick={() => setMinta(true)} disabled={!adaUbahan}
+        <button onClick={() => setMinta(true)} disabled={!adaUbahan || satuanTidakValid}
           className="rounded-xl bg-suka-orange px-4 py-2 text-sm font-bold text-white disabled:opacity-40">Simpan satuan</button>
       )}
       {minta && (

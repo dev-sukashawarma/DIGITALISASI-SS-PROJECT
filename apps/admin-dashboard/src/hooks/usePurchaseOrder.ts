@@ -272,6 +272,10 @@ export function useUpdateSupplier() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['suppliers'] })
+      // Menonaktifkan/mengubah supplier bisa menggeser harga master turunan
+      // (harga_vendor_terpercaya) — segarkan permukaan yang membaca harga master.
+      qc.invalidateQueries({ queryKey: ['master_bahan'] })
+      qc.invalidateQueries({ queryKey: ['katalog_vendor'] })
       toast.success('Supplier diperbarui')
     },
     onError: (e: any) => toast.error(e.message),
@@ -290,6 +294,9 @@ export function useDeleteSupplier() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['suppliers'] })
+      // Sama seperti update: vendor dinonaktifkan bisa menggeser harga master turunan.
+      qc.invalidateQueries({ queryKey: ['master_bahan'] })
+      qc.invalidateQueries({ queryKey: ['katalog_vendor'] })
       toast.success('Supplier berhasil dinonaktifkan')
     },
     onError: (e: any) => toast.error(e.message),

@@ -31,9 +31,15 @@ const KOLOM_FOTO: Record<LevelFoto, 'image_url' | 'image_url_tengah' | 'image_ur
   besar: 'image_url', tengah: 'image_url_tengah', kecil: 'image_url_kecil',
 }
 
-/** Kunci yang disegarkan setelah tulis master apa pun. */
+/**
+ * Kunci yang disegarkan setelah tulis master apa pun. `bahan-baku-options` = kunci
+ * nyata dipakai `useBahanBakuOptions` (form PO & halaman supplier finance, lihat
+ * `usePurchaseOrder.ts`) — tanpa ini, opsi bahan/harga di form PO tetap basi setelah
+ * tulis lewat halaman Master Bahan.
+ */
 const KUNCI_SEGAR: readonly (readonly string[])[] = [
   ['master_bahan'], ['katalog_vendor'], ['suppliers'], ['po-price-alerts'], ['harga-history'],
+  ['bahan-baku-options'],
 ]
 
 /**

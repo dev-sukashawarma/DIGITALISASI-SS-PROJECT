@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import type { BahanBakuWithHarga } from '@/lib/bahanBaku'
 import { useMutasiMasterBahan, type DataBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
-import { bacaAngka } from '@/lib/masterBahan/angka'
+import { bacaIsian, tulisAngka } from '@/lib/masterBahan/angka'
 import { DialogAlasan } from './DialogAlasan'
 
 export function SeksiIdentitas({
@@ -16,14 +16,12 @@ export function SeksiIdentitas({
   const [kategori, setKategori] = useState(bahan.kategori)
   const [peruntukan, setPeruntukan] = useState(bahan.peruntukan)
   const [isOpname, setIsOpname] = useState(bahan.is_opname)
-  const [batas, setBatas] = useState(String(bahan.default_reorder_point))
+  const [batas, setBatas] = useState(tulisAngka(bahan.default_reorder_point))
   const [minta, setMinta] = useState(false)
   const [galat, setGalat] = useState<GalatRpc | null>(null)
 
   // Batas minimum: kosong = 0 (bawaan); terisi tapi tak terbaca = tahan tombol simpan.
-  const batasTrim = batas.trim()
-  const nilaiBatas = batasTrim === '' ? 0 : bacaAngka(batas)
-  const batasInvalid = batasTrim !== '' && nilaiBatas === null
+  const { nilai: nilaiBatas, invalid: batasInvalid } = bacaIsian(batas, 0)
 
   // Hanya kolom yang berubah yang dikirim — riwayat perubahan tetap bersih.
   const ubahan: DataBahan = {}

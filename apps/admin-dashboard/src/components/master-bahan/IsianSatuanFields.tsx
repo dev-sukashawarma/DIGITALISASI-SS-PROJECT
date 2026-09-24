@@ -1,51 +1,11 @@
 'use client'
 import { turunkanFaktorSatuan } from '@/lib/satuanBahan'
-import type { TingkatSatuan } from '@/lib/masterBahan/satuanBeli'
-import type { DataBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
-import { bacaAngka } from '@/lib/masterBahan/angka'
+import { keDataSatuan, satuanInvalid, type NilaiSatuan } from '@/lib/masterBahan/isianSatuan'
 
-export type NilaiSatuan = {
-  satuan: string
-  satuan_tengah: string
-  faktor_tengah: string
-  satuan_kecil: string
-  isi_kecil_per_tengah: string
-}
-
-/** Isian form dari data master: isi kecil per TENGAH (atau per besar bila tanpa tengah). */
-export function nilaiSatuanDari(b: TingkatSatuan): NilaiSatuan {
-  const isi =
-    b.satuan_tengah && b.faktor_tengah && b.faktor_tampilan ? b.faktor_tampilan / b.faktor_tengah : b.faktor_tampilan
-  return {
-    satuan: b.satuan ?? '',
-    satuan_tengah: b.satuan_tengah ?? '',
-    faktor_tengah: b.faktor_tengah ? String(b.faktor_tengah) : '',
-    satuan_kecil: b.satuan_kecil ?? '',
-    isi_kecil_per_tengah: isi ? String(isi) : '',
-  }
-}
-
-const angkaAtauNull = (s: string): number | null => bacaAngka(s)
-
-type DataSatuan = Pick<DataBahan, 'satuan' | 'satuan_tengah' | 'faktor_tengah' | 'satuan_kecil' | 'isi_kecil_per_tengah'>
-
-/** Kunci satuan untuk simpan_bahan_baku — dikirim sebagai satu set. */
-export function keDataSatuan(v: NilaiSatuan): DataSatuan {
-  return {
-    satuan: v.satuan.trim(),
-    satuan_tengah: v.satuan_tengah.trim() || null,
-    faktor_tengah: angkaAtauNull(v.faktor_tengah),
-    satuan_kecil: v.satuan_kecil.trim() || null,
-    isi_kecil_per_tengah: angkaAtauNull(v.isi_kecil_per_tengah) ?? 1,
-  }
-}
-
-/** Faktor tampilan hasil turunan (dipakai pratinjau & pilihan satuan beli di form bahan baru). */
-export function faktorTampilanDari(d: DataSatuan): number | null {
-  if (!d.satuan_kecil) return null
-  const perTengah = d.isi_kecil_per_tengah ?? 1
-  return d.satuan_tengah && d.faktor_tengah ? d.faktor_tengah * perTengah : perTengah
-}
+// Re-export supaya import lama `from './IsianSatuanFields'` tetap jalan — fungsi
+// murninya sendiri kini hidup di lib/masterBahan/isianSatuan.ts (ber-test terpisah).
+export { nilaiSatuanDari, keDataSatuan, faktorTampilanDari, satuanInvalid } from '@/lib/masterBahan/isianSatuan'
+export type { NilaiSatuan } from '@/lib/masterBahan/isianSatuan'
 
 export function IsianSatuanFields({
   nilai, onUbah, nonaktif = false,
@@ -56,6 +16,7 @@ export function IsianSatuanFields({
     satuan: d.satuan ?? '', satuan_tengah: d.satuan_tengah ?? null, faktor_tengah: d.faktor_tengah ?? null,
     satuan_kecil: d.satuan_kecil ?? null, isiKecilPerTengah: d.isi_kecil_per_tengah ?? null,
   })
+  const invalid = satuanInvalid(nilai)
   const kelas = 'mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm disabled:bg-gray-50'
   return (
     <div className="space-y-3">
@@ -84,6 +45,7 @@ export function IsianSatuanFields({
             : 'Isi belum lengkap.'
           : `Hasil: satu tingkat (${pratinjau.satuan || '—'}).`}
       </p>
+      {invalid && <p className="text-xs text-red-600">Isian satuan belum lengkap atau angkanya tidak dikenali</p>}
     </div>
   )
 }

@@ -294,56 +294,6 @@ export function useUploadInvoice() {
   })
 }
 
-export function useCreateSupplier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (payload: Omit<Supplier, 'id' | 'created_at' | 'is_active'> & { is_active?: boolean }) => {
-      const { data, error } = await supabase
-        .from('supplier')
-        .insert({ ...payload, is_active: payload.is_active ?? true })
-        .select()
-        .single()
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['suppliers'] })
-      toast.success('Supplier berhasil ditambahkan')
-    },
-    onError: (e: any) => toast.error(e.message),
-  })
-}
-
-export function useUpdateSupplier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ id, ...payload }: Partial<Supplier> & { id: string }) => {
-      const { error } = await supabase.from('supplier').update(payload).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['suppliers'] })
-      toast.success('Supplier diperbarui')
-    },
-    onError: (e: any) => toast.error(e.message),
-  })
-}
-
-export function useDeleteSupplier() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('supplier').update({ is_active: false }).eq('id', id)
-      if (error) throw error
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['suppliers'] })
-      toast.success('Supplier berhasil dinonaktifkan')
-    },
-    onError: (e: any) => toast.error(e.message),
-  })
-}
-
 export function getInvoiceUrl(pathOrUrl: string): string {
   if (!pathOrUrl) return ''
   if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {

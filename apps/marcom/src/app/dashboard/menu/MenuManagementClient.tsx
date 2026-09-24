@@ -26,8 +26,45 @@ import {
 } from 'lucide-react'
 import { CurrencyInput } from '@/components/ui/CurrencyInput'
 import { formatRupiah, cn } from '@/lib/utils'
-import { getPosSupabase } from '@/lib/supabase-pos'
+import { getPosSupabase, DEFAULT_FOOD_CHANNELS } from '@/lib/supabase-pos'
 import type { MenuItem, Category, SalesChannel, Outlet, MenuPromo } from '@/types/menu'
+
+function ChannelBadge({ name }: { name: string }) {
+  const norm = name.toLowerCase().replace(/[\s_]+/g, '')
+  if (norm.includes('gofood')) {
+    return (
+      <span className="w-6 h-6 rounded-lg bg-[#00AA13] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+        G
+      </span>
+    )
+  }
+  if (norm.includes('grab')) {
+    return (
+      <span className="w-6 h-6 rounded-lg bg-[#00B14F] text-white flex items-center justify-center font-black text-[11px] shrink-0 shadow-2xs">
+        Gr
+      </span>
+    )
+  }
+  if (norm.includes('shopee')) {
+    return (
+      <span className="w-6 h-6 rounded-lg bg-[#EE4D2D] text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+        S
+      </span>
+    )
+  }
+  if (norm.includes('tiktok')) {
+    return (
+      <span className="w-6 h-6 rounded-lg bg-stone-900 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+        T
+      </span>
+    )
+  }
+  return (
+    <span className="w-6 h-6 rounded-lg bg-amber-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-2xs">
+      <Store className="w-3.5 h-3.5" />
+    </span>
+  )
+}
 import {
   saveMenuItem,
   toggleMenuAvailability,
@@ -129,10 +166,111 @@ export default function MenuManagementClient({
     setTimeout(() => setToast(null), 3500)
   }
 
+  // Canonical food app channels guaranteed to always exist
+  const foodAppChannels = useMemo(() => {
+    const list = channels && channels.length > 0 ? channels : DEFAULT_FOOD_CHANNELS
+    const result: SalesChannel[] = []
+    const seen = new Set<string>()
+
+    for (const ch of list) {
+      const slug = ch.name.toLowerCase().replace(/[\s_]+/g, '')
+      if (slug !== 'pos_kasir' && slug !== 'pos' && slug !== 'kasir' && slug !== 'aplikasi' && slug !== 'app') {
+        if (!seen.has(slug)) {
+          seen.add(slug)
+          result.push(ch)
+        }
+      }
+    }
+
+    for (const def of DEFAULT_FOOD_CHANNELS) {
+      const defSlug = def.name.toLowerCase().replace(/[\s_]+/g, '')
+      if (!seen.has(defSlug)) {
+        seen.add(defSlug)
+        result.push(def)
+      }
+    }
+
+    return result
+  }, [channels])
+
   const getSlug = (channelId: string) => {
-    const ch = channels.find((c) => c.id === channelId)
+    if (!channelId) return ''
+    if (channelId === 'pos_kasir') return 'pos_kasir'
+    if (channelId === 'all_food_apps') return 'all_food_apps'
+    if (channelId === SLUG_APLIKASI) return SLUG_APLIKASI
+    const ch = foodAppChannels.find(
+      (c) => c.id === channelId || c.name.toLowerCase().replace(/\s+/g, '') === channelId.toLowerCase().replace(/\s+/g, '')
+    )
     const raw = ch ? ch.name : channelId
-    return raw.toLowerCase().replace(/\s+/g, '')
+    const s = raw.toLowerCase().replace(/\s+/g, '')
+    if (s === 'tiktokgo' || s === 'tiktok_go') return 'tiktokgo'
+    return s
+  }
+
+  const getChannelPriceValue = (ch: SalesChannel) => {
+    const slug = ch.name.toLowerCase().replace(/[\s_]+/g, '')
+    const slugUnderscore = ch.name.toLowerCase().replace(/\s+/g, '_')
+    const cp = form.channel_prices || {}
+
+    if (cp[slug] !== undefined && cp[slug] !== null && String(cp[slug]) !== '') {
+      return String(cp[slug])
+    }
+    if (cp[slugUnderscore] !== undefined && cp[slugUnderscore] !== null && String(cp[slugUnderscore]) !== '') {
+      return String(cp[slugUnderscore])
+    }
+    if (ch.id && cp[ch.id] !== undefined && cp[ch.id] !== null && String(cp[ch.id]) !== '') {
+      return String(cp[ch.id])
+    }
+    if (slug === 'tiktokgo' && cp['tiktok_go']) {
+      return String(cp['tiktok_go'])
+    }
+    if (slug === 'tiktok_go' && cp['tiktokgo']) {
+      return String(cp['tiktokgo'])
+    }
+    if (cp['all_food_apps']) return String(cp['all_food_apps'])
+    if (cp['online']) return String(cp['online'])
+    if (form.price) return String(form.price)
+    return ''
+  }
+
+  const handlePerChannelPriceChange = (ch: SalesChannel, val: number | string) => {
+    const valStr = String(val)
+    const slug = ch.name.toLowerCase().replace(/[\s_]+/g, '')
+    const slugUnderscore = ch.name.toLowerCase().replace(/\s+/g, '_')
+
+    setForm((prev) => {
+      const nextPrices = { ...prev.channel_prices }
+      nextPrices[slug] = valStr
+      if (slugUnderscore !== slug) {
+        nextPrices[slugUnderscore] = valStr
+      }
+      if (ch.id && ch.id.includes('-')) {
+        nextPrices[ch.id] = valStr
+      }
+      if (slug === 'tiktokgo') {
+        nextPrices['tiktok_go'] = valStr
+      }
+      return { ...prev, channel_prices: nextPrices }
+    })
+  }
+
+  const handleUnifiedPriceChange = (val: number | string) => {
+    const valStr = String(val)
+    setForm((prev) => {
+      const nextPrices = { ...prev.channel_prices }
+      const genericSlugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'tiktokgo', 'all_food_apps', 'online']
+      genericSlugs.forEach((s) => {
+        nextPrices[s] = valStr
+      })
+      foodAppChannels.forEach((c) => {
+        const s = c.name.toLowerCase().replace(/[\s_]+/g, '')
+        nextPrices[s] = valStr
+        if (c.id && c.id.includes('-')) {
+          nextPrices[c.id] = valStr
+        }
+      })
+      return { ...prev, channel_prices: nextPrices }
+    })
   }
 
   // Filter check for items in channel
@@ -245,8 +383,11 @@ export default function MenuManagementClient({
     })
 
     // Determine unified vs per_channel
-    const onlineKeys = Object.keys(strPrices).filter((k) => k !== 'pos_kasir' && k !== SLUG_APLIKASI)
-    const uniqueValues = new Set(onlineKeys.map((k) => strPrices[k]))
+    const onlineKeys = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'tiktokgo']
+    const foodAppPrices = onlineKeys
+      .map((k) => strPrices[k])
+      .filter((v) => v !== undefined && v !== '')
+    const uniqueValues = new Set(foodAppPrices)
     const isUnified = uniqueValues.size <= 1
 
     setForm({
@@ -366,6 +507,48 @@ export default function MenuManagementClient({
         finalImageUrl = publicUrl
       }
 
+      // Prepare final channel_prices to guarantee all channels are set
+      const finalChannelPrices: Record<string, string> = { ...form.channel_prices }
+      if (onlinePriceMode === 'unified') {
+        const unifiedPrice =
+          form.channel_prices['all_food_apps'] ||
+          form.channel_prices['gofood'] ||
+          form.channel_prices['grabfood'] ||
+          form.channel_prices['shopeefood'] ||
+          form.channel_prices['tiktok_go'] ||
+          form.channel_prices['tiktokgo'] ||
+          form.price ||
+          '0'
+        const genericSlugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'tiktokgo', 'all_food_apps', 'online']
+        genericSlugs.forEach((s) => {
+          finalChannelPrices[s] = unifiedPrice
+        })
+        foodAppChannels.forEach((c) => {
+          const s = c.name.toLowerCase().replace(/[\s_]+/g, '')
+          finalChannelPrices[s] = unifiedPrice
+          if (c.id && c.id.includes('-')) {
+            finalChannelPrices[c.id] = unifiedPrice
+          }
+        })
+      } else {
+        foodAppChannels.forEach((c) => {
+          const s = c.name.toLowerCase().replace(/[\s_]+/g, '')
+          const val =
+            finalChannelPrices[s] ||
+            (s === 'tiktokgo' ? finalChannelPrices['tiktok_go'] : undefined) ||
+            (c.id ? finalChannelPrices[c.id] : undefined) ||
+            form.price ||
+            '0'
+          finalChannelPrices[s] = val
+          if (s === 'tiktokgo') {
+            finalChannelPrices['tiktok_go'] = val
+          }
+          if (c.id && c.id.includes('-')) {
+            finalChannelPrices[c.id] = val
+          }
+        })
+      }
+
       await saveMenuItem({
         id: form.id,
         name: form.name,
@@ -377,7 +560,7 @@ export default function MenuManagementClient({
         is_available: form.is_available,
         is_available_online: form.is_available_online,
         available_online_channels: form.available_online_channels,
-        channel_prices: form.channel_prices,
+        channel_prices: finalChannelPrices,
         outlet_id: null,
         available_outlets: form.outlet_ids,
         is_published_order_online: form.is_published_order_online,
@@ -548,7 +731,7 @@ export default function MenuManagementClient({
               { id: 'pos_kasir', name: 'Kasir Toko (Offline)' },
               { id: 'all_food_apps', name: 'Semua Food Apps' },
               { id: SLUG_APLIKASI, name: 'Suka App' },
-              ...channels.map((c) => ({ id: c.id, name: c.name })),
+              ...foodAppChannels.map((c) => ({ id: c.id, name: c.name })),
             ].map((ch) => {
               const isActive = activeChannelFilter === ch.id
               return (
@@ -651,8 +834,12 @@ export default function MenuManagementClient({
                       <span>
                         {activeChannelFilter === 'pos_kasir'
                           ? 'Harga Kasir (Offline)'
+                          : activeChannelFilter === 'all_food_apps'
+                          ? 'Harga Food Apps'
+                          : activeChannelFilter === SLUG_APLIKASI
+                          ? 'Harga Suka App'
                           : activeChannelFilter
-                          ? `Harga ${activeChannelFilter}`
+                          ? `Harga ${foodAppChannels.find((c) => c.id === activeChannelFilter)?.name || activeChannelFilter}`
                           : 'Informasi Harga'}
                       </span>
                       <ArrowUpDown className="w-3 h-3" />
@@ -1382,18 +1569,21 @@ export default function MenuManagementClient({
                     </div>
 
                     {/* Online Food Apps Pricing Section */}
-                    <div className="space-y-2.5 pt-2 border-t border-amber-200/50">
+                    <div className="space-y-3 pt-2.5 border-t border-amber-200/50">
                       <div className="flex items-center justify-between">
-                        <label className="text-xs font-bold text-stone-800 uppercase tracking-wider">
-                          Harga Food Apps (Online)
+                        <label className="text-xs font-bold text-stone-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <Globe className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Harga Food Apps (Online)</span>
                         </label>
                         <div className="flex items-center gap-1 bg-amber-100/70 p-0.5 rounded-lg text-[11px] font-bold">
                           <button
                             type="button"
                             onClick={() => setOnlinePriceMode('unified')}
                             className={cn(
-                              'px-2 py-0.5 rounded-md transition-all cursor-pointer',
-                              onlinePriceMode === 'unified' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
+                              'px-2.5 py-1 rounded-md transition-all cursor-pointer',
+                              onlinePriceMode === 'unified'
+                                ? 'bg-white text-stone-900 shadow-2xs font-extrabold'
+                                : 'text-stone-600 hover:text-stone-900'
                             )}
                           >
                             Satu Harga
@@ -1402,8 +1592,10 @@ export default function MenuManagementClient({
                             type="button"
                             onClick={() => setOnlinePriceMode('per_channel')}
                             className={cn(
-                              'px-2 py-0.5 rounded-md transition-all cursor-pointer',
-                              onlinePriceMode === 'per_channel' ? 'bg-white text-stone-900 shadow-2xs' : 'text-stone-600'
+                              'px-2.5 py-1 rounded-md transition-all cursor-pointer',
+                              onlinePriceMode === 'per_channel'
+                                ? 'bg-white text-stone-900 shadow-2xs font-extrabold'
+                                : 'text-stone-600 hover:text-stone-900'
                             )}
                           >
                             Per Kanal
@@ -1415,65 +1607,56 @@ export default function MenuManagementClient({
                         <div>
                           <CurrencyInput
                             value={
+                              form.channel_prices['all_food_apps'] ||
                               form.channel_prices['gofood'] ||
                               form.channel_prices['grabfood'] ||
                               form.channel_prices['shopeefood'] ||
                               form.channel_prices['tiktok_go'] ||
-                              form.channel_prices['all_food_apps'] ||
+                              form.channel_prices['tiktokgo'] ||
                               form.price
                             }
-                            onChange={(v) => {
-                              const valStr = String(v)
-                              setForm((prev) => {
-                                const nextPrices = { ...prev.channel_prices }
-                                const slugs = ['gofood', 'grabfood', 'shopeefood', 'tiktok_go', 'all_food_apps']
-                                slugs.forEach((s) => {
-                                  nextPrices[s] = valStr
-                                })
-                                channels.forEach((c) => {
-                                  const slug = c.name.toLowerCase().replace(/\s+/g, '')
-                                  if (slug !== 'pos_kasir') nextPrices[slug] = valStr
-                                })
-                                return { ...prev, channel_prices: nextPrices }
-                              })
-                            }}
+                            onChange={(v) => handleUnifiedPriceChange(v)}
                             placeholder={form.price || '0'}
                           />
-                          <p className="text-[10px] text-stone-500 mt-1">
-                            Harga online ini berlaku seragam untuk GoFood, GrabFood, Shopee, TikTok Go, dsb.
+                          <p className="text-[10px] text-stone-500 mt-1 font-medium">
+                            Harga online ini berlaku seragam untuk GoFood, GrabFood, ShopeeFood, dan TikTok Go.
                           </p>
                         </div>
                       ) : (
-                        <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                          {channels
-                            .filter((c) => c.name.toLowerCase().replace(/\s+/g, '') !== 'pos_kasir')
-                            .map((ch) => {
-                              const slug = ch.name.toLowerCase().replace(/\s+/g, '')
-                              const val = form.channel_prices[slug] || form.price
+                        <div className="space-y-2 pt-1">
+                          <p className="text-[11px] font-semibold text-stone-500">
+                            Atur harga berbeda untuk masing-masing kanal pengantaran online:
+                          </p>
+                          <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1">
+                            {foodAppChannels.map((ch) => {
+                              const val = getChannelPriceValue(ch)
                               return (
                                 <div
                                   key={ch.id}
-                                  className="flex items-center justify-between gap-3 bg-white p-2 rounded-xl border border-stone-200"
+                                  className="flex items-center justify-between gap-3 bg-white p-2.5 rounded-xl border border-stone-200/80 shadow-2xs hover:border-amber-300 transition-colors"
                                 >
-                                  <span className="text-xs font-semibold text-stone-800">{ch.name}</span>
-                                  <div className="w-36">
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <ChannelBadge name={ch.name} />
+                                    <div className="min-w-0">
+                                      <span className="text-xs font-bold text-stone-800 block truncate">
+                                        {ch.name}
+                                      </span>
+                                      <span className="text-[10px] text-stone-400 font-medium">
+                                        Harga kanal
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="w-36 shrink-0">
                                     <CurrencyInput
                                       value={val}
-                                      onChange={(v) => {
-                                        const valStr = String(v)
-                                        setForm((prev) => ({
-                                          ...prev,
-                                          channel_prices: {
-                                            ...prev.channel_prices,
-                                            [slug]: valStr,
-                                          },
-                                        }))
-                                      }}
+                                      onChange={(v) => handlePerChannelPriceChange(ch, v)}
+                                      placeholder={form.price || '0'}
                                     />
                                   </div>
                                 </div>
                               )
                             })}
+                          </div>
                         </div>
                       )}
                     </div>

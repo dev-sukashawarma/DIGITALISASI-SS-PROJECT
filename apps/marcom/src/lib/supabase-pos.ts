@@ -108,6 +108,13 @@ export async function fetchPosOutlets(): Promise<PosOutlet[]> {
   }
 }
 
+export const DEFAULT_FOOD_CHANNELS: SalesChannel[] = [
+  { id: '1284ac2a-e753-4380-9f32-59219a322459', name: 'GoFood', is_active: true },
+  { id: '6802a8b5-8fe3-4ddb-b552-ee87ee7d7f6a', name: 'GrabFood', is_active: true },
+  { id: '0eaf2746-da9f-492c-a9b4-f091307c98c2', name: 'ShopeeFood', is_active: true },
+  { id: 'c9b01c9f-0e5b-462f-bba8-9a9b6525c5c8', name: 'TikTok Go', is_active: true },
+]
+
 export async function fetchFullPosMenuData() {
   const supabase = getPosSupabase()
   const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
@@ -137,7 +144,18 @@ export async function fetchFullPosMenuData() {
   }
 
   const categories: Category[] = (categoriesRes.data as Category[]) || []
-  const channels: SalesChannel[] = (channelsRes.data as SalesChannel[]) || []
+  let channels: SalesChannel[] = (channelsRes.data as SalesChannel[]) || []
+  if (!channels || channels.length === 0) {
+    channels = [...DEFAULT_FOOD_CHANNELS]
+  } else {
+    const existingSlugs = new Set(channels.map((c) => c.name.toLowerCase().replace(/[\s_]+/g, '')))
+    for (const def of DEFAULT_FOOD_CHANNELS) {
+      const defSlug = def.name.toLowerCase().replace(/[\s_]+/g, '')
+      if (!existingSlugs.has(defSlug)) {
+        channels.push(def)
+      }
+    }
+  }
   const outlets: Outlet[] = (outletsRes.data as Outlet[]) || []
 
   const settingsData = settingsRes.data || []

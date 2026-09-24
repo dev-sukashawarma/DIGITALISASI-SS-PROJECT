@@ -94,7 +94,7 @@ export default function OutletAppView({
       {tutupSemuaAktif && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           <span>
-            Semua outlet ditutup s/d {new Date(tutupSemuaAktif.sampai).toLocaleString('id-ID')}
+            Semua outlet ditutup s/d {new Date(tutupSemuaAktif.sampai).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta' })}
             {tutupSemuaAktif.alasan ? ` (${tutupSemuaAktif.alasan})` : ''}
           </span>
           <button
@@ -169,7 +169,9 @@ export default function OutletAppView({
                     </button>
                   </td>
                   <td className="py-3 px-4">
-                    {s ? (
+                    {!o.app_enabled ? (
+                      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">Tidak tampil di aplikasi</span>
+                    ) : s ? (
                       <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${s.bisaPesan ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>
                         {s.bisaPesan ? 'Bisa pesan' : pesanStatus(s)}
                       </span>

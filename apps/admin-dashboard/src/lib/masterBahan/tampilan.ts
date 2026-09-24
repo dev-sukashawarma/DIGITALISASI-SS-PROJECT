@@ -68,3 +68,40 @@ export function ringkasSatuanOpname(b: TingkatTampil & { is_opname: boolean }): 
   }
   return tingkat.join(' · ')
 }
+
+export type KunciKelompok = 'FNB' | 'BUMBU' | 'PACKAGING' | 'OPERASIONAL' | 'ASET'
+
+/**
+ * Lima kategori besar untuk mengelompokkan tabel master bahan. Empat pertama mengikuti
+ * docs/MASTER-SATUAN-PO-DAN-DISTRIBUSI.md & apps/stok (Kategori); ASET + PERLENGKAPAN
+ * digabung jadi satu kelompok barang non-bahan baku.
+ */
+export const KELOMPOK_KATEGORI: { kunci: KunciKelompok; label: string; resmi: string[] }[] = [
+  { kunci: 'FNB', label: 'Food & Beverage', resmi: ['FOOD & BEVERAGE'] },
+  { kunci: 'BUMBU', label: 'Bumbu', resmi: ['BUMBU'] },
+  { kunci: 'PACKAGING', label: 'Packaging', resmi: ['PACKAGING'] },
+  { kunci: 'OPERASIONAL', label: 'Operasional', resmi: ['OPERASIONAL'] },
+  { kunci: 'ASET', label: 'Aset & Perlengkapan', resmi: ['ASET', 'PERLENGKAPAN'] },
+]
+
+/** Label lama (sebelum restrukturisasi kategori, apps/stok/docs/Restrukturisasi_Kategori_Bahan_Baku.md). */
+const LABEL_LAMA: Record<string, KunciKelompok> = {
+  'ITEM CORE': 'FNB',
+  MINUMAN: 'FNB',
+  KEMASAN: 'PACKAGING',
+  'LAIN-LAIN': 'OPERASIONAL',
+  LAINNYA: 'OPERASIONAL',
+}
+
+/** Kelompok tampilan untuk nilai `bahan_baku.kategori` apa pun; tak dikenal jatuh ke Operasional. */
+export function kelompokKategori(k: string | null | undefined): KunciKelompok {
+  const t = (k ?? '').trim().toUpperCase()
+  const resmi = KELOMPOK_KATEGORI.find((g) => g.resmi.includes(t))
+  return resmi?.kunci ?? LABEL_LAMA[t] ?? 'OPERASIONAL'
+}
+
+/** true bila kategori tertulis persis salah satu nama resmi (abaikan huruf/spasi). */
+export function kategoriResmi(k: string | null | undefined): boolean {
+  const t = (k ?? '').trim().toUpperCase()
+  return KELOMPOK_KATEGORI.some((g) => g.resmi.includes(t))
+}

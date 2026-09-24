@@ -880,15 +880,36 @@ export default function EndorsementList({
       })
   }, [processedAnalytics, search, outletFilter, performanceFilter, sortBy])
 
-  // Aggregate metrics for Analytics Overview
-  const activeVideos = processedAnalytics.filter((i) => i.effectiveViews > 0 && i.postStatus === 'ON')
-  const totalSpendActive = activeVideos.reduce((acc, curr) => acc + curr.rateCard, 0)
-  const totalViewsActive = activeVideos.reduce((acc, curr) => acc + curr.effectiveViews, 0)
-  const totalEngagementActive = activeVideos.reduce((acc, curr) => acc + curr.totalEngagement, 0)
+  // Selected outlet for display labels
+  const selectedOutlet = useMemo(() => {
+    return outlets.find((o) => o.id === outletFilter)
+  }, [outlets, outletFilter])
+
+  // Aggregate metrics for Analytics Overview (dynamically filtered by selected outlet)
+  const activeVideos = useMemo(() => {
+    return processedAnalytics.filter((i) => {
+      const matchesOutlet = outletFilter ? i.outletId === outletFilter : true
+      return matchesOutlet && i.effectiveViews > 0 && i.postStatus === 'ON'
+    })
+  }, [processedAnalytics, outletFilter])
+
+  const totalSpendActive = useMemo(() => {
+    return activeVideos.reduce((acc, curr) => acc + curr.rateCard, 0)
+  }, [activeVideos])
+
+  const totalViewsActive = useMemo(() => {
+    return activeVideos.reduce((acc, curr) => acc + curr.effectiveViews, 0)
+  }, [activeVideos])
+
+  const totalEngagementActive = useMemo(() => {
+    return activeVideos.reduce((acc, curr) => acc + curr.totalEngagement, 0)
+  }, [activeVideos])
 
   const avgCPV = totalViewsActive > 0 ? totalSpendActive / totalViewsActive : 0
   const avgER = totalViewsActive > 0 ? (totalEngagementActive / totalViewsActive) * 100 : 0
-  const topPerformer = [...activeVideos].sort((a, b) => b.effectiveViews - a.effectiveViews)[0]
+  const topPerformer = useMemo(() => {
+    return [...activeVideos].sort((a, b) => b.effectiveViews - a.effectiveViews)[0]
+  }, [activeVideos])
 
   // Operations summary
   const totalBudget = filteredOperations.reduce((acc, curr) => acc + (curr.rateCard || 0), 0)
@@ -1999,87 +2020,157 @@ export default function EndorsementList({
       {activeTab === 'analytics' && (
         <div className="space-y-6 animate-in fade-in duration-150">
           {/* Executive Analytics Bento Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-            {/* CPV Card */}
-            <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
-                  Rata-rata CPV (Biaya / View)
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
-                  <Zap className="w-4 h-4" />
+          <div className="space-y-3">
+            {selectedOutlet && (
+              <div className="flex items-center justify-between text-xs text-stone-600 bg-[#FAF8F5] border border-[#EFE8DE] px-3.5 py-2 rounded-2xl">
+                <div className="flex items-center gap-2 font-medium">
+                  <Filter className="w-3.5 h-3.5 text-[#D9480F]" />
+                  <span>
+                    Menampilkan analitik performa untuk outlet: <strong className="text-stone-900 font-bold">{selectedOutlet.name}</strong>
+                  </span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setOutletFilter('')}
+                  className="text-xs font-bold text-[#D9480F] hover:text-[#b83c0c] hover:underline cursor-pointer"
+                >
+                  Tampilkan Semua Outlet
+                </button>
               </div>
-              <div className="mt-3">
-                <div className="text-2xl font-black font-mono text-[#1A1715]">
-                  {formatRupiah(avgCPV)} <span className="text-xs text-stone-500 font-sans font-normal">/ view</span>
-                </div>
-                <p className="text-xs text-stone-500 mt-1">
-                  {avgCPV < 100 ? 'Efisiensi Sangat Baik (< Rp 100)' : 'Standar industri kuliner (Rp 100-200)'}
-                </p>
-              </div>
-            </div>
+            )}
 
-            {/* Engagement Rate Card */}
-            <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
-                  Rata-rata Engagement Rate
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
-                  <Flame className="w-4 h-4" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+              {/* CPV Card */}
+              <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
+                    Rata-rata CPV (Biaya / View)
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
+                    <Zap className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl font-black font-mono text-[#1A1715]">
+                    {formatRupiah(avgCPV)} <span className="text-xs text-stone-500 font-sans font-normal">/ view</span>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1 flex items-center justify-between">
+                    <span className="truncate">
+                      {totalViewsActive === 0
+                        ? selectedOutlet
+                          ? `Belum ada data di ${selectedOutlet.name}`
+                          : 'Belum ada data video tayang'
+                        : avgCPV < 100
+                        ? 'Efisiensi Sangat Baik (< Rp 100)'
+                        : 'Standar industri kuliner (Rp 100-200)'}
+                    </span>
+                    {selectedOutlet && (
+                      <span className="text-[10px] font-bold text-stone-500 shrink-0 ml-1">
+                        @{selectedOutlet.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="mt-3">
-                <div className="text-2xl font-black font-mono text-[#1A1715]">
-                  {avgER.toFixed(2)}%
-                </div>
-                <p className="text-xs text-stone-500 mt-1">
-                  {avgER >= 5.0 ? 'Tingkat Respons Audiens Tinggi' : 'Benchmark F&B: 3% - 6%'}
-                </p>
-              </div>
-            </div>
 
-            {/* Total Interactions Card */}
-            <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
-                  Total Interaksi Audiens
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
-                  <Heart className="w-4 h-4" />
+              {/* Engagement Rate Card */}
+              <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
+                    Rata-rata Engagement Rate
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
+                    <Flame className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-2xl font-black font-mono text-[#1A1715]">
+                    {avgER.toFixed(2)}%
+                  </div>
+                  <div className="text-xs text-stone-500 mt-1 flex items-center justify-between">
+                    <span className="truncate">
+                      {totalViewsActive === 0
+                        ? selectedOutlet
+                          ? `Belum ada data di ${selectedOutlet.name}`
+                          : 'Belum ada data views'
+                        : avgER >= 5.0
+                        ? 'Tingkat Respons Audiens Tinggi'
+                        : 'Benchmark F&B: 3% - 6%'}
+                    </span>
+                    {selectedOutlet && (
+                      <span className="text-[10px] font-bold text-stone-500 shrink-0 ml-1">
+                        @{selectedOutlet.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="mt-3">
-                <div className="text-2xl font-black font-mono text-[#1A1715]">
-                  {totalEngagementActive.toLocaleString('id-ID')}
-                </div>
-                <div className="text-xs text-stone-500 mt-1 flex items-center gap-2">
-                  <span>Likes, komentar, share & simpan</span>
-                </div>
-              </div>
-            </div>
 
-            {/* Top Performer Card */}
-            <div className="bg-gradient-to-br from-[#1C1917] to-[#292524] p-5 rounded-2xl text-white shadow-xs flex flex-col justify-between border border-stone-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-stone-300 font-bold uppercase tracking-wider">
-                  Video Paling Viral
-                </span>
-                <div className="w-8 h-8 rounded-xl bg-white/10 text-amber-300 flex items-center justify-center">
-                  <Award className="w-4 h-4" />
+              {/* Total Interactions & Views Card */}
+              <div className="bg-white p-5 rounded-2xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-stone-400 font-bold uppercase tracking-wider">
+                    Total Interaksi Audiens
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center">
+                    <Heart className="w-4 h-4" />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-[#FAF8F5] p-2.5 rounded-xl border border-[#EFE8DE]">
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-stone-500 uppercase tracking-wider">
+                        <Eye className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                        <span className="truncate">Total View</span>
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-[#1A1715] mt-0.5 truncate" title={totalViewsActive.toLocaleString('id-ID')}>
+                        {totalViewsActive.toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                    <div className="bg-[#FFF4ED] p-2.5 rounded-xl border border-[#D9480F]/20">
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#D9480F] uppercase tracking-wider">
+                        <Heart className="w-3.5 h-3.5 text-[#D9480F] shrink-0" />
+                        <span className="truncate">Interaksi</span>
+                      </div>
+                      <div className="text-lg sm:text-xl font-black font-mono text-[#D9480F] mt-0.5 truncate" title={totalEngagementActive.toLocaleString('id-ID')}>
+                        {totalEngagementActive.toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-stone-500 mt-2 flex items-center justify-between">
+                    <span className="truncate">Likes, komentar, share & simpan</span>
+                    {selectedOutlet && (
+                      <span className="text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-1.5 py-0.5 rounded-md border border-[#D9480F]/20 shrink-0 ml-1">
+                        @{selectedOutlet.name}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="mt-2">
-                <div className="font-bold text-sm text-white truncate">
-                  {topPerformer ? topPerformer.kol.name : 'Belum Ada'}
+
+              {/* Top Performer Card */}
+              <div className="bg-gradient-to-br from-[#1C1917] to-[#292524] p-5 rounded-2xl text-white shadow-xs flex flex-col justify-between border border-stone-800">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-stone-300 font-bold uppercase tracking-wider">
+                    Video Paling Viral
+                  </span>
+                  <div className="w-8 h-8 rounded-xl bg-white/10 text-amber-300 flex items-center justify-center">
+                    <Award className="w-4 h-4" />
+                  </div>
                 </div>
-                <div className="text-xs text-stone-300 mt-0.5">
-                  {topPerformer ? (
-                    `${topPerformer.effectiveViews.toLocaleString('id-ID')} views • @${topPerformer.outlet.name}`
-                  ) : (
-                    'Input metrik video untuk melihat ranking'
-                  )}
+                <div className="mt-2">
+                  <div className="font-bold text-sm text-white truncate">
+                    {topPerformer ? topPerformer.kol.name : 'Belum Ada'}
+                  </div>
+                  <div className="text-xs text-stone-300 mt-0.5 truncate">
+                    {topPerformer ? (
+                      `${topPerformer.effectiveViews.toLocaleString('id-ID')} views • @${topPerformer.outlet.name}`
+                    ) : selectedOutlet ? (
+                      `Belum ada video aktif di ${selectedOutlet.name}`
+                    ) : (
+                      'Input metrik video untuk melihat ranking'
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

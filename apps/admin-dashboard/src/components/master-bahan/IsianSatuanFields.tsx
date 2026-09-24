@@ -2,6 +2,7 @@
 import { turunkanFaktorSatuan } from '@/lib/satuanBahan'
 import type { TingkatSatuan } from '@/lib/masterBahan/satuanBeli'
 import type { DataBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
+import { bacaAngka } from '@/lib/masterBahan/angka'
 
 export type NilaiSatuan = {
   satuan: string
@@ -24,10 +25,7 @@ export function nilaiSatuanDari(b: TingkatSatuan): NilaiSatuan {
   }
 }
 
-const angkaAtauNull = (s: string): number | null => {
-  const n = Number(s.replace(',', '.'))
-  return s.trim() !== '' && Number.isFinite(n) ? n : null
-}
+const angkaAtauNull = (s: string): number | null => bacaAngka(s)
 
 type DataSatuan = Pick<DataBahan, 'satuan' | 'satuan_tengah' | 'faktor_tengah' | 'satuan_kecil' | 'isi_kecil_per_tengah'>
 

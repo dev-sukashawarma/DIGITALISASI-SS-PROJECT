@@ -5,6 +5,7 @@ import { useSuppliers } from '@/hooks/usePurchaseOrder'
 import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { pilihanSatuanBeli, hargaPerSatuanBesar, type TingkatSatuan } from '@/lib/masterBahan/satuanBeli'
+import { bacaAngka } from '@/lib/masterBahan/angka'
 import { rupiah } from '@/lib/format'
 
 const LAINNYA = '__lainnya__'
@@ -33,10 +34,11 @@ export function FormHargaVendor({
 
   const lainnya = labelPilihan === LAINNYA
   const satuanBeli = lainnya ? labelLain.trim() : labelPilihan
-  const isi = lainnya ? Number(isiLain.replace(',', '.')) : pilihan.find((p) => p.label === labelPilihan)?.isi ?? 0
-  const nilaiHarga = Number(harga.replace(/[^\d.,]/g, '').replace(',', '.'))
+  const isi = lainnya ? bacaAngka(isiLain) ?? 0 : pilihan.find((p) => p.label === labelPilihan)?.isi ?? 0
+  const nilaiHarga = bacaAngka(harga) ?? 0
+  const hargaTakDikenali = harga.trim() !== '' && bacaAngka(harga) === null
   const perBesar = hargaPerSatuanBesar(nilaiHarga, isi, bahan.faktor_tampilan)
-  const lengkap = supplierId !== '' && satuanBeli !== '' && isi > 0 && nilaiHarga > 0 && alasan.trim() !== ''
+  const lengkap = supplierId !== '' && satuanBeli !== '' && isi > 0 && nilaiHarga > 0 && alasan.trim() !== '' && !hargaTakDikenali
 
   async function simpan() {
     setGalat(null)
@@ -74,6 +76,7 @@ export function FormHargaVendor({
           </label>
           <label className="text-xs font-semibold text-gray-600">Harga per {satuanBeli || 'satuan'}
             <input value={harga} onChange={(e) => setHarga(e.target.value)} className={kelas} inputMode="decimal" placeholder="0" />
+            {hargaTakDikenali && <span className="mt-1 block text-xs text-red-600">Format angka tidak dikenali</span>}
           </label>
           {lainnya && (
             <>

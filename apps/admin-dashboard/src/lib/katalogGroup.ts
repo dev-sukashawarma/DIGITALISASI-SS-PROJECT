@@ -10,6 +10,8 @@ export type BarisKatalogVendor = BarisKatalog & {
   id: string
   bahan_baku_id: string
   bahan: string
+  /** bahan_baku.kategori mentah; dikelompokkan ke 5 kategori besar di layar. */
+  kategori: string | null
   satuan: string | null
   satuan_po: string | null
   /** Satuan kecil sesungguhnya (mis. "roll", bukan "Dus"/"Roll" PO). */
@@ -32,6 +34,7 @@ export type VendorSetara = BarisKatalogVendor & Pick<BarisSetara, 'hargaPerSatua
 export type KelompokBahan = {
   bahan_baku_id: string
   bahan: string
+  kategori: string | null
   satuan: string | null
   satuan_po: string | null
   satuan_kecil: string | null
@@ -80,6 +83,7 @@ export function kelompokkanKatalog(rows: BarisKatalogVendor[]): KelompokBahan[] 
     kelompok.push({
       bahan_baku_id: pertama.bahan_baku_id,
       bahan: pertama.bahan,
+      kategori: pertama.kategori,
       satuan: pertama.satuan,
       satuan_po: pertama.satuan_po,
       satuan_kecil: pertama.satuan_kecil,

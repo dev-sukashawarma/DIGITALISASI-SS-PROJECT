@@ -12,6 +12,7 @@ const baris = (o: Partial<BarisKatalogVendor>): BarisKatalogVendor => ({
   bahan_baku_id: 'b1',
   bahan: 'FOIL',
   satuan: 'Dus',
+  kategori: 'PACKAGING',
   satuan_po: 'roll',
   satuan_kecil: 'cm',
   faktor_po: 760,
@@ -32,6 +33,14 @@ const baris = (o: Partial<BarisKatalogVendor>): BarisKatalogVendor => ({
 describe('kelompokkanKatalog', () => {
   it('daftar kosong -> kelompok kosong', () => {
     expect(kelompokkanKatalog([])).toEqual([])
+  })
+
+  it('membawa kategori bahan ke kelompoknya (untuk pengelompokan 5 kategori besar)', () => {
+    const hasil = kelompokkanKatalog([
+      baris({ id: 'r1', bahan_baku_id: 'b2', bahan: 'SAPI', kategori: 'FOOD & BEVERAGE' }),
+      baris({ id: 'r2', bahan_baku_id: 'b1', bahan: 'FOIL', kategori: 'PACKAGING' }),
+    ])
+    expect(hasil.map((k) => [k.bahan, k.kategori])).toEqual([['FOIL', 'PACKAGING'], ['SAPI', 'FOOD & BEVERAGE']])
   })
 
   it('mengelompokkan per bahan dan mengurutkan menurut nama bahan', () => {

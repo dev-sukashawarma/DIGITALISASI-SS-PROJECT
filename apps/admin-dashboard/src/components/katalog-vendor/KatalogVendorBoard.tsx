@@ -7,8 +7,8 @@ import { useKatalogVendor } from '@/hooks/useKatalogVendor'
 import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { DialogAlasan } from '@/components/master-bahan/DialogAlasan'
-import { FilterCepat, InfoJumlah, KepalaTabel, KolomCari, LebarKolom, Tabel, Th } from '@/components/master-bahan/Tabel'
-import { kapital } from '@/lib/masterBahan/tampilan'
+import { FilterCepat, InfoJumlah, KepalaTabel, KolomCari, LebarKolom, Pilih, Tabel, Th } from '@/components/master-bahan/Tabel'
+import { KELOMPOK_KATEGORI, kapital, kelompokKategori, type KunciKelompok } from '@/lib/masterBahan/tampilan'
 import { BarisVendor } from './BarisVendor'
 
 /** Lebar kolom sama di setiap kelompok bahan, supaya kolom sejajar dari atas sampai bawah. */
@@ -23,7 +23,9 @@ export function KatalogVendorBoard() {
   const kelompok = useMemo(() => kelompokkanKatalog(rows), [rows])
   const ringkas = useMemo(() => ringkasKatalog(kelompok), [kelompok])
 
-  const tampil = useMemo(() => {
+  const [kategoriPilih, setKategoriPilih] = useState<KunciKelompok | ''>('')
+
+  const menurutSaringan = useMemo(() => {
     const kata = cari.trim().toLowerCase()
     return kelompok.filter((k) => {
       if (hanyaPerluDiisi && k.jumlahBerharga === k.jumlahVendor) return false
@@ -32,6 +34,25 @@ export function KatalogVendorBoard() {
       return k.vendors.some((v) => v.supplier_nama.toLowerCase().includes(kata))
     })
   }, [kelompok, hanyaPerluDiisi, cari])
+  const tampil = useMemo(
+    () => kategoriPilih ? menurutSaringan.filter((k) => kelompokKategori(k.kategori) === kategoriPilih) : menurutSaringan,
+    [menurutSaringan, kategoriPilih],
+  )
+  // Lima kategori besar, urutan tetap (sama dengan tab Data Bahan); kelompok kosong disembunyikan.
+  const grup = useMemo(
+    () => KELOMPOK_KATEGORI
+      .map((g) => ({ ...g, bahan: tampil.filter((k) => kelompokKategori(k.kategori) === g.kunci) }))
+      .filter((g) => g.bahan.length > 0),
+    [tampil],
+  )
+  const jumlahPerKategori = useMemo(() => {
+    const m = new Map<KunciKelompok, number>()
+    for (const k of menurutSaringan) {
+      const g = kelompokKategori(k.kategori)
+      m.set(g, (m.get(g) ?? 0) + 1)
+    }
+    return m
+  }, [menurutSaringan])
 
   type InputSimpan = { id: string; harga: number; satuan_beli: string; isi_satuan_kecil: number }
   const [tertunda, setTertunda] = useState<{ input: InputSimpan; selesai: (ok: boolean) => void } | null>(null)
@@ -88,6 +109,12 @@ export function KatalogVendorBoard() {
           ]}
         />
         <KolomCari nilai={cari} onUbah={setCari} placeholder="Cari bahan atau vendor…" />
+        <Pilih nilai={kategoriPilih} onUbah={(v) => setKategoriPilih(v as KunciKelompok | '')} label="Saring kategori">
+          <option value="">Semua kategori</option>
+          {KELOMPOK_KATEGORI.map((g) => (
+            <option key={g.kunci} value={g.kunci}>{g.label} ({jumlahPerKategori.get(g.kunci) ?? 0})</option>
+          ))}
+        </Pilih>
         <div className="ml-auto"><InfoJumlah tampil={tampil.length} total={kelompok.length} satuan="bahan" /></div>
       </div>
 
@@ -96,64 +123,72 @@ export function KatalogVendorBoard() {
           Tidak ada bahan atau vendor yang cocok.
         </p>
       ) : (
-        tampil.map((k) => {
-          const satuanKecil = k.satuan_kecil ?? 'satuan kecil'
-          return (
-            <section key={k.bahan_baku_id} className="space-y-1.5">
-              <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-0.5">
-                <h2 className="text-[14px] font-bold text-suka-brown">{k.bahan}</h2>
-                <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-500">
-                  <div className="flex gap-1"><dt>Satuan</dt><dd className="font-semibold text-stone-700">{k.satuan ?? '—'}</dd></div>
-                  <div className="flex gap-1">
-                    <dt>PO</dt>
-                    <dd className="font-semibold text-stone-700">
-                      {k.satuan_po ? kapital(k.satuan_po) : '—'}
-                      {k.faktor_po ? ` = ${k.faktor_po.toLocaleString('id-ID')} ${satuanKecil}` : ''}
-                    </dd>
-                  </div>
-                  <div className="flex gap-1">
-                    <dt>Master</dt>
-                    <dd className="font-semibold tabular-nums text-stone-700">
-                      {k.hargaMasterPerKecil === null
-                        ? <span className="font-normal text-stone-500">belum diisi</span>
-                        : `${k.hargaMasterPerKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}/${satuanKecil}`}
-                    </dd>
-                  </div>
-                  <div className="text-stone-500">
-                    {k.bisaDibandingkan
-                      ? `${k.jumlahBerharga} harga bisa dibandingkan`
-                      : `${k.jumlahBerharga} dari ${k.jumlahVendor} vendor berharga`}
-                  </div>
-                </dl>
-              </header>
-              <Tabel lebarMin={860} bergulir={false}>
-                <LebarKolom lebar={LEBAR_KOLOM_VENDOR} />
-                <KepalaTabel>
-                  <Th>Vendor</Th>
-                  <Th>Satuan beli</Th>
-                  <Th rata="kanan">Isi</Th>
-                  <Th rata="kanan">Harga</Th>
-                  <Th rata="kanan">Per {satuanKecil}</Th>
-                  <Th rata="kanan">Terakhir</Th>
-                  <Th>Status</Th>
-                  <Th><span className="sr-only">Sunting</span></Th>
-                </KepalaTabel>
-                <tbody>
-                  {k.vendors.map((v) => (
-                    <BarisVendor
-                      key={v.id}
-                      v={v}
-                      satuanKecil={satuanKecil}
-                      hargaMasterPerKecil={k.hargaMasterPerKecil}
-                      menyimpan={simpanHargaVendor.isPending}
-                      onSimpan={simpan}
-                    />
-                  ))}
-                </tbody>
-              </Tabel>
-            </section>
-          )
-        })
+        grup.map((g) => (
+          <div key={g.kunci} className="space-y-3">
+            <h2 className="flex items-baseline gap-2 rounded-lg border border-orange-100 bg-orange-50/60 px-3 py-1.5">
+              <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-suka-brown">{g.label}</span>
+              <span className="font-mono text-[11px] tabular-nums text-stone-600">{g.bahan.length} bahan</span>
+            </h2>
+            {g.bahan.map((k) => {
+              const satuanKecil = k.satuan_kecil ?? 'satuan kecil'
+              return (
+                <section key={k.bahan_baku_id} className="space-y-1.5">
+                  <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-0.5">
+                    <h3 className="text-[14px] font-bold text-suka-brown">{k.bahan}</h3>
+                    <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-500">
+                      <div className="flex gap-1"><dt>Satuan</dt><dd className="font-semibold text-stone-700">{k.satuan ?? '—'}</dd></div>
+                      <div className="flex gap-1">
+                        <dt>PO</dt>
+                        <dd className="font-semibold text-stone-700">
+                          {k.satuan_po ? kapital(k.satuan_po) : '—'}
+                          {k.faktor_po ? ` = ${k.faktor_po.toLocaleString('id-ID')} ${satuanKecil}` : ''}
+                        </dd>
+                      </div>
+                      <div className="flex gap-1">
+                        <dt>Master</dt>
+                        <dd className="font-semibold tabular-nums text-stone-700">
+                          {k.hargaMasterPerKecil === null
+                            ? <span className="font-normal text-stone-500">belum diisi</span>
+                            : `${k.hargaMasterPerKecil.toLocaleString('id-ID', { maximumFractionDigits: 4 })}/${satuanKecil}`}
+                        </dd>
+                      </div>
+                      <div className="text-stone-500">
+                        {k.bisaDibandingkan
+                          ? `${k.jumlahBerharga} harga bisa dibandingkan`
+                          : `${k.jumlahBerharga} dari ${k.jumlahVendor} vendor berharga`}
+                      </div>
+                    </dl>
+                  </header>
+                  <Tabel lebarMin={860} bergulir={false}>
+                    <LebarKolom lebar={LEBAR_KOLOM_VENDOR} />
+                    <KepalaTabel>
+                      <Th>Vendor</Th>
+                      <Th>Satuan beli</Th>
+                      <Th rata="kanan">Isi</Th>
+                      <Th rata="kanan">Harga</Th>
+                      <Th rata="kanan">Per {satuanKecil}</Th>
+                      <Th rata="kanan">Terakhir</Th>
+                      <Th>Status</Th>
+                      <Th><span className="sr-only">Sunting</span></Th>
+                    </KepalaTabel>
+                    <tbody>
+                      {k.vendors.map((v) => (
+                        <BarisVendor
+                          key={v.id}
+                          v={v}
+                          satuanKecil={satuanKecil}
+                          hargaMasterPerKecil={k.hargaMasterPerKecil}
+                          menyimpan={simpanHargaVendor.isPending}
+                          onSimpan={simpan}
+                        />
+                      ))}
+                    </tbody>
+                  </Tabel>
+                </section>
+              )
+            })}
+          </div>
+        ))
       )}
       {tertunda && (
         <DialogAlasan judul="Simpan harga vendor" wajib galat={galatDialog} memproses={simpanHargaVendor.isPending}

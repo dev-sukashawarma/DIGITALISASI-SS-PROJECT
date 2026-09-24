@@ -21,6 +21,7 @@ type BarisMentah = {
   harga_updated_at: string | null
   bahan_baku: {
     nama: string
+    kategori: string | null
     satuan: string | null
     satuan_po: string | null
     satuan_kecil: string | null
@@ -52,6 +53,7 @@ function ratakan(r: BarisMentah): BarisKatalogVendor {
     id: r.id,
     bahan_baku_id: r.bahan_baku_id,
     bahan: r.bahan_baku?.nama ?? '(bahan terhapus)',
+    kategori: r.bahan_baku?.kategori ?? null,
     satuan: r.bahan_baku?.satuan ?? null,
     satuan_po: r.bahan_baku?.satuan_po ?? null,
     satuan_kecil: r.bahan_baku?.satuan_kecil ?? null,
@@ -79,7 +81,7 @@ export function useKatalogVendor() {
       const { data, error } = await supabase
         .from('bahan_baku_supplier')
         .select(
-          'id, bahan_baku_id, supplier_id, satuan_beli, isi_satuan_kecil, harga, is_active, perlu_ditinjau, sumber, harga_updated_at, bahan_baku!inner(nama, satuan, satuan_po, satuan_kecil, faktor_po, is_active, bahan_baku_harga(harga_beli, kemasan_qty)), supplier!inner(nama, termin_hari, is_active)',
+          'id, bahan_baku_id, supplier_id, satuan_beli, isi_satuan_kecil, harga, is_active, perlu_ditinjau, sumber, harga_updated_at, bahan_baku!inner(nama, kategori, satuan, satuan_po, satuan_kecil, faktor_po, is_active, bahan_baku_harga(harga_beli, kemasan_qty)), supplier!inner(nama, termin_hari, is_active)',
         )
         // Hanya pasangan yang masih berlaku: baris katalog aktif, vendor aktif, bahan aktif.
         // Baris yang dinonaktifkan (mis. uncheck di Master Supplier) tak boleh tampil

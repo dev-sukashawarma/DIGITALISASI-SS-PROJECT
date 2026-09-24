@@ -55,8 +55,8 @@ android {
         applicationId = "com.sukashawarma.customer"
         minSdk = 24
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "GATEWAY_BASE_URL", "\"$gatewayBaseUrl\"")
@@ -76,6 +76,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // java.time (StatusOutletLabel.kt) butuh desugaring di minSdk 24.
+        isCoreLibraryDesugaringEnabled = true
     }
     @Suppress("DEPRECATION")
     kotlinOptions {
@@ -93,6 +95,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)

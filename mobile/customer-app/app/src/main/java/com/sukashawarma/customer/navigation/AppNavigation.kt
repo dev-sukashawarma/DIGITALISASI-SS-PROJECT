@@ -18,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -26,8 +27,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -38,6 +41,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sukashawarma.customer.AppContainer
+import com.sukashawarma.customer.BuildConfig
+import com.sukashawarma.customer.data.api.ConfigDto
+import com.sukashawarma.customer.data.api.GatewayResult
+import com.sukashawarma.customer.ui.config.LayarPerbaruiAplikasi
+import com.sukashawarma.customer.ui.config.LocalConfigApp
+import com.sukashawarma.customer.ui.config.perluUpdate
 import com.sukashawarma.customer.ui.cart.CartScreen
 import com.sukashawarma.customer.ui.cart.CartViewModel
 import com.sukashawarma.customer.ui.checkout.CheckoutScreen
@@ -50,6 +59,8 @@ import com.sukashawarma.customer.ui.components.inisialNama
 import com.sukashawarma.customer.ui.home.HomeScreen
 import com.sukashawarma.customer.ui.home.OutletPickerScreen
 import com.sukashawarma.customer.ui.home.OutletPickerViewModel
+import com.sukashawarma.customer.ui.home.bolehPesan
+import com.sukashawarma.customer.ui.home.labelStatusOutlet
 import com.sukashawarma.customer.ui.menu.CatalogScreen
 import com.sukashawarma.customer.ui.menu.CatalogViewModel
 import com.sukashawarma.customer.ui.menu.MenuScreen
@@ -94,9 +105,26 @@ fun CustomerAppRoot(container: AppContainer) {
         factory = pabrik { CartViewModel(container.cartStore) }
     )
 
+    var config by remember { mutableStateOf<ConfigDto?>(null) }
+    LaunchedEffect(Unit) {
+        (container.repository.config() as? GatewayResult.Sukses)?.let { config = it.data }
+    }
+    if (perluUpdate(BuildConfig.VERSION_CODE, config)) {
+        LayarPerbaruiAplikasi()
+        return
+    }
+
     val catalogState by catalogViewModel.state.collectAsStateWithLifecycle()
     val cartState by cartViewModel.state.collectAsStateWithLifecycle()
     val unreadNotifCount by container.notificationStore.unreadCount.collectAsStateWithLifecycle()
+
+    // Status outlet (`bisa_pesan`, jam/tutup sementara) bergantung waktu --
+    // pelanggan yang membiarkan app di latar belakang lewat jam buka/tutup
+    // harus melihatnya berubah begitu app kembali ke depan, bukan snapshot
+    // basi dari saat app terakhir dimuat.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        catalogViewModel.segarkanStatusOutlet()
+    }
 
     LaunchedEffect(Unit) {
         if (container.sessionStore.adaSesiBerlaku()) {
@@ -138,6 +166,7 @@ fun CustomerAppRoot(container: AppContainer) {
         } else null
     }
 
+    CompositionLocalProvider(LocalConfigApp provides (config ?: ConfigDto())) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
@@ -430,6 +459,11 @@ fun CustomerAppRoot(container: AppContainer) {
                     return@composable
                 }
 
+                // Layar ini menahan pelanggan cukup lama untuk membaca deskripsi
+                // dan memilih topping -- status outlet yang basi sejak katalog
+                // pertama dimuat bisa membuat tombol pesan terkunci/terbuka salah.
+                LaunchedEffect(Unit) { catalogViewModel.segarkanStatusOutlet() }
+
                 val detailViewModel: ItemDetailViewModel = viewModel(
                     factory = pabrik { ItemDetailViewModel() }
                 )
@@ -445,6 +479,8 @@ fun CustomerAppRoot(container: AppContainer) {
                     cartLines = cartState.baris,
                     cartSubtotal = cartState.subtotal,
                     cartTotalPorsi = cartState.porsi,
+                    outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
+                    labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null },
                     onLihatKeranjang = { navController.navigate(Rute.KERANJANG) },
                     onKembali = { navController.popBackStack() },
                     onTambahKeKeranjang = { jumlah, catatan, selectedToppings ->
@@ -472,6 +508,7 @@ fun CustomerAppRoot(container: AppContainer) {
             }
 
             composable(Rute.KERANJANG) {
+                LaunchedEffect(Unit) { catalogViewModel.segarkanStatusOutlet() }
                 CartScreen(
                     viewModel = cartViewModel,
                     onKembali = { navController.popBackStack() },
@@ -485,7 +522,9 @@ fun CustomerAppRoot(container: AppContainer) {
                             navController.navigate(Rute.masuk("checkout"))
                         }
                     },
-                    namaOutlet = namaOutletKeranjang()
+                    namaOutlet = namaOutletKeranjang(),
+                    outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
+                    labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null }
                 )
             }
 
@@ -494,6 +533,7 @@ fun CustomerAppRoot(container: AppContainer) {
                 // setiap kali layar ini dibuka. Harga dan ketersediaan bisa
                 // berubah di antara dua kunjungan, dan validasi basi di titik
                 // pembayaran justru hal yang paling berbahaya.
+                LaunchedEffect(Unit) { catalogViewModel.segarkanStatusOutlet() }
                 val checkoutViewModel: CheckoutViewModel = viewModel(
                     factory = pabrik { CheckoutViewModel(container.repository, container.cartStore) }
                 )
@@ -506,7 +546,9 @@ fun CustomerAppRoot(container: AppContainer) {
                         navController.popBackStack()
                     },
                     onBayar = { navController.navigate(Rute.BAYAR) },
-                    namaOutlet = namaOutletKeranjang()
+                    namaOutlet = namaOutletKeranjang(),
+                    outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
+                    labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null }
                 )
             }
 
@@ -713,6 +755,7 @@ fun CustomerAppRoot(container: AppContainer) {
             )
         }
     }
+}
 }
 }
 

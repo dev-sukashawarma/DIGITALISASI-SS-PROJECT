@@ -481,7 +481,7 @@ private fun BarisOutletCard(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (outlet.isActive) Color(0xFFE8F8F0) else Color(0xFFF3F4F6)
+                            color = if (outlet.bolehPesan()) Color(0xFFE8F8F0) else Color(0xFFF3F4F6)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -492,13 +492,13 @@ private fun BarisOutletCard(
                                     modifier = Modifier
                                         .size(6.dp)
                                         .clip(CircleShape)
-                                        .background(if (outlet.isActive) SukaGreen else SukaMuted)
+                                        .background(if (outlet.bolehPesan()) SukaGreen else SukaMuted)
                                 )
                                 Text(
-                                    text = if (outlet.isActive) "Buka" else "Belum Buka",
+                                    text = labelStatusOutlet(outlet),
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = if (outlet.isActive) SukaGreen else SukaMuted,
+                                        color = if (outlet.bolehPesan()) SukaGreen else SukaMuted,
                                         fontSize = 10.sp
                                     )
                                 )

@@ -83,6 +83,12 @@ fun ItemDetailScreen(
     onLihatKeranjang: () -> Unit = {},
     onKembali: () -> Unit,
     onTambahKeKeranjang: (jumlah: Int, catatan: String?, selectedToppings: List<MenuItemDto>) -> Unit,
+    // Outlet tak bisa menerima pesanan sekarang (jam tutup / tutup sementara).
+    // Default true supaya pemanggil lama (belum sempat diisi) tetap seperti
+    // dulu. `labelOutletTutup` = `labelStatusOutlet(outlet)`, ditampilkan di
+    // bawah tombol saat `outletBolehPesan == false`.
+    outletBolehPesan: Boolean = true,
+    labelOutletTutup: String? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -190,6 +196,19 @@ fun ItemDetailScreen(
                         HorizontalDivider(color = SukaBorder.copy(alpha = 0.5f), thickness = 0.8.dp)
                     }
 
+                    // Outlet tak bisa menerima pesanan sekarang -- menu tetap bisa
+                    // dilihat (layar ini masih terbuka), hanya tombol tambah yang
+                    // dikunci, dengan alasannya ditampilkan persis di atas tombol.
+                    if (!outletBolehPesan) {
+                        Text(
+                            text = labelOutletTutup ?: "Outlet sedang tidak menerima pesanan.",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                color = SukaMuted,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        )
+                    }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -229,11 +248,11 @@ fun ItemDetailScreen(
                         val ctaInteraction = remember { MutableInteractionSource() }
                         Button(
                             onClick = {
-                                if (item.isAvailable) {
+                                if (item.isAvailable && outletBolehPesan) {
                                     onTambahKeKeranjang(state.jumlah, state.catatan.ifBlank { null }, selectedToppingsList)
                                 }
                             },
-                            enabled = item.isAvailable,
+                            enabled = item.isAvailable && outletBolehPesan,
                             interactionSource = ctaInteraction,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = SukaOrange,
@@ -246,7 +265,11 @@ fun ItemDetailScreen(
                             modifier = Modifier.bounceClick(scaleDown = 0.94f, interactionSource = ctaInteraction)
                         ) {
                             Text(
-                                text = if (item.isAvailable) "+ Keranjang" else "Habis",
+                                text = when {
+                                    !item.isAvailable -> "Habis"
+                                    !outletBolehPesan -> "Tutup"
+                                    else -> "+ Keranjang"
+                                },
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 14.sp
                             )

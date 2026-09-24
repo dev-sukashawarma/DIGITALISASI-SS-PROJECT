@@ -69,6 +69,10 @@ fun CartScreen(
     onKembali: () -> Unit,
     onLanjutBayar: () -> Unit,
     namaOutlet: String? = null,
+    // Outlet tak bisa menerima pesanan sekarang. Default true = perilaku lama
+    // untuk pemanggil yang belum diisi. `labelOutletTutup` = `labelStatusOutlet(outlet)`.
+    outletBolehPesan: Boolean = true,
+    labelOutletTutup: String? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -96,6 +100,18 @@ fun CartScreen(
                         modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Outlet tak bisa menerima pesanan sekarang -- keranjang tetap
+                        // bisa dilihat, hanya "Lanjut Pembayaran" yang dikunci.
+                        if (!outletBolehPesan) {
+                            Text(
+                                text = labelOutletTutup ?: "Outlet sedang tidak menerima pesanan.",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = SukaMuted,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            )
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -122,10 +138,13 @@ fun CartScreen(
                             val bayarInteraction = remember { MutableInteractionSource() }
                             Button(
                                 onClick = onLanjutBayar,
+                                enabled = outletBolehPesan,
                                 interactionSource = bayarInteraction,
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = SukaOrange,
-                                    contentColor = SukaInk
+                                    contentColor = SukaInk,
+                                    disabledContainerColor = Color.LightGray,
+                                    disabledContentColor = Color.DarkGray
                                 ),
                                 shape = RoundedCornerShape(18.dp),
                                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),

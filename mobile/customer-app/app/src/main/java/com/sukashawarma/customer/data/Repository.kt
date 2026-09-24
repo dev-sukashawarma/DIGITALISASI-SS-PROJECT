@@ -5,6 +5,7 @@ import com.sukashawarma.customer.data.api.BannersResponse
 import com.sukashawarma.customer.data.api.CartItemPayload
 import com.sukashawarma.customer.data.api.CheckoutValidateRequest
 import com.sukashawarma.customer.data.api.CheckoutValidateResponse
+import com.sukashawarma.customer.data.api.ConfigDto
 import com.sukashawarma.customer.data.api.CreateOrderRequest
 import com.sukashawarma.customer.data.api.CreateOrderResponse
 import com.sukashawarma.customer.data.api.GatewayClient
@@ -43,6 +44,8 @@ class Repository(private val gateway: GatewayClient) {
     suspend fun banners(): GatewayResult<BannersResponse> = gateway.banners()
 
     suspend fun splash(): GatewayResult<SplashDto> = gateway.splash()
+
+    suspend fun config(): GatewayResult<ConfigDto> = gateway.config()
 
     suspend fun unduhGambarSplash(url: String): ByteArray? = gateway.unduhGambarSplash(url)
 

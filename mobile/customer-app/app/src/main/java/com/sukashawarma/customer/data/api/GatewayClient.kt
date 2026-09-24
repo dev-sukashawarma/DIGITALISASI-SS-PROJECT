@@ -133,6 +133,15 @@ class GatewayClient(
         }
     }
 
+    suspend fun config(): GatewayResult<ConfigDto> {
+        return try {
+            val response = client.get("$baseUrl/api/v1/config")
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
     /**
      * Mengunduh gambar splash. Mengembalikan null untuk apa pun yang bukan
      * gambar sungguhan: status gagal, tipe bukan `image/`, berkas kosong, atau

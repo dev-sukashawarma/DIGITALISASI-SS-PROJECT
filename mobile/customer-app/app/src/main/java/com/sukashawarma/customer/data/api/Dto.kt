@@ -35,7 +35,11 @@ data class OutletDto(
     val address: String? = null,
     val lat: Double? = null,
     val lng: Double? = null,
-    @SerialName("is_active") val isActive: Boolean
+    @SerialName("is_active") val isActive: Boolean,
+    // Field tahap 1 (2026-09-24). Opsional: gateway lama tak mengirimnya.
+    @SerialName("bisa_pesan") val bisaPesan: Boolean? = null,
+    @SerialName("pesan_status") val pesanStatus: String? = null,
+    @SerialName("pesan_terakhir") val pesanTerakhir: String? = null,
 )
 
 @Serializable
@@ -85,6 +89,15 @@ data class BannerDto(
 data class SplashDto(
     @SerialName("gambar_url") val gambarUrl: String? = null,
     @SerialName("durasi_ms") val durasiMs: Int = 3000
+)
+
+@Serializable
+data class ConfigDto(
+    @SerialName("estimasi_siap") val estimasiSiap: String = "15–20 menit",
+    @SerialName("wa_cs") val waCs: String? = null,
+    @SerialName("versi_minimum_android") val versiMinimumAndroid: Int = 1,
+    @SerialName("url_syarat") val urlSyarat: String? = null,
+    @SerialName("url_privasi") val urlPrivasi: String? = null,
 )
 
 @Serializable

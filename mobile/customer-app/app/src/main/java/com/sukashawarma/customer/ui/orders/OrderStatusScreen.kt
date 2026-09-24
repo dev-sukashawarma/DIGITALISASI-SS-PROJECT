@@ -1,5 +1,8 @@
 package com.sukashawarma.customer.ui.orders
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -30,6 +33,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storefront
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -43,6 +49,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,6 +58,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sukashawarma.customer.ui.components.ErrorState
 import com.sukashawarma.customer.ui.components.MemuatState
 import com.sukashawarma.customer.ui.components.bounceClick
+import com.sukashawarma.customer.ui.config.LocalConfigApp
+import com.sukashawarma.customer.ui.config.tautanWa
 import com.sukashawarma.customer.ui.format.rupiah
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
@@ -69,6 +78,8 @@ fun OrderStatusScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    val konteks = LocalContext.current
+    val config = LocalConfigApp.current
 
     // Animasi denyut live badge
     val infiniteTransition = rememberInfiniteTransition(label = "pulseLive")
@@ -312,7 +323,7 @@ fun OrderStatusScreen(
                                                     )
                                                     Text(
                                                         text = when (tampil.tahap) {
-                                                            TahapPesanan.DITERIMA -> "Estimasi Siap: ~15-20 mnt"
+                                                            TahapPesanan.DITERIMA -> "Estimasi Siap: ~${LocalConfigApp.current.estimasiSiap}"
                                                             TahapPesanan.DIBUAT -> "Estimasi Siap: ~5-10 mnt"
                                                             TahapPesanan.SIAP -> if (tampil.selesai) "Selesai" else "Siap Diambil Sekarang!"
                                                             null -> "Menunggu"
@@ -522,6 +533,36 @@ fun OrderStatusScreen(
                                     fontSize = 20.sp
                                 )
                             )
+                        }
+                    }
+
+                    // 5. Hubungi CS bila pesanan dibatalkan
+                    if (tampil.dibatalkan) {
+                        val teksCs = "Pesanan #${pesanan.posOrderNumber ?: "-"} dibatalkan, saya ingin menanyakan pengembalian dana."
+                        val tautan = tautanWa(config.waCs, teksCs)
+                        if (tautan != null) {
+                            Button(
+                                onClick = {
+                                    try {
+                                        konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tautan)))
+                                    } catch (e: ActivityNotFoundException) {
+                                        // Tidak ada aplikasi WhatsApp terpasang; diamkan, jangan crash.
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = SukaGreen)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.SupportAgent,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Hubungi CS",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
+                                )
+                            }
                         }
                     }
                 }

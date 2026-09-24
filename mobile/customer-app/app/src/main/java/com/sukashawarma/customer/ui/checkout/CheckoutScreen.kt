@@ -72,6 +72,10 @@ fun CheckoutScreen(
     onKembali: () -> Unit,
     onBayar: () -> Unit,
     namaOutlet: String? = null,
+    // Outlet tak bisa menerima pesanan sekarang. Default true = perilaku lama
+    // untuk pemanggil yang belum diisi. `labelOutletTutup` = `labelStatusOutlet(outlet)`.
+    outletBolehPesan: Boolean = true,
+    labelOutletTutup: String? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -95,53 +99,75 @@ fun CheckoutScreen(
                     border = BorderStroke(1.dp, SukaBorder.copy(alpha = 0.6f)),
                     shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 20.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column {
+                        // Outlet tak bisa menerima pesanan sekarang -- ringkasan
+                        // tetap bisa dilihat, hanya "Bayar Sekarang" yang dikunci.
+                        if (!outletBolehPesan) {
                             Text(
-                                text = "Total Tagihan",
-                                style = MaterialTheme.typography.labelSmall.copy(color = SukaMuted, fontSize = 11.sp)
-                            )
-                            Text(
-                                text = state.total?.let { rupiah(it) } ?: "-",
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    color = SukaBrown,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 19.sp
+                                text = labelOutletTutup ?: "Outlet sedang tidak menerima pesanan.",
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = SukaMuted,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
                             )
                         }
-
-                        val bayarInteraction = remember { MutableInteractionSource() }
-                        Button(
-                            onClick = onBayar,
-                            enabled = state.bolehLanjut,
-                            interactionSource = bayarInteraction,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = SukaOrange,
-                                contentColor = SukaInk,
-                                disabledContainerColor = Color.LightGray,
-                                disabledContentColor = Color.DarkGray
-                            ),
-                            shape = RoundedCornerShape(18.dp),
-                            contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp),
-                            modifier = Modifier.bounceClick(scaleDown = 0.94f, interactionSource = bayarInteraction)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Column {
                                 Text(
-                                    text = if (state.bolehLanjut) "Bayar Sekarang" else "Periksa Pesanan",
-                                    fontWeight = FontWeight.ExtraBold,
-                                    fontSize = 13.sp
+                                    text = "Total Tagihan",
+                                    style = MaterialTheme.typography.labelSmall.copy(color = SukaMuted, fontSize = 11.sp)
                                 )
+                                Text(
+                                    text = state.total?.let { rupiah(it) } ?: "-",
+                                    style = MaterialTheme.typography.titleLarge.copy(
+                                        color = SukaBrown,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 19.sp
+                                    )
+                                )
+                            }
+
+                            val bayarInteraction = remember { MutableInteractionSource() }
+                            val bolehBayar = state.bolehLanjut && outletBolehPesan
+                            Button(
+                                onClick = onBayar,
+                                enabled = bolehBayar,
+                                interactionSource = bayarInteraction,
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = SukaOrange,
+                                    contentColor = SukaInk,
+                                    disabledContainerColor = Color.LightGray,
+                                    disabledContentColor = Color.DarkGray
+                                ),
+                                shape = RoundedCornerShape(18.dp),
+                                contentPadding = PaddingValues(horizontal = 22.dp, vertical = 14.dp),
+                                modifier = Modifier.bounceClick(scaleDown = 0.94f, interactionSource = bayarInteraction)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Icon(Icons.Filled.Lock, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Text(
+                                        text = when {
+                                            !outletBolehPesan -> "Outlet Tutup"
+                                            state.bolehLanjut -> "Bayar Sekarang"
+                                            else -> "Periksa Pesanan"
+                                        },
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp
+                                    )
+                                }
                             }
                         }
                     }

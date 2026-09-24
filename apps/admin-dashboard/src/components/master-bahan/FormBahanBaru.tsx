@@ -6,13 +6,14 @@ import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc } from '@/lib/masterBahan/galatRpc'
 import { bacaIsian } from '@/lib/masterBahan/angka'
 import { pilihanSatuanBeli } from '@/lib/masterBahan/satuanBeli'
+import { KATEGORI_RESMI } from '@/lib/masterBahan/daftarPilihan'
 import { IsianSatuanFields, faktorTampilanDari, keDataSatuan, satuanInvalid, type NilaiSatuan } from './IsianSatuanFields'
 
 const BELI_TUNAI = 'Beli Tunai / Tanpa Vendor'
 
 export function FormBahanBaru({
-  kategoriAda, onBatal, onSelesai,
-}: { kategoriAda: string[]; onBatal: () => void; onSelesai: (id: string) => void }) {
+  onBatal, onSelesai,
+}: { onBatal: () => void; onSelesai: (id: string) => void }) {
   const { simpanBahan, simpanHargaVendor } = useMutasiMasterBahan()
   const { data: suppliers = [] } = useSuppliers()
   const aktif = useMemo(() => suppliers.filter((s) => s.is_active), [suppliers])
@@ -101,8 +102,10 @@ export function FormBahanBaru({
             <input value={nama} onChange={(e) => setNama(e.target.value)} className={kelas} />
           </label>
           <label className="text-xs font-semibold text-gray-600">Kategori
-            <input value={kategori} onChange={(e) => setKategori(e.target.value)} list="daftar-kategori" className={kelas} />
-            <datalist id="daftar-kategori">{kategoriAda.map((k) => <option key={k} value={k} />)}</datalist>
+            <select value={kategori} onChange={(e) => setKategori(e.target.value)} className={kelas}>
+              <option value="">— pilih kategori —</option>
+              {KATEGORI_RESMI.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
           </label>
           <label className="text-xs font-semibold text-gray-600">Peruntukan
             <select value={peruntukan} onChange={(e) => setPeruntukan(e.target.value as typeof peruntukan)} className={kelas}>

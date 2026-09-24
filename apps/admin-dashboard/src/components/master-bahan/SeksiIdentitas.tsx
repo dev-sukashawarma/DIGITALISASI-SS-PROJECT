@@ -5,6 +5,7 @@ import type { BahanBakuWithHarga } from '@/lib/bahanBaku'
 import { useMutasiMasterBahan, type DataBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { bacaIsian, tulisAngka } from '@/lib/masterBahan/angka'
+import { KATEGORI_RESMI, opsiPilihan } from '@/lib/masterBahan/daftarPilihan'
 import { DialogAlasan } from './DialogAlasan'
 
 export function SeksiIdentitas({
@@ -56,7 +57,9 @@ export function SeksiIdentitas({
           <input value={merek} onChange={(e) => setMerek(e.target.value)} disabled={!bolehData} className={kelas} />
         </label>
         <label className="text-xs font-semibold text-gray-600">Kategori
-          <input value={kategori} onChange={(e) => setKategori(e.target.value)} disabled={!bolehData} className={kelas} />
+          <select value={kategori} onChange={(e) => setKategori(e.target.value)} disabled={!bolehData} className={kelas}>
+            {opsiPilihan(KATEGORI_RESMI, kategori).map((o) => <option key={o.nilai} value={o.nilai}>{o.label}</option>)}
+          </select>
         </label>
         <label className="text-xs font-semibold text-gray-600">Peruntukan
           <select value={peruntukan} onChange={(e) => setPeruntukan(e.target.value as typeof peruntukan)} disabled={!bolehData} className={kelas}>

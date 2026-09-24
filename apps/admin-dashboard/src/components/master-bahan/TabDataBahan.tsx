@@ -87,7 +87,6 @@ export function TabDataBahan() {
     }
     return m
   }, [menurutSaringan])
-  const kategori = useMemo(() => Array.from(new Set(rows.map((r) => r.kategori))).sort(), [rows])
   const dipilih = rows.find((r) => r.id === dipilihId) ?? null
 
   if (isLoading) return <div className="flex justify-center py-12"><Spinner /></div>
@@ -213,7 +212,7 @@ export function TabDataBahan() {
       </Tabel>
 
       {tambahBuka && (
-        <FormBahanBaru kategoriAda={kategori} onBatal={() => setTambahBuka(false)}
+        <FormBahanBaru onBatal={() => setTambahBuka(false)}
           onSelesai={(id) => { setTambahBuka(false); setDipilihId(id) }} />
       )}
       {dipilih && (

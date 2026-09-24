@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ringkasSatuan, ringkasSatuanKirim, ringkasSatuanOpname, kapital, labelKategori } from './tampilan'
+import { ringkasSatuan, ringkasSatuanKirim, ringkasSatuanOpname, kapital, labelKategori, KELOMPOK_KATEGORI, kelompokKategori, kategoriResmi } from './tampilan'
 
 const dasar = { satuan: 'Kg', satuan_tengah: null, faktor_tengah: null, satuan_kecil: 'Gram', faktor_tampilan: 1000 }
 
@@ -67,5 +67,34 @@ describe('ringkasSatuanOpname', () => {
   })
   it('tidak diopname: null', () => {
     expect(ringkasSatuanOpname({ ...foil, is_opname: false })).toBeNull()
+  })
+})
+
+describe('kelompokKategori', () => {
+  it('lima kategori besar berurutan', () => {
+    expect(KELOMPOK_KATEGORI.map((k) => k.kunci)).toEqual(['FNB', 'BUMBU', 'PACKAGING', 'OPERASIONAL', 'ASET'])
+  })
+  it('kategori resmi masuk kelompoknya, tanpa peduli huruf/spasi', () => {
+    expect(kelompokKategori('FOOD & BEVERAGE')).toBe('FNB')
+    expect(kelompokKategori(' bumbu ')).toBe('BUMBU')
+    expect(kelompokKategori('PACKAGING')).toBe('PACKAGING')
+    expect(kelompokKategori('OPERASIONAL')).toBe('OPERASIONAL')
+    expect(kelompokKategori('ASET')).toBe('ASET')
+    expect(kelompokKategori('PERLENGKAPAN')).toBe('ASET')
+  })
+  it('label lama dipetakan sesuai restrukturisasi kategori', () => {
+    expect(kelompokKategori('minuman')).toBe('FNB')
+    expect(kelompokKategori('item core')).toBe('FNB')
+    expect(kelompokKategori('kemasan')).toBe('PACKAGING')
+    expect(kelompokKategori('lain-lain')).toBe('OPERASIONAL')
+  })
+  it('tak dikenal/kosong jatuh ke Operasional', () => {
+    expect(kelompokKategori('xyz')).toBe('OPERASIONAL')
+    expect(kelompokKategori(null)).toBe('OPERASIONAL')
+  })
+  it('kategoriResmi menandai label yang bukan nama resmi', () => {
+    expect(kategoriResmi('FOOD & BEVERAGE')).toBe(true)
+    expect(kategoriResmi('PERLENGKAPAN')).toBe(true)
+    expect(kategoriResmi('minuman')).toBe(false)
   })
 })

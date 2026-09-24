@@ -77,6 +77,18 @@ export function Td({
   )
 }
 
+/** Judul kelompok di dalam <tbody>: satu baris selebar tabel, di atas baris-baris kelompoknya. */
+export function BarisGrup({ kolom, label, jumlah }: { kolom: number; label: string; jumlah: number }) {
+  return (
+    <tr className="border-b border-stone-200 bg-orange-50/60">
+      <th colSpan={kolom} scope="colgroup" className="px-3 py-1.5 text-left">
+        <span className="text-[11px] font-extrabold uppercase tracking-[0.08em] text-suka-brown">{label}</span>
+        <span className="ml-2 font-mono text-[11px] tabular-nums text-stone-600">{jumlah}</span>
+      </th>
+    </tr>
+  )
+}
+
 export function BarisKosong({ kolom, pesan }: { kolom: number; pesan: string }) {
   return (
     <tr>

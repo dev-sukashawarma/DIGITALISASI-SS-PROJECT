@@ -649,7 +649,7 @@ export default function CalendarView({
                         name="rateCard"
                         type="number"
                         min="0"
-                        step="1000"
+                        step="any"
                         placeholder="Contoh: 500000"
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"
                       />
@@ -712,7 +712,7 @@ export default function CalendarView({
                         name="budget"
                         type="number"
                         min="0"
-                        step="1000"
+                        step="any"
                         placeholder="Contoh: 1500000"
                         required
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F]"

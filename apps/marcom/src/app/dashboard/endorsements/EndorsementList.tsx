@@ -3370,7 +3370,7 @@ export default function EndorsementList({
                             name="shippingCost"
                             type="number"
                             min="0"
-                            step="1000"
+                            step="any"
                             value={createShippingCost}
                             onChange={(e) => setCreateShippingCost(e.target.value)}
                             placeholder="Contoh: 25000"
@@ -3424,7 +3424,7 @@ export default function EndorsementList({
                         name="rateCard"
                         type="number"
                         min="0"
-                        step="1000"
+                        step="any"
                         value={createRateCard}
                         onChange={(e) => setCreateRateCard(e.target.value)}
                         placeholder="0 jika barter"
@@ -3728,7 +3728,7 @@ export default function EndorsementList({
                             name="shippingCost"
                             type="number"
                             min="0"
-                            step="1000"
+                            step="any"
                             value={editShippingCost}
                             onChange={(e) => setEditShippingCost(e.target.value)}
                             placeholder="Contoh: 25000"
@@ -3774,7 +3774,7 @@ export default function EndorsementList({
                         name="rateCard"
                         type="number"
                         min="0"
-                        step="1000"
+                        step="any"
                         defaultValue={editingEndorsement.rateCard}
                         required
                         className="w-full px-4 py-2.5 text-sm border border-[#EFE8DE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] font-mono"

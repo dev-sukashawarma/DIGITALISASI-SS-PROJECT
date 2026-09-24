@@ -638,7 +638,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                     name="spent"
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     placeholder="e.g. 277500"
                     required
                     className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none font-mono"
@@ -819,7 +819,7 @@ export default function AdsList({ initialAds, outlets, userRole }: AdsListProps)
                     name="spent"
                     type="number"
                     min="0"
-                    step="1000"
+                    step="any"
                     defaultValue={editingAd.spent}
                     required
                     className="w-full px-3 py-2 text-xs border border-[#EFE8DE] rounded-xl focus:outline-none font-mono"

@@ -65,6 +65,23 @@ export default function PembelianView({ initialData, defaultFrom, defaultTo }: {
         </Link>
       </PageHeader>
 
+      {/* Migration Notice Banner */}
+      <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5 text-amber-900 font-semibold">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+          <span>
+            <strong>Pemberitahuan:</strong> Operasional pembuatan dan manajemen PO resmi terpusat di aplikasi <strong>Finance (Purchasing &amp; PO)</strong> untuk alur approval, invoice, dan penerimaan.
+          </span>
+        </div>
+        <a
+          href={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3020/pembelian' : (process.env.NEXT_PUBLIC_APP_URL_FINANCE ? `${process.env.NEXT_PUBLIC_APP_URL_FINANCE}/pembelian` : 'https://finance.sukashawarma.com/pembelian')}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shrink-0 transition-all shadow-xs"
+        >
+          <span>Buka di Finance App</span>
+          <ChevronRight className="w-4 h-4" />
+        </a>
+      </div>
+
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatTile

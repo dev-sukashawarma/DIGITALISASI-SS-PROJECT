@@ -12,7 +12,7 @@ const ROLE_HOME: Record<string, string> = {
   SUPERADMIN: '/dashboard/reports/pos',
   KORLAP: '/dashboard/area-manager',
   LEADER: '/dashboard/leader',
-  PURCHASING: '/dashboard/pembelian',
+  PURCHASING: '/dashboard/pembelian/supplier',
 }
 
 export default async function DashboardHome() {

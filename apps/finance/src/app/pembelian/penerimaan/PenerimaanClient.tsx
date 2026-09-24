@@ -18,6 +18,7 @@ import {
   Filter
 } from 'lucide-react'
 import { usePurchaseOrders, usePODetail, type POSummary } from '@/hooks/usePurchaseOrder'
+import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah } from '@/lib/format'
 import { PageHeader, StatCard } from '@/components/ui'
 import { Spinner } from '@suka/design-system'
@@ -33,6 +34,7 @@ export function PenerimaanClient({
   defaultFrom: string
   defaultTo: string 
 }) {
+  const { canVerifyPOReceipt } = useFinanceRole()
   const [search, setSearch] = useState('')
   const [activeTab, setActiveTab] = useState<'all' | 'waiting' | 'partial' | 'completed'>('all')
   const [fromDate, setFromDate] = useState(defaultFrom)
@@ -89,6 +91,15 @@ export function PenerimaanClient({
         title="Penerimaan Barang (Goods Receipt)" 
         description="Pusat verifikasi kedatangan fisik barang dari supplier, pemeriksaan kuantitas & kondisi, serta penambahan stok Gudang Kitchen."
       />
+
+      {!canVerifyPOReceipt && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs font-medium text-amber-900 flex items-center gap-3">
+          <Package className="w-5 h-5 text-amber-600 shrink-0" />
+          <span>
+            <strong>Mode Pemantauan Purchasing:</strong> Penerimaan fisik barang di gudang pusat diverifikasi oleh tim <strong>Kitchen</strong> (melalui aplikasi Stok). Halaman ini menampilkan status dan progres pemenuhan barang dari supplier.
+          </span>
+        </div>
+      )}
 
       {/* Top Strategic Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -277,13 +288,19 @@ export function PenerimaanClient({
                 {/* Right: Actions */}
                 <div className="flex items-center gap-2 w-full lg:w-auto justify-end shrink-0 border-t lg:border-t-0 pt-3 lg:pt-0 border-suka-brown/5">
                   {isReadyToReceive && (
-                    <button
-                      onClick={() => setSelectedPoId(po.id)}
-                      className="flex-1 lg:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-suka-brown to-suka-ink text-white font-bold text-xs hover:opacity-95 active:scale-95 transition-all shadow-md shadow-suka-brown/20 cursor-pointer"
-                    >
-                      <PackageCheck className="w-4 h-4 text-suka-orange" />
-                      <span>Verifikasi &amp; Terima</span>
-                    </button>
+                    canVerifyPOReceipt ? (
+                      <button
+                        onClick={() => setSelectedPoId(po.id)}
+                        className="flex-1 lg:flex-initial flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-2xl bg-gradient-to-r from-suka-brown to-suka-ink text-white font-bold text-xs hover:opacity-95 active:scale-95 transition-all shadow-md shadow-suka-brown/20 cursor-pointer"
+                      >
+                        <PackageCheck className="w-4 h-4 text-suka-orange" />
+                        <span>Verifikasi &amp; Terima</span>
+                      </button>
+                    ) : (
+                      <span className="flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-200">
+                        <Clock className="w-3.5 h-3.5 text-amber-600" /> Menunggu Kitchen
+                      </span>
+                    )
                   )}
                   {isComplete && (
                     <span className="flex items-center gap-1 text-xs font-bold text-emerald-800 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200">

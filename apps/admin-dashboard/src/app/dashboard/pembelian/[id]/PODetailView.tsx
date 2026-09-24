@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer } from 'lucide-react'
+import { ArrowLeft, Camera, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer, ChevronRight, AlertCircle } from 'lucide-react'
 import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
@@ -134,6 +134,23 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           <Printer className="w-4 h-4 text-suka-orange" />
           <span>{po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Unduh Draft PDF PO' : 'Cetak / Unduh PDF PO'}</span>
         </button>
+      </div>
+
+      {/* Migration Notice Banner */}
+      <div className="bg-amber-50/90 border border-amber-200/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-2.5 text-amber-900 font-semibold">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+          <span>
+            <strong>Informasi:</strong> Dokumen PO ini dapat diproses lebih lanjut (approval anggaran, verifikasi penerimaan barang &amp; faktur) di aplikasi <strong>Finance</strong>.
+          </span>
+        </div>
+        <a
+          href={typeof window !== 'undefined' && window.location.hostname === 'localhost' ? `http://localhost:3020/pembelian/${po.id}` : (process.env.NEXT_PUBLIC_APP_URL_FINANCE ? `${process.env.NEXT_PUBLIC_APP_URL_FINANCE}/pembelian/${po.id}` : `https://finance.sukashawarma.com/pembelian/${po.id}`)}
+          className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl shrink-0 transition-all shadow-xs"
+        >
+          <span>Buka di Finance App</span>
+          <ChevronRight className="w-4 h-4" />
+        </a>
       </div>
 
       {/* Info Cards */}

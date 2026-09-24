@@ -15,6 +15,7 @@ export function useFinanceRole() {
   const isPurchasing = role === 'owner' || role === 'admin' || role === 'purchasing' || role === 'purchase'
   const canManagePO = isPurchasing || role === 'admin_finance' || role === 'kitchen'
   const canApprovePO = role === 'owner' || role === 'admin' || role === 'admin_finance'
+  const canVerifyPOReceipt = role === 'owner' || role === 'admin' || role === 'kitchen'
 
   return { 
     role, 
@@ -25,5 +26,6 @@ export function useFinanceRole() {
     isPurchasing,
     canManagePO,
     canApprovePO,
+    canVerifyPOReceipt,
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { usePendingPos, useApprovePo, useRejectPo } from '@/hooks/usePoApproval'
+import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah, tanggalWaktu } from '@/lib/format'
 import { PageHeader, StatCard } from '@/components/ui'
 import { ClipboardCheck, CheckCircle2, FileText, ArrowRight, Loader2 } from 'lucide-react'
@@ -8,6 +9,7 @@ import CountUp from 'react-countup'
 import Link from 'next/link'
 
 export default function PoApprovalPage() {
+  const { canApprovePO } = useFinanceRole()
   const { data: pos = [], isLoading } = usePendingPos()
   const approve = useApprovePo()
   const reject = useRejectPo()
@@ -21,6 +23,15 @@ export default function PoApprovalPage() {
         title="Persetujuan PO (Approval)"
         description="Otorisasi komitmen pembelian bahan baku dan operasional sebelum Purchase Order dikirim ke supplier."
       />
+
+      {!canApprovePO && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs font-medium text-amber-900 flex items-center gap-3">
+          <ClipboardCheck className="w-5 h-5 text-amber-600 shrink-0" />
+          <span>
+            <strong>Mode Pemantauan:</strong> Anda login dengan peran Purchasing. Otorisasi (Approval) komitmen anggaran PO dilakukan oleh Finance, Owner, atau Admin.
+          </span>
+        </div>
+      )}
 
       {/* Top Metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -88,21 +99,25 @@ export default function PoApprovalPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => approve.mutate(p.id)}
-                    disabled={approve.isPending || reject.isPending}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs transition-all shadow-2xs disabled:opacity-40 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                    <span>Setujui</span>
-                  </button>
-                  <button
-                    onClick={() => reject.mutate({ poId: p.id })}
-                    disabled={approve.isPending || reject.isPending}
-                    className="px-3.5 py-2 rounded-xl border border-suka-brown/15 hover:border-rose-300 hover:bg-rose-50 text-suka-ink/60 hover:text-rose-600 font-semibold text-xs transition-all disabled:opacity-40 cursor-pointer"
-                  >
-                    Tolak
-                  </button>
+                  {canApprovePO && (
+                    <>
+                      <button
+                        onClick={() => approve.mutate(p.id)}
+                        disabled={approve.isPending || reject.isPending}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs transition-all shadow-2xs disabled:opacity-40 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Setujui</span>
+                      </button>
+                      <button
+                        onClick={() => reject.mutate({ poId: p.id })}
+                        disabled={approve.isPending || reject.isPending}
+                        className="px-3.5 py-2 rounded-xl border border-suka-brown/15 hover:border-rose-300 hover:bg-rose-50 text-suka-ink/60 hover:text-rose-600 font-semibold text-xs transition-all disabled:opacity-40 cursor-pointer"
+                      >
+                        Tolak
+                      </button>
+                    </>
+                  )}
                   <Link
                     href={`/pembelian/${p.id}`}
                     className="p-2 rounded-xl text-suka-brown/40 hover:text-suka-brown hover:bg-suka-cream transition-colors"

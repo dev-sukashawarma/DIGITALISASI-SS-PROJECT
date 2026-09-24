@@ -87,9 +87,9 @@ export default async function LauncherPage() {
 
   const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
     'admin-dashboard': { 
-      label: staff.role === 'leader' ? 'Leader Dashboard' : staff.role === 'purchasing' ? 'Pembelian & PO' : 'Admin Dashboard',  
-      url: staff.role === 'purchasing' ? `${APP_URL['admin-dashboard']}/dashboard/pembelian` : APP_URL['admin-dashboard'], 
-      desc: staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : staff.role === 'purchasing' ? 'Kelola usulan pembelian, PO & supplier' : 'Administrasi staff, akun & sistem' 
+      label: staff.role === 'leader' ? 'Leader Dashboard' : staff.role === 'purchasing' ? 'Master Supplier & Vendor' : 'Admin Dashboard',  
+      url: staff.role === 'purchasing' ? `${APP_URL['admin-dashboard']}/dashboard/pembelian/supplier` : APP_URL['admin-dashboard'], 
+      desc: staff.role === 'leader' ? 'Monitoring performa, stok, & top up petty cash' : staff.role === 'purchasing' ? 'Database supplier, kontak vendor & katalog harga' : 'Administrasi staff, akun & sistem' 
     },
     stok:              { label: 'Stok',             url: APP_URL.stok,              desc: 'Monitoring & ledger stok bahan baku' },
     absensi:           { label: 'Absensi',          url: APP_URL.absensi,           desc: 'Presensi karyawan dengan verifikasi wajah' },
@@ -97,9 +97,9 @@ export default async function LauncherPage() {
     'pos-kasir':       { label: 'POS Kasir',        url: APP_URL['pos-kasir'],      desc: 'Transaksi penjualan & point of sale' },
     'owner-dashboard': { label: 'Owner Dashboard',  url: APP_URL['owner-dashboard'], desc: 'Laporan omzet & analisis keuangan' },
     finance:           { 
-      label: staff.role === 'purchasing' ? 'Finance & Purchasing' : 'Finance', 
+      label: staff.role === 'purchasing' ? 'Purchasing & PO' : 'Finance', 
       url: ['purchasing', 'purchase'].includes(staff.role) ? `${APP_URL.finance}/pembelian/dashboard` : APP_URL.finance, 
-      desc: ['purchasing', 'purchase'].includes(staff.role) ? 'Dashboard purchasing, purchase order & pengadaan' : 'Keuangan, petty cash & pengajuan dana' 
+      desc: ['purchasing', 'purchase'].includes(staff.role) ? 'Dashboard pengadaan, buat PO & invoice' : 'Keuangan, petty cash & pengajuan dana' 
     },
     manager:           { label: staff.role === 'regional_manager' ? 'Regional Manager Dashboard' : 'Manager App', url: APP_URL.manager, desc: 'Persetujuan operasional & monitoring area' },
     inventori:         { label: 'Inventaris Outlet', url: APP_URL.inventori, desc: 'Pemeriksaan aset outlet dengan foto oleh Area Manager' },

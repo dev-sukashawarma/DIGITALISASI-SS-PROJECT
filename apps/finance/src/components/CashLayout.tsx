@@ -2,14 +2,14 @@
 
 import { usePathname, useSearchParams } from 'next/navigation'
 import { useAuth } from '@suka/auth'
-import { LayoutDashboard, ArrowLeftRight, Landmark, Wallet, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2 } from 'lucide-react'
+import { LayoutDashboard, ArrowLeftRight, Landmark, Wallet, Banknote, LogOut, Coins, Loader2, Receipt, Menu, X, ClipboardCheck, TrendingUp, Store, Package, ShoppingCart, FileText, ClipboardList, PieChart, Target, UserCheck, TrendingDown, Table2, Building2, Truck, ExternalLink, BellRing } from 'lucide-react'
 import { useState, useEffect, useRef, type ReactNode } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { usePettyCashCount } from '@/hooks/usePettyCash'
 import { usePendingPoCount } from '@/hooks/usePoApproval'
 
-type NavItem = { href: string; label: string; icon: any; isSub?: boolean }
+type NavItem = { href: string; label: string; icon: any; isSub?: boolean; isExternal?: boolean }
 type NavGroup = { title: string; items: NavItem[] }
 
 const NAV_GROUPS: NavGroup[] = [
@@ -47,6 +47,7 @@ const NAV_GROUPS: NavGroup[] = [
     title: 'PURCHASING',
     items: [
       { href: '/pembelian/dashboard', label: 'Dashboard Utama', icon: LayoutDashboard },
+      { href: '/pembelian/perlu-dibeli', label: 'Perlu Dibeli', icon: BellRing },
       { href: '/pembelian/permintaan', label: 'Permintaan (PR)', icon: ClipboardList },
       { href: '/pembelian', label: 'Purchase Order (PO)', icon: ShoppingCart },
       { href: '/po-approval', label: 'Approval PO', icon: ClipboardCheck },
@@ -112,6 +113,12 @@ export function CashLayout({ children }: { children: ReactNode }) {
     resolvedPortalUrl = 'http://localhost:3010'
   }
 
+  const adminUrl = process.env.NEXT_PUBLIC_APP_URL_ADMIN_DASHBOARD || 'https://admin.sukashawarma.com'
+  let resolvedAdminUrl = adminUrl
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    resolvedAdminUrl = 'http://localhost:3005'
+  }
+
   // Badge cukup jumlah → query count-only, bukan daftar lengkap + join.
   const { data: pettyPendingCount = 0 } = usePettyCashCount('forwarded_to_finance')
   const { data: poPendingCount = 0 } = usePendingPoCount()
@@ -138,7 +145,20 @@ export function CashLayout({ children }: { children: ReactNode }) {
   const isPurchasingRole = outletStaff && ((outletStaff.role as string) === 'purchasing' || (outletStaff.role as string) === 'purchase')
 
   const visibleNavGroups = isPurchasingRole
-    ? NAV_GROUPS.filter(g => g.title === 'PURCHASING')
+    ? NAV_GROUPS
+        .filter(g => g.title === 'PURCHASING')
+        .map(g => ({
+          ...g,
+          items: [
+            ...g.items.filter(item => item.href !== '/po-approval'),
+            {
+              href: `${resolvedAdminUrl}/dashboard/pembelian/supplier`,
+              label: 'Master Supplier',
+              icon: Truck,
+              isExternal: true,
+            },
+          ],
+        }))
     : NAV_GROUPS
 
   const BOTTOM_NAV_ITEMS = isPurchasingRole
@@ -217,9 +237,26 @@ export function CashLayout({ children }: { children: ReactNode }) {
                 {group.title}
               </h3>
               <div className="space-y-1 relative">
-                {group.items.map(({ href, label, icon: Icon, isSub }) => {
+                {group.items.map(({ href, label, icon: Icon, isSub, isExternal }) => {
                   const active = currentNavPath === href
                   const badgeCount = href === '/petty-cash' ? pettyPendingCount : href === '/po-approval' ? poPendingCount : undefined
+
+                  if (isExternal) {
+                    return (
+                      <a
+                        key={href}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-3 rounded-2xl px-4 py-2.5 font-semibold text-xs sm:text-sm transition-colors relative z-10 text-white/70 hover:text-white hover:bg-white/5 group"
+                      >
+                        <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white/50 group-hover:text-suka-orange transition-colors" />
+                        <span className="flex-1 truncate">{label}</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-white/40 group-hover:text-white/70 transition-colors" />
+                      </a>
+                    )
+                  }
+
                   return (
                     <Link
                       key={href}
@@ -418,8 +455,29 @@ export function CashLayout({ children }: { children: ReactNode }) {
                         {group.title}
                       </h3>
                       <div className="grid grid-cols-4 gap-y-6 gap-x-2">
-                        {group.items.map(({ href, label, icon: Icon }) => {
+                        {group.items.map(({ href, label, icon: Icon, isExternal }) => {
                           const active = currentNavPath === href
+
+                          if (isExternal) {
+                            return (
+                              <a
+                                key={href}
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setIsMenuOpen(false)}
+                                className="flex flex-col items-center gap-2"
+                              >
+                                <div className="w-14 h-14 flex items-center justify-center rounded-[1.25rem] shadow-sm bg-white text-suka-brown hover:bg-suka-orange/10">
+                                  <Icon size={24} />
+                                </div>
+                                <span className="text-[10px] font-bold text-center text-suka-brown leading-tight flex items-center gap-1">
+                                  {label} <ExternalLink size={10} className="text-suka-brown/40" />
+                                </span>
+                              </a>
+                            )
+                          }
+
                           return (
                             <Link
                               key={href}

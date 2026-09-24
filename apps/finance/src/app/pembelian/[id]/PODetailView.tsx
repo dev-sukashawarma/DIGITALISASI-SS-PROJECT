@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer } from 'lucide-react'
 import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, useUpdatePOPayment, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
+import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
 import { VerifikasiTerimaModal } from './components/VerifikasiTerimaModal'
@@ -56,6 +57,7 @@ const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
 
 export default function PODetailView({ id, initialData }: { id: string, initialData: POWithItems }) {
   const router = useRouter()
+  const { canVerifyPOReceipt } = useFinanceRole()
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
@@ -442,13 +444,20 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           </button>
         )}
         {(po.status === 'dikirim_ke_supplier' || po.status === 'sebagian_diterima') && (
-          <button
-            onClick={() => setShowVerifikasi(true)}
-            className="flex-1 py-3 bg-gradient-to-r from-suka-ink to-blue-900 text-white rounded-2xl font-bold text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-          >
-            <PackageCheck className="w-4 h-4" />
-            <span>Terima Barang</span>
-          </button>
+          canVerifyPOReceipt ? (
+            <button
+              onClick={() => setShowVerifikasi(true)}
+              className="flex-1 py-3 bg-gradient-to-r from-suka-ink to-blue-900 text-white rounded-2xl font-bold text-xs hover:opacity-90 transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+            >
+              <PackageCheck className="w-4 h-4" />
+              <span>Terima Barang</span>
+            </button>
+          ) : (
+            <div className="flex-1 px-4 py-3 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs font-medium text-amber-900 flex items-center justify-center gap-2">
+              <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+              <span>Menunggu verifikasi fisik barang oleh tim Kitchen</span>
+            </div>
+          )
         )}
         {po.status === 'draft' && (
           <button

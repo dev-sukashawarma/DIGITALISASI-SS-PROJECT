@@ -88,6 +88,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/owner/targets', label: 'Target & Pesan', shortLabel: 'Target', icon: Target, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/budget-outlet', label: 'Budget Outlet', shortLabel: 'Budget', icon: Wallet, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/owner/kelola-mitra', label: 'Dashboard Kemitraan', shortLabel: 'Kemitraan', icon: HeartHandshake, roles: ['ADMIN'] },
+      { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['OWNER'] },
     ],
   },
   {
@@ -126,7 +127,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/pembelian/permintaan', label: 'Permintaan Pembelian', shortLabel: 'Permintaan', icon: FileText, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/pembelian/supplier', label: 'Master Supplier', shortLabel: 'Supplier', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
       { href: '/dashboard/pembelian/harga', label: 'Harga & Bahan Baku', shortLabel: 'Harga', icon: TrendingDown, roles: ['ADMIN', 'PURCHASING'] },
-      { href: '/dashboard/pembelian/katalog-vendor', label: 'Katalog Harga Vendor', shortLabel: 'Katalog Vendor', icon: Truck, roles: ['ADMIN', 'PURCHASING'] },
+      { href: '/dashboard/bahan-baku', label: 'Master Bahan Baku', shortLabel: 'Bahan Baku', icon: Tags, roles: ['PURCHASING'] },
       { href: '/dashboard/reports/pembelian', label: 'Laporan Pembelian', shortLabel: 'Laporan', icon: PieChart, roles: ['ADMIN', 'PURCHASING'] },
     ],
   },

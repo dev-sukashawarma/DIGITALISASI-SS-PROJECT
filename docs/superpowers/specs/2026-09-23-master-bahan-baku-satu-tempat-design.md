@@ -1,7 +1,7 @@
 # Master Bahan Baku — Satu Tempat
 
 **Tanggal:** 2026-09-23
-**Status:** Disetujui owner (sesi grilling 2026-09-23). Tahap 0 LIVE (8729fbe2). Tahap 1 (fondasi DB) LIVE — lihat plan 2026-09-23-master-bahan-baku-tahap1-fondasi-db.md.
+**Status:** Disetujui owner (sesi grilling 2026-09-23). Tahap 0 LIVE (8729fbe2). Tahap 1 (fondasi DB) LIVE. Tahap 2 (halaman satu tempat) selesai di kode — lihat plan 2026-09-24-master-bahan-baku-tahap2-halaman-satu-tempat.md; migration cabut tulis langsung (20260924200000) menunggu deploy.
 **App utama:** `apps/admin-dashboard` (`/dashboard/bahan-baku`). Terdampak: stok, finance, portal.
 **Terkait:** `2026-06-30-hpp-bahan-baku-master-harga-design.md` (asal `bahan_baku_harga`),
 `2026-09-08-katalog-harga-vendor-design.md` (asal `bahan_baku_supplier`).
@@ -94,8 +94,12 @@ HPP Dinamis / `fill_harga_snapshot`. Surat jalan sejak 12 Sep sudah memakai harg
 ### K6 — Peralihan (pilihan B)
 25 bahan aktif belum punya harga vendor terpercaya (7 tanpa vendor, 18 `perlu_ditinjau`).
 Harga master mereka **dibekukan** di nilai sekarang, ditandai "belum dikonfirmasi vendor",
-dan muncul di **daftar kerja** tab Vendor. Begitu purchasing mengisi harga vendor
-terpercaya, master otomatis mengikuti. Tak ada harga yang mendadak jadi nol.
+dan muncul di **daftar kerja** tab **Harga** (bukan tab Vendor — implementasi Tahap 2
+menaruh daftar "N bahan belum punya harga vendor terpercaya" + tombol "Isi harga vendor"
+per baris di `TabHarga.tsx`, dipasok `useStatusHarga`/view `bahan_baku_status_harga`; tab
+Vendor sendiri hanya mendaftar supplier & katalog per-bahan, bukan pekerjaan yang tersisa).
+Begitu purchasing mengisi harga vendor terpercaya, master otomatis mengikuti. Tak ada
+harga yang mendadak jadi nol.
 
 ### K7 — Hapus / nonaktif / gabung
 | Aksi | Syarat | Efek |

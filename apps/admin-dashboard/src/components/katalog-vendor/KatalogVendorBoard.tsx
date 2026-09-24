@@ -3,12 +3,15 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { kelompokkanKatalog, ringkasKatalog } from '@/lib/katalogGroup'
-import { useKatalogVendor, useKatalogVendorMutations } from '@/hooks/useKatalogVendor'
+import { useKatalogVendor } from '@/hooks/useKatalogVendor'
+import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
+import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
+import { DialogAlasan } from '@/components/master-bahan/DialogAlasan'
 import { BarisVendor } from './BarisVendor'
 
 export function KatalogVendorBoard() {
   const { rows, loading, error } = useKatalogVendor()
-  const { simpanBaris } = useKatalogVendorMutations()
+  const { simpanHargaVendor } = useMutasiMasterBahan()
   const [hanyaPerluDiisi, setHanyaPerluDiisi] = useState(false)
   const [cari, setCari] = useState('')
 
@@ -25,13 +28,31 @@ export function KatalogVendorBoard() {
     })
   }, [kelompok, hanyaPerluDiisi, cari])
 
-  async function simpan(input: { id: string; harga: number; satuan_beli: string; isi_satuan_kecil: number }) {
+  type InputSimpan = { id: string; harga: number; satuan_beli: string; isi_satuan_kecil: number }
+  const [tertunda, setTertunda] = useState<{ input: InputSimpan; selesai: (ok: boolean) => void } | null>(null)
+  const [galatDialog, setGalatDialog] = useState<GalatRpc | null>(null)
+
+  function simpan(input: InputSimpan): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      setGalatDialog(null)
+      setTertunda({ input, selesai: (ok) => (ok ? resolve() : reject(new Error('Dibatalkan'))) })
+    })
+  }
+
+  async function kirim({ alasan, paksa }: { alasan: string; paksa: boolean }) {
+    if (!tertunda) return
+    const baris = rows.find((r) => r.id === tertunda.input.id)
+    if (!baris) { setGalatDialog({ pesan: 'Baris katalog tidak ditemukan', kode: null, bisaDipaksa: false }); return }
     try {
-      await simpanBaris.mutateAsync(input)
+      await simpanHargaVendor.mutateAsync({
+        bahanId: baris.bahan_baku_id, supplierId: baris.supplier_id, harga: tertunda.input.harga,
+        satuanBeli: tertunda.input.satuan_beli.trim(), isi: tertunda.input.isi_satuan_kecil, alasan, paksa,
+      })
       toast.success('Harga vendor tersimpan')
+      tertunda.selesai(true)
+      setTertunda(null)
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
-      throw e
+      setGalatDialog(bacaGalatRpc(e))
     }
   }
 
@@ -118,7 +139,7 @@ export function KatalogVendorBoard() {
                         v={v}
                         satuanKecil={satuanKecil}
                         hargaMasterPerKecil={k.hargaMasterPerKecil}
-                        menyimpan={simpanBaris.isPending}
+                        menyimpan={simpanHargaVendor.isPending}
                         onSimpan={simpan}
                       />
                     ))}
@@ -128,6 +149,10 @@ export function KatalogVendorBoard() {
             </section>
           )
         })
+      )}
+      {tertunda && (
+        <DialogAlasan judul="Simpan harga vendor" wajib galat={galatDialog} memproses={simpanHargaVendor.isPending}
+          onBatal={() => { tertunda.selesai(false); setTertunda(null) }} onKirim={kirim} />
       )}
     </div>
   )

@@ -94,7 +94,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
   // Route-guard: PURCHASING hanya boleh /dashboard/pembelian/*
   useEffect(() => {
     if (role !== 'PURCHASING') return
-    const allowed = ['/dashboard/pembelian', '/dashboard/reports/pembelian']
+    const allowed = ['/dashboard/pembelian', '/dashboard/reports/pembelian', '/dashboard/bahan-baku']
     if (!allowed.some((a) => pathname === a || pathname.startsWith(a + '/'))) {
       router.replace('/dashboard/pembelian/perlu-dibeli')
     }

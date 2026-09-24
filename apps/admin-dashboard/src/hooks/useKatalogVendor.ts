@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase'
 import type { BarisKatalogVendor } from '@/lib/katalogGroup'
 
@@ -89,50 +89,4 @@ export function useKatalogVendor() {
   })
 
   return { rows: data ?? [], loading: isLoading, error, refresh: refetch }
-}
-
-export function useKatalogVendorMutations() {
-  const supabase = useMemo(() => createClient(), [])
-  const qc = useQueryClient()
-
-  /**
-   * Menyimpan satu baris. `sumber` selalu jadi 'manual' (menyunting satuan pun
-   * perbuatan manusia). `perlu_ditinjau` HANYA dilepas kalau harga > 0 —
-   * harga kosong/0 yang lolos ke sini (mis. dari kotak yang dikosongkan)
-   * TIDAK BOLEH menandai baris "sudah ditinjau manusia" karena provenance-nya
-   * (asal PO, belum ditinjau) akan hilang tanpa bisa dipulihkan dari layar.
-   * Baris riwayat ditulis trigger `bbs_tulis_riwayat`, bukan di sini.
-   */
-  const simpanBaris = useMutation({
-    mutationFn: async (v: {
-      id: string
-      harga: number
-      satuan_beli: string
-      isi_satuan_kecil: number
-    }) => {
-      const { data: auth } = await supabase.auth.getUser()
-      const payload: Record<string, unknown> = {
-        harga: v.harga,
-        satuan_beli: v.satuan_beli.trim(),
-        isi_satuan_kecil: v.isi_satuan_kecil,
-        sumber: 'manual',
-        harga_updated_at: new Date().toISOString(),
-        updated_by: auth.user?.id ?? null,
-      }
-      if (v.harga > 0) payload.perlu_ditinjau = false
-
-      const { data, error } = await supabase
-        .from('bahan_baku_supplier')
-        .update(payload)
-        .eq('id', v.id)
-        .select('id')
-      if (error) throw new Error(error.message)
-      if (!data || data.length === 0) {
-        throw new Error('Baris tidak tersimpan — kemungkinan hak akses ditolak.')
-      }
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
-  })
-
-  return { simpanBaris }
 }

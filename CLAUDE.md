@@ -2952,5 +2952,76 @@ STRUK, SAUS X HOT) — bukan regresi, sudah diketahui; Q2 (belum dikonfirmasi ve
 
 ---
 
-**Last updated:** 2026-09-23  
+## Session 2026-09-24: Master Bahan Baku — Tahap 2 (Halaman Satu Tempat)
+
+**Status:** ✅ Kode COMPLETED. Migration `20260924100000` applied & terstempel.
+⚠️ Migration `20260924200000` (cabut tulis langsung) **DITULIS, belum di-apply** —
+urutan wajib: deploy admin-dashboard/stok/finance → smoke test → apply → jalankan t10.
+
+### Halaman baru
+`/dashboard/bahan-baku` bertab **Data Bahan · Harga · Vendor · Riwayat**
+(komponen di `src/components/master-bahan/`, hook di `src/hooks/masterBahan/`,
+fungsi murni di `src/lib/masterBahan/`). Menu: ADMIN (Produk & Stok), OWNER
+(Laporan Internal), PURCHASING (Pembelian, ditambah ke allowlist RoleContext).
+`/dashboard/pembelian/katalog-vendor` lama kini redirect ke `?tab=vendor`.
+
+### Satu jalur tulis
+Semua tulis dari layar lewat RPC Tahap 1 (via `useMutasiMasterBahan`) — harga
+master **tidak bisa diketik** di layar mana pun. Hook supplier admin kini
+memanggil `simpan_supplier`/`nonaktifkan_supplier`.
+
+### Temuan review: parsing angka format Indonesia
+Rencana awal memakai `Number(...)` polos untuk input harga vendor — salah baca
+`"11.554"` sebagai `11.554` (1000× terlalu kecil), padahal titik di situ adalah
+pemisah ribuan. Diperbaiki dengan `bacaAngka` (`src/lib/masterBahan/angka.ts`)
+yang dipakai di semua input numerik layar ini.
+
+### Dihapus (jalur tulis lama, digantikan RPC)
+Modal detail/tambah & mutasi tabel langsung admin lama; server action tambah
+bahan admin & stok (service-role); sinkron harga PO manual stok; halaman
+supplier finance (kini notice) + hook tulisnya + entri nav; kode threshold mati
+(`useOutletThresholds`, halaman kitchen/threshold).
+
+### Konsekuensi
+`admin_finance` tidak lagi bisa mengedit supplier (manajemen supplier kini
+admin/owner/purchasing saja) — sengaja, mengikuti RLS Tahap 1.
+
+### ⚠️ Konflik dengan WIP checkout `main`
+Ada berkas WIP belum ter-commit di checkout `main` (bahan-baku admin:
+`peruntukan`/`is_opname` di modal lama) yang **digantikan/dihapus** oleh
+branch ini. **Koreksi:** branch ini **TIDAK menyentuh** `apps/stok/src/lib/stok/opnameScope.ts`
+(nol commit di riwayat branch ini menyinggung berkas itu) — hanya WIP admin
+bahan-baku yang disuperseded. `opnameScope.ts` WIP di `main` (bila ada) berdiri
+sendiri, tidak terkait pull request ini. Owner perlu `git checkout -- <berkas
+admin bahan-baku>` untuk membuang WIP admin itu sebelum `git pull`, kalau
+tidak pull akan konflik.
+
+### ⚠️ Riwayat migration memuat baris yatim
+`schema_migrations` mencatat **dua baris** untuk migration yang sama: `20260924090450`
+(nama `simpan_supplier_bahan_baku_ids`, tercatat otomatis oleh `apply_migration` saat
+migration ini pertama kali diterapkan) berdampingan dengan stempel manual `20260924100000`
+(nama sama). Isinya identik — **SENGAJA tidak dihapus** (keputusan owner, hindari
+menyentuh tabel riwayat migration DB bersama tanpa perlu). `supabase migration list`
+akan menampilkan `20260924090450` sebagai remote-only (tanpa berkas lokal) — itu bukan
+drift yang perlu di-`repair`, sudah diketahui.
+
+### ⚠️ Perubahan supplier belum tampil di tab Riwayat
+View `riwayat_master_bahan` (migration `20260923181000`) menyaring baris `data` dari
+`master_bahan_audit` dengan `WHERE a.bahan_baku_id IS NOT NULL` — audit trigger
+`trg_audit_supplier` menulis baris dengan `bahan_baku_id` NULL (perubahan supplier
+bukan perubahan bahan tertentu), jadi baris itu **tersaring keluar**. Efeknya: edit/
+nonaktifkan supplier lewat tab Vendor (`useUpdateSupplier`/`useDeleteSupplier`) tercatat
+di `master_bahan_audit` tapi **tidak muncul** di tab Riwayat sama sekali. Tindak lanjut:
+longgarkan filter view (mis. UNION baris supplier terpisah tanpa syarat `bahan_baku_id`)
+atau tampilkan kolom "bahan" sebagai "—" untuk baris supplier-level.
+
+### Belum: Tahap 3
+Tombol Ganti Satuan, app stok membaca `peruntukan`/`is_opname` menggantikan
+tebakan nama.
+
+**⚠️ Perlu redeploy:** admin-dashboard, stok, finance.
+
+---
+
+**Last updated:** 2026-09-24  
 **Owner:** Dev Suka Shawarma

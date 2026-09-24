@@ -8,7 +8,7 @@ import { useStatusHarga } from '@/hooks/masterBahan/useStatusHarga'
 import { useJumlahBatasOutlet } from '@/hooks/masterBahan/useJumlahBatasOutlet'
 import { filterAndSortBahanBaku, type SortOption } from '@/lib/bahanBaku'
 import { bolehUbahData } from '@/lib/masterBahan/akses'
-import { labelKategori, ringkasSatuan } from '@/lib/masterBahan/tampilan'
+import { labelKategori, ringkasSatuan, ringkasSatuanKirim, ringkasSatuanOpname } from '@/lib/masterBahan/tampilan'
 import { rupiah } from '@/lib/format'
 import { FormBahanBaru } from './FormBahanBaru'
 import { PanelBahan } from './PanelBahan'
@@ -106,12 +106,14 @@ export function TabDataBahan() {
         <div className="ml-auto"><InfoJumlah tampil={tampil.length} total={dasar.length} satuan="bahan" /></div>
       </div>
 
-      <Tabel lebarMin={900}>
-        <LebarKolom lebar={['29%', '15%', '23%', '13%', '14%', '2.75rem']} />
+      <Tabel lebarMin={1180}>
+        <LebarKolom lebar={['21%', '11%', '18%', '12%', '13%', '11%', '11%', '2.75rem']} />
         <KepalaTabel>
           <Th>Bahan</Th>
           <Th>Kategori</Th>
           <Th>Satuan</Th>
+          <Th>Satuan kirim</Th>
+          <Th>Satuan opname</Th>
           <Th>Peruntukan</Th>
           <Th rata="kanan">Harga master</Th>
           <Th><span className="sr-only">Buka detail</span></Th>
@@ -120,6 +122,8 @@ export function TabDataBahan() {
           {tampil.map((r) => {
             const p = PERUNTUKAN[r.peruntukan]
             const hargaBelumPasti = belumPasti.has(r.id)
+            const kirim = ringkasSatuanKirim(r)
+            const opname = ringkasSatuanOpname(r)
             return (
               <BarisTabel key={r.id} onKlik={() => setDipilihId(r.id)} redup={!r.is_active}>
                 <Td>
@@ -132,6 +136,24 @@ export function TabDataBahan() {
                 </Td>
                 <Td><span className="truncate text-[11.5px] font-semibold tracking-wide text-stone-600">{labelKategori(r.kategori)}</span></Td>
                 <Td className="truncate text-stone-700">{ringkasSatuan(r)}</Td>
+                <Td>
+                  {kirim.dikenal ? (
+                    <div
+                      className="truncate"
+                      title={kirim.bawaan ? 'Satuan kirim belum diisi — ikut satuan besar' : undefined}
+                    >
+                      <span className={kirim.bawaan ? 'text-stone-500' : 'font-semibold text-stone-800'}>{kirim.label}</span>
+                      {kirim.isi && <span className="text-stone-500"> = {kirim.isi}</span>}
+                    </div>
+                  ) : (
+                    <span title={`"${kirim.label}" tidak cocok dengan tingkat satuan bahan ini — konversi kiriman dihitung 1×`}>
+                      <Lencana nada="kuning">{kirim.label} · tak cocok</Lencana>
+                    </span>
+                  )}
+                </Td>
+                <Td className="truncate text-stone-700">
+                  {opname ?? <span className="text-stone-500">tidak diopname</span>}
+                </Td>
                 <Td><Lencana nada={p.nada}>{p.label}</Lencana></Td>
                 <Td angka>
                   {r.harga?.harga_beli ? (
@@ -155,7 +177,7 @@ export function TabDataBahan() {
               </BarisTabel>
             )
           })}
-          {tampil.length === 0 && <BarisKosong kolom={6} pesan="Tidak ada bahan yang cocok dengan saringan ini." />}
+          {tampil.length === 0 && <BarisKosong kolom={8} pesan="Tidak ada bahan yang cocok dengan saringan ini." />}
         </tbody>
       </Tabel>
 

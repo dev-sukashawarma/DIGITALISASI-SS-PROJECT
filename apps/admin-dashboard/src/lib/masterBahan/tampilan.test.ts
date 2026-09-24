@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ringkasSatuan, kapital, labelKategori } from './tampilan'
+import { ringkasSatuan, ringkasSatuanKirim, ringkasSatuanOpname, kapital, labelKategori } from './tampilan'
 
 const dasar = { satuan: 'Kg', satuan_tengah: null, faktor_tengah: null, satuan_kecil: 'Gram', faktor_tampilan: 1000 }
 
@@ -30,5 +30,42 @@ describe('kapital & labelKategori', () => {
   it('kategori diseragamkan huruf besar', () => {
     expect(labelKategori('  minuman ')).toBe('MINUMAN')
     expect(labelKategori(null)).toBe('—')
+  })
+})
+
+const foil = { satuan: 'Dus', satuan_tengah: 'Roll', faktor_tengah: 48, satuan_kecil: 'cm', faktor_tampilan: 36480 }
+
+describe('ringkasSatuanKirim', () => {
+  it('kirim per satuan tengah: sebut isinya dalam satuan kecil', () => {
+    expect(ringkasSatuanKirim({ ...foil, satuan_distribusi: 'roll' }))
+      .toEqual({ label: 'Roll', isi: '760 cm', dikenal: true, bawaan: false })
+  })
+  it('kirim per satuan besar: tanpa isi tambahan', () => {
+    expect(ringkasSatuanKirim({ ...foil, satuan_distribusi: 'Dus' }))
+      .toEqual({ label: 'Dus', isi: null, dikenal: true, bawaan: false })
+  })
+  it('kosong: ikut satuan besar dan ditandai bawaan', () => {
+    expect(ringkasSatuanKirim({ ...foil, satuan_distribusi: '  ' }))
+      .toEqual({ label: 'Dus', isi: null, dikenal: true, bawaan: true })
+  })
+  it('kg pada bahan bergram: isi 1.000 gram', () => {
+    expect(ringkasSatuanKirim({ ...dasar, satuan: 'Bal', satuan_kecil: 'gram', faktor_tampilan: 20000, satuan_distribusi: 'kg' }))
+      .toEqual({ label: 'Kg', isi: '1.000 gram', dikenal: true, bawaan: false })
+  })
+  it('label tak cocok tingkat mana pun: tidak dikenal', () => {
+    expect(ringkasSatuanKirim({ ...foil, satuan_distribusi: 'karung' }))
+      .toEqual({ label: 'Karung', isi: null, dikenal: false, bawaan: false })
+  })
+})
+
+describe('ringkasSatuanOpname', () => {
+  it('tiga tingkat berurutan besar → kecil', () => {
+    expect(ringkasSatuanOpname({ ...foil, is_opname: true })).toBe('Dus · Roll · cm')
+  })
+  it('satuan kembar tidak diulang', () => {
+    expect(ringkasSatuanOpname({ ...dasar, satuan: 'Pcs', satuan_kecil: 'pcs', faktor_tampilan: 1, is_opname: true })).toBe('Pcs')
+  })
+  it('tidak diopname: null', () => {
+    expect(ringkasSatuanOpname({ ...foil, is_opname: false })).toBeNull()
   })
 })

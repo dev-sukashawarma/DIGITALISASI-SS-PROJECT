@@ -1,4 +1,5 @@
 /** Format tampilan murni untuk tabel master bahan baku. */
+import { getDistribusiFactor } from '@/lib/format/compositeUnit'
 
 export type TingkatTampil = {
   satuan: string
@@ -30,4 +31,40 @@ export function kapital(s: string): string {
 export function labelKategori(k: string | null | undefined): string {
   const t = (k ?? '').trim()
   return t ? t.toUpperCase() : '—'
+}
+
+export type SatuanKirim = {
+  /** Label satuan kirim ke outlet (kapital). */
+  label: string
+  /** Isi satu satuan kirim dalam satuan kecil, mis. "760 cm"; null bila sama dengan satuan besar. */
+  isi: string | null
+  /** false bila label tak cocok tingkat satuan mana pun — konversinya diam-diam jadi 1×. */
+  dikenal: boolean
+  /** true bila satuan_distribusi kosong dan ikut satuan besar (perilaku app stok/distribusi). */
+  bawaan: boolean
+}
+
+/** Satuan kirim Gudang → outlet: `satuan_distribusi`, jatuh ke satuan besar bila kosong. */
+export function ringkasSatuanKirim(b: TingkatTampil & { satuan_distribusi: string | null }): SatuanKirim {
+  const dist = b.satuan_distribusi?.trim()
+  if (!dist) return { label: kapital(b.satuan), isi: null, dikenal: true, bawaan: true }
+  const label = kapital(dist)
+  if (dist.toLowerCase() === b.satuan.trim().toLowerCase()) return { label, isi: null, dikenal: true, bawaan: false }
+  const faktor = getDistribusiFactor({ ...b, satuan_distribusi: dist })
+  // getDistribusiFactor mengembalikan 1 bila label tak dikenali; untuk label ≠ satuan besar itu tanda tak cocok.
+  if (!positif(faktor) || faktor === 1) return { label, isi: null, dikenal: false, bawaan: false }
+  const kecil = b.satuan_kecil?.trim()
+  const isi = kecil && positif(b.faktor_tampilan) ? `${angka(b.faktor_tampilan / faktor)} ${kecil}` : null
+  return { label, isi, dikenal: true, bawaan: false }
+}
+
+/** Tingkat satuan yang diisi crew di form opname (besar → tengah → kecil); null bila tidak diopname. */
+export function ringkasSatuanOpname(b: TingkatTampil & { is_opname: boolean }): string | null {
+  if (!b.is_opname) return null
+  const tingkat: string[] = []
+  for (const s of [b.satuan, b.satuan_tengah, b.satuan_kecil]) {
+    const t = s?.trim()
+    if (t && !tingkat.some((x) => x.toLowerCase() === t.toLowerCase())) tingkat.push(t)
+  }
+  return tingkat.join(' · ')
 }

@@ -22,6 +22,7 @@ import {
   PanelLeft,
   PanelLeftClose,
   PanelLeftOpen,
+  UtensilsCrossed,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
 
@@ -65,6 +66,7 @@ export default function Sidebar({
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
     '/dashboard/content-planner': true,
     '/dashboard/budget': true,
+    '/dashboard/menu': true,
   })
 
   const toggleMenu = (href: string, e: React.MouseEvent) => {
@@ -155,6 +157,29 @@ export default function Sidebar({
         {
           name: 'Pengaturan Konten',
           href: '/dashboard/content-planner/pengaturan',
+          badge: null,
+        },
+      ],
+    },
+    {
+      name: 'Katalog Menu & Promo',
+      href: '/dashboard/menu',
+      icon: UtensilsCrossed,
+      badge: null,
+      children: [
+        {
+          name: 'Daftar Menu & Harga',
+          href: '/dashboard/menu',
+          badge: null,
+        },
+        {
+          name: 'Kategori Menu',
+          href: '/dashboard/menu/kategori',
+          badge: null,
+        },
+        {
+          name: 'Pengaturan Promo',
+          href: '/dashboard/menu/promo',
           badge: null,
         },
       ],
@@ -353,7 +378,9 @@ export default function Sidebar({
                     <div className="ml-3 pl-3 border-l-2 border-stone-800 space-y-1 py-1 animate-in fade-in duration-150">
                       {item.children!.map((child) => {
                         const isChildActive =
-                          child.href === '/dashboard/content-planner' || child.href === '/dashboard/budget'
+                          child.href === '/dashboard/content-planner' ||
+                          child.href === '/dashboard/budget' ||
+                          child.href === '/dashboard/menu'
                             ? pathname === child.href
                             : pathname === child.href || pathname.startsWith(child.href)
 
@@ -514,7 +541,9 @@ export default function Sidebar({
                       <div className="space-y-0.5">
                         {item.children!.map((child) => {
                           const isChildActive =
-                            child.href === '/dashboard/content-planner' || child.href === '/dashboard/budget'
+                            child.href === '/dashboard/content-planner' ||
+                            child.href === '/dashboard/budget' ||
+                            child.href === '/dashboard/menu'
                               ? pathname === child.href
                               : pathname === child.href || pathname.startsWith(child.href)
 

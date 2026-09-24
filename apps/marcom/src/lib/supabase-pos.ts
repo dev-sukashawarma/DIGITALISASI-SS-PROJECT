@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { MenuItem, Category, SalesChannel, Outlet, MenuPromo } from '@/types/menu'
 
 const DEFAULT_SUPABASE_URL = 'https://khpkoreaaucvyqfhynfq.supabase.co'
 
@@ -107,3 +108,74 @@ export async function fetchPosOutlets(): Promise<PosOutlet[]> {
   }
 }
 
+export async function fetchFullPosMenuData() {
+  const supabase = getPosSupabase()
+  const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+
+  const [itemsRes, categoriesRes, settingsRes, channelsRes, outletsRes] = await Promise.all([
+    supabase
+      .from('menu_items')
+      .select('*, categories(id,name,sort_order), package_items:menu_packages!package_id(id, menu_item_id, quantity, or_menu_item_id)')
+      .order('sort_order'),
+    supabase.from('categories').select('*').order('sort_order'),
+    supabase
+      .from('kiosk_settings')
+      .select('key, value')
+      .eq('outlet_id', PUSAT_OUTLET_ID)
+      .in('key', ['upsell_ids', 'bestseller_ids', 'recommendation_ids']),
+    supabase.from('sales_channels').select('*').eq('is_active', true).order('name'),
+    supabase.from('outlets').select('*').eq('is_active', true).order('name'),
+  ])
+
+  let items: MenuItem[] = []
+  if (itemsRes.error) {
+    console.warn('Fallback fetching items without packages:', itemsRes.error)
+    const fallback = await supabase.from('menu_items').select('*, categories(id,name,sort_order)').order('sort_order')
+    items = (fallback.data as MenuItem[]) || []
+  } else {
+    items = (itemsRes.data as MenuItem[]) || []
+  }
+
+  const categories: Category[] = (categoriesRes.data as Category[]) || []
+  const channels: SalesChannel[] = (channelsRes.data as SalesChannel[]) || []
+  const outlets: Outlet[] = (outletsRes.data as Outlet[]) || []
+
+  const settingsData = settingsRes.data || []
+  const parseIds = (key: string) => {
+    try {
+      const val = settingsData.find((s) => s.key === key)?.value
+      return val ? JSON.parse(val) : []
+    } catch {
+      return []
+    }
+  }
+
+  const upsells: string[] = parseIds('upsell_ids')
+  const bestsellers: string[] = parseIds('bestseller_ids')
+  const recommendations: string[] = parseIds('recommendation_ids')
+
+  let promos: MenuPromo[] = []
+  const activeOutletIds = outlets.map((o) => o.id)
+  if (activeOutletIds.length > 0) {
+    const promosRes = await supabase
+      .from('outlet_promos')
+      .select('scope, menu_item_id, outlet_id, is_active, start_date, end_date, daily_start_time, daily_end_time, daily_schedule')
+      .eq('is_active', true)
+      .in('outlet_id', activeOutletIds)
+
+    if (!promosRes.error && promosRes.data) {
+      promos = promosRes.data as MenuPromo[]
+    }
+  }
+
+  return {
+    items,
+    categories,
+    channels,
+    outlets,
+    upsells,
+    bestsellers,
+    recommendations,
+    promos,
+  }
+}

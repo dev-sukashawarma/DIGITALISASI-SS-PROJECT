@@ -3023,5 +3023,76 @@ tebakan nama.
 
 ---
 
+## Session 2026-09-23/24: Aplikasi Pelanggan Go-Live + App Retail Tahap 1 Pengaman Operasional
+
+**Status:** ✅ Kode merged & pushed ke `main` (`7a2ae21a`). DB live. ⚠️ **Perlu redeploy
+`retail-gateway` + `admin-dashboard`** — pengaman belum melindungi pelanggan sebelum itu.
+APK (Task 10–12) belum dikerjakan.
+
+**Dokumen:** keputusan owner `docs/superpowers/specs/2026-09-24-app-retail-admin-keputusan.md` (18 keputusan,
+4 tahap) · spec `…/specs/2026-09-24-app-retail-tahap1-pengaman-operasional-design.md` · plan
+`…/plans/2026-09-24-app-retail-tahap1-pengaman-operasional.md`.
+
+### 1. Go-live (23 Sep, DB live)
+- `20260923190000`: `app_enabled` 21 outlet (11 milik + 10 mitra), **outlet tes dimatikan**,
+  "Original Ayam Reguler" (harga POS Rp 1) keluar dari aplikasi → 18 menu.
+- `20260923200000` + `20260923210000`: popup "tester" dimatikan; 3 carousel "Contoh Banner"
+  **tetap aktif sebagai mockup** (permintaan owner) sampai banner asli diunggah.
+- Android: layar `perluPilihOutlet` tak pernah dirender (pelanggan terjebak "Menu belum terbit" saat
+  outlet tersimpan dicabut) → diperbaiki; Pilih Outlet diurutkan **jarak dari lokasi pelanggan**
+  (`ACCESS_COARSE_LOCATION`, `LocationManager`, haversine); label palsu (850 m, 15–20 mnt, jam 10–22,
+  rating 4.9, "Bogor & Sekitarnya", ✓ semua kartu) dibuang. Baru sampai pelanggan lewat APK baru.
+
+### 2. Keputusan owner yang mengikat (grilling 24 Sep)
+- **Pusat (OWNER/ADMIN) yang mengoperasikan aplikasi**, termasuk outlet mitra — **mitra juga
+  dikelola pusat**, murni investor, tak pernah meminta promo sendiri.
+- Jam buka satu untuk semua hari (`outlets.open_hour/close_hour`, kini 14:00–22:00), pesan terakhir
+  30 mnt sebelum tutup. Menu habis per outlet **satu sumber dengan POS** (`kiosk_settings`).
+- Refund manual lewat antrean (Xendit otomatis ditunda). Voucher 5 jenis × 8 syarat (tahap 3).
+- **Potongan voucher & biaya Xendit (~0,7%) masuk baris "Potongan" outlet** — sama dengan promo
+  GoFood/POS, mengurangi laba mitra (`mitraPnl.ts`: laba = omzet − potongan − HPP − opex − waste − fee).
+
+### 3. Tahap 1 pengaman operasional (Task 1–9, subagent-driven, tiap task direview)
+- **DB `20260924100000`** (applied & terstempel): `app_pengaturan` (1 baris), `outlet_tutup_sementara`
+  (outlet_id NULL = semua; "aktif lagi otomatis" = pembacaan berbasis waktu, **tanpa cron**),
+  `retail.refund_pesanan` (diisi trigger `trg_catat_refund_pesanan` saat pesanan `sales_source='app'`
+  berpindah ke `cancelled` dan draft-nya `dibayar`), `app_retail_log`. RLS: baca `is_owner_or_admin()`,
+  tulis hanya server action.
+- **Gateway:** `statusOutlet` (`lib/jamBuka.ts`, WIB) ditegakkan di `GET /outlets` (field aditif
+  `bisa_pesan`, `pesan_status`, …; `is_active` arti lama dipertahankan), `checkout/validate`, dan
+  `POST /orders` — gagal-tertutup (galat DB → 502). Katalog menghormati `kiosk_settings` (baris outlet >
+  baris PUSAT) + `available_outlets`. Endpoint publik `GET /api/v1/config`.
+- **Admin (App Retail):** Outlet Aplikasi (status langsung, jam, tutup sementara/semua, menu habis),
+  **Pesanan Aplikasi** (merah = dibayar & belum "Mulai Masak" > N mnt; antrean "Perlu dikembalikan"),
+  **Pengaturan Aplikasi** (6 setelan + riwayat log). Semua tulis: `requireRole(['owner','admin'])` →
+  service client → `app_retail_log`. `lib/appRetail/jamBuka.ts` = **salinan identik** gateway.
+
+### Gotcha yang ditemukan
+- **"Tertahan" = `status='preparing' AND kitchen_receipt_printed=false`**: pesanan aplikasi masuk POS
+  langsung `preparing` tanpa cetak dapur; tombol POS "Mulai Masak" yang men-set `kitchen_receipt_printed`.
+- **`retail.customer_notifications.order_id` FK → `retail.order_drafts(id)`, BUKAN `orders`.** Insert
+  dengan id `orders` gagal senyap (ketahuan di review akhir; diperbaiki pakai `draft_id`).
+- Skema `retail` tanpa `USAGE` untuk `authenticated` — admin wajib membaca lewat service role.
+- `PUSAT_OUTLET_ID` di POS (`550e8400-…0001`) = **BNR**; barisnya jadi fallback daftar habis semua outlet.
+- Commit sesi lain (`ed75e046`, selfie `sharp`) mendarat di branch fitur & ikut ter-merge. `sharp`
+  **tak dideklarasikan** di `apps/admin-dashboard/package.json` (hanya lolos karena opsional di Next 16) —
+  bila build Coolify gagal "Module not found: sharp", tambahkan dependency-nya.
+
+### 📝 Next
+1. Redeploy `retail-gateway` → cek `/api/v1/config` & `bisa_pesan` di `/api/v1/outlets`.
+2. Redeploy `admin-dashboard` → isi Pengaturan Aplikasi (WA CS, S&K, privasi).
+3. Uji ujung-ke-ujung: outlet tes → bayar kecil → batal di POS → "Perlu dikembalikan" → "Sudah
+   dikembalikan" → notifikasi di aplikasi → matikan lagi outlet tes.
+4. Task 10–12 APK (cek versi minimum **wajib ikut APK pertama**, status outlet, estimasi siap, WA CS)
+   — menunggu WIP customer-app sesi lain di-commit. Butuh desugaring `java.time`.
+5. Minor ditunda (dari review): "tertahan" dihitung saat SSR, `tutup_hari_ini` untuk jam lewat tengah
+   malam, race baca-tulis `kiosk_settings` vs POS, `ambilPengaturan` ~21 kueri paralel saat cache dingin.
+6. Terbuka dari keputusan owner: aturan settlement QRIS mitra sudah terjawab (masuk "Potongan"),
+   "Best Seller" masih kata kunci Ayam/Sapi, estimasi "15–20 mnt" kini bisa diatur di Pengaturan.
+- Mitra Cicurug: "Original Sapi Reguler" ditandai habis di POS sejak 19 Jul — **owner memutuskan dibiarkan**
+  (akan tampil "Habis" di aplikasi setelah gateway baru live).
+
+---
+
 **Last updated:** 2026-09-24  
 **Owner:** Dev Suka Shawarma

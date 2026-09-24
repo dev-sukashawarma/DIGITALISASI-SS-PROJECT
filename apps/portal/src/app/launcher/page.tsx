@@ -69,13 +69,19 @@ export default async function LauncherPage() {
 
   // Suka Review = app eksternal (Vercel), bukan bagian AppName/@suka/auth.
   // Khusus admin & owner; gerbangnya di server component ini.
-  // REVIEW_BYPASS_CODE (server-only) harus PERSIS sama dengan LOGIN_BYPASS_CODE
-  // di env Vercel SukaReview — kalau beda/kosong, tile fallback ke halaman
-  // login biasa (yang disabled) alih-alih auto-login.
+  // REVIEW_BYPASS_CODE_ADMIN/_OWNER (server-only) harus PERSIS sama dengan
+  // LOGIN_BYPASS_CODE_ADMIN/_OWNER di env Vercel SukaReview — admin & owner
+  // sengaja punya kode beda supaya masuk ke akun SukaReview yang beda juga
+  // (role masing-masing terjaga di tabel profiles SukaReview, bukan share
+  // satu identitas). Kalau kode untuk role staff ini kosong, tile fallback
+  // ke halaman login biasa (yang disabled) alih-alih auto-login.
   const REVIEW_BASE_URL = process.env.NEXT_PUBLIC_APP_URL_REVIEW || 'https://suka-review.vercel.app'
-  const REVIEW_BYPASS_CODE = process.env.REVIEW_BYPASS_CODE
+  const REVIEW_BYPASS_CODE =
+    staff.role === 'admin' ? process.env.REVIEW_BYPASS_CODE_ADMIN :
+    staff.role === 'owner' ? process.env.REVIEW_BYPASS_CODE_OWNER :
+    undefined
   const REVIEW_URL = REVIEW_BYPASS_CODE
-    ? `${REVIEW_BASE_URL}/login?bypass=${encodeURIComponent(REVIEW_BYPASS_CODE)}`
+    ? `${REVIEW_BASE_URL}/api/auth/bypass?code=${encodeURIComponent(REVIEW_BYPASS_CODE)}`
     : REVIEW_BASE_URL
   const canSeeReview = ['admin', 'owner'].includes(staff.role)
 

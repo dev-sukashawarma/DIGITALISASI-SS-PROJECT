@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useTransition, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   Video,
   Plus,
@@ -383,8 +383,27 @@ export default function EndorsementList({
   initialLastSyncedAt,
 }: EndorsementListProps) {
   const router = useRouter()
-  // Tab Switcher state
-  const [activeTab, setActiveTab] = useState<'operations' | 'finance' | 'analytics'>('operations')
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab')
+
+  // Tab Switcher state synced with URL query (?tab=operations|finance|analytics)
+  const [activeTab, setActiveTab] = useState<'operations' | 'finance' | 'analytics'>(() => {
+    if (tabParam === 'finance' || tabParam === 'analytics' || tabParam === 'operations') {
+      return tabParam
+    }
+    return 'operations'
+  })
+
+  // Sync state if URL query params change (e.g. from sidebar clicks)
+  useEffect(() => {
+    if (tabParam === 'finance' && activeTab !== 'finance') {
+      setActiveTab('finance')
+    } else if (tabParam === 'analytics' && activeTab !== 'analytics') {
+      setActiveTab('analytics')
+    } else if ((tabParam === 'operations' || !tabParam) && activeTab !== 'operations') {
+      setActiveTab('operations')
+    }
+  }, [tabParam, activeTab])
 
   // Common filters
   const [search, setSearch] = useState('')
@@ -438,6 +457,7 @@ export default function EndorsementList({
     setSearch(kolName)
     setPerformanceFilter('ALL')
     setActiveTab('analytics')
+    router.replace('/dashboard/endorsements?tab=analytics', { scroll: false })
   }
 
   const [errorMessage, setErrorMessage] = useState('')
@@ -1313,7 +1333,10 @@ export default function EndorsementList({
       {/* Primary Tab Switcher */}
       <div className="flex items-center gap-1.5 p-1.5 bg-[#EFE8DE]/60 rounded-2xl w-fit border border-[#EFE8DE]">
         <button
-          onClick={() => setActiveTab('operations')}
+          onClick={() => {
+            setActiveTab('operations')
+            router.replace('/dashboard/endorsements?tab=operations', { scroll: false })
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'operations'
               ? 'bg-white text-[#1A1715] shadow-xs'
@@ -1328,7 +1351,10 @@ export default function EndorsementList({
         </button>
 
         <button
-          onClick={() => setActiveTab('finance')}
+          onClick={() => {
+            setActiveTab('finance')
+            router.replace('/dashboard/endorsements?tab=finance', { scroll: false })
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'finance'
               ? 'bg-emerald-700 text-white shadow-xs'
@@ -1351,7 +1377,10 @@ export default function EndorsementList({
         </button>
 
         <button
-          onClick={() => setActiveTab('analytics')}
+          onClick={() => {
+            setActiveTab('analytics')
+            router.replace('/dashboard/endorsements?tab=analytics', { scroll: false })
+          }}
           className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
             activeTab === 'analytics'
               ? 'bg-[#D9480F] text-white shadow-xs'

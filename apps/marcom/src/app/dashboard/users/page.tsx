@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { isMelani } from '@/lib/access-control'
 import UserList, { SerializedUser } from './UserList'
 
 export const dynamic = 'force-dynamic'
@@ -10,7 +11,7 @@ export default async function UsersPage() {
 
   // Only ADMIN can access User Management
   if (!currentUser || currentUser.role !== 'ADMIN') {
-    redirect('/dashboard')
+    redirect(isMelani(currentUser?.email) ? '/dashboard/content-planner' : '/dashboard')
   }
 
   const users = await prisma.user.findMany({

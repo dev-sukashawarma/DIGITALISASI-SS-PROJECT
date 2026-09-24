@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { PanelLeftOpen, PanelLeft, Flame } from 'lucide-react'
 import Sidebar, { SidebarMode } from '@/components/dashboard/Sidebar'
 
@@ -71,13 +71,15 @@ export default function DashboardShell({ user, children }: DashboardShellProps) 
 
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1A1715] font-sans antialiased selection:bg-amber-200 selection:text-amber-950">
-      <Sidebar
-        user={user}
-        mode={sidebarMode}
-        onModeChange={changeSidebarMode}
-        isMobileOpen={isMobileOpen}
-        onMobileToggle={setIsMobileOpen}
-      />
+      <Suspense fallback={null}>
+        <Sidebar
+          user={user}
+          mode={sidebarMode}
+          onModeChange={changeSidebarMode}
+          isMobileOpen={isMobileOpen}
+          onMobileToggle={setIsMobileOpen}
+        />
+      </Suspense>
 
       <div
         className={`flex flex-col min-h-screen transition-all duration-300 ease-in-out ${paddingClass}`}

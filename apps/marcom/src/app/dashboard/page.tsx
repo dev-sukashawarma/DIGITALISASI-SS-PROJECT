@@ -16,10 +16,17 @@ import {
   Eye,
 } from 'lucide-react'
 
+import { redirect } from 'next/navigation'
+import { isMelani } from '@/lib/access-control'
+
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
   const user = await getCurrentUser()
+
+  if (isMelani(user?.email)) {
+    redirect('/dashboard/content-planner')
+  }
 
   // Get upcoming agenda start date
   const todayStart = new Date()

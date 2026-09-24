@@ -12,6 +12,7 @@ import {
   User as UserIcon,
 } from 'lucide-react'
 import { createUser, updateUserRole, deleteUser } from '@/app/actions/users'
+import { isMelani, isPutriHambali } from '@/lib/access-control'
 
 export interface SerializedUser {
   id: string
@@ -154,10 +155,22 @@ export default function UserList({ initialUsers, currentUserId }: UserListProps)
                           {u.email.slice(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <div className="font-bold text-[#1A1715] text-sm">{u.name || '-'}</div>
-                          {isSelf && (
-                            <span className="text-[10px] text-[#D9480F] font-bold">(Akun Anda)</span>
-                          )}
+                          <div className="font-bold text-[#1A1715] text-sm flex items-center gap-1.5 flex-wrap">
+                            <span>{u.name || '-'}</span>
+                            {isSelf && (
+                              <span className="text-[10px] text-[#D9480F] font-bold">(Akun Anda)</span>
+                            )}
+                            {isMelani(u.email) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-extrabold bg-purple-100 text-purple-800 border border-purple-200">
+                                Konten & Menu Promo
+                              </span>
+                            )}
+                            {isPutriHambali(u.email) && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded font-extrabold bg-blue-100 text-blue-800 border border-blue-200">
+                                Operasional, Endorse & OPEX
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>

@@ -136,6 +136,29 @@ class CatalogViewModel(
         viewModelScope.launch { muatKatalog(outlet) }
     }
 
+    /**
+     * `bisa_pesan`/`pesan_status` bergantung waktu (jam buka, tutup
+     * sementara), jadi outlet yang sudah dipasang di [state] bisa basi hanya
+     * karena waktu berlalu -- pelanggan yang membuka app sebelum outlet buka
+     * lalu membiarkannya di latar belakang akan tetap melihat "Tutup" walau
+     * jam buka sudah lewat.
+     *
+     * Sengaja ringan: hanya mengganti [CatalogState.outlet], tanpa spinner,
+     * tanpa memuat ulang katalog, tanpa menyentuh keranjang. Gagal jaringan
+     * dibiarkan senyap -- nilai lama dipertahankan, bukan galat yang
+     * menjatuhkan layar untuk penyegaran yang sifatnya best-effort.
+     */
+    fun segarkanStatusOutlet() {
+        viewModelScope.launch {
+            val hasil = repository.outlets()
+            if (hasil is GatewayResult.Sukses) {
+                _state.value = _state.value.copy(
+                    outlet = perbaruiOutlet(_state.value.outlet, hasil.data)
+                )
+            }
+        }
+    }
+
     fun akuiKeranjangDikosongkan() {
         _state.value = _state.value.copy(keranjangDikosongkan = false)
     }

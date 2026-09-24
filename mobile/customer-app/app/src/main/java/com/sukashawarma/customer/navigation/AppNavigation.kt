@@ -27,8 +27,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -115,6 +117,14 @@ fun CustomerAppRoot(container: AppContainer) {
     val catalogState by catalogViewModel.state.collectAsStateWithLifecycle()
     val cartState by cartViewModel.state.collectAsStateWithLifecycle()
     val unreadNotifCount by container.notificationStore.unreadCount.collectAsStateWithLifecycle()
+
+    // Status outlet (`bisa_pesan`, jam/tutup sementara) bergantung waktu --
+    // pelanggan yang membiarkan app di latar belakang lewat jam buka/tutup
+    // harus melihatnya berubah begitu app kembali ke depan, bukan snapshot
+    // basi dari saat app terakhir dimuat.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        catalogViewModel.segarkanStatusOutlet()
+    }
 
     LaunchedEffect(Unit) {
         if (container.sessionStore.adaSesiBerlaku()) {
@@ -449,6 +459,11 @@ fun CustomerAppRoot(container: AppContainer) {
                     return@composable
                 }
 
+                // Layar ini menahan pelanggan cukup lama untuk membaca deskripsi
+                // dan memilih topping -- status outlet yang basi sejak katalog
+                // pertama dimuat bisa membuat tombol pesan terkunci/terbuka salah.
+                LaunchedEffect(Unit) { catalogViewModel.segarkanStatusOutlet() }
+
                 val detailViewModel: ItemDetailViewModel = viewModel(
                     factory = pabrik { ItemDetailViewModel() }
                 )
@@ -493,6 +508,7 @@ fun CustomerAppRoot(container: AppContainer) {
             }
 
             composable(Rute.KERANJANG) {
+                LaunchedEffect(Unit) { catalogViewModel.segarkanStatusOutlet() }
                 CartScreen(
                     viewModel = cartViewModel,
                     onKembali = { navController.popBackStack() },
@@ -517,6 +533,7 @@ fun CustomerAppRoot(container: AppContainer) {
                 // setiap kali layar ini dibuka. Harga dan ketersediaan bisa
                 // berubah di antara dua kunjungan, dan validasi basi di titik
                 // pembayaran justru hal yang paling berbahaya.
+                LaunchedEffect(Unit) { catalogViewModel.segarkanStatusOutlet() }
                 val checkoutViewModel: CheckoutViewModel = viewModel(
                     factory = pabrik { CheckoutViewModel(container.repository, container.cartStore) }
                 )

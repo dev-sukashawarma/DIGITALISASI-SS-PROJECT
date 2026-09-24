@@ -1,5 +1,6 @@
 package com.sukashawarma.customer.ui.config
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
@@ -40,9 +41,13 @@ fun LayarPerbaruiAplikasi() {
             textAlign = TextAlign.Center,
         )
         Button(onClick = {
-            konteks.startActivity(
-                Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${konteks.packageName}"))
-            )
+            try {
+                konteks.startActivity(
+                    Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=${konteks.packageName}"))
+                )
+            } catch (e: ActivityNotFoundException) {
+                // Tidak ada Play Store terpasang (mis. emulator polos); diamkan, jangan crash.
+            }
         }) { Text("Buka Play Store") }
     }
 }

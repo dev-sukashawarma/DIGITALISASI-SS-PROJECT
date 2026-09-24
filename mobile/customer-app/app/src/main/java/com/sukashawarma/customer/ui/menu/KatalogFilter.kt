@@ -1,6 +1,7 @@
 package com.sukashawarma.customer.ui.menu
 
 import com.sukashawarma.customer.data.api.MenuItemDto
+import com.sukashawarma.customer.data.api.OutletDto
 
 /** Satu kelompok menu yang tampil dengan judulnya sendiri di katalog. */
 data class KategoriMenu(
@@ -74,4 +75,20 @@ fun saringPencarian(items: List<MenuItemDto>, kueri: String): List<MenuItemDto> 
         it.name.lowercase().contains(bersih) ||
             (it.description?.lowercase()?.contains(bersih) == true)
     }
+}
+
+/**
+ * Mengambil status terbaru outlet yang sedang dipakai dari daftar outlet yang
+ * baru saja diambil ulang -- `bisa_pesan`/`pesan_status` bergantung waktu
+ * (jam buka, tutup sementara), jadi salinan lama bisa basi hanya karena waktu
+ * berlalu, bukan karena datanya diedit siapa pun.
+ *
+ * Sengaja tidak melempar atau mengosongkan apa pun kalau outlet lama tak lagi
+ * ada di daftar baru -- itu jalur `perluPilihOutlet` yang sudah ada di
+ * `muat()`, bukan tanggung jawab penyegaran ringan ini. Nilai lama
+ * dipertahankan apa adanya di kasus itu.
+ */
+fun perbaruiOutlet(lama: OutletDto?, daftar: List<OutletDto>): OutletDto? {
+    if (lama == null) return null
+    return daftar.firstOrNull { it.id == lama.id } ?: lama
 }

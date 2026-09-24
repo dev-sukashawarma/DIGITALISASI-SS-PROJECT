@@ -1,9 +1,22 @@
 package com.sukashawarma.customer.ui.menu
 
 import com.sukashawarma.customer.data.api.MenuItemDto
+import com.sukashawarma.customer.data.api.OutletDto
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
+
+private fun outlet(
+    id: String,
+    nama: String = "Outlet",
+    bisaPesan: Boolean? = null,
+    pesanStatus: String? = null,
+) = OutletDto(
+    id = id, name = nama, isActive = true,
+    bisaPesan = bisaPesan, pesanStatus = pesanStatus
+)
 
 private fun item(
     id: String,
@@ -118,5 +131,25 @@ class KatalogFilterTest {
     fun `kueri tanpa hasil mengembalikan daftar kosong, bukan seluruh menu`() {
         val semua = listOf(item("a", "Shawarma", "c1", 1))
         assertTrue(saringPencarian(semua, "nasi goreng").isEmpty())
+    }
+
+    @Test
+    fun `perbaruiOutlet mengganti dengan versi terbaru dari daftar berdasarkan id yang sama`() {
+        val lama = outlet("o1", bisaPesan = false, pesanStatus = "tutup_sementara")
+        val baru = outlet("o1", bisaPesan = true, pesanStatus = null)
+        val hasil = perbaruiOutlet(lama, listOf(outlet("o2"), baru))
+        assertSame(baru, hasil)
+    }
+
+    @Test
+    fun `perbaruiOutlet mempertahankan nilai lama bila id tak lagi ada di daftar`() {
+        val lama = outlet("o1", bisaPesan = true)
+        val hasil = perbaruiOutlet(lama, listOf(outlet("o2")))
+        assertSame(lama, hasil)
+    }
+
+    @Test
+    fun `perbaruiOutlet mengembalikan null bila tak ada outlet yang sedang dipakai`() {
+        assertNull(perbaruiOutlet(null, listOf(outlet("o1"))))
     }
 }

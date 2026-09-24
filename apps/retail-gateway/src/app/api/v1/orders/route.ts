@@ -5,6 +5,8 @@ import { ambilKatalog } from '@/lib/catalog'
 import { periksaKeranjang, jumlahWajar } from '@/lib/validateCart'
 import { hitungTotal, type ItemPesanan } from '@/lib/pricing'
 import { buatQris, buatTagihan } from '@/lib/xendit'
+import { statusUntuk } from '@/lib/statusOutletDb'
+import { pesanStatus } from '@/lib/jamBuka'
 
 export const dynamic = 'force-dynamic'
 
@@ -119,7 +121,7 @@ export async function POST(request: Request) {
   const db = createServiceClient()
   const { data: outlet, error: outletError } = await db
     .from('outlets')
-    .select('id, name, app_enabled, is_active')
+    .select('id, name, app_enabled, is_active, open_hour, close_hour')
     .eq('id', body.outlet_id)
     .maybeSingle()
 
@@ -131,10 +133,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Gagal memeriksa outlet' }, { status: 502 })
   }
 
-  if (!outlet || outlet.app_enabled !== true || outlet.is_active === false) {
+  if (!outlet || outlet.app_enabled !== true) {
+    return NextResponse.json({ error: 'Outlet sedang tidak bisa menerima pesanan' }, { status: 409 })
+  }
+
+  // Titik pembuatan tagihan QRIS -- penjaga terakhir. `validate` saja tidak
+  // cukup: aplikasi lama atau pelanggan yang membuka menu sejak 21.25 tetap
+  // bisa langsung memanggil endpoint ini.
+  let status
+  try {
+    status = await statusUntuk(outlet)
+  } catch (e) {
+    console.error('gagal menghitung status outlet', e)
+    return NextResponse.json({ error: 'Gagal memeriksa outlet' }, { status: 502 })
+  }
+  if (!status.bisaPesan) {
     return NextResponse.json(
-      { error: 'Outlet sedang tidak bisa menerima pesanan' },
-      { status: 409 }
+      { error: 'outlet_tutup', alasan: 'outlet_tutup', pesan: pesanStatus(status) },
+      { status: 409 },
     )
   }
 

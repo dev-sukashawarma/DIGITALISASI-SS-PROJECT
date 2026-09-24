@@ -6,7 +6,8 @@ import { useOutletBudgetStatus } from '@/hooks/useOutletBudget'
 import { estimateCartValue } from '@/app/actions/budget'
 import { BudgetBadge } from './BudgetBadge'
 import type { PermintaanWithItems, PermintaanItem } from '@/types/permintaan'
-import { fetchCrosscheckStok, fetchSaldoVendorGudang } from '@/app/actions/permintaan'
+import { fetchCrosscheckStok, fetchSaldoVendorGudang, fetchHargaVendor } from '@/app/actions/permintaan'
+import type { HargaVendorMap } from '@/lib/stok/hargaVendor'
 import { calculateBahanBakuRequest } from '@/app/actions/permintaan_target'
 import { convertToDistribusiUnit, convertToBaseUnit, convertGramToBesar, formatTriUnitSaldoAdaptive } from '@/lib/format/compositeUnit'
 import { PilihVendorBahan } from './PilihVendorBahan'
@@ -58,6 +59,14 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
   // dipilih kitchen per bahan (satuan DISTRIBUSI, sama dengan kolom qty).
   const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
   const [alokasi, setAlokasi] = useState<Record<string, Alokasi[]>>({})
+  // Harga katalog per vendor (satuan BESAR). Hanya untuk tampilan & estimasi —
+  // gagal muat tidak memblokir approval (surat jalan tetap dihargai trigger DB).
+  const [hargaVendor, setHargaVendor] = useState<HargaVendorMap>({})
+
+  useEffect(() => {
+    const ids = permintaan.items.map(it => it.bahan_baku_id)
+    fetchHargaVendor(ids).then(setHargaVendor).catch(err => console.error('Gagal memuat harga vendor', err))
+  }, [permintaan.items])
 
   useEffect(() => {
     const fetchCrosscheck = async () => {
@@ -110,6 +119,15 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
     }))
   }
 
+  // Harga vendor per satuan DISTRIBUSI (katalog per satuan besar).
+  const hargaVendorDist = (it: PermintaanItem): Record<string, number> | undefined => {
+    const hv = hargaVendor[it.bahan_baku_id]
+    if (!hv) return undefined
+    const b = bahanBaku.find(x => x.id === it.bahan_baku_id)
+    const perDist = b ? convertToBaseUnit(1, b) : 1
+    return Object.fromEntries(Object.entries(hv).map(([v, h]) => [v, h * perDist]))
+  }
+
   // Isi alokasi awal begitu vendor & qty diketahui; kalau alokasi tunggal
   // (belum dipecah), samakan qty-nya ketika kitchen mengubah qty bahan.
   useEffect(() => {
@@ -150,7 +168,12 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
     const items = permintaan.items
       .map(it => {
         const qtyDisetujuiDist = qtys[it.bahan_baku_id] ?? 0
-        return { bahan_baku_id: it.bahan_baku_id, qty: qtyDisetujuiDist }
+        // Kirim vendor pilihan kitchen supaya total ikut harga vendor itu —
+        // sama dengan aturan handleApprove (alokasi hanya untuk bahan ≥2 vendor).
+        const pilihan = (saldoVendor[it.bahan_baku_id]?.length ?? 0) >= 2
+          ? (alokasi[it.bahan_baku_id] ?? []).filter(a => a.qty > 0)
+          : undefined
+        return { bahan_baku_id: it.bahan_baku_id, qty: qtyDisetujuiDist, alokasi: pilihan }
       })
       .filter(it => it.qty > 0)
 
@@ -166,7 +189,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
       estimateCartValue(items).then(setLiveEstimate).catch(console.error)
     }, 400)
     return () => clearTimeout(timer)
-  }, [qtys, permintaan.items])
+  }, [qtys, alokasi, saldoVendor, permintaan.items])
 
   const hasOverStock = permintaan.items.some(
     it => {
@@ -416,6 +439,7 @@ export function ApprovalModal({ permintaan, onClose, onDone, canApprove = true }
                 onChange={(a) => setAlokasi(prev => ({ ...prev, [it.bahan_baku_id]: a }))}
                 galat={galatVendor(it)}
                 disabled={!canApprove}
+                hargaPerSatuan={hargaVendorDist(it)}
               />
               </div>
               )

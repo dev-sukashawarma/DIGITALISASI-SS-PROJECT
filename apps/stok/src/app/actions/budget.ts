@@ -6,6 +6,8 @@ import { createSupabaseServerClient } from '@suka/auth'
 import type { BudgetStatus, PeriodType } from '@/lib/stok/budget'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import { convertToDistribusiUnit, convertToBaseUnit } from '@/lib/format/compositeUnit'
+import { nilaiBaris, type HargaVendorMap } from '@/lib/stok/hargaVendor'
+import { muatHargaVendor } from '@/lib/stok/muatHargaVendor'
 import type {
   OutletBudgetSummaryItem,
   OutletSpendingTransaction,
@@ -447,7 +449,10 @@ export interface CartEstimateResult {
 }
 
 export async function estimateCartValue(
-  items: { bahan_baku_id: string; qty: number }[]
+  // qty & alokasi[].qty dalam satuan DISTRIBUSI. alokasi (opsional) = vendor
+  // yang dipilih kitchen di layar approval: porsinya dihargai katalog vendor
+  // itu, sama dengan harga_snapshot yang akan ditulis trigger surat jalan.
+  items: { bahan_baku_id: string; qty: number; alokasi?: { vendor_id: string; qty: number }[] }[]
 ): Promise<CartEstimateResult> {
   await requireActiveStaff()
 
@@ -456,7 +461,8 @@ export async function estimateCartValue(
   const supabase = makeServiceClient()
   const ids = items.map((it) => it.bahan_baku_id)
 
-  const [{ data: hg, error: errHg }, { data: bb, error: errBb }] = await Promise.all([
+  const adaAlokasi = items.some((it) => it.alokasi?.length)
+  const [{ data: hg, error: errHg }, { data: bb, error: errBb }, hargaVendor] = await Promise.all([
     supabase.from('bahan_baku_harga').select('bahan_baku_id, harga_beli').in('bahan_baku_id', ids),
     supabase
       .from('bahan_baku')
@@ -464,6 +470,7 @@ export async function estimateCartValue(
         'id, kategori, satuan, satuan_tengah, faktor_tengah, satuan_kecil, faktor_tampilan, satuan_distribusi'
       )
       .in('id', ids),
+    adaAlokasi ? muatHargaVendor(supabase, ids) : Promise.resolve({} as HargaVendorMap),
   ])
 
   if (errHg) throw new Error(errHg.message)
@@ -492,14 +499,18 @@ export async function estimateCartValue(
   const kategoriNilai: Record<string, number> = {}
 
   for (const it of items) {
-    const harga = hargaMap.get(it.bahan_baku_id)
     const kat = kategoriMap.get(it.bahan_baku_id) || 'LAIN-LAIN'
-    if (harga === undefined) {
+    const bahan = bahanMap.get(it.bahan_baku_id)
+    const keBesar = (q: number) => (bahan ? convertToBaseUnit(q, bahan) : q)
+    const subtotal = nilaiBaris(
+      keBesar(it.qty),
+      it.alokasi?.map((a) => ({ vendor_id: a.vendor_id, qty: keBesar(a.qty) })),
+      hargaVendor[it.bahan_baku_id],
+      hargaMap.get(it.bahan_baku_id),
+    )
+    if (subtotal === null) {
       itemTanpaHarga.push(it.bahan_baku_id)
     } else {
-      const bahan = bahanMap.get(it.bahan_baku_id)
-      const qtyBesar = bahan ? convertToBaseUnit(it.qty, bahan) : it.qty
-      const subtotal = qtyBesar * harga
       totalNilai += subtotal
       kategoriNilai[kat] = (kategoriNilai[kat] || 0) + subtotal
     }

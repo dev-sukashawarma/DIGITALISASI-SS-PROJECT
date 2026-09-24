@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import {
   LayoutDashboard,
   Store,
@@ -23,8 +23,11 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   UtensilsCrossed,
+  CreditCard,
+  BarChart3,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
+import { isMelani, isPutriHambali } from '@/lib/access-control'
 
 export type SidebarMode = 'expanded' | 'collapsed' | 'hidden'
 
@@ -63,9 +66,13 @@ export default function Sidebar({
   onMobileToggle,
 }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const currentTab = searchParams.get('tab')
+
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({
-    '/dashboard/content-planner': true,
+    '/dashboard/endorsements': true,
     '/dashboard/budget': true,
+    '/dashboard/content-planner': true,
     '/dashboard/menu': true,
   })
 
@@ -76,6 +83,46 @@ export default function Sidebar({
       ...prev,
       [href]: !prev[href],
     }))
+  }
+
+  const checkChildActive = (childHref: string) => {
+    const [path, query] = childHref.split('?')
+    if (query) {
+      const params = new URLSearchParams(query)
+      const targetTab = params.get('tab')
+      if (pathname === path) {
+        if (targetTab === 'operations') {
+          return currentTab === 'operations' || !currentTab
+        }
+        return currentTab === targetTab
+      }
+      return false
+    }
+
+    // Exact matches for base pages that also have child views
+    if (
+      childHref === '/dashboard/content-planner' ||
+      childHref === '/dashboard/budget' ||
+      childHref === '/dashboard/menu' ||
+      childHref === '/dashboard/endorsements'
+    ) {
+      return pathname === childHref && !currentTab
+    }
+
+    return pathname === childHref || pathname.startsWith(childHref + '/')
+  }
+
+  const checkParentActive = (item: NavItem) => {
+    if (item.href === '/dashboard') {
+      return pathname === '/dashboard'
+    }
+    if (item.children && item.children.some((child) => checkChildActive(child.href))) {
+      return true
+    }
+    if (pathname === item.href || pathname.startsWith(item.href + '/')) {
+      return true
+    }
+    return false
   }
 
   const navItems: NavItem[] = [
@@ -98,6 +145,38 @@ export default function Sidebar({
       badge: null,
     },
     {
+      name: 'Endorsement',
+      href: '/dashboard/endorsements',
+      icon: Video,
+      badge: null,
+      children: [
+        {
+          name: 'Database KOL',
+          href: '/dashboard/kols',
+          icon: Users,
+          badge: null,
+        },
+        {
+          name: 'Jadwal Operasional',
+          href: '/dashboard/endorsements?tab=operations',
+          icon: Calendar,
+          badge: null,
+        },
+        {
+          name: 'Pembayaran',
+          href: '/dashboard/endorsements?tab=finance',
+          icon: CreditCard,
+          badge: null,
+        },
+        {
+          name: 'Video Analytic & ROI',
+          href: '/dashboard/endorsements?tab=analytics',
+          icon: BarChart3,
+          badge: null,
+        },
+      ],
+    },
+    {
       name: 'Budget & OPEX',
       href: '/dashboard/budget',
       icon: DollarSign,
@@ -113,25 +192,13 @@ export default function Sidebar({
           href: '/dashboard/budget/opex',
           badge: null,
         },
+        {
+          name: 'Ads & Paid Traffic',
+          href: '/dashboard/ads',
+          icon: Megaphone,
+          badge: null,
+        },
       ],
-    },
-    {
-      name: 'Database KOL',
-      href: '/dashboard/kols',
-      icon: Users,
-      badge: null,
-    },
-    {
-      name: 'Endorsements',
-      href: '/dashboard/endorsements',
-      icon: Video,
-      badge: null,
-    },
-    {
-      name: 'Ads & Paid Traffic',
-      href: '/dashboard/ads',
-      icon: Megaphone,
-      badge: null,
     },
     {
       name: 'Konten Planner',
@@ -186,13 +253,36 @@ export default function Sidebar({
     },
   ]
 
+  let visibleNavItems: NavItem[] = []
+
   if (user.role === 'ADMIN') {
-    navItems.push({
-      name: 'Akses & Role',
-      href: '/dashboard/users',
-      icon: ShieldCheck,
-      badge: null,
-    })
+    visibleNavItems = [
+      ...navItems,
+      {
+        name: 'Akses & Role',
+        href: '/dashboard/users',
+        icon: ShieldCheck,
+        badge: null,
+      },
+    ]
+  } else if (isMelani(user.email)) {
+    // Melani: Hanya Konten Planner & Katalog Menu & Promo
+    visibleNavItems = navItems.filter(
+      (item) =>
+        item.href === '/dashboard/content-planner' ||
+        item.href === '/dashboard/menu'
+    )
+  } else if (isPutriHambali(user.email)) {
+    // Putri Hambali: Sisa tab (Overview, Kalender, Outlet, Endorsement, Budget & OPEX)
+    visibleNavItems = navItems.filter(
+      (item) =>
+        item.href !== '/dashboard/content-planner' &&
+        item.href !== '/dashboard/menu' &&
+        item.href !== '/dashboard/users'
+    )
+  } else {
+    // Default fallback untuk akun umum
+    visibleNavItems = navItems
   }
 
   const closeMobile = () => onMobileToggle(false)
@@ -313,13 +403,10 @@ export default function Sidebar({
 
           {/* Navigation Items (Expanded) */}
           <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon
               const hasChildren = item.children && item.children.length > 0
-              const isParentActive =
-                item.href === '/dashboard'
-                  ? pathname === '/dashboard'
-                  : pathname.startsWith(item.href)
+              const isParentActive = checkParentActive(item)
               const isExpanded = hasChildren && (expandedMenus[item.href] ?? isParentActive)
 
               return (
@@ -377,25 +464,32 @@ export default function Sidebar({
                   {hasChildren && isExpanded && (
                     <div className="ml-3 pl-3 border-l-2 border-stone-800 space-y-1 py-1 animate-in fade-in duration-150">
                       {item.children!.map((child) => {
-                        const isChildActive =
-                          child.href === '/dashboard/content-planner' ||
-                          child.href === '/dashboard/budget' ||
-                          child.href === '/dashboard/menu'
-                            ? pathname === child.href
-                            : pathname === child.href || pathname.startsWith(child.href)
+                        const isChildActive = checkChildActive(child.href)
+                        const ChildIcon = child.icon
 
                         return (
                           <Link
                             key={child.href}
                             href={child.href}
                             onClick={closeMobile}
-                            className={`flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                            className={`group flex items-center justify-between px-3 py-2 rounded-lg text-xs font-semibold transition-all duration-150 ${
                               isChildActive
                                 ? 'bg-[#D9480F] text-white shadow-xs font-bold'
                                 : 'text-stone-400 hover:text-stone-100 hover:bg-stone-800/50'
                             }`}
                           >
-                            <span className="truncate">{child.name}</span>
+                            <div className="flex items-center space-x-2.5 min-w-0">
+                              {ChildIcon && (
+                                <ChildIcon
+                                  className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                                    isChildActive
+                                      ? 'text-white'
+                                      : 'text-stone-400 group-hover:text-stone-200'
+                                  }`}
+                                />
+                              )}
+                              <span className="truncate">{child.name}</span>
+                            </div>
 
                             {child.badge && (
                               <span
@@ -503,13 +597,10 @@ export default function Sidebar({
 
           {/* Navigation Items (Mini) */}
           <nav className="flex-1 py-3 px-2 space-y-2 overflow-visible">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon
               const hasChildren = item.children && item.children.length > 0
-              const isParentActive =
-                item.href === '/dashboard'
-                  ? pathname === '/dashboard'
-                  : pathname.startsWith(item.href)
+              const isParentActive = checkParentActive(item)
 
               return (
                 <div key={item.href} className="relative group flex justify-center">
@@ -540,23 +631,26 @@ export default function Sidebar({
                     {hasChildren && (
                       <div className="space-y-0.5">
                         {item.children!.map((child) => {
-                          const isChildActive =
-                            child.href === '/dashboard/content-planner' ||
-                            child.href === '/dashboard/budget' ||
-                            child.href === '/dashboard/menu'
-                              ? pathname === child.href
-                              : pathname === child.href || pathname.startsWith(child.href)
+                          const isChildActive = checkChildActive(child.href)
+                          const ChildIcon = child.icon
 
                           return (
                             <Link
                               key={child.href}
                               href={child.href}
-                              className={`block px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                                 isChildActive
                                   ? 'bg-[#D9480F] text-white font-bold'
                                   : 'text-stone-400 hover:text-white hover:bg-stone-800/80'
                               }`}
                             >
+                              {ChildIcon && (
+                                <ChildIcon
+                                  className={`w-3.5 h-3.5 shrink-0 ${
+                                    isChildActive ? 'text-white' : 'text-stone-400'
+                                  }`}
+                                />
+                              )}
                               <span className="truncate">{child.name}</span>
                             </Link>
                           )

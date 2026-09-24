@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 import { fetchPosMenuItems } from '@/lib/supabase-pos'
@@ -170,13 +171,15 @@ export default async function EndorsementsPage() {
   }))
 
   return (
-    <EndorsementList
-      initialEndorsements={serializedEndorsements}
-      outlets={serializedOutlets}
-      kols={serializedKols}
-      userRole={user?.role || 'MARCOM'}
-      posMenuItems={posMenuItems}
-      initialLastSyncedAt={lastSyncedAt}
-    />
+    <Suspense fallback={<div className="p-8 text-center text-stone-500 font-medium">Memuat data endorsement...</div>}>
+      <EndorsementList
+        initialEndorsements={serializedEndorsements}
+        outlets={serializedOutlets}
+        kols={serializedKols}
+        userRole={user?.role || 'MARCOM'}
+        posMenuItems={posMenuItems}
+        initialLastSyncedAt={lastSyncedAt}
+      />
+    </Suspense>
   )
 }

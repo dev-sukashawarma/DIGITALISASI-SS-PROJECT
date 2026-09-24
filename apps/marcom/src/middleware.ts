@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { isMelani, isPutriHambali } from '@/lib/access-control'
 
 const cookieDomain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined
 
@@ -25,18 +26,23 @@ const expectedIssuer = `${(process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/
  * marcom adalah app pnpm mandiri (di luar workspace yarn), jadi tidak memakai
  * `resolveUserId` dari `@suka/auth`; logikanya disamakan.
  */
-async function resolveUserId(
+async function resolveUser(
   supabase: ReturnType<typeof createServerClient>
-): Promise<string | null> {
+): Promise<{ id: string; email: string } | null> {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) return null
+
+  const sessionEmail = session.user?.email || ''
 
   try {
     const { data, error } = await supabase.auth.getClaims(session.access_token)
     if (data?.claims) {
-      const { sub, iss, aud } = data.claims
+      const { sub, iss, aud, email } = data.claims as any
       const audOk = Array.isArray(aud) ? aud.includes('authenticated') : aud === 'authenticated'
-      return typeof sub === 'string' && sub && iss === expectedIssuer && audOk ? sub : null
+      if (typeof sub === 'string' && sub && iss === expectedIssuer && audOk) {
+        return { id: sub, email: (email || sessionEmail).toLowerCase() }
+      }
+      return null
     }
     if (error && (error.name === 'AuthInvalidJwtError' || (error as { code?: string }).code === 'invalid_jwt')) {
       return null
@@ -46,7 +52,8 @@ async function resolveUserId(
   }
 
   const { data: { user } } = await supabase.auth.getUser()
-  return user?.id ?? null
+  if (!user?.id) return null
+  return { id: user.id, email: (user.email || sessionEmail).toLowerCase() }
 }
 
 export async function middleware(request: NextRequest) {
@@ -87,7 +94,7 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const user = await resolveUserId(supabase)
+  const authUser = await resolveUser(supabase)
   const portalUrl = getPortalUrl(request)
 
   const getRedirect = (url: string | URL) => {
@@ -98,25 +105,44 @@ export async function middleware(request: NextRequest) {
     return redirectResponse
   }
 
-  // Jika mengunjungi /login: jika sudah login ke dashboard, jika belum lempar ke portal
-  if (pathname === '/login') {
-    if (user) {
-      return getRedirect('/dashboard')
-    }
-    return getRedirect(portalUrl)
-  }
-
-  // Root path / : jika ada user ke /dashboard, jika belum ada ke portal
-  if (pathname === '/') {
-    if (user) {
-      return getRedirect('/dashboard')
+  // Jika mengunjungi /login atau root /
+  if (pathname === '/login' || pathname === '/') {
+    if (authUser) {
+      const target = isMelani(authUser.email) ? '/dashboard/content-planner' : '/dashboard'
+      return getRedirect(target)
     }
     return getRedirect(portalUrl)
   }
 
   // Proteksi semua rute dashboard untuk pengguna yang belum login
-  if (pathname.startsWith('/dashboard') && !user) {
+  if (pathname.startsWith('/dashboard') && !authUser) {
     return getRedirect(portalUrl)
+  }
+
+  // Role separation guards untuk Melani & Putri Hambali
+  if (authUser && pathname.startsWith('/dashboard')) {
+    const email = authUser.email
+
+    // Melani: Hanya boleh /dashboard/content-planner* dan /dashboard/menu*
+    if (isMelani(email)) {
+      const isAllowed =
+        pathname.startsWith('/dashboard/content-planner') ||
+        pathname.startsWith('/dashboard/menu')
+      if (!isAllowed) {
+        return getRedirect('/dashboard/content-planner')
+      }
+    }
+
+    // Putri Hambali: Tidak boleh /dashboard/content-planner*, /dashboard/menu*, /dashboard/users*
+    if (isPutriHambali(email)) {
+      const isForbidden =
+        pathname.startsWith('/dashboard/content-planner') ||
+        pathname.startsWith('/dashboard/menu') ||
+        pathname.startsWith('/dashboard/users')
+      if (isForbidden) {
+        return getRedirect('/dashboard')
+      }
+    }
   }
 
   return response

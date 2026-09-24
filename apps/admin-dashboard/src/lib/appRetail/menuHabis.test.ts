@@ -13,4 +13,8 @@ describe('gabungDaftarHabis', () => {
   it('tanpa duplikat', () => {
     expect(JSON.parse(gabungDaftarHabis('["a"]', ['a'], ['a']))).toEqual(['a'])
   })
+  it('idHabisBaru non-string dibuang (M3)', () => {
+    const rusak = ['a', 123, null, { x: 1 }, undefined] as unknown as string[]
+    expect(JSON.parse(gabungDaftarHabis(null, ['a'], rusak))).toEqual(['a'])
+  })
 })

@@ -11,5 +11,6 @@ export function gabungDaftarHabis(daftarLama: string | null, idMenuAplikasi: str
   } catch { lama = [] }
   const aplikasi = new Set(idMenuAplikasi)
   const dipertahankan = lama.filter((id) => !aplikasi.has(id))
-  return JSON.stringify([...new Set([...dipertahankan, ...idHabisBaru])])
+  const habisBaruSah = idHabisBaru.filter((x): x is string => typeof x === 'string')
+  return JSON.stringify([...new Set([...dipertahankan, ...habisBaruSah])])
 }

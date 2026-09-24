@@ -13,6 +13,9 @@ import { periksaPengaturan, normalisasiWa, type InputPengaturan } from '@/lib/ap
  */
 const PERAN = ['owner', 'admin']
 
+/** Sama dengan apps/retail-gateway/src/lib/menuHabisOutlet.ts PUSAT_OUTLET_ID. */
+const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+
 type Aksi = 'pengaturan_ubah' | 'tutup_sementara' | 'buka_sekarang' | 'jam_ubah' | 'menu_habis_ubah' | 'refund_selesai'
 
 async function catat(db: ReturnType<typeof createServiceClient>, aksi: Aksi, oleh: string, sasaranId: string | null, data: unknown) {
@@ -73,13 +76,32 @@ export async function bukaSekarang(tutupId: string) {
   segarkan()
 }
 
-export async function simpanMenuHabis(outletId: string, idMenuAplikasi: string[], idHabis: string[]) {
+export async function simpanMenuHabis(outletId: string, _idMenuAplikasiKlien: string[], idHabis: string[]) {
   const { userId } = await requireRole(PERAN)
   const db = createServiceClient()
+  // Daftar menu aplikasi TIDAK dipercaya dari klien -- muat sendiri, supaya
+  // `idHabis` yang disimpan hanya bisa berisi id menu aplikasi yang benar-benar
+  // ada (M3). Parameter klien dipertahankan demi kompatibilitas pemanggil,
+  // tapi tak dipakai lagi.
+  const { data: menuRows, error: menuError } = await db.from('menu_items').select('id').eq('tampil_di_app', true)
+  if (menuError) throw new Error(menuError.message)
+  const idMenuAplikasi = (menuRows ?? []).map((m) => m.id as string)
+  const setMenuAplikasi = new Set(idMenuAplikasi)
+  const idHabisSah = idHabis.filter((id): id is string => typeof id === 'string' && setMenuAplikasi.has(id))
+
   const { data: lama, error: bacaError } = await db.from('kiosk_settings')
     .select('value').eq('outlet_id', outletId).eq('key', 'unavailable_menu_ids').maybeSingle()
   if (bacaError) throw new Error(bacaError.message)
-  const nilai = gabungDaftarHabis(lama?.value ?? null, idMenuAplikasi, idHabis)
+  let lamaValue = lama?.value ?? null
+  // Outlet belum punya baris sendiri -> daftar lama yang benar-benar berlaku
+  // adalah baris PUSAT (aturan sama dengan POS & gateway, M4).
+  if (lamaValue === null) {
+    const { data: pusat, error: pusatError } = await db.from('kiosk_settings')
+      .select('value').eq('outlet_id', PUSAT_OUTLET_ID).eq('key', 'unavailable_menu_ids').maybeSingle()
+    if (pusatError) throw new Error(pusatError.message)
+    lamaValue = pusat?.value ?? null
+  }
+  const nilai = gabungDaftarHabis(lamaValue, idMenuAplikasi, idHabisSah)
   const { error } = await db.from('kiosk_settings')
     .upsert({ outlet_id: outletId, key: 'unavailable_menu_ids', value: nilai }, { onConflict: 'outlet_id,key' })
   if (error) throw new Error(error.message)
@@ -104,8 +126,9 @@ export async function simpanPengaturan(input: InputPengaturan) {
     diubah_oleh: userId,
     diubah_pada: new Date().toISOString(),
   }
-  const { error } = await db.from('app_pengaturan').update(baru).eq('id', 1)
+  const { data: hasil, error } = await db.from('app_pengaturan').update(baru).eq('id', 1).select('id')
   if (error) throw new Error(error.message)
+  if (!hasil?.length) throw new Error('Baris pengaturan (id=1) tidak ditemukan -- update tidak mengenai apa pun.')
   await catat(db, 'pengaturan_ubah', userId, null, { sebelum: lama, sesudah: baru })
   segarkan()
 }
@@ -119,17 +142,24 @@ export async function tandaiRefundSelesai(refundId: string, catatan: string) {
   const { data, error } = await retail.from('refund_pesanan')
     .update({ status: 'sudah', catatan: rapi, diproses_oleh: userId, diproses_pada: new Date().toISOString() })
     .eq('id', refundId).eq('status', 'perlu')
-    .select('id, customer_id, order_id, nominal')
+    .select('id, customer_id, order_id, draft_id, nominal')
   if (error) throw new Error(error.message)
   if (!data?.length) throw new Error('Refund ini sudah diproses.')
   const r = data[0]
+  // FK `customer_notifications_order_id_fkey` menunjuk `retail.order_drafts(id)`,
+  // BUKAN `public.orders(id)` -- `r.order_id` (kolom POS) tak pernah cocok
+  // dengan draft manapun, jadi insert di bawah SELALU gagal FK kalau
+  // memakainya. `r.draft_id` yang benar (diverifikasi ke katalog DB live).
+  const { data: draft } = await retail.from('order_drafts')
+    .select('pos_order_number').eq('id', r.draft_id).maybeSingle()
+  const nomorTeks = draft?.pos_order_number != null ? ` #${draft.pos_order_number}` : ''
   const { error: notifError } = await retail.from('customer_notifications').insert({
     customer_id: r.customer_id,
-    order_id: r.order_id,
+    order_id: r.draft_id,
     type: 'order_status',
     title: 'Dana dikembalikan',
-    body: `Dana Rp ${Number(r.nominal).toLocaleString('id-ID')} untuk pesananmu sudah dikembalikan.`,
-    data: { refund_id: r.id },
+    body: `Dana Rp ${Number(r.nominal).toLocaleString('id-ID')} untuk pesanan${nomorTeks} sudah dikembalikan.`,
+    data: { refund_id: r.id, pos_order_id: r.order_id },
   })
   if (notifError) console.error('notifikasi refund gagal', notifError)
   await catat(db, 'refund_selesai', userId, r.order_id, { refund_id: r.id, nominal: r.nominal, catatan: rapi })

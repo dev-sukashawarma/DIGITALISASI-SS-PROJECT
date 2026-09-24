@@ -45,14 +45,23 @@ export default async function AppRetailOutletPage() {
     svc.from('kiosk_settings').select('outlet_id, value').eq('key', 'unavailable_menu_ids'),
     svc.from('app_pengaturan').select('menit_pesan_terakhir').eq('id', 1).maybeSingle(),
   ])
-  const daftarHabis: Record<string, string[]> = {}
+  const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
+  const mentahPerOutlet: Record<string, string[]> = {}
   for (const r of kioskRes.data ?? []) {
     try {
       const v = JSON.parse(r.value ?? '[]')
-      daftarHabis[r.outlet_id] = Array.isArray(v) ? v : []
+      mentahPerOutlet[r.outlet_id] = Array.isArray(v) ? v : []
     } catch {
-      daftarHabis[r.outlet_id] = []
+      mentahPerOutlet[r.outlet_id] = []
     }
+  }
+  // Outlet tanpa baris sendiri "mewarisi" daftar PUSAT (sama dengan aturan
+  // POS & gateway, apps/retail-gateway/src/lib/menuHabisOutlet.ts) -- kalau
+  // tidak, dialog & hitungan "Menu habis (N)" akan diam-diam menampilkan
+  // kosong padahal PUSAT sedang menandai menu itu habis di outlet ini juga.
+  const daftarHabis: Record<string, string[]> = {}
+  for (const o of outletRes.data ?? []) {
+    daftarHabis[o.id] = mentahPerOutlet[o.id] ?? mentahPerOutlet[PUSAT_OUTLET_ID] ?? []
   }
 
   return (

@@ -2853,5 +2853,104 @@ serupa tapi minor (1 resep, 5 outlet).
 - ✅ **SAUS CABE/SAOS CABE — DITUTUP 2026-09-15** (`20260915235000_gabung_saus_cabe_tomat_ke_saos`, applied+terstempel). Akar: `20260914130000` menambah bahan hantu SAUS CABE/SAUS TOMAT (kg, tanpa harga/faktor) ke resep tanpa membuang baris SAOS lama → 28 resep offline memotong saus 2×, 11 resep Online tak memotong saus sungguhan. Gramasi baru dipindahkan ke SAOS CABE & SAOS TOMAT POUCH (41 baris resep masing-masing), hantu dinonaktifkan+rename. Pelajaran: `trg_process_bom_stok` TIDAK menyaring `bahan_baku.is_active` — menonaktifkan bahan tidak menghentikan potongan BOM; baris resepnya yang harus dipindah.
 ---
 
-**Last updated:** 2026-09-15  
+## Session 2026-09-23: Master Bahan Baku Satu Tempat — Tahap 0 & 1
+
+**Status:** Tahap 0 LIVE & ter-deploy (commit `8729fbe2`, GitHub Actions
+admin-dashboard/stok/finance/portal). Tahap 1 (fondasi DB) LIVE — **11 migration
+(10 Tahap 1 + 1 perbaikan review akhir) applied & terstempel, nol app diubah** (murni
+database, tak perlu redeploy).
+
+**Spec/plan:** `docs/superpowers/specs/2026-09-23-master-bahan-baku-satu-tempat-design.md`,
+`docs/superpowers/plans/2026-09-23-master-bahan-baku-tahap1-fondasi-db.md`
+
+### Tahap 0 (sudah live sebelum sesi ini)
+Bug harga bahan baru hilang (kolom `updated_at` tak ada) diperbaiki; faktor form Tambah
+Bahan diperbaiki (`turunkanFaktorSatuan`); cek role tambah bahan; modal sinkron harga PO
+manual dicabut (admin & finance); edit satuan di detail bahan dikunci; 2 form publik
+dihapus; **GAS 12 KG dikoreksi** (`20260923170000`).
+
+### Tahap 1 — fondasi DB (10 migration: `180000`, `181000`, `182000`, `182500`, `183000`, `183500`, `184000`, `184500`, `185000`, `185500`; subagent-driven per task, tiap task direview)
+`20260923180000` kolom `peruntukan`/`is_opname` di `bahan_baku` · `20260923181000` audit
+(trigger `trg_audit_bahan_baku`/`_sku`/`trg_audit_supplier` → `master_bahan_audit`; view
+`riwayat_master_bahan`) · `20260923182000` invarian faktor (fungsi
+`bahan_baku_tegakkan_faktor`, trigger `trg_bahan_baku_00_tegakkan_faktor` +
+`trg_bbh_00_samakan_kemasan` — **sengaja jalan sebelum** `trg_bahan_baku_faktor_po`,
+urutan nama `_00_` memaksa itu) · `20260923182500` label distribusi `'kg'` sah untuk bahan
+bersatuan kecil gram (mirror `getDistribusiFactor` di `compositeUnit.ts`) ·
+`20260923183000` **harga master turunan dari katalog vendor** (fungsi
+`harga_vendor_terpercaya` — **sengaja INVOKER**, tunduk RLS pemanggil; `turunkan_harga_master`;
+trigger `trg_bbs_turunkan_harga_master`/`trg_supplier_turunkan_harga_master`; view
+`bahan_baku_status_harga`) · `20260923183500` **K1**: tulis `bahan_baku_supplier` kini
+= tulis harga master, jadi dipersempit ke admin/owner/purchasing aktif saja ·
+`20260923184000`+`184500` RPC `simpan_bahan_baku`/`simpan_sku`/`hapus_bahan_baku`/
+`nonaktifkan_bahan_baku`/`aktifkan_bahan_baku`/`set_default_sku`/`hapus_sku` (perbaikan:
+resync `kemasan_qty` saat ganti satuan; validasi UPDATE `simpan_sku`) ·
+`20260923185000`+`185500` RPC `simpan_harga_vendor`/`simpan_supplier`/
+`nonaktifkan_supplier`/`nonaktifkan_harga_vendor` (label satuan beli tak dikenal wajib
+`p_paksa`; `'kg'` pada bahan gram = isi 1000). Supplier baru **"Beli Tunai / Tanpa
+Vendor"** (`kategori='lainnya'` — `'internal'` ditolak `supplier_kategori_check`).
+
+### Perbaikan review akhir — `20260923220000` (applied & terstempel)
+Timestamp `190000` yang semula direncanakan sudah dipakai migration lain
+(`golive_outlet_menu_aplikasi`). **I1:** trigger `trg_supplier_jaga_status_hapus` — ubah
+`supplier.is_active` / hapus supplier (menggeser harga master) hanya admin/owner/purchasing
+aktif bila ada `auth.uid()`; `supplier_write` sengaja tak dipersempit, jadi admin_finance
+masih bisa edit nama/kontak, tapi **tombol nonaktif supplier di app finance
+(`usePurchaseOrder.ts`) kini ditolak 42501 untuk admin_finance/kitchen/developer**.
+**I2:** `harga_vendor_terpercaya` melewati baris katalog yang isinya menyimpang >0,1% dari
+master (aturan `simpan_harga_vendor`, termasuk kg→gram=1000) — hari ini hanya FOIL/Altindo,
+bukan sumber harga FOIL, jadi nol harga master bergeser; `harga_updated_at` dijepit ke
+`now()`. Efek samping: setelah ganti isi satuan, baris katalog ber-isi lama tak lagi
+dipakai → master membeku sampai purchasing konfirmasi ulang. **M1:**
+`nonaktifkan_bahan_baku` menolak bahan yang ada di `bahan_baku_substitusi` (utama maupun
+pengganti). Uji `t8_perbaikan_final.sql`; t4 (c) & t5 (l) disesuaikan.
+
+### Fix-up invarian (Task 3) — 8 bahan tersentuh
+HAND GLOVE, KERTAS STRUK, GALON AIR, KETUMBAR (aktif) + TUTUP, SARUNG TANGAN BENING,
+MINYAK (NONAKTIF), ES BATU CRYSTAL (nonaktif) — `faktor_konversi` dirapikan ke rumus
+kanonik, **`faktor_tampilan` tak berubah**. Diperiksa 12 fungsi pembaca: nol perubahan
+perilaku kecuali 1 laporan waste TUTUP (qty kecil x1→x25, nilai Rp 0) yang justru koreksi.
+
+### Task 4 Step 6 — diff harga master vs turunan vendor = 0 baris
+23 bahan terkonfirmasi sudah sama dengan turunan vendor, 25 belum dikonfirmasi (lihat
+Q2 pemantau). **Tak ada penyelarasan massal yang dijalankan atau diperlukan** — sengaja,
+menunggu owner (lihat "Di luar plan" di spec).
+
+### Task 7 — regresi & pemantau (penutup Tahap 1)
+`supabase/verifikasi/master_bahan/t7_regresi_jalur_lama.sql` — **LULUS**: server action
+"tambah bahan" (service key, tulis tabel langsung) dan `katalog_tulis_dari_po` (sumber
+`'po'`) masih jalan tanpa error setelah trigger Task 3/4 dipasang.
+`supabase/verifikasi/master_bahan/pemantau.sql` (4 kueri) — baseline hari ini: Q1 (pelanggar
+invarian) **5 baris**, seluruhnya bahan nonaktif ber-`kemasan_qty` basi yang sama dengan
+daftar "Open items for owner" di bawah (MAYONES, SAOS CABE KOMPAN, SAOS TOMAT, THERMAL
+STRUK, SAUS X HOT) — bukan regresi, sudah diketahui; Q2 (belum dikonfirmasi vendor)
+**25 baris**, cocok dengan Task 4 Step 6; Q3 (master menyimpang dari vendor terpercaya)
+**0 baris**; Q4 (perubahan master 7 hari tanpa alasan) **1 baris**, `INSERT supplier`
+(pembuatan "Beli Tunai / Tanpa Vendor" oleh migration itu sendiri, bukan jalur lama).
+
+### Gotcha
+- Tulis langsung ke tabel master **belum dicabut** (menunggu Tahap 2) — penjaga RPC baru
+  masih bisa dilewati lewat tulis tabel langsung oleh role yang diizinkan RLS.
+- `outlets.name`, bukan `outlets.nama` (perbaikan atas asumsi plan di Task 5).
+
+### 📝 Open items untuk owner
+- 5 bahan nonaktif ber-`kemasan_qty` basi (MAYONES, SAOS CABE KOMPAN, SAOS TOMAT,
+  THERMAL STRUK, SAUS X HOT) — Q1 pemantau akan tetap menandainya sampai dirapikan.
+- Berkas WIP untracked `supabase/migrations/20300235000000_add_peruntukan_and_is_opname_bahan_baku.sql`
+  di working tree `main` — sebaiknya dihapus (superseded oleh `20260923180000`).
+- Cakupan bahan per outlet (mis. "GAS 12 KG hanya Kitchen & BNR") belum bisa diwakili
+  di skema ini — perlu keputusan owner tersendiri.
+
+### 📝 Next
+- **Tahap 2**: halaman bertab `/dashboard/bahan-baku` + cabut tulis langsung ke tabel
+  master (menutup gotcha di atas).
+- **Tahap 3**: tombol Ganti Satuan (`app.ganti_satuan`, ikut menyegarkan
+  `bahan_baku_harga.kemasan_qty`), stok membaca `peruntukan`/`is_opname`, penulisan
+  ulang dokumen satuan.
+- Penyelarasan massal harga master ke vendor menunggu persetujuan owner atas daftar
+  Task 4 Step 6 (Q2/Q3 pemantau).
+
+---
+
+**Last updated:** 2026-09-23  
 **Owner:** Dev Suka Shawarma

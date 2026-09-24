@@ -21,6 +21,12 @@ export interface BahanBakuRaw {
   stok_ideal?: number | null
   threshold_type?: 'angka' | 'persentase' | null
   threshold_persentase?: number | null
+  is_active?: boolean | null
+  default_reorder_point?: number | null
+  peruntukan?: 'outlet' | 'gudang' | 'keduanya' | null
+  is_opname?: boolean | null
+  satuan_po?: string | null
+  satuan_distribusi?: string | null
   bahan_baku_harga: BahanBakuHargaRow | BahanBakuHargaRow[] | null
   bahan_baku_sku?: BahanBakuSku[] | null
 }
@@ -55,6 +61,12 @@ export interface BahanBakuWithHarga {
   stok_ideal?: number | null
   threshold_type?: 'angka' | 'persentase' | null
   threshold_persentase?: number | null
+  is_active: boolean
+  default_reorder_point: number
+  peruntukan: 'outlet' | 'gudang' | 'keduanya'
+  is_opname: boolean
+  satuan_po: string | null
+  satuan_distribusi: string | null
   harga: BahanBakuHargaRow | null
   skus?: BahanBakuSku[]
 }
@@ -79,6 +91,12 @@ export function normalizeBahanBaku(raw: BahanBakuRaw): BahanBakuWithHarga {
     stok_ideal: raw.stok_ideal,
     threshold_type: raw.threshold_type,
     threshold_persentase: raw.threshold_persentase,
+    is_active: raw.is_active ?? true,
+    default_reorder_point: Number(raw.default_reorder_point ?? 0),
+    peruntukan: raw.peruntukan ?? 'outlet',
+    is_opname: raw.is_opname ?? true,
+    satuan_po: raw.satuan_po ?? null,
+    satuan_distribusi: raw.satuan_distribusi ?? null,
     harga,
     skus: raw.bahan_baku_sku || []
   }

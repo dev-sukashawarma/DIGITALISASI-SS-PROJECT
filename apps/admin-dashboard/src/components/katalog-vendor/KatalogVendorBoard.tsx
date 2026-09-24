@@ -3,12 +3,14 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { kelompokkanKatalog, ringkasKatalog } from '@/lib/katalogGroup'
-import { useKatalogVendor, useKatalogVendorMutations } from '@/hooks/useKatalogVendor'
+import { useKatalogVendor } from '@/hooks/useKatalogVendor'
+import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
+import { bacaGalatRpc } from '@/lib/masterBahan/galatRpc'
 import { BarisVendor } from './BarisVendor'
 
 export function KatalogVendorBoard() {
   const { rows, loading, error } = useKatalogVendor()
-  const { simpanBaris } = useKatalogVendorMutations()
+  const { simpanHargaVendor } = useMutasiMasterBahan()
   const [hanyaPerluDiisi, setHanyaPerluDiisi] = useState(false)
   const [cari, setCari] = useState('')
 
@@ -26,11 +28,16 @@ export function KatalogVendorBoard() {
   }, [kelompok, hanyaPerluDiisi, cari])
 
   async function simpan(input: { id: string; harga: number; satuan_beli: string; isi_satuan_kecil: number }) {
+    const baris = rows.find((r) => r.id === input.id)
+    if (!baris) throw new Error('Baris katalog tidak ditemukan')
     try {
-      await simpanBaris.mutateAsync(input)
+      await simpanHargaVendor.mutateAsync({
+        bahanId: baris.bahan_baku_id, supplierId: baris.supplier_id, harga: input.harga,
+        satuanBeli: input.satuan_beli.trim(), isi: input.isi_satuan_kecil, alasan: 'Diubah dari Katalog Vendor',
+      })
       toast.success('Harga vendor tersimpan')
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Gagal menyimpan')
+      toast.error(bacaGalatRpc(e).pesan)
       throw e
     }
   }
@@ -118,7 +125,7 @@ export function KatalogVendorBoard() {
                         v={v}
                         satuanKecil={satuanKecil}
                         hargaMasterPerKecil={k.hargaMasterPerKecil}
-                        menyimpan={simpanBaris.isPending}
+                        menyimpan={simpanHargaVendor.isPending}
                         onSimpan={simpan}
                       />
                     ))}

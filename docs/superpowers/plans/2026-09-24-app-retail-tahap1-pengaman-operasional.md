@@ -22,7 +22,9 @@
 - `kiosk_settings.value` bertipe **TEXT berisi array JSON** (`'["uuid",...]'`); PK `(outlet_id, key)`; POS membaca: baris outlet sendiri, bila tak ada → baris `PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'`.
 - Bahasa UI & pesan: Bahasa Indonesia.
 - Cek branch sebelum commit (`git branch --show-current`); otomasi repo pernah memindah branch di tengah sesi. Jangan commit berkas di luar daftar "Files" task.
-- Ada sesi lain yang sedang mengubah `ProfileScreen.kt`, `HomeHeader.kt`, `MenuScreen.kt`, `HistoryScreen.kt` (belum di-commit, 24 Sep). Sebelum Task 11–12, pastikan perubahan itu sudah di-commit atau koordinasikan; jangan menimpanya.
+- Ada sesi lain yang sedang mengubah `AppNavigation.kt`, `CartScreen.kt`, `CheckoutScreen.kt`, `FloatingCartBar.kt`, `HomeHeader.kt`, `HomeScreen.kt`, `MenuScreen.kt`, `HistoryScreen.kt`, `ProfileScreen.kt` + `Inisial.kt` (belum di-commit, dicek 24 Sep; build & 147 test lulus). **Sebelum Task 10–12**, pastikan perubahan itu sudah di-commit atau koordinasikan; jangan menimpanya dan jangan ikut meng-commit-nya.
+- `orders.order_number` NOT NULL tanpa DEFAULT — diisi trigger `BEFORE INSERT`. INSERT uji di Task 1 mengandalkan trigger itu; bila gagal NOT NULL, isi `order_number` eksplisit (mis. `900000 + n`).
+- Desugaring `java.time` **belum aktif** di `app/build.gradle.kts` (dicek 24 Sep) — langkah tambahan di Task 11 Step 4 WAJIB dikerjakan.
 
 ## Peta Berkas
 

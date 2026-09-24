@@ -106,8 +106,15 @@ fun CustomerAppRoot(container: AppContainer) {
     )
 
     var config by remember { mutableStateOf<ConfigDto?>(null) }
-    LaunchedEffect(Unit) {
-        (container.repository.config() as? GatewayResult.Sukses)?.let { config = it.data }
+    val cakupanConfig = rememberCoroutineScope()
+    // Diambil ulang tiap app kembali ke depan (ON_RESUME juga terpicu saat
+    // pertama dibuka), bukan sekali saat start: perubahan di Pengaturan
+    // Aplikasi (WA CS, estimasi, versi minimum) harus sampai ke app yang
+    // dibiarkan terbuka. Gagal memuat -> nilai terakhir dipertahankan.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        cakupanConfig.launch {
+            (container.repository.config() as? GatewayResult.Sukses)?.let { config = it.data }
+        }
     }
     if (perluUpdate(BuildConfig.VERSION_CODE, config)) {
         LayarPerbaruiAplikasi()

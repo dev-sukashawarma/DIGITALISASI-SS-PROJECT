@@ -1,4 +1,5 @@
 import { createServiceClient } from './supabase'
+import { terapkanKetersediaanOutlet, PUSAT_OUTLET_ID, type BarisKiosk } from './menuHabisOutlet'
 
 const UMUR_CACHE_MS = 5 * 60 * 1000
 
@@ -154,7 +155,7 @@ export async function ambilKatalog(
   const { data, error } = await db
     .from('menu_items')
     .select(
-      'id, name, description, deskripsi_app, price, channel_prices, image_url, foto_app, is_available, category_id, sort_order, categories(name, sort_order)'
+      'id, name, description, deskripsi_app, price, channel_prices, image_url, foto_app, is_available, available_outlets, category_id, sort_order, categories(name, sort_order)'
     )
     // `menu_items` di sistem ini CAMPURAN, dan keduanya harus terbit:
     //
@@ -171,9 +172,6 @@ export async function ambilKatalog(
     // titik pembayaran, karena katalog segar outlet itu tak memuatnya.
     //
     // Keduanya pernah terjadi. `.or(...)` di bawah adalah bentuk yang benar.
-    //
-    // Konsekuensi yang tetap berlaku: `is_available` global untuk menu
-    // bersama. Item yang ditandai habis, habis di semua outlet.
     .or(`outlet_id.is.null,outlet_id.eq.${outletId}`)
     .eq('tampil_di_app', true)
     .order('sort_order', { ascending: true })
@@ -189,7 +187,25 @@ export async function ambilKatalog(
     throw new Error(`Gagal mengambil katalog: ${error.message}`)
   }
 
-  const bersih = bersihkanKatalog(data ?? [])
+  // Daftar habis milik POS untuk outlet ini + PUSAT. Gagal membacanya =
+  // katalog gagal: menjual menu yang ditandai habis lebih buruk daripada
+  // layar galat (uang sudah diterima).
+  const { data: kiosk, error: kioskError } = await db
+    .from('kiosk_settings')
+    .select('outlet_id, key, value')
+    .in('outlet_id', [outletId, PUSAT_OUTLET_ID])
+    .in('key', ['unavailable_menu_ids', 'auto_unavailable_menu_ids', 'force_available_menu_ids'])
+  if (kioskError) {
+    if (tersimpan && Date.now() - tersimpan.pada < UMUR_BASI_MAKS_MS) return tersimpan.data
+    throw new Error(`Gagal mengambil ketersediaan outlet: ${kioskError.message}`)
+  }
+
+  const tersaring = terapkanKetersediaanOutlet(
+    (data ?? []) as Array<{ id: string; is_available: boolean; available_outlets?: unknown }>,
+    outletId,
+    (kiosk ?? []) as BarisKiosk[],
+  )
+  const bersih = bersihkanKatalog(tersaring)
   cache.set(outletId, { pada: Date.now(), data: bersih })
   return bersih
 }

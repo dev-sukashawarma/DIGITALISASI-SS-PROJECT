@@ -4,6 +4,8 @@ import { createServiceClient } from '@/lib/supabase'
 import { ambilKatalog } from '@/lib/catalog'
 import { periksaKeranjang, jumlahWajar } from '@/lib/validateCart'
 import { hitungTotal, type ItemPesanan } from '@/lib/pricing'
+import { statusUntuk } from '@/lib/statusOutletDb'
+import { pesanStatus } from '@/lib/jamBuka'
 
 export const dynamic = 'force-dynamic'
 
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
   const db = createServiceClient()
   const { data: outlet, error: outletError } = await db
     .from('outlets')
-    .select('id, name, app_enabled, is_active')
+    .select('id, name, app_enabled, is_active, open_hour, close_hour')
     .eq('id', body.outlet_id)
     .maybeSingle()
 
@@ -50,10 +52,17 @@ export async function POST(request: Request) {
     )
   }
 
-  if (outlet.is_active === false) {
+  let status
+  try {
+    status = await statusUntuk(outlet)
+  } catch (e) {
+    console.error('gagal menghitung status outlet', e)
+    return NextResponse.json({ error: 'Gagal memeriksa outlet' }, { status: 502 })
+  }
+  if (!status.bisaPesan) {
     return NextResponse.json(
-      { ok: false, alasan: 'outlet_tutup', pesan: 'Outlet sedang tutup' },
-      { status: 200 }
+      { ok: false, alasan: 'outlet_tutup', pesan: pesanStatus(status) },
+      { status: 200 },
     )
   }
 

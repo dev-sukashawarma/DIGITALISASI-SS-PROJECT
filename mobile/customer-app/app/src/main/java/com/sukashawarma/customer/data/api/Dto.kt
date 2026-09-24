@@ -88,6 +88,15 @@ data class SplashDto(
 )
 
 @Serializable
+data class ConfigDto(
+    @SerialName("estimasi_siap") val estimasiSiap: String = "15–20 menit",
+    @SerialName("wa_cs") val waCs: String? = null,
+    @SerialName("versi_minimum_android") val versiMinimumAndroid: Int = 1,
+    @SerialName("url_syarat") val urlSyarat: String? = null,
+    @SerialName("url_privasi") val urlPrivasi: String? = null,
+)
+
+@Serializable
 data class BannersResponse(
     val carousel: List<BannerDto> = emptyList(),
     val popup: BannerDto? = null

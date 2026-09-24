@@ -18,6 +18,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.zIndex
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -38,6 +39,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.sukashawarma.customer.AppContainer
+import com.sukashawarma.customer.BuildConfig
+import com.sukashawarma.customer.data.api.ConfigDto
+import com.sukashawarma.customer.data.api.GatewayResult
+import com.sukashawarma.customer.ui.config.LayarPerbaruiAplikasi
+import com.sukashawarma.customer.ui.config.LocalConfigApp
+import com.sukashawarma.customer.ui.config.perluUpdate
 import com.sukashawarma.customer.ui.cart.CartScreen
 import com.sukashawarma.customer.ui.cart.CartViewModel
 import com.sukashawarma.customer.ui.checkout.CheckoutScreen
@@ -94,6 +101,15 @@ fun CustomerAppRoot(container: AppContainer) {
         factory = pabrik { CartViewModel(container.cartStore) }
     )
 
+    var config by remember { mutableStateOf<ConfigDto?>(null) }
+    LaunchedEffect(Unit) {
+        (container.repository.config() as? GatewayResult.Sukses)?.let { config = it.data }
+    }
+    if (perluUpdate(BuildConfig.VERSION_CODE, config)) {
+        LayarPerbaruiAplikasi()
+        return
+    }
+
     val catalogState by catalogViewModel.state.collectAsStateWithLifecycle()
     val cartState by cartViewModel.state.collectAsStateWithLifecycle()
     val unreadNotifCount by container.notificationStore.unreadCount.collectAsStateWithLifecycle()
@@ -138,6 +154,7 @@ fun CustomerAppRoot(container: AppContainer) {
         } else null
     }
 
+    CompositionLocalProvider(LocalConfigApp provides (config ?: ConfigDto())) {
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
@@ -713,6 +730,7 @@ fun CustomerAppRoot(container: AppContainer) {
             )
         }
     }
+}
 }
 }
 

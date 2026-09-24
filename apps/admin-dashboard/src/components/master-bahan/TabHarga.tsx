@@ -9,7 +9,7 @@ import { bolehUbahHarga } from '@/lib/masterBahan/akses'
 import { rupiah } from '@/lib/format'
 import { FormHargaVendor } from './FormHargaVendor'
 import {
-  BarisKosong, BarisTabel, InfoJumlah, KepalaTabel, KolomCari, Kosong, LebarKolom, Lencana, Tabel, Td, Th,
+  BarisKosong, BarisTabel, FilterCepat, InfoJumlah, KepalaTabel, KolomCari, Kosong, LebarKolom, Lencana, Tabel, Td, Th,
 } from './Tabel'
 
 const tanggal = (iso: string) =>
@@ -39,28 +39,30 @@ export function TabHarga() {
   if (error) return <p className="p-6 text-sm text-red-600">Gagal memuat status harga: {String((error as Error).message ?? error)}</p>
 
   return (
-    <div className="space-y-3 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    <div className="space-y-3">
       {belum > 0 && (
-        <div className="flex gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600" />
-          <div>
-            <p className="font-bold">{belum} bahan belum punya harga vendor terpercaya.</p>
-            <p className="text-xs text-amber-800">
-              Harga master mereka dibekukan di nilai terakhir sampai harga vendor diisi di sini atau lewat PO/nota.
-            </p>
-          </div>
+        <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-[13px] text-amber-900">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-600" />
+          <p>
+            <span className="font-bold">{belum} bahan belum punya harga vendor terpercaya.</span>{' '}
+            Harga master mereka dibekukan di nilai terakhir sampai harga vendor diisi di sini atau lewat PO/nota.
+          </p>
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterCepat<'belum' | 'semua'>
+          label="Saring status harga"
+          nilai={hanyaBelum ? 'belum' : 'semua'}
+          onUbah={(v) => setHanyaBelum(v === 'belum')}
+          pilihan={[
+            { id: 'belum', label: 'Belum dikonfirmasi', jumlah: belum, nada: 'kuning' },
+            { id: 'semua', label: 'Semua', jumlah: status.length },
+          ]}
+        />
         <KolomCari nilai={cari} onUbah={setCari} placeholder="Cari bahan…" />
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-600">
-          <input type="checkbox" checked={hanyaBelum} onChange={(e) => setHanyaBelum(e.target.checked)} />
-          Hanya yang belum dikonfirmasi
-        </label>
+        <div className="ml-auto"><InfoJumlah tampil={tampil.length} total={dasar.length} satuan="bahan" /></div>
       </div>
-
-      <InfoJumlah tampil={tampil.length} total={dasar.length} satuan="bahan" />
 
       <Tabel lebarMin={820}>
         <LebarKolom lebar={bolehHarga ? ['26%', '14%', '32%', '14%', '14%'] : ['28%', '16%', '38%', '18%']} />
@@ -99,7 +101,7 @@ export function TabHarga() {
                 <Td rata="kanan">
                   <button
                     onClick={() => setIsiId(s.bahan_baku_id)}
-                    className="whitespace-nowrap rounded-lg border border-suka-orange/40 px-3 py-1.5 text-xs font-bold text-suka-orange hover:bg-orange-50"
+                    className="whitespace-nowrap rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-bold text-suka-brown hover:border-suka-orange hover:bg-orange-50"
                   >
                     Isi harga vendor
                   </button>

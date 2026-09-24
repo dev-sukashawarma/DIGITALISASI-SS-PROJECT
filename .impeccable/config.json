@@ -8,6 +8,24 @@
         "value": "plus jakarta sans",
         "createdAt": "2026-09-08T03:21:06.606Z",
         "reason": "Font resmi design system proyek, bukan pilihan sesi ini. CLAUDE.md Session 2026-06-27 menetapkan Lilita One (display/headline) + Plus Jakarta Sans (body) dari packages/design-system, dipakai seragam di 9 app. Mengganti font body = keputusan branding lintas-app, bukan perbaikan per-berkas."
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "apps/admin-dashboard/src/components/master-bahan/Tabel.tsx"
+        ],
+        "createdAt": "2026-09-24T06:44:58.399Z",
+        "reason": "Claude: lencana/angka filter memakai amber-900/amber-100, stone-700/stone-200, orange-900/orange-100 — kontras 7-9:1, lulus WCAG AA"
+      },
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "apps/admin-dashboard/src/components/master-bahan/MasterBahanPage.tsx"
+        ],
+        "createdAt": "2026-09-24T06:45:33.845Z",
+        "reason": "Claude: cabang terpisah — stone-600/stone-100 (~7:1) atau amber-900/amber-100; tak ada teks abu di atas latar berwarna"
       }
     ]
   }

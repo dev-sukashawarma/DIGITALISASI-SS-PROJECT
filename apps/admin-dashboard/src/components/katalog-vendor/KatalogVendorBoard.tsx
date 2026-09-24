@@ -7,7 +7,7 @@ import { useKatalogVendor } from '@/hooks/useKatalogVendor'
 import { useMutasiMasterBahan } from '@/hooks/masterBahan/useMutasiMasterBahan'
 import { bacaGalatRpc, type GalatRpc } from '@/lib/masterBahan/galatRpc'
 import { DialogAlasan } from '@/components/master-bahan/DialogAlasan'
-import { InfoJumlah, KepalaTabel, KolomCari, LebarKolom, Tabel, Th } from '@/components/master-bahan/Tabel'
+import { FilterCepat, InfoJumlah, KepalaTabel, KolomCari, LebarKolom, Tabel, Th } from '@/components/master-bahan/Tabel'
 import { kapital } from '@/lib/masterBahan/tampilan'
 import { BarisVendor } from './BarisVendor'
 
@@ -65,43 +65,43 @@ export function KatalogVendorBoard() {
   if (error) return <p className="p-6 text-red-600">Gagal memuat katalog: {String(error)}</p>
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kartu label="Baris katalog" nilai={ringkas.totalBaris} />
-        <Kartu label="Sudah berharga" nilai={ringkas.terpercaya} nada="emerald" />
-        <Kartu label="Perlu diisi" nilai={ringkas.perluDiisi} nada="amber" />
-        <Kartu
+    <div className="space-y-4">
+      <dl className="grid grid-cols-2 divide-stone-200 overflow-hidden rounded-lg border border-stone-200 bg-white sm:grid-cols-4 sm:divide-x">
+        <Statistik label="Baris katalog" nilai={ringkas.totalBaris} />
+        <Statistik label="Sudah berharga" nilai={ringkas.terpercaya} nada="emerald" />
+        <Statistik label="Perlu diisi" nilai={ringkas.perluDiisi} nada="amber" />
+        <Statistik
           label="Bisa dibandingkan"
           nilai={`${ringkas.bisaDibandingkan} / ${ringkas.bahanMultivendor}`}
-          catatan="bahan dengan ≥2 harga"
+          catatan="bahan ≥2 harga"
         />
-      </div>
+      </dl>
 
-      <div className="flex flex-wrap items-center gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterCepat<'semua' | 'perlu'>
+          label="Saring katalog"
+          nilai={hanyaPerluDiisi ? 'perlu' : 'semua'}
+          onUbah={(v) => setHanyaPerluDiisi(v === 'perlu')}
+          pilihan={[
+            { id: 'semua', label: 'Semua', jumlah: kelompok.length },
+            { id: 'perlu', label: 'Perlu diisi', jumlah: kelompok.filter((k) => k.jumlahBerharga !== k.jumlahVendor).length, nada: 'kuning' },
+          ]}
+        />
         <KolomCari nilai={cari} onUbah={setCari} placeholder="Cari bahan atau vendor…" />
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-stone-600">
-          <input
-            type="checkbox"
-            checked={hanyaPerluDiisi}
-            onChange={(e) => setHanyaPerluDiisi(e.target.checked)}
-          />
-          Hanya yang perlu diisi
-        </label>
+        <div className="ml-auto"><InfoJumlah tampil={tampil.length} total={kelompok.length} satuan="bahan" /></div>
       </div>
-
-      <InfoJumlah tampil={tampil.length} total={kelompok.length} satuan="bahan" />
 
       {tampil.length === 0 ? (
-        <p className="rounded-xl border border-stone-200 bg-white p-8 text-center text-sm text-stone-500">
+        <p className="rounded-lg border border-stone-200 bg-white p-8 text-center text-sm text-stone-500">
           Tidak ada bahan atau vendor yang cocok.
         </p>
       ) : (
         tampil.map((k) => {
           const satuanKecil = k.satuan_kecil ?? 'satuan kecil'
           return (
-            <section key={k.bahan_baku_id} className="space-y-2">
-              <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-1">
-                <h2 className="font-bold text-suka-brown">{k.bahan}</h2>
+            <section key={k.bahan_baku_id} className="space-y-1.5">
+              <header className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-0.5">
+                <h2 className="text-[14px] font-bold text-suka-brown">{k.bahan}</h2>
                 <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-500">
                   <div className="flex gap-1"><dt>Satuan</dt><dd className="font-semibold text-stone-700">{k.satuan ?? '—'}</dd></div>
                   <div className="flex gap-1">
@@ -163,7 +163,7 @@ export function KatalogVendorBoard() {
   )
 }
 
-function Kartu({
+function Statistik({
   label,
   nilai,
   nada,
@@ -175,12 +175,14 @@ function Kartu({
   catatan?: string
 }) {
   const warna =
-    nada === 'emerald' ? 'text-emerald-700' : nada === 'amber' ? 'text-amber-700' : 'text-stone-800'
+    nada === 'emerald' ? 'text-emerald-700' : nada === 'amber' ? 'text-amber-700' : 'text-stone-900'
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">{label}</p>
-      <p className={`mt-1 text-2xl font-bold ${warna}`}>{nilai}</p>
-      {catatan && <p className="text-[11px] text-stone-400">{catatan}</p>}
+    <div className="border-b border-stone-200 px-3.5 py-2 sm:border-b-0">
+      <dt className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-stone-500">{label}</dt>
+      <dd className="flex items-baseline gap-1.5">
+        <span className={`font-mono text-lg font-bold tabular-nums ${warna}`}>{nilai}</span>
+        {catatan && <span className="text-[11px] text-stone-500">{catatan}</span>}
+      </dd>
     </div>
   )
 }

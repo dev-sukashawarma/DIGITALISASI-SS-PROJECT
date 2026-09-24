@@ -5,7 +5,7 @@ import { useDaftarBahan } from '@/hooks/masterBahan/useDaftarBahan'
 import { useRiwayatMasterBahan, type FilterRiwayat } from '@/hooks/masterBahan/useRiwayatMasterBahan'
 import { useSuppliers } from '@/hooks/usePurchaseOrder'
 import { ringkasRiwayat } from '@/lib/masterBahan/riwayat'
-import { BarisKosong, BarisTabel, KepalaTabel, Kosong, LebarKolom, Lencana, Tabel, Td, Th } from './Tabel'
+import { BarisKosong, BarisTabel, FilterCepat, KepalaTabel, Kosong, LebarKolom, Lencana, Pilih, Tabel, Td, Th } from './Tabel'
 
 const JENIS: { id: FilterRiwayat['jenis']; label: string }[] = [
   { id: 'semua', label: 'Semua' }, { id: 'data', label: 'Data' },
@@ -28,30 +28,18 @@ export function TabRiwayat() {
   const namaSupplier = useMemo(() => new Map(suppliers.map((s) => [s.id, s.nama])), [suppliers])
 
   return (
-    <div className="space-y-3 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center gap-3">
-        <select
-          value={bahanId ?? ''}
-          onChange={(e) => setBahanId(e.target.value || null)}
-          aria-label="Saring bahan"
-          className="min-w-[220px] rounded-xl border border-stone-200 bg-stone-50/60 px-3 py-2 text-sm outline-none focus:border-suka-orange focus:bg-white"
-        >
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <FilterCepat<FilterRiwayat['jenis']>
+          label="Jenis perubahan"
+          nilai={jenis}
+          onUbah={setJenis}
+          pilihan={JENIS.map((j) => ({ id: j.id, label: j.label }))}
+        />
+        <Pilih nilai={bahanId ?? ''} onUbah={(v) => setBahanId(v || null)} label="Saring bahan">
           <option value="">Semua bahan</option>
           {bahan.map((b) => <option key={b.id} value={b.id}>{b.nama}</option>)}
-        </select>
-        <div role="group" aria-label="Jenis perubahan" className="inline-flex rounded-xl border border-stone-200 bg-stone-50 p-1">
-          {JENIS.map((j) => (
-            <button
-              key={j.id}
-              onClick={() => setJenis(j.id)}
-              aria-pressed={jenis === j.id}
-              className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
-                jenis === j.id ? 'bg-white text-suka-orange shadow-sm' : 'text-stone-500 hover:text-stone-800'}`}
-            >
-              {j.label}
-            </button>
-          ))}
-        </div>
+        </Pilih>
       </div>
 
       {error != null && <p className="text-sm text-red-600">Gagal memuat riwayat: {String((error as Error).message ?? error)}</p>}

@@ -20,7 +20,7 @@ Ringkasan, Menu Aplikasi, Outlet Aplikasi, Banner Aplikasi, Splash Aplikasi.
 | 8 | Broadcast | Halaman **Kirim Notifikasi**: judul, teks, tujuan ketuk (sama dengan Banner), sasaran semua / per outlet, riwayat, hormati `notify_promotions`, **maks 1 broadcast/hari**. Prasyarat: push ke HP terbukti jalan (token = 0 saat ini). |
 | 9 | Voucher | Voucher bervariasi yang bisa diatur admin; menggantikan `DISKON_PILOT_PERSEN = 0` yang ditanam di gateway. |
 | 10 | Jenis potongan | Semua: persen (+ batas maks) · nominal Rp · gratis item · beli X gratis Y · harga spesial menu. |
-| 11 | Cara pakai | **Publik** (tampil di daftar voucher aplikasi) dan **rahasia** (kode). **Maks 1 voucher per pesanan.** |
+| 11 | Cara pakai | **Publik** (tampil di daftar voucher aplikasi) dan **rahasia** (kode). **Maks 1 voucher per pesanan.** Daftar voucher publik ada di **halaman sendiri** di aplikasi (keputusan owner 2026-09-24), bukan hanya di checkout. |
 | 12 | Syarat | Semua opsional & bebas diatur: periode, kuota total, batas per pelanggan, minimal belanja, khusus pesanan pertama, outlet tertentu, hari/jam, menu/kategori tertentu. Pengaman tetap: potongan ≤ total & ≤ 50%; **kuota dihitung saat lunas**. |
 | 13 | Tanggungan voucher | Masuk baris **"Potongan"** outlet (sama dengan promo GoFood/POS; `mitraPnl.ts` laba = omzet − potongan − HPP − opex − waste − fee). Mengurangi laba mitra. Laporan mitra menampilkan rinciannya. Alasan: mitra juga dikelola pusat, semua promo keputusan pusat. |
 | 14 | Biaya Xendit (~0,7% QRIS) | Masuk **"Potongan"** outlet per pesanan, seperti komisi GoFood/Grab. |

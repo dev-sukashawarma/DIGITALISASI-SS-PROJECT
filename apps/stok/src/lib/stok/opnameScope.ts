@@ -10,7 +10,9 @@
 const KATEGORI_NON_OPNAME = ['ASET', 'PERLENGKAPAN']
 const NAMA_NON_OPNAME = ['PRINTER THERMAL', 'ID CARD']
 
-export function isBahanOpname(b: { nama?: string | null; kategori?: string | null }): boolean {
+export function isBahanOpname(b: { nama?: string | null; kategori?: string | null; is_opname?: boolean | null }): boolean {
+  if (b.is_opname === false) return false
+  if (b.is_opname === true) return true
   const kat = b.kategori?.trim().toUpperCase() ?? ''
   const nama = b.nama?.trim().toUpperCase() ?? ''
   if (KATEGORI_NON_OPNAME.includes(kat)) return false

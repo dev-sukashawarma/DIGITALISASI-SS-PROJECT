@@ -18,4 +18,10 @@ describe('isBahanOpname', () => {
     expect(isBahanOpname({ nama: 'KERTAS STRUK', kategori: 'OPERASIONAL' })).toBe(true)
     expect(isBahanOpname({ nama: 'AQUA', kategori: null })).toBe(true)
   })
+
+  it('menghormati flag is_opname dari database', () => {
+    expect(isBahanOpname({ nama: 'GAS 12 KG', is_opname: false })).toBe(false)
+    expect(isBahanOpname({ nama: 'PRINTER THERMAL', is_opname: true })).toBe(true)
+    expect(isBahanOpname({ nama: 'AYAM', is_opname: true })).toBe(true)
+  })
 })

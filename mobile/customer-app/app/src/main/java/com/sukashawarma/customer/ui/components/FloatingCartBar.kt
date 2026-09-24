@@ -24,12 +24,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sukashawarma.customer.ui.format.rupiah
 import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaInk
 import com.sukashawarma.customer.ui.theme.SukaOrange
+
+/**
+ * Jarak bawah minimum untuk daftar yang bisa tertutup [FloatingCartBar].
+ * Bilah itu sendiri ~78dp (10dp jarak + ~58dp isi + 10dp jarak); sisanya
+ * ruang napas supaya harga dan tombol + di kartu terakhir tetap terlihat.
+ */
+val JARAK_BAWAH_BILAH_KERANJANG: Dp = 112.dp
 
 /**
  * Floating Cart Pill Bar ala Stitch Design System & Design Spells

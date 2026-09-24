@@ -68,6 +68,7 @@ fun CartScreen(
     viewModel: CartViewModel,
     onKembali: () -> Unit,
     onLanjutBayar: () -> Unit,
+    namaOutlet: String? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -209,6 +210,18 @@ fun CartScreen(
                                         letterSpacing = 0.5.sp
                                     )
                                 )
+                                // Nama outlet wajib terlihat sebelum bayar: pelanggan memilih dari
+                                // puluhan outlet dan salah outlet berarti datang ke tempat yang salah.
+                                namaOutlet?.let { nama ->
+                                    Text(
+                                        text = nama,
+                                        style = MaterialTheme.typography.bodyMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = SukaInk,
+                                            fontSize = 14.sp
+                                        )
+                                    )
+                                }
                                 Text(
                                     text = "Siap diambil di outlet tanpa antrean",
                                     style = MaterialTheme.typography.bodySmall.copy(

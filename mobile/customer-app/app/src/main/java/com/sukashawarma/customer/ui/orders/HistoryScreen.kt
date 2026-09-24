@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -56,6 +57,7 @@ import com.sukashawarma.customer.data.api.OrderDetailDto
 import com.sukashawarma.customer.ui.components.BottomNavTab
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
+import com.sukashawarma.customer.ui.components.HeaderChip
 import com.sukashawarma.customer.ui.components.MemuatState
 import com.sukashawarma.customer.ui.components.PageBrandHeader
 import com.sukashawarma.customer.ui.components.SukaBottomNavBar
@@ -78,6 +80,7 @@ fun HistoryScreen(
     onBukaPesanan: (String) -> Unit,
     onKembali: () -> Unit,
     onBukaProfil: () -> Unit = {},
+    inisial: String = "?",
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -97,68 +100,71 @@ fun HistoryScreen(
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = SukaCream,
+        // Status bar diurus header, navigation bar diurus Scaffold induk.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                PageBrandHeader(
-                    judul = "Riwayat Pesanan",
-                    subjudul = "Pantau status & riwayat pesananmu",
-                    onKembali = null,
-                    aksiKanan = {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(SukaOrange)
-                                .bounceClick(scaleDown = 0.94f) { onBukaProfil() },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "SK",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = SukaInk,
-                                    fontSize = 11.sp
-                                )
+            PageBrandHeader(
+                judul = "Riwayat Pesanan",
+                subjudul = "Pantau status & riwayat pesananmu",
+                onKembali = null,
+                aksiKanan = {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(SukaOrange)
+                            .bounceClick(scaleDown = 0.94f) { onBukaProfil() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = inisial,
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.ExtraBold,
+                                color = SukaInk,
+                                fontSize = 11.sp
                             )
-                        }
+                        )
                     }
-                )
-
-                // Filter Tab Row
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+                },
+                // Kategori "Semua / Sedang Berjalan / Selesai / Dibatalkan"
+                // menyatu di dalam header cokelat -- sama seperti kategori
+                // menu di halaman Menu, bukan baris terpisah di latar krem.
+                bawahContent = {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         item {
-                            FilterChip(
+                            HeaderChip(
                                 label = "Semua",
                                 isSelected = selectedFilter == FilterRiwayat.SEMUA,
                                 onClick = { selectedFilter = FilterRiwayat.SEMUA }
                             )
                         }
                         item {
-                            FilterChip(
+                            HeaderChip(
                                 label = "Sedang Berjalan",
                                 isSelected = selectedFilter == FilterRiwayat.BERJALAN,
                                 onClick = { selectedFilter = FilterRiwayat.BERJALAN }
                             )
                         }
                         item {
-                            FilterChip(
+                            HeaderChip(
                                 label = "Selesai",
                                 isSelected = selectedFilter == FilterRiwayat.SELESAI,
                                 onClick = { selectedFilter = FilterRiwayat.SELESAI }
                             )
                         }
                         item {
-                            FilterChip(
+                            HeaderChip(
                                 label = "Dibatalkan",
                                 isSelected = selectedFilter == FilterRiwayat.BATAL,
                                 onClick = { selectedFilter = FilterRiwayat.BATAL }
                             )
+                        }
                     }
                 }
-            }
+            )
         }
     ) { padding ->
         when {
@@ -261,31 +267,6 @@ fun HistoryScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun FilterChip(
-    label: String,
-    isSelected: Boolean,
-    onClick: () -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = if (isSelected) SukaOrange else Color.White,
-        border = if (isSelected) null else BorderStroke(1.dp, SukaBorder),
-        shadowElevation = if (isSelected) 3.dp else 1.dp,
-        modifier = Modifier.bounceClick(scaleDown = 0.94f) { onClick() }
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
-            style = MaterialTheme.typography.labelSmall.copy(
-                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                color = if (isSelected) SukaBrown else SukaInk,
-                fontSize = 11.sp
-            )
-        )
     }
 }
 

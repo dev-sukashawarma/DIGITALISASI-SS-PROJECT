@@ -46,6 +46,7 @@ import com.sukashawarma.customer.ui.components.BottomNavTab
 import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.FloatingCartBar
 import com.sukashawarma.customer.ui.components.SukaBottomNavBar
+import com.sukashawarma.customer.ui.components.inisialNama
 import com.sukashawarma.customer.ui.home.HomeScreen
 import com.sukashawarma.customer.ui.home.OutletPickerScreen
 import com.sukashawarma.customer.ui.home.OutletPickerViewModel
@@ -120,6 +121,21 @@ fun CustomerAppRoot(container: AppContainer) {
     val mulaiDari = remember {
         // Tanpa layar perkenalan: belum login langsung ke layar Masuk.
         if (container.sessionStore.adaSesiBerlaku()) Rute.BERANDA else Rute.MASUK
+    }
+
+    // Dibaca ulang setiap layar tersusun, supaya perubahan nama di Informasi
+    // Akun langsung terlihat di avatar header.
+    fun inisialPelanggan(): String =
+        container.sessionStore.baca().let { inisialNama(it?.nama, it?.email) }
+
+    // Nama outlet keranjang. Hanya dipakai bila outlet tersimpan memang
+    // outlet keranjang -- lebih baik tidak menyebut nama daripada menyebut
+    // nama yang salah di titik bayar.
+    fun namaOutletKeranjang(): String? {
+        val idKeranjang = container.cartStore.outletId() ?: return null
+        return if (container.outletStore.idTerpilih() == idKeranjang) {
+            container.outletStore.namaTerpilih()
+        } else null
     }
 
     Scaffold(
@@ -328,7 +344,8 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onPilihItem = { navController.navigate(Rute.detail(it.id)) },
                     onBukaNotifikasi = { navController.navigate(Rute.NOTIFIKASI) },
-                    unreadCount = unreadNotifCount
+                    unreadCount = unreadNotifCount,
+                    inisial = inisialPelanggan()
                 )
             }
 
@@ -345,7 +362,8 @@ fun CustomerAppRoot(container: AppContainer) {
                             restoreState = true
                         }
                     },
-                    onPilihItem = { navController.navigate(Rute.detail(it.id)) }
+                    onPilihItem = { navController.navigate(Rute.detail(it.id)) },
+                    inisial = inisialPelanggan()
                 )
             }
 
@@ -466,7 +484,8 @@ fun CustomerAppRoot(container: AppContainer) {
                         } else {
                             navController.navigate(Rute.masuk("checkout"))
                         }
-                    }
+                    },
+                    namaOutlet = namaOutletKeranjang()
                 )
             }
 
@@ -486,7 +505,8 @@ fun CustomerAppRoot(container: AppContainer) {
                         cartViewModel.segarkan()
                         navController.popBackStack()
                     },
-                    onBayar = { navController.navigate(Rute.BAYAR) }
+                    onBayar = { navController.navigate(Rute.BAYAR) },
+                    namaOutlet = namaOutletKeranjang()
                 )
             }
 
@@ -600,7 +620,8 @@ fun CustomerAppRoot(container: AppContainer) {
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    inisial = inisialPelanggan()
                 )
             }
 

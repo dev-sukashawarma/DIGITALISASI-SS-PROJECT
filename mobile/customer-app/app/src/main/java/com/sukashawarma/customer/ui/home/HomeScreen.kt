@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +46,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.sukashawarma.customer.ui.components.JARAK_BAWAH_BILAH_KERANJANG
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -88,6 +91,7 @@ fun HomeScreen(
     onPilihItem: (MenuItemDto) -> Unit,
     onBukaNotifikasi: () -> Unit = {},
     unreadCount: Int = 0,
+    inisial: String = "?",
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -135,13 +139,22 @@ fun HomeScreen(
         )
     }
 
+    // Header cokelat memberi jarak status bar sendiri dan Scaffold induk
+    // (AppNavigation) sudah memberi jarak navigation bar. Inset bawaan
+    // Scaffold di sini menggandakan keduanya: pita krem di bawah jam (ikon
+    // putih status bar tak terbaca) dan celah kosong di atas navigasi bawah.
+    // Keadaan tanpa header (memuat, galat, dst.) tetap diberi jarak status bar.
+    val tampilHeader = !state.memuat && !state.tidakAdaOutlet && !state.perluPilihOutlet &&
+        state.galat == null && state.outlet?.isActive == true
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = SukaCream
+        containerColor = SukaCream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
+                .then(if (tampilHeader) Modifier else Modifier.statusBarsPadding())
                 .fillMaxSize()
         ) {
             when {
@@ -191,7 +204,8 @@ fun HomeScreen(
                         onPilihItem = onPilihItem,
                         onKetukBanner = { banner -> bukaTujuan(tujuanBanner(banner.aksi, banner.targetMenuItemId)) },
                         onBukaNotifikasi = onBukaNotifikasi,
-                        unreadCount = unreadCount
+                        unreadCount = unreadCount,
+                        inisial = inisial
                     )
                 }
             }
@@ -211,12 +225,13 @@ private fun HomeContentList(
     onKetukBanner: (BannerDto) -> Unit,
     onBukaNotifikasi: () -> Unit,
     unreadCount: Int,
+    inisial: String,
     modifier: Modifier = Modifier
 ) {
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(top = 0.dp, bottom = 80.dp)
+        contentPadding = PaddingValues(top = 0.dp, bottom = JARAK_BAWAH_BILAH_KERANJANG)
     ) {
         // 0. Header Brand Heritage Melengkung (Stitch Option 2)
         outlet?.let {
@@ -227,7 +242,8 @@ private fun HomeContentList(
                     onGantiOutlet = onGantiOutlet,
                     onBukaProfil = onBukaProfil,
                     onBukaNotifikasi = onBukaNotifikasi,
-                    unreadCount = unreadCount
+                    unreadCount = unreadCount,
+                    inisial = inisial
                 )
             }
         }

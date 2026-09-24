@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -43,6 +45,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
+import com.sukashawarma.customer.ui.components.JARAK_BAWAH_BILAH_KERANJANG
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -54,6 +57,7 @@ import com.sukashawarma.customer.ui.components.EmptyState
 import com.sukashawarma.customer.ui.components.ErrorState
 import com.sukashawarma.customer.ui.components.PerluPilihOutletState
 import com.sukashawarma.customer.ui.components.MemuatState
+import com.sukashawarma.customer.ui.components.HeaderChip
 import com.sukashawarma.customer.ui.components.MenuBrandHeader
 import com.sukashawarma.customer.ui.components.MenuCard
 import com.sukashawarma.customer.ui.home.OutletClosedScreen
@@ -71,6 +75,7 @@ fun MenuScreen(
     onGantiOutlet: () -> Unit,
     onBukaProfil: () -> Unit,
     onPilihItem: (MenuItemDto) -> Unit,
+    inisial: String = "?",
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -118,13 +123,17 @@ fun MenuScreen(
         }
     }
 
+    // Lihat catatan inset di HomeScreen: header memberi jarak status bar
+    // sendiri, jadi inset bawaan Scaffold hanya menggandakannya.
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = SukaCream
+        containerColor = SukaCream,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
             modifier = Modifier
                 .padding(padding)
+                .then(if (state.outlet != null) Modifier else Modifier.statusBarsPadding())
                 .fillMaxSize()
         ) {
             // Header Brand Menu, Search Box & Kategori Terintegrasi (Menyatu dalam Header)
@@ -136,6 +145,7 @@ fun MenuScreen(
                     onUbahKueri = viewModel::ubahKueri,
                     onGantiOutlet = onGantiOutlet,
                     onBukaProfil = onBukaProfil,
+                    inisial = inisial,
                     kategoriContent = if (state.kategori.isNotEmpty() && !state.memuat && state.galat == null) {
                         {
                             CategoryChipsRow(
@@ -201,7 +211,7 @@ private fun MenuCatalogContent(
         state = listState,
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(14.dp),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 80.dp)
+        contentPadding = PaddingValues(top = 12.dp, bottom = JARAK_BAWAH_BILAH_KERANJANG)
     ) {
         if (state.kategori.isEmpty()) {
             item(key = "empty-search") {
@@ -274,30 +284,11 @@ private fun CategoryChipsRow(
         modifier = Modifier.fillMaxWidth()
     ) {
         itemsIndexed(kategoriList) { index, nama ->
-            val isSelected = (index == activeIndex)
-
-            Surface(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(20.dp))
-                    .clickable { onSelectCategory(index) },
-                shape = RoundedCornerShape(20.dp),
-                color = if (isSelected) SukaOrange else Color.White.copy(alpha = 0.18f),
-                border = BorderStroke(
-                    1.dp,
-                    if (isSelected) SukaOrange else Color.White.copy(alpha = 0.28f)
-                ),
-                shadowElevation = if (isSelected) 3.dp else 0.dp
-            ) {
-                Text(
-                    text = nama,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
-                        color = if (isSelected) SukaInk else Color(0xFFFFF4EB),
-                        fontSize = 12.sp
-                    )
-                )
-            }
+            HeaderChip(
+                label = nama,
+                isSelected = index == activeIndex,
+                onClick = { onSelectCategory(index) }
+            )
         }
     }
 }

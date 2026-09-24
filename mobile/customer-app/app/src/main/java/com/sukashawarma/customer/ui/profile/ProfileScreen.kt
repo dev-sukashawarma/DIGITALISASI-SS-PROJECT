@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.sukashawarma.customer.ui.components.inisialNama
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -94,14 +96,13 @@ fun ProfileScreen(
         )
     }
 
-    val inisial = remember(sesi?.nama) {
-        sesi?.nama?.split(" ")?.take(2)?.mapNotNull { it.firstOrNull() }?.joinToString("")?.uppercase()
-            ?: "SS"
-    }
+    val inisial = remember(sesi?.nama, sesi?.email) { inisialNama(sesi?.nama, sesi?.email) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
         containerColor = SukaCream,
+        // Status bar diurus header, navigation bar diurus Scaffold induk.
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             PageBrandHeader(
                 judul = "Akun Saya",
@@ -170,32 +171,6 @@ fun ProfileScreen(
                                 )
                             )
 
-                            Surface(
-                                modifier = Modifier.padding(top = 4.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color(0xFFECFDF5)
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Verified,
-                                        contentDescription = null,
-                                        tint = SukaGreen,
-                                        modifier = Modifier.size(12.dp)
-                                    )
-                                    Text(
-                                        text = "Pelanggan Setia",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = SukaGreen,
-                                            fontSize = 10.sp
-                                        )
-                                    )
-                                }
-                            }
                         }
                     }
 
@@ -231,14 +206,6 @@ fun ProfileScreen(
                                         )
                                     )
                                 }
-                                Text(
-                                    text = "TERVERIFIKASI",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = FontWeight.Black,
-                                        color = SukaGreen,
-                                        fontSize = 9.sp
-                                    )
-                                )
                             }
                         }
                     } else {
@@ -260,61 +227,7 @@ fun ProfileScreen(
                         }
                     }
 
-                    // Quick Stats Row
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(Color(0xFFF5EADB))
-                    )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceAround
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "12",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontFamily = LilitaOne,
-                                    color = SukaBrown,
-                                    fontSize = 18.sp
-                                )
-                            )
-                            Text(
-                                text = "Pesanan Selesai",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = SukaMuted,
-                                    fontSize = 10.sp
-                                )
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(30.dp)
-                                .background(Color(0xFFF5EADB))
-                        )
-
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Bogor Pajajaran",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = SukaInk,
-                                    fontSize = 13.sp
-                                )
-                            )
-                            Text(
-                                text = "Outlet Favorit",
-                                style = MaterialTheme.typography.labelSmall.copy(
-                                    color = SukaMuted,
-                                    fontSize = 10.sp
-                                )
-                            )
-                        }
-                    }
                 }
             }
 

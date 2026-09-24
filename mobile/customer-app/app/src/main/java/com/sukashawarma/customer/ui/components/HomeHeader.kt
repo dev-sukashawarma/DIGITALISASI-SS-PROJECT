@@ -1,6 +1,7 @@
 package com.sukashawarma.customer.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
@@ -37,11 +37,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.sukashawarma.customer.R
 import com.sukashawarma.customer.ui.theme.LilitaOne
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
@@ -63,6 +66,51 @@ private val SukaBrandHeaderGradient = Brush.verticalGradient(
 )
 
 /**
+ * Jarak bawah header brand SAAT ada baris konten tambahan (kategori/filter)
+ * menempel di bawah baris judul. Satu nilai dipakai di SEMUA header supaya
+ * jarak napas di bawah chip terakhir konsisten antar halaman -- sebelumnya
+ * MenuBrandHeader memakai 10dp sendiri (terasa sempit) sementara
+ * PageBrandHeader belum punya slot ini sama sekali.
+ */
+private val JARAK_BAWAH_HEADER_DENGAN_KONTEN = 14.dp
+
+/**
+ * Chip filter/kategori yang duduk di atas latar SukaBrown -- dipakai bersama
+ * oleh kategori Menu & filter status Pesanan supaya keduanya terlihat sebagai
+ * satu sistem, bukan dua gaya berbeda.
+ */
+@Composable
+fun HeaderChip(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .bounceClick(scaleDown = 0.94f) { onClick() },
+        shape = RoundedCornerShape(20.dp),
+        color = if (isSelected) SukaOrange else Color.White.copy(alpha = 0.18f),
+        border = BorderStroke(
+            1.dp,
+            if (isSelected) SukaOrange else Color.White.copy(alpha = 0.28f)
+        ),
+        shadowElevation = if (isSelected) 3.dp else 0.dp
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+            style = MaterialTheme.typography.labelMedium.copy(
+                fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.SemiBold,
+                color = if (isSelected) SukaInk else Color(0xFFFFF4EB),
+                fontSize = 12.sp
+            )
+        )
+    }
+}
+
+/**
  * 1. Header Beranda Brand Heritage (HomeBrandHeader).
  * Ramping, elegan, dan proporsional (~118dp) agar tidak memotong kartu Best Seller di bawahnya.
  */
@@ -74,6 +122,7 @@ fun HomeBrandHeader(
     onBukaProfil: () -> Unit,
     onBukaNotifikasi: () -> Unit = {},
     unreadCount: Int = 0,
+    inisial: String = "?",
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -104,20 +153,14 @@ fun HomeBrandHeader(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_suka),
+                            contentDescription = "Logo Suka Shawarma",
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(36.dp)
                                 .clip(RoundedCornerShape(9.dp))
-                                .background(SukaOrange),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocalFireDepartment,
-                                contentDescription = null,
-                                tint = SukaInk,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        )
 
                         Column {
                             Text(
@@ -128,7 +171,7 @@ fun HomeBrandHeader(
                                 letterSpacing = 0.5.sp
                             )
                             Text(
-                                text = "Otentik • Panggang • Gurih",
+                                text = "Besar dan Nikmat",
                                 style = MaterialTheme.typography.labelSmall.copy(
                                     color = SukaOrange,
                                     fontSize = 11.sp,
@@ -194,7 +237,7 @@ fun HomeBrandHeader(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "SK",
+                                text = inisial,
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SukaInk,
@@ -331,6 +374,7 @@ fun MenuBrandHeader(
     onUbahKueri: (String) -> Unit,
     onGantiOutlet: () -> Unit,
     onBukaProfil: () -> Unit,
+    inisial: String = "?",
     modifier: Modifier = Modifier,
     kategoriContent: (@Composable () -> Unit)? = null
 ) {
@@ -349,7 +393,7 @@ fun MenuBrandHeader(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(top = 8.dp, bottom = if (kategoriContent != null) 10.dp else 12.dp),
+                    .padding(top = 8.dp, bottom = if (kategoriContent != null) JARAK_BAWAH_HEADER_DENGAN_KONTEN else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 // Baris Atas: Judul Menu, Outlet Pill & Avatar
@@ -364,20 +408,14 @@ fun MenuBrandHeader(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
+                        Image(
+                            painter = painterResource(id = R.drawable.logo_suka),
+                            contentDescription = "Logo Suka Shawarma",
+                            contentScale = ContentScale.Fit,
                             modifier = Modifier
-                                .size(32.dp)
+                                .size(36.dp)
                                 .clip(RoundedCornerShape(9.dp))
-                                .background(SukaOrange),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.LocalFireDepartment,
-                                contentDescription = null,
-                                tint = SukaInk,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
+                        )
 
                         Column {
                             Text(
@@ -454,7 +492,7 @@ fun MenuBrandHeader(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = "SK",
+                                text = inisial,
                                 style = MaterialTheme.typography.labelMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = SukaInk,
@@ -545,6 +583,11 @@ fun PageBrandHeader(
     subjudul: String? = null,
     onKembali: (() -> Unit)? = null,
     aksiKanan: (@Composable () -> Unit)? = null,
+    // Baris tambahan di bawah judul -- mis. filter kategori/status, seperti
+    // yang dipakai MenuBrandHeader. Sengaja di dalam Surface brown yang sama
+    // (bukan komponen terpisah di luar header) supaya halaman yang punya
+    // filter terlihat konsisten satu sama lain.
+    bawahContent: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -558,11 +601,20 @@ fun PageBrandHeader(
                 .fillMaxWidth()
                 .background(SukaBrandHeaderGradient)
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .statusBarsPadding()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(
+                        top = 12.dp,
+                        bottom = if (bawahContent != null) JARAK_BAWAH_HEADER_DENGAN_KONTEN else 12.dp
+                    ),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -585,20 +637,14 @@ fun PageBrandHeader(
                         )
                     }
                 } else {
-                    Box(
+                    Image(
+                        painter = painterResource(id = R.drawable.logo_suka),
+                        contentDescription = "Logo Suka Shawarma",
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(SukaOrange),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.LocalFireDepartment,
-                            contentDescription = null,
-                            tint = SukaInk,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    )
                 }
 
                 // Sisi Tengah: Judul Halaman & Subjudul
@@ -636,6 +682,11 @@ fun PageBrandHeader(
                     aksiKanan()
                 } else {
                     Spacer(modifier = Modifier.size(34.dp))
+                }
+            }
+
+                if (bawahContent != null) {
+                    bawahContent()
                 }
             }
         }

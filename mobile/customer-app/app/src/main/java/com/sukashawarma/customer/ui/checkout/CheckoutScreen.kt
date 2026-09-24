@@ -71,6 +71,7 @@ fun CheckoutScreen(
     viewModel: CheckoutViewModel,
     onKembali: () -> Unit,
     onBayar: () -> Unit,
+    namaOutlet: String? = null,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -163,7 +164,7 @@ fun CheckoutScreen(
                     onCobaLagi = viewModel::validasi
                 )
 
-                else -> IsiStitch(state = state, viewModel = viewModel)
+                else -> IsiStitch(state = state, viewModel = viewModel, namaOutlet = namaOutlet)
             }
         }
     }
@@ -172,7 +173,8 @@ fun CheckoutScreen(
 @Composable
 private fun IsiStitch(
     state: CheckoutState,
-    viewModel: CheckoutViewModel
+    viewModel: CheckoutViewModel,
+    namaOutlet: String?
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -215,6 +217,18 @@ private fun IsiStitch(
                                 fontSize = 10.sp
                             )
                         )
+                        // Nama outlet wajib terlihat sebelum bayar: pelanggan memilih dari
+                        // puluhan outlet dan salah outlet berarti datang ke tempat yang salah.
+                        namaOutlet?.let { nama ->
+                            Text(
+                                text = nama,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = SukaInk,
+                                    fontSize = 15.sp
+                                )
+                            )
+                        }
                         Text(
                             text = "Pesanan disiapkan saat pembayaran terkonfirmasi",
                             style = MaterialTheme.typography.bodySmall.copy(color = SukaMuted, fontSize = 12.sp)

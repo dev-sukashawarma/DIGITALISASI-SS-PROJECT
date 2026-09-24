@@ -123,6 +123,10 @@ fun HomeBrandHeader(
     onBukaNotifikasi: () -> Unit = {},
     unreadCount: Int = 0,
     inisial: String = "?",
+    // Baris keterangan di bawah nama outlet saat TIDAK bisa pesan (jam tutup,
+    // tutup sementara, dll). Null = perilaku lama ("Tidak menerima pesanan").
+    // Diisi `labelStatusOutlet(outlet)` oleh pemanggil bila `!outlet.bolehPesan()`.
+    keteranganTutup: String? = null,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -318,7 +322,7 @@ fun HomeBrandHeader(
                                 }
                                 Text(
                                     // Bukan janji waktu saji -- belum ada data per outlet.
-                                    text = if (buka) "Ambil sendiri di outlet ini" else "Tidak menerima pesanan",
+                                    text = if (buka) "Ambil sendiri di outlet ini" else (keteranganTutup ?: "Tidak menerima pesanan"),
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         fontSize = 11.sp,
                                         color = SukaMuted

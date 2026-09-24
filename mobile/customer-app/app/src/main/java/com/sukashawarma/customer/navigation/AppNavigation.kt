@@ -57,6 +57,8 @@ import com.sukashawarma.customer.ui.components.inisialNama
 import com.sukashawarma.customer.ui.home.HomeScreen
 import com.sukashawarma.customer.ui.home.OutletPickerScreen
 import com.sukashawarma.customer.ui.home.OutletPickerViewModel
+import com.sukashawarma.customer.ui.home.bolehPesan
+import com.sukashawarma.customer.ui.home.labelStatusOutlet
 import com.sukashawarma.customer.ui.menu.CatalogScreen
 import com.sukashawarma.customer.ui.menu.CatalogViewModel
 import com.sukashawarma.customer.ui.menu.MenuScreen
@@ -462,6 +464,8 @@ fun CustomerAppRoot(container: AppContainer) {
                     cartLines = cartState.baris,
                     cartSubtotal = cartState.subtotal,
                     cartTotalPorsi = cartState.porsi,
+                    outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
+                    labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null },
                     onLihatKeranjang = { navController.navigate(Rute.KERANJANG) },
                     onKembali = { navController.popBackStack() },
                     onTambahKeKeranjang = { jumlah, catatan, selectedToppings ->
@@ -502,7 +506,9 @@ fun CustomerAppRoot(container: AppContainer) {
                             navController.navigate(Rute.masuk("checkout"))
                         }
                     },
-                    namaOutlet = namaOutletKeranjang()
+                    namaOutlet = namaOutletKeranjang(),
+                    outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
+                    labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null }
                 )
             }
 
@@ -523,7 +529,9 @@ fun CustomerAppRoot(container: AppContainer) {
                         navController.popBackStack()
                     },
                     onBayar = { navController.navigate(Rute.BAYAR) },
-                    namaOutlet = namaOutletKeranjang()
+                    namaOutlet = namaOutletKeranjang(),
+                    outletBolehPesan = catalogState.outlet?.bolehPesan() != false,
+                    labelOutletTutup = catalogState.outlet?.let { if (!it.bolehPesan()) labelStatusOutlet(it) else null }
                 )
             }
 

@@ -61,6 +61,7 @@ import com.sukashawarma.customer.ui.components.HeaderChip
 import com.sukashawarma.customer.ui.components.MenuBrandHeader
 import com.sukashawarma.customer.ui.components.MenuCard
 import com.sukashawarma.customer.ui.home.OutletClosedScreen
+import com.sukashawarma.customer.ui.home.bolehPesan
 import com.sukashawarma.customer.ui.theme.SukaBorder
 import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaCream
@@ -140,7 +141,7 @@ fun MenuScreen(
             state.outlet?.let {
                 MenuBrandHeader(
                     namaOutlet = it.name,
-                    buka = it.isActive,
+                    buka = it.bolehPesan(),
                     kueriPencarian = state.kueri,
                     onUbahKueri = viewModel::ubahKueri,
                     onGantiOutlet = onGantiOutlet,

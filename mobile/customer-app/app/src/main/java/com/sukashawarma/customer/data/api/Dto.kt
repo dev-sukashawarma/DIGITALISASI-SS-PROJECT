@@ -35,7 +35,11 @@ data class OutletDto(
     val address: String? = null,
     val lat: Double? = null,
     val lng: Double? = null,
-    @SerialName("is_active") val isActive: Boolean
+    @SerialName("is_active") val isActive: Boolean,
+    // Field tahap 1 (2026-09-24). Opsional: gateway lama tak mengirimnya.
+    @SerialName("bisa_pesan") val bisaPesan: Boolean? = null,
+    @SerialName("pesan_status") val pesanStatus: String? = null,
+    @SerialName("pesan_terakhir") val pesanTerakhir: String? = null,
 )
 
 @Serializable

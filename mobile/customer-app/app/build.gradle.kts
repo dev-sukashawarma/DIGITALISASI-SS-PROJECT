@@ -76,6 +76,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // java.time (StatusOutletLabel.kt) butuh desugaring di minSdk 24.
+        isCoreLibraryDesugaringEnabled = true
     }
     @Suppress("DEPRECATION")
     kotlinOptions {
@@ -93,6 +95,7 @@ android {
 }
 
 dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.2")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)

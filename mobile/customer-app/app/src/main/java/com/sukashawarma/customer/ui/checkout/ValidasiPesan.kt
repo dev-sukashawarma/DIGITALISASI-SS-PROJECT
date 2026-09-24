@@ -49,8 +49,11 @@ fun labelTindakan(masalah: CartProblemDto): String = when (masalah.jenis) {
  * pesanan ditolak, bukan satu itemnya.
  */
 fun pesanUntukAlasan(alasan: String?, pesanDariGateway: String?): String = when (alasan) {
+    // Gateway kini bisa mengirim kalimat spesifik (jam tutup, tutup sementara
+    // + alasan) lewat `pesan`. Kalimat generik di bawah hanya jadi fallback
+    // untuk gateway lama yang belum mengirimnya.
     "outlet_tutup" ->
-        "Outlet sedang tutup, jadi pesanan belum bisa diproses."
+        pesanDariGateway ?: "Outlet sedang tutup, jadi pesanan belum bisa diproses."
     "outlet_tidak_melayani" ->
         "Outlet ini belum melayani pesanan lewat aplikasi."
     "keranjang_berubah" ->

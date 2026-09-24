@@ -238,12 +238,13 @@ private fun HomeContentList(
             item(key = "home-brand-header") {
                 HomeBrandHeader(
                     namaOutlet = it.name,
-                    buka = it.isActive,
+                    buka = it.bolehPesan(),
                     onGantiOutlet = onGantiOutlet,
                     onBukaProfil = onBukaProfil,
                     onBukaNotifikasi = onBukaNotifikasi,
                     unreadCount = unreadCount,
-                    inisial = inisial
+                    inisial = inisial,
+                    keteranganTutup = if (!it.bolehPesan()) labelStatusOutlet(it) else null
                 )
             }
         }

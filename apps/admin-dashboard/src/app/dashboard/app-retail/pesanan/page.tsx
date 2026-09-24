@@ -29,7 +29,7 @@ export default async function Page() {
   const idPelanggan = [...new Set((refundPerluRes.data ?? []).map((r) => r.customer_id))]
   const pelangganRes = idPelanggan.length
     ? await retail.from('customers').select('id, name, phone').in('id', idPelanggan)
-    : { data: [] as { id: string; name: string | null; phone: string | null }[] }
+    : { data: [] as { id: string; name: string | null; phone: string | null }[], error: null as { message: string } | null }
 
   return (
     <PesananAppView
@@ -39,7 +39,8 @@ export default async function Page() {
       refundSudah={refundSudahRes.data ?? []}
       pelanggan={pelangganRes.data ?? []}
       menitTertahan={pengaturanRes.data?.menit_tertahan ?? 10}
-      galat={[pesananRes.error, outletRes.error, refundPerluRes.error].filter(Boolean).map((e) => e!.message)}
+      galat={[pesananRes.error, outletRes.error, refundPerluRes.error, refundSudahRes.error, pengaturanRes.error, pelangganRes.error]
+        .filter(Boolean).map((e) => e!.message)}
     />
   )
 }

@@ -43,8 +43,14 @@ export default function PesananAppView(props: {
   function selesai(id: string) {
     setGalat('')
     mulai(async () => {
-      try { await tandaiRefundSelesai(id, catatan[id] ?? '') }
-      catch (e) { setGalat(e instanceof Error ? e.message : 'Gagal menyimpan') }
+      try {
+        await tandaiRefundSelesai(id, catatan[id] ?? '')
+        setCatatan((c) => {
+          const { [id]: _hapus, ...sisa } = c
+          return sisa
+        })
+        router.refresh()
+      } catch (e) { setGalat(e instanceof Error ? e.message : 'Gagal menyimpan') }
     })
   }
 

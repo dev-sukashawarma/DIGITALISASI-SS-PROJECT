@@ -79,8 +79,14 @@ export function useKatalogVendor() {
       const { data, error } = await supabase
         .from('bahan_baku_supplier')
         .select(
-          'id, bahan_baku_id, supplier_id, satuan_beli, isi_satuan_kecil, harga, is_active, perlu_ditinjau, sumber, harga_updated_at, bahan_baku!inner(nama, satuan, satuan_po, satuan_kecil, faktor_po, bahan_baku_harga(harga_beli, kemasan_qty)), supplier!inner(nama, termin_hari)',
+          'id, bahan_baku_id, supplier_id, satuan_beli, isi_satuan_kecil, harga, is_active, perlu_ditinjau, sumber, harga_updated_at, bahan_baku!inner(nama, satuan, satuan_po, satuan_kecil, faktor_po, is_active, bahan_baku_harga(harga_beli, kemasan_qty)), supplier!inner(nama, termin_hari, is_active)',
         )
+        // Hanya pasangan yang masih berlaku: baris katalog aktif, vendor aktif, bahan aktif.
+        // Baris yang dinonaktifkan (mis. uncheck di Master Supplier) tak boleh tampil
+        // seolah vendor itu masih memasok bahan tersebut.
+        .eq('is_active', true)
+        .eq('supplier.is_active', true)
+        .eq('bahan_baku.is_active', true)
       if (error) throw error
       return ((data ?? []) as unknown as BarisMentah[]).map(ratakan)
     },

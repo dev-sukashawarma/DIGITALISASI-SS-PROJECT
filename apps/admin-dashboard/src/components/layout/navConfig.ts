@@ -160,6 +160,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: '/dashboard/app-retail', label: 'Ringkasan App Retail', shortLabel: 'Ringkasan', icon: LayoutDashboard, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/menu', label: 'Pengaturan Menu Aplikasi', shortLabel: 'Menu App', icon: Tags, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/outlet', label: 'Outlet Aplikasi', shortLabel: 'Outlet App', icon: Store, roles: ['OWNER', 'ADMIN'] },
+      { href: '/dashboard/app-retail/pesanan', label: 'Pesanan Aplikasi', shortLabel: 'Pesanan App', icon: ShoppingCart, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/banner', label: 'Banner Aplikasi', shortLabel: 'Banner App', icon: GalleryHorizontal, roles: ['OWNER', 'ADMIN'] },
       { href: '/dashboard/app-retail/splash', label: 'Splash Aplikasi', shortLabel: 'Splash App', icon: ImagePlus, roles: ['OWNER', 'ADMIN'] },
     ],

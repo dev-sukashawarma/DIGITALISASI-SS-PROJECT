@@ -108,4 +108,16 @@ class StatusPesananTest {
     fun `tanpa tahap tidak ada yang tertandai selesai`() {
         assertFalse(tahapTercapai(null, TahapPesanan.DITERIMA))
     }
+
+    @Test
+    fun `label pembayaran hanya lunas bila benar-benar dibayar`() {
+        assertEquals("QRIS Lunas", labelPembayaran(null, "dibayar").teks)
+        assertTrue(labelPembayaran(null, "dibayar").lunas)
+        // Sudah punya status dapur berarti sudah dibayar.
+        assertTrue(labelPembayaran("preparing", "menunggu_bayar").lunas)
+        assertEquals("Belum dibayar", labelPembayaran(null, "menunggu_bayar").teks)
+        assertFalse(labelPembayaran(null, "menunggu_bayar").lunas)
+        assertEquals("Tidak ditagih", labelPembayaran(null, "kadaluarsa").teks)
+        assertEquals("Tidak ditagih", labelPembayaran(null, "gagal").teks)
+    }
 }

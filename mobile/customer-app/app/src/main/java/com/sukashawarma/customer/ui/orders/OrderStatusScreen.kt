@@ -230,7 +230,8 @@ fun OrderStatusScreen(
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Surface(
+                                    // "Live dari dapur" hanya untuk pesanan yang masih berjalan.
+                                    if (!tampil.berakhir) Surface(
                                         shape = RoundedCornerShape(20.dp),
                                         color = SukaOrange.copy(alpha = 0.25f),
                                         border = BorderStroke(1.dp, SukaOrange.copy(alpha = 0.5f))
@@ -259,8 +260,9 @@ fun OrderStatusScreen(
                                         }
                                     }
 
-                                    Text(
-                                        text = if (tampil.selesai) "Selesai" else "Tepat Waktu",
+                                    // "Tepat Waktu" dulu ditulis mati tanpa dasar data apa pun.
+                                    if (tampil.selesai) Text(
+                                        text = "Selesai",
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             color = Color.White.copy(alpha = 0.75f),
                                             fontSize = 11.sp
@@ -516,11 +518,12 @@ fun OrderStatusScreen(
                                         fontSize = 11.sp
                                     )
                                 )
+                                val bayar = labelPembayaran(pesanan.statusDapur, pesanan.status)
                                 Text(
-                                    text = "QRIS Lunas",
+                                    text = bayar.teks,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
-                                        color = SukaGreen,
+                                        color = if (bayar.lunas) SukaGreen else SukaMuted,
                                         fontSize = 10.sp
                                     )
                                 )

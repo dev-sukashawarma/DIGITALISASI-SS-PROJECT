@@ -118,3 +118,17 @@ fun tahapTercapai(tahapSekarang: TahapPesanan?, tahap: TahapPesanan): Boolean {
     if (tahapSekarang == null) return false
     return tahap.ordinal <= tahapSekarang.ordinal
 }
+
+data class LabelPembayaran(val teks: String, val lunas: Boolean)
+
+/**
+ * Label di bawah "Total Pembayaran". Dulu ditulis mati "QRIS Lunas" untuk
+ * semua pesanan -- termasuk yang belum dibayar atau sudah kedaluwarsa.
+ * Pesanan yang sudah punya status dapur pasti sudah dibayar (baru terdorong
+ * ke kasir setelah pembayaran dikonfirmasi).
+ */
+fun labelPembayaran(statusDapur: String?, statusDraft: String?): LabelPembayaran = when {
+    statusDapur != null || statusDraft == "dibayar" -> LabelPembayaran("QRIS Lunas", lunas = true)
+    statusDraft == "kadaluarsa" || statusDraft == "gagal" -> LabelPembayaran("Tidak ditagih", lunas = false)
+    else -> LabelPembayaran("Belum dibayar", lunas = false)
+}

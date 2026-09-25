@@ -4,6 +4,7 @@ import { presetRange, previousRange, diffDays } from '@/lib/period'
 import { buildLeaderboard } from '@/lib/leaderboard'
 import { getOwnerDashboardDataFast } from '@/app/actions/ownerDashboard'
 import OwnerDashboardView from './OwnerDashboardView'
+import DashboardLoadError from './DashboardLoadError'
 import type { SalesSource, PeriodFilterValue } from '@/lib/types'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 
@@ -54,10 +55,25 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
     : allOutletsWithSS
 
   // 4. Run Fast Aggregations in parallel (semua agregasi di PostgreSQL via RPC)
-  const [curData, prevData] = await Promise.all([
+  // allSettled: kegagalan satu periode tidak boleh menjatuhkan seluruh halaman
+  // jadi error 500 seperti sebelumnya.
+  const [curRes, prevRes] = await Promise.allSettled([
     getOwnerDashboardDataFast(filter, scopedOutlets),
     getOwnerDashboardDataFast(prevFilter, scopedOutlets),
   ])
+  if (curRes.status === 'rejected') {
+    console.error('[owner-dashboard] gagal memuat periode utama:', curRes.reason)
+    return <DashboardLoadError />
+  }
+  const curData = curRes.value
+  // Periode pembanding gagal → dashboard tetap tampil, hanya tanpa ▲▼%.
+  const comparisonUnavailable = prevRes.status === 'rejected'
+  if (comparisonUnavailable) {
+    console.error('[owner-dashboard] gagal memuat periode pembanding:', prevRes.reason)
+  }
+  const prevData = prevRes.status === 'fulfilled'
+    ? prevRes.value
+    : { kpiRows: [], menuRows: [], totalCogs: 0, totalOpex: 0, totalCogsOpex: 0 }
   const buyOneGetOne = curData.buyOneGetOne || { transactions: 0, giftUnits: 0 }
   // menu_rows sudah include dalam respons RPC masing-masing periode
   const menuSales     = curData.menuRows
@@ -90,6 +106,7 @@ export default async function OwnerDashboardPage({ searchParams }: { searchParam
       buyOneGetOne={buyOneGetOne}
       lastUpdated={curData.fetchedAt}
       isCached={curData.isCached}
+      comparisonUnavailable={comparisonUnavailable}
     />
   )
 }

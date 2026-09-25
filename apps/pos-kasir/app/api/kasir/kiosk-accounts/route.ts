@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveApiUser } from '@/lib/api-auth'
 
+const ALLOWED_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin']
+
 export async function GET(request: Request) {
   try {
     const user = await resolveApiUser(request)
@@ -12,11 +14,14 @@ export async function GET(request: Request) {
     const supabaseService = createServiceClient()
     const { data: profile } = await supabaseService.from('outlet_staff').select('role, outlet_id').eq('id', user.id).single()
 
-    if (!profile || profile.role !== 'crew') {
-      return NextResponse.json({ error: 'Akses ditolak. Harus Kasir.' }, { status: 403 })
+    if (!profile || !ALLOWED_ROLES.includes(profile.role)) {
+      return NextResponse.json({ error: 'Akses ditolak. Hanya staf kasir/cabang yang diizinkan.' }, { status: 403 })
     }
 
-    if (!profile.outlet_id) {
+    const { searchParams } = new URL(request.url)
+    const targetOutletId = profile.outlet_id || searchParams.get('outlet_id')
+
+    if (!targetOutletId) {
       return NextResponse.json({ error: 'Kasir belum dihubungkan ke cabang manapun.' }, { status: 400 })
     }
 
@@ -25,7 +30,7 @@ export async function GET(request: Request) {
       .from('outlet_staff')
       .select('id, username')
       .eq('role', 'kiosk')
-      .eq('outlet_id', profile.outlet_id)
+      .eq('outlet_id', targetOutletId)
       .eq('is_active', true)
       .order('username', { ascending: true })
 

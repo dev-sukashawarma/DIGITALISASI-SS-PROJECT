@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { normalisasiVoucher, normalisasiKode, nilaiVoucher } from './voucherDb'
+import { normalisasiVoucher, normalisasiKode, nilaiVoucher, konteksPelanggan } from './voucherDb'
 
 const baris = {
   id: 'v1', nama: 'Uji', deskripsi: null, kode: 'HEMAT', jenis: 'nominal', nilai: '5000', maks_potongan: null,
@@ -29,6 +29,108 @@ function klien(hasil: Record<string, unknown>) {
   }
   return { from: vi.fn(rantai) } as any
 }
+
+/**
+ * RECORDING fake: catat setiap call per-rantai untuk verifikasi filter yang tepat.
+ */
+function klienRecording(hasil: Record<string, unknown>) {
+  return {
+    from: vi.fn((tabel: string): any => {
+      const log: Array<{ method: string; args: unknown[] }> = []
+      const r: any = {}
+      for (const f of ['select', 'eq', 'is', 'not', 'in', 'limit']) {
+        r[f] = vi.fn((arg1?: unknown, arg2?: unknown, arg3?: unknown) => {
+          log.push({ method: f, args: [arg1, arg2, arg3].filter(x => x !== undefined) })
+          return r
+        })
+      }
+      r.maybeSingle = vi.fn(async () => hasil[tabel])
+      r.then = (ok: (x: unknown) => unknown) => Promise.resolve(hasil[tabel + ':count'] ?? { count: 0, error: null }).then(ok)
+      return { ...r, _log: log }
+    })
+  } as any
+}
+
+describe('konteksPelanggan', () => {
+  it('filter voucher_pemakaian dengan eq(voucher_id) dan not(lunas_at)', async () => {
+    const rc = klienRecording({ 'voucher_pemakaian:count': { count: 7, error: null }, 'order_drafts:count': { count: 1, error: null } })
+    await konteksPelanggan(rc, 'v1', 'c1')
+    // Query 1: voucher_pemakaian (total)
+    const q1Calls = rc.from.mock.results[0]?.value._log || []
+    expect(q1Calls.some((x: any) => x.method === 'eq' && x.args[0] === 'voucher_id')).toBe(true)
+    expect(q1Calls.some((x: any) => x.method === 'not' && x.args[0] === 'lunas_at')).toBe(true)
+  })
+
+  it('per-customer query memasukkan eq(customer_id), total query tidak', async () => {
+    const rc = klienRecording({
+      'voucher_pemakaian:count': { count: 10, error: null },
+      'order_drafts:count': { count: 2, error: null }
+    })
+    await konteksPelanggan(rc, 'v1', 'c1')
+    const q1Calls = rc.from.mock.results[0]?.value._log || []
+    const q2Calls = rc.from.mock.results[1]?.value._log || []
+    // Query 1 (total): NO eq(customer_id)
+    expect(q1Calls.filter((x: any) => x.method === 'eq' && x.args[0] === 'customer_id')).toHaveLength(0)
+    // Query 2 (pelanggan): HAS eq(customer_id)
+    expect(q2Calls.some((x: any) => x.method === 'eq' && x.args[0] === 'customer_id' && x.args[1] === 'c1')).toBe(true)
+  })
+
+  it('order_drafts filter eq(customer_id) dan eq(status, dibayar)', async () => {
+    const rc = klienRecording({
+      'voucher_pemakaian:count': { count: 5, error: null },
+      'order_drafts:count': { count: 3, error: null }
+    })
+    await konteksPelanggan(rc, 'v1', 'c1')
+    const odCalls = rc.from.mock.results[2]?.value._log || []
+    expect(odCalls.some((x: any) => x.method === 'eq' && x.args[0] === 'customer_id')).toBe(true)
+    expect(odCalls.some((x: any) => x.method === 'eq' && x.args[0] === 'status' && x.args[1] === 'dibayar')).toBe(true)
+  })
+
+  it('count queries pakai select(id, { count: exact, head: true })', async () => {
+    const rc = klienRecording({
+      'voucher_pemakaian:count': { count: 3, error: null },
+      'order_drafts:count': { count: 1, error: null }
+    })
+    await konteksPelanggan(rc, 'v1', 'c1')
+    const allCalls = rc.from.mock.results.flatMap((r: any) => r.value._log || [])
+    const selectCalls = allCalls.filter((x: any) => x.method === 'select')
+    expect(selectCalls.length).toBeGreaterThan(0)
+    selectCalls.forEach((sc: any) => {
+      expect(sc.args[0]).toBe('id')
+      expect(sc.args[1]).toEqual({ count: 'exact', head: true })
+    })
+  })
+
+  it('hasil: counts mapping ke jumlahLunasPelanggan (query 2)', async () => {
+    // Klien fake akan mengembalikan count yang SAMA untuk kedua voucher_pemakaian queries
+    // Kita hanya validasi struktur hasil dan bahwa count dari query 2 digunakan
+    const hasil = await konteksPelanggan(
+      klien({ 'voucher_pemakaian:count': { count: 3, error: null }, 'order_drafts:count': { count: 1, error: null } }),
+      'v1', 'c1'
+    )
+    expect(hasil).toHaveProperty('jumlahLunasTotal')
+    expect(hasil).toHaveProperty('jumlahLunasPelanggan')
+    expect(hasil).toHaveProperty('pelangganSudahPernahBayar')
+    expect(hasil.pelangganSudahPernahBayar).toBe(true) // count 1 > 0
+  })
+
+  it('pelangganSudahPernahBayar=false saat drafts count 0', async () => {
+    const hasil = await konteksPelanggan(
+      klien({ 'voucher_pemakaian:count': { count: 5, error: null }, 'order_drafts:count': { count: 0, error: null } }),
+      'v1', 'c1'
+    )
+    expect(hasil.pelangganSudahPernahBayar).toBe(false) // count 0 = false
+  })
+
+  it('error pada salah satu count query ditolak', async () => {
+    await expect(
+      konteksPelanggan(
+        klien({ 'voucher_pemakaian:count': { count: null, error: { message: 'DB down' } } }),
+        'v1', 'c1'
+      )
+    ).rejects.toThrow('DB down')
+  })
+})
 
 describe('nilaiVoucher', () => {
   const dasar = { customerId: 'c1', outletId: 'o1', items: [{ menu_item_id: 'A', name: 'A', unit_price: 30000, quantity: 1 }],

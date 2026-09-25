@@ -110,6 +110,7 @@ export function periksaVoucher(i: InputVoucher): string | null {
       break
     case 'nominal':
       if (i.nilai == null || i.nilai <= 0) return 'Nilai potongan harus lebih dari 0.'
+      if (!Number.isInteger(i.nilai)) return 'Nominal rupiah harus bilangan bulat.'
       break
     case 'gratis_item':
       if (!i.menu_item_id) return 'Pilih menu yang digratiskan.'
@@ -123,10 +124,12 @@ export function periksaVoucher(i: InputVoucher): string | null {
       break
   }
   if (i.maks_potongan != null && i.maks_potongan <= 0) return 'Maksimal potongan harus lebih dari 0.'
+  if (i.maks_potongan != null && !Number.isInteger(i.maks_potongan)) return 'Nominal rupiah harus bilangan bulat.'
   // Validasi kolom-level CHECK (berlaku untuk semua jenis saat non-null)
   if (i.beli_qty != null && (!Number.isInteger(i.beli_qty) || i.beli_qty < 1)) return 'Jumlah beli minimal 1.'
   if (i.gratis_qty != null && (!Number.isInteger(i.gratis_qty) || i.gratis_qty < 1)) return 'Jumlah gratis minimal 1.'
   if (i.harga_spesial != null && i.harga_spesial < 0) return 'Harga spesial tidak boleh negatif.'
+  if (i.harga_spesial != null && !Number.isInteger(i.harga_spesial)) return 'Nominal rupiah harus bilangan bulat.'
   if (i.hari && i.hari.length > 0) {
     if (!i.hari.every((h) => Number.isInteger(h) && h >= 1 && h <= 7)) return 'Hari tidak sah.'
   }
@@ -136,5 +139,6 @@ export function periksaVoucher(i: InputVoucher): string | null {
     if (n != null && (!Number.isInteger(n) || n < 1)) return `${pesan} minimal 1.`
   }
   if (i.min_belanja != null && i.min_belanja < 0) return 'Minimal belanja tidak boleh negatif.'
+  if (i.min_belanja != null && !Number.isInteger(i.min_belanja)) return 'Nominal rupiah harus bilangan bulat.'
   return null
 }

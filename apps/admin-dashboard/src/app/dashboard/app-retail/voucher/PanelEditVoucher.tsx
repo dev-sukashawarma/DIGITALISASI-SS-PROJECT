@@ -32,8 +32,14 @@ const angka = (s: string): number | null => {
   const n = Number(dinormalkan)
   return Number.isFinite(n) ? n : NaN
 }
-/** <input type="datetime-local"> dibaca sebagai WIB. */
-const dariLokalWib = (s: string): string | null => (s ? new Date(`${s}:00+07:00`).toISOString() : null)
+/**
+ * <input type="datetime-local"> dibaca sebagai WIB. Nilainya bisa 16 karakter
+ * (YYYY-MM-DDTHH:MM, tanpa detik) atau 19 karakter (dengan :SS, tergantung
+ * browser/step) -- ':00' hanya ditambahkan kalau detiknya belum ada, kalau
+ * tidak string jadi 'HH:MM:SS:00+07:00' dan Date invalid (toISOString throw).
+ */
+const dariLokalWib = (s: string): string | null =>
+  s ? new Date(`${s.length <= 16 ? `${s}:00` : s}+07:00`).toISOString() : null
 const keLokalWib = (iso: string | null): string =>
   iso ? new Date(new Date(iso).getTime() + 7 * 3600_000).toISOString().slice(0, 16) : ''
 

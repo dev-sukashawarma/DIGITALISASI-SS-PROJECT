@@ -48,4 +48,12 @@ describe('periksaVoucher', () => {
   it('hari float', () => expect(periksaVoucher({ ...i, hari: [1.5, 2] })).toBe('Hari tidak sah.'))
   it('NaN di maks_potongan ditolak', () => expect(periksaVoucher({ ...i, maks_potongan: NaN })).toBe('Angka tidak sah.'))
   it('NaN di min_belanja ditolak', () => expect(periksaVoucher({ ...i, min_belanja: NaN })).toBe('Angka tidak sah.'))
+
+  // I1(b): nominal rupiah wajib bilangan bulat -- pecahan lolos ke Xendit (buatQris/buatTagihan) = 502.
+  it('nilai nominal pecahan ditolak', () => expect(periksaVoucher({ ...i, jenis: 'nominal', nilai: 10000.5 })).toBe('Nominal rupiah harus bilangan bulat.'))
+  it('nilai nominal bulat diterima', () => expect(periksaVoucher({ ...i, jenis: 'nominal', nilai: 10000 })).toBeNull())
+  it('nilai persen pecahan tetap diterima', () => expect(periksaVoucher({ ...i, jenis: 'persen', nilai: 12.5 })).toBeNull())
+  it('maks_potongan pecahan ditolak', () => expect(periksaVoucher({ ...i, maks_potongan: 15000.25 })).toBe('Nominal rupiah harus bilangan bulat.'))
+  it('harga_spesial pecahan ditolak', () => expect(periksaVoucher({ ...i, jenis: 'harga_spesial', menu_item_id: 'A', harga_spesial: 24999.5 })).toBe('Nominal rupiah harus bilangan bulat.'))
+  it('min_belanja pecahan ditolak', () => expect(periksaVoucher({ ...i, min_belanja: 50000.5 })).toBe('Nominal rupiah harus bilangan bulat.'))
 })

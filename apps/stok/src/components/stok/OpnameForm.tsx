@@ -16,6 +16,7 @@ import { convertBesarToGram, formatTriUnitSaldoFromGram } from '@/lib/format/com
 import { createClient } from '@/lib/supabase';
 import type { BahanBaku } from '@/types/stok';
 import { sembunyikanKolomBesar } from '@/lib/stok/satuanOpname';
+import { checkPendingSuratJalanAction } from '@/app/actions/opname';
 
 /** Baris vendor untuk satu bahan multi-vendor, dari RPC `saldo_vendor_gudang`. */
 interface VendorInfo {
@@ -93,6 +94,14 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
     queryKey: ['monitoring', 'outlets'],
     queryFn: fetchOutletsList,
   });
+
+  const { data: pendingSJRes } = useQuery({
+    queryKey: ['pending-surat-jalan', outletId],
+    queryFn: () => checkPendingSuratJalanAction(outletId),
+    enabled: !!outletId,
+    staleTime: 15000,
+  });
+  const pendingSuratJalans = pendingSJRes?.data || [];
   // `isGudang` (berbasis nama) HANYA untuk menyaring bahan bersumber Gudang
   // Pusat di daftar opname -- semantiknya sengaja tetap longgar.
   const isGudang = outlets?.find(o => o.id === outletId)?.nama?.toUpperCase().includes('GUDANG') ?? false;
@@ -666,6 +675,16 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
   }
 
   function handleFinalizeClick() {
+    if (pendingSuratJalans.length > 0) {
+      const sjDocs = pendingSuratJalans
+        .map((s) => s.document_number || `SJ-${s.id.slice(0, 8).toUpperCase()}`)
+        .join(', ');
+      showToast(
+        `⛔ Tidak dapat memfinalisasi opname! Ada ${pendingSuratJalans.length} Surat Jalan (${sjDocs}) yang belum diverifikasi. Harap verifikasi serah terima barang di menu Distribusi terlebih dahulu agar stok tidak dobel!`,
+        'warning'
+      );
+      return;
+    }
     if (isGudangPusat && !vendorsLoaded) {
       showToast('🔴 Sedang memuat daftar vendor Gudang Pusat. Tunggu sebentar lalu coba lagi.', 'warning');
       return;
@@ -769,6 +788,32 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
               day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
             })}
           </span>
+        </div>
+      )}
+
+      {/* Warning Banner: Surat Jalan Belum Diverifikasi */}
+      {pendingSuratJalans.length > 0 && (
+        <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl mt-0.5">⚠️</span>
+            <div className="space-y-1">
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 font-display">
+                Ada {pendingSuratJalans.length} Surat Jalan Belum Diverifikasi
+              </h4>
+              <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
+                Terdapat kiriman barang dari Gudang Pusat yang masih berstatus <strong>dikirim</strong> ({pendingSuratJalans.map((s) => s.document_number || `SJ-${s.id.slice(0, 8).toUpperCase()}`).join(', ')}). 
+                <strong> Wajib verifikasi serah terima di menu Distribusi sebelum Opname</strong> agar stok fisik tidak tercatat ganda!
+              </p>
+            </div>
+          </div>
+          <a
+            href="/distribusi/surat-jalan"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider text-center shrink-0 shadow-sm transition-all"
+          >
+            Buka Surat Jalan ↗
+          </a>
         </div>
       )}
 

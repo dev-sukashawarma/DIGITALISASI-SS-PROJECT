@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import ProfitClient from './ProfitClient';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
+import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,12 +100,13 @@ export default async function PawoonProfitPage({
                         unit_price, 
                         subtotal,
                         channel,
-                        menu_items ( 
+                        menu_items (
+                            id,
                             hpp_override,
                             is_package,
                             package_items:menu_packages!package_id (
                                 quantity,
-                                component:menu_items!menu_item_id ( hpp_override )
+                                component:menu_items!menu_item_id ( id, hpp_override )
                             )
                         )
                     `)
@@ -131,6 +133,11 @@ export default async function PawoonProfitPage({
         orderOutletMap.set(o.id, outletTypeMap.get(o.outlet_id) || 'outlet');
         orderStatusMap.set(o.id, o.status);
     });
+
+    // HPP per tanggal order (riwayat HPP) — penjualan sebelum perubahan HPP tetap memakai HPP lama.
+    const tanggalOrderMap = new Map<string, string>();
+    allSyncedOrders.forEach(o => tanggalOrderMap.set(o.id, tanggalWib(o.created_at)));
+    const penerapHpp = buatPenerapRiwayat([], shouldFetchData ? await ambilRiwayatHpp(supabase) : [], (n) => n);
 
     // Total Pendapatan (Omset) headline: pakai orders.total_amount (angka Total asli Pawoon,
     // termasuk diskon/service charge/pembulatan transaksi), BUKAN jumlah order_items.subtotal
@@ -172,26 +179,29 @@ export default async function PawoonProfitPage({
         totalOmsetFromItems += signedSubtotal;
 
         const outletType = orderOutletMap.get(item.order_id) || 'outlet';
+        const mi = item.menu_items
+            ? penerapHpp.untuk(tanggalOrderMap.get(item.order_id) ?? tanggalWib(new Date())).terapkan(item.menu_items)
+            : item.menu_items;
 
         let baseHpp = 0;
         let isMissing = false;
 
-        if (item.menu_items?.is_package) {
-            if (item.menu_items?.hpp_override !== null) {
-                baseHpp = item.menu_items.hpp_override;
+        if (mi?.is_package) {
+            if (mi?.hpp_override !== null) {
+                baseHpp = mi.hpp_override;
             } else {
                 let pkgHpp = 0;
                 let pkgMissing = false;
-                item.menu_items.package_items?.forEach((pkg: any) => {
+                mi.package_items?.forEach((pkg: any) => {
                     if (pkg.component?.hpp_override === null) pkgMissing = true;
                     pkgHpp += (pkg.component?.hpp_override || 0) * (pkg.quantity || 1);
                 });
                 baseHpp = pkgHpp;
-                isMissing = pkgMissing || (item.menu_items.package_items?.length === 0);
+                isMissing = pkgMissing || (mi.package_items?.length === 0);
             }
         } else {
-            baseHpp = item.menu_items?.hpp_override || 0;
-            isMissing = item.menu_items?.hpp_override === null;
+            baseHpp = mi?.hpp_override || 0;
+            isMissing = mi?.hpp_override === null;
         }
 
         // HPP Mitra Rule: HPP Pusat + 10%

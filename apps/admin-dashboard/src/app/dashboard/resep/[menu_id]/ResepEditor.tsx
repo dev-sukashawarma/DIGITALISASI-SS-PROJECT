@@ -145,13 +145,27 @@ export function ResepEditor({ menu, bahanBakuList, existingRecipe, comboBOMData 
       }
 
       // Update Harga Jual and HPP Override in menu_items
+      const hppLama = menu.hpp_override === null || menu.hpp_override === undefined || menu.hpp_override === ('' as any)
+        ? null
+        : Number(menu.hpp_override)
       const overrideVal = hppOverride.trim() === '' ? null : Number(hppOverride)
-      if (hargaJual !== Number(menu.price) || overrideVal !== menu.hpp_override) {
+      if (overrideVal !== null && (!Number.isFinite(overrideVal) || overrideVal < 0)) {
+        throw new Error('HPP override harus angka 0 atau lebih')
+      }
+      const hppBerubah = overrideVal !== hppLama
+      if (hppBerubah) {
+        // HPP lewat RPC riwayat (berlaku hari ini). Perubahan mundur dilakukan di layar HPP.
+        const { error: hppError } = await supabase.rpc('ubah_hpp_menu', {
+          p_menu_item_id: menu.id,
+          p_perubahan: { hpp_override: overrideVal },
+        })
+        if (hppError) throw hppError
+      }
+      if (hargaJual !== Number(menu.price) || hppBerubah) {
         const { error: menuError } = await supabase
           .from('menu_items')
           .update({
             price: hargaJual,
-            hpp_override: overrideVal,
             updated_by: userUpdater,
             updated_at: new Date().toISOString()
           })

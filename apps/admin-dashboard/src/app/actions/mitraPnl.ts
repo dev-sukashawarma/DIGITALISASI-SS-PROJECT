@@ -9,6 +9,7 @@ import { cleanItemName } from '@/lib/order-item-name'
 import { resolveMitraPolicy } from '@/lib/mitraPolicy'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
+import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 
 export interface ChannelPnlDetail {
   revenue: number
@@ -222,7 +223,7 @@ export async function getMitraComprehensivePnl(
   // Fallback query builder (used ONLY if RPC fails)
   const buildOrdersQuery = () => supabase
     .from('orders')
-    .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+    .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(id, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))')
     .in('outlet_id', targetOutletIds)
     .neq('outlet_id', TEST_OUTLET_ID)
     .eq('status', 'completed')
@@ -386,15 +387,16 @@ export async function getMitraComprehensivePnl(
     // Owner. Dipakai HANYA saat lookup id gagal.
     const { data: menuList } = await supabase
       .from('menu_items')
-      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
     const menuByName = new Map<string, any>()
     for (const m of menuList ?? []) {
       if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
     }
-    const hppByName = (rawName?: string | null, channel?: string | null): number => {
+    const penerapHpp = buatPenerapRiwayat(menuList ?? [], await ambilRiwayatHpp(supabase), (n: string) => n)
+    const hppByName = (rawName?: string | null, channel?: string | null, tgl?: string): number => {
       if (!rawName) return 0
       const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
-      return m ? getItemHpp(m, 'mitra', channel) : 0
+      return m ? getItemHpp(tgl ? penerapHpp.untuk(tgl).terapkan(m) : m, 'mitra', channel) : 0
     }
 
     for (const ord of allOrders) {
@@ -405,12 +407,13 @@ export async function getMitraComprehensivePnl(
       const src = (ord.sales_source || ch).toLowerCase()
 
       let orderCogs = 0
+      const tglOrder = tanggalWib(ord.created_at)
 
       if (Array.isArray(ord.order_items)) {
         for (const item of ord.order_items) {
           const qty = Number(item.quantity) || 1
-          const hpp = getItemHpp(item.menu_items, 'mitra', ord.channel)
-            || hppByName(item.menu_item_name, ord.channel)
+          const hpp = getItemHpp(penerapHpp.untuk(tglOrder).terapkan(item.menu_items), 'mitra', ord.channel)
+            || hppByName(item.menu_item_name, ord.channel, tglOrder)
           orderCogs += (hpp * qty)
         }
       }

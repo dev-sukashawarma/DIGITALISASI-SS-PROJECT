@@ -75,6 +75,17 @@ describe('terapkanVoucher: jenis', () => {
     // subtotal = 10000 + 30000 gratis = 40000 → maks 20000
     expect(h).toMatchObject({ berlaku: true, potongan: 20000 })
   })
+  it('potongan nominal pecahan dibulatkan ke bawah jadi rupiah bulat (I1)', () => {
+    // nilai pecahan bisa lolos dari admin lama / data lama; jangan pernah kirim potongan pecahan ke Xendit
+    const h = terapkanVoucher(dasar({ jenis: 'nominal', nilai: 10000.5 }), [item('A', 30000, 1)], k())
+    expect(h).toMatchObject({ berlaku: true, potongan: 10000 })
+  })
+  it('potongan harga_spesial pecahan dibulatkan ke bawah jadi rupiah bulat (I1)', () => {
+    const v = dasar({ jenis: 'harga_spesial', menu_item_id: 'A', harga_spesial: 24999.5 })
+    // potongan mentah = 30000 - 24999.5 = 5000.5 -> harus jadi 5000, bukan 5000.5
+    const h = terapkanVoucher(v, [item('A', 30000, 1)], k())
+    expect(h).toMatchObject({ berlaku: true, potongan: 5000 })
+  })
 })
 
 describe('terapkanVoucher: syarat', () => {

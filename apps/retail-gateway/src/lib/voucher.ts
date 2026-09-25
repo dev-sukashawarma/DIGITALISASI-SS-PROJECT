@@ -165,6 +165,9 @@ export function terapkanVoucher(v: Voucher, items: ItemPesanan[] | null, k: Kont
 
   const subtotal = subtotalBelanja + itemGratis.reduce((s, it) => s + it.unit_price * it.quantity, 0)
   potongan = Math.min(potongan, subtotal, Math.floor((subtotal * MAKS_POTONGAN_PERSEN) / 100))
+  // Selalu bilangan bulat rupiah -- nilai/maks_potongan/harga_spesial pecahan (input admin lama
+  // atau data lama) tak boleh lolos ke Xendit (buatQris/buatTagihan menolak nominal non-integer).
+  potongan = Math.floor(potongan)
   if (potongan <= 0) return { berlaku: false, alasan: 'Voucher ini tidak memberi potongan untuk keranjangmu' }
   return { berlaku: true, potongan, itemGratis }
 }

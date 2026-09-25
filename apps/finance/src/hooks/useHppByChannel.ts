@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { createSupabaseBrowserClient } from "@suka/auth"
 import { cleanItemName } from "@/lib/order-item-name"
+import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp"
 
 export interface HppByChannelRow {
   outlet_id: string
@@ -94,20 +95,16 @@ export function useHppByChannel(from: string, to: string) {
       const { data: menuItemsData } = await supabase
         .from("menu_items")
         .select(
-          "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))",
+          "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))",
         )
 
-      const menuItemByNameMap = new Map<string, any>()
-      menuItemsData?.forEach((mi: any) => {
-        if (mi.name) {
-          menuItemByNameMap.set(cleanItemName(mi.name), mi)
-        }
-      });
+      const riwayatRows = await ambilRiwayatHpp(supabase)
+      const penerapHpp = buatPenerapRiwayat(menuItemsData ?? [], riwayatRows, cleanItemName)
 
       const queryOrders = supabase
         .from("orders")
         .select(
-          "outlet_id, channel, sales_source, payment_method, status, order_items(menu_item_name, quantity, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))",
+          "outlet_id, channel, sales_source, payment_method, status, created_at, order_items(menu_item_name, quantity, menu_items(id, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))",
         )
         .gte("created_at", ordersGte)
         .lte("created_at", ordersLte)
@@ -130,7 +127,7 @@ export function useHppByChannel(from: string, to: string) {
       const queryEcommerce = supabase
         .from("ecommerce_sales")
         .select(
-          "channel_id, ecommerce_sale_items(menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))), quantity)",
+          "channel_id, order_date, ecommerce_sale_items(menu_items:menu_id(id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))), quantity)",
         )
         .gte("order_date", ordersGte)
         .lte("order_date", ordersLte)
@@ -158,12 +155,13 @@ export function useHppByChannel(from: string, to: string) {
         const source = o.payment_method || "unknown"
         const orderChannel = o.channel || o.sales_source
 
+        const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
         o.order_items?.forEach((item: any) => {
           const hpp = getItemHpp(
-            item.menu_items,
+            pHpp.terapkan(item.menu_items),
             outletType,
             item.menu_item_name,
-            menuItemByNameMap,
+            pHpp.byName,
             orderChannel,
           )
           const qty = item.quantity || 1
@@ -178,13 +176,14 @@ export function useHppByChannel(from: string, to: string) {
         const outletType = "outlet"
         const source = ec.channel_id || "ecommerce"
 
+        const pHpp = penerapHpp.untuk(tanggalWib(ec.order_date))
         ec.ecommerce_sale_items?.forEach((item: any) => {
           const fallbackName = item.menu_items?.name || "Unknown"
           const hpp = getItemHpp(
-            item.menu_items,
+            pHpp.terapkan(item.menu_items),
             outletType,
             fallbackName,
-            menuItemByNameMap,
+            pHpp.byName,
             source,
           )
           const qty = item.quantity || 1

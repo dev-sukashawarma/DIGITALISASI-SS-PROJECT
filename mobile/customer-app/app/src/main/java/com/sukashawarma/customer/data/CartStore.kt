@@ -34,10 +34,19 @@ data class CartLine(
     val toppings: List<CartTopping> = emptyList()
 )
 
+/** Voucher yang dipasang ke keranjang. `id` dari daftar server, `kode` dari input manual. */
+@Serializable
+data class PilihanVoucher(
+    val id: String? = null,
+    val kode: String? = null,
+    val nama: String
+)
+
 @Serializable
 private data class IsiKeranjang(
     val outletId: String? = null,
-    val baris: List<CartLine> = emptyList()
+    val baris: List<CartLine> = emptyList(),
+    val voucher: PilihanVoucher? = null
 )
 
 /** Cara keranjang bertahan lintas proses. Dipisah supaya bisa diuji tanpa Android. */
@@ -214,8 +223,20 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
 
     fun isi(): List<CartLine> = isi.baris
 
+    fun voucher(): PilihanVoucher? = isi.voucher
+
+    fun pasangVoucher(v: PilihanVoucher) {
+        isi = isi.copy(voucher = v)
+        tulis()
+    }
+
+    fun lepasVoucher() {
+        isi = isi.copy(voucher = null)
+        tulis()
+    }
+
     fun kosongkan() {
-        isi = isi.copy(baris = emptyList())
+        isi = isi.copy(baris = emptyList(), voucher = null)
         tulis()
     }
 

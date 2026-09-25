@@ -14,6 +14,8 @@ import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.MenuItemDto
 import com.sukashawarma.customer.data.api.OutletDto
 import com.sukashawarma.customer.data.api.SplashDto
+import com.sukashawarma.customer.data.api.VoucherDto
+import com.sukashawarma.customer.data.api.VouchersRequest
 
 /**
  * Satu-satunya pintu data aplikasi. Semua layar lewat sini, dan sini hanya
@@ -66,9 +68,17 @@ class Repository(private val gateway: GatewayClient) {
      */
     suspend fun validasiCheckout(
         outletId: String,
-        items: List<CartItemPayload>
+        items: List<CartItemPayload>,
+        voucher: PilihanVoucher? = null
     ): GatewayResult<CheckoutValidateResponse> =
-        gateway.checkoutValidate(CheckoutValidateRequest(outletId = outletId, items = items))
+        gateway.checkoutValidate(
+            CheckoutValidateRequest(
+                outletId = outletId,
+                items = items,
+                voucherId = voucher?.id,
+                kodeVoucher = voucher?.kode
+            )
+        )
 
     /**
      * Membuat pesanan dan tagihannya.
@@ -81,16 +91,29 @@ class Repository(private val gateway: GatewayClient) {
         clientOrderId: String,
         outletId: String,
         items: List<CartItemPayload>,
-        telepon: String? = null
+        telepon: String? = null,
+        voucher: PilihanVoucher? = null
     ): GatewayResult<CreateOrderResponse> =
         gateway.createOrder(
             CreateOrderRequest(
                 clientOrderId = clientOrderId,
                 outletId = outletId,
                 items = items,
-                customerPhone = telepon
+                customerPhone = telepon,
+                voucherId = voucher?.id,
+                kodeVoucher = voucher?.kode
             )
         )
+
+    /** Daftar voucher yang berlaku (atau tidak, dengan alasan) untuk keranjang saat ini. */
+    suspend fun vouchers(
+        outletId: String? = null,
+        items: List<CartItemPayload>? = null
+    ): GatewayResult<List<VoucherDto>> =
+        when (val hasil = gateway.vouchers(VouchersRequest(outletId = outletId, items = items))) {
+            is GatewayResult.Sukses -> GatewayResult.Sukses(hasil.data.vouchers)
+            is GatewayResult.Gagal -> hasil
+        }
 
     suspend fun statusPesanan(orderId: String): GatewayResult<OrderDetailDto> =
         gateway.orderDetail(orderId)

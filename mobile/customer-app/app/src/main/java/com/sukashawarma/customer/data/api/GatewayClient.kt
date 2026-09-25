@@ -178,6 +178,19 @@ class GatewayClient(
         }
     }
 
+    suspend fun vouchers(request: VouchersRequest): GatewayResult<VouchersResponse> {
+        return try {
+            val response = client.post("$baseUrl/api/v1/vouchers") {
+                contentType(ContentType.Application.Json)
+                sisipkanOtorisasi()
+                setBody(request)
+            }
+            hasil(response)
+        } catch (e: Exception) {
+            GatewayResult.Gagal(GatewayError.Jaringan(e))
+        }
+    }
+
     suspend fun createOrder(request: CreateOrderRequest): GatewayResult<CreateOrderResponse> {
         return try {
             val response = client.post("$baseUrl/api/v1/orders") {

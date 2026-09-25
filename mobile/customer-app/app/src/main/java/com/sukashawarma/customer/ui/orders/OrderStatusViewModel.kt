@@ -48,8 +48,8 @@ class OrderStatusViewModel(
         viewModelScope.launch {
             while (true) {
                 ambil()
-                val tampil = tampilanStatus(_state.value.pesanan?.statusDapur)
-                if (tampil.selesai || tampil.dibatalkan) return@launch
+                val tampil = _state.value.pesanan?.let { tampilanStatus(it.statusDapur, it.status) } ?: tampilanStatus(null)
+                if (tampil.berakhir) return@launch
                 delay(JEDA_SEGARKAN_MS)
             }
         }

@@ -192,7 +192,7 @@ fun OrderStatusScreen(
             }
 
             pesanan != null -> {
-                val tampil = tampilanStatus(pesanan.statusDapur)
+                val tampil = tampilanStatus(pesanan.statusDapur, pesanan.status)
 
                 Column(
                     modifier = Modifier
@@ -295,7 +295,7 @@ fun OrderStatusScreen(
                                 }
 
                                 // Progress ETA Pill
-                                if (!tampil.dibatalkan) {
+                                if (!tampil.dibatalkan && !tampil.tidakDiproses) {
                                     Surface(
                                         modifier = Modifier.fillMaxWidth(),
                                         shape = RoundedCornerShape(14.dp),
@@ -440,7 +440,7 @@ fun OrderStatusScreen(
                     }
 
                     // 3. Vertical Kitchen Stepper Timeline
-                    if (!tampil.dibatalkan) {
+                    if (!tampil.dibatalkan && !tampil.tidakDiproses) {
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(22.dp),

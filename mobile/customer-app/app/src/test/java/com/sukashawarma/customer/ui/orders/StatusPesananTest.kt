@@ -65,6 +65,46 @@ class StatusPesananTest {
     }
 
     @Test
+    fun `draft kadaluarsa tanpa status dapur bukan menunggu pembayaran`() {
+        val t = tampilanStatus(null, statusDraft = "kadaluarsa")
+        assertEquals("Kedaluwarsa", t.judul)
+        assertTrue(t.tidakDiproses)
+        assertNull(t.tahap)
+        // Tidak ada uang yang diambil -> bukan "dibatalkan" (yang memicu CS refund).
+        assertFalse(t.dibatalkan)
+    }
+
+    @Test
+    fun `draft gagal ditampilkan sebagai pembayaran gagal`() {
+        val t = tampilanStatus(null, statusDraft = "gagal")
+        assertEquals("Pembayaran gagal", t.judul)
+        assertTrue(t.tidakDiproses)
+        assertFalse(t.dibatalkan)
+    }
+
+    @Test
+    fun `draft menunggu bayar tetap menunggu pembayaran`() {
+        val t = tampilanStatus(null, statusDraft = "menunggu_bayar")
+        assertTrue(t.judul.contains("pembayaran"))
+        assertFalse(t.tidakDiproses)
+    }
+
+    @Test
+    fun `status dapur selalu menang atas status draft`() {
+        // Draft `dibayar` + dapur `preparing` = sedang dibuat, bukan status draft.
+        assertEquals(TahapPesanan.DIBUAT, tampilanStatus("preparing", statusDraft = "dibayar").tahap)
+    }
+
+    @Test
+    fun `pesanan berakhir untuk selesai, dibatalkan, dan tidak diproses`() {
+        assertTrue(tampilanStatus("completed").berakhir)
+        assertTrue(tampilanStatus("cancelled").berakhir)
+        assertTrue(tampilanStatus(null, statusDraft = "kadaluarsa").berakhir)
+        assertFalse(tampilanStatus("preparing").berakhir)
+        assertFalse(tampilanStatus(null, statusDraft = "menunggu_bayar").berakhir)
+    }
+
+    @Test
     fun `tanpa tahap tidak ada yang tertandai selesai`() {
         assertFalse(tahapTercapai(null, TahapPesanan.DITERIMA))
     }

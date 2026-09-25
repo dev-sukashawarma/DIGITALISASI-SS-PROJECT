@@ -9,8 +9,17 @@ data class TampilanStatus(
     /** Tahap terakhir yang sudah tercapai; null berarti pesanan tidak berjalan. */
     val tahap: TahapPesanan?,
     val selesai: Boolean = false,
-    val dibatalkan: Boolean = false
-)
+    val dibatalkan: Boolean = false,
+    /**
+     * Pesanan tidak pernah sampai ke dapur (batas bayar habis / pembayaran
+     * gagal). Beda dengan `dibatalkan`: tidak ada uang yang diambil, jadi
+     * tidak ada pengembalian dana yang perlu diurus.
+     */
+    val tidakDiproses: Boolean = false
+) {
+    /** Tidak akan berubah lagi -- berhenti memantau statusnya. */
+    val berakhir: Boolean get() = selesai || dibatalkan || tidakDiproses
+}
 
 /**
  * Memetakan status dapur ke tampilan pelanggan.
@@ -29,10 +38,29 @@ data class TampilanStatus(
  * menghasilkan layar kosong.
  *
  * `status_dapur` bernilai null selama pesanan belum terdorong ke kasir --
- * yaitu selama pembayaran belum dikonfirmasi.
+ * yaitu selama pembayaran belum dikonfirmasi, ATAU karena pesanan tak pernah
+ * dibayar. Yang membedakan keduanya adalah `statusDraft` (status
+ * `retail.order_drafts`: menunggu_bayar, dibayar, kadaluarsa, gagal). Tanpa
+ * itu, pesanan yang batas bayarnya sudah habis tampil "Menunggu pembayaran"
+ * selamanya.
  */
-fun tampilanStatus(statusDapur: String?): TampilanStatus = when (statusDapur) {
-    null -> TampilanStatus(
+fun tampilanStatus(statusDapur: String?, statusDraft: String? = null): TampilanStatus = when (statusDapur) {
+    null -> when (statusDraft) {
+        "kadaluarsa" -> TampilanStatus(
+            judul = "Kedaluwarsa",
+            penjelasan = "Batas waktu pembayaran habis. Pesanan tidak diproses dan kamu tidak ditagih.",
+            tahap = null,
+            tidakDiproses = true
+        )
+        "gagal" -> TampilanStatus(
+            judul = "Pembayaran gagal",
+            penjelasan = "Pembayaran tidak berhasil. Pesanan tidak diproses dan kamu tidak ditagih.",
+            tahap = null,
+            tidakDiproses = true
+        )
+        else -> menungguPembayaran
+    }
+    "pending" -> TampilanStatus(
         judul = "Menunggu pembayaran",
         penjelasan = "Pesanan diteruskan ke dapur setelah pembayaran dikonfirmasi.",
         tahap = null
@@ -72,6 +100,12 @@ fun tampilanStatus(statusDapur: String?): TampilanStatus = when (statusDapur) {
         tahap = TahapPesanan.DITERIMA
     )
 }
+
+private val menungguPembayaran = TampilanStatus(
+    judul = "Menunggu pembayaran",
+    penjelasan = "Pesanan diteruskan ke dapur setelah pembayaran dikonfirmasi.",
+    tahap = null
+)
 
 /**
  * Apakah satu tahap sudah tercapai.

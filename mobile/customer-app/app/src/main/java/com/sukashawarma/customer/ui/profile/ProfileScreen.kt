@@ -1,5 +1,6 @@
 package com.sukashawarma.customer.ui.profile
 
+import com.sukashawarma.customer.BuildConfig
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
@@ -314,7 +315,7 @@ fun ProfileScreen(
                         ProfileMenuItem(
                             icon = Icons.Filled.SupportAgent,
                             title = "Hubungi CS",
-                            subtitle = "WhatsApp Care: 09.00 – 22.00 WIB",
+                            subtitle = "Chat lewat WhatsApp",
                             onClick = {
                                 try {
                                     konteks.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(tautanCs)))
@@ -399,7 +400,7 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "Suka Shawarma Mobile v1.0.0",
+                    text = "Suka Shawarma Mobile v${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontWeight = FontWeight.Bold,
                         color = SukaMuted,

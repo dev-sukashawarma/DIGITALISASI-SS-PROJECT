@@ -212,14 +212,14 @@ fun HistoryScreen(
                     when (selectedFilter) {
                         FilterRiwayat.SEMUA -> state.pesanan
                         FilterRiwayat.BERJALAN -> state.pesanan.filter {
-                            val t = tampilanStatus(it.statusDapur)
-                            t.tahap != null && !t.selesai && !t.dibatalkan
+                            val t = tampilanStatus(it.statusDapur, it.status)
+                            t.tahap != null && !t.berakhir
                         }
                         FilterRiwayat.SELESAI -> state.pesanan.filter {
-                            tampilanStatus(it.statusDapur).selesai
+                            tampilanStatus(it.statusDapur, it.status).selesai
                         }
                         FilterRiwayat.BATAL -> state.pesanan.filter {
-                            tampilanStatus(it.statusDapur).dibatalkan
+                            tampilanStatus(it.statusDapur, it.status).let { t -> t.dibatalkan || t.tidakDiproses }
                         }
                     }
                 }
@@ -245,8 +245,8 @@ fun HistoryScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(filteredList, key = { it.id }) { pesanan ->
-                            val statusTampil = tampilanStatus(pesanan.statusDapur)
-                            val isActive = statusTampil.tahap != null && !statusTampil.selesai && !statusTampil.dibatalkan
+                            val statusTampil = tampilanStatus(pesanan.statusDapur, pesanan.status)
+                            val isActive = statusTampil.tahap != null && !statusTampil.berakhir
 
                             if (isActive) {
                                 ActiveOrderCard(
@@ -469,7 +469,7 @@ private fun StandardOrderCard(
                         shape = RoundedCornerShape(8.dp),
                         color = when {
                             statusTampil.selesai -> Color(0xFFECFDF5)
-                            statusTampil.dibatalkan -> Color(0xFFFEF2F2)
+                            statusTampil.dibatalkan || statusTampil.tidakDiproses -> Color(0xFFFEF2F2)
                             else -> Color(0xFFFFF4EB)
                         }
                     ) {
@@ -480,7 +480,7 @@ private fun StandardOrderCard(
                                 fontWeight = FontWeight.Bold,
                                 color = when {
                                     statusTampil.selesai -> SukaGreen
-                                    statusTampil.dibatalkan -> Color(0xFFDC2626)
+                                    statusTampil.dibatalkan || statusTampil.tidakDiproses -> Color(0xFFDC2626)
                                     else -> SukaOrange
                                 },
                                 fontSize = 9.sp

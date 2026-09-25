@@ -14,6 +14,7 @@ import OrderSourceBadge from '@/components/OrderSourceBadge'
 import ScheduledPromoBadge from '@/components/ScheduledPromoBadge'
 import { resolveOrderSource } from '@/lib/order-source'
 import { computePosReportKpi, computeNetRevenueVoidAware, computeOrderDeduction, computeOrderGross, computeItemShares } from '@/lib/posReportKpi'
+import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib, type BarisRiwayatHpp } from '@/lib/hpp/riwayatHpp'
 
 function formatLastUpdated(dateIso?: string) {
   if (!dateIso) return ''
@@ -212,6 +213,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   const [orders, setOrders] = useState<OrderRow[]>([])
   const [shifts, setShifts] = useState<ShiftRow[]>([])
   const [menuItems, setMenuItems] = useState<any[]>([])
+  const [riwayatHpp, setRiwayatHpp] = useState<BarisRiwayatHpp[]>([])
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>(
     initialOutlets.length === 1 ? [initialOutlets[0].id] : ['all']
@@ -253,7 +255,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     return map
   }, [menuItems])
-  
+
+  // HPP per tanggal order: nilai HPP ditimpa nilai yang berlaku pada tanggal order.
+  const penerapHpp = useMemo(
+    () => buatPenerapRiwayat(menuItems, riwayatHpp, cleanItemName),
+    [menuItems, riwayatHpp],
+  )
+
   // Date Range State
   const [range, setRange] = useState<DateRangeType>(initialOutlets.length === 1 ? 'yesterday' : 'thisMonth')
   const [showRangePicker, setShowRangePicker] = useState(false)
@@ -519,7 +527,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     const buildEcommerceQuery = () => {
       let query = supabase
         .from('ecommerce_sales')
-        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))')
         .order('id', { ascending: false })
       
       if (ordersGte) query = query.gte('order_date', ordersGte)
@@ -584,7 +592,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
     const menuItemsQuery = supabase
       .from('menu_items')
-      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+      .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
 
     let qSettlements = supabase.from('platform_settlements').select('*')
     if (isSSOnlineSelected) {
@@ -602,12 +610,13 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       qSettlements = qSettlements.lte('tanggal', dateStrRange.to)
     }
 
-    const [ordersData, ecommerceData, { data: shiftsData }, { data: menuItemsData }, { data: settlementsData }] = await Promise.all([
-      !selectedOutlets.includes('ss-online') ? fetchAllOrders() : Promise.resolve([]), 
+    const [ordersData, ecommerceData, { data: shiftsData }, { data: menuItemsData }, { data: settlementsData }, riwayatRows] = await Promise.all([
+      !selectedOutlets.includes('ss-online') ? fetchAllOrders() : Promise.resolve([]),
       fetchEcommerceOrders(),
-      qShifts, 
+      qShifts,
       menuItemsQuery,
-      qSettlements
+      qSettlements,
+      ambilRiwayatHpp(supabase),
     ])
 
     // Abaikan hasil fetch basi — request lebih baru (mis. user selesai memilih
@@ -623,6 +632,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     )
     setShifts(shiftsData ?? [])
     setMenuItems(menuItemsData ?? [])
+    setRiwayatHpp(riwayatRows)
     setSettlements(settlementsData ?? [])
     setLoading(false)
     setLastUpdated(new Date().toISOString())
@@ -794,9 +804,10 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       .reduce((sum, o) => {
         const outletType = outletTypeMap.get(o.outlet_id)
         const orderChannel = o.channel || o.sales_source
+        const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
         return sum + o.order_items.reduce((itemSum, item) => {
-          const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
-          const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, orderChannel, item.menu_item_id, menuItemByIdMap);
+          const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanItemName(item.menu_item_name))
+          const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId);
           return itemSum + (hpp * item.quantity);
         }, 0)
       }, 0)
@@ -981,7 +992,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       settlementDateRange,
       hasSettlementData
     }
-  }, [orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, settlements, isSSOnlineSelected])
+  }, [orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, penerapHpp, settlements, isSSOnlineSelected])
 
   const selectedOutletName = selectedOutlets.includes('all') 
       ? 'Semua Cabang' 
@@ -1051,6 +1062,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       
       // Jika ada diskon/pajak di tingkat pesanan, distribusikan secara proporsional ke tiap item
       const ratio = orderSubtotal > 0 ? (order.total_amount / orderSubtotal) : 1
+      const pHpp = penerapHpp.untuk(tanggalWib(order.created_at))
 
       order.order_items.forEach(item => {
         const cleanName = cleanItemName(item.menu_item_name)
@@ -1068,8 +1080,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
         }
         
         const key = `${cleanName}-${groupLabel}`
-        const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
-        const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source, item.menu_item_id, menuItemByIdMap)
+        const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanItemName(item.menu_item_name))
+        const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, order.channel || order.sales_source, item.menu_item_id, pHpp.byId)
         
         if (!map.has(key)) {
           map.set(key, {
@@ -1093,7 +1105,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     })
     
     return Array.from(map.values()).sort((a, b) => b.qty - a.qty)
-  }, [filteredTableData, outlets, menuItemByNameMap, menuItemByIdMap])
+  }, [filteredTableData, outlets, menuItemByNameMap, menuItemByIdMap, penerapHpp])
 
   const [itemBreakdownSearch, setItemBreakdownSearch] = useState('')
   const [itemBreakdownFilter, setItemBreakdownFilter] = useState('all')
@@ -1252,6 +1264,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
 
       const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
       const itemShares = computeItemShares(o.order_items || [])
+      const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
 
       if (o.order_items && o.order_items.length > 0) {
         o.order_items.forEach((oi, idx) => {
@@ -1266,8 +1279,8 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
             }
           }
 
-          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
-          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
+          const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, o.channel || o.sales_source, oi.menu_item_id, pHpp.byId)
           const itemRevenue = itemShares[idx] * orderGross
 
           catData.itemMap[key].qty += oi.quantity
@@ -1394,14 +1407,15 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
       const orderTotalDeductions = computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected })
       // Bobot untuk membagi gross & potongan order ke tiap item.
       const itemShares = computeItemShares(o.order_items || [])
+      const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
 
       if (o.order_items && o.order_items.length > 0) {
         o.order_items.forEach((oi, idx) => {
           const rawName = cleanItemName(oi.menu_item_name)
           const aggKey = `${orderDate}__${o.outlet_id}__${categoryName}__${rawName}`
 
-          const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
-          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
+          const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(cleanItemName(oi.menu_item_name))
+          const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, o.channel || o.sales_source, oi.menu_item_id, pHpp.byId)
           const itemHpp = hppPerUnit * oi.quantity
           const itemWeight = itemShares[idx]
           const itemRevenue = itemWeight * orderGross

@@ -7,6 +7,7 @@ import { cleanItemName } from '@/lib/order-item-name'
 import { fetchAllPages } from '@/lib/fetchAllPages'
 import { getMitraAugustClosing, isAugust2026Period } from './mitraPnlClosingData'
 import { PAKAI_SETTLEMENT_TIKTOK } from '@/lib/mitraSettlementTiktok'
+import { ambilRiwayatHpp, buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 
 /** 2026-08-01 00:00 WIB — awal data bagi hasil yang dihitung sistem. */
 const SYSTEM_START_MONTH = '2026-08'
@@ -216,19 +217,26 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
   // tanpa `menu_item_id`, sehingga lookup lewat id menghasilkan 0 dan biaya
   // bahannya hilang. Peta ini dimuat hanya saat jalur fallback dipakai.
   let menuByName: Map<string, any> | null = null
-  const hppByName = async (rawName?: string | null, channel?: string | null): Promise<number> => {
+  let penerapHpp: ReturnType<typeof buatPenerapRiwayat> | null = null
+  const ambilPenerapHpp = async () => {
+    if (!penerapHpp) penerapHpp = buatPenerapRiwayat([], await ambilRiwayatHpp(supabase), (n: string) => n)
+    return penerapHpp
+  }
+  const hppByName = async (rawName?: string | null, channel?: string | null, tgl?: string): Promise<number> => {
     if (!rawName) return 0
     if (!menuByName) {
       const { data: menuList } = await supabase
         .from('menu_items')
-        .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))')
+        .select('id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))')
       menuByName = new Map<string, any>()
       for (const m of menuList ?? []) {
         if (m?.name) menuByName.set(cleanItemName(m.name).trim().toLowerCase(), m)
       }
     }
     const m = menuByName.get(cleanItemName(rawName).trim().toLowerCase())
-    return m ? getItemHpp(m, 'mitra', channel) : 0
+    if (!m) return 0
+    const p = await ambilPenerapHpp()
+    return getItemHpp(tgl ? p.untuk(tgl).terapkan(m) : m, 'mitra', channel)
   }
 
   // 2. Agregat PER BULAN.
@@ -348,7 +356,7 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
       // Cadangan bila RPC tak tersedia: hitung dari order mentah, jendela sama.
       const orders = await fetchAllPages<any>(() => supabase
         .from('orders')
-        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))')
+        .select('id, outlet_id, created_at, discount_amount, promo_subsidy, channel, sales_source, is_endorse, total_amount, order_items(subtotal, quantity, menu_item_name, menu_items(id, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))')
         .in('outlet_id', mitraOutletIds)
         .eq('status', 'completed')
         .gte('created_at', `${from}T00:00:00.000+07:00`)
@@ -360,10 +368,12 @@ export async function getMitraRealtimeBepBreakdown(mitraOutletIds: string[]): Pr
         const a = bump(order.outlet_id)
         const totalAmt = Number(order.total_amount) || 0
         let orderCogs = 0
+        const tglOrder = tanggalWib(order.created_at)
+        const p = await ambilPenerapHpp()
         for (const item of (order.order_items || [])) {
           const qty = Number(item.quantity) || 1
-          const hpp = getItemHpp(item.menu_items, 'mitra', order.channel)
-            || await hppByName(item.menu_item_name, order.channel)
+          const hpp = getItemHpp(p.untuk(tglOrder).terapkan(item.menu_items), 'mitra', order.channel)
+            || await hppByName(item.menu_item_name, order.channel, tglOrder)
           orderCogs += hpp * qty
         }
         // ACUAN TUNGGAL Omzet Kotor (migration 20300128000000).

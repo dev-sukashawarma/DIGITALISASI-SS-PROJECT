@@ -14,6 +14,7 @@
 import { cleanItemName } from '@/lib/order-item-name'
 import { resolveOrderSource } from '@/lib/order-source'
 import { computeNetRevenueVoidAware, computeOrderDeduction, computeOrderGross, computeItemShares } from '@/lib/posReportKpi'
+import { buatPenerapRiwayat, tanggalWib } from '@/lib/hpp/riwayatHpp'
 
 export interface ShiftRow {
   id: string
@@ -167,6 +168,11 @@ export function extractOrderPackages(order: OrderRow) {
   return pkgs
 }
 
+/** HPP per tanggal order: nilai HPP ditimpa nilai yang berlaku pada tanggal order. */
+export function buildPenerapHpp(menuItems: any[], riwayatHpp: any[]) {
+  return buatPenerapRiwayat(menuItems, riwayatHpp, cleanItemName)
+}
+
 export function buildMenuMaps(menuItems: any[]) {
   const byName = new Map<string, any>()
   const byId = new Map<string, any>()
@@ -253,6 +259,7 @@ export interface AnalyticsInput {
   selectedChannels: string[]
   menuItemByNameMap: Map<string, any>
   menuItemByIdMap: Map<string, any>
+  penerapHpp: { untuk(tgl: string): any }
   settlements: any[]
   isSSOnlineSelected: boolean
   outlets: { id: string; type?: string | null }[]
@@ -260,7 +267,7 @@ export interface AnalyticsInput {
 
 // ─── Derived Analytics ───
 export function computeAnalytics({
-  orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, settlements, isSSOnlineSelected, outlets,
+  orders, shifts, selectedChannels, menuItemByNameMap, menuItemByIdMap, penerapHpp, settlements, isSSOnlineSelected, outlets,
 }: AnalyticsInput) {
   const filteredOrders = filterOrdersByChannels(orders, selectedChannels)
 
@@ -288,9 +295,10 @@ export function computeAnalytics({
     .reduce((sum, o) => {
       const outletType = outletTypeMap.get(o.outlet_id)
       const orderChannel = o.channel || o.sales_source
+      const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
       return sum + o.order_items.reduce((itemSum, item) => {
-        const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
-        const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, orderChannel, item.menu_item_id, menuItemByIdMap);
+        const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanItemName(item.menu_item_name))
+        const hpp = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, orderChannel, item.menu_item_id, pHpp.byId);
         return itemSum + (hpp * item.quantity);
       }, 0)
     }, 0)
@@ -498,8 +506,7 @@ export function computeTableFooter(filteredTableData: OrderRow[]) {
 export function computeItemBreakdown(
   filteredTableData: OrderRow[],
   outlets: { id: string; type?: string | null }[],
-  menuItemByNameMap: Map<string, any>,
-  menuItemByIdMap: Map<string, any>
+  penerapHpp: { untuk(tgl: string): any }
 ) {
   const map = new Map<string, { name: string; groupLabel: string; qty: number; grossRevenue: number; netRevenue: number; hppPerUnit: number; totalHpp: number }>()
   const outletTypeMap = new Map<string, string>()
@@ -513,6 +520,7 @@ export function computeItemBreakdown(
 
     // Jika ada diskon/pajak di tingkat pesanan, distribusikan secara proporsional ke tiap item
     const ratio = orderSubtotal > 0 ? (order.total_amount / orderSubtotal) : 1
+    const pHpp = penerapHpp.untuk(tanggalWib(order.created_at))
 
     order.order_items.forEach(item => {
       const cleanName = cleanItemName(item.menu_item_name)
@@ -530,8 +538,8 @@ export function computeItemBreakdown(
       }
 
       const key = `${cleanName}-${groupLabel}`
-      const menuItem = item.menu_items || (item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(item.menu_item_name))
-      const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, menuItemByNameMap, order.channel || order.sales_source, item.menu_item_id, menuItemByIdMap)
+      const menuItem = pHpp.terapkan(item.menu_items) || (item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null) || pHpp.byName.get(cleanItemName(item.menu_item_name))
+      const hppPerUnit = getItemHpp(menuItem, outletType, item.menu_item_name, pHpp.byName, order.channel || order.sales_source, item.menu_item_id, pHpp.byId)
 
       if (!map.has(key)) {
         map.set(key, {
@@ -567,8 +575,7 @@ export function computeCategoryReport(
   orders: OrderRow[],
   selectedChannels: string[],
   outlets: { id: string; type?: string | null }[],
-  menuItemByNameMap: Map<string, any>,
-  menuItemByIdMap: Map<string, any>,
+  penerapHpp: { untuk(tgl: string): any },
   isSSOnlineSelected: boolean
 ) {
   // 1. Dapatkan valid orders yang sinkron dengan filter channel aktif
@@ -632,6 +639,7 @@ export function computeCategoryReport(
     const orderGross = computeOrderGross(o, { ssOnlineMode: isSSOnlineSelected })
     const orderTotalDeductions = computeOrderDeduction(o, { ssOnlineMode: isSSOnlineSelected })
     const itemShares = computeItemShares(o.order_items || [])
+    const pHpp = penerapHpp.untuk(tanggalWib(o.created_at))
 
     if (o.order_items && o.order_items.length > 0) {
       o.order_items.forEach((oi, idx) => {
@@ -648,8 +656,8 @@ export function computeCategoryReport(
           }
         }
 
-        const menuItem = oi.menu_items || (oi.menu_item_id ? menuItemByIdMap.get(oi.menu_item_id) : null) || menuItemByNameMap.get(cleanItemName(oi.menu_item_name))
-        const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, menuItemByNameMap, o.channel || o.sales_source, oi.menu_item_id, menuItemByIdMap)
+        const menuItem = pHpp.terapkan(oi.menu_items) || (oi.menu_item_id ? pHpp.byId.get(oi.menu_item_id) : null) || pHpp.byName.get(cleanItemName(oi.menu_item_name))
+        const hppPerUnit = getItemHpp(menuItem, outletType, oi.menu_item_name, pHpp.byName, o.channel || o.sales_source, oi.menu_item_id, pHpp.byId)
         const itemHpp = hppPerUnit * oi.quantity
         const itemWeight = itemShares[idx]
         const itemRevenue = itemWeight * orderGross

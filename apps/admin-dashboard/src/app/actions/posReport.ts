@@ -12,12 +12,14 @@
 import { cookies } from 'next/headers'
 import { updateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
+import { ambilRiwayatHpp } from '@/lib/hpp/riwayatHpp'
 import { TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { resolveCallerScope } from '@/lib/server/callerScope'
 import { eachDateInclusive, isDateStr, jakartaDate, jakartaRangeIso } from '@/lib/ownerDashboardCache'
 import { loadPosReportOrders, getEarliestSalesDate, posReportDayTag, clearPosReportTodayMemo, selectReportOrders } from '@/lib/posReport/load'
 import {
   buildMenuMaps,
+  buildPenerapHpp,
   computeAnalytics,
   computeAvailableChannels,
   computeAvailablePaymentMethods,
@@ -40,20 +42,23 @@ export type PosReportRequest = {
 }
 
 const SHIFT_SELECT = 'id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance'
-const MENU_SELECT = 'id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))'
+const MENU_SELECT = 'id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))'
 
 // Master menu (±90 baris) dipakai setiap interaksi (ketik cari, ganti halaman);
 // memo singkat agar tidak ditarik ulang tiap kali. 60 detik = perubahan HPP
 // tetap terlihat dalam semenit.
 const MENU_MEMO_TTL_MS = 60_000
-const menuMemo = new Map<string, { at: number; promise: Promise<any[]> }>()
-function getMenuItems(supabase: any, scopeKey: string): Promise<any[]> {
+const menuMemo = new Map<string, { at: number; promise: Promise<{ menuItems: any[]; riwayat: any[] }> }>()
+function getMenuItems(supabase: any, scopeKey: string): Promise<{ menuItems: any[]; riwayat: any[] }> {
   const hit = menuMemo.get(scopeKey)
   if (hit && Date.now() - hit.at < MENU_MEMO_TTL_MS) return hit.promise
   const promise = (async () => {
-    const { data, error } = await supabase.from('menu_items').select(MENU_SELECT)
+    const [{ data, error }, riwayat] = await Promise.all([
+      supabase.from('menu_items').select(MENU_SELECT),
+      ambilRiwayatHpp(supabase),
+    ])
     if (error) throw new Error(`posReport.menu_items: ${error.message}`)
-    return data ?? []
+    return { menuItems: data ?? [], riwayat }
   })()
   menuMemo.set(scopeKey, { at: Date.now(), promise })
   promise.catch(() => { if (menuMemo.get(scopeKey)?.promise === promise) menuMemo.delete(scopeKey) })
@@ -113,7 +118,7 @@ async function loadReportContext(rawReq: PosReportRequest) {
   let qSettlements = supabase.from('platform_settlements').select('*').gte('tanggal', req.from).lte('tanggal', req.to)
   let qOutlets = supabase.from('outlets').select('id, type')
 
-  const [ordersRes, shiftsRes, menuItems, outletsRes] = await Promise.all([
+  const [ordersRes, shiftsRes, { menuItems, riwayat }, outletsRes] = await Promise.all([
     from <= to ? loadPosReportOrders(supabase, scopeKey, from, to, today) : Promise.resolve({ pos: [], ecommerce: [], fetchedAt: new Date().toISOString(), isCached: true }),
     qShifts,
     getMenuItems(supabase, scopeKey),
@@ -137,6 +142,7 @@ async function loadReportContext(rawReq: PosReportRequest) {
   const orders = selectReportOrders(ordersRes.pos, ordersRes.ecommerce, req.outlets)
 
   const { menuItemByNameMap, menuItemByIdMap } = buildMenuMaps(menuItems)
+  const penerapHpp = buildPenerapHpp(menuItems, riwayat)
 
   return {
     req,
@@ -146,6 +152,7 @@ async function loadReportContext(rawReq: PosReportRequest) {
     outlets,
     menuItemByNameMap,
     menuItemByIdMap,
+    penerapHpp,
     isSSOnlineSelected,
     fetchedAt: ordersRes.fetchedAt,
     isCached: ordersRes.isCached,
@@ -162,6 +169,7 @@ export async function getPosReport(rawReq: PosReportRequest) {
     selectedChannels: req.channels,
     menuItemByNameMap: ctx.menuItemByNameMap,
     menuItemByIdMap: ctx.menuItemByIdMap,
+    penerapHpp: ctx.penerapHpp,
     settlements: ctx.settlements,
     isSSOnlineSelected: ctx.isSSOnlineSelected,
     outlets: ctx.outlets,
@@ -185,7 +193,7 @@ export async function getPosReport(rawReq: PosReportRequest) {
       totalPages,
       footer: computeTableFooter(tableRows),
     },
-    itemBreakdown: computeItemBreakdown(tableRows, ctx.outlets, ctx.menuItemByNameMap, ctx.menuItemByIdMap),
+    itemBreakdown: computeItemBreakdown(tableRows, ctx.outlets, ctx.penerapHpp),
     shifts: ctx.shifts,
     orderCount: ctx.orders.length,
     fetchedAt: ctx.fetchedAt,
@@ -200,8 +208,7 @@ export async function getPosReportCategories(rawReq: PosReportRequest) {
     ctx.orders,
     ctx.req.channels,
     ctx.outlets,
-    ctx.menuItemByNameMap,
-    ctx.menuItemByIdMap,
+    ctx.penerapHpp,
     ctx.isSSOnlineSelected
   )
 }

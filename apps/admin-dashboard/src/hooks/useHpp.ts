@@ -94,6 +94,7 @@ export function useHpp(filter: PeriodFilterValue) {
   const versiQuery = useQuery({
     queryKey: ["hpp-riwayat-versi"],
     staleTime: 60_000,
+    enabled: Boolean(filter.from && filter.to),
     queryFn: () => ambilVersiRiwayatHpp(supabase),
   });
   const versiHpp = versiQuery.data;
@@ -263,10 +264,8 @@ export function useHpp(filter: PeriodFilterValue) {
   // disabled — jadi loading/error di sini harus ikut mencerminkan versiQuery,
   // bukan cuma query utama.
   const versiBelumSiap = !versiHpp && !versiQuery.error;
-  const loading =
-    versiQuery.isLoading ||
-    query.isLoading ||
-    (Boolean(filter.from && filter.to) && versiBelumSiap);
+  const aktif = Boolean(filter.from && filter.to);
+  const loading = aktif && (versiQuery.isLoading || query.isLoading || versiBelumSiap);
   const error = versiQuery.error
     ? (versiQuery.error as Error).message
     : query.error

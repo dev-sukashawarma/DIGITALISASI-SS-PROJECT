@@ -35,7 +35,7 @@ export function clearPosReportTodayMemo() {
 }
 
 const ORDER_SELECT = 'id, order_number, status, payment_method, total_amount, discount_amount, promo_subsidy, created_at, outlet_id, channel, sales_source, customer_name, cashier_name, external_order_id, is_endorse, order_items(id, menu_item_id, menu_item_name, quantity, unit_price, subtotal, is_promo_reward, promo_id, promo_name, promo_buy_quantity, promo_get_quantity, original_unit_price, package_choices)'
-const ECOMMERCE_SELECT = 'id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))))'
+const ECOMMERCE_SELECT = 'id, order_id, channel_id, total_amount, order_date, raw_data, ecommerce_sale_items(id, menu_id, quantity, price, subtotal, menu_items:menu_id(id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))))'
 
 async function fetchAllPages(buildQuery: () => any, label: string) {
   const all: any[] = []
@@ -133,7 +133,7 @@ export async function loadPosReportOrders(
     const { fromIso, toIso } = jakartaRangeIso(date, date)
     return unstable_cache(
       async () => encodeRange(await fetchRangeRaw(supabase, fromIso, toIso)),
-      ['pos-report-day-v1', scopeKey, date],
+      ['pos-report-day-v2', scopeKey, date],
       { revalidate: 3600, tags: ['pos-report', posReportDayTag(date)] }
     )()
   }

@@ -3094,5 +3094,57 @@ APK (Task 10–12) belum dikerjakan.
 
 ---
 
-**Last updated:** 2026-09-24  
+## Session 2026-09-25: Riwayat HPP Override dengan Tanggal Berlaku (DB + admin-dashboard, finance, manager)
+
+**Status:** DB LIVE — 3 migration applied & terstempel (`20260925150000_riwayat_hpp_menu`,
+`20260925151000_hpp_mitra_per_tanggal`, `20260925152000_owner_summary_hpp_per_tanggal`).
+Kode: **sebagian sudah di `origin/main`** (sampai Task 6, commit `85233983` — lihat catatan otomasi),
+sisanya hanya di branch `feat/riwayat-hpp-override`. ⚠️ **Perlu merge + redeploy `admin-dashboard`, `finance`,
+`manager`.** Spec: `docs/superpowers/specs/2026-09-25-riwayat-hpp-override-design.md`.
+
+### Masalah
+Laporan membaca `menu_items.hpp_override`/`channel_hpp` HARI INI untuk penjualan tanggal berapa pun →
+mengganti HPP di tengah bulan menggeser HPP seluruh bulan (dan bulan yang sudah ditutup). Pemicu: owner
+dapat info (25 Sep) bahwa HPP berubah mulai **19 Sep**.
+
+### Model
+`menu_hpp_riwayat` — satu baris = satu angka (`kunci` = `'hpp_override'` atau kunci `channel_hpp`) +
+`berlaku_mulai` (WIB). Riwayat **per KEY (`kunci`), bukan snapshot**. Seed `'2000-01-01'` = angka saat
+migration (142 baris `sumber='awal'`) → nol pergeseran (diverifikasi `diff` baseline owner & mitra, awal &
+akhir sesi). `menu_hpp_pada(menu, tanggal)` merekonstruksi. Tulis: RPC `ubah_hpp_menu` (owner/admin, batas
+mundur: bulan berjalan; bulan lalu s/d tgl 10) + trigger jaring pengaman untuk tulisan langsung ke `menu_items`.
+Waktu owner summary sesudah perubahan **452 ms** (sebelumnya 323 ms).
+
+### ⚠️ Gotcha
+- **Aturan HPP tiap laporan SENGAJA berbeda dan tidak disatukan** (owner summary mengabaikan `channel_hpp`;
+  mitra rekursif). Yang diganti hanya sumber angkanya.
+- **Per kunci, bukan snapshot** — snapshot membuat perubahan mundur dikalahkan baris kanal yang lebih baru.
+- Select bersarang `menu_items(...)`/`component:...` **wajib ber-`id`**, kalau tidak objek diam-diam memakai
+  angka hari ini.
+- `useHpp` menyimpan periode tertutup di localStorage tanpa batas → kunci cache memuat versi riwayat
+  (`dicatat_at` terbaru).
+- Layar HPP yang hidup = `HppDashboardView.tsx`. `HPPView.tsx` & `OutletPricingView.tsx` kode mati.
+- `ResepEditor` menyimpan HPP dengan berlaku **hari ini** (tanpa input tanggal); perubahan mundur hanya
+  lewat layar HPP (`HppDashboardView`).
+- Fungsi mitra & owner summary juga didefinisikan migration 2030 → replay dari nol menimpa versi baru.
+- Baseline `baseline-sebelum-*.txt` ter-checkout CRLF (autocrlf) sedangkan output baru LF → bandingkan
+  dengan `diff --strip-trailing-cr`.
+
+### 🤖 Catatan otomasi (jejak audit)
+- 25 Sep 12:28 otomasi repo (bukan inisiatif sesi ini) me-merge `feat/riwayat-hpp-override` ke `main` dan
+  **mem-push `origin/main`** pada keadaan Task 6 (commit `85233983`, sebelum re-review-nya). Commit
+  sesudahnya (Task 6 fix round 2 → Task 10) hanya ada di branch.
+- Commit asing `468b93a5` (fix(stok) double-count opname vs auto-verifikasi SJ, sesi lain) mendarat di
+  branch ini pukul 11:33.
+- Kerja dilanjutkan di worktree `.worktrees/riwayat-hpp` karena checkout utama dipakai sesi lain.
+
+### 📝 Next
+- Merge, redeploy 3 app, lalu owner/admin memasukkan HPP baru di layar HPP dengan **Berlaku mulai =
+  19 Sep 2026** — paling lambat **10 Oktober** (batas mundur September).
+- Smoke test: ubah satu menu berlaku kemarin → Owner Dashboard/Rangkuman Penjualan hari sebelumnya tidak
+  berubah, hari itu berubah.
+
+---
+
+**Last updated:** 2026-09-25  
 **Owner:** Dev Suka Shawarma

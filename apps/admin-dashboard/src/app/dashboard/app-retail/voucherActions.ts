@@ -14,18 +14,33 @@ import { periksaVoucher, type InputVoucher } from '@/lib/appRetail/voucher'
 const PERAN = ['owner', 'admin']
 type Aksi = 'voucher_buat' | 'voucher_ubah' | 'voucher_aktif' | 'voucher_hapus'
 
+/**
+ * Kolom InputVoucher yang boleh sampai ke DB -- persis 23, urutan tak penting.
+ * Server TIDAK BOLEH percaya field lain dari client (id, created_at,
+ * created_by, updated_at, dst): panel edit mengirim baris hasil select('*')
+ * apa adanya, jadi tanpa whitelist ini client bisa menimpa created_by/
+ * created_at/updated_at miliknya sendiri.
+ */
+const KOLOM_INPUT = [
+  'nama', 'deskripsi', 'kode', 'jenis', 'nilai', 'maks_potongan', 'menu_item_id',
+  'beli_qty', 'gratis_qty', 'harga_spesial', 'mulai', 'selesai', 'kuota_total',
+  'batas_per_pelanggan', 'min_belanja', 'khusus_pesanan_pertama', 'outlet_ids',
+  'hari', 'jam_mulai', 'jam_selesai', 'menu_ids', 'kategori_ids', 'is_active',
+] as const satisfies readonly (keyof InputVoucher)[]
+
 async function catat(db: ReturnType<typeof createServiceClient>, aksi: Aksi, oleh: string, sasaranId: string, data: unknown) {
   const { error } = await db.from('app_retail_log').insert({ aksi, oleh, sasaran_id: sasaranId, data })
   if (error) throw new Error(`Perubahan tersimpan, tapi log gagal ditulis: ${error.message}`)
 }
 
 function rapikan(i: InputVoucher): InputVoucher {
-  const kode = i.kode?.trim().toUpperCase() || null
+  const dipilih = Object.fromEntries(KOLOM_INPUT.map((k) => [k, i[k]])) as InputVoucher
+  const kode = dipilih.kode?.trim().toUpperCase() || null
   const kosongJadiNull = <T,>(a: T[] | null) => (a && a.length > 0 ? a : null)
   return {
-    ...i, nama: i.nama.trim(), deskripsi: i.deskripsi?.trim() || null, kode,
-    outlet_ids: kosongJadiNull(i.outlet_ids), hari: kosongJadiNull(i.hari),
-    menu_ids: kosongJadiNull(i.menu_ids), kategori_ids: kosongJadiNull(i.kategori_ids),
+    ...dipilih, nama: dipilih.nama.trim(), deskripsi: dipilih.deskripsi?.trim() || null, kode,
+    outlet_ids: kosongJadiNull(dipilih.outlet_ids), hari: kosongJadiNull(dipilih.hari),
+    menu_ids: kosongJadiNull(dipilih.menu_ids), kategori_ids: kosongJadiNull(dipilih.kategori_ids),
   }
 }
 

@@ -15,8 +15,23 @@ const KOSONG: InputVoucher = {
   jam_mulai: null, jam_selesai: null, menu_ids: null, kategori_ids: null, is_active: true,
 }
 
-/** '' -> null; selain itu angka. Kolom angka kosong berarti "tanpa batas", bukan 0. */
-const angka = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(/\./g, '')))
+/**
+ * '' -> null; selain itu angka. Kolom angka kosong berarti "tanpa batas",
+ * bukan 0. Buang selain digit/titik/koma dulu (biar "Rp10.000" / "10%" tetap
+ * kebaca), titik dianggap pemisah ribuan (dibuang), koma dianggap desimal
+ * (jadi titik). Kalau tetap tak bisa diangkakan, kembalikan NaN dengan
+ * sengaja -- JANGAN 0 -- supaya `periksaVoucher` yang menolaknya, bukan
+ * diam-diam tersimpan sebagai "tanpa batas".
+ */
+const angka = (s: string): number | null => {
+  const t = s.trim()
+  if (t === '') return null
+  const bersih = t.replace(/[^\d.,]/g, '')
+  if (bersih === '') return NaN
+  const dinormalkan = bersih.replace(/\./g, '').replace(',', '.')
+  const n = Number(dinormalkan)
+  return Number.isFinite(n) ? n : NaN
+}
 /** <input type="datetime-local"> dibaca sebagai WIB. */
 const dariLokalWib = (s: string): string | null => (s ? new Date(`${s}:00+07:00`).toISOString() : null)
 const keLokalWib = (iso: string | null): string =>
@@ -33,7 +48,37 @@ function toggleHari(daftar: number[] | null, h: number): number[] | null {
   const s = new Set(daftar ?? [])
   if (s.has(h)) s.delete(h)
   else s.add(h)
-  return s.size > 0 ? [...s].sort() : null
+  return s.size > 0 ? [...s].sort((a, b) => a - b) : null
+}
+
+/**
+ * Kolom InputVoucher yang boleh diambil dari baris `Voucher` (hasil
+ * select('*')) saat membuka form edit -- persis 23 kunci `KOSONG`, bukan
+ * `{id, ...sisa}`. Tanpa whitelist ini, kolom lain yang mungkin ikut
+ * terbawa di baris server (mis. created_at/created_by/updated_at) akan
+ * dikirim balik ke `simpanVoucher` dan diteruskan mentah ke DB.
+ */
+const KOLOM_INPUT = Object.keys(KOSONG) as (keyof InputVoucher)[]
+
+function ambilInput(v: Voucher): InputVoucher {
+  return Object.fromEntries(KOLOM_INPUT.map((k) => [k, v[k]])) as unknown as InputVoucher
+}
+
+/** Field yang wajib direset saat jenis voucher berganti, agar nilai lama yang
+ * tersembunyi (mis. maks_potongan bekas jenis persen) tidak diam-diam ikut
+ * tersimpan dan memblokir/ menyesatkan validasi jenis baru. */
+function resetUntukJenis(x: InputVoucher, jenisBaru: JenisVoucher): InputVoucher {
+  return {
+    ...x,
+    jenis: jenisBaru,
+    nilai: null,
+    maks_potongan: null,
+    menu_item_id: null,
+    beli_qty: null,
+    gratis_qty: null,
+    harga_spesial: null,
+    menu_ids: x.jenis === 'beli_x_gratis_y' && jenisBaru !== 'beli_x_gratis_y' ? null : x.menu_ids,
+  }
 }
 
 export default function PanelEditVoucher(props: {
@@ -43,11 +88,7 @@ export default function PanelEditVoucher(props: {
   outlet: Opsi[]
   onTutup: () => void
 }) {
-  const [f, setF] = useState<InputVoucher>(() => {
-    if (!props.awal) return KOSONG
-    const { id: _id, ...sisa } = props.awal
-    return sisa
-  })
+  const [f, setF] = useState<InputVoucher>(() => (props.awal ? ambilInput(props.awal) : KOSONG))
   const [galat, setGalat] = useState<string | null>(null)
   const [sibuk, mulai] = useTransition()
   const ubah = <K extends keyof InputVoucher>(k: K, v: InputVoucher[K]) => setF((x) => ({ ...x, [k]: v }))
@@ -84,7 +125,7 @@ export default function PanelEditVoucher(props: {
               <label className="block text-xs font-bold text-slate-700">Jenis voucher</label>
               <select
                 value={f.jenis}
-                onChange={(e) => ubah('jenis', e.target.value as JenisVoucher)}
+                onChange={(e) => setF((x) => resetUntukJenis(x, e.target.value as JenisVoucher))}
                 className="input w-full text-sm py-2 border border-slate-200 rounded-xl bg-white"
               >
                 {(Object.keys(LABEL_JENIS) as JenisVoucher[]).map((j) => (
@@ -268,7 +309,7 @@ export default function PanelEditVoucher(props: {
               <label className="block text-xs font-bold text-slate-700">Kode voucher</label>
               <input
                 value={f.kode ?? ''}
-                onChange={(e) => ubah('kode', e.target.value || null)}
+                onChange={(e) => ubah('kode', e.target.value.toUpperCase().replace(/\s/g, '') || null)}
                 placeholder="Contoh: SUKA17"
                 className="input w-full text-sm py-2 border border-slate-200 rounded-xl uppercase"
               />

@@ -46,4 +46,6 @@ describe('periksaVoucher', () => {
   it('harga_spesial negatif', () => expect(periksaVoucher({ ...i, jenis: 'persen', harga_spesial: -100 })).toBe('Harga spesial tidak boleh negatif.'))
   it('hari invalid', () => expect(periksaVoucher({ ...i, hari: [1, 8] })).toBe('Hari tidak sah.'))
   it('hari float', () => expect(periksaVoucher({ ...i, hari: [1.5, 2] })).toBe('Hari tidak sah.'))
+  it('NaN di maks_potongan ditolak', () => expect(periksaVoucher({ ...i, maks_potongan: NaN })).toBe('Angka tidak sah.'))
+  it('NaN di min_belanja ditolak', () => expect(periksaVoucher({ ...i, min_belanja: NaN })).toBe('Angka tidak sah.'))
 })

@@ -94,6 +94,12 @@ export type InputVoucher = Omit<Voucher, 'id'>
 
 /** Cermin CHECK migration 20260925100000 -- ubah keduanya bersamaan. */
 export function periksaVoucher(i: InputVoucher): string | null {
+  // NaN lolos `== null` (NaN == null adalah false) dan lolos setiap
+  // perbandingan <=/>= (selalu false) -- tanpa cek ini duluan, "Rp10.000"
+  // hasil parse gagal bisa tembus sebagai voucher tanpa batas maks/min.
+  for (const n of [i.nilai, i.maks_potongan, i.harga_spesial, i.min_belanja, i.kuota_total, i.batas_per_pelanggan, i.beli_qty, i.gratis_qty]) {
+    if (n != null && !Number.isFinite(n)) return 'Angka tidak sah.'
+  }
   const nama = i.nama.trim()
   if (nama.length < 1 || nama.length > 60) return 'Nama voucher wajib diisi (maks 60 huruf).'
   if (i.deskripsi && i.deskripsi.length > 200) return 'Deskripsi maksimal 200 huruf.'

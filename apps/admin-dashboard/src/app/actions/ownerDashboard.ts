@@ -10,6 +10,7 @@ import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
 import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { ambilRiwayatHpp, buatPenerapRiwayat } from '@/lib/hpp/riwayatHpp'
 
 function cleanItemName(name: string) {
   if (!name) return ''
@@ -101,7 +102,7 @@ async function fetchEcommerceOwnerData(
   // memakai ulang satu instance untuk beberapa `.range()` rapuh.
   const buildEcommerceQuery = () => supabase
     .from('ecommerce_sales')
-    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(name, hpp_override, channel_hpp))')
+    .select('id, channel_id, order_id, order_date, total_amount, raw_data, ecommerce_sale_items(id, quantity, price, subtotal, menu_id, menu_items:menu_id(id, name, hpp_override, channel_hpp))')
     .gte('order_date', fromIso)
     .lte('order_date', toIso)
     .order('order_date', { ascending: true })
@@ -118,6 +119,9 @@ async function fetchEcommerceOwnerData(
     if (page.length < PAGE_SIZE) break
     offset += PAGE_SIZE
   }
+
+  // HPP per tanggal order (dateStr = tanggal WIB di bawah)
+  const penerapHpp = buatPenerapRiwayat([], await ambilRiwayatHpp(supabase), (n: string) => n)
 
   const kpiMap = new Map<string, SalesSummaryRow & { total_deductions?: number }>()
   const hourMap = new Map<number, SalesHourlyRow>()
@@ -187,7 +191,7 @@ async function fetchEcommerceOwnerData(
       curMenu.revenue += revenue
       menuMap.set(cleanName, curMenu)
 
-      const mi = item.menu_items
+      const mi = item.menu_items ? penerapHpp.untuk(dateStr).terapkan(item.menu_items) : item.menu_items
       let itemHpp = 0
       if (mi) {
         let channelHppVal: number | null = null

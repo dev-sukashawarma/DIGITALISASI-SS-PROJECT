@@ -8,6 +8,7 @@ import { isTestOutlet, TEST_OUTLET_ID } from "@/lib/outletFilters";
 import { fetchAllPagesParallel } from "@/lib/queryPaging";
 import { periodCacheOptions, withPeriodCache } from "@/lib/periodCache";
 import { isMitraOutlet } from "@/lib/outletOwnership";
+import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat, tanggalWib } from "@/lib/hpp/riwayatHpp";
 
 export interface HppRow {
   outlet_id: string;
@@ -85,21 +86,30 @@ const PAGE_SIZE = 1000;
 // Kolom HPP yang dipakai getItemHpp. Ditarik SEKALI dari `menu_items` (50 baris)
 // lalu dipetakan per id, bukan ikut di-join ke tiap order_item.
 const MENU_HPP_SELECT =
-  "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(hpp_override, channel_hpp))";
+  "id, name, hpp_override, channel_hpp, is_package, package_items:menu_packages!package_id(quantity, component:menu_items!menu_item_id(id, hpp_override, channel_hpp))";
 
 export function useHpp(filter: PeriodFilterValue) {
   const supabase = createClient();
+
+  const versiQuery = useQuery({
+    queryKey: ["hpp-riwayat-versi"],
+    staleTime: 60_000,
+    queryFn: () => ambilVersiRiwayatHpp(supabase),
+  });
+  const versiHpp = versiQuery.data;
+
   const queryKey = [
     "hpp-client-calculated",
     filter.from,
     filter.to,
     filter.outletId,
+    versiHpp ?? "",
   ] as const;
 
   const query = useQuery<HppRow[]>({
     queryKey: [...queryKey],
     ...periodCacheOptions(filter),
-    enabled: Boolean(filter.from && filter.to),
+    enabled: Boolean(filter.from && filter.to && versiHpp),
     queryFn: withPeriodCache(queryKey, filter, async () => {
       const start = new Date(filter.from);
       start.setHours(0, 0, 0, 0);
@@ -110,10 +120,11 @@ export function useHpp(filter: PeriodFilterValue) {
       const ordersLte = end.toISOString();
 
       // Tabel master untuk resep dan outlet
-      const [outletsRes, menuItemsRes, mitraInvRes] = await Promise.all([
+      const [outletsRes, menuItemsRes, mitraInvRes, riwayatRows] = await Promise.all([
         supabase.from("outlets").select("id, type, name, slug").neq("id", TEST_OUTLET_ID),
         supabase.from("menu_items").select(MENU_HPP_SELECT),
         supabase.from("mitra_investments").select("outlet_id"),
+        ambilRiwayatHpp(supabase),
       ]);
 
       const mitraIdsSet = new Set<string>();
@@ -131,20 +142,17 @@ export function useHpp(filter: PeriodFilterValue) {
         }
       });
 
-      const menuItemsData = menuItemsRes.data;
-      const menuItemByNameMap = new Map<string, any>();
-      const menuItemByIdMap = new Map<string, any>();
-      menuItemsData?.forEach((mi: any) => {
-        if (mi.name) menuItemByNameMap.set(cleanItemName(mi.name), mi);
-        if (mi.id) menuItemByIdMap.set(mi.id, mi);
-      });
+      const menuItemsData = menuItemsRes.data ?? [];
+      // HPP per tanggal order: objek menu & peta nama/id ditimpa nilai yang
+      // berlaku pada tanggal itu (lihat lib/hpp/riwayatHpp.ts).
+      const penerapHpp = buatPenerapRiwayat(menuItemsData, riwayatRows, cleanItemName);
 
       // `order_items` di-select TANPA join bersarang ke menu_items. Join itu
       // mengirim ulang tabel `menu_items` yang cuma 50 baris untuk tiap satu
       // dari ~90.000 order_item: 16,7 MB dan 26 detik untuk satu bulan, hanya
       // untuk menghasilkan 19 baris agregat. `menu_item_id` cukup — objek yang
       // dulu ikut di-join persis baris yang sama dengan yang sudah ada di
-      // menuItemByIdMap di atas.
+      // penerapHpp.byId di atas.
       //
       // `status` disaring di server (dulu tiap baris ditarik lalu dibuang di
       // klien), dan `.order('id')` membuat urutan halaman deterministik —
@@ -153,7 +161,7 @@ export function useHpp(filter: PeriodFilterValue) {
         let b = supabase
           .from("orders")
           .select(
-            "outlet_id, channel, sales_source, order_items(menu_item_id, menu_item_name, quantity)",
+            "outlet_id, channel, sales_source, created_at, order_items(menu_item_id, menu_item_name, quantity)",
             withCount ? { count: "exact" } : undefined,
           )
           .neq("outlet_id", TEST_OUTLET_ID)
@@ -173,7 +181,7 @@ export function useHpp(filter: PeriodFilterValue) {
         supabase
           .from("ecommerce_sales")
           .select(
-            "channel_id, ecommerce_sale_items(menu_id, quantity)",
+            "channel_id, order_date, ecommerce_sale_items(menu_id, quantity)",
             withCount ? { count: "exact" } : undefined,
           )
           .gte("order_date", ordersGte)
@@ -195,12 +203,13 @@ export function useHpp(filter: PeriodFilterValue) {
         const outletType = outletTypeMap.get(o.outlet_id);
         const orderChannel = o.channel || o.sales_source;
 
+        const pHpp = penerapHpp.untuk(tanggalWib(o.created_at));
         o.order_items?.forEach((item: any) => {
           const { hpp, baseHpp, markup } = getItemHpp(
-            item.menu_item_id ? menuItemByIdMap.get(item.menu_item_id) : null,
+            item.menu_item_id ? pHpp.byId.get(item.menu_item_id) : null,
             outletType,
             item.menu_item_name,
-            menuItemByNameMap,
+            pHpp.byName,
             orderChannel,
           );
           const qty = item.quantity || 1;
@@ -218,16 +227,17 @@ export function useHpp(filter: PeriodFilterValue) {
         const outletType = "outlet";
         const ecommerceChannel = saleRecord.channel_id || "ss_online";
 
+        const pHpp = penerapHpp.untuk(tanggalWib(saleRecord.order_date));
         saleRecord.ecommerce_sale_items?.forEach((item: any) => {
           const menuItem = item.menu_id
-            ? menuItemByIdMap.get(item.menu_id)
+            ? pHpp.byId.get(item.menu_id)
             : null;
           const fallbackName = menuItem?.name || "Unknown";
           const { hpp, baseHpp, markup } = getItemHpp(
             menuItem,
             outletType,
             fallbackName,
-            menuItemByNameMap,
+            pHpp.byName,
             ecommerceChannel,
           );
           const qty = item.quantity || 1;
@@ -248,9 +258,24 @@ export function useHpp(filter: PeriodFilterValue) {
       }));
     }),
   });
+  // Kegagalan riwayat HPP tak boleh diam-diam tampil sebagai "kosong": selama
+  // versiHpp belum ada (masih memuat ATAU gagal), query utama sengaja tetap
+  // disabled — jadi loading/error di sini harus ikut mencerminkan versiQuery,
+  // bukan cuma query utama.
+  const versiBelumSiap = !versiHpp && !versiQuery.error;
+  const loading =
+    versiQuery.isLoading ||
+    query.isLoading ||
+    (Boolean(filter.from && filter.to) && versiBelumSiap);
+  const error = versiQuery.error
+    ? (versiQuery.error as Error).message
+    : query.error
+      ? (query.error as Error).message
+      : null;
+
   return {
     rows: query.data ?? [],
-    loading: query.isLoading,
-    error: query.error ? (query.error as Error).message : null,
+    loading,
+    error,
   };
 }

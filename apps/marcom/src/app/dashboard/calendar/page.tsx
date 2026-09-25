@@ -79,7 +79,7 @@ export default async function CalendarPage() {
     title: item.title,
     description: item.description,
     outletId: item.outletId ? item.outletId.toString() : null,
-    outletName: item.outlet?.name || 'Semua Cabang (Nasional)',
+    outletName: item.outlet?.name || 'Official',
     startDate: item.startDate.toISOString().split('T')[0],
     endDate: item.endDate.toISOString().split('T')[0],
     type: item.type,

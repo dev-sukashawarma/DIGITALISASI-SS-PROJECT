@@ -40,7 +40,7 @@ export default async function ContentPlannerPage() {
     isAds: item.isAds ?? false,
     creator: item.creator,
     outletId: item.outletId ? item.outletId.toString() : null,
-    outletName: item.outlet?.name || 'Semua Cabang (Nasional)',
+    outletName: item.outlet?.name || 'Official',
     postUrl: item.postUrl,
     postDate: item.postDate.toISOString().split('T')[0],
     postTime: item.postTime || null,

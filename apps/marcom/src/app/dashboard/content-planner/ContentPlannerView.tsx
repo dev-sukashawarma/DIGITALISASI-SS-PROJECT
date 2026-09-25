@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   CalendarDays,
   Calendar,
@@ -50,6 +51,7 @@ import {
 } from './ContentMetricsView'
 
 export type { SerializedInternalContent }
+export type ContentScope = 'ALL' | 'OFFICIAL' | 'OUTLET'
 
 interface ContentPlannerViewProps {
   initialContents: SerializedInternalContent[]
@@ -64,6 +66,49 @@ export default function ContentPlannerView({
   userRole,
   initialContentTypes,
 }: ContentPlannerViewProps) {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+
+  const rawScope = searchParams.get('scope') || searchParams.get('tab')
+  const initialScope: ContentScope =
+    rawScope?.toLowerCase() === 'official'
+      ? 'OFFICIAL'
+      : rawScope?.toLowerCase() === 'outlet'
+      ? 'OUTLET'
+      : 'ALL'
+
+  const [scope, setScope] = useState<ContentScope>(initialScope)
+
+  useEffect(() => {
+    const urlScope = searchParams.get('scope') || searchParams.get('tab')
+    if (urlScope?.toLowerCase() === 'official') {
+      setScope('OFFICIAL')
+    } else if (urlScope?.toLowerCase() === 'outlet') {
+      setScope('OUTLET')
+    } else if (!urlScope) {
+      setScope('ALL')
+    }
+  }, [searchParams])
+
+  const countAll = initialContents.length
+  const countOfficial = useMemo(() => initialContents.filter((i) => !i.outletId).length, [initialContents])
+  const countOutlet = useMemo(() => initialContents.filter((i) => !!i.outletId).length, [initialContents])
+
+  const handleScopeChange = (newScope: ContentScope) => {
+    setScope(newScope)
+    setOutletFilter('')
+    const params = new URLSearchParams(searchParams.toString())
+    if (newScope === 'ALL') {
+      params.delete('scope')
+      params.delete('tab')
+    } else {
+      params.set('scope', newScope.toLowerCase())
+      params.delete('tab')
+    }
+    const queryStr = params.toString()
+    router.push(queryStr ? `?${queryStr}` : '/dashboard/content-planner', { scroll: false })
+  }
+
   const contentTypesList = useMemo(() => {
     return initialContentTypes && initialContentTypes.length > 0 ? initialContentTypes : CONTENT_TYPES
   }, [initialContentTypes])
@@ -86,7 +131,7 @@ export default function ContentPlannerView({
   // Reset to page 1 whenever filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter])
+  }, [search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter, scope])
 
   // Modals state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -188,15 +233,31 @@ export default function ContentPlannerView({
             ? item.platform === 'INSTAGRAM' || item.platform === 'IG_REELS'
             : item.platform === platformFilter)
 
-        const matchesOutlet =
-          outletFilter === '' ||
-          (outletFilter === 'ALL' && !item.outletId) ||
-          item.outletId === outletFilter
+        // Scope filter: ALL vs OFFICIAL vs OUTLET
+        let matchesScope = true
+        if (scope === 'OFFICIAL') {
+          matchesScope = !item.outletId
+        } else if (scope === 'OUTLET') {
+          matchesScope = !!item.outletId
+        }
 
-        return matchesSearch && matchesAds && matchesStatus && matchesFormat && matchesGoal && matchesContentType && matchesPillar && matchesPlatform && matchesOutlet
+        // Outlet Filter
+        let matchesOutlet = true
+        if (scope === 'OFFICIAL') {
+          matchesOutlet = true
+        } else if (scope === 'OUTLET') {
+          matchesOutlet = outletFilter === '' || item.outletId === outletFilter
+        } else {
+          matchesOutlet =
+            outletFilter === '' ||
+            (outletFilter === 'ALL' && !item.outletId) ||
+            item.outletId === outletFilter
+        }
+
+        return matchesSearch && matchesAds && matchesStatus && matchesFormat && matchesGoal && matchesContentType && matchesPillar && matchesPlatform && matchesScope && matchesOutlet
       })
       .sort((a, b) => new Date(b.postDate).getTime() - new Date(a.postDate).getTime())
-  }, [initialContents, search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter])
+  }, [initialContents, search, adsFilter, statusFilter, formatFilter, goalFilter, contentTypeFilter, pillarFilter, platformFilter, outletFilter, scope])
 
   // Table pagination calculation
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -208,17 +269,49 @@ export default function ContentPlannerView({
     return filtered.slice(startIndex, endIndex)
   }, [filtered, startIndex, endIndex])
 
-  // Aggregate stats
-  const totalContents = initialContents.length
-  const totalPosted = initialContents.filter(i => i.status === 'Sudah Posting' || i.status === 'POSTED').length
-  const totalPlanned = initialContents.filter(i => i.status === 'Planned').length
-  const totalDraft = initialContents.filter(i => i.status === 'Draft').length
-  const totalAds = initialContents.filter(i => i.isAds).length
-  const totalOrganic = initialContents.filter(i => !i.isAds).length
+  // Selected outlet name helper
+  const selectedOutletName = useMemo(() => {
+    if (scope === 'OFFICIAL') return 'Official'
+    if (outletFilter === 'ALL') return 'Official'
+    if (!outletFilter) return scope === 'OUTLET' ? 'Semua Outlet' : 'Semua'
+    const found = outlets.find((o) => o.id === outletFilter)
+    return found ? found.name : 'Outlet'
+  }, [scope, outletFilter, outlets])
+
+  // Contents for metrics (responsive to active scope AND outlet filter)
+  const metricContents = useMemo(() => {
+    return initialContents.filter((item) => {
+      // 1. Scope filter
+      if (scope === 'OFFICIAL' && item.outletId) return false
+      if (scope === 'OUTLET' && !item.outletId) return false
+
+      // 2. Outlet filter
+      if (scope === 'OFFICIAL') {
+        return true
+      }
+      if (scope === 'OUTLET') {
+        if (outletFilter !== '' && item.outletId !== outletFilter) return false
+      } else {
+        // scope === 'ALL'
+        if (outletFilter === 'ALL' && item.outletId) return false
+        if (outletFilter !== '' && outletFilter !== 'ALL' && item.outletId !== outletFilter) return false
+      }
+
+      return true
+    })
+  }, [initialContents, scope, outletFilter])
+
+  // Aggregate stats based on active scope and outlet filter
+  const totalContents = metricContents.length
+  const totalPosted = metricContents.filter(i => i.status === 'Sudah Posting' || i.status === 'POSTED').length
+  const totalPlanned = metricContents.filter(i => i.status === 'Planned').length
+  const totalDraft = metricContents.filter(i => i.status === 'Draft').length
+  const totalAds = metricContents.filter(i => i.isAds).length
+  const totalOrganic = metricContents.filter(i => !i.isAds).length
 
   // Calculate busiest time slot
   const timeSlotCounts: Record<string, number> = {}
-  initialContents.forEach((c) => {
+  metricContents.forEach((c) => {
     if (c.postTime) {
       timeSlotCounts[c.postTime] = (timeSlotCounts[c.postTime] || 0) + 1
     }
@@ -404,7 +497,7 @@ export default function ContentPlannerView({
     setCreateStatus('Planned')
     setCreatePostDate(new Date().toISOString().split('T')[0])
     setCreatePostTime('11:00')
-    setCreateOutletId('ALL')
+    setCreateOutletId(scope === 'OUTLET' ? (outlets[0]?.id || '') : 'ALL')
     setCreateCreator('MARCOM')
     setCreatePostUrl('')
     setCreateIsAds(false)
@@ -453,39 +546,110 @@ export default function ContentPlannerView({
         </div>
       </div>
 
-      {/* Top Tab Switcher */}
-      <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit flex-wrap">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-[#D9480F] text-white shadow-xs">
-          <CalendarDays className="w-4 h-4" />
-          <span>Rencana Konten</span>
+      {/* Top Tab Switcher & Child Sub-Tabs */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        {/* Top Tab Switcher */}
+        <div className="flex items-center gap-2 p-1.5 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit flex-wrap">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all bg-[#D9480F] text-white shadow-xs">
+            <CalendarDays className="w-4 h-4" />
+            <span>Rencana Konten</span>
+          </div>
+
+          <Link
+            href="/dashboard/content-planner/metrik-data"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+          >
+            <BarChart3 className="w-4 h-4 text-stone-400" />
+            <span>Metrik Data</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-mono">
+              {initialContents.length}
+            </span>
+          </Link>
+
+          <Link
+            href="/dashboard/content-planner/referensi-data"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+          >
+            <TrendingUp className="w-4 h-4 text-stone-400" />
+            <span>Referensi Data</span>
+          </Link>
+
+          <Link
+            href="/dashboard/content-planner/pengaturan"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
+          >
+            <Settings2 className="w-4 h-4 text-stone-400" />
+            <span>Pengaturan Konten</span>
+          </Link>
         </div>
 
-        <Link
-          href="/dashboard/content-planner/metrik-data"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
-        >
-          <BarChart3 className="w-4 h-4 text-stone-400" />
-          <span>Metrik Data</span>
-          <span className="text-[10px] px-2 py-0.5 rounded-full bg-stone-200 text-stone-700 font-mono">
-            {totalContents}
-          </span>
-        </Link>
+        {/* 2 Child Sub-Tabs of Rencana Konten: [Semua] | [Official] | [Outlet] */}
+        <div className="flex items-center gap-1.5 p-1 bg-[#FAF8F5] border border-[#EFE8DE] rounded-2xl w-fit shadow-2xs">
+          <button
+            type="button"
+            onClick={() => handleScopeChange('ALL')}
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              scope === 'ALL'
+                ? 'bg-white text-[#D9480F] shadow-xs border border-[#EFE8DE]'
+                : 'text-stone-600 hover:text-[#1A1715] hover:bg-white/50'
+            }`}
+          >
+            <span>Semua</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                scope === 'ALL'
+                  ? 'bg-[#FFF4ED] text-[#D9480F]'
+                  : 'bg-stone-200/80 text-stone-600'
+              }`}
+            >
+              {countAll}
+            </span>
+          </button>
 
-        <Link
-          href="/dashboard/content-planner/referensi-data"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
-        >
-          <TrendingUp className="w-4 h-4 text-stone-400" />
-          <span>Referensi Data</span>
-        </Link>
+          <button
+            type="button"
+            onClick={() => handleScopeChange('OFFICIAL')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              scope === 'OFFICIAL'
+                ? 'bg-white text-[#D9480F] shadow-xs border border-[#EFE8DE]'
+                : 'text-stone-600 hover:text-[#1A1715] hover:bg-white/50'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            <span>Official</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                scope === 'OFFICIAL'
+                  ? 'bg-[#FFF4ED] text-[#D9480F]'
+                  : 'bg-stone-200/80 text-stone-600'
+              }`}
+            >
+              {countOfficial}
+            </span>
+          </button>
 
-        <Link
-          href="/dashboard/content-planner/pengaturan"
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all text-stone-600 hover:text-[#1A1715] hover:bg-white/60 cursor-pointer"
-        >
-          <Settings2 className="w-4 h-4 text-stone-400" />
-          <span>Pengaturan Konten</span>
-        </Link>
+          <button
+            type="button"
+            onClick={() => handleScopeChange('OUTLET')}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              scope === 'OUTLET'
+                ? 'bg-white text-[#D9480F] shadow-xs border border-[#EFE8DE]'
+                : 'text-stone-600 hover:text-[#1A1715] hover:bg-white/50'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5 text-[#D9480F] shrink-0" />
+            <span>Outlet</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${
+                scope === 'OUTLET'
+                  ? 'bg-[#FFF4ED] text-[#D9480F]'
+                  : 'bg-stone-200/80 text-stone-600'
+              }`}
+            >
+              {countOutlet}
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Status Notice Banner */}
@@ -517,9 +681,16 @@ export default function ContentPlannerView({
         {/* Total Rencana */}
         <div className="bg-white p-5 rounded-3xl border border-[#EFE8DE] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
-              Total Konten
-            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[11px] text-stone-400 font-bold uppercase tracking-wider">
+                Total Konten
+              </span>
+              {outletFilter && outletFilter !== '' && (
+                <span className="text-[10px] font-bold text-[#D9480F] bg-[#FFF4ED] px-1.5 py-0.5 rounded-md border border-[#D9480F]/20">
+                  {selectedOutletName}
+                </span>
+              )}
+            </div>
             <div className="w-8 h-8 rounded-xl bg-[#FFF4ED] text-[#D9480F] flex items-center justify-center">
               <Layers className="w-4 h-4" />
             </div>
@@ -706,25 +877,42 @@ export default function ContentPlannerView({
 
           {/* Outlet Filter */}
           <div>
-            <select
-              value={outletFilter}
-              onChange={(e) => setOutletFilter(e.target.value)}
-              className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
-            >
-              <option value="">Semua Cabang Outlet</option>
-              <option value="ALL">Semua Cabang (Nasional)</option>
-              {outlets.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+            {scope === 'OFFICIAL' ? (
+              <div className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-amber-200 bg-amber-50/80 text-amber-900 font-bold flex items-center justify-between shadow-2xs">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>Jangkauan: Official</span>
+                </span>
+                <span className="text-[10px] bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded-full font-mono font-bold">
+                  {countOfficial} konten
+                </span>
+              </div>
+            ) : (
+              <select
+                value={outletFilter}
+                onChange={(e) => setOutletFilter(e.target.value)}
+                className="w-full px-3 py-2 text-xs sm:text-sm rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#D9480F]/20 focus:border-[#D9480F] transition-colors font-medium"
+              >
+                <option value="">Semua Cabang Outlet</option>
+                {scope === 'ALL' && <option value="ALL">Official</option>}
+                {outlets.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
         <div className="flex items-center justify-between text-xs text-stone-500 font-medium pt-2 border-t border-[#EFE8DE]">
           <span>
             Menampilkan <span className="font-bold text-[#1A1715]">{filtered.length}</span> dari {totalContents} rencana konten
+            {scope !== 'ALL' && (
+              <span className="ml-1.5 text-xs text-stone-400">
+                (Kategori: <strong className="text-[#D9480F]">{scope === 'OFFICIAL' ? 'Official' : 'Outlet'}</strong>)
+              </span>
+            )}
           </span>
           {(search || adsFilter !== 'ALL' || statusFilter !== 'ALL' || formatFilter !== 'ALL' || goalFilter !== 'ALL' || contentTypeFilter !== 'ALL' || pillarFilter !== 'ALL' || platformFilter !== 'ALL' || outletFilter) && (
             <button
@@ -1088,10 +1276,15 @@ export default function ContentPlannerView({
                               <Megaphone className={`w-2.5 h-2.5 ${item.isAds ? 'fill-purple-600 text-purple-600' : 'text-stone-400'}`} />
                               <span>{item.isAds ? 'Diiklanin' : 'Organik'}</span>
                             </button>
-                            {item.outletName && item.outletName !== 'Semua Cabang (Nasional)' && (
+                            {item.outletId ? (
                               <span className="inline-flex items-center gap-1 text-xs font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md">
                                 <MapPin className="w-3 h-3 text-stone-400" />
                                 <span>{item.outletName}</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200/60 px-2 py-0.5 rounded-md">
+                                <Sparkles className="w-3 h-3 text-amber-500" />
+                                <span>Official</span>
                               </span>
                             )}
                           </div>
@@ -1578,7 +1771,7 @@ export default function ContentPlannerView({
                     onChange={(e) => setCreateOutletId(e.target.value)}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
                   >
-                    <option value="ALL">Semua Cabang (Nasional)</option>
+                    <option value="ALL">Official</option>
                     {outlets.map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}
@@ -1794,7 +1987,7 @@ export default function ContentPlannerView({
                     defaultValue={editingContent.outletId || 'ALL'}
                     className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
                   >
-                    <option value="ALL">Semua Cabang (Nasional)</option>
+                    <option value="ALL">Official</option>
                     {outlets.map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}

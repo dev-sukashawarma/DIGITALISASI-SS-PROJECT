@@ -54,6 +54,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.sukashawarma.customer.data.PilihanVoucher
 import com.sukashawarma.customer.data.api.CartProblemDto
@@ -86,6 +88,13 @@ fun CheckoutScreen(
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+
+    // Pelanggan bisa pergi (mis. membuka aplikasi lain untuk cek saldo) lalu
+    // kembali ke layar ini dengan voucher yang sudah kedaluwarsa/habis kuota
+    // di server. Validasi ulang saat resume supaya Bayar terkunci lagi kalau
+    // memang sudah tak berlaku -- job lama otomatis dibatalkan di dalam
+    // `validasi()`, jadi ini aman dobel-panggil dengan `init`.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.validasi() }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -648,7 +657,10 @@ private fun BarisVoucher(
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = voucher?.nama ?: "Pakai voucher",
+                    // Nama gateway menang: voucher yang dipasang lewat kode
+                    // manual disimpan dengan `nama = kode` (huruf besar mentah)
+                    // sampai gateway membalas nama sebenarnya di `blokVoucher`.
+                    text = blokVoucher?.nama ?: voucher?.nama ?: "Pakai voucher",
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         color = SukaInk

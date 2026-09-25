@@ -12,6 +12,7 @@ import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
 import com.sukashawarma.customer.data.api.VoucherCheckoutDto
 import com.sukashawarma.customer.data.api.VoucherDto
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -72,11 +73,25 @@ class CheckoutViewModel(
     private val _state = MutableStateFlow(CheckoutState())
     val state: StateFlow<CheckoutState> = _state.asStateFlow()
 
+    /**
+     * Percobaan validasi yang sedang berjalan.
+     *
+     * Ganti voucher lalu buru-buru lepas (atau layar resume sementara
+     * permintaan lama masih di jalan) bisa melahirkan dua permintaan
+     * `validasiCheckout` bersamaan. Tanpa dibatalkan, balasan yang lebih
+     * lambat bisa datang belakangan dan menimpa balasan untuk pilihan
+     * voucher yang benar -- ringkasan menampilkan total yang berbeda dari
+     * yang akan ditagih.
+     */
+    private var validasiJob: Job? = null
+
     init {
         validasi()
     }
 
     fun validasi() {
+        validasiJob?.cancel()
+
         val baris = cart.isi()
         val outletId = cart.outletId()
 
@@ -96,12 +111,19 @@ class CheckoutViewModel(
 
         val voucher = cart.voucher()
 
-        viewModelScope.launch {
+        validasiJob = viewModelScope.launch {
             when (val hasil = repository.validasiCheckout(outletId, baris.flatMap { it.kePayloadList() }, voucher)) {
                 is GatewayResult.Gagal -> {
+                    // Belt and braces: `cancel()` di atas SEHARUSNYA sudah
+                    // mencegah ini, tapi kalau balasan sudah terlanjur
+                    // mendarat tepat sebelum pembatalan, voucher yang
+                    // berubah sejak permintaan ini dikirim tidak boleh
+                    // menimpa layar.
+                    if (cart.voucher() != voucher) return@launch
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 }
                 is GatewayResult.Sukses -> {
+                    if (cart.voucher() != voucher) return@launch
                     val r = hasil.data
                     if (r.ok) {
                         // Angka yang ditampilkan adalah angka gateway. Menghitung

@@ -296,7 +296,11 @@ class PaymentViewModel(
                                 // salinan lokal hilang saat aplikasi dipasang
                                 // ulang atau pelanggan ganti perangkat.
                                 qrString = d.qrString,
-                                urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl()
+                                urlBayarTersimpan = d.paymentUrl ?: percobaan.paymentUrl(),
+                                // Angka gateway menang -- pesanan lama ini bisa
+                                // saja dibuat dengan voucher, dan cart.subtotal()
+                                // tidak tahu itu.
+                                totalTagihan = d.totalAmount.roundToLong()
                             )
                             tanyaSampaiPasti(orderId)
                         }

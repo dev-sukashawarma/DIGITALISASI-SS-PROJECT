@@ -105,7 +105,10 @@ fun PemilihVoucherSheet(
                         )
                     } else {
                         LazyColumn(
-                            modifier = Modifier.fillMaxWidth(),
+                            // fill = false: daftar panjang mengambil ruang
+                            // yang tersedia tapi TIDAK memaksa "Punya kode?"
+                            // di bawahnya keluar layar.
+                            modifier = Modifier.fillMaxWidth().weight(1f, fill = false),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             items(h.data, key = { it.id }) { v ->

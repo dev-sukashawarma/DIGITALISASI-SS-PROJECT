@@ -182,6 +182,12 @@ class PaymentViewModel(
                 when (val hasil = repository.statusPesanan(orderId)) {
                     is GatewayResult.Sukses -> {
                         val d = hasil.data
+                        // Angka nyata muncul begitu diketahui -- termasuk saat
+                        // status masih "menunggu" dan tidak ada cabang di bawah
+                        // yang cocok. Menunggu sampai `dibayar` berarti layar
+                        // ini menampilkan Rp0 (tersembunyi) atau angka lokal
+                        // yang salah selama pesanan masih diproses.
+                        _state.value = _state.value.copy(totalTagihan = d.totalAmount.roundToLong())
                         when (d.status) {
                             "dibayar" -> {
                                 cart.kosongkan()
@@ -253,7 +259,14 @@ class PaymentViewModel(
             when (val hasil = repository.statusPesanan(orderId)) {
                 is GatewayResult.Gagal -> {
                     // Tidak tahu nasibnya. Arah aman: pantau, jangan menagih ulang.
-                    _state.value = _state.value.copy(memuat = false)
+                    //
+                    // `totalTagihan` DIHAPUS ke 0, bukan dibiarkan pakai
+                    // `cart.subtotal()` dari inisialisasi -- pesanan ini SUDAH
+                    // ada (kita sedang menanyakan statusnya), jadi angka lokal
+                    // yang tidak tahu soal voucher tidak boleh ditampilkan.
+                    // `tanyaSampaiPasti` di bawah akan mengisinya lagi begitu
+                    // balasan status pertama yang berhasil datang.
+                    _state.value = _state.value.copy(memuat = false, totalTagihan = 0L)
                     tanyaSampaiPasti(orderId)
                 }
 

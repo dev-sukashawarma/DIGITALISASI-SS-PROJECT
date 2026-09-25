@@ -319,8 +319,26 @@ export async function createOrReuseOpnameDraftAction(
       '550e8400-e29b-41d4-a716-446655440010', // SUKA SHAWARMA JATIWARINGIN
     ]
     const isCatchupException = CATCHUP_OUTLETS_SEP5.includes(outletId) && (todayWIB === '2026-09-05' || todayWIB === '2026-09-06')
+    const isPamulangException = (todayWIB === '2026-09-24' || todayWIB === '2026-09-25') && outletId === 'bba67dba-2dca-4e98-bdb2-6a9e265e288c'
 
-    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException || isCatchupException)) {
+    if (existing && existing.status === 'finalized' && (isOutletTes || isEmpangException || isJatiwaringinException || isCicurugException || isCatchupException || isPamulangException)) {
+      // Jika sudah ada draft (mis. ad_hoc) yang sedang aktif, reuse draft tersebut
+      const { data: activeDraft } = await serviceClient.from('opname')
+        .select('*')
+        .eq('outlet_id', outletId)
+        .eq('tanggal', todayWIB)
+        .eq('status', 'draft')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (activeDraft) {
+        if (notes && notes !== activeDraft.notes) {
+          await serviceClient.from('opname').update({ notes }).eq('id', activeDraft.id)
+        }
+        return { data: activeDraft as Opname, error: null }
+      }
+
       const { count } = await serviceClient.from('opname')
         .select('id', { count: 'exact', head: true })
         .eq('outlet_id', outletId)

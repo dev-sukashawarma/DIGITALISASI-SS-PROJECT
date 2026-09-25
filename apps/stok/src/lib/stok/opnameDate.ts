@@ -79,5 +79,15 @@ export async function getEffectiveTodayWIB(outletId: string, supabase: any): Pro
     if ((count ?? 0) < 1) return '2026-09-05'
   }
 
+  // 25 September 2026: MITRA PAMULANG bisa opname 2 kali (Kamis 24 Sep dan Jumat 25 Sep)
+  if (outletId === 'bba67dba-2dca-4e98-bdb2-6a9e265e288c' && today === '2026-09-25') {
+    const { count } = await supabase.from('opname')
+      .select('id', { count: 'exact', head: true })
+      .eq('outlet_id', outletId)
+      .eq('tanggal', '2026-09-24')
+      .eq('status', 'finalized')
+    if ((count ?? 0) < 2) return '2026-09-24'
+  }
+
   return today
 }

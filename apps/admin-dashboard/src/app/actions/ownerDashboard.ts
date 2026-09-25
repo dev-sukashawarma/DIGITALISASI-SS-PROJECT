@@ -10,6 +10,7 @@ import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
 import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
+import { resolveCallerScope } from '@/lib/server/callerScope'
 import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat } from '@/lib/hpp/riwayatHpp'
 import {
   DAY_FETCH_CONCURRENCY,
@@ -293,41 +294,6 @@ export async function invalidateOwnerDashboardDays(dates: string[]) {
   const today = jakartaDate(new Date())
   const valid = Array.from(new Set(dates.filter((d) => isDateStr(d) && d < today))).slice(0, 31)
   for (const d of valid) updateTag(ownerDashboardDayTag(d))
-}
-
-const FULL_ACCESS_ROLES = ['admin', 'admin_hr', 'owner', 'spv', 'regional_manager', 'kitchen', 'admin_finance', 'purchasing']
-
-/** Menentukan scope outlet caller berdasarkan sesi login (bukan service-role),
- * supaya auth.uid() terisi di dalam RPC SECURITY DEFINER dan accessible_outlet_ids()
- * ikut memfilter. scopeKey dipakai sebagai bagian kunci cache agar user dengan
- * scope berbeda tidak saling membaca cache satu sama lain.
- */
-async function resolveCallerScope() {
-  const cookieStore = await cookies()
-  const supabase = createSupabaseServerClient({
-    getAll: () => cookieStore.getAll(),
-    setAll: () => {}
-  })
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
-
-  const { data: staff, error: staffError } = await supabase
-    .from('outlet_staff')
-    .select('role')
-    .eq('id', user.id)
-    .maybeSingle()
-  if (staffError) throw new Error(`resolveCallerScope: ${staffError.message}`)
-
-  if (staff?.role && FULL_ACCESS_ROLES.includes(staff.role)) {
-    return { supabase, scopeKey: 'all', allowedOutletIds: 'all' as const }
-  }
-
-  const { data: outletIds, error: outletIdsError } = await supabase.rpc('accessible_outlet_ids')
-  if (outletIdsError) throw new Error(`resolveCallerScope: ${outletIdsError.message}`)
-
-  const allowedOutletIds: string[] = (outletIds ?? []).map((id: any) => String(id)).sort()
-  return { supabase, scopeKey: allowedOutletIds.join(','), allowedOutletIds }
 }
 
 /* ── Penggabungan dua potongan periode yang saling lepas (disjoint) ──────

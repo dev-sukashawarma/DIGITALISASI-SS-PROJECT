@@ -1,9 +1,9 @@
 // @ts-nocheck
 'use client'
 
-import { useEffect, useRef, useTransition } from 'react'
+import { useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import { useOwnerDashboardRealtime } from '@/hooks/useOwnerDashboardRealtime'
 import { PeriodFilter } from '@/components/PeriodFilter'
 import { KpiCards } from '@/components/KpiCards'
 import { SourceBreakdown } from '@/components/SourceBreakdown'
@@ -17,7 +17,7 @@ import type { AggregatedMenuSales } from '@/app/actions/menuSales'
 import { revalidateOwnerDashboardCache } from '@/app/actions/ownerDashboard'
 import { Clock, RefreshCw } from 'lucide-react'
 import dynamic from 'next/dynamic'
-import { presetRange, diffDays } from '@/lib/period'
+import { presetRange, diffDays, previousRange } from '@/lib/period'
 
 const RevenueTrendChart = dynamic(
   () => import('@/components/RevenueTrendChart').then((m) => m.RevenueTrendChart),
@@ -62,35 +62,17 @@ interface OwnerDashboardViewProps {
   buyOneGetOne?: { transactions: number; giftUnits: number }
   lastUpdated?: string
   isCached?: boolean
+  comparisonUnavailable?: boolean
 }
 
-function RealtimeRefresher() {
-  const router = useRouter()
-  const supabase = createSupabaseBrowserClient()
-  const debounceRef = useRef<any>(null)
-
-  useEffect(() => {
-    const invalidate = () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      debounceRef.current = setTimeout(async () => {
-        try {
-          await revalidateOwnerDashboardCache()
-        } catch {}
-        router.refresh()
-      }, 800)
-    }
-
-    const channel = supabase
-      .channel('owner-sales-realtime-view')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
-      .subscribe()
-
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      supabase.removeChannel(channel)
-    }
-  }, [supabase, router])
-
+function RealtimeRefresher({ filter }: { filter: PeriodFilterValue }) {
+  // Periode pembanding (untuk ▲▼%) ikut dipantau: order kemarin yang di-void
+  // hari ini mengubah delta pada filter "Hari ini".
+  useOwnerDashboardRealtime({
+    channelName: 'owner-sales-realtime-view',
+    relevantFrom: previousRange({ from: filter.from, to: filter.to }).from,
+    relevantTo: filter.to,
+  })
   return null
 }
 
@@ -116,6 +98,7 @@ export default function OwnerDashboardView({
   buyOneGetOne,
   lastUpdated,
   isCached,
+  comparisonUnavailable,
 }: OwnerDashboardViewProps) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
@@ -137,7 +120,7 @@ export default function OwnerDashboardView({
 
   return (
     <>
-      <RealtimeRefresher />
+      <RealtimeRefresher filter={filter} />
 
       {/* Normal Dashboard Screen */}
       <div className="space-y-6 animate-fade-in">
@@ -168,7 +151,10 @@ export default function OwnerDashboardView({
             onClick={() => {
               startTransition(async () => {
                 try {
-                  await revalidateOwnerDashboardCache()
+                  await revalidateOwnerDashboardCache({
+                    from: previousRange({ from: filter.from, to: filter.to }).from,
+                    to: filter.to,
+                  })
                 } catch (err) {
                   console.error('Failed to revalidate owner dashboard cache:', err)
                 }
@@ -183,6 +169,12 @@ export default function OwnerDashboardView({
             <span>Segarkan Data</span>
           </button>
         </div>
+
+        {comparisonUnavailable && (
+          <div className="-mt-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-semibold">
+            Data periode pembanding gagal dimuat, jadi persentase naik/turun (▲▼) tidak ditampilkan. Tekan &quot;Segarkan Data&quot; untuk mencoba lagi.
+          </div>
+        )}
 
         {/* Loading Spinner Indicator */}
         {isPending && (

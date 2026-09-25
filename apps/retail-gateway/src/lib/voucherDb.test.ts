@@ -32,11 +32,15 @@ function klien(hasil: Record<string, unknown>) {
 
 /**
  * RECORDING fake: catat setiap call per-rantai untuk verifikasi filter yang tepat.
+ * Mengembalikan counts berbeda untuk setiap call ke tabel yang sama (untuk deteksi filter berbeda).
  */
 function klienRecording(hasil: Record<string, unknown>) {
+  const callCounts: Record<string, number> = {}
   return {
     from: vi.fn((tabel: string): any => {
       const log: Array<{ method: string; args: unknown[] }> = []
+      callCounts[tabel] = (callCounts[tabel] ?? 0) + 1
+      const callIndex = callCounts[tabel]
       const r: any = {}
       for (const f of ['select', 'eq', 'is', 'not', 'in', 'limit']) {
         r[f] = vi.fn((arg1?: unknown, arg2?: unknown, arg3?: unknown) => {
@@ -45,20 +49,26 @@ function klienRecording(hasil: Record<string, unknown>) {
         })
       }
       r.maybeSingle = vi.fn(async () => hasil[tabel])
-      r.then = (ok: (x: unknown) => unknown) => Promise.resolve(hasil[tabel + ':count'] ?? { count: 0, error: null }).then(ok)
+      r.then = (ok: (x: unknown) => unknown) => {
+        // Return different counts based on which call this is (untuk voucher_pemakaian: 1st=7, 2nd=2)
+        let countKey = tabel + ':count'
+        if (tabel === 'voucher_pemakaian' && callIndex === 2) countKey = tabel + ':count:2' // 2nd call
+        const countResult = hasil[countKey] ?? hasil[tabel + ':count'] ?? { count: 0, error: null }
+        return Promise.resolve(countResult).then(ok)
+      }
       return { ...r, _log: log }
     })
   } as any
 }
 
 describe('konteksPelanggan', () => {
-  it('filter voucher_pemakaian dengan eq(voucher_id) dan not(lunas_at)', async () => {
+  it('query 1 (total): filter eq(voucher_id) DAN not(lunas_at)', async () => {
     const rc = klienRecording({ 'voucher_pemakaian:count': { count: 7, error: null }, 'order_drafts:count': { count: 1, error: null } })
     await konteksPelanggan(rc, 'v1', 'c1')
-    // Query 1: voucher_pemakaian (total)
+    // Query 1: voucher_pemakaian (total) - first call
     const q1Calls = rc.from.mock.results[0]?.value._log || []
-    expect(q1Calls.some((x: any) => x.method === 'eq' && x.args[0] === 'voucher_id')).toBe(true)
-    expect(q1Calls.some((x: any) => x.method === 'not' && x.args[0] === 'lunas_at')).toBe(true)
+    expect(q1Calls.some((x: any) => x.method === 'eq' && x.args[0] === 'voucher_id' && x.args[1] === 'v1')).toBe(true)
+    expect(q1Calls.some((x: any) => x.method === 'not' && x.args[0] === 'lunas_at' && x.args[1] === 'is')).toBe(true)
   })
 
   it('per-customer query memasukkan eq(customer_id), total query tidak', async () => {
@@ -73,6 +83,10 @@ describe('konteksPelanggan', () => {
     expect(q1Calls.filter((x: any) => x.method === 'eq' && x.args[0] === 'customer_id')).toHaveLength(0)
     // Query 2 (pelanggan): HAS eq(customer_id)
     expect(q2Calls.some((x: any) => x.method === 'eq' && x.args[0] === 'customer_id' && x.args[1] === 'c1')).toBe(true)
+    // Query 2: MUST have eq(voucher_id)
+    expect(q2Calls.some((x: any) => x.method === 'eq' && x.args[0] === 'voucher_id')).toBe(true)
+    // Query 2: MUST have not(lunas_at)
+    expect(q2Calls.some((x: any) => x.method === 'not' && x.args[0] === 'lunas_at')).toBe(true)
   })
 
   it('order_drafts filter eq(customer_id) dan eq(status, dibayar)', async () => {
@@ -102,16 +116,21 @@ describe('konteksPelanggan', () => {
   })
 
   it('hasil: counts mapping ke jumlahLunasPelanggan (query 2)', async () => {
-    // Klien fake akan mengembalikan count yang SAMA untuk kedua voucher_pemakaian queries
-    // Kita hanya validasi struktur hasil dan bahwa count dari query 2 digunakan
-    const hasil = await konteksPelanggan(
-      klien({ 'voucher_pemakaian:count': { count: 3, error: null }, 'order_drafts:count': { count: 1, error: null } }),
-      'v1', 'c1'
-    )
+    // Gunakan klienRecording untuk mendapatkan counts berbeda per query
+    const rc = klienRecording({
+      'voucher_pemakaian:count': { count: 7, error: null }, // Query 1 (total)
+      'voucher_pemakaian:count:2': { count: 2, error: null }, // Query 2 (per-customer)
+      'order_drafts:count': { count: 1, error: null }
+    })
+    const hasil = await konteksPelanggan(rc, 'v1', 'c1')
+    // Verifikasi struktur
     expect(hasil).toHaveProperty('jumlahLunasTotal')
     expect(hasil).toHaveProperty('jumlahLunasPelanggan')
     expect(hasil).toHaveProperty('pelangganSudahPernahBayar')
-    expect(hasil.pelangganSudahPernahBayar).toBe(true) // count 1 > 0
+    // Verifikasi exact counts - ini mendeteksi swap destruktur atau filter yang salah
+    expect(hasil.jumlahLunasTotal).toBe(7)
+    expect(hasil.jumlahLunasPelanggan).toBe(2)
+    expect(hasil.pelangganSudahPernahBayar).toBe(true)
   })
 
   it('pelangganSudahPernahBayar=false saat drafts count 0', async () => {

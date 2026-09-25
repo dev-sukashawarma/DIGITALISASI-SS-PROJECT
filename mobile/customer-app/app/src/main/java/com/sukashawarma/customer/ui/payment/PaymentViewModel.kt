@@ -253,7 +253,16 @@ class PaymentViewModel(
             return
         }
 
-        _state.value = _state.value.copy(memuat = true, orderId = orderId)
+        // Pesanan ini SUDAH ada di server (sedang dilanjutkan, bukan dibuat).
+        // `totalTagihan` dihapus ke 0 di SINI, sebelum permintaan
+        // `statusPesanan` pertama dikirim -- bukan hanya di cabang `Gagal`
+        // (fix round 2). `PaymentWaitScreen` merender blok jumlah begitu
+        // `totalTagihan > 0`, dan blok itu TIDAK digerbangi oleh `memuat`,
+        // jadi selama nilai konstruktor (`cart.subtotal()`, pra-voucher)
+        // masih bertahan di sini, ia sempat terlihat pada round-trip pertama
+        // -- bahkan di jalur yang nanti berujung sukses (LANJUTKAN), bukan
+        // cuma yang berujung galat.
+        _state.value = _state.value.copy(memuat = true, orderId = orderId, totalTagihan = 0L)
 
         viewModelScope.launch {
             when (val hasil = repository.statusPesanan(orderId)) {

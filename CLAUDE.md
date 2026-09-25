@@ -3129,6 +3129,11 @@ Waktu owner summary sesudah perubahan **452 ms** (sebelumnya 323 ms).
 - Fungsi mitra & owner summary juga didefinisikan migration 2030 → replay dari nol menimpa versi baru.
 - Baseline `baseline-sebelum-*.txt` ter-checkout CRLF (autocrlf) sedangkan output baru LF → bandingkan
   dengan `diff --strip-trailing-cr`.
+- **SQL function yang dipanggil per baris dari plpgsql JANGAN diberi `SET search_path`** — memblokir
+  inlining; `menu_hpp_pada` sempat membuat ringkasan mitra 7,7–14,7 dtk (timeout `authenticated` 8 dtk).
+  Dilepas di `20260925153000` (applied+terstempel): semua outlet mitra Sep 7,7–8,0 → ~1,3 dtk, Agu
+  9,7–10,3 → ~1,65 dtk; owner summary 403–429 ms; baseline identik. Migration yang sama menambah
+  `FOR UPDATE` baris menu di `ubah_hpp_menu` (dua simpan bersamaan tak lagi bisa menyimpang).
 
 ### 🤖 Catatan otomasi (jejak audit)
 - 25 Sep 12:28 otomasi repo (bukan inisiatif sesi ini) me-merge `feat/riwayat-hpp-override` ke `main` dan

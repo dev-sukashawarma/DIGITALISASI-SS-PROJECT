@@ -30,6 +30,7 @@ import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
@@ -86,6 +87,7 @@ fun ProfileScreen(
     onLihatRiwayat: () -> Unit,
     onBukaInfoAkun: () -> Unit,
     onKembali: () -> Unit,
+    onBukaVoucher: () -> Unit = {},
     statusPesananAktif: Boolean = true,
     promoAktif: Boolean = true,
     onSimpanPreferensiNotifikasi: (statusPesanan: Boolean, promo: Boolean) -> Unit = { _, _ -> },
@@ -264,6 +266,13 @@ fun ProfileScreen(
                         title = "Riwayat Pesanan",
                         subtitle = "Pantau status & pesanan sebelumnya",
                         onClick = onLihatRiwayat
+                    )
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
+                    ProfileMenuItem(
+                        icon = Icons.Filled.LocalOffer,
+                        title = "Voucher Saya",
+                        subtitle = "Promo yang bisa kamu pakai",
+                        onClick = onBukaVoucher
                     )
                     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF8EFE7)))
                     ProfileMenuItem(

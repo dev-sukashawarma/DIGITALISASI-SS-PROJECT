@@ -80,6 +80,8 @@ import com.sukashawarma.customer.ui.profile.LoginViewModel
 import com.sukashawarma.customer.ui.profile.ProfileScreen
 import com.sukashawarma.customer.ui.notifications.NotificationScreen
 import com.sukashawarma.customer.ui.notifications.NotificationViewModel
+import com.sukashawarma.customer.ui.voucher.VoucherScreen
+import com.sukashawarma.customer.ui.voucher.VoucherViewModel
 import com.sukashawarma.customer.data.CartTopping
 import com.sukashawarma.customer.data.PreferensiNotifikasi
 import androidx.compose.runtime.rememberCoroutineScope
@@ -380,6 +382,7 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onPilihItem = { navController.navigate(Rute.detail(it.id)) },
                     onBukaNotifikasi = { navController.navigate(Rute.NOTIFIKASI) },
+                    onBukaVoucher = { navController.navigate(Rute.VOUCHER) },
                     unreadCount = unreadNotifCount,
                     inisial = inisialPelanggan()
                 )
@@ -696,6 +699,7 @@ fun CustomerAppRoot(container: AppContainer) {
                         }
                     },
                     onBukaInfoAkun = { navController.navigate(Rute.INFO_AKUN) },
+                    onBukaVoucher = { navController.navigate(Rute.VOUCHER) },
                     onLihatRiwayat = {
                         navController.navigate(Rute.RIWAYAT) {
                             popUpTo(navController.graph.findStartDestination().id) {
@@ -733,6 +737,24 @@ fun CustomerAppRoot(container: AppContainer) {
                     },
                     onKembali = {
                         navController.popBackStack()
+                    }
+                )
+            }
+
+            composable(Rute.VOUCHER) {
+                val voucherViewModel: VoucherViewModel = viewModel(
+                    factory = pabrik {
+                        VoucherViewModel(muat = { container.repository.vouchers() }, cart = container.cartStore)
+                    }
+                )
+                VoucherScreen(
+                    viewModel = voucherViewModel,
+                    onKembali = { navController.popBackStack() },
+                    onSetelahPakai = {
+                        // Voucher terpasang di keranjang -- kembali ke Menu supaya
+                        // checkout (yang memvalidasinya) sudah membawanya begitu
+                        // pelanggan lanjut bayar.
+                        navController.navigate(Rute.MENU) { launchSingleTop = true }
                     }
                 )
             }

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlin.math.roundToLong
 
 /** Jeda antar-penanyaan status selama menit pertama. */
 private const val JEDA_TANYA_AWAL_MS = 3_000L
@@ -115,7 +116,14 @@ class PaymentViewModel(
         _state.value = _state.value.copy(memuat = true, pesanGalat = null, totalTagihan = total)
 
         viewModelScope.launch {
-            when (val hasil = repository.buatPesanan(clientOrderId, outletId, baris.flatMap { it.kePayloadList() })) {
+            when (
+                val hasil = repository.buatPesanan(
+                    clientOrderId,
+                    outletId,
+                    baris.flatMap { it.kePayloadList() },
+                    voucher = cart.voucher()
+                )
+            ) {
                 is GatewayResult.Sukses -> {
                     val r = hasil.data
                     percobaan.simpanOrderId(r.orderId)
@@ -130,7 +138,11 @@ class PaymentViewModel(
                         //
                         // Custom Tab HANYA dibuka bila tidak ada QR -- lihat
                         // penjaga di PaymentWaitScreen.
-                        paymentUrl = r.paymentUrl
+                        paymentUrl = r.paymentUrl,
+                        // Angka gateway menang atas subtotal lokal (yang tidak
+                        // tahu soal voucher). QRIS dan layar ini WAJIB menagih
+                        // angka yang sama.
+                        totalTagihan = r.totalAmount.roundToLong()
                     )
                     tanyaSampaiPasti(r.orderId)
                 }
@@ -318,5 +330,7 @@ fun pesanBayar(galat: GatewayError): String = when {
         "Batas waktu pembayaran sudah lewat. Tekan bayar lagi untuk memulai ulang."
     galat is GatewayError.Kode && galat.kode == "keranjang_berubah" ->
         "Menu outlet berubah sejak kamu memilih. Kembali ke ringkasan untuk memperbaikinya."
+    galat is GatewayError.Kode && galat.kode == "voucher_tidak_berlaku" ->
+        galat.pesan
     else -> pesanGalat(galat)
 }

@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sukashawarma.customer.data.CartLine
 import com.sukashawarma.customer.data.CartStore
+import com.sukashawarma.customer.data.PilihanVoucher
 import com.sukashawarma.customer.data.Repository
 import com.sukashawarma.customer.data.api.CartItemPayload
 import com.sukashawarma.customer.data.api.CartProblemDto
 import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.GatewayResult
+import com.sukashawarma.customer.data.api.VoucherCheckoutDto
+import com.sukashawarma.customer.data.api.VoucherDto
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,11 +29,14 @@ data class CheckoutState(
     val masalah: List<CartProblemDto> = emptyList(),
     val alasan: String? = null,
     val pesanPenolakan: String? = null,
-    val keranjangKosong: Boolean = false
+    val keranjangKosong: Boolean = false,
+    val voucher: PilihanVoucher? = null,
+    val blokVoucher: VoucherCheckoutDto? = null
 ) {
     /** Boleh lanjut membayar hanya kalau gateway benar-benar meloloskannya. */
     val bolehLanjut: Boolean
-        get() = !memuat && galat == null && total != null && masalah.isEmpty() && alasan == null
+        get() = !memuat && galat == null && total != null && masalah.isEmpty() && alasan == null &&
+            alasanKunciVoucher(voucher, blokVoucher) == null
 }
 
 fun CartLine.kePayload() = CartItemPayload(
@@ -88,8 +94,10 @@ class CheckoutViewModel(
             pesanPenolakan = null
         )
 
+        val voucher = cart.voucher()
+
         viewModelScope.launch {
-            when (val hasil = repository.validasiCheckout(outletId, baris.flatMap { it.kePayloadList() })) {
+            when (val hasil = repository.validasiCheckout(outletId, baris.flatMap { it.kePayloadList() }, voucher)) {
                 is GatewayResult.Gagal -> {
                     _state.value = _state.value.copy(memuat = false, galat = hasil.error)
                 }
@@ -106,7 +114,9 @@ class CheckoutViewModel(
                             total = r.total?.roundToLong(),
                             masalah = emptyList(),
                             alasan = null,
-                            pesanPenolakan = null
+                            pesanPenolakan = null,
+                            voucher = voucher,
+                            blokVoucher = r.voucher
                         )
                     } else {
                         // HTTP 200 dengan `ok: false` adalah PENOLAKAN, bukan
@@ -119,12 +129,30 @@ class CheckoutViewModel(
                             total = null,
                             masalah = r.masalah ?: emptyList(),
                             alasan = r.alasan,
-                            pesanPenolakan = pesanUntukAlasan(r.alasan, r.pesan)
+                            pesanPenolakan = pesanUntukAlasan(r.alasan, r.pesan),
+                            voucher = voucher,
+                            blokVoucher = r.voucher
                         )
                     }
                 }
             }
         }
+    }
+
+    fun pasangVoucher(v: PilihanVoucher) {
+        cart.pasangVoucher(v)
+        validasi()
+    }
+
+    fun lepasVoucher() {
+        cart.lepasVoucher()
+        validasi()
+    }
+
+    suspend fun daftarVoucher(): GatewayResult<List<VoucherDto>> {
+        val outletId = cart.outletId()
+        val items = cart.isi().flatMap { it.kePayloadList() }
+        return repository.vouchers(outletId, items.takeIf { it.isNotEmpty() })
     }
 
     /**

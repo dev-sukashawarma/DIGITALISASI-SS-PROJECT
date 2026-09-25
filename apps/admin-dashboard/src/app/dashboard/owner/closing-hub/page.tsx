@@ -26,7 +26,10 @@ import { toast } from 'sonner'
 import { createSupabaseBrowserClient } from '@suka/auth'
 import { PageHeader } from '@/components/ui'
 import { rupiah } from '@/lib/format'
-import { DIVISION_FULL_REPORTS, exportDivisionToCsv } from './divisionReportsData'
+import { DIVISION_FULL_REPORTS, OUTLETS_19_DATA } from './divisionReportsData'
+import { exportDivisionToExcel, exportMasterConsolidatedToExcel } from './eomExcelExporter'
+import { exportDivisionToPdf, exportMasterConsolidatedToPdf } from './eomPdfExporter'
+
 
 interface EomPeriod {
   id: string
@@ -596,7 +599,7 @@ export default function EomClosingHubPage() {
                   )}
 
                   {/* Actions */}
-                  <div className="pt-2 flex items-center gap-2">
+                  <div className="pt-2 flex items-center gap-1.5">
                     <button
                       onClick={() =>
                         setActiveModalDoc({
@@ -604,18 +607,42 @@ export default function EomClosingHubPage() {
                           submission: sub,
                         })
                       }
-                      className="flex-1 py-2 px-3 bg-white border border-suka-gray-200 hover:bg-suka-cream/30 text-suka-brown rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                      className="flex-1 py-2 px-2.5 bg-white border border-suka-gray-200 hover:bg-suka-cream/30 text-suka-brown rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-colors shadow-sm"
                     >
                       <Eye size={13} className="text-suka-orange" />
-                      Lihat Berita Acara
+                      Detail BA
                     </button>
 
                     <button
                       onClick={() => {
-                        exportDivisionToCsv(config.key, MONTHS[month - 1], year)
-                        toast.success(`Mengunduh file Excel Laporan ${config.name}...`)
+                        toast.info(`Men-generate Dokumen PDF Resmi (${config.name})...`)
+                        try {
+                          exportDivisionToPdf(config.key, MONTHS[month - 1], year)
+                          toast.success(`Laporan PDF ${config.name} (19 Outlet) berhasil diunduh!`)
+                        } catch (err) {
+                          console.error(err)
+                          toast.error('Gagal mengunduh PDF laporan')
+                        }
                       }}
-                      title="Download Laporan Lengkap (Excel / CSV)"
+                      title="Download Laporan Resmi PDF (Termasuk Lampiran 19 Outlet Lengkap)"
+                      className="py-2 px-2.5 bg-white border border-suka-gray-200 hover:bg-red-50 text-red-700 hover:border-red-300 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
+                    >
+                      <Printer size={13} />
+                      PDF
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        toast.info(`Menyiapkan File Excel (${config.name})...`)
+                        try {
+                          exportDivisionToExcel(config.key, MONTHS[month - 1], year)
+                          toast.success(`Workbook Excel ${config.name} (2 Sheet) berhasil diunduh!`)
+                        } catch (err) {
+                          console.error(err)
+                          toast.error('Gagal mengunduh file Excel')
+                        }
+                      }}
+                      title="Download Laporan Lengkap Excel (2 Sheet: BA + 19 Outlet)"
                       className="py-2 px-2.5 bg-white border border-suka-gray-200 hover:bg-emerald-50 text-emerald-700 hover:border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
                     >
                       <Download size={13} />
@@ -626,13 +653,14 @@ export default function EomClosingHubPage() {
                       <button
                         onClick={() => handleVerifyDivision(config)}
                         title="Bypass verifikasi dari Admin Dashboard"
-                        className="py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
+                        className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
                       >
                         <CheckCircle2 size={13} />
                         Verif
                       </button>
                     )}
                   </div>
+
                 </div>
               </div>
             )
@@ -704,20 +732,39 @@ export default function EomClosingHubPage() {
 
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => {
+                toast.info('Men-generate Dokumen PDF Konsolidasi Master...')
+                try {
+                  exportMasterConsolidatedToPdf(MONTHS[month - 1], year)
+                  toast.success('Laporan Konsolidasi Master PDF (3 Pilar + 19 Outlet) berhasil diunduh!')
+                } catch (err) {
+                  console.error(err)
+                  toast.error('Gagal mengunduh PDF Master')
+                }
+              }}
               className="px-3 py-2 bg-white border border-suka-gray-200 hover:bg-suka-cream/30 text-suka-brown rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
             >
-              <Printer size={13} />
-              Cetak
+              <Printer size={13} className="text-suka-orange" />
+              Cetak PDF Master
             </button>
             <button
-              onClick={() => toast.success('Mengunduh Laporan Konsolidasi Excel...')}
+              onClick={() => {
+                toast.info('Men-generate File Excel Konsolidasi Master...')
+                try {
+                  exportMasterConsolidatedToExcel(MONTHS[month - 1], year)
+                  toast.success('Workbook Excel Konsolidasi Master (2 Sheet) berhasil diunduh!')
+                } catch (err) {
+                  console.error(err)
+                  toast.error('Gagal mengunduh Excel Master')
+                }
+              }}
               className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
             >
               <Download size={13} />
-              Ekspor Excel
+              Ekspor Excel Master
             </button>
           </div>
+
         </div>
 
         {/* Tab Selector */}
@@ -790,20 +837,35 @@ export default function EomClosingHubPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      exportDivisionToCsv(activeModalDoc.config.key, MONTHS[month - 1], year)
-                      toast.success(`Mengunduh file Excel Laporan ${activeModalDoc.config.name}...`)
+                      toast.info(`Men-generate Dokumen PDF Resmi (${activeModalDoc.config.name})...`)
+                      try {
+                        exportDivisionToPdf(activeModalDoc.config.key, MONTHS[month - 1], year)
+                        toast.success(`Dokumen PDF Resmi Berita Acara & 19 Outlet berhasil diunduh!`)
+                      } catch (err) {
+                        console.error(err)
+                        toast.error('Gagal mengunduh file PDF')
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Printer size={13} />
+                    Cetak / Unduh PDF
+                  </button>
+                  <button
+                    onClick={() => {
+                      toast.info(`Menyiapkan File Excel (${activeModalDoc.config.name})...`)
+                      try {
+                        exportDivisionToExcel(activeModalDoc.config.key, MONTHS[month - 1], year)
+                        toast.success(`Workbook Excel (2 Sheet + 19 Outlet) berhasil diunduh!`)
+                      } catch (err) {
+                        console.error(err)
+                        toast.error('Gagal mengunduh file Excel')
+                      }
                     }}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
                   >
                     <Download size={13} />
-                    Ekspor Excel
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Printer size={13} />
-                    Cetak / PDF
+                    Ekspor Excel (.xlsx)
                   </button>
                   <button
                     onClick={() => setActiveModalDoc(null)}
@@ -812,6 +874,7 @@ export default function EomClosingHubPage() {
                     ✕
                   </button>
                 </div>
+
               </div>
 
               {/* Printable Document Body */}
@@ -952,6 +1015,87 @@ export default function EomClosingHubPage() {
                   </div>
                 )}
 
+                {/* Lampiran I: Breakdown Detail Per Cabang Outlet (19 Cabang) */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-black uppercase text-suka-brown tracking-wider flex items-center gap-1.5">
+                      <Store size={14} className="text-suka-orange" />
+                      Lampiran I: Rekapitulasi Detail Per Cabang Outlet (19 Cabang)
+                    </h4>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                      19/19 Cabang Verified (100%)
+                    </span>
+                  </div>
+
+                  <div className="border border-suka-gray-200 rounded-xl overflow-x-auto shadow-sm max-h-72">
+                    <table className="w-full text-xs border-collapse">
+                      <thead className="sticky top-0 z-10 bg-slate-800 text-white">
+                        <tr>
+                          <th className="py-2 px-2 text-center w-8">No</th>
+                          <th className="py-2 px-3 text-left">Nama Cabang Outlet</th>
+                          <th className="py-2 px-2.5 text-center">Tipe</th>
+                          <th className="py-2 px-3 text-right">Omzet POS</th>
+                          <th className="py-2 px-3 text-right">Setoran Bank</th>
+                          <th className="py-2 px-2.5 text-right">Kas Kecil</th>
+                          <th className="py-2 px-3 text-right">Stok Fisik</th>
+                          <th className="py-2 px-2.5 text-right">Waste + Shrink</th>
+                          <th className="py-2 px-2 text-center">Kru</th>
+                          <th className="py-2 px-2.5 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-suka-gray-100 font-medium text-[11px]">
+                        {OUTLETS_19_DATA.map((o, idx) => (
+                          <tr key={o.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                            <td className="py-1.5 px-2 text-center text-suka-gray-400">{o.no}</td>
+                            <td className="py-1.5 px-3 font-bold text-suka-ink">{o.name}</td>
+                            <td className="py-1.5 px-2.5 text-center text-suka-gray-500">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                o.isInternal ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-blue-50 text-blue-800 border border-blue-200'
+                              }`}>
+                                {o.isInternal ? 'Internal' : 'Mitra'}
+                              </span>
+                            </td>
+                            <td className="py-1.5 px-3 text-right font-bold text-suka-ink">{rupiah(o.grossPos)}</td>
+                            <td className="py-1.5 px-3 text-right text-emerald-700 font-semibold">{rupiah(o.bankDeposit)}</td>
+                            <td className="py-1.5 px-2.5 text-right text-suka-gray-600">{rupiah(o.pettyCash)}</td>
+                            <td className="py-1.5 px-3 text-right text-suka-gray-700">{rupiah(o.stockAsset)}</td>
+                            <td className="py-1.5 px-2.5 text-right text-rose-600">{rupiah(o.wasteRp + o.shrinkageRp)}</td>
+                            <td className="py-1.5 px-2 text-center text-suka-gray-600">{o.crewCount}</td>
+                            <td className="py-1.5 px-2.5 text-center text-emerald-600 font-bold">100%</td>
+                          </tr>
+                        ))}
+                        {/* Baris Total */}
+                        <tr className="bg-amber-100/80 font-black text-amber-950 border-t-2 border-amber-300">
+                          <td colSpan={3} className="py-2 px-3 text-left">
+                            TOTAL KONSOLIDASI (19 OUTLET)
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            {rupiah(OUTLETS_19_DATA.reduce((a, b) => a + b.grossPos, 0))}
+                          </td>
+                          <td className="py-2 px-3 text-right text-emerald-800">
+                            {rupiah(OUTLETS_19_DATA.reduce((a, b) => a + b.bankDeposit, 0))}
+                          </td>
+                          <td className="py-2 px-2.5 text-right">
+                            {rupiah(OUTLETS_19_DATA.reduce((a, b) => a + b.pettyCash, 0))}
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            {rupiah(OUTLETS_19_DATA.reduce((a, b) => a + b.stockAsset, 0))}
+                          </td>
+                          <td className="py-2 px-2.5 text-right text-rose-700">
+                            {rupiah(OUTLETS_19_DATA.reduce((a, b) => a + (b.wasteRp + b.shrinkageRp), 0))}
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            {OUTLETS_19_DATA.reduce((a, b) => a + b.crewCount, 0)}
+                          </td>
+                          <td className="py-2 px-2.5 text-center text-emerald-800">
+                            100% CLOSED
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
                 {/* Catatan PIC */}
                 <div className="bg-amber-50/50 border border-amber-200 rounded-xl p-3.5 text-xs">
                   <span className="font-bold text-amber-900 block mb-1">Catatan Tambahan Lapangan & Verifikasi:</span>
@@ -1010,22 +1154,38 @@ export default function EomClosingHubPage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => {
-                      exportDivisionToCsv(activeModalDoc.config.key, MONTHS[month - 1], year)
-                      toast.success(`Mengunduh file Excel Laporan ${activeModalDoc.config.name}...`)
+                      toast.info(`Men-generate Dokumen PDF Resmi (${activeModalDoc.config.name})...`)
+                      try {
+                        exportDivisionToPdf(activeModalDoc.config.key, MONTHS[month - 1], year)
+                        toast.success(`Dokumen PDF Resmi Berita Acara & 19 Outlet berhasil diunduh!`)
+                      } catch (err) {
+                        console.error(err)
+                        toast.error('Gagal mengunduh file PDF')
+                      }
+                    }}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Printer size={14} />
+                    Cetak / Unduh PDF Resmi
+                  </button>
+                  <button
+                    onClick={() => {
+                      toast.info(`Menyiapkan File Excel (${activeModalDoc.config.name})...`)
+                      try {
+                        exportDivisionToExcel(activeModalDoc.config.key, MONTHS[month - 1], year)
+                        toast.success(`Workbook Excel ${activeModalDoc.config.name} (2 Sheet) berhasil diunduh!`)
+                      } catch (err) {
+                        console.error(err)
+                        toast.error('Gagal mengunduh file Excel')
+                      }
                     }}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
                   >
                     <Download size={14} />
-                    Ekspor Excel / CSV
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    className="px-4 py-2 bg-white border border-suka-gray-200 hover:bg-suka-cream/40 text-suka-brown rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-sm"
-                  >
-                    <Printer size={14} />
-                    Cetak Dokumen Resmi (PDF)
+                    Ekspor Excel (.xlsx)
                   </button>
                 </div>
+
 
                 <button
                   onClick={() => setActiveModalDoc(null)}

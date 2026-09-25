@@ -27,6 +27,7 @@ export function RoleProvider({ children }: { children: React.ReactNode }) {
     if (outletStaff?.role) {
       let mappedRole = outletStaff.role.toUpperCase() as Role
       if (mappedRole as any === 'KORLAP') mappedRole = 'AREA_MANAGER'
+      if (mappedRole as any === 'DEVELOPER') mappedRole = 'ADMIN'
       
       if (['OWNER', 'ADMIN', 'ADMIN_HR', 'MITRA', 'LEADER', 'AREA_MANAGER', 'PURCHASING'].includes(mappedRole)) {
         setRole(mappedRole)

@@ -1,0 +1,458 @@
+[
+ {
+  "channel_group": "foodApps",
+  "cogs": "10343465",
+  "gross_revenue": "20903000.00",
+  "order_count": 121,
+  "outlet_id": "3f38c41d-11e3-49ce-a189-d7303e45f9ad",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "38135020",
+  "gross_revenue": "58240064.00",
+  "order_count": 1140,
+  "outlet_id": "3f38c41d-11e3-49ce-a189-d7303e45f9ad",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "16787980",
+  "gross_revenue": "22094000.00",
+  "order_count": 68,
+  "outlet_id": "3f38c41d-11e3-49ce-a189-d7303e45f9ad",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "11204710",
+  "gross_revenue": "24557000.00",
+  "order_count": 372,
+  "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "26390760",
+  "gross_revenue": "40978780.00",
+  "order_count": 931,
+  "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "7437760",
+  "gross_revenue": "9842000.00",
+  "order_count": 200,
+  "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "19720745",
+  "gross_revenue": "41032000.00",
+  "order_count": 573,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "17321260",
+  "gross_revenue": "26389858.00",
+  "order_count": 570,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "1980000",
+  "gross_revenue": "2688000.00",
+  "order_count": 66,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "38254700",
+  "gross_revenue": "81251000.00",
+  "order_count": 1094,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "28616500",
+  "gross_revenue": "43834236.00",
+  "order_count": 969,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "7791960",
+  "gross_revenue": "10385000.00",
+  "order_count": 232,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "12021075",
+  "gross_revenue": "26348000.00",
+  "order_count": 324,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440017",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "8047490",
+  "gross_revenue": "12275756.00",
+  "order_count": 308,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440017",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "7905260",
+  "gross_revenue": "10238000.00",
+  "order_count": 228,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440017",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "16946325",
+  "gross_revenue": "36993000.00",
+  "order_count": 536,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "11969760",
+  "gross_revenue": "18338603.00",
+  "order_count": 416,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "4537610",
+  "gross_revenue": "6086000.00",
+  "order_count": 116,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "13064975",
+  "gross_revenue": "26922001.00",
+  "order_count": 372,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440019",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "8534350",
+  "gross_revenue": "12682396.00",
+  "order_count": 300,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440019",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "2762650",
+  "gross_revenue": "3675000.00",
+  "order_count": 78,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440019",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "1765500",
+  "gross_revenue": "3478000.00",
+  "order_count": 48,
+  "outlet_id": "62a56103-2085-4dd5-9d25-a3c0cffc88ff",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "103454340",
+  "gross_revenue": "157963050.00",
+  "order_count": 2867,
+  "outlet_id": "62a56103-2085-4dd5-9d25-a3c0cffc88ff",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "19629830",
+  "gross_revenue": "25989000.00",
+  "order_count": 491,
+  "outlet_id": "62a56103-2085-4dd5-9d25-a3c0cffc88ff",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "5553405",
+  "gross_revenue": "12381000.00",
+  "order_count": 195,
+  "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "76818610",
+  "gross_revenue": "117452509.00",
+  "order_count": 2319,
+  "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "9110530",
+  "gross_revenue": "11882000.00",
+  "order_count": 274,
+  "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+  "periode": "2026-08"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "7614145",
+  "gross_revenue": "15630000.00",
+  "order_count": 207,
+  "outlet_id": "3f38c41d-11e3-49ce-a189-d7303e45f9ad",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "20044970",
+  "gross_revenue": "30326216.00",
+  "order_count": 623,
+  "outlet_id": "3f38c41d-11e3-49ce-a189-d7303e45f9ad",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "9274980",
+  "gross_revenue": "12377000.00",
+  "order_count": 241,
+  "outlet_id": "3f38c41d-11e3-49ce-a189-d7303e45f9ad",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "8768870",
+  "gross_revenue": "19641000.00",
+  "order_count": 313,
+  "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "15239620",
+  "gross_revenue": "23499000.00",
+  "order_count": 515,
+  "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "3690500",
+  "gross_revenue": "4841000.00",
+  "order_count": 114,
+  "outlet_id": "43b7bbd1-1fd4-44b5-87ca-b07a271151af",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "14180760",
+  "gross_revenue": "29779000.00",
+  "order_count": 433,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "9853800",
+  "gross_revenue": "15072348.00",
+  "order_count": 347,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "1722050",
+  "gross_revenue": "2309000.00",
+  "order_count": 60,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440003",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "27825710",
+  "gross_revenue": "60815000.00",
+  "order_count": 858,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "20831580",
+  "gross_revenue": "31681830.00",
+  "order_count": 704,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "5342040",
+  "gross_revenue": "7035000.00",
+  "order_count": 163,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440014",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "8678835",
+  "gross_revenue": "19396000.00",
+  "order_count": 268,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440017",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "7418290",
+  "gross_revenue": "11242552.00",
+  "order_count": 259,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440017",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "5032170",
+  "gross_revenue": "6512000.00",
+  "order_count": 145,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440017",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "12924285",
+  "gross_revenue": "28165000.00",
+  "order_count": 427,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "8079610",
+  "gross_revenue": "12125000.00",
+  "order_count": 295,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "3452460",
+  "gross_revenue": "4515000.00",
+  "order_count": 100,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440018",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "9555040",
+  "gross_revenue": "20106000.00",
+  "order_count": 280,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440019",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "5195300",
+  "gross_revenue": "7805204.00",
+  "order_count": 191,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440019",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "1917850",
+  "gross_revenue": "2523000.00",
+  "order_count": 55,
+  "outlet_id": "550e8400-e29b-41d4-a716-446655440019",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "2607825",
+  "gross_revenue": "5109000.00",
+  "order_count": 70,
+  "outlet_id": "62a56103-2085-4dd5-9d25-a3c0cffc88ff",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "83949250",
+  "gross_revenue": "128198960.00",
+  "order_count": 2374,
+  "outlet_id": "62a56103-2085-4dd5-9d25-a3c0cffc88ff",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "29154180",
+  "gross_revenue": "38855000.00",
+  "order_count": 807,
+  "outlet_id": "62a56103-2085-4dd5-9d25-a3c0cffc88ff",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "4347420",
+  "gross_revenue": "9367000.00",
+  "order_count": 125,
+  "outlet_id": "bba67dba-2dca-4e98-bdb2-6a9e265e288c",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "16738260",
+  "gross_revenue": "25673134.00",
+  "order_count": 514,
+  "outlet_id": "bba67dba-2dca-4e98-bdb2-6a9e265e288c",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "3825910",
+  "gross_revenue": "4996000.00",
+  "order_count": 79,
+  "outlet_id": "bba67dba-2dca-4e98-bdb2-6a9e265e288c",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "foodApps",
+  "cogs": "13630705",
+  "gross_revenue": "30960000.00",
+  "order_count": 497,
+  "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "pos",
+  "cogs": "36468080",
+  "gross_revenue": "55619764.00",
+  "order_count": 1144,
+  "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+  "periode": "2026-09-01..24"
+ },
+ {
+  "channel_group": "tiktok",
+  "cogs": "11455180",
+  "gross_revenue": "15070000.00",
+  "order_count": 336,
+  "outlet_id": "d9a2ef93-c298-4501-a471-1c5e2b3dff08",
+  "periode": "2026-09-01..24"
+ }
+]

@@ -258,9 +258,24 @@ export function useHpp(filter: PeriodFilterValue) {
       }));
     }),
   });
+  // Kegagalan riwayat HPP tak boleh diam-diam tampil sebagai "kosong": selama
+  // versiHpp belum ada (masih memuat ATAU gagal), query utama sengaja tetap
+  // disabled — jadi loading/error di sini harus ikut mencerminkan versiQuery,
+  // bukan cuma query utama.
+  const versiBelumSiap = !versiHpp && !versiQuery.error;
+  const loading =
+    versiQuery.isLoading ||
+    query.isLoading ||
+    (Boolean(filter.from && filter.to) && versiBelumSiap);
+  const error = versiQuery.error
+    ? (versiQuery.error as Error).message
+    : query.error
+      ? (query.error as Error).message
+      : null;
+
   return {
     rows: query.data ?? [],
-    loading: query.isLoading,
-    error: query.error ? (query.error as Error).message : null,
+    loading,
+    error,
   };
 }

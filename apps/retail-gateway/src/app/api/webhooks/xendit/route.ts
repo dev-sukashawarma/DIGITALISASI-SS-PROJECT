@@ -51,7 +51,9 @@ export async function POST(request: Request) {
   }
 
   // Tandai pemakaian voucher lunas. Idempoten dan berjalan juga pada webhook
-  // kembar, supaya kegagalan sesaat di sini sembuh pada kiriman ulang Xendit.
+  // kembar. Respons di bawah tetap 200 walau `lunasError` terjadi -- Xendit
+  // TIDAK akan mengirim ulang -- jadi kegagalan di sini hanya dicatat log
+  // untuk ditindaklanjuti manual, bukan disembuhkan otomatis oleh retry.
   // Kuota TIDAK dicek ulang: pesanan yang sudah lunas selalu dihormati.
   const { error: lunasError } = await retail
     .from('voucher_pemakaian')

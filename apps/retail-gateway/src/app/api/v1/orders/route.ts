@@ -170,6 +170,9 @@ export async function POST(request: Request) {
   // diperiksa maupun disusun jadi item tepercaya -- hanya server yang boleh
   // menambahkan item gratis.
   const itemsKlien = body.items.filter((it) => it.note !== CATATAN_GRATIS)
+  if (itemsKlien.length === 0) {
+    return NextResponse.json({ error: 'Pesanan wajib berisi minimal satu menu' }, { status: 400 })
+  }
   const masalah = periksaKeranjang(itemsKlien, katalog)
   if (masalah.length > 0) {
     return NextResponse.json({ error: 'keranjang_berubah', masalah }, { status: 409 })

@@ -77,6 +77,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Gagal memeriksa menu' }, { status: 502 })
   }
   const itemsBelanja = body.items.filter((it) => it.note !== CATATAN_GRATIS)
+  if (itemsBelanja.length === 0) {
+    return NextResponse.json({ error: 'Pesanan wajib berisi minimal satu menu' }, { status: 400 })
+  }
   const masalah = periksaKeranjang(itemsBelanja, katalog)
 
   if (masalah.length > 0) {

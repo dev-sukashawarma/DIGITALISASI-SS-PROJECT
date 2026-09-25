@@ -153,6 +153,53 @@ describe('POST /api/v1/orders -- voucher', () => {
     })
 
     expect(urutanPanggilan).toEqual(['voucher_pemakaian', 'buatQris'])
+
+    // amount WAJIB subtotal (termasuk item gratis) dikurangi potongan, BUKAN subtotal mentah.
+    expect(xendit.buatQris).toHaveBeenCalledWith({ externalId: 'cli-1', amount: 40000 - 10000 })
+  })
+
+  it('voucher_pemakaian gagal disimpan -> 502, draft ditandai gagal, buatQris/buatTagihan TIDAK dipanggil', async () => {
+    vi.mocked(voucherDb.nilaiVoucher).mockResolvedValue({
+      ada: true, voucher: { id: 'v1', nama: 'Uji' } as any,
+      hasil: { berlaku: true, potongan: 10000, itemGratis: [] },
+    })
+    const retail = buildRetail({ pakaiError: { message: 'gagal insert' } })
+    vi.mocked(supabase.createRetailClient).mockReturnValue(retail as any)
+
+    const res = await POST(req({ ...BASE_BODY, voucher_id: 'v1' }))
+    expect(res.status).toBe(502)
+
+    expect(retail.updateDraftMock).toHaveBeenCalledWith({ status: 'gagal' })
+    expect(xendit.buatQris).not.toHaveBeenCalled()
+    expect(xendit.buatTagihan).not.toHaveBeenCalled()
+  })
+
+  it('nilaiVoucher melempar -> 409 voucher_tidak_berlaku, TANPA insert order_drafts', async () => {
+    vi.mocked(voucherDb.nilaiVoucher).mockRejectedValue(new Error('DB voucher mati'))
+    const retail = buildRetail()
+    vi.mocked(supabase.createRetailClient).mockReturnValue(retail as any)
+
+    const res = await POST(req({ ...BASE_BODY, voucher_id: 'v1' }))
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('voucher_tidak_berlaku')
+
+    expect(retail.insertDraftMock).not.toHaveBeenCalled()
+  })
+
+  it('keranjang kosong setelah menyaring item gratis klien -> 400, tanpa insert draft, tanpa buatQris', async () => {
+    vi.mocked(voucherDb.nilaiVoucher).mockResolvedValue({ ada: false })
+    const retail = buildRetail()
+    vi.mocked(supabase.createRetailClient).mockReturnValue(retail as any)
+
+    const itemGratisKlien = { menu_item_id: 'A', name: 'A palsu', unit_price: 0, quantity: 5, note: 'Gratis voucher' }
+    const res = await POST(req({ ...BASE_BODY, items: [itemGratisKlien] }))
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body).toEqual({ error: 'Pesanan wajib berisi minimal satu menu' })
+
+    expect(retail.insertDraftMock).not.toHaveBeenCalled()
+    expect(xendit.buatQris).not.toHaveBeenCalled()
   })
 
   it('tanpa field voucher -> perilaku lama: diskon 0, tanpa insert voucher_pemakaian', async () => {

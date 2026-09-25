@@ -1,6 +1,7 @@
 package com.sukashawarma.customer.ui.checkout
 
 import com.sukashawarma.customer.data.PilihanVoucher
+import com.sukashawarma.customer.data.api.CartProblemDto
 import com.sukashawarma.customer.data.api.GatewayError
 import com.sukashawarma.customer.data.api.VoucherCheckoutDto
 import com.sukashawarma.customer.ui.payment.pesanBayar
@@ -72,5 +73,36 @@ class VoucherCheckoutTest {
             blokVoucher = VoucherCheckoutDto(id = "v1", status = "berlaku", potongan = 5_000.0)
         )
         assertTrue(state.bolehLanjut)
+    }
+
+    // M2: alasan kunci voucher tidak boleh ditampilkan kalau Bayar SUDAH
+    // terkunci oleh sebab lain -- melepas voucher tidak akan membuka Bayar
+    // selama sebab lain itu masih ada.
+
+    @Test
+    fun `tampilkan alasan kunci voucher saat tidak ada sebab lain`() {
+        val state = CheckoutState(memuat = false, total = 50_000L, voucher = pilih, blokVoucher = null)
+        assertTrue(tampilkanAlasanKunciVoucher(state))
+    }
+
+    @Test
+    fun `sembunyikan alasan kunci voucher saat keranjang berubah (state alasan)`() {
+        val state = CheckoutState(
+            memuat = false, total = 50_000L, voucher = pilih, blokVoucher = null,
+            alasan = "keranjang_berubah"
+        )
+        assertFalse(tampilkanAlasanKunciVoucher(state))
+        // Bayar tetap terkunci -- perilaku bolehLanjut tidak berubah oleh fix ini.
+        assertFalse(state.bolehLanjut)
+    }
+
+    @Test
+    fun `sembunyikan alasan kunci voucher saat ada masalah keranjang`() {
+        val state = CheckoutState(
+            memuat = false, total = 50_000L, voucher = pilih, blokVoucher = null,
+            masalah = listOf(CartProblemDto(menuItemId = "m1", name = "Menu", jenis = "harga_berubah", hargaBaru = 12000.0))
+        )
+        assertFalse(tampilkanAlasanKunciVoucher(state))
+        assertFalse(state.bolehLanjut)
     }
 }

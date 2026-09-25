@@ -19,3 +19,17 @@ fun alasanKunciVoucher(pilihan: PilihanVoucher?, blok: VoucherCheckoutDto?): Str
 
 fun labelPotonganVoucher(blok: VoucherCheckoutDto?): String =
     if (blok?.status == "berlaku") "Potongan voucher" else "Potongan Promo"
+
+/**
+ * Boleh menampilkan alasan kunci voucher (M2).
+ *
+ * `alasanKunciVoucher` sendiri tidak tahu soal `state.alasan`/`state.masalah`
+ * -- sebab lain yang JUGA mengunci Bayar (keranjang berubah, outlet tutup,
+ * menu habis, dst; lihat `CheckoutState.bolehLanjut`). Kalau salah satu dari
+ * itu aktif, alasan kunci voucher DISEMBUNYIKAN: melepas voucher tidak akan
+ * membuka Bayar sama sekali selama sebab lain itu masih ada, jadi menyuruh
+ * pelanggan "lepas voucher untuk melanjutkan" menyesatkan. `bolehLanjut`
+ * SENDIRI TIDAK BERUBAH -- ini murni aturan tampilan.
+ */
+fun tampilkanAlasanKunciVoucher(state: CheckoutState): Boolean =
+    state.alasan == null && state.masalah.isEmpty()

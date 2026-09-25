@@ -570,6 +570,14 @@ private fun IsiStitch(
                     BarisVoucher(
                         voucher = state.voucher,
                         blokVoucher = state.blokVoucher,
+                        // M2: alasan kunci voucher DISEMBUNYIKAN kalau Bayar
+                        // sudah terkunci oleh sebab lain (keranjang berubah,
+                        // outlet tutup, dst -- `state.alasan`/`state.masalah`).
+                        // Tanpa ini, pelanggan membaca "Lepas voucher untuk
+                        // melanjutkan" padahal melepas voucher TIDAK akan
+                        // membuka tombol Bayar -- `bolehLanjut` masih terkunci
+                        // oleh `alasan`/`masalah` yang sama sekali lain.
+                        tampilkanAlasanKunci = tampilkanAlasanKunciVoucher(state),
                         onBuka = { tampilkanPemilihVoucher = true },
                         onLepas = viewModel::lepasVoucher
                     )
@@ -633,10 +641,15 @@ private fun IsiStitch(
 private fun BarisVoucher(
     voucher: PilihanVoucher?,
     blokVoucher: VoucherCheckoutDto?,
+    // M2: false ketika Bayar sudah terkunci oleh `state.alasan`/`state.masalah`
+    // -- alasan kunci voucher lalu disembunyikan (tidak dihitung sama sekali)
+    // supaya pelanggan tidak diberi tahu "lepas voucher" sebagai jalan keluar
+    // yang sebenarnya tidak membuka apa pun.
+    tampilkanAlasanKunci: Boolean = true,
     onBuka: () -> Unit,
     onLepas: () -> Unit
 ) {
-    val alasanKunci = alasanKunciVoucher(voucher, blokVoucher)
+    val alasanKunci = if (tampilkanAlasanKunci) alasanKunciVoucher(voucher, blokVoucher) else null
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(

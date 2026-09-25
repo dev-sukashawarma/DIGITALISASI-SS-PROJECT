@@ -89,8 +89,20 @@ class PaymentViewModel(
     private val percobaan: OrderAttemptStore
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(PaymentState(totalTagihan = cart.subtotal()))
+    private val _state = MutableStateFlow(PaymentState(totalTagihan = totalAwal()))
     val state: StateFlow<PaymentState> = _state.asStateFlow()
+
+    /**
+     * Angka pra-server yang aman ditampilkan sebelum gateway membalas.
+     *
+     * `cart.subtotal()` tidak tahu soal voucher -- kalau keranjang sedang
+     * memakainya, subtotal lokal SELALU terlalu besar (dipotong belum
+     * dihitung) sampai `bayar()`/`tanyaSampaiPasti()` mengisi angka gateway.
+     * `PaymentWaitScreen` merender blok jumlah begitu `totalTagihan > 0` dan
+     * TIDAK digerbangi `memuat`, jadi angka pra-voucher sempat terlihat kalau
+     * tidak disembunyikan (0L) duluan di sini.
+     */
+    private fun totalAwal(): Long = if (cart.voucher() != null) 0L else cart.subtotal()
 
     /**
      * Membuat pesanan, atau melanjutkan percobaan yang belum selesai.
@@ -113,7 +125,11 @@ class PaymentViewModel(
             percobaan.simpanClientOrderId(it)
         }
 
-        _state.value = _state.value.copy(memuat = true, pesanGalat = null, totalTagihan = total)
+        // total lokal dipakai untuk pesan galat "keranjang kosong" di atas (bukan
+        // pembayaran nyata), tapi begitu request BENAR-BENAR dikirim (memuat =
+        // true), tampilkan totalAwal() -- sembunyikan angka pra-voucher yang
+        // salah sampai gateway membalas (I2).
+        _state.value = _state.value.copy(memuat = true, pesanGalat = null, totalTagihan = totalAwal())
 
         viewModelScope.launch {
             when (

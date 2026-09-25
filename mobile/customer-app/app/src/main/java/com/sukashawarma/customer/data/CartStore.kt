@@ -93,11 +93,16 @@ class CartStore internal constructor(private val penyimpan: CartPersistence?) {
      * per-outlet (katalog disaring `outlet_id`), jadi membawa isi keranjang
      * outlet A ke outlet B menghasilkan pesanan yang PASTI ditolak gateway
      * dengan "tidak_ada" -- tepat di titik pembayaran, bukan di sini.
+     *
+     * Voucher SENGAJA TIDAK dilepas di sini (M1) -- server memvalidasi ulang
+     * `voucher_id` terhadap outlet baru di setiap panggilan (validate/checkout),
+     * jadi voucher yang tidak lagi berlaku ditolak di sana dengan alasan yang
+     * jelas, bukan hilang senyap saat pelanggan sekadar ganti outlet.
      */
     fun pakaiOutlet(outletId: String): Boolean {
         if (isi.outletId == outletId) return false
         val adaIsi = isi.baris.isNotEmpty()
-        isi = IsiKeranjang(outletId = outletId, baris = emptyList())
+        isi = IsiKeranjang(outletId = outletId, baris = emptyList(), voucher = isi.voucher)
         tulis()
         return adaIsi
     }

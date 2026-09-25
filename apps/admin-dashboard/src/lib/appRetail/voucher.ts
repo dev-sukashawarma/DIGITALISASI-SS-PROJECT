@@ -117,6 +117,13 @@ export function periksaVoucher(i: InputVoucher): string | null {
       break
   }
   if (i.maks_potongan != null && i.maks_potongan <= 0) return 'Maksimal potongan harus lebih dari 0.'
+  // Validasi kolom-level CHECK (berlaku untuk semua jenis saat non-null)
+  if (i.beli_qty != null && (!Number.isInteger(i.beli_qty) || i.beli_qty < 1)) return 'Jumlah beli minimal 1.'
+  if (i.gratis_qty != null && (!Number.isInteger(i.gratis_qty) || i.gratis_qty < 1)) return 'Jumlah gratis minimal 1.'
+  if (i.harga_spesial != null && i.harga_spesial < 0) return 'Harga spesial tidak boleh negatif.'
+  if (i.hari && i.hari.length > 0) {
+    if (!i.hari.every((h) => Number.isInteger(h) && h >= 1 && h <= 7)) return 'Hari tidak sah.'
+  }
   if (i.mulai && i.selesai && new Date(i.selesai) <= new Date(i.mulai)) return 'Tanggal selesai harus setelah tanggal mulai.'
   if ((i.jam_mulai === null) !== (i.jam_selesai === null)) return 'Isi jam mulai dan jam selesai, atau kosongkan keduanya.'
   for (const [n, pesan] of [[i.kuota_total, 'Kuota'], [i.batas_per_pelanggan, 'Batas per pelanggan']] as const) {

@@ -40,4 +40,10 @@ describe('periksaVoucher', () => {
   it('kode tidak sah', () => expect(periksaVoucher({ ...i, kode: 'ab' })).toBe('Kode 3–20 huruf/angka tanpa spasi.'))
   it('selesai sebelum mulai', () => expect(periksaVoucher({ ...i, mulai: '2026-10-02T00:00:00Z', selesai: '2026-10-01T00:00:00Z' })).toBe('Tanggal selesai harus setelah tanggal mulai.'))
   it('jam separuh', () => expect(periksaVoucher({ ...i, jam_mulai: '10:00' })).toBe('Isi jam mulai dan jam selesai, atau kosongkan keduanya.'))
+  // Validasi kolom-level CHECK
+  it('beli_qty 0', () => expect(periksaVoucher({ ...i, jenis: 'persen', beli_qty: 0 })).toBe('Jumlah beli minimal 1.'))
+  it('gratis_qty negatif', () => expect(periksaVoucher({ ...i, jenis: 'persen', gratis_qty: -1 })).toBe('Jumlah gratis minimal 1.'))
+  it('harga_spesial negatif', () => expect(periksaVoucher({ ...i, jenis: 'persen', harga_spesial: -100 })).toBe('Harga spesial tidak boleh negatif.'))
+  it('hari invalid', () => expect(periksaVoucher({ ...i, hari: [1, 8] })).toBe('Hari tidak sah.'))
+  it('hari float', () => expect(periksaVoucher({ ...i, hari: [1.5, 2] })).toBe('Hari tidak sah.'))
 })

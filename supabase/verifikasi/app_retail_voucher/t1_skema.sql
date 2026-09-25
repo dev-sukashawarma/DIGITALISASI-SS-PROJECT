@@ -22,15 +22,23 @@ BEGIN
     RAISE EXCEPTION 'GAGAL (c): beli_x tanpa menu_ids lolos';
   EXCEPTION WHEN check_violation THEN NULL; END;
 
-  -- (d) persen sah diterima; kode disimpan huruf besar & unik tanpa beda huruf
+  -- (d) persen sah diterima; kode kembar PERSIS (huruf besar sama) ditolak
+  -- indeks unik vouchers_kode_uk (bukan CHECK format).
   INSERT INTO retail.vouchers (nama, jenis, nilai, kode) VALUES ('uji', 'persen', 10, 'HEMAT10') RETURNING id INTO v;
   BEGIN
-    INSERT INTO retail.vouchers (nama, jenis, nilai, kode) VALUES ('uji2', 'persen', 10, 'hemat10');
-    RAISE EXCEPTION 'GAGAL (d): kode kembar beda huruf lolos';
-  EXCEPTION WHEN unique_violation OR check_violation THEN NULL; END;
+    INSERT INTO retail.vouchers (nama, jenis, nilai, kode) VALUES ('uji2', 'persen', 10, 'HEMAT10');
+    RAISE EXCEPTION 'GAGAL (d): kode kembar persis lolos';
+  EXCEPTION WHEN unique_violation THEN NULL; END;
+
+  -- (d2) jaminan normalisasi huruf: kode huruf kecil ditolak CHECK format,
+  -- terlepas dari kembar atau tidak (tak pernah sampai ke indeks unik).
+  BEGIN
+    INSERT INTO retail.vouchers (nama, jenis, nilai, kode) VALUES ('uji3', 'persen', 10, 'hemat10');
+    RAISE EXCEPTION 'GAGAL (d2): kode huruf kecil lolos';
+  EXCEPTION WHEN check_violation THEN NULL; END;
 
   -- (e) voucher yang punya pemakaian tidak bisa dihapus
-  SELECT id INTO d FROM retail.order_drafts LIMIT 1;
+  SELECT id INTO d FROM retail.order_drafts WHERE customer_id IS NOT NULL ORDER BY created_at DESC LIMIT 1;
   SELECT customer_id INTO c FROM retail.order_drafts WHERE id = d;
   INSERT INTO retail.voucher_pemakaian (voucher_id, draft_id, customer_id, potongan) VALUES (v, d, c, 1000);
   BEGIN

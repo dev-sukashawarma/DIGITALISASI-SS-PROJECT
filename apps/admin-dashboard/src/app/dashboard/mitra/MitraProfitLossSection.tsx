@@ -87,6 +87,7 @@ export function MitraProfitLossSection({
   const [selectedOpexCategory, setSelectedOpexCategory] = useState<OpexCategoryDetail | null>(null)
 
   const { summary, channels, opex, profitSharingPct, outletName } = pnlData
+  const isConsolidated = outletName.toLowerCase().includes('semua')
 
   let filterText = 'Semua Waktu'
   if (currentFilter.from && currentFilter.to) {
@@ -121,10 +122,10 @@ export function MitraProfitLossSection({
         keterangan: `${c.items.length} transaksi`
       })),
       { komparasi: 'TOTAL BIAYA OPERASIONAL (OPEX)', nominal: -summary.totalOpex, keterangan: `Kas Kecil: ${opex.totalPettyCash}, Transfer: ${opex.totalMonthly}` },
-      { komparasi: 'Fee Manajemen', nominal: -(summary.managementFeeAmount || 0), keterangan: `${summary.managementFeePct || 0}% dari omzet kotor` },
+      { komparasi: 'Fee Manajemen', nominal: -(summary.managementFeeAmount || 0), keterangan: isConsolidated ? '3% hanya dari outlet belum BEP (outlet BEP bebas fee)' : `${summary.managementFeePct || 0}% dari omzet kotor` },
       { komparasi: '--- HASIL AKHIR ---', nominal: '', keterangan: '' },
       { komparasi: 'LABA BERSIH (NET PROFIT)', nominal: summary.netProfit, keterangan: `Margin: ${summary.profitMarginPct.toFixed(1)}%` },
-      { komparasi: `HAK BAGI HASIL MITRA (${profitSharingPct}%)`, nominal: summary.mitraShare, keterangan: summary.policyStatus || '' }
+      { komparasi: isConsolidated ? 'TOTAL HAK BAGI HASIL MITRA (KONSOLIDASI)' : `HAK BAGI HASIL MITRA (${profitSharingPct}%)`, nominal: summary.mitraShare, keterangan: summary.policyStatus || '' }
     ]
 
     exportCsv(rows, [
@@ -277,7 +278,7 @@ export function MitraProfitLossSection({
               <div className="flex items-center justify-between mb-3 relative z-10">
                 <div className="flex items-center gap-1.5">
                   <span className="text-[11px] font-semibold text-white/80 uppercase tracking-wider">
-                    4. Bagi Hasil Mitra ({profitSharingPct}%)
+                    {isConsolidated ? '4. Total Bagi Hasil Mitra (Konsolidasi)' : `4. Bagi Hasil Mitra (${profitSharingPct}%)`}
                   </span>
                 </div>
                 <div className="flex items-center gap-1 text-white/70 text-xs font-semibold bg-white/10 px-2 py-0.5 rounded-full">
@@ -298,7 +299,10 @@ export function MitraProfitLossSection({
                 </div>
                 {(summary.managementFeeAmount || 0) > 0 ? (
                   <div className="text-[10px] text-amber-300 font-normal mt-0.5">
-                    *Telah dipotong Mgmt Fee {summary.managementFeePct}% ({formatRp(summary.managementFeeAmount || 0)})
+                    {isConsolidated 
+                      ? `*Dipotong Mgmt Fee 3% hanya dari outlet belum BEP (${formatRp(summary.managementFeeAmount || 0)}) · Outlet BEP bebas fee`
+                      : `*Telah dipotong Mgmt Fee ${summary.managementFeePct}% (${formatRp(summary.managementFeeAmount || 0)})`
+                    }
                   </div>
                 ) : (
                   <div className="text-[10px] text-emerald-300 font-normal mt-0.5">
@@ -670,7 +674,7 @@ export function MitraProfitLossSection({
                     {(summary.managementFeeAmount || 0) > 0 ? (
                       <div className="flex justify-between py-1.5 px-2 border-b border-dashed border-amber-200 bg-amber-50/50 rounded-lg">
                         <span className="text-amber-800 font-medium">
-                          6. Management Fee Pusat {outletName.includes('Semua') ? `(${summary.managementFeePct}% Gabungan)` : `(${summary.managementFeePct}%)`}
+                          6. Management Fee Pusat {isConsolidated ? '(3% dari outlet belum BEP)' : `(${summary.managementFeePct}%)`}
                         </span>
                         <span className="text-amber-700 font-semibold">-{formatRp(summary.managementFeeAmount || 0)}</span>
                       </div>
@@ -695,16 +699,19 @@ export function MitraProfitLossSection({
                   {/* Step 4: Jatah Bagi Hasil Mitra */}
                   <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200/80 space-y-1">
                     <div className="flex justify-between font-bold text-amber-950">
-                      <span>Jatah Bagi Hasil Mitra ({profitSharingPct}%)</span>
+                      <span>{isConsolidated ? 'Total Bagi Hasil Mitra (Konsolidasi)' : `Jatah Bagi Hasil Mitra (${profitSharingPct}%)`}</span>
                       <span className="text-amber-700 text-sm">{formatRp(summary.mitraShare)}</span>
                     </div>
                     <p className="text-[11px] text-[#6E5A4E] font-normal leading-relaxed">
                       {summary.netProfit > 0 
-                        ? (profitSharingPct === 100 
-                            ? 'Outlet belum BEP: Keuntungan 100% dialokasikan untuk mitra demi percepatan pengembalian modal investasi.'
-                            : (profitSharingPct === 50 
-                                ? 'Outlet telah mencapai 100% BEP: Pembagian hasil proporsional 50% Mitra dan 50% Pusat.'
-                                : `Mitra berhak menerima ${profitSharingPct}% dari laba bersih outlet periode ini.`
+                        ? (isConsolidated
+                            ? 'Agregasi hasil seluruh outlet: 100% laba outlet belum BEP (percepatan modal) dan 50% laba outlet sudah BEP (proporsional 50:50).'
+                            : (profitSharingPct === 100 
+                                ? 'Outlet belum BEP: Keuntungan 100% dialokasikan untuk mitra demi percepatan pengembalian modal investasi.'
+                                : (profitSharingPct === 50 
+                                    ? 'Outlet telah mencapai 100% BEP: Pembagian hasil proporsional 50% Mitra dan 50% Pusat.'
+                                    : `Mitra berhak menerima ${profitSharingPct}% dari laba bersih outlet periode ini.`
+                                  )
                               )
                           )
                         : 'Outlet dalam posisi defisit pada periode ini, tidak ada kewajiban transfer bagi hasil.'

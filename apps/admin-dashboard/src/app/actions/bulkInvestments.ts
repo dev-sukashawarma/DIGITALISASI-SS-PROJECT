@@ -1,6 +1,6 @@
 'use server'
 
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { cookies } from 'next/headers'
 
 export async function bulkUpdateMitraInvestmentsAction(data: { outlet_id: string, nilai_investasi: number, omzet_historis: number }[]) {
@@ -11,8 +11,8 @@ export async function bulkUpdateMitraInvestmentsAction(data: { outlet_id: string
   })
 
   // Verify auth
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) throw new Error('Unauthorized')
 
   if (!data || data.length === 0) {
     throw new Error('Data kosong')

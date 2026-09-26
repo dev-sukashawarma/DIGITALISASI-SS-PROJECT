@@ -35,7 +35,7 @@ async function fetchStockAlerts(outletId: string): Promise<StockAlertItem[]> {
  * Stok menipis/kritis di outlet kasir, dari monitoring_view_crew (sama
  * threshold/status dengan papan monitoring apps/stok) — RLS membatasi hasil
  * ke outlet kasir sendiri. Sinyal `stok_berubah` dari database (channel privat
- * `stok:<outlet_id>`, migrasi 20300247000000) memicu refetch instan agar notif
+ * `stok:<outlet_id>`, migrasi 20260926154629) memicu refetch instan agar notif
  * tidak nunggu polling.
  *
  * Dulu pemicunya postgres_changes stok_balance: satu penjualan = ±18 baris, dan

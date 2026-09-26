@@ -680,7 +680,7 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         .map((s) => s.document_number || `SJ-${s.id.slice(0, 8).toUpperCase()}`)
         .join(', ');
       showToast(
-        `⛔ Tidak dapat memfinalisasi opname! Ada ${pendingSuratJalans.length} Surat Jalan (${sjDocs}) yang belum diverifikasi. Harap verifikasi serah terima barang di menu Distribusi terlebih dahulu agar stok tidak dobel!`,
+        `⛔ Tidak dapat memfinalisasi opname! Ada ${pendingSuratJalans.length} Surat Jalan (${sjDocs}) yang masih dalam status DIKIRIM (Transit). Silakan buka menu Distribusi -> tab TRANSIT lalu klik "Terima Barang" terlebih dahulu agar stok tidak dobel!`,
         'warning'
       );
       return;
@@ -791,28 +791,28 @@ export function OpnameForm({ outletId, createdBy, role }: { outletId: string; cr
         </div>
       )}
 
-      {/* Warning Banner: Surat Jalan Belum Diverifikasi */}
+      {/* Warning Banner: Surat Jalan Belum Diterima / Dalam Transit */}
       {pendingSuratJalans.length > 0 && (
         <div className="p-4 bg-amber-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm">
           <div className="flex items-start gap-3">
             <span className="text-2xl mt-0.5">⚠️</span>
             <div className="space-y-1">
               <h4 className="text-xs font-black uppercase tracking-wider text-amber-900 font-display">
-                Ada {pendingSuratJalans.length} Surat Jalan Belum Diverifikasi
+                Ada {pendingSuratJalans.length} Surat Jalan Dalam Transit (Belum Diterima)
               </h4>
               <p className="text-[11px] text-amber-800 leading-relaxed font-medium">
-                Terdapat kiriman barang dari Gudang Pusat yang masih berstatus <strong>dikirim</strong> ({pendingSuratJalans.map((s) => s.document_number || `SJ-${s.id.slice(0, 8).toUpperCase()}`).join(', ')}). 
-                <strong> Wajib verifikasi serah terima di menu Distribusi sebelum Opname</strong> agar stok fisik tidak tercatat ganda!
+                Terdapat kiriman barang dari Gudang Pusat yang masih berstatus <strong>dikirim / transit</strong> ({pendingSuratJalans.map((s) => s.document_number || `SJ-${s.id.slice(0, 8).toUpperCase()}`).join(', ')}). 
+                <strong> Buka tab TRANSIT di menu Distribusi lalu klik "Terima Barang" sebelum Opname</strong> agar stok fisik tidak tercatat ganda!
               </p>
             </div>
           </div>
           <a
-            href="/distribusi/surat-jalan"
+            href="/distribusi/surat-jalan?tab=dikirim"
             target="_blank"
             rel="noopener noreferrer"
             className="w-full sm:w-auto px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider text-center shrink-0 shadow-sm transition-all"
           >
-            Buka Surat Jalan ↗
+            Buka Tab Transit ↗
           </a>
         </div>
       )}

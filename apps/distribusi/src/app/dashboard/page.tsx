@@ -860,8 +860,8 @@ export default function DashboardPage() {
                     {[
                       { key: 'all', label: 'Semua' },
                       { key: 'draft', label: 'Draft' },
-                      { key: 'dikirim', label: 'Transit' },
-                      { key: 'belum_verif', label: 'Perlu Verif' },
+                      { key: 'dikirim', label: 'Transit (Terima Barang)' },
+                      { key: 'belum_verif', label: 'Verif Pusat' },
                       { key: 'selisih', label: 'Selisih' },
                       { key: 'selesai', label: 'Selesai' },
                     ].map((tab) => (

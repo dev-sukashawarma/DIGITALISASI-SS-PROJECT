@@ -225,10 +225,14 @@ export function useCreatePO() {
 export function useUpdatePOStatus() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: POStatus }) => {
+    mutationFn: async ({ id, status, catatan }: { id: string; status: POStatus; catatan?: string }) => {
+      const payload: { status: POStatus; catatan?: string } = { status }
+      if (catatan !== undefined) {
+        payload.catatan = catatan
+      }
       const { error } = await supabase
         .from('purchase_order')
-        .update({ status })
+        .update(payload)
         .eq('id', id)
       if (error) throw error
     },
@@ -327,10 +331,37 @@ export function useVerifikasiTerimaPO() {
     onSuccess: (_, { poId }) => {
       toast.success('Penerimaan barang berhasil dicatat')
       qc.invalidateQueries({ queryKey: ['purchase_orders'] })
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] })
       qc.invalidateQueries({ queryKey: ['purchase_order', poId] })
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] })
     },
     onError: (err: any) => {
       toast.error('Gagal memverifikasi penerimaan: ' + err.message)
     }
   })
 }
+
+export function useFinalisasiPO() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ poId, alasan }: { poId: string; alasan: string }) => {
+      const { data, error } = await supabase.rpc('finalisasi_tutup_po', {
+        p_po_id: poId,
+        p_alasan: alasan,
+      })
+      if (error) throw error
+      return data
+    },
+    onSuccess: (_, { poId }) => {
+      toast.success('PO berhasil difinalisasi menjadi Diterima Lengkap')
+      qc.invalidateQueries({ queryKey: ['purchase-orders'] })
+      qc.invalidateQueries({ queryKey: ['purchase_orders'] })
+      qc.invalidateQueries({ queryKey: ['purchase-order', poId] })
+      qc.invalidateQueries({ queryKey: ['purchase_order', poId] })
+    },
+    onError: (err: any) => {
+      toast.error('Gagal memfinalisasi PO: ' + err.message)
+    },
+  })
+}
+

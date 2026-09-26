@@ -2,10 +2,10 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { X, CheckCircle, PackageCheck, AlertCircle, Camera, FileText } from 'lucide-react'
+import { X, CheckCircle, PackageCheck, AlertCircle, Camera, FileText, ShieldAlert } from 'lucide-react'
 import { Spinner } from '@suka/design-system'
 import type { PurchaseOrder } from '@/hooks/usePurchaseOrder'
-import { useVerifikasiTerimaPO, useUploadInvoice, getInvoiceUrl } from '@/hooks/usePurchaseOrder'
+import { useVerifikasiTerimaPO, useFinalisasiPO, useUploadInvoice, getInvoiceUrl } from '@/hooks/usePurchaseOrder'
 import { rupiah } from '@/lib/format'
 import { createClient } from '@/lib/supabase'
 import { cekTerima, stokSetelahTerima, pesanWarning } from '@/lib/purchase/terimaGuard'
@@ -32,10 +32,13 @@ type ItemState = {
 
 export function VerifikasiTerimaModal({ po, onClose }: Props) {
   const verifikasi = useVerifikasiTerimaPO()
+  const finalisasiPO = useFinalisasiPO()
   const uploadInvoice = useUploadInvoice()
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [isFinalisasiSisa, setIsFinalisasiSisa] = useState(false)
+  const [alasanFinalisasi, setAlasanFinalisasi] = useState('')
   
   // Inisialisasi state sesuai default dari PO
   const [items, setItems] = useState<ItemState[]>(
@@ -129,6 +132,10 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
       )
       if (!lanjut) return
     }
+    if (isFinalisasiSisa && !alasanFinalisasi.trim()) {
+      alert('Alasan penutupan sisa PO wajib diisi.')
+      return
+    }
     setUploadingFile(true)
     try {
       if (invoiceFile) {
@@ -143,12 +150,19 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
         catatan: it.catatan
       }))
 
-      verifikasi.mutate({
+      await verifikasi.mutateAsync({
         poId: po.id,
         items: payloadItems
-      }, {
-        onSuccess: () => onClose()
       })
+
+      if (isFinalisasiSisa) {
+        await finalisasiPO.mutateAsync({
+          poId: po.id,
+          alasan: alasanFinalisasi.trim()
+        })
+      }
+
+      onClose()
     } catch (err) {
       console.error('Error during verification submit:', err)
     } finally {
@@ -156,7 +170,7 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
     }
   }
 
-  const isSaving = verifikasi.isPending || uploadingFile
+  const isSaving = verifikasi.isPending || uploadingFile || finalisasiPO.isPending
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 font-sans">
@@ -385,6 +399,43 @@ export function VerifikasiTerimaModal({ po, onClose }: Props) {
                 <Camera className="w-4 h-4 text-suka-orange" />
                 <span>{invoiceFile ? 'Ganti File Foto/Invoice' : 'Pilih / Ambil Foto Invoice'}</span>
               </button>
+            </div>
+
+            {/* Opsi Finalisasi / Pengiriman Terakhir */}
+            <div className="p-5 bg-amber-50/70 border border-amber-200/80 rounded-3xl space-y-3">
+              <label className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={isFinalisasiSisa}
+                  onChange={e => setIsFinalisasiSisa(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded text-suka-orange focus:ring-suka-orange/30 border-suka-brown/30 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-bold text-suka-brown flex items-center gap-1.5">
+                    <ShieldAlert className="w-4 h-4 text-amber-700 inline-block" />
+                    Tandai sebagai Pengiriman Terakhir (Tutup PO &amp; batalkan sisa barang yang belum tiba)
+                  </span>
+                  <span className="text-[11px] text-suka-brown/70 leading-relaxed block mt-0.5">
+                    Status PO akan langsung diselesaikan menjadi <strong>Diterima Lengkap</strong>. Sisa barang yang belum tiba <strong>TIDAK AKAN</strong> ditambahkan ke stok gudang.
+                  </span>
+                </div>
+              </label>
+
+              {isFinalisasiSisa && (
+                <div className="pt-2 animate-fade-in space-y-1.5 border-t border-amber-200/60 mt-2">
+                  <label className="block text-[11px] font-bold text-amber-900 uppercase tracking-wider">
+                    Alasan Penutupan Sisa PO <span className="text-rose-600">*</span>
+                  </label>
+                  <textarea
+                    value={alasanFinalisasi}
+                    onChange={e => setAlasanFinalisasi(e.target.value)}
+                    placeholder="Contoh: Stok supplier habis, sisa pesanan disepakati tidak dikirimkan lagi..."
+                    rows={2}
+                    className="w-full text-xs p-3 bg-white border border-amber-300 rounded-xl text-suka-brown placeholder:text-suka-brown/40 focus:outline-none focus:border-suka-orange font-medium"
+                    required
+                  />
+                </div>
+              )}
             </div>
           </form>
         </div>

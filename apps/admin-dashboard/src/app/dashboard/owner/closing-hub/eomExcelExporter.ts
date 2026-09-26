@@ -1,17 +1,24 @@
 // apps/admin-dashboard/src/app/dashboard/owner/closing-hub/eomExcelExporter.ts
 import * as XLSX from 'xlsx'
-import { DIVISION_FULL_REPORTS, OUTLETS_19_DATA } from './divisionReportsData'
+import { DIVISION_FULL_REPORTS, OUTLETS_19_DATA, getOutletsSummaryTotals } from './divisionReportsData'
 
 const formatNumber = (val: any) => {
   if (typeof val === 'number') return val
   return val
 }
 
+const MONTHS_MAP: Record<string, number> = {
+  Januari: 1, Februari: 2, Maret: 3, April: 4, Mei: 5, Juni: 6,
+  Juli: 7, Agustus: 8, September: 9, Oktober: 10, November: 11, Desember: 12,
+}
+
 export function exportDivisionToExcel(divisionKey: string, monthName: string, yearNum: number) {
   const report = DIVISION_FULL_REPORTS[divisionKey]
   if (!report) return
 
-  const docNumber = `${report.codePrefix}/${yearNum}/${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const monthNum = MONTHS_MAP[monthName] || (new Date().getMonth() + 1)
+  const monthPad = String(monthNum).padStart(2, '0')
+  const docNumber = `${report.codePrefix}/${yearNum}/${monthPad}/001`
   const wb = XLSX.utils.book_new()
 
   // Sheet 1: Dokumen Berita Acara & Rangkuman Utama
@@ -42,7 +49,7 @@ export function exportDivisionToExcel(divisionKey: string, monthName: string, ye
   const wsMain = XLSX.utils.aoa_to_sheet(headerData)
   XLSX.utils.book_append_sheet(wb, wsMain, 'Berita Acara')
 
-  // Sheet 2: Breakdown 19 Outlet Lengkap
+  // Sheet 2: Breakdown Outlet Lengkap
   const outletHeaders = [
     'No',
     'Nama Outlet Cabang',
@@ -76,24 +83,25 @@ export function exportDivisionToExcel(divisionKey: string, monthName: string, ye
   ])
 
   // Total Row
+  const totals = getOutletsSummaryTotals()
   const totalRow = [
     'TOTAL',
-    '19 Outlet Jaringan Suka Shawarma',
-    '-',
-    OUTLETS_19_DATA.reduce((a, b) => a + b.grossPos, 0),
-    OUTLETS_19_DATA.reduce((a, b) => a + b.bankDeposit, 0),
-    OUTLETS_19_DATA.reduce((a, b) => a + b.pettyCash, 0),
-    OUTLETS_19_DATA.reduce((a, b) => a + b.stockAsset, 0),
-    OUTLETS_19_DATA.reduce((a, b) => a + b.wasteRp, 0),
-    OUTLETS_19_DATA.reduce((a, b) => a + b.shrinkageRp, 0),
-    OUTLETS_19_DATA.reduce((a, b) => a + b.crewCount, 0),
+    `${OUTLETS_19_DATA.length} Outlet Jaringan Suka Shawarma`,
+    `${totals.internalOutletsCount} Internal + ${totals.mitraOutletsCount} Mitra`,
+    totals.grossPos,
+    totals.bankDeposit,
+    totals.pettyCash,
+    totals.stockAsset,
+    totals.wasteRp,
+    totals.shrinkageRp,
+    totals.crewCount,
     '98.4%',
-    OUTLETS_19_DATA.reduce((a, b) => a + b.payroll, 0),
+    totals.payroll,
     '100% CLOSED',
   ]
 
   const wsOutlets = XLSX.utils.aoa_to_sheet([
-    ['BREAKDOWN PERFORMA & KELENGKAPAN TUTUP BULAN PER OUTLET (19 CABANG)'],
+    [`BREAKDOWN PERFORMA & KELENGKAPAN TUTUP BULAN PER OUTLET (${OUTLETS_19_DATA.length} CABANG)`],
     [`Periode: ${monthName} ${yearNum}`],
     [],
     outletHeaders,
@@ -101,17 +109,23 @@ export function exportDivisionToExcel(divisionKey: string, monthName: string, ye
     totalRow,
   ])
 
-  XLSX.utils.book_append_sheet(wb, wsOutlets, 'Detail 19 Outlet')
+  XLSX.utils.book_append_sheet(wb, wsOutlets, 'Detail Outlet')
 
   // Unduh File Excel .xlsx
   XLSX.writeFile(wb, `Laporan_Lengkap_${divisionKey}_${monthName}_${yearNum}.xlsx`)
 }
 
 export function exportMasterConsolidatedToExcel(monthName: string, yearNum: number) {
+  const masterTotals = getOutletsSummaryTotals()
   const wb = XLSX.utils.book_new()
 
   // Sheet 1: Ringkasan Konsolidasi 3 Pilar
-  const pnlHeaders = ['Komponen Keuangan F&B', 'Konsolidasi Global (19 Cabang + HQ)', 'Outlet Internal (12 Cabang)', 'Outlet Mitra (7 Cabang)']
+  const pnlHeaders = [
+    'Komponen Keuangan F&B',
+    `Konsolidasi Global (${OUTLETS_19_DATA.length} Cabang + HQ)`,
+    `Outlet Internal (${masterTotals.internalOutletsCount} Cabang)`,
+    `Outlet Mitra (${masterTotals.mitraOutletsCount} Cabang)`,
+  ]
   const pnlRows = [
     ['[+] Gross Sales (Omzet Kotor)', 620500000, 395000000, 225500000],
     ['[-] Diskon & Potongan Platform', 48500000, 30800000, 17700000],
@@ -133,7 +147,7 @@ export function exportMasterConsolidatedToExcel(monthName: string, yearNum: numb
   ])
   XLSX.utils.book_append_sheet(wb, wsPnl, 'Laba Rugi 3 Pilar')
 
-  // Sheet 2: Breakdown 19 Outlet
+  // Sheet 2: Breakdown Outlet
   const outletHeaders = [
     'No',
     'Nama Outlet Cabang',
@@ -171,13 +185,13 @@ export function exportMasterConsolidatedToExcel(monthName: string, yearNum: numb
   })
 
   const wsOutlets = XLSX.utils.aoa_to_sheet([
-    ['PERFORMA KEUANGAN & PROFITABILITAS PER OUTLET (19 CABANG)'],
+    [`PERFORMA KEUANGAN & PROFITABILITAS PER OUTLET (${OUTLETS_19_DATA.length} CABANG)`],
     [`Periode: ${monthName} ${yearNum}`],
     [],
     outletHeaders,
     ...outletRows,
   ])
-  XLSX.utils.book_append_sheet(wb, wsOutlets, 'Performa 19 Outlet')
+  XLSX.utils.book_append_sheet(wb, wsOutlets, 'Performa Outlet')
 
   XLSX.writeFile(wb, `Laporan_Konsolidasi_Master_${monthName}_${yearNum}.xlsx`)
 }

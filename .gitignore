@@ -66,6 +66,7 @@ apps/*/public/workbox-*.js
 .claude/worktrees/
 .worktrees/
 plan_masa_depan/
+SukaReview/
 
 # Old setup scripts (now in DEPLOY-CPANEL.md)
 create-bucket.js

@@ -1,7 +1,7 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { canApproveOpname } from '@/lib/stok/approver'
 import { assertOutletAccessible, getAccessibleOutletIds, assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
 import { getEffectiveTodayWIB } from '@/lib/stok/opnameDate'
@@ -26,12 +26,12 @@ async function getAuthedClient() {
 }
 
 async function getCurrentStaffId(supabase: Awaited<ReturnType<typeof getAuthedClient>>): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     throw new Error('Unauthorized: No active user session found')
   }
   // outlet_staff.id = auth user id (sesuai pattern yang dipakai di waste.ts)
-  return user.id
+  return userId
 }
 
 /**

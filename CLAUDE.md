@@ -3185,6 +3185,31 @@ Waktu owner summary sesudah perubahan **452 ms** (sebelumnya 323 ms).
 - `updateTag`/`revalidateTag` Next.js **hanya di memori** — hilang saat restart. Karena itu kunci juga memuat **nomor generasi per tanggal** yang disimpan di disk (`lib/server/dayGenerations.ts`). Jalur baru yang mengubah data penjualan tanggal lampau **wajib** memanggil `bumpDayGenerations(dates)` (contoh: `api/ecommerce/import/route.ts`).
 - 🔴 **Belum diperbaiki:** `POST /api/ecommerce/import` memakai service role **tanpa cek login** — siapa pun bisa memasukkan penjualan & memotong stok.
 
+---
 
-**Last updated:** 2026-09-25  
+## Session 2026-09-26: Input HPP baru berlaku 19 Sep, perbaikan `menu_hpp_pada`, Shawarmie 1–18 Sep (DB)
+
+**Status:** ✅ LIVE di DB. Migration `20300246000000_menu_hpp_pada_tanpa_bocor_mundur` applied, terstempel & di-push (`94dff4cf`). Skrip data (arsip, sudah dijalankan — jangan diulang): `SS COGS SET/input-hpp-ss2-berlaku-19sep-2026-09-26.sql`, `shawarmie-hpp-1-18sep-2026-09-26.sql`, `tautkan-shawarmie-september-2026-09-26.sql`.
+
+### 1. HPP baru berlaku 19 Sep 2026
+Sumber: Excel owner "SS 2.0 HPP x 2026", sheet **UPDATED SS 2.0 INTERNAL** (sheet "SS 2.0 INTERNAL" = angka lama, persis sama dengan DB sebelum input). Lewat RPC `ubah_hpp_menu` atas nama akun **Admin Dev**: 31 menu (14 offline/Food Apps incl. Best Seller 2 → 20.675, 12 duplikat "Voucher Pamulang 10%", 11 SS Online 5 kunci, BOGO Ayam 7.546 / Sapi 7.799) + `menu_outlet_prices.hpp_override` = baru × 1,1 untuk 10 outlet mitra. Paket TikTok GO tak diisi — HPP komponennya = kolom paket Excel. Agustus COGS identik (owner 1.051.603.330, mitra 526.106.570). HPP/omzet owner turun 58,1% (1–18 Sep) → 54,3% (19–26 Sep).
+
+### 2. 🔴 Regresi `menu_hpp_pada` dari sesi lain — diperbaiki
+`20300245000000_optimize_mitra_orders_summary` (commit `7680e172`) menulis ulang `menu_hpp_pada` dengan `COALESCE(riwayat, menu_items)` → nilai lama yang KOSONG (hpp_override NULL, kunci kanal belum ada) diisi angka HARI INI = HPP baru bocor mundur (BOGO 7.546 sempat muncul di Agustus saat uji coba; tertangkap sebelum data ditulis). Diperbaiki `20300246000000`: menu ber-riwayat HANYA memakai riwayat; bentuk query cepat mereka dipertahankan (mitra ~0,4–0,5 dtk, owner ~0,4 dtk). Uji regresi `supabase/verifikasi/riwayat_hpp/t4_nilai_lama_kosong.sql` (gagal sebelum, lulus sesudah). **Siapa pun yang "mengoptimasi" `menu_hpp_pada` lagi wajib menjalankan t1–t4.**
+- ⚠️ Timestamp 2030 disengaja: `20300244000000` & `20300245000000` sudah jalan di produksi tapi **belum terstempel** di `schema_migrations` → `db push` akan memasang ulang versi rusak kecuali perbaikan terurut sesudahnya.
+
+### 3. Shawarmie Ayam/Sapi — dihentikan per 19 Sep 2026
+Menu lama terhapus ~16 Sep (penjualan Jul–16 Sep kehilangan `menu_item_id`, HPP 0; paket SHAWARMIE DUO VARIAN kehilangan komponen). Keputusan owner:
+- Paket SHAWARMIE DUO VARIAN **dinonaktifkan** (kasir + TikTok GO).
+- HPP Juli–Agustus **dibiarkan 0**.
+- Menu "Shawarmie Ayam"/"Shawarmie Sapi" dibuat ulang **NONAKTIF**, HPP 14.500 / 16.500 **berlaku 1 Sep, dikosongkan 19 Sep**, dipasang lagi sebagai isi paket Duo Varian.
+- **279 baris `order_items` September** ditautkan ke menu baru (Juli 413 & Agustus 559 sengaja tetap NULL). Pembalikan: set `menu_item_id = NULL` untuk 2 menu Shawarmie.
+- Efek COGS 1–18 Sep: owner +5.670.100 total (paket +418.500, penautan +5.251.600); mitra +2.201.100 (cocok nama, tak berubah oleh penautan).
+
+### 📝 Next
+- Redeploy admin-dashboard, finance, manager bila belum (halaman Profit/Rangkuman lama masih memakai HPP hari ini untuk seluruh September).
+- Kabari pemilik `20300244`/`20300245`: stempel `schema_migrations` & versi `menu_hpp_pada` mereka di berkas sudah digantikan `20300246000000`.
+
+
+**Last updated:** 2026-09-26  
 **Owner:** Dev Suka Shawarma

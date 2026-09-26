@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { canViewVendorPrices } from '@/lib/stok/navAccess'
 
 function makeServiceClient() {
@@ -28,15 +28,15 @@ async function getAuthedClient() {
 // (sama dengan menu), supaya menu & server tak bisa beda aturan.
 async function requirePriceReader(): Promise<void> {
   const authedClient = await getAuthedClient()
-  const { data: { user }, error: userError } = await authedClient.auth.getUser()
-  if (userError || !user) {
+  const userId = await getVerifiedUserId(authedClient)
+  if (!userId) {
     throw new Error('Unauthorized: Tidak ada sesi aktif pengguna')
   }
 
   const { data: staff, error } = await makeServiceClient()
     .from('outlet_staff')
     .select('role, status')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (error) throw new Error(error.message)

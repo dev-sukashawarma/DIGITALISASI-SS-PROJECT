@@ -1,5 +1,5 @@
 import { loadKasirData } from './loadKasirData'
-import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, isRunningShift } from './kasir'
+import { buildChannelBreakdown, buildCashRows, buildOutletBreakdown, isRunningShift, KONFIRMASI_SETORAN_MANUAL } from './kasir'
 import { buildPenerapHpp, buildMenuMaps, computeAnalytics } from '@/lib/posReport/compute'
 import { monthRange } from '@/lib/period'
 import { tanggalWib } from '@/lib/hpp/riwayatHpp'
@@ -30,7 +30,8 @@ export async function buildKasirReport(supabase: any, month: number, year: numbe
   const kpi = computeAnalytics({ ...ctx, orders: data.orders, shifts: data.shifts, selectedChannels: ['all'] })
   const channels = buildChannelBreakdown(data.orders, data.outlets, penerapHpp, cutoff)
   const today = tanggalWib(new Date())
-  const cash = buildCashRows(data.orders, data.shifts, data.deposits, data.outlets, ctx, today)
+  const konfirmasiSetoran = KONFIRMASI_SETORAN_MANUAL[from.slice(0, 7)] ?? null
+  const cash = buildCashRows(data.orders, data.shifts, data.deposits, data.outlets, ctx, today, konfirmasiSetoran?.sampaiTanggalJual ?? null)
 
   // Rincian untuk PDF: shift yang berselisih atau belum ditutup.
   const outletName = new Map(data.outlets.map((o: any) => [o.id, o.name]))
@@ -67,6 +68,7 @@ export async function buildKasirReport(supabase: any, month: number, year: numbe
     channels,
     cash,
     shiftDetails,
+    konfirmasiSetoran,
     // Rincian per outlet (untuk PDF) hanya dihitung bila diminta — payload besar.
     outletDetails: opts.outletDetail ? buildOutletBreakdown(data.orders, data.outlets, penerapHpp, cutoff) : undefined,
     outlets: data.outlets.map((o: any) => ({ id: o.id, name: o.name, type: o.type })),

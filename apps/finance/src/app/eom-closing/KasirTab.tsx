@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { useAuth } from '@suka/auth'
 import { rupiah } from '@/lib/format'
 import { itemFlags, type EomChannel, type CashOutletRow } from '@/lib/eom/kasir'
-import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH, KONFIRMASI_SETORAN_MANUAL } from './types'
+import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH } from './types'
 
 const tgl = (d: string) => {
   const [y, m, day] = d.split('-').map(Number)
@@ -86,7 +86,7 @@ export default function KasirTab({ month, year }: { month: number; year: number 
         </div>
       </div>
       <KpiSection d={d} />
-      <SetoranSection rows={d.cash} period={d.period} />
+      <SetoranSection rows={d.cash} period={d.period} konfirmasi={d.konfirmasiSetoran} />
       <ChannelSection d={d} />
     </div>
   )
@@ -134,9 +134,9 @@ function KpiSection({ d }: { d: KasirResponse }) {
   )
 }
 
-function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: KasirResponse['period'] }) {
-  const setoranDinilai = period.from >= SETORAN_WAJIB_MULAI
-  const konfirmasi = KONFIRMASI_SETORAN_MANUAL[period.from.slice(0, 7)]
+function SetoranSection({ rows, period, konfirmasi }: { rows: CashOutletRow[]; period: KasirResponse['period']; konfirmasi: KasirResponse['konfirmasiSetoran'] }) {
+  // Setoran dinilai bila pencatatan wajib sudah berlaku ATAU ada konfirmasi manual Admin Finance.
+  const setoranDinilai = period.from >= SETORAN_WAJIB_MULAI || !!konfirmasi
   const total = rows.reduce(
     (a, r) => ({
       omzetTunai: a.omzetTunai + r.omzetTunai,
@@ -160,12 +160,18 @@ function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: Kasir
         <p className="text-xs text-suka-gray-500 mt-0.5">
           Omzet tunai POS → uang laci saat tutup shift → setoran diterima kantor. Petty cash tidak ikut disetor.
         </p>
-        {!setoranDinilai && (
+        {konfirmasi ? (
+          <p className="mt-2 flex items-start gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg p-2">
+            <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
+            <span>
+              Setoran <b>{konfirmasi.label}</b> sudah <b>dikonfirmasi valid oleh Admin Finance</b> — dihitung sudah disetor.
+              Setoran penjualan sesudahnya diambil dari catatan tab Setoran.
+            </span>
+          </p>
+        ) : !setoranDinilai && (
           <p className="mt-2 flex items-start gap-2 text-xs text-sky-800 bg-sky-50 border border-sky-200 rounded-lg p-2">
             <Info size={14} className="shrink-0 mt-0.5" />
-            {konfirmasi
-              ? `Setoran s/d ${konfirmasi} sudah dikonfirmasi valid oleh Admin Finance. Setoran sesudahnya tercatat di kolom "Setoran diterima kantor". Mulai Oktober selisih setoran ikut dinilai otomatis.`
-              : 'Bulan ini dinilai dari tutup shift saja. Kolom setoran kantor hanya informasi; mulai Oktober selisih setoran ikut dinilai.'}
+            Bulan ini dinilai dari tutup shift saja. Kolom setoran kantor hanya informasi; mulai Oktober selisih setoran ikut dinilai.
           </p>
         )}
       </div>
@@ -179,7 +185,7 @@ function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: Kasir
               <th className="py-2.5 px-3 text-right">Selisih kasir</th>
               <th className="py-2.5 px-3 text-right" title="Omzet tunai POS di luar jam shift yang tercatat">Tunai di luar shift</th>
               <th className="py-2.5 px-3 text-center">Shift</th>
-              <th className="py-2.5 px-3 text-right">Setoran diterima kantor</th>
+              <th className="py-2.5 px-3 text-right">Sudah disetor</th>
               <th className="py-2.5 px-3 text-right">Belum disetor</th>
             </tr>
           </thead>
@@ -207,10 +213,18 @@ function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: Kasir
                     {r.shiftBerjalan > 0 && <span className="ml-1 text-suka-gray-400">({r.shiftBerjalan} berjalan)</span>}
                   </td>
                   <td className={`py-2.5 px-3 text-right ${setoranDinilai ? '' : 'text-suka-gray-400'}`}>
-                    {r.setoranCount > 0 ? `${rupiah(r.setoranDiterima)} (${r.setoranCount}x)` : '—'}
+                    {r.setoranDiterima > 0 ? rupiah(r.setoranDiterima) : '—'}
+                    {r.setoranTerkonfirmasi > 0 && (
+                      <div className="text-[10px] text-emerald-700 font-semibold">✓ {rupiah(r.setoranTerkonfirmasi)} dikonfirmasi</div>
+                    )}
+                    {r.setoranCount > 0 && (
+                      <div className="text-[10px] text-suka-gray-500">+ {rupiah(r.setoranSistem)} tercatat ({r.setoranCount}x)</div>
+                    )}
                   </td>
-                  <td className={`py-2.5 px-3 text-right ${setoranDinilai && Math.abs(belumSetor) > AMBANG_MERAH ? 'text-red-700 font-bold' : 'text-suka-gray-400'}`}>
-                    {setoranDinilai ? rupiah(belumSetor) : '—'}
+                  <td className={`py-2.5 px-3 text-right ${setoranDinilai && Math.abs(belumSetor) > AMBANG_MERAH ? 'text-red-700 font-bold' : ''}`}>
+                    {!setoranDinilai ? '—' : Math.abs(belumSetor) < 1
+                      ? <span className="text-emerald-700 font-bold">✓ Lunas</span>
+                      : rupiah(belumSetor)}
                   </td>
                 </tr>
               )

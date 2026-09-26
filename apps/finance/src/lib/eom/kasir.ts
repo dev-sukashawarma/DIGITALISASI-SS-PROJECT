@@ -226,6 +226,11 @@ export interface CashOutletRow {
   shiftExpected: number
   shiftFisik: number
   selisihKasir: number
+  /** Uang laci penjualan s/d tanggal konfirmasi manual Admin Finance (dianggap sudah disetor). */
+  setoranTerkonfirmasi: number
+  /** Setoran yang dicatat di tab Setoran (sesudah tanggal konfirmasi). */
+  setoranSistem: number
+  /** Total sudah disetor = terkonfirmasi + tercatat sistem. */
   setoranDiterima: number
   setoranCount: number
 }
@@ -238,6 +243,28 @@ export function isRunningShift(s: { status: string; start_time: string }, today:
 export interface DepositLite {
   outlet_id: string | null
   amount: number
+  sales_date?: string | null
+  occurred_at?: string | null
+}
+
+/**
+ * Setoran yang dikonfirmasi valid oleh Admin Finance di luar sistem (keputusan
+ * owner 2026-09-26: "setoran sampai hari ini sudah valid semua"). Setoran
+ * diserahkan H+1, jadi yang diterima s/d 26 Sep = penjualan s/d 25 Sep. Uang
+ * laci tutup shift s/d `sampaiTanggalJual` dihitung sudah disetor; sesudahnya
+ * diambil dari catatan tab Setoran.
+ */
+export const KONFIRMASI_SETORAN_MANUAL: Record<string, { sampaiTanggalJual: string; label: string }> = {
+  '2026-09': { sampaiTanggalJual: '2026-09-25', label: 'penjualan s/d 25 Sep 2026 (diterima kantor s/d 26 Sep)' },
+}
+
+/** Tanggal jual sebuah setoran: sales_date, atau (data lama) sehari sebelum dicatat. */
+function tanggalJualSetoran(d: DepositLite): string | null {
+  if (d.sales_date) return String(d.sales_date).slice(0, 10)
+  if (!d.occurred_at) return null
+  const x = new Date(`${tanggalWib(d.occurred_at)}T00:00:00Z`)
+  x.setUTCDate(x.getUTCDate() - 1)
+  return x.toISOString().slice(0, 10)
 }
 
 /**
@@ -252,6 +279,8 @@ export function buildCashRows(
   analyticsCtx: Omit<Parameters<typeof computeAnalytics>[0], 'orders' | 'shifts' | 'selectedChannels'>,
   /** Tanggal hari ini (YYYY-MM-DD, WIB). */
   today: string,
+  /** Uang laci penjualan s/d tanggal ini dihitung sudah disetor (konfirmasi manual). */
+  konfirmasiSampai: string | null = null,
 ): CashOutletRow[] {
   const ordersBy = new Map<string, OrderRow[]>()
   for (const o of orders) {
@@ -264,7 +293,13 @@ export function buildCashRows(
   for (const outlet of outlets) {
     const outletOrders = ordersBy.get(outlet.id) ?? []
     const outletShifts = shifts.filter((s) => s.outlet_id === outlet.id)
-    const outletDeposits = deposits.filter((d) => d.outlet_id === outlet.id)
+    // Setoran yang tanggal jualnya sudah tercakup konfirmasi manual tidak dihitung dua kali.
+    const outletDeposits = deposits.filter((d) => {
+      if (d.outlet_id !== outlet.id) return false
+      if (!konfirmasiSampai) return true
+      const tj = tanggalJualSetoran(d)
+      return !tj || tj > konfirmasiSampai
+    })
     if (outletOrders.length === 0 && outletShifts.length === 0 && outletDeposits.length === 0) continue
 
     const analytics = computeAnalytics({
@@ -276,6 +311,10 @@ export function buildCashRows(
     const closed = outletShifts.filter((s) => s.status === 'closed')
     const open = outletShifts.filter((s) => s.status !== 'closed')
     const berjalan = open.filter((s) => isRunningShift(s, today)).length
+    const terkonfirmasi = konfirmasiSampai
+      ? closed.filter((s) => tanggalWib(s.start_time) <= konfirmasiSampai).reduce((a, x) => a + (Number(x.actual_ending_cash) || 0), 0)
+      : 0
+    const sistem = outletDeposits.reduce((a, d) => a + (Number(d.amount) || 0), 0)
     rows.push({
       outletId: outlet.id,
       outletName: outlet.name,
@@ -287,7 +326,9 @@ export function buildCashRows(
       shiftExpected: closed.reduce((s, x) => s + (Number(x.expected_ending_cash) || 0), 0),
       shiftFisik: closed.reduce((s, x) => s + (Number(x.actual_ending_cash) || 0), 0),
       selisihKasir: closed.reduce((s, x) => s + (Number(x.variance) || 0), 0),
-      setoranDiterima: outletDeposits.reduce((s, d) => s + (Number(d.amount) || 0), 0),
+      setoranTerkonfirmasi: terkonfirmasi,
+      setoranSistem: sistem,
+      setoranDiterima: terkonfirmasi + sistem,
       setoranCount: outletDeposits.length,
     })
   }

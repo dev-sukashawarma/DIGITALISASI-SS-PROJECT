@@ -143,6 +143,17 @@ describe('buildCashRows', () => {
     expect(empang.shiftFisik).toBe(70000)
     expect(empang.selisihKasir).toBe(-5000)
     expect(empang.setoranDiterima).toBe(70000)
+    // Konfirmasi manual s/d 18 Sep: uang laci shift 18 Sep dihitung sudah disetor;
+    // setoran bertanggal jual <= 18 Sep tidak dihitung dua kali, sesudahnya ikut.
+    const deps = [
+      { outlet_id: 'o1', amount: 70000, sales_date: '2026-09-18' },
+      { outlet_id: 'o1', amount: 25000, sales_date: '2026-09-19' },
+    ]
+    const konf = buildCashRows(orders, shifts, deps, outlets, ctx, '2026-09-30', '2026-09-18').find((r) => r.outletId === 'o1')!
+    expect(konf.setoranTerkonfirmasi).toBe(70000)
+    expect(konf.setoranSistem).toBe(25000)
+    expect(konf.setoranDiterima).toBe(95000)
+    expect(konf.setoranCount).toBe(1)
     // outlet mitra tanpa order tunai tetap muncul (ada order GoFood)
     expect(rows.find((r) => r.outletId === 'o2')!.omzetTunai).toBe(0)
   })

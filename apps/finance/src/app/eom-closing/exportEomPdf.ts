@@ -8,7 +8,7 @@ import type { UserOptions } from 'jspdf-autotable'
 import { itemFlags } from '@/lib/eom/kasir'
 import type { OpexSummary, OpexGroup } from '@/lib/eom/opex'
 import { CATEGORY_META } from '@/lib/expenseCategories'
-import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH, KONFIRMASI_SETORAN_MANUAL } from './types'
+import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH } from './types'
 import type { EomOutlet } from '@/lib/eom/kasir'
 import { prepareBadgeImages, drawBadge } from './pdfChannelBadge'
 
@@ -214,11 +214,11 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
   y += 3
 
   // I. Setoran per outlet
-  const setoranDinilai = from >= SETORAN_WAJIB_MULAI
-  const konfirmasi = KONFIRMASI_SETORAN_MANUAL[from.slice(0, 7)]
+  const konfirmasi = d.konfirmasiSetoran
+  const setoranDinilai = from >= SETORAN_WAJIB_MULAI || !!konfirmasi
   y = sectionTitle(doc, y, 'I. Setoran Omzet Tunai per Outlet',
     `Omzet tunai POS -> uang laci saat tutup shift -> setoran diterima kantor. Petty cash tidak ikut disetor.${
-      konfirmasi ? ` Setoran s/d ${konfirmasi} telah dikonfirmasi VALID oleh Admin Finance; setoran sesudahnya tercatat di sistem (kolom Setoran diterima).` : ''
+      konfirmasi ? ` Setoran ${konfirmasi.label} telah DIKONFIRMASI VALID oleh Admin Finance dan dihitung sudah disetor; setoran penjualan sesudahnya diambil dari catatan tab Setoran.` : ''
     }${setoranDinilai ? '' : ' Selisih bulan ini dinilai dari tutup shift.'}`)
   const tot = { tunai: 0, fisik: 0, selisih: 0, luar: 0, setor: 0, belum: 0 }
   const cashBody = d.cash.map((r, i) => {
@@ -230,8 +230,10 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
       `${shortName(r.outletName)}${r.outletType === 'mitra' ? ' (Mitra)' : ''}`,
       rp(r.omzetTunai), rp(r.shiftFisik), rpSigned(r.selisihKasir), rpSigned(luar),
       `${r.shiftCount}${r.shiftBelumTutup ? ` (${r.shiftBelumTutup} blm tutup)` : ''}${r.shiftBerjalan ? ` (${r.shiftBerjalan} berjalan)` : ''}`,
-      r.setoranCount ? `${rp(r.setoranDiterima)} (${r.setoranCount}x)` : '-',
-      setoranDinilai ? rpSigned(r.shiftFisik - r.setoranDiterima) : '-',
+      r.setoranDiterima > 0
+        ? `${rp(r.setoranDiterima)}${r.setoranTerkonfirmasi > 0 && r.setoranSistem > 0 ? ` (konf. ${rp(r.setoranTerkonfirmasi)} + sistem ${rp(r.setoranSistem)})` : r.setoranTerkonfirmasi > 0 ? ' (dikonfirmasi)' : ''}`
+        : '-',
+      !setoranDinilai ? '-' : Math.abs(r.shiftFisik - r.setoranDiterima) < 1 ? 'LUNAS' : rpSigned(r.shiftFisik - r.setoranDiterima),
     ]
   })
   const merahIdx = new Set(d.cash.map((r, i) =>
@@ -240,12 +242,16 @@ export async function buildKasirEomPdf(d: KasirResponse, dicetakOleh: string) {
   autoTable(doc, {
     ...TABLE_BASE,
     startY: y,
-    head: [['No', 'Outlet', 'Omzet tunai POS', 'Uang laci (tutup shift)', 'Selisih kasir', 'Tunai di luar shift', 'Shift', 'Setoran diterima', 'Belum disetor']],
+    head: [['No', 'Outlet', 'Omzet tunai POS', 'Uang laci (tutup shift)', 'Selisih kasir', 'Tunai di luar shift', 'Shift', 'Sudah disetor', 'Belum disetor']],
     body: cashBody,
     foot: [['', 'TOTAL', rp(tot.tunai), rp(tot.fisik), rpSigned(tot.selisih), rpSigned(tot.luar), tot.belum ? `${tot.belum} blm tutup` : '', rp(tot.setor), setoranDinilai ? rpSigned(tot.fisik - tot.setor) : '-']],
     columnStyles: { 0: { halign: 'center', cellWidth: 8 }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'center' }, 7: { halign: 'right' }, 8: { halign: 'right' } },
     didParseCell: (h) => {
       if (h.section === 'body' && merahIdx.has(h.row.index)) h.cell.styles.fillColor = [254, 226, 226]
+      if (h.section === 'body' && h.column.index === 8 && String(h.cell.raw) === 'LUNAS') {
+        h.cell.styles.textColor = [4, 120, 87]
+        h.cell.styles.fontStyle = 'bold'
+      }
     },
   })
   y = lastY(doc) + 3

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient, getOutletStaff, accessibleApps } from '@suka/auth'
+import { createSupabaseServerClient, getOutletStaff, accessibleApps, getVerifiedUserId } from '@suka/auth'
 import type { AppName } from '@suka/auth'
 import LogoutButton from '@/components/LogoutButton'
 import AppTile from '@/components/AppTile'
@@ -55,10 +55,10 @@ export default async function LauncherPage() {
     },
   })
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) redirect('/')
 
-  const { staff, error } = await getOutletStaff(supabase, user.id)
+  const { staff, error } = await getOutletStaff(supabase, userId)
   if (error || !staff) redirect('/')
 
   // Check staff status

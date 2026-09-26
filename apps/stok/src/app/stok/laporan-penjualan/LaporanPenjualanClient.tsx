@@ -18,6 +18,7 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { refreshLaporanPenjualan } from '@/app/actions/laporanPenjualan';
 
 type DateRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
@@ -78,6 +79,8 @@ interface LaporanPenjualanClientProps {
     outletFilter: string;
   };
   staffName?: string;
+  /** Rentang tanggal WIB yang benar-benar ditampilkan — dipakai tombol Refresh. */
+  dateRange?: { from: string; to: string };
 }
 
 export default function LaporanPenjualanClient({
@@ -85,6 +88,7 @@ export default function LaporanPenjualanClient({
   outlets,
   initialFilters,
   staffName = 'Admin Kitchen',
+  dateRange,
 }: LaporanPenjualanClientProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -121,8 +125,17 @@ export default function LaporanPenjualanClient({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
+    // Data hari lampau disimpan dalam cache ringkasan harian (1 jam); tombol ini
+    // membuangnya untuk rentang yang sedang dilihat agar dihitung ulang dari database.
+    if (dateRange) {
+      try {
+        await refreshLaporanPenjualan(dateRange.from, dateRange.to);
+      } catch (err) {
+        console.error('Gagal membuang cache laporan:', err);
+      }
+    }
     router.refresh();
     setTimeout(() => setIsRefreshing(false), 800);
   };

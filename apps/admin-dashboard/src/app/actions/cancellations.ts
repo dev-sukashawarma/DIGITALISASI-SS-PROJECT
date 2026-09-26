@@ -1,15 +1,16 @@
 'use server'
 
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 
 
 export async function getVoidOrders() {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: userErr } = await supabase.auth.getUser()
+    const userId = await getVerifiedUserId(supabase)
 
-    if (userErr || !user) {
+    if (!userId) {
       return { success: false, data: [], error: 'Belum login' }
     }
 
@@ -17,7 +18,7 @@ export async function getVoidOrders() {
     const { data: staff, error: staffErr } = await supabase
       .from('outlet_staff')
       .select('id, role')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single()
 
     if (staffErr || !staff) {
@@ -31,7 +32,7 @@ export async function getVoidOrders() {
       const { data: staffOutlets, error: soErr } = await supabase
         .from('staff_outlets')
         .select('outlet_id')
-        .eq('staff_id', user.id)
+        .eq('staff_id', userId)
         
       if (!soErr && staffOutlets) {
         outletIds = staffOutlets.map(so => so.outlet_id)
@@ -111,9 +112,9 @@ export async function getVoidOrders() {
 export async function processVoidOrder(tokenId: string, action: 'approve' | 'reject') {
   try {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const userId = await getVerifiedUserId(supabase)
 
-    if (!user) return { success: false, error: 'Unauthorized' }
+    if (!userId) return { success: false, error: 'Unauthorized' }
 
     const serviceClient = createServiceClient()
 
@@ -132,7 +133,7 @@ export async function processVoidOrder(tokenId: string, action: 'approve' | 'rej
       return { success: false, error: 'Pengajuan sudah diproses' }
     }
 
-    if (request.requested_by === user.id) {
+    if (request.requested_by === userId) {
       return { success: false, error: 'Anda tidak bisa menyetujui pengajuan Anda sendiri' }
     }
 

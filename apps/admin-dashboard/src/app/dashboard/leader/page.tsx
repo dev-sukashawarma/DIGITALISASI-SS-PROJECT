@@ -1,14 +1,15 @@
 import React from 'react'
 import { LayoutDashboard, TrendingUp, Package, Banknote, ArrowRight, Store, Receipt, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import { formatRupiah } from '@/lib/validations'
 import Link from 'next/link'
 
 export default async function LeaderDashboardPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     return (
       <div className="p-6 max-w-lg mx-auto font-sans">
         <p className="text-red-600 font-medium">Sesi Anda telah berakhir. Silakan masuk kembali.</p>
@@ -23,7 +24,7 @@ export default async function LeaderDashboardPage() {
   const { data: staff } = await supabase
     .from('outlet_staff')
     .select('id, outlet_id, outlets!outlet_staff_outlet_id_fkey(name)')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   const pickName = (rel: unknown) =>

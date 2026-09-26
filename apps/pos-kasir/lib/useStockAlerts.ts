@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useId } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
+import { useSignalInvalidate } from '@suka/realtime'
 import { createClient } from '@/lib/supabase/client'
 
 export type StockStatus = 'below' | 'warning' | 'ok'
@@ -34,13 +34,16 @@ async function fetchStockAlerts(outletId: string): Promise<StockAlertItem[]> {
 /**
  * Stok menipis/kritis di outlet kasir, dari monitoring_view_crew (sama
  * threshold/status dengan papan monitoring apps/stok) — RLS membatasi hasil
- * ke outlet kasir sendiri. Realtime di stok_balance memicu refetch instan
- * agar notif tidak nunggu polling.
+ * ke outlet kasir sendiri. Sinyal `stok_berubah` dari database (channel privat
+ * `stok:<outlet_id>`, migrasi 20300247000000) memicu refetch instan agar notif
+ * tidak nunggu polling.
+ *
+ * Dulu pemicunya postgres_changes stok_balance: satu penjualan = ±18 baris, dan
+ * server memeriksa RLS tiap baris untuk tiap pelanggan. Sinyal dikirim sekali per
+ * outlet per transaksi. KasirNav dan StockMarquee memakai hook ini bersamaan;
+ * channel bertopik sama itu dibagi oleh @suka/realtime.
  */
 export function useStockAlerts(outletId: string | null) {
-  const queryClient = useQueryClient()
-  const instanceId = useId()
-
   const { data: items = [], isLoading } = useQuery({
     queryKey: ['stock-alerts', outletId],
     queryFn: () => fetchStockAlerts(outletId as string),
@@ -50,24 +53,12 @@ export function useStockAlerts(outletId: string | null) {
     retry: false,
   })
 
-  useEffect(() => {
-    if (!outletId) return
-    const supabase = createClient()
-    const channel = supabase
-      .channel(`stock_balance_${outletId}_${instanceId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'stok_balance', filter: `outlet_id=eq.${outletId}` },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['stock-alerts', outletId] })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [outletId, queryClient, instanceId])
+  useSignalInvalidate({
+    topic: `stok:${outletId}`,
+    event: 'stok_berubah',
+    enabled: !!outletId,
+    queryKeys: [['stock-alerts', outletId]],
+  })
 
   const criticalItems = items.filter((i) => i.status === 'below')
   const warningItems = items.filter((i) => i.status === 'warning')

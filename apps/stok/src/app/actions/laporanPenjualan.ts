@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { updateTag } from 'next/cache'
 import { createSupabaseServerClient } from '@suka/auth'
 import { clearLaporanTodayMemo, eachDate, jakartaDate, laporanDayTag } from '@/lib/laporanPenjualan/load'
+import { bumpDayGenerations } from '@/lib/server/dayGenerations'
 
 const ALLOWED_ROLES = ['kitchen', 'purchasing', 'admin', 'owner'] // sama dengan guard page.tsx
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -31,4 +32,7 @@ export async function refreshLaporanPenjualan(from: string, to: string) {
     return
   }
   for (const d of dates) updateTag(laporanDayTag(d))
+  // updateTag hanya di memori; generasi di disk menjaga pembuangan ini tetap
+  // berlaku setelah restart (cache disimpan permanen di volume).
+  bumpDayGenerations(dates)
 }

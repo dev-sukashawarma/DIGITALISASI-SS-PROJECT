@@ -1,11 +1,14 @@
 // Hanya untuk kode server (Server Component / Server Action).
 import { unstable_cache } from 'next/cache'
 import { summarizeDay, type DaySummary, type RawOrder } from './aggregate'
+import { dayGeneration } from '@/lib/server/dayGenerations'
 
 /* ── Pemuat ringkasan harian Laporan Penjualan, dengan cache ─────────────────
  *
  * - Hari lampau: ringkasan per tanggal di-cache 1 jam (tag per tanggal, bisa
  *   dibuang lewat tombol "Refresh" — lihat actions/laporanPenjualan.ts).
+ *   Cache ada di `.next/cache/fetch-cache`, yang di produksi dipasang sebagai
+ *   volume Coolify (`stok-next-fetch-cache`) sehingga tahan redeploy.
  * - Hari ini: selalu segar, dengan memo 20 detik agar beberapa pembuka halaman
  *   yang bersamaan berbagi satu pengambilan.
  * Ringkasan satu hari hanya puluhan KB, bukan ±1 MB order mentah.
@@ -56,6 +59,24 @@ async function fetchDayOrders(supabase: any, date: string): Promise<RawOrder[]> 
   }
 }
 
+/**
+ * Sidik jari pendek dari kode yang menentukan BENTUK isi cache. Cache disimpan
+ * permanen (volume Coolify, tahan redeploy): begitu kode pengambil/peringkas
+ * berubah, sidik jarinya berubah dan cache lama otomatis tak terpakai —
+ * tanpa bergantung pada developer ingat menaikkan versi kunci. (FNV-1a 32-bit.)
+ */
+function codeFingerprint(...parts: Array<string | number | ((...args: any[]) => any)>): string {
+  let h = 0x811c9dc5
+  const text = parts.map((p) => (typeof p === 'function' ? p.toString() : String(p))).join('\u0001')
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(36)
+}
+
+const DAY_CACHE_FINGERPRINT = codeFingerprint(ORDER_SELECT, fetchDayOrders, summarizeDay)
+
 const todayMemo = new Map<string, { at: number; promise: Promise<DaySummary> }>()
 
 async function mapLimit<T, R>(items: T[], limit: number, fn: (x: T) => Promise<R>): Promise<R[]> {
@@ -87,7 +108,9 @@ export async function loadDaySummaries(supabase: any, from: string, to: string):
     }
     return unstable_cache(
       async () => summarizeDay(await fetchDayOrders(supabase, date)),
-      ['laporan-penjualan-day-v1', date],
+      // dayGeneration: naik tiap tombol Refresh membuang tanggal ini, tersimpan
+      // di disk → pembuangan tetap berlaku sesudah restart/redeploy.
+      ['laporan-penjualan-day-v1', DAY_CACHE_FINGERPRINT, date, String(dayGeneration(date))],
       { revalidate: PAST_DAY_TTL_S, tags: ['laporan-penjualan', laporanDayTag(date)] }
     )()
   }

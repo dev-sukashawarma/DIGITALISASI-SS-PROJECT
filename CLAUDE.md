@@ -3183,6 +3183,7 @@ Waktu owner summary sesudah perubahan **452 ms** (sebelumnya 323 ms).
 - `.next/cache/fetch-cache` admin-dashboard dipasang sebagai **volume Coolify** (`admin-next-fetch-cache`).
 - Kunci cache memuat **sidik jari kode** pengambil data (`codeFingerprint`) → mengubah select/pemetaan otomatis membuat cache lama tak terpakai. Mengubah **bentuk hasil** tanpa menyentuh fungsi yang di-fingerprint → naikkan versi kunci (`pos-report-day-vN` / `owner-dashboard-chunk-vN`).
 - `updateTag`/`revalidateTag` Next.js **hanya di memori** — hilang saat restart. Karena itu kunci juga memuat **nomor generasi per tanggal** yang disimpan di disk (`lib/server/dayGenerations.ts`). Jalur baru yang mengubah data penjualan tanggal lampau **wajib** memanggil `bumpDayGenerations(dates)` (contoh: `api/ecommerce/import/route.ts`).
+- **App `stok` sama:** `/stok/laporan-penjualan` memakai ringkasan per hari ber-cache (`apps/stok/src/lib/laporanPenjualan/`), volume Coolify `stok-next-fetch-cache`, sidik jari kode + generasi per tanggal yang sama (`apps/stok/src/lib/server/dayGenerations.ts`, dibump tombol Refresh).
 - 🔴 **Belum diperbaiki:** `POST /api/ecommerce/import` memakai service role **tanpa cek login** — siapa pun bisa memasukkan penjualan & memotong stok.
 
 ---

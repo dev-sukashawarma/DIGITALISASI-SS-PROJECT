@@ -4,7 +4,7 @@
 import { cookies } from 'next/headers'
 import { unstable_cache, updateTag, revalidatePath } from 'next/cache'
 import { db } from '@/lib/supabase/server'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import type { PeriodFilterValue, SalesSource, SalesSummaryRow, Outlet } from '@/lib/types'
 import type { SalesHourlyRow } from '@/hooks/useSalesHourly'
 import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/owner/PettyCashReportView'
@@ -263,8 +263,8 @@ export async function getOwnerDashboardData(filter: PeriodFilterValue, outlets: 
 export async function revalidateOwnerDashboardCache(range?: { from: string; to: string }) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({ getAll: () => cookieStore.getAll(), setAll: () => {} })
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return
   // updateTag = kedaluwarsa seketika (bukan stale-while-revalidate), jadi
   // render berikutnya pasti membaca angka terbaru dari database.
   // Dengan `range`, hanya tanggal yang sedang dilihat yang dibuang — pengguna
@@ -292,8 +292,8 @@ export async function invalidateOwnerDashboardDays(dates: string[]) {
   // memaksa cache dihitung ulang.
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({ getAll: () => cookieStore.getAll(), setAll: () => {} })
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return
   const today = jakartaDate(new Date())
   const valid = Array.from(new Set(dates.filter((d) => isDateStr(d) && d < today))).slice(0, 31)
   for (const d of valid) updateTag(ownerDashboardDayTag(d))

@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { presetRange, previousRange, monthRange } from '@/lib/period'
 import { getOwnerDashboardData } from '@/app/actions/ownerDashboard'
 import { getAggregatedMenuSales } from '@/app/actions/menuSales'
@@ -18,8 +18,8 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   
   const sp = await searchParams
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     return <div className="p-8 text-center text-gray-500">Akses ditolak. Sesi tidak valid.</div>
   }
 
@@ -27,7 +27,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   const { data: staffData } = await supabase
     .from('outlet_staff')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   // Fail-closed. Dulu `|| !staffData` membuat baris outlet_staff yang gagal
@@ -44,7 +44,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   const { data: ownProfile } = await supabase
     .from('mitra_profiles')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
 
   if (ownProfile) {
@@ -76,7 +76,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
       
       profile = {
         id: 'preview-admin',
-        user_id: user.id,
+        user_id: userId,
         nama_mitra: 'Mitra Preview (Admin Mode)',
         outlet_ids: outletIds,
         bank_name: 'BCA',
@@ -204,7 +204,7 @@ export default async function MitraDashboardPage({ searchParams }: { searchParam
   const { data: sg } = await supabase
     .from('mitra_suggestions')
     .select('*')
-    .eq('user_id', profile.user_id || user.id)
+    .eq('user_id', profile.user_id || userId)
     .order('created_at', { ascending: false })
   if (sg) suggestionsList = sg
 

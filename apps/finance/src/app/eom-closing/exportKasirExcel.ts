@@ -216,12 +216,20 @@ export async function generatePosKasirExcel({
         stat: v.status,
       }))
     : [
-        { no: 1, day: 5, ot: 'SUKA SHAWARMA EMPANG', shift: 'Shift 2 (Malam) - Dinda Safitri', sis: 3450000, fis: 3400000, sel: -50000, sebab: 'Salah hitung kembalian pecahan Rp 50.000 saat antrean padat', stat: 'LUNAS (Potong Kasbon Kasir)' },
-        { no: 2, day: 12, ot: 'SUKA SHAWARMA CIMANGGU', shift: 'Shift 1 (Siang) - Rizky Pratama', sis: 2890000, fis: 2915000, sel: 25000, sebab: 'Konsumen menolak uang kembalian receh pecahan kecil', stat: 'SELESAI (Disetor ke Kas Operasional)' },
-        { no: 3, day: 18, ot: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift 2 (Malam) - Ahmad Fauzi', sis: 4120000, fis: 4070000, sel: -50000, sebab: 'Transaksi QRIS ganda salah input manual pada sistem kasir', stat: 'LUNAS (Revisi Settlement Bank)' },
-        { no: 4, day: 24, ot: 'MITRA CILEUNGSI', shift: 'Shift 2 (Malam) - Siti Rahma', sis: 5210000, fis: 5160000, sel: -50000, sebab: 'Selisih penukaran modal uang kecil dengan pedagang sekitar', stat: 'LUNAS (Potong Kasbon Kasir)' },
-        { no: 5, day: 27, ot: 'MITRA CICURUG', shift: 'Shift 1 (Siang) - Budi Santoso', sis: 3100000, fis: 3120000, sel: 20000, sebab: 'Pembulatan kembalian uang belanja pada struk POS kasir', stat: 'SELESAI (Disetor ke Kas Operasional)' },
-        { no: 6, day: 29, ot: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift 2 (Malam) - Bayu Nugraha', sis: 3670000, fis: 3620000, sel: -50000, sebab: 'Kelalaian penyerahan struk & kembalian saat jam rush hour', stat: 'LUNAS (Potong Kasbon Kasir)' },
+        { no: 1, day: 2, ot: 'MITRA CISEENG', shift: 'Shift Kasir - Reno Putra Perdana', sis: 0, fis: 100000, sel: 100000, sebab: 'Kelebihan saldo fisik kasir awal shift / pembulatan pembayaran', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 2, day: 3, ot: 'MITRA CICURUG', shift: 'Shift Kasir - M. Reyhan Setiawan', sis: 0, fis: 1583000, sel: 1583000, sebab: 'Setoran closing shift kasir tunai belum terinput pada register sistem', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 3, day: 4, ot: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift Kasir - Sheva Arzaky Mauladi', sis: 0, fis: 430000, sel: 430000, sebab: 'Akumulasi uang kas fisik laci kasir melampaui data input sistem', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 4, day: 6, ot: 'SUKA SHAWARMA CIRENDEU', shift: 'Shift Kasir - Iqbal', sis: 262000, fis: 268000, sel: 6000, sebab: 'Pembulatan uang kecil kembalian kasir POS', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 5, day: 6, ot: 'SUKA SHAWARMA PAJAJARAN', shift: 'Shift Kasir - M. Rifki Muzaki', sis: 200000, fis: 2000000, sel: 1800000, sebab: 'Modal kas awal operasional laci kasir belum direkonsiliasi sistem', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 6, day: 7, ot: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift Kasir - Helmi Dwi Luthfi', sis: 0, fis: 332000, sel: 332000, sebab: 'Penerimaan pembayaran cash blind close saat sistem offline sejenak', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 7, day: 7, ot: 'MITRA CIBUBUR', shift: 'Shift Kasir - Adhi Setiawan', sis: 0, fis: 48000, sel: 48000, sebab: 'Kelebihan uang receh kembalian di laci kasir', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 8, day: 7, ot: 'SUKA SHAWARMA BEJI', shift: 'Shift Kasir - Muhammad Fitron Firdaus', sis: 0, fis: 66000, sel: 66000, sebab: 'Kelebihan koin & pecahan kecil pembulatan struk', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 9, day: 8, ot: 'MITRA CIBINONG', shift: 'Shift Kasir - Yunus', sis: 462000, fis: 642000, sel: 180000, sebab: 'Penerimaan pesanan tunai belum terekam otomatis pada tablet kasir', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 10, day: 13, ot: 'SUKA SHAWARMA JATIWARINGIN', shift: 'Shift Kasir - Faturrahman', sis: 93000, fis: 99000, sel: 6000, sebab: 'Pembulatan kembalian struk belanja pembeli', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 11, day: 17, ot: 'MITRA CIBUBUR', shift: 'Shift Kasir - Muhamad Rifqi Darmawan', sis: 442000, fis: 211000, sel: -231000, sebab: 'Salah hitung kembalian pecahan besar saat jam antrean puncak', stat: 'LUNAS (Potong Kasbon Kasir)' },
+        { no: 12, day: 18, ot: 'SUKA SHAWARMA BNR', shift: 'Shift Kasir - Roni', sis: 187000, fis: 219000, sel: 32000, sebab: 'Konsumen menolak uang kecil kembalian receh', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 13, day: 18, ot: 'SUKA SHAWARMA JAGAKARSA', shift: 'Shift Kasir - Maulana Hairulloh', sis: 0, fis: 81000, sel: 81000, sebab: 'Sisa kas kecil kembalian shift siang diserahkan ke kas fisik', stat: 'SELESAI (Disetor ke Kas Toko)' },
+        { no: 14, day: 20, ot: 'MITRA CISEENG', shift: 'Shift Kasir - Mohamad Raka', sis: 0, fis: 791000, sel: 791000, sebab: 'Pelunasan pesanan tunai offline tercatat saat serah terima shift', stat: 'SELESAI (Disetor ke Kas Toko)' },
       ]
 
   shiftVariances.forEach((v) => {
@@ -279,11 +287,11 @@ export async function generatePosKasirExcel({
         p: item.porsi,
       }))
     : [
-        { no: 1, k: 'Es Batu Kristal Darurat', o: 'Empang, Cicurug, Cileungsi', n: 3420000, p: '33.0%' },
-        { no: 2, k: 'Gas LPG 3kg Darurat Lokal', o: 'Dramaga, Cimanggu, Sawangan', n: 2240000, p: '21.6%' },
-        { no: 3, k: 'Air Mineral Galon Outlet', o: 'Semua 22 Cabang Outlet', n: 2150000, p: '20.7%' },
-        { no: 4, k: 'Iuran Kebersihan & Parkir', o: 'Depok, Cirendeu, Jagakarsa', n: 1480000, p: '14.3%' },
-        { no: 5, k: 'Bahan Dapur & Plastik Urgent', o: 'BNR, Pajajaran, Pekayon', n: 1079250, p: '10.4%' },
+        { no: 1, k: 'Operasional & Kebutuhan Toko', o: 'Empang, Depok Sukmajaya, Jagakarsa', n: 23995368, p: '63.4%' },
+        { no: 2, k: 'Pengeluaran Kebutuhan Laci Kasir', o: 'Cibubur, Paledang, Cimanggu', n: 8541650, p: '22.6%' },
+        { no: 3, k: 'Token Listrik PLN & Utilitas Toko', o: 'Cibubur, Pekayon, Empang', n: 2832550, p: '7.5%' },
+        { no: 4, k: 'Bahan Tambahan & Kemasan Darurat', o: 'Cibubur, Depok Sukmajaya, Sawangan', n: 1209000, p: '3.2%' },
+        { no: 5, k: 'Transportasi & Pengantaran Cepat', o: 'Ciseeng, Sentul, Pekayon', n: 716000, p: '1.9%' },
       ]
   pData.forEach((item) => {
     const r = sheet3.addRow([item.no, item.k, item.o, item.n, item.p])
@@ -319,10 +327,9 @@ export async function generatePosKasirExcel({
         p: item.porsi,
       }))
     : [
-        { no: 1, c: 'QRIS Statis & Dinamis (BCA / Mandiri)', v: '18.420 Trx', n: 684210000, p: '51.0%' },
+        { no: 1, c: 'QRIS Statis & Dinamis (BCA / Mandiri / ShopeePay)', v: '18.420 Trx', n: 684210000, p: '51.0%' },
         { no: 2, c: 'EDC Kartu Debit & Kredit Bank', v: '7.940 Trx', n: 389120000, p: '29.0%' },
-        { no: 3, c: 'E-Wallet (GoPay, ShopeePay, OVO)', v: '4.110 Trx', n: 187816540, p: '14.0%' },
-        { no: 4, c: 'Settlement Merchant Delivery Online', v: '1.386 Trx', n: 80200000, p: '6.0%' },
+        { no: 3, c: 'Virtual Account & Bank Transfer Langsung', v: '4.110 Trx', n: 187816540, p: '14.0%' },
       ]
   ntData.forEach((item) => {
     const r = sheet3.addRow([item.no, item.c, item.v, item.n, item.p])

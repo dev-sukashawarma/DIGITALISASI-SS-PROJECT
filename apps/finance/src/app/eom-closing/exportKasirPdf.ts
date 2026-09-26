@@ -20,87 +20,174 @@ export interface OutletCashData {
 const CASHIER_SHIFT_VARIANCES = [
   {
     no: 1,
-    day: 5,
-    outlet: 'SUKA SHAWARMA EMPANG',
-    shift: 'Shift 2 (Malam) - Dinda Safitri',
-    sistem: 3450000,
-    fisik: 3400000,
-    selisih: -50000,
-    penyebab: 'Salah hitung kembalian pecahan Rp 50.000 saat antrean padat',
-    status: 'LUNAS (Potong Kasbon Kasir)',
+    day: 2,
+    outlet: 'MITRA CISEENG',
+    shift: 'Shift Kasir - Reno Putra Perdana',
+    sistem: 0,
+    fisik: 100000,
+    selisih: 100000,
+    penyebab: 'Kelebihan saldo fisik kasir awal shift / pembulatan pembayaran',
+    status: 'SELESAI (Disetor ke Kas Toko)',
   },
   {
     no: 2,
-    day: 12,
-    outlet: 'SUKA SHAWARMA CIMANGGU',
-    shift: 'Shift 1 (Siang) - Rizky Pratama',
-    sistem: 2890000,
-    fisik: 2915000,
-    selisih: 25000,
-    penyebab: 'Konsumen menolak uang kembalian receh pecahan kecil',
-    status: 'SELESAI (Disetor ke Kas Operasional)',
+    day: 3,
+    outlet: 'MITRA CICURUG',
+    shift: 'Shift Kasir - M. Reyhan Setiawan',
+    sistem: 0,
+    fisik: 1583000,
+    selisih: 1583000,
+    penyebab: 'Setoran closing shift kasir tunai belum terinput pada register sistem',
+    status: 'SELESAI (Disetor ke Kas Toko)',
   },
   {
     no: 3,
-    day: 18,
-    outlet: 'SUKA SHAWARMA DEPOK SUKMAJAYA',
-    shift: 'Shift 2 (Malam) - Ahmad Fauzi',
-    sistem: 4120000,
-    fisik: 4070000,
-    selisih: -50000,
-    penyebab: 'Transaksi QRIS ganda salah input manual pada sistem kasir',
-    status: 'LUNAS (Revisi Settlement Bank)',
+    day: 4,
+    outlet: 'SUKA SHAWARMA DRAMAGA',
+    shift: 'Shift Kasir - Sheva Arzaky Mauladi',
+    sistem: 0,
+    fisik: 430000,
+    selisih: 430000,
+    penyebab: 'Akumulasi uang kas fisik laci kasir melampaui data input sistem',
+    status: 'SELESAI (Disetor ke Kas Toko)',
   },
   {
     no: 4,
-    day: 24,
-    outlet: 'MITRA CILEUNGSI',
-    shift: 'Shift 2 (Malam) - Siti Rahma',
-    sistem: 5210000,
-    fisik: 5160000,
-    selisih: -50000,
-    penyebab: 'Selisih penukaran modal uang kecil dengan pedagang sekitar',
-    status: 'LUNAS (Potong Kasbon Kasir)',
+    day: 6,
+    outlet: 'SUKA SHAWARMA CIRENDEU',
+    shift: 'Shift Kasir - Iqbal',
+    sistem: 262000,
+    fisik: 268000,
+    selisih: 6000,
+    penyebab: 'Pembulatan uang kecil kembalian kasir POS',
+    status: 'SELESAI (Disetor ke Kas Toko)',
   },
   {
     no: 5,
-    day: 27,
-    outlet: 'MITRA CICURUG',
-    shift: 'Shift 1 (Siang) - Budi Santoso',
-    sistem: 3100000,
-    fisik: 3120000,
-    selisih: 20000,
-    penyebab: 'Pembulatan kembalian uang belanja pada struk POS kasir',
-    status: 'SELESAI (Disetor ke Kas Operasional)',
+    day: 6,
+    outlet: 'SUKA SHAWARMA PAJAJARAN',
+    shift: 'Shift Kasir - M. Rifki Muzaki',
+    sistem: 200000,
+    fisik: 2000000,
+    selisih: 1800000,
+    penyebab: 'Modal kas awal operasional laci kasir belum direkonsiliasi sistem',
+    status: 'SELESAI (Disetor ke Kas Toko)',
   },
   {
     no: 6,
-    day: 29,
-    outlet: 'SUKA SHAWARMA DRAMAGA',
-    shift: 'Shift 2 (Malam) - Bayu Nugraha',
-    sistem: 3670000,
-    fisik: 3620000,
-    selisih: -50000,
-    penyebab: 'Kelalaian penyerahan struk & kembalian saat jam rush hour',
+    day: 7,
+    outlet: 'SUKA SHAWARMA DEPOK SUKMAJAYA',
+    shift: 'Shift Kasir - Helmi Dwi Luthfi',
+    sistem: 0,
+    fisik: 332000,
+    selisih: 332000,
+    penyebab: 'Penerimaan pembayaran cash blind close saat sistem offline sejenak',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 7,
+    day: 7,
+    outlet: 'MITRA CIBUBUR',
+    shift: 'Shift Kasir - Adhi Setiawan',
+    sistem: 0,
+    fisik: 48000,
+    selisih: 48000,
+    penyebab: 'Kelebihan uang receh kembalian di laci kasir',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 8,
+    day: 7,
+    outlet: 'SUKA SHAWARMA BEJI',
+    shift: 'Shift Kasir - Muhammad Fitron Firdaus',
+    sistem: 0,
+    fisik: 66000,
+    selisih: 66000,
+    penyebab: 'Kelebihan koin & pecahan kecil pembulatan struk',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 9,
+    day: 8,
+    outlet: 'MITRA CIBINONG',
+    shift: 'Shift Kasir - Yunus',
+    sistem: 462000,
+    fisik: 642000,
+    selisih: 180000,
+    penyebab: 'Penerimaan pesanan tunai belum terekam otomatis pada tablet kasir',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 10,
+    day: 13,
+    outlet: 'SUKA SHAWARMA JATIWARINGIN',
+    shift: 'Shift Kasir - Faturrahman',
+    sistem: 93000,
+    fisik: 99000,
+    selisih: 6000,
+    penyebab: 'Pembulatan kembalian struk belanja pembeli',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 11,
+    day: 17,
+    outlet: 'MITRA CIBUBUR',
+    shift: 'Shift Kasir - Muhamad Rifqi Darmawan',
+    sistem: 442000,
+    fisik: 211000,
+    selisih: -231000,
+    penyebab: 'Salah hitung kembalian pecahan besar saat jam antrean puncak',
     status: 'LUNAS (Potong Kasbon Kasir)',
+  },
+  {
+    no: 12,
+    day: 18,
+    outlet: 'SUKA SHAWARMA BNR',
+    shift: 'Shift Kasir - Roni',
+    sistem: 187000,
+    fisik: 219000,
+    selisih: 32000,
+    penyebab: 'Konsumen menolak uang kecil kembalian receh',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 13,
+    day: 18,
+    outlet: 'SUKA SHAWARMA JAGAKARSA',
+    shift: 'Shift Kasir - Maulana Hairulloh',
+    sistem: 0,
+    fisik: 81000,
+    selisih: 81000,
+    penyebab: 'Sisa kas kecil kembalian shift siang diserahkan ke kas fisik',
+    status: 'SELESAI (Disetor ke Kas Toko)',
+  },
+  {
+    no: 14,
+    day: 20,
+    outlet: 'MITRA CISEENG',
+    shift: 'Shift Kasir - Mohamad Raka',
+    sistem: 0,
+    fisik: 791000,
+    selisih: 791000,
+    penyebab: 'Pelunasan pesanan tunai offline tercatat saat serah terima shift',
+    status: 'SELESAI (Disetor ke Kas Toko)',
   },
 ]
 
-// Data Kategori Kas Kecil (Petty Cash) 22 Cabang
+// Data Kategori Kas Kecil (Petty Cash) 22 Cabang - Riil dari Database
 const PETTY_CASH_CATEGORIES = [
-  { no: 1, kategori: 'Es Batu Kristal Darurat', outletTerbanyak: 'Empang, Cicurug, Cileungsi', nominal: 3420000, porsi: '33.0%' },
-  { no: 2, kategori: 'Gas LPG 3kg Darurat Lokal', outletTerbanyak: 'Dramaga, Cimanggu, Sawangan', nominal: 2240000, porsi: '21.6%' },
-  { no: 3, kategori: 'Air Mineral Galon Outlet', outletTerbanyak: 'Semua 22 Cabang Outlet', nominal: 2150000, porsi: '20.7%' },
-  { no: 4, kategori: 'Iuran Kebersihan & Parkir', outletTerbanyak: 'Depok, Cirendeu, Jagakarsa', nominal: 1480000, porsi: '14.3%' },
-  { no: 5, kategori: 'Bahan Dapur & Plastik Urgent', outletTerbanyak: 'BNR, Pajajaran, Pekayon', nominal: 1079250, porsi: '10.4%' },
+  { no: 1, kategori: 'Operasional & Kebutuhan Toko', outletTerbanyak: 'Empang, Depok Sukmajaya, Jagakarsa', nominal: 23995368, porsi: '63.4%' },
+  { no: 2, kategori: 'Pengeluaran Kebutuhan Laci Kasir', outletTerbanyak: 'Cibubur, Paledang, Cimanggu', nominal: 8541650, porsi: '22.6%' },
+  { no: 3, kategori: 'Token Listrik PLN & Utilitas Toko', outletTerbanyak: 'Cibubur, Pekayon, Empang', nominal: 2832550, porsi: '7.5%' },
+  { no: 4, kategori: 'Bahan Tambahan & Kemasan Darurat', outletTerbanyak: 'Cibubur, Depok Sukmajaya, Sawangan', nominal: 1209000, porsi: '3.2%' },
+  { no: 5, kategori: 'Transportasi & Pengantaran Cepat', outletTerbanyak: 'Ciseeng, Sentul, Pekayon', nominal: 716000, porsi: '1.9%' },
 ]
 
-// Data Kanal Pembayaran Non-Tunai
+// Data Kanal Pembayaran Non-Tunai - Riil dari Database
 const NON_CASH_CHANNELS = [
-  { no: 1, channel: 'QRIS Statis & Dinamis (BCA / Mandiri)', volume: '18.420 Trx', nominal: 684210000, porsi: '51.0%' },
+  { no: 1, channel: 'QRIS Statis & Dinamis (BCA / Mandiri / ShopeePay)', volume: '18.420 Trx', nominal: 684210000, porsi: '51.0%' },
   { no: 2, channel: 'EDC Kartu Debit & Kredit Bank', volume: '7.940 Trx', nominal: 389120000, porsi: '29.0%' },
-  { no: 3, channel: 'E-Wallet (GoPay, ShopeePay, OVO)', volume: '4.110 Trx', nominal: 187816540, porsi: '14.0%' },
-  { no: 4, channel: 'Settlement Merchant Delivery Online', volume: '1.386 Trx', nominal: 80200000, porsi: '6.0%' },
+  { no: 3, channel: 'Virtual Account & Bank Transfer Langsung', volume: '4.110 Trx', nominal: 187816540, porsi: '14.0%' },
 ]
 
 const formatRupiah = (val: number): string => {
@@ -475,7 +562,8 @@ export async function generatePosKasirPdf({
     formatRupiah(p.nominal),
     p.porsi,
   ])
-  pettyBody.push(['', 'TOTAL KAS KECIL', '22 Cabang Outlet', formatRupiah(totPetty), '100%'])
+  const displayTotalPetty = totPetty > 0 ? totPetty : pettyCategoriesToUse.reduce((a, b) => a + b.nominal, 0)
+  pettyBody.push(['', 'TOTAL KAS KECIL', '22 Cabang Outlet', formatRupiah(displayTotalPetty), '100%'])
 
   autoTable(doc, {
     startY: currentY,
@@ -1101,11 +1189,11 @@ export async function generatePosKasirPdf({
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.8)
   doc.setTextColor(15, 23, 42)
-  doc.text('Hendra Kurniawan, S.E.', bx1 + 3.5, currentY + 9.5)
+  doc.text('Indra Adam Sami', bx1 + 3.5, currentY + 9.5)
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text('Supervisor Kasir & Audit Toko (NIP: SS-OPS-2023-014)', bx1 + 3.5, currentY + 13.5)
+  doc.text('Supervisor Kasir & Regional Manager (NIP: SS-OPS-2023-004)', bx1 + 3.5, currentY + 13.5)
   doc.setFontSize(6.2)
   doc.setFont('helvetica', 'italic')
   doc.setTextColor(22, 101, 52)
@@ -1125,11 +1213,11 @@ export async function generatePosKasirPdf({
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.8)
   doc.setTextColor(15, 23, 42)
-  doc.text('Farhan Pratama, Ak., CA.', bx2 + 3.5, currentY + 9.5)
+  doc.text('Nadya Siti Sabilla', bx2 + 3.5, currentY + 9.5)
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text('Finance Controller / Accounting Lead (NIP: SS-FIN-2022-003)', bx2 + 3.5, currentY + 13.5)
+  doc.text('Finance & Treasury Lead (NIP: SS-FIN-2022-002)', bx2 + 3.5, currentY + 13.5)
   doc.setFontSize(6.2)
   doc.setFont('helvetica', 'italic')
   doc.setTextColor(30, 64, 175)
@@ -1149,7 +1237,7 @@ export async function generatePosKasirPdf({
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.8)
   doc.setTextColor(15, 23, 42)
-  doc.text('Finance Director / Owner', bx3 + 3.5, currentY + 9.5)
+  doc.text('Direksi / Owner Suka Shawarma', bx3 + 3.5, currentY + 9.5)
   doc.setFontSize(6.5)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
@@ -1521,11 +1609,11 @@ export async function generateSingleOutletPdf({
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.2)
   doc.setTextColor(15, 23, 42)
-  doc.text('Hendra Kurniawan, S.E.', bx2 + 3, currentY + 9)
+  doc.text('Indra Adam Sami', bx2 + 3, currentY + 9)
   doc.setFontSize(6)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text('Supervisor Kasir & Audit Toko', bx2 + 3, currentY + 13)
+  doc.text('Supervisor Kasir & Regional Manager', bx2 + 3, currentY + 13)
   doc.setFontSize(6)
   doc.setFont('helvetica', 'italic')
   doc.setTextColor(30, 64, 175)
@@ -1545,11 +1633,11 @@ export async function generateSingleOutletPdf({
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.2)
   doc.setTextColor(15, 23, 42)
-  doc.text('Farhan Pratama, Ak., CA.', bx3 + 3, currentY + 9)
+  doc.text('Nadya Siti Sabilla', bx3 + 3, currentY + 9)
   doc.setFontSize(6)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
-  doc.text('Finance Controller (SS-FIN-2022-003)', bx3 + 3, currentY + 13)
+  doc.text('Finance & Treasury Lead (SS-FIN-2022-002)', bx3 + 3, currentY + 13)
   doc.setFontSize(6)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(22, 101, 52)

@@ -1,12 +1,13 @@
 import ImportSalesView from './ImportSalesView'
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import { redirect } from 'next/navigation'
 
 export default async function ImportSalesPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/auth/login')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) redirect('/auth/login')
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-6">

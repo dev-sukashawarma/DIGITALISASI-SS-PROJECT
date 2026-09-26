@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { assertOutletAccessible } from '@/lib/stok/outletAccess'
 
 const THRESHOLD_EDITOR_ROLES = ['spv', 'leader', 'regional_manager', 'admin', 'owner', 'kitchen', 'purchasing', 'developer'] as const
@@ -34,11 +34,10 @@ async function getAuthedClient() {
  */
 async function requireThresholdEditor(outletId: string): Promise<string> {
   const authedClient = await getAuthedClient()
-  const { data: { user }, error: userError } = await authedClient.auth.getUser()
-  if (userError || !user) {
+  const userId = await getVerifiedUserId(authedClient)
+  if (!userId) {
     throw new Error('Unauthorized: No active user session found')
   }
-  const userId = user.id
 
   const { data: staff, error } = await makeServiceClient()
     .from('outlet_staff')

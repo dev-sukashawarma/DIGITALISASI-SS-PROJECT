@@ -1,5 +1,5 @@
 import type { Config } from 'tailwindcss'
-import { COLORS, TYPOGRAPHY, SPACING } from '@suka/design-system'
+import { COLORS, TYPOGRAPHY, SPACING } from '../../packages/design-system/src/tokens'
 
 export default {
   content: [

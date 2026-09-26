@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 // Buku Panduan adalah konten bantuan publik — dibaca lewat service client agar
 // selalu tampil untuk semua pengguna (termasuk yang belum login), tidak terhalang
@@ -27,10 +28,10 @@ export async function POST(request: Request) {
     const auth = await createClient()
 
     // Verify admin (pakai user client untuk baca sesi & role)
-    const { data: { user } } = await auth.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = await getVerifiedUserId(auth)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', userId).single()
     if (profile?.role !== 'admin' && profile?.role !== 'developer') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
@@ -56,10 +57,10 @@ export async function PUT(request: Request) {
     const auth = await createClient()
 
     // Verify admin (pakai user client untuk baca sesi & role)
-    const { data: { user } } = await auth.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = await getVerifiedUserId(auth)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', userId).single()
     if (profile?.role !== 'admin' && profile?.role !== 'developer') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await request.json()
@@ -86,10 +87,10 @@ export async function DELETE(request: Request) {
     const auth = await createClient()
 
     // Verify admin (pakai user client untuk baca sesi & role)
-    const { data: { user } } = await auth.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const userId = await getVerifiedUserId(auth)
+    if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', user.id).single()
+    const { data: profile } = await auth.from('outlet_staff').select('role').eq('id', userId).single()
     if (profile?.role !== 'admin' && profile?.role !== 'developer') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { searchParams } = new URL(request.url)

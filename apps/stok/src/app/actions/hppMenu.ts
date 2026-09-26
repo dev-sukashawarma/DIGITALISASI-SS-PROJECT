@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 function makeServiceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://khpkoreaaucvyqfhynfq.supabase.co'
@@ -52,9 +52,9 @@ export interface HPPMenuItem {
 
 export async function fetchHPPMenuList(): Promise<HPPMenuItem[]> {
   const authedClient = await getAuthedClient()
-  const { data: { user } } = await authedClient.auth.getUser()
+  const userId = await getVerifiedUserId(authedClient)
 
-  if (!user) {
+  if (!userId) {
     throw new Error('Sesi tidak valid. Silakan login kembali.')
   }
 

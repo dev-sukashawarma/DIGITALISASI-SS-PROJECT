@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 
 
@@ -28,18 +28,15 @@ export async function requireRole(
   allowedRoles: string[]
 ): Promise<{ userId: string; role: string }> {
   const authedClient = await getAuthedClient()
-  const {
-    data: { user },
-    error,
-  } = await authedClient.auth.getUser()
-  if (error || !user) {
+  const userId = await getVerifiedUserId(authedClient)
+  if (!userId) {
     throw new Error('Unauthorized: sesi tidak ditemukan')
   }
 
   const { data: staff, error: staffError } = await authedClient
     .from('outlet_staff')
     .select('role, status')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (staffError) throw new Error(staffError.message)
@@ -49,5 +46,5 @@ export async function requireRole(
     throw new Error(`Forbidden: aksi ini hanya untuk role ${allowedRoles.join('/')}`)
   }
 
-  return { userId: user.id, role: staff.role }
+  return { userId, role: staff.role }
 }

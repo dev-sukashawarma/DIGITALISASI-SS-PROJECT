@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers'
 import { updateTag } from 'next/cache'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { clearLaporanTodayMemo, eachDate, jakartaDate, laporanDayTag } from '@/lib/laporanPenjualan/load'
 import { bumpDayGenerations } from '@/lib/server/dayGenerations'
 
@@ -17,9 +17,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 export async function refreshLaporanPenjualan(from: string, to: string) {
   const cookieStore = await cookies()
   const supabase = createSupabaseServerClient({ getAll: () => cookieStore.getAll(), setAll: () => {} })
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
-  const { data: staff } = await supabase.from('outlet_staff').select('role, status').eq('id', user.id).maybeSingle()
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return
+  const { data: staff } = await supabase.from('outlet_staff').select('role, status').eq('id', userId).maybeSingle()
   if (!staff || !ALLOWED_ROLES.includes(staff.role) || staff.status !== 'active') return
 
   clearLaporanTodayMemo()

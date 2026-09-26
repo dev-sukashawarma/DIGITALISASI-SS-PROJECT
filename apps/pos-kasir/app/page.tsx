@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import { getCachedMenuItems, getCachedCategories } from '@suka/cache'
 import KioskMenuClient, { type KioskInitialData } from './KioskMenuClient'
 import type { MenuItem, Category } from '@/types'
@@ -11,12 +12,12 @@ export default async function KioskHomePage() {
   const supabase = await createClient()
 
   // 1. Sesi & outlet (redirect ke portal ditangani middleware; di sini fallback aman saja)
-  const { data: { user } } = await supabase.auth.getUser()
+  const userId = await getVerifiedUserId(supabase)
 
   let outletId = PUSAT_OUTLET_ID
 
-  if (user) {
-    const { data: profile } = await supabase.from('outlet_staff').select('outlet_id, role').eq('id', user.id).single()
+  if (userId) {
+    const { data: profile } = await supabase.from('outlet_staff').select('outlet_id, role').eq('id', userId).single()
     outletId = profile?.outlet_id || PUSAT_OUTLET_ID
   }
 

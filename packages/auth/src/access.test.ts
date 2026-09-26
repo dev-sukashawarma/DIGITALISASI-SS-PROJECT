@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasAppAccess, accessibleApps } from './access'
+import { hasAppAccess, accessibleApps, ALL_APPS, isSuperuserRole } from './access'
 
 describe('access matrix', () => {
   it('developer memiliki akses ke stok, admin-dashboard, HR, monitoring, finance', () => {
@@ -10,6 +10,13 @@ describe('access matrix', () => {
     expect(hasAppAccess('developer', 'finance')).toBe(true)
     expect(accessibleApps('developer')).toContain('stok')
     expect(accessibleApps('developer')).toContain('finance')
+  })
+
+  it('developer memiliki akses ke SEMUA app', () => {
+    for (const app of ALL_APPS) expect(hasAppAccess('developer', app)).toBe(true)
+    expect([...accessibleApps('developer')].sort()).toEqual([...ALL_APPS].sort())
+    expect(isSuperuserRole('developer')).toBe(true)
+    expect(isSuperuserRole('owner')).toBe(false)
   })
 
   it('admin_hr memiliki akses ke absensi, admin-dashboard, HR, stok', () => {

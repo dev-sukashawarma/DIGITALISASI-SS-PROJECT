@@ -231,7 +231,7 @@ export default async function DashboardOverview(props: { searchParams?: Promise<
       qWasteApproved = qWasteApproved.in('outlet_id', accessibleOutlets);
       qWastePending = qWastePending.in('outlet_id', accessibleOutlets);
     }
-  } else if (!staff || staff.role === 'regional_manager') {
+  } else if (!staff || staff.role === 'regional_manager' || staff.role === 'developer') {
     if (filterOutletId && filterOutletId !== 'all') {
       qOrdersToday = qOrdersToday.eq('outlet_id', filterOutletId);
       qOrdersYesterday = qOrdersYesterday.eq('outlet_id', filterOutletId);

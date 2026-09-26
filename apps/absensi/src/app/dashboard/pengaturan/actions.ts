@@ -3,7 +3,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
-const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager"];
+const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager", "developer"];
 
 function getSupabaseAdmin() {
   return createClient(

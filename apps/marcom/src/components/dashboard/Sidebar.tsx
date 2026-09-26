@@ -27,7 +27,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 import { signOut } from '@/app/actions/auth'
-import { isMelani, isPutriHambali } from '@/lib/access-control'
+import { isMelani, isPutriHambali, isAdminLike } from '@/lib/access-control'
 
 export type SidebarMode = 'expanded' | 'collapsed' | 'hidden'
 
@@ -277,7 +277,7 @@ export default function Sidebar({
 
   let visibleNavItems: NavItem[] = []
 
-  if (user.role === 'ADMIN') {
+  if (isAdminLike(user.role)) {
     visibleNavItems = [
       ...navItems,
       {

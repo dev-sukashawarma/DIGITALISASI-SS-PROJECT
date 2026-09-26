@@ -41,7 +41,8 @@ export function isRouteAllowed(
   role?: string | null,
   pathname: string = ''
 ): boolean {
-  if (role === 'ADMIN') {
+  // developer = superuser teknis (lib/auth.ts menimpa ADMIN jadi 'developer').
+  if (isAdminLike(role)) {
     return true
   }
 
@@ -71,4 +72,9 @@ export function isRouteAllowed(
   }
 
   return true
+}
+
+/** ADMIN Prisma atau developer SSO — keduanya akses penuh. */
+export function isAdminLike(role?: string | null): boolean {
+  return role === 'ADMIN' || role === 'developer'
 }

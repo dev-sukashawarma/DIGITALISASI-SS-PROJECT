@@ -9,7 +9,7 @@ function getSupabase() {
   )
 }
 
-const CANCELLATION_APPROVER_ROLES = ['leader', 'area_manager', 'regional_manager', 'admin']
+const CANCELLATION_APPROVER_ROLES = ['leader', 'area_manager', 'regional_manager', 'admin', 'developer']
 
 export async function POST(req: Request) {
   const supabase = getSupabase()

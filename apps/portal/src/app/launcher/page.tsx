@@ -86,13 +86,14 @@ export default async function LauncherPage() {
   // ke halaman login biasa (yang disabled) alih-alih auto-login.
   const REVIEW_BASE_URL = process.env.NEXT_PUBLIC_APP_URL_REVIEW || 'https://suka-review.vercel.app'
   const REVIEW_BYPASS_CODE =
-    staff.role === 'admin' ? process.env.REVIEW_BYPASS_CODE_ADMIN :
+    // developer = superuser teknis → masuk sebagai akun admin SukaReview.
+    staff.role === 'admin' || staff.role === 'developer' ? process.env.REVIEW_BYPASS_CODE_ADMIN :
     staff.role === 'owner' ? process.env.REVIEW_BYPASS_CODE_OWNER :
     undefined
   const REVIEW_URL = REVIEW_BYPASS_CODE
     ? `${REVIEW_BASE_URL}/api/auth/bypass?code=${encodeURIComponent(REVIEW_BYPASS_CODE)}`
     : REVIEW_BASE_URL
-  const canSeeReview = ['admin', 'owner'].includes(staff.role)
+  const canSeeReview = ['admin', 'owner', 'developer'].includes(staff.role)
 
   const APP_META: Record<AppName, { label: string; url: string; desc: string }> = {
     'admin-dashboard': { 

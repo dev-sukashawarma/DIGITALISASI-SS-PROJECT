@@ -25,7 +25,7 @@ export async function savePanduan(data: {
       .eq('id', data.userId)
       .single()
 
-    if (!userRole || !['admin', 'admin_hr', 'owner'].includes(userRole.role)) {
+    if (!userRole || !['admin', 'admin_hr', 'owner', 'developer'].includes(userRole.role)) {
       return { error: 'Gagal menyimpan panduan. Pastikan Anda memiliki akses Admin/Owner.' }
     }
 
@@ -77,7 +77,7 @@ export async function createPanduan(data: {
       .eq('id', data.userId)
       .single()
 
-    if (!userRole || !['admin', 'admin_hr', 'owner'].includes(userRole.role)) {
+    if (!userRole || !['admin', 'admin_hr', 'owner', 'developer'].includes(userRole.role)) {
       return { error: 'Akses ditolak.' }
     }
 
@@ -116,7 +116,7 @@ export async function deletePanduan(id: string, userId: string) {
       .eq('id', userId)
       .single()
 
-    if (!userRole || !['admin', 'admin_hr', 'owner'].includes(userRole.role)) {
+    if (!userRole || !['admin', 'admin_hr', 'owner', 'developer'].includes(userRole.role)) {
       return { error: 'Akses ditolak.' }
     }
 

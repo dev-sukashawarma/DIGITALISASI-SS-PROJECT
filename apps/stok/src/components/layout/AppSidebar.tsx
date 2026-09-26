@@ -77,7 +77,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   const canViewSales = navAccess.canViewSales(role)
   // Inbound/Outbound = arus barang Gudang Pusat (vendor masuk, kirim ke outlet),
   // diakses oleh staff gudang, admin, dan purchasing.
-  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing'].includes(role ?? '')
+  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing', 'developer'].includes(role ?? '')
   const canViewHPP = ['kitchen', 'purchasing', 'admin_finance', 'admin', 'owner', 'spv', 'regional_manager', 'developer'].includes(role ?? '')
   // Nilai Persediaan dibaca lewat view security_invoker, jadi gate-nya HARUS
   // sama dengan policy RLS `bbh_read` di bahan_baku_harga -- kalau lebih longgar,
@@ -85,7 +85,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
   // menyangka stoknya kosong. Sengaja lebih ketat dari canViewVendorPrices,
   // yang memang lebih longgar karena halaman Master Harga memakai Server Action
   // ber-service-role.
-  const canViewNilaiPersediaan = ['admin', 'owner', 'kitchen', 'purchasing', 'admin_finance'].includes(role ?? '')
+  const canViewNilaiPersediaan = ['admin', 'owner', 'kitchen', 'purchasing', 'admin_finance', 'developer'].includes(role ?? '')
   const canViewJurnalMutasi = navAccess.canViewJurnalMutasi(role)
   // Terima dari Vendor (drop-ship) -- siapa pun yang terhubung ke satu outlet
   // (outlet_staff.outlet_id). RPC memeriksa ulang, ini hanya menentukan tampil-

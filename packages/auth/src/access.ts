@@ -1,5 +1,28 @@
 import type { AppName, Role } from './types'
 
+/** Semua app suite. Role `developer` (superuser teknis) mendapat seluruhnya. */
+export const ALL_APPS: AppName[] = [
+  'pos-kasir',
+  'absensi',
+  'inventori',
+  'stok',
+  'distribusi',
+  'owner-dashboard',
+  'admin-dashboard',
+  'finance',
+  'manager',
+  'monitoring',
+  'HR',
+  'marcom',
+]
+
+/** Role superuser teknis: akses semua app & semua fitur. */
+export const SUPERUSER_ROLES: readonly Role[] = ['developer']
+
+export function isSuperuserRole(role: string | null | undefined): boolean {
+  return !!role && (SUPERUSER_ROLES as readonly string[]).includes(role)
+}
+
 /** Sumber tunggal matriks akses role -> daftar app. Ref: docs/ROLE-JOBDESK.md */
 export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin: ['admin-dashboard', 'inventori', 'stok', 'distribusi', 'finance', 'HR', 'marcom'],
@@ -16,7 +39,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin_finance: ['finance', 'stok'],
   area_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'admin-dashboard', 'finance'],
   purchasing: ['admin-dashboard', 'finance', 'stok', 'distribusi'],
-  developer: ['admin-dashboard', 'HR', 'monitoring', 'stok', 'marcom', 'finance'],
+  developer: ALL_APPS,
   driver: ['absensi'],
 }
 

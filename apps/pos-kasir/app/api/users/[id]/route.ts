@@ -10,7 +10,7 @@ async function verifyAdmin() {
   const supabaseService = createServiceClient()
   const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', user.id).single()
 
-  if (!profile || profile.role !== 'admin') return false
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'developer')) return false
   return true
 }
 

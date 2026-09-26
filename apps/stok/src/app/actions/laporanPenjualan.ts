@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from '@suka/auth'
 import { clearLaporanTodayMemo, eachDate, jakartaDate, laporanDayTag } from '@/lib/laporanPenjualan/load'
 import { bumpDayGenerations } from '@/lib/server/dayGenerations'
 
-const ALLOWED_ROLES = ['kitchen', 'purchasing', 'admin', 'owner'] // sama dengan guard page.tsx
+const ALLOWED_ROLES = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'] // sama dengan guard page.tsx
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /**

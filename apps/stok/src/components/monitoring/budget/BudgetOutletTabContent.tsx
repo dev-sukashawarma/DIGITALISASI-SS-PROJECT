@@ -27,6 +27,7 @@ export function BudgetOutletTabContent() {
   const canManageBudget =
     outletStaff?.role === 'owner' ||
     outletStaff?.role === 'admin' ||
+    outletStaff?.role === 'developer' ||
     outletStaff?.role === 'admin_finance'
 
   // Auto-select first outlet if none selected

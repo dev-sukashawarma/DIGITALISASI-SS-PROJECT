@@ -81,7 +81,7 @@ export function StaffForm({
   let isPrivileged = customIsPrivileged ?? true
   const auth = useAuth()
   if (customIsPrivileged === undefined && auth?.outletStaff?.role) {
-    isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
+    isPrivileged = ['owner', 'admin_hr', 'admin', 'developer'].includes(auth.outletStaff.role)
   }
 
   const isEditing = !!initial?.name

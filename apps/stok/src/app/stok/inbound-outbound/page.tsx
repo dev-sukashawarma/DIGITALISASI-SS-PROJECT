@@ -88,7 +88,7 @@ export default function InboundOutboundPage() {
   // Menyembunyikan menu di nav saja tidak cukup -- URL-nya tetap bisa dibuka
   // langsung. Datanya sendiri sudah dibatasi RLS `ledger_read`, guard ini
   // menegakkan maksudnya: halaman arus barang gudang khusus staff gudang, admin, dan purchasing.
-  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing'].includes(outletStaff?.role ?? '');
+  const canViewInboundOutbound = ['kitchen', 'admin', 'purchasing', 'developer'].includes(outletStaff?.role ?? '');
   if (outletStaff && !canViewInboundOutbound) {
     return (
       <AppLayout>

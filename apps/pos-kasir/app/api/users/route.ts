@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   const supabaseService = createServiceClient()
   const { data: profile } = await supabaseService.from('outlet_staff').select('role').eq('id', user.id).single()
 
-  if (!profile || profile.role !== 'admin') {
+  if (!profile || (profile.role !== 'admin' && profile.role !== 'developer')) {
     return NextResponse.json({ error: 'Akses ditolak. Harus Admin.' }, { status: 403 })
   }
 

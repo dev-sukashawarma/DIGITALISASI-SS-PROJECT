@@ -52,7 +52,7 @@ export default function PapanKehadiranPage() {
     return supabase.storage.from(SELFIE_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  const isSpvOrAdmin = ["spv", "owner", "admin", "admin_hr", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+  const isSpvOrAdmin = ["spv", "owner", "admin", "admin_hr", "regional_manager", "area_manager", "developer"].includes(outletStaff?.role || "");
 
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
   const { data, isLoading } = useQuery({

@@ -145,7 +145,7 @@ export async function GET(request: Request) {
     .select('role')
     .eq('id', user.id)
     .maybeSingle()
-  if (staffError || !staff || !['admin', 'regional_manager'].includes(staff.role)) return errorResponse('Akses laporan hanya untuk admin atau regional manager.', 403)
+  if (staffError || !staff || !['admin', 'regional_manager', 'developer'].includes(staff.role)) return errorResponse('Akses laporan hanya untuk admin atau regional manager.', 403)
 
   const path = new URL(request.url).searchParams.get('path')?.trim() ?? ''
   if (!isSafePhotoPath(path)) return errorResponse('Path foto tidak valid.')

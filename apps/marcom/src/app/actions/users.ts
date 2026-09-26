@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
+import { isAdminLike } from '@/lib/access-control'
 
 export type ActionState = {
   success?: boolean
@@ -14,7 +15,7 @@ export async function createUser(
   formData: FormData
 ): Promise<ActionState> {
   const currentUser = await getCurrentUser()
-  if (!currentUser || currentUser.role !== 'ADMIN') {
+  if (!currentUser || !isAdminLike(currentUser.role)) {
     return { error: 'Hanya ADMIN yang dapat menambahkan user' }
   }
 
@@ -56,7 +57,7 @@ export async function updateUserRole(
   newRole: string
 ): Promise<ActionState> {
   const currentUser = await getCurrentUser()
-  if (!currentUser || currentUser.role !== 'ADMIN') {
+  if (!currentUser || !isAdminLike(currentUser.role)) {
     return { error: 'Hanya ADMIN yang berhak mengubah role' }
   }
 
@@ -76,7 +77,7 @@ export async function updateUserRole(
 
 export async function deleteUser(userId: string): Promise<ActionState> {
   const currentUser = await getCurrentUser()
-  if (!currentUser || currentUser.role !== 'ADMIN') {
+  if (!currentUser || !isAdminLike(currentUser.role)) {
     return { error: 'Hanya ADMIN yang berhak menghapus user' }
   }
 

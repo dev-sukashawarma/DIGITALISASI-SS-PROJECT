@@ -43,7 +43,8 @@ export async function requireRole(
     .maybeSingle()
 
   if (staffError) throw new Error(staffError.message)
-  const hasAccess = allowedRoles.includes(staff?.role) || (staff?.role === 'developer' && (allowedRoles.includes('admin') || allowedRoles.includes('admin_finance') || allowedRoles.includes('owner')))
+  // developer = superuser teknis: lolos semua daftar role.
+  const hasAccess = allowedRoles.includes(staff?.role) || staff?.role === 'developer'
   if (!staff || staff.status !== 'active' || !hasAccess) {
     throw new Error(`Forbidden: aksi ini hanya untuk role ${allowedRoles.join('/')}`)
   }

@@ -1,6 +1,6 @@
 // Laporan kiriman surat jalan per vendor. Spec: docs/superpowers/specs/2026-09-14-laporan-kiriman-vendor-design.md
 // Penjaga akses sebenarnya di RPC (_cek_laporan_kiriman_vendor); daftar role WAJIB sama.
-export const ROLE_LAPORAN_KIRIMAN_VENDOR = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'spv', 'regional_manager'] as const
+export const ROLE_LAPORAN_KIRIMAN_VENDOR = ['kitchen', 'purchasing', 'admin', 'owner', 'admin_finance', 'spv', 'regional_manager', 'developer'] as const
 
 export function canLihatKirimanVendor(role: string | null | undefined): boolean {
   return (ROLE_LAPORAN_KIRIMAN_VENDOR as readonly string[]).includes(role ?? '')

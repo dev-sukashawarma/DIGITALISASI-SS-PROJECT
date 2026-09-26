@@ -428,7 +428,7 @@ function scoresFromSubmission(submission: ExistingSubmission | null) {
 export default function InventoryDashboardPage() {
   const { outletStaff, loading: authLoading, signOut } = useAuth()
   const userRole = String(outletStaff?.role ?? '').trim().toLowerCase()
-  const isAdmin = userRole === 'admin'
+  const isAdmin = userRole === 'admin' || userRole === 'developer'
   const isReportViewer = isAdmin || userRole === 'regional_manager'
   const supabase = useMemo(() => createClient(), [])
   const [outlets, setOutlets] = useState<Outlet[]>([])
@@ -735,7 +735,7 @@ export default function InventoryDashboardPage() {
   }
 
   if (authLoading || loading || isReportViewer) return <main className="grid min-h-screen place-items-center bg-[#fffaf5] p-6 text-slate-500">Membuka laporan inventori...</main>
-  if (!outletStaff || !['area_manager', 'admin', 'owner'].includes(userRole)) {
+  if (!outletStaff || !['area_manager', 'admin', 'owner', 'developer'].includes(userRole)) {
     return <main className="grid min-h-screen place-items-center p-6 text-center"><div><h1 className="text-xl font-bold text-[#400a07]">Akses tidak tersedia</h1><p className="mt-2 text-sm text-slate-500">Aplikasi ini hanya dapat digunakan oleh Area Manager.</p></div></main>
   }
 

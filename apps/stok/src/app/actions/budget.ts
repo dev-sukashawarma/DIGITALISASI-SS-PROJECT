@@ -83,7 +83,7 @@ async function requireBudgetViewer(): Promise<{ userId: string; accessibleIds: S
   return { userId, accessibleIds, role: staff.role }
 }
 
-const BUDGET_MANAGER_ROLES = ['owner', 'admin', 'admin_finance'] as const
+const BUDGET_MANAGER_ROLES = ['owner', 'admin', 'admin_finance', 'developer'] as const
 
 /** Gerbang otorisasi manajemen plafon (Admin, Owner, Admin Finance) */
 async function requireBudgetManager(): Promise<{ userId: string; staffName: string; role: string }> {

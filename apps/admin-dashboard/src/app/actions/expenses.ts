@@ -18,7 +18,7 @@ export async function upsertExpensesAction(items: UpsertExpenseInput[]) {
     const isPusat = ['pengeluaran_global', 'gaji_staff_kantor'].includes(it.category) && !it.outletId
     // Scope Pusat (company-wide) owner-only, sesuai aturan RPC upsert_expense
     // yang dilewati di sini (CLAUDE.md § Pengeluaran Outlet vs Pusat).
-    if (isPusat && role !== 'owner') {
+    if (isPusat && role !== 'owner' && role !== 'developer') {
       throw new Error('Forbidden: pengeluaran scope Pusat hanya boleh diisi owner')
     }
     const outletId = isPusat ? null : it.outletId

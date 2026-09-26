@@ -109,7 +109,7 @@ export function SuratJalanForm() {
   const [vendorsLoaded, setVendorsLoaded] = useState(true)
   const [vendorError, setVendorError] = useState<string | null>(null)
 
-  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   const selectedBahan = useMemo(() => {
     return bahanBaku.find((b) => b.id === selectedBahanId)

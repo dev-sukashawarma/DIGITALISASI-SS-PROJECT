@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import { parseStaffHeader, STAFF_HEADER } from '@suka/auth'
 import { createClient } from '@supabase/supabase-js'
 
-const ALLOWED_ROLES = ['area_manager', 'leader', 'regional_manager', 'admin']
+const ALLOWED_ROLES = ['area_manager', 'leader', 'regional_manager', 'admin', 'developer']
 
 const getSupabaseAdmin = () => {
   return createClient(

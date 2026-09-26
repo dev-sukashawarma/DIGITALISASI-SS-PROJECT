@@ -1,7 +1,7 @@
 // Role yang boleh meng-approve permintaan bahan. Sinkron dengan komentar di
 // `useApprovalList` (approver = leader/SPV/kitchen) dan RLS `permintaan_bahan`
 // yang membatasi baris via `accessible_outlet_ids()`.
-const APPROVER_ROLES = ['kitchen', 'admin_finance', 'spv', 'leader', 'regional_manager', 'purchasing'] as const
+const APPROVER_ROLES = ['kitchen', 'admin_finance', 'spv', 'leader', 'regional_manager', 'purchasing', 'developer'] as const
 
 export function isApproverRole(role: string | null | undefined): boolean {
   return !!role && (APPROVER_ROLES as readonly string[]).includes(role)
@@ -11,7 +11,7 @@ export function isApproverRole(role: string | null | undefined): boolean {
 // SERVER-SIDE di `app/actions/opname.ts`: action tersebut memakai service-role
 // client + RPC SECURITY DEFINER yang tidak memeriksa role sama sekali, jadi
 // guard UI saja tidak cukup — Server Action bisa dipanggil langsung.
-const OPNAME_APPROVER_ROLES = ['leader', 'regional_manager', 'spv', 'kitchen', 'admin_finance', 'admin', 'owner', 'purchasing'] as const
+const OPNAME_APPROVER_ROLES = ['leader', 'regional_manager', 'spv', 'kitchen', 'admin_finance', 'admin', 'owner', 'purchasing', 'developer'] as const
 
 export function canApproveOpname(role: string | null | undefined): boolean {
   return !!role && (OPNAME_APPROVER_ROLES as readonly string[]).includes(role)
@@ -23,7 +23,7 @@ export function canApproveOpname(role: string | null | undefined): boolean {
 // pengeluaran; `admin`/`owner` untuk escalation. SPV & leader mengawasi saja.
 // Gerbang server-side, sebab `approve_permintaan_svc` adalah SECURITY DEFINER
 // tanpa pemeriksaan role apa pun.
-const PERMINTAAN_APPROVER_ROLES = ['kitchen', 'admin_finance', 'admin', 'owner', 'purchasing'] as const
+const PERMINTAAN_APPROVER_ROLES = ['kitchen', 'admin_finance', 'admin', 'owner', 'purchasing', 'developer'] as const
 
 export function canApprovePermintaan(role: string | null | undefined): boolean {
   return !!role && (PERMINTAAN_APPROVER_ROLES as readonly string[]).includes(role)
@@ -41,7 +41,7 @@ export function canViewPermintaanQueue(role: string | null | undefined): boolean
 
 // Drop-ship vendor -> outlet (spec 2026-09-11 §6). Satu sumber untuk UI; RPC
 // memeriksa ulang di DB (peran_saya()) karena guard UI tidak melindungi apa pun.
-const NOTA_VENDOR_PENGESAH = ['purchasing', 'kitchen', 'admin'] as const
+const NOTA_VENDOR_PENGESAH = ['purchasing', 'kitchen', 'admin', 'developer'] as const
 const NOTA_VENDOR_PEMBACA = [...NOTA_VENDOR_PENGESAH, 'owner', 'admin_finance'] as const
 
 export function canSahkanNotaVendor(role: string | null | undefined): boolean {

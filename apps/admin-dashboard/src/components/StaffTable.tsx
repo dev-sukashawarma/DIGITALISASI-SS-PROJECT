@@ -33,7 +33,7 @@ export function StaffTable({
   try {
     const auth = useAuth()
     if (auth.outletStaff?.role) {
-      isPrivileged = ['owner', 'admin_hr', 'admin'].includes(auth.outletStaff.role)
+      isPrivileged = ['owner', 'admin_hr', 'admin', 'developer'].includes(auth.outletStaff.role)
     }
   } catch (e) {
     isPrivileged = true

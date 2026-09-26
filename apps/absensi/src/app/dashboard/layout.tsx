@@ -26,14 +26,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [moreOpen, setMoreOpen] = useState(false);
   const { unreadCount } = useLeaveNotifications();
 
-  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+  const isSPV = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager", "developer"].includes(outletStaff?.role || "");
   const isHr = outletStaff?.role === "admin_hr";
 
   // Hanya Leader, Admin, Area Manager, Regional Manager, dan Admin HR yang boleh akses Enrollment
-  const isEnrollmentAllowed = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"].includes(outletStaff?.role || "");
+  const isEnrollmentAllowed = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager", "developer"].includes(outletStaff?.role || "");
 
   // Hanya Admin, Admin HR, dan Regional Manager yang boleh akses Pengaturan Absensi.
-  const isSettingsAllowed = ["admin", "admin_hr", "regional_manager"].includes(outletStaff?.role || "");
+  const isSettingsAllowed = ["admin", "admin_hr", "regional_manager", "developer"].includes(outletStaff?.role || "");
 
   const navItems: NavItem[] = isSPV ? [
     { href: "/dashboard", label: "Absen", icon: <Clock size={20} /> },

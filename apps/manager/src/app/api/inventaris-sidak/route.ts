@@ -7,7 +7,7 @@ type CheckInput = { submission_item_id: string; status: 'ok' | 'issue'; note?: s
 
 export async function POST(request: Request) {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
-  if (!staff || !['regional_manager', 'area_manager'].includes(staff.role)) return NextResponse.json({ error: 'Akses sidak tidak tersedia.' }, { status: 403 })
+  if (!staff || !['regional_manager', 'area_manager', 'developer'].includes(staff.role)) return NextResponse.json({ error: 'Akses sidak tidak tersedia.' }, { status: 403 })
   const body = await request.json() as { submission_id?: string; note?: string; checks?: CheckInput[] }
   if (!body.submission_id || !Array.isArray(body.checks)) return NextResponse.json({ error: 'Data sidak belum lengkap.' }, { status: 400 })
 

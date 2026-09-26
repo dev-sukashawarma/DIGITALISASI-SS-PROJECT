@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import KasirOrderClient from './KasirOrderClient'
@@ -9,9 +10,9 @@ export default async function KasirOrdersServerPage() {
   const supabase = await createClient()
   
   // 1. Dapatkan sesi pengguna saat ini
-  const { data: { user } } = await supabase.auth.getUser()
+  const userId = await getVerifiedUserId(supabase)
   
-  if (!user) {
+  if (!userId) {
     const headersList = await headers()
     const host = headersList.get('host') || ''
     const isLocal = host.includes('localhost') || host.includes('127.0.0.1')
@@ -24,7 +25,7 @@ export default async function KasirOrdersServerPage() {
   // 2. Dapatkan outlet_id
   const { data: profile } = await supabase.from('outlet_staff')
     .select('outlet_id')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   const outletId = profile?.outlet_id

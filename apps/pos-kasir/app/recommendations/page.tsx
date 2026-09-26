@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 import RecommendationsClient, { type RecommendationSettings } from './RecommendationsClient'
 
 export const dynamic = 'force-dynamic'
@@ -8,9 +9,9 @@ const PUSAT_OUTLET_ID = '550e8400-e29b-41d4-a716-446655440001'
 export default async function RecommendationsPage() {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user
-    ? await supabase.from('outlet_staff').select('outlet_id').eq('id', user.id).single()
+  const userId = await getVerifiedUserId(supabase)
+  const { data: profile } = userId
+    ? await supabase.from('outlet_staff').select('outlet_id').eq('id', userId).single()
     : { data: null }
   const outletId = profile?.outlet_id || PUSAT_OUTLET_ID
 

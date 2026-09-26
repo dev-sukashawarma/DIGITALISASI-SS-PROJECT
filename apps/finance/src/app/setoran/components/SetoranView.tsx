@@ -39,15 +39,16 @@ export function SetoranView({
   const [salesDate, setSalesDate] = useState(() => new Date().toISOString().split('T')[0])
   const [showConfirmModal, setShowConfirmModal] = useState(false)
 
-  // Otomatis pilih akun sesuai metode setoran
+  // Setoran hanya boleh masuk ke rekening/kas PUSAT (bukan kas kecil outlet);
+  // record_cash_deposit menolak lokasi lain. Transfer -> bank pusat, langsung -> kas pusat.
+  const targetKind = depositMethod === 'transfer' ? 'bank' : 'cash'
+  const destinationOptions = locations.filter(
+    (l) => l.scope === 'pusat' && l.is_active !== false && l.kind === targetKind
+  )
+
   useEffect(() => {
-    const targetKind = depositMethod === 'transfer' ? 'bank' : 'cash'
-    const matched = locations.find((l) => l.kind === targetKind)
-    if (matched) {
-      setLocation(matched.id)
-    } else if (locations.length > 0 && !location) {
-      setLocation(locations[0].id)
-    }
+    setLocation(destinationOptions[0]?.id ?? '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [depositMethod, locations])
 
   const selectedLocation = locations.find((l) => l.id === location)
@@ -89,10 +90,10 @@ export function SetoranView({
   const executeDeposit = () => {
     const amt = Number(amount)
     deposit.mutate(
-      { location, amount: amt, outletId: outletId || null, note: note.trim() || null, proofFile },
+      { location, amount: amt, outletId: outletId || null, note: note.trim() || null, proofFile, salesDate },
       {
         onSuccess: () => { 
-          const destinationLabel = depositMethod === 'transfer' ? 'Rekening Bank BCA' : 'Kas Tunai Kantor'
+          const destinationLabel = selectedLocation?.label ?? (depositMethod === 'transfer' ? 'rekening bank pusat' : 'kas pusat')
           toast.success(`Setoran berhasil dicatat & masuk ${destinationLabel}!`)
           setShowConfirmModal(false)
           reset() 
@@ -200,11 +201,12 @@ export function SetoranView({
                   onChange={(e) => setLocation(e.target.value)}
                   className="mt-1 w-full rounded-xl border border-suka-gray-200 px-3 py-2 outline-none focus:border-suka-orange bg-white"
                 >
-                  {locations
-                    .filter(l => l.kind === (depositMethod === 'transfer' ? 'bank' : 'cash'))
-                    .map((l) => (
-                      <option key={l.id} value={l.id}>{l.label} · Saldo: {rupiah(l.saldo)}</option>
-                    ))}
+                  {destinationOptions.length === 0 && (
+                    <option value="">— belum ada {depositMethod === 'transfer' ? 'rekening bank' : 'kas'} pusat aktif —</option>
+                  )}
+                  {destinationOptions.map((l) => (
+                    <option key={l.id} value={l.id}>{l.label} · Saldo: {rupiah(l.saldo)}</option>
+                  ))}
                 </select>
               </label>
               
@@ -218,7 +220,7 @@ export function SetoranView({
                       </div>
                     </div>
                     <label className="text-sm font-semibold text-amber-800 shrink-0">
-                      Cek Tanggal
+                      Tanggal Penjualan
                       <input type="date" value={salesDate} onChange={(e) => setSalesDate(e.target.value)}
                         className="ml-2 rounded-lg border border-amber-300 px-2 py-1 outline-none focus:border-amber-500 bg-white" />
                     </label>

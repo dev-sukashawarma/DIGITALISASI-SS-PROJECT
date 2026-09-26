@@ -48,6 +48,8 @@ export interface CashTransaction {
   approved_at: string | null
   reconciled_at: string | null
   created_at: string
+  /** Tanggal penjualan yang disetor (cash_deposit sejak 2026-09-26). */
+  sales_date?: string | null
   // joined (optional)
   cash_location?: Pick<CashLocation, 'label' | 'kind'> | null
   outlet?: { name: string } | null

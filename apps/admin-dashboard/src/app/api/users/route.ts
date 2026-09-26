@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       .eq('id', user.id)
       .maybeSingle()
 
-    if (!profile || (profile.role !== 'admin' && profile.role !== 'owner')) {
+    if (!profile || !['admin', 'owner', 'developer'].includes(profile.role)) {
       return NextResponse.json({ error: 'Akses ditolak. Harus Admin atau Owner.' }, { status: 403 })
     }
 

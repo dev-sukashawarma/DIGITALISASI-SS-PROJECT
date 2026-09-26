@@ -16,7 +16,7 @@ export const Header = () => {
     window.location.href = url
   }
 
-  const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner'
+  const isKitchen = outletStaff?.role === 'kitchen' || outletStaff?.role === 'admin' || outletStaff?.role === 'owner' || outletStaff?.role === 'developer'
 
   return (
     <header className="border-b border-suka-gray-200 bg-white px-6 py-4 flex justify-between items-center">

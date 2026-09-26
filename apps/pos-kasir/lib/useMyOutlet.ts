@@ -80,7 +80,7 @@ async function fetchMyOutletFromNetwork(): Promise<MyOutletData> {
   }
 
   // Fallback untuk Admin yang ingin mengetes Kasir/Kiosk
-  if ((profile as any).role === 'admin' && !outletId) {
+  if (['admin', 'developer'].includes((profile as any).role) && !outletId) {
     outletId = '550e8400-e29b-41d4-a716-446655440001'
     outletName = 'Pusat (Kiosk)'
   }

@@ -75,7 +75,7 @@ export async function getBypassRequests() {
       if (outletIds.length > 0) {
         filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.outlet_id))
       }
-    } else if (role !== 'admin' && (role as string) !== 'superadmin') {
+    } else if (role !== 'admin' && (role as string) !== 'superadmin' && (role as string) !== 'developer') {
       return { success: false, data: [], error: 'Akses ditolak' }
     }
 

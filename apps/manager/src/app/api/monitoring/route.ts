@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       };
     }
 
-    if (staff.role !== 'regional_manager' && staff.role !== 'area_manager') {
+    if (staff.role !== 'regional_manager' && staff.role !== 'area_manager' && staff.role !== 'developer') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

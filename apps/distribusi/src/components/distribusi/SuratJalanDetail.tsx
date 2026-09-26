@@ -143,7 +143,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   const [saldoVendor, setSaldoVendor] = useState<Record<string, SaldoVendor[]>>({})
   const [updatingVendorItem, setUpdatingVendorItem] = useState<string | null>(null)
 
-  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
+  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   useEffect(() => {
     if (data?.status !== 'draft') return
@@ -262,7 +262,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
   }
 
   useEffect(() => {
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(
       outletStaff?.role || ''
     )
     const isSentOrCompleted = data ? ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status) : false
@@ -324,7 +324,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handleDownloadPDF = async () => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(
       outletStaff?.role || ''
     )
     const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
@@ -359,7 +359,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
 
   const handlePrintDotMatrix = async (copies = 1) => {
     if (!data) return
-    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(
+    const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(
       outletStaff?.role || ''
     )
     const isSentOrCompleted = ['dikirim', 'dikirim_lengkap', 'diterima_sebagian', 'diterima_lengkap', 'selesai'].includes(data.status)
@@ -485,7 +485,7 @@ export function SuratJalanDetail({ id }: { id: string }) {
     )
   }
 
-  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'purchasing'].includes(
+  const isPusatSender = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'purchasing', 'developer'].includes(
     outletStaff?.role || ''
   )
 

@@ -7,7 +7,7 @@ describe('bolehPenyesuaianVendor', () => {
     for (const r of ['kitchen', 'purchasing', 'admin', 'owner']) expect(bolehPenyesuaianVendor(r)).toBe(true)
   })
   it('role lain & kosong tidak boleh', () => {
-    for (const r of ['crew', 'spv', 'regional_manager', 'admin_finance', 'finance', 'admin_hr', 'developer', '', null, undefined])
+    for (const r of ['crew', 'spv', 'regional_manager', 'admin_finance', 'finance', 'admin_hr', '', null, undefined])
       expect(bolehPenyesuaianVendor(r)).toBe(false)
   })
 })

@@ -23,7 +23,7 @@ export interface ResolveResult {
   error?: string
 }
 
-const ALLOWED_LOGOUT_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin']
+const ALLOWED_LOGOUT_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin', 'developer']
 
 /**
  * Tentukan daftar akun kiosk yang akan di-logout.

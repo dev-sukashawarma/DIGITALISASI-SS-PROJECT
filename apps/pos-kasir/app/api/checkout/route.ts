@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     }
     
     // If Admin is testing Kiosk, use the Pusat ID. Else use their outlet_id.
-    if (profile.role === 'admin' && !profile.outlet_id) {
+    if ((profile.role === 'admin' || profile.role === 'developer') && !profile.outlet_id) {
        outlet_id = PUSAT_OUTLET_ID
     } else if (profile.outlet_id) {
        outlet_id = profile.outlet_id

@@ -10,7 +10,7 @@ export default function ThresholdSettingsPage() {
   const router = useRouter()
 
   useEffect(() => {
-    if (!loading && outletStaff && outletStaff.role !== 'admin') {
+    if (!loading && outletStaff && outletStaff.role !== 'admin' && outletStaff.role !== 'developer') {
       router.replace('/dashboard')
     }
   }, [loading, outletStaff, router])
@@ -23,7 +23,7 @@ export default function ThresholdSettingsPage() {
     )
   }
 
-  if (!outletStaff || outletStaff.role !== 'admin') {
+  if (!outletStaff || (outletStaff.role !== 'admin' && outletStaff.role !== 'developer')) {
     return null
   }
 

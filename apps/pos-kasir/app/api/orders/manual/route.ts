@@ -89,11 +89,11 @@ export async function POST(request: Request) {
       .eq('outlet_id', body.outlet_id)
       .maybeSingle()
 
-    if (isMapped || ['admin', 'owner', 'spv', 'leader', 'korlap', 'regional_manager'].includes(profile.role)) {
+    if (isMapped || ['admin', 'owner', 'spv', 'leader', 'korlap', 'regional_manager', 'developer'].includes(profile.role)) {
       outlet_id = body.outlet_id
     }
   }
-  if (profile.role === 'admin' && !outlet_id) {
+  if ((profile.role === 'admin' || profile.role === 'developer') && !outlet_id) {
     const { data: defaultOutlet } = await supabaseService.from('outlets').select('id').limit(1).single()
     if (defaultOutlet) outlet_id = defaultOutlet.id
   }

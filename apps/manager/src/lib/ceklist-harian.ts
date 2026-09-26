@@ -191,7 +191,7 @@ export const FILTER_CEKLIST: { kunci: FilterCeklist; label: string }[] = [
 /** Hanya area manager yang MENGISI — `submit_ceklist_harian` menolak role lain. */
 export const mengisiCeklist = (role?: string | null) => role === 'area_manager'
 /** Cermin `tinjau_ceklist_harian`. */
-export const meninjauCeklist = (role?: string | null) => role === 'regional_manager' || role === 'admin' || role === 'owner'
+export const meninjauCeklist = (role?: string | null) => role === 'regional_manager' || role === 'admin' || role === 'owner' || role === 'developer'
 /** Cermin `boleh_membaca_ceklist_harian()`. */
 export const ROLE_CEKLIST = ['area_manager', 'regional_manager', 'admin', 'owner', 'developer']
 

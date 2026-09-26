@@ -101,7 +101,7 @@ export async function GET(req: Request) {
     }
 
     // 3. For SPV, Owner, Admin, Admin HR, and Korlap roles: if list has <= 1 outlet, load all active outlets so SPV can choose any outlet!
-    if (["spv", "owner", "admin", "admin_hr", "korlap", "regional_manager", "area_manager"].includes(staffRoleData?.role || "")) {
+    if (["spv", "owner", "admin", "admin_hr", "korlap", "regional_manager", "area_manager", "developer"].includes(staffRoleData?.role || "")) {
       if (list.length <= 1) {
         const { data: allOutlets } = await admin
           .from("outlets")

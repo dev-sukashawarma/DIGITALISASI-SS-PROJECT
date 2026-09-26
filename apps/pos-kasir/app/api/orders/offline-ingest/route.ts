@@ -115,7 +115,7 @@ export async function POST(request: Request) {
   }
 
   let outletId = profile.outlet_id
-  if (profile.role === 'admin' && !outletId) {
+  if ((profile.role === 'admin' || profile.role === 'developer') && !outletId) {
     outletId = body.outlet_id
   }
   if (!outletId) {

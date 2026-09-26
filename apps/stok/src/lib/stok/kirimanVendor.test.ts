@@ -8,7 +8,7 @@ const r = (p: Partial<BarisRekap>): BarisRekap => ({
 
 describe('canLihatKirimanVendor', () => {
   it('role berhak', () => { for (const x of ['kitchen','purchasing','admin','owner','admin_finance','spv','regional_manager']) expect(canLihatKirimanVendor(x)).toBe(true) })
-  it('role lain', () => { for (const x of ['crew','leader','admin_hr','developer',null,undefined]) expect(canLihatKirimanVendor(x)).toBe(false) })
+  it('role lain', () => { for (const x of ['crew','leader','admin_hr',null,undefined]) expect(canLihatKirimanVendor(x)).toBe(false) })
 })
 
 describe('labelVendor', () => {

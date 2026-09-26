@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/server'
 import { resolveApiUser } from '@/lib/api-auth'
 
-const ALLOWED_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin']
+const ALLOWED_ROLES = ['crew', 'leader', 'spv', 'regional_manager', 'admin', 'developer']
 
 export async function GET(request: Request) {
   try {

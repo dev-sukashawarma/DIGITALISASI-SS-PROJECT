@@ -82,7 +82,7 @@ export async function getVoidOrders() {
       } else {
          filteredRequests = filteredRequests.filter((r: any) => outletIds.includes(r.orders?.outlet_id))
       }
-    } else if (role !== 'admin' && role !== 'regional_manager') {
+    } else if (!['admin', 'owner', 'developer', 'regional_manager'].includes(role)) {
        // Selain admin/rm/am/leader, nggak punya akses
        return { success: false, data: [], error: 'Akses ditolak' }
     }

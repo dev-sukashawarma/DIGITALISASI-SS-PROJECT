@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient as createServerClient } from "@supabase/supabase-js";
 
 // Hanya Leader, SPV, Area Manager, Regional Manager, Admin, Admin HR, dan Owner yang diizinkan melakukan enrollment
-const ENROLLMENT_ALLOWED_ROLES = ["spv", "leader", "regional_manager", "area_manager", "admin", "admin_hr", "owner"];
+const ENROLLMENT_ALLOWED_ROLES = ["spv", "leader", "regional_manager", "area_manager", "admin", "admin_hr", "owner", "developer"];
 
 export async function POST(req: NextRequest) {
   try {

@@ -112,14 +112,16 @@ export async function middleware(request: NextRequest) {
 
   // Proteksi Route Admin
   if (path.startsWith('/admin')) {
-    if (!userId || role !== 'admin' || !hasAppAccess(role, 'pos-kasir') || status !== 'active') {
+    // developer = superuser teknis (hasAppAccess sudah memberinya pos-kasir).
+    const bolehAdmin = role === 'admin' || (role === 'developer' && hasAppAccess(role, 'pos-kasir'))
+    if (!userId || !bolehAdmin || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }
 
   // Proteksi Route Kasir
   if (path.startsWith('/kasir')) {
-    if (!userId || !['leader', 'crew', 'regional_manager'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
+    if (!userId || !['leader', 'crew', 'regional_manager', 'developer'].includes(role as string) || !hasAppAccess(role as any, 'pos-kasir') || status !== 'active') {
       return getRedirect(PORTAL_URL)
     }
   }
@@ -144,7 +146,7 @@ export async function middleware(request: NextRequest) {
     // Sudah login tapi bukan device kiosk.
     // Admin dan Kasir yang nyasar ke sini dikembalikan ke dashboard-nya.
     if (role !== 'kiosk') {
-      if (role === 'admin') return getRedirect('/admin')
+      if (role === 'admin' || role === 'developer') return getRedirect('/admin')
       if (role === 'leader' || role === 'crew' || role === 'regional_manager') return getRedirect('/kasir')
       return getRedirect(PORTAL_URL)
     }

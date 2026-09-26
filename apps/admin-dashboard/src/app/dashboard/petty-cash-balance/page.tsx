@@ -49,7 +49,7 @@ export default async function PettyCashBalancePage() {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (staff?.role !== 'admin') redirect('/dashboard')
+  if (staff?.role !== 'admin' && staff?.role !== 'developer') redirect('/dashboard')
 
   const [outletsResult, shiftsResult, balancesResult, adjustmentsResult, legacyHistoryResult] = await Promise.all([
     supabase

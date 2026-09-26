@@ -20,7 +20,7 @@ export default async function LaporanPenjualanPage({
   const staff = parseStaffHeader(headersList.get(STAFF_HEADER));
 
   // Role restriction: Khusus kitchen, purchasing, admin, owner
-  if (staff && staff.role !== 'kitchen' && staff.role !== 'purchasing' && staff.role !== 'admin' && staff.role !== 'owner') {
+  if (staff && staff.role !== 'kitchen' && staff.role !== 'purchasing' && staff.role !== 'admin' && staff.role !== 'owner' && staff.role !== 'developer') {
     redirect('/dashboard');
   }
 

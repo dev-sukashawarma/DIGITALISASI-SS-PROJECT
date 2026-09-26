@@ -47,7 +47,7 @@ export function getAdminClient() {
 }
 
 export async function getScopedOutletIds(db: SupabaseClient, staff: OutletStaffProfile) {
-  if (staff.role === 'regional_manager') {
+  if (staff.role === 'regional_manager' || staff.role === 'developer') {
     const { data, error } = await db.from('outlets').select('id').eq('is_active', true)
     if (error) throw new Error(error.message)
     return (data ?? []).map((row) => row.id as string)

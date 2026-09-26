@@ -41,7 +41,7 @@ type Props = {
   initialOutletConfigs: OutletConfig[];
 };
 
-const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager"];
+const SETTINGS_ALLOWED_ROLES = ["admin", "admin_hr", "regional_manager", "developer"];
 
 export default function PengaturanClient({ initialGlobalConfig, initialOutlets, initialOutletConfigs }: Props) {
   const { outletStaff } = useAuth();

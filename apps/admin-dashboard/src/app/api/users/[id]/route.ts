@@ -27,7 +27,7 @@ async function verifyAdmin() {
     .eq('id', user.id)
     .maybeSingle()
 
-  if (!profile || (profile.role !== 'admin' && profile.role !== 'owner')) return null
+  if (!profile || !['admin', 'owner', 'developer'].includes(profile.role)) return null
   return supabaseAuth
 }
 

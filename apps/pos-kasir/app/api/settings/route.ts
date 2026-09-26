@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { data: profile } = await supabase.from('outlet_staff').select('role').eq('id', user.id).single()
-    if (profile?.role !== 'admin') {
+    if (profile?.role !== 'admin' && profile?.role !== 'developer') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

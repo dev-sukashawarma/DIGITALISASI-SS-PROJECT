@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   }
 
   let outlet_id = profile.outlet_id
-  if (profile.role === 'admin' && !outlet_id) {
+  if ((profile.role === 'admin' || profile.role === 'developer') && !outlet_id) {
     const { data: defaultOutlet } = await supabaseService.from('outlets').select('id').limit(1).single()
     if (defaultOutlet) outlet_id = defaultOutlet.id
   }

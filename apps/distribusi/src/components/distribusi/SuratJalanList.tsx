@@ -99,8 +99,8 @@ export function SuratJalanList() {
   useDistribusiRealtime()
   const { data = [], loading, draftCount, sentCount, diterimaCount, selesaiCount } = useSuratJalanList(dateFilter, customRange)
 
-  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner'].includes(outletStaff?.role || '')
-  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner'].includes(outletStaff?.role || '')
+  const isPusat = ['kitchen', 'admin', 'admin_hr', 'spv', 'regional_manager', 'owner', 'developer'].includes(outletStaff?.role || '')
+  const canCancelPO = ['kitchen', 'purchasing', 'admin', 'owner', 'developer'].includes(outletStaff?.role || '')
 
   // Discrepancy & Selisih count
   const problemCount = useMemo(() => {

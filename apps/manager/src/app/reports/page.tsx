@@ -164,7 +164,7 @@ export default async function ReportsPage({
     } else {
        ordersQuery = ordersQuery.in('outlet_id', accessibleOutlets);
     }
-  } else if (!staff || staff.role === 'regional_manager') {
+  } else if (!staff || staff.role === 'regional_manager' || staff.role === 'developer') {
     if (permittedOutletId !== 'all') {
       ordersQuery = ordersQuery.eq('outlet_id', permittedOutletId);
     }
@@ -176,7 +176,7 @@ export default async function ReportsPage({
   let qOutlets = supabaseAdmin.from('outlets').select('id, name').eq('is_active', true).neq('id', TEST_OUTLET_ID);
   if (staff?.role === 'area_manager' || (staff?.role === 'regional_manager' && accessibleOutlets.length > 0)) {
     qOutlets = qOutlets.in('id', accessibleOutlets);
-  } else if (staff?.outlet_id && staff.role !== 'regional_manager') {
+  } else if (staff?.outlet_id && staff.role !== 'regional_manager' && staff.role !== 'developer') {
     qOutlets = qOutlets.eq('id', staff.outlet_id);
   }
 

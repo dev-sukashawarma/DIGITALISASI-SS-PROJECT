@@ -71,6 +71,7 @@ export function ManagerLayout({ children, headerRight }: ManagerLayoutProps) {
 
   const isItemVisible = (item: NavItem) => {
     if (!outletStaff) return true
+    if (outletStaff.role === 'developer') return true // superuser teknis
     if (item.excludedRoles && item.excludedRoles.includes(outletStaff.role)) return false
     if (item.allowedRoles && !item.allowedRoles.includes(outletStaff.role)) return false
     return true

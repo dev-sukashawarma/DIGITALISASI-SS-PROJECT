@@ -16,7 +16,7 @@ import { useRealtimeChannel } from "@suka/realtime";
 type Staff = { id: string; name: string; role: string; enrolled_at: string | null };
 type EnrollPhase = "list" | "consent" | "center" | "left" | "right" | "saving" | "done";
 
-const ENROLLMENT_ROLES = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager"];
+const ENROLLMENT_ROLES = ["admin", "admin_hr", "owner", "spv", "leader", "regional_manager", "area_manager", "developer"];
 
 export default function EnrollPage() {
   const { outletStaff } = useAuth();

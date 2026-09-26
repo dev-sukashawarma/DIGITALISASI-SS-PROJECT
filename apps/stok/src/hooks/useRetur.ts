@@ -77,7 +77,7 @@ export function usePendingReturForOutlet(outletId: string | null | undefined) {
  */
 export function usePendingReturBadge(role: string | undefined, outletId: string | undefined) {
   const isManager = ['area_manager', 'regional_manager', 'admin', 'owner', 'developer'].includes(role ?? '')
-  const isKitchen = ['kitchen', 'admin', 'owner', 'purchasing'].includes(role ?? '')
+  const isKitchen = ['kitchen', 'admin', 'owner', 'purchasing', 'developer'].includes(role ?? '')
 
   const { data: list = [] } = useQuery<ReturStok[]>({
     queryKey: ['retur_pending_badges', role, outletId],

@@ -84,7 +84,7 @@ function formatSystemQty(b: BahanBaku, totalSmallestQty: number) {
 }
 
 export function OpnameForm({ outletId, createdBy, role }: { outletId: string; createdBy: string; role?: string }) {
-  const isKitchen = role === 'kitchen' || role === 'purchasing';
+  const isKitchen = role === 'kitchen' || role === 'purchasing' || role === 'developer';
   const router = useRouter();
   const { bahanBaku, error: bahanError, loading: isBahanLoading } = useBahanBaku();
   const { balances, loading: isBalanceLoading } = useStokBalance(outletId);

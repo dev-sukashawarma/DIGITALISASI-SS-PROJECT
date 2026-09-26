@@ -62,7 +62,7 @@ export default function GlobalBlockerMount() {
         .select('id, name, email, role, outlet_id, is_active, inactive_reason, outlets!outlet_staff_outlet_id_fkey(name, is_active, inactive_reason)')
         .eq('id', currentUid).single()
 
-      if (profile && profile.role !== 'admin') {
+      if (profile && profile.role !== 'admin' && profile.role !== 'developer') {
         // Simpan outlet_id untuk filtering realtime
         outletIdRef.current = profile.outlet_id || null
 

@@ -177,7 +177,7 @@ export default function LeaderPettyCashPage() {
       }
 
       let accessibleOutletIds: string[] = []
-      if (staff && !['admin', 'admin_finance', 'owner'].includes(staff.role)) {
+      if (staff && !['admin', 'admin_finance', 'owner', 'developer'].includes(staff.role)) {
         const { data: mapped } = await supabase
           .from('staff_outlets')
           .select('outlet_id')

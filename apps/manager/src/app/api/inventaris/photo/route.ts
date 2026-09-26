@@ -5,7 +5,7 @@ import { getAdminClient, getScopedOutletIds } from '@/lib/inventaris-sidak-serve
 
 export async function GET(request: Request) {
   const staff = parseStaffHeader((await headers()).get(STAFF_HEADER))
-  if (!staff || !['regional_manager', 'area_manager'].includes(staff.role)) return NextResponse.json({ error: 'Akses foto ditolak.' }, { status: 403 })
+  if (!staff || !['regional_manager', 'area_manager', 'developer'].includes(staff.role)) return NextResponse.json({ error: 'Akses foto ditolak.' }, { status: 403 })
   const path = new URL(request.url).searchParams.get('path')?.trim() ?? ''
   if (!/^[0-9a-f-]{36}\/.+\.webp$/i.test(path) || path.includes('..')) return NextResponse.json({ error: 'Path foto tidak valid.' }, { status: 400 })
   const db = getAdminClient()

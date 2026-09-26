@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 export type RequestStaff = {
   id: string
@@ -21,15 +22,13 @@ export type RequestStaff = {
  */
 export async function getRequestStaff(): Promise<RequestStaff | null> {
   const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return null
 
   const { data: staff } = await supabase
     .from('outlet_staff')
     .select('id, role, outlet_id, status')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (!staff || staff.status !== 'active') return null

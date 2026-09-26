@@ -1,7 +1,7 @@
 'use server'
 
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { revalidatePath } from 'next/cache'
 
 export interface MitraBiodata {
@@ -35,13 +35,13 @@ async function getSupabase() {
 
 export async function getMitraBiodata(): Promise<MitraBiodata | null> {
   const supabase = await getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) throw new Error('Unauthorized')
 
   const { data, error } = await supabase
     .from('mitra_profiles')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
 
   if (error && error.code !== 'PGRST116') {
@@ -73,8 +73,8 @@ export async function upsertMitraProfileFull(data: {
   const supabase = await getSupabase()
 
   // Security check: ensure caller is admin/owner
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Unauthorized')
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) throw new Error('Unauthorized')
 
   if (data.previous_user_id && data.previous_user_id !== data.user_id) {
     await supabase.from('mitra_profiles').delete().eq('user_id', data.previous_user_id)

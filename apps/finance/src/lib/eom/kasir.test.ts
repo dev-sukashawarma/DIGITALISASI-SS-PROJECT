@@ -126,7 +126,8 @@ describe('buildCashRows', () => {
     ] as any
     const maps = buildMenuMaps(menus)
     const ctx = { ...maps, penerapHpp: penerap, settlements: [], isSSOnlineSelected: false, outlets }
-    const rows = buildCashRows(orders, shifts, [{ outlet_id: 'o1', amount: 70000 }], outlets, ctx)
+    const rows = buildCashRows(orders, shifts, [{ outlet_id: 'o1', amount: 70000 }], outlets, ctx, '2026-09-30')
+    const rowsHariItu = buildCashRows(orders, shifts, [], outlets, ctx, '2026-09-19')
     const empang = rows.find((r) => r.outletId === 'o1')!
 
     const expected = computeAnalytics({ ...ctx, orders: orders.filter((o: any) => o.outlet_id === 'o1'), shifts: [], selectedChannels: ['all'] })
@@ -134,6 +135,11 @@ describe('buildCashRows', () => {
     expect(empang.omzetTunai).toBe(75000)
     expect(empang.shiftCount).toBe(2)
     expect(empang.shiftBelumTutup).toBe(1)
+    expect(empang.shiftBerjalan).toBe(0)
+    // pada hari shift itu dibuka, ia masih berjalan — bukan 'belum ditutup'
+    const hariItu = rowsHariItu.find((r) => r.outletId === 'o1')!
+    expect(hariItu.shiftBelumTutup).toBe(0)
+    expect(hariItu.shiftBerjalan).toBe(1)
     expect(empang.shiftFisik).toBe(70000)
     expect(empang.selisihKasir).toBe(-5000)
     expect(empang.setoranDiterima).toBe(70000)

@@ -161,12 +161,20 @@ export interface CashOutletRow {
   outletType: string
   omzetTunai: number
   shiftCount: number
+  /** Shift belum ditutup yang dimulai sebelum hari ini (perlu ditindaklanjuti). */
   shiftBelumTutup: number
+  /** Shift hari ini yang masih berjalan — wajar, bukan masalah. */
+  shiftBerjalan: number
   shiftExpected: number
   shiftFisik: number
   selisihKasir: number
   setoranDiterima: number
   setoranCount: number
+}
+
+/** Shift yang belum ditutup tapi dimulai hari ini = masih berjalan. */
+export function isRunningShift(s: { status: string; start_time: string }, today: string) {
+  return s.status !== 'closed' && tanggalWib(s.start_time) >= today
 }
 
 export interface DepositLite {
@@ -184,6 +192,8 @@ export function buildCashRows(
   deposits: DepositLite[],
   outlets: OutletLite[],
   analyticsCtx: Omit<Parameters<typeof computeAnalytics>[0], 'orders' | 'shifts' | 'selectedChannels'>,
+  /** Tanggal hari ini (YYYY-MM-DD, WIB). */
+  today: string,
 ): CashOutletRow[] {
   const ordersBy = new Map<string, OrderRow[]>()
   for (const o of orders) {
@@ -206,13 +216,16 @@ export function buildCashRows(
       selectedChannels: ['all'],
     })
     const closed = outletShifts.filter((s) => s.status === 'closed')
+    const open = outletShifts.filter((s) => s.status !== 'closed')
+    const berjalan = open.filter((s) => isRunningShift(s, today)).length
     rows.push({
       outletId: outlet.id,
       outletName: outlet.name,
       outletType: outlet.type ?? 'outlet',
       omzetTunai: analytics.paymentBreakdown.cash?.revenue ?? 0,
       shiftCount: outletShifts.length,
-      shiftBelumTutup: outletShifts.length - closed.length,
+      shiftBelumTutup: open.length - berjalan,
+      shiftBerjalan: berjalan,
       shiftExpected: closed.reduce((s, x) => s + (Number(x.expected_ending_cash) || 0), 0),
       shiftFisik: closed.reduce((s, x) => s + (Number(x.actual_ending_cash) || 0), 0),
       selisihKasir: closed.reduce((s, x) => s + (Number(x.variance) || 0), 0),

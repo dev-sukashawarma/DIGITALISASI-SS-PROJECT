@@ -1,7 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertTriangle, CheckCircle2, Info } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Info, FileDown } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAuth } from '@suka/auth'
 import { useExpenses } from '@/hooks/useExpenses'
 import { useOutlets } from '@/hooks/useOutlets'
 import { monthRange } from '@/lib/period'
@@ -27,6 +29,8 @@ export default function OpexTab({ month, year }: { month: number; year: number }
   const prevQ = useExpenses({ from: prev.from, to: prev.to, outletId: 'all', source: 'all' })
   const { data: outlets = [], isLoading: outletsLoading } = useOutlets()
 
+  const { outletStaff } = useAuth()
+  const [printing, setPrinting] = useState(false)
   const [group, setGroup] = useState<OpexGroup>('internal')
   const [onlyMissing, setOnlyMissing] = useState(false)
 
@@ -47,11 +51,33 @@ export default function OpexTab({ month, year }: { month: number; year: number }
     return <div className="p-4 bg-red-50 text-red-700 rounded-2xl border border-red-200 text-sm">Gagal memuat pengeluaran: {curQ.error || prevQ.error}</div>
   }
 
+  const handlePdf = async () => {
+    setPrinting(true)
+    try {
+      const { generateOpexEomPdf } = await import('./exportEomPdf')
+      await generateOpexEomPdf(summary, {
+        month, year, prevLabel: `${MONTHS_ID[prevYm.month - 1]} ${prevYm.year}`, dicetakOleh: outletStaff?.name ?? 'Finance',
+      })
+      toast.success('PDF rincian OPEX diunduh')
+    } catch (e) {
+      console.error(e)
+      toast.error('Gagal membuat PDF')
+    } finally {
+      setPrinting(false)
+    }
+  }
+
   const totalMissing = GROUPS.reduce((s, g) => s + summary.totals[g.key].missingCount, 0)
   const units = summary.units.filter((u) => u.group === group && (!onlyMissing || u.missing.length > 0))
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <button onClick={handlePdf} disabled={printing}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-suka-brown text-white text-xs font-bold hover:opacity-90 disabled:opacity-50">
+          <FileDown size={12} /> {printing ? 'Menyiapkan PDF…' : 'Unduh PDF Rincian'}
+        </button>
+      </div>
       <div className={`rounded-2xl border p-4 flex items-start gap-3 ${totalMissing === 0 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-amber-50 border-amber-300 text-amber-900'}`}>
         {totalMissing === 0 ? <CheckCircle2 size={18} className="shrink-0 mt-0.5" /> : <AlertTriangle size={18} className="shrink-0 mt-0.5" />}
         <div className="text-sm">
@@ -105,7 +131,7 @@ export default function OpexTab({ month, year }: { month: number; year: number }
         )}
         <p className="px-5 py-3 text-[11px] text-suka-gray-500 border-t border-suka-gray-100 flex items-start gap-1.5">
           <Info size={12} className="shrink-0 mt-0.5" />
-          Kategori "belum diisi" = terisi bulan lalu tapi belum ada bulan ini. Penandaan "tidak ada bulan ini" dan centang verifikasi menyusul bersama pengiriman ke HUB.
+          Kategori "belum diisi" = terisi bulan lalu tapi belum ada bulan ini. Rincian per kategori ada di PDF. Penandaan "tidak ada bulan ini" dan centang verifikasi menyusul bersama pengiriman ke HUB.
         </p>
       </div>
     </div>
@@ -113,42 +139,21 @@ export default function OpexTab({ month, year }: { month: number; year: number }
 }
 
 function UnitRow({ u }: { u: OpexUnit }) {
-  const [open, setOpen] = useState(false)
   const diff = u.total - u.totalPrev
-  const cats = Object.entries(u.byCategory).sort((a, b) => b[1] - a[1])
   return (
-    <div className={u.missing.length > 0 ? 'bg-amber-50/40' : ''}>
-      <button onClick={() => setOpen(!open)} className="w-full px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-left hover:bg-suka-cream/40">
-        <span className="font-bold text-sm text-suka-brown min-w-[180px]">{u.unitName.replace('SUKA SHAWARMA ', '')}</span>
-        <span className="text-sm font-black text-suka-ink">{rupiah(u.total)}</span>
-        <span className={`text-[11px] ${diff > 0 ? 'text-red-600' : diff < 0 ? 'text-emerald-700' : 'text-suka-gray-400'}`}>
-          {u.totalPrev > 0 ? `${diff >= 0 ? '+' : ''}${rupiah(diff)} vs bulan lalu` : 'bulan lalu kosong'}
-        </span>
-        <span className="flex flex-wrap gap-1 ml-auto">
-          {u.missing.length === 0
-            ? <span className="text-[10px] font-bold text-emerald-700">✓ lengkap</span>
-            : u.missing.map((c) => (
-                <span key={c} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">belum: {catLabel(c)}</span>
-              ))}
-        </span>
-      </button>
-      {open && (
-        <div className="px-5 pb-3">
-          <table className="w-full text-xs">
-            <tbody className="divide-y divide-suka-gray-100">
-              {cats.map(([c, amt]) => (
-                <tr key={c}>
-                  <td className="py-1.5 text-suka-gray-600">
-                    {catLabel(c)}
-                    {u.added.includes(c) && <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">baru</span>}
-                  </td>
-                  <td className="py-1.5 text-right font-semibold">{rupiah(amt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+    <div className={`px-5 py-3 flex flex-wrap items-center gap-x-4 gap-y-1 ${u.missing.length > 0 ? 'bg-amber-50/40' : ''}`}>
+      <span className="font-bold text-sm text-suka-brown min-w-[180px]">{u.unitName.replace('SUKA SHAWARMA ', '')}</span>
+      <span className="text-sm font-black text-suka-ink">{rupiah(u.total)}</span>
+      <span className={`text-[11px] ${diff > 0 ? 'text-red-600' : diff < 0 ? 'text-emerald-700' : 'text-suka-gray-400'}`}>
+        {u.totalPrev > 0 ? `${diff >= 0 ? '+' : ''}${rupiah(diff)} vs bulan lalu` : 'bulan lalu kosong'}
+      </span>
+      <span className="flex flex-wrap gap-1 ml-auto">
+        {u.missing.length === 0
+          ? <span className="text-[10px] font-bold text-emerald-700">✓ lengkap</span>
+          : u.missing.map((c) => (
+              <span key={c} className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">belum: {catLabel(c)}</span>
+            ))}
+      </span>
     </div>
   )
 }

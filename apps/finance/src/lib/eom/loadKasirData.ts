@@ -122,7 +122,7 @@ export async function loadKasirData(supabase: any, from: string, to: string) {
     ambilRiwayatHpp(supabase),
     fetchAllPages(
       () => supabase.from('shifts')
-        .select('id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance')
+        .select('id, outlet_id, start_time, end_time, status, starting_cash, expected_ending_cash, actual_ending_cash, variance, expected_ending_petty_cash, actual_ending_petty_cash, petty_cash_variance, notes, staff:outlet_staff!shifts_staff_id_fkey(name)')
         .gte('start_time', fromIso).lte('start_time', toIso)
         .order('id', { ascending: true }),
       'shifts',

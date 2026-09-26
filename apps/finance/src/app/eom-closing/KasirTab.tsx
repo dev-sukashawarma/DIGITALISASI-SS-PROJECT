@@ -1,32 +1,13 @@
 'use client'
 
-import { Fragment, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, RefreshCw, Info } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, RefreshCw, Info, FileDown } from 'lucide-react'
+import { toast } from 'sonner'
+import { useAuth } from '@suka/auth'
 import { rupiah } from '@/lib/format'
 import { itemFlags, type EomChannel, type CashOutletRow } from '@/lib/eom/kasir'
-
-interface KasirResponse {
-  period: { month: number; year: number; from: string; to: string }
-  hppCutoff: string | null
-  hppPerubahan: [string, number][]
-  kpi: {
-    grossRevenue: number
-    netRevenue: number
-    totalDeductions: number
-    totalHPP: number
-    grossProfit: number
-    totalOrders: number
-    totalCashVariance: number
-  }
-  channels: EomChannel[]
-  cash: CashOutletRow[]
-  fetchedAt: string
-}
-
-/** Mulai tanggal ini admin finance mencatat setoran di tab Setoran (keputusan 2026-09-26). */
-const SETORAN_WAJIB_MULAI = '2026-10-01'
-const AMBANG_MERAH = 50_000
+import { type KasirResponse, SETORAN_WAJIB_MULAI, AMBANG_MERAH } from './types'
 
 const tgl = (d: string) => {
   const [y, m, day] = d.split('-').map(Number)
@@ -40,6 +21,8 @@ const dayBefore = (d: string) => {
 const pct = (num: number, den: number) => (den > 0 ? `${((num / den) * 100).toFixed(1)}%` : '—')
 
 export default function KasirTab({ month, year }: { month: number; year: number }) {
+  const { outletStaff } = useAuth()
+  const [printing, setPrinting] = useState(false)
   const q = useQuery<KasirResponse>({
     queryKey: ['eom-kasir', year, month],
     staleTime: 5 * 60_000,
@@ -70,14 +53,33 @@ export default function KasirTab({ month, year }: { month: number; year: number 
   }
 
   const d = q.data
+  const handlePdf = async () => {
+    setPrinting(true)
+    try {
+      const { generateKasirEomPdf } = await import('./exportEomPdf')
+      await generateKasirEomPdf(d, outletStaff?.name ?? 'Finance')
+      toast.success('PDF rincian Kasir & Kas Toko diunduh')
+    } catch (e) {
+      console.error(e)
+      toast.error('Gagal membuat PDF')
+    } finally {
+      setPrinting(false)
+    }
+  }
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between text-xs text-suka-gray-500">
         <span>Data per {new Date(d.fetchedAt).toLocaleString('id-ID')} · {d.kpi.totalOrders.toLocaleString('id-ID')} order selesai</span>
-        <button onClick={() => q.refetch()} disabled={q.isFetching}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-suka-gray-200 bg-white font-bold text-suka-brown hover:bg-suka-cream disabled:opacity-50">
-          <RefreshCw size={12} className={q.isFetching ? 'animate-spin' : ''} /> Tarik ulang
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => q.refetch()} disabled={q.isFetching}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-suka-gray-200 bg-white font-bold text-suka-brown hover:bg-suka-cream disabled:opacity-50">
+            <RefreshCw size={12} className={q.isFetching ? 'animate-spin' : ''} /> Tarik ulang
+          </button>
+          <button onClick={handlePdf} disabled={printing}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-suka-brown text-white font-bold hover:opacity-90 disabled:opacity-50">
+            <FileDown size={12} /> {printing ? 'Menyiapkan PDF…' : 'Unduh PDF Rincian'}
+          </button>
+        </div>
       </div>
       <KpiSection d={d} />
       <SetoranSection rows={d.cash} period={d.period} />
@@ -195,6 +197,7 @@ function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: Kasir
                   <td className="py-2.5 px-3 text-center">
                     {r.shiftCount}
                     {r.shiftBelumTutup > 0 && <span className="ml-1 text-red-700 font-bold">({r.shiftBelumTutup} belum tutup)</span>}
+                    {r.shiftBerjalan > 0 && <span className="ml-1 text-suka-gray-400">({r.shiftBerjalan} berjalan)</span>}
                   </td>
                   <td className={`py-2.5 px-3 text-right ${setoranDinilai ? '' : 'text-suka-gray-400'}`}>
                     {r.setoranCount > 0 ? `${rupiah(r.setoranDiterima)} (${r.setoranCount}x)` : '—'}
@@ -221,14 +224,13 @@ function SetoranSection({ rows, period }: { rows: CashOutletRow[]; period: Kasir
         </table>
       </div>
       <p className="px-5 py-3 text-[11px] text-suka-gray-500 border-t border-suka-gray-100">
-        Baris merah: selisih kasir lebih dari {rupiah(AMBANG_MERAH)}, ada shift belum ditutup{setoranDinilai ? ', atau setoran kurang/lebih dari uang laci' : ''}.
+        Baris merah: selisih kasir lebih dari {rupiah(AMBANG_MERAH)}, ada shift hari sebelumnya yang belum ditutup{setoranDinilai ? ', atau setoran kurang/lebih dari uang laci' : ''}. Shift hari ini yang masih berjalan tidak dihitung.
       </p>
     </div>
   )
 }
 
 function ChannelSection({ d }: { d: KasirResponse }) {
-  const [open, setOpen] = useState<string | null>(null)
   const cut = d.hppCutoff
   const labelA = cut ? `HPP ${tgl(d.period.from)}–${tgl(dayBefore(cut))}` : 'HPP'
   const labelB = cut ? `HPP ${tgl(cut)}–${tgl(d.period.to)}` : null
@@ -236,15 +238,13 @@ function ChannelSection({ d }: { d: KasirResponse }) {
     (a, c) => ({ revenue: a.revenue + c.revenue, potongan: a.potongan + c.potongan, hppA: a.hppA + c.hppA, hppB: a.hppB + c.hppB, laba: a.laba + c.labaKotor }),
     { revenue: 0, potongan: 0, hppA: 0, hppB: 0, laba: 0 },
   ), [d.channels])
-  const colCount = cut ? 9 : 8
-
   return (
     <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-suka-gray-100">
         <h3 className="font-black text-suka-brown">2. Omzet, Potongan & HPP per Channel</h3>
         <p className="text-xs text-suka-gray-500 mt-0.5">
           Rumus sama dengan Rangkuman Penjualan. HPP mengikuti tanggal order
-          {cut ? ` — dipecah di ${tgl(cut)} karena ada pergantian HPP.` : '.'} Klik channel untuk melihat menu yang terjual.
+          {cut ? ` — dipecah di ${tgl(cut)} karena ada pergantian HPP.` : '.'} Rincian menu per channel ada di PDF.
         </p>
         {d.hppPerubahan.length > 1 && (
           <p className="mt-1 text-[11px] text-amber-700">
@@ -269,16 +269,10 @@ function ChannelSection({ d }: { d: KasirResponse }) {
           </thead>
           <tbody className="divide-y divide-suka-gray-100">
             {d.channels.map((c) => {
-              const isOpen = open === c.key
               const flagged = c.items.filter((i) => itemFlags(i, !!cut).length > 0).length
               return (
-                <Fragment key={c.key}>
-                  <tr className="cursor-pointer hover:bg-amber-50/40" onClick={() => setOpen(isOpen ? null : c.key)}>
-                    <td className="py-2.5 px-3 font-bold text-suka-brown">
-                      <span className="inline-flex items-center gap-1">
-                        {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}{c.label}
-                      </span>
-                    </td>
+                  <tr key={c.key} className="hover:bg-amber-50/40">
+                    <td className="py-2.5 px-3 font-bold text-suka-brown">{c.label}</td>
                     <td className="py-2.5 px-3 text-right">{rupiah(c.revenue)}</td>
                     <td className="py-2.5 px-3 text-right">{rupiah(c.potongan)}</td>
                     <td className="py-2.5 px-3 text-right">{rupiah(c.hppA)}</td>
@@ -288,18 +282,10 @@ function ChannelSection({ d }: { d: KasirResponse }) {
                     <td className="py-2.5 px-3 text-center text-[10px] text-suka-gray-400">menunggu</td>
                     <td className="py-2.5 px-3 text-center">
                       {flagged > 0
-                        ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">{flagged} menu</span>
+                        ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800" title="Menu dengan HPP kosong / tidak berubah — lihat PDF">{flagged} menu</span>
                         : <CheckCircle2 size={14} className="inline text-emerald-600" />}
                     </td>
                   </tr>
-                  {isOpen && (
-                    <tr>
-                      <td colSpan={colCount} className="bg-suka-cream/30 px-3 py-3">
-                        <ItemTable ch={c} hasCutoff={!!cut} labelA={labelA} labelB={labelB} />
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
               )
             })}
           </tbody>
@@ -321,48 +307,5 @@ function ChannelSection({ d }: { d: KasirResponse }) {
         Kolom Hermes akan terisi setelah Hermes mengirim rekap settlement harian (GoFood, GrabFood, ShopeeFood, TikTok GO) — tampil sebagai pembanding, tidak mengubah angka di atas.
       </p>
     </div>
-  )
-}
-
-function ItemTable({ ch, hasCutoff, labelA, labelB }: { ch: EomChannel; hasCutoff: boolean; labelA: string; labelB: string | null }) {
-  const unit = (hpp: number, qty: number) => (qty > 0 ? rupiah(Math.round(hpp / qty)) : '—')
-  return (
-    <table className="w-full text-[11px] bg-white rounded-xl overflow-hidden border border-suka-gray-200">
-      <thead className="bg-suka-gray-50 text-[10px] uppercase text-suka-gray-500">
-        <tr>
-          <th className="py-2 px-2 text-left">Menu</th>
-          <th className="py-2 px-2 text-right">Qty {labelB ? `(${labelA.replace('HPP ', '')})` : ''}</th>
-          <th className="py-2 px-2 text-right">HPP/porsi</th>
-          {labelB && <th className="py-2 px-2 text-right">Qty ({labelB.replace('HPP ', '')})</th>}
-          {labelB && <th className="py-2 px-2 text-right">HPP/porsi</th>}
-          <th className="py-2 px-2 text-right">Total HPP</th>
-          <th className="py-2 px-2 text-right">Omzet</th>
-          <th className="py-2 px-2 text-right">Food cost</th>
-          <th className="py-2 px-2 text-left">Tanda</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-suka-gray-100">
-        {ch.items.map((i) => {
-          const flags = itemFlags(i, hasCutoff)
-          return (
-            <tr key={i.name} className={flags.length ? 'bg-amber-50/60' : ''}>
-              <td className="py-1.5 px-2 font-semibold text-suka-ink">{i.name}</td>
-              <td className="py-1.5 px-2 text-right">{i.qtyA.toLocaleString('id-ID')}</td>
-              <td className="py-1.5 px-2 text-right">{unit(i.hppA, i.qtyA)}</td>
-              {labelB && <td className="py-1.5 px-2 text-right">{i.qtyB.toLocaleString('id-ID')}</td>}
-              {labelB && <td className="py-1.5 px-2 text-right">{unit(i.hppB, i.qtyB)}</td>}
-              <td className="py-1.5 px-2 text-right">{rupiah(i.hppA + i.hppB)}</td>
-              <td className="py-1.5 px-2 text-right">{rupiah(i.revenue)}</td>
-              <td className="py-1.5 px-2 text-right">{pct(i.hppA + i.hppB, i.revenue)}</td>
-              <td className="py-1.5 px-2">
-                {flags.map((f) => (
-                  <span key={f} className="mr-1 text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-200 text-amber-900">{f}</span>
-                ))}
-              </td>
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
   )
 }

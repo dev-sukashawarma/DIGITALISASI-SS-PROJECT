@@ -48,6 +48,11 @@ describe('buildOpexSummary', () => {
     expect(unit('emp').added).toEqual(['ads'])
   })
 
+  it('menyimpan angka per kategori bulan lalu untuk rincian PDF', () => {
+    expect(unit('cbn').byCategoryPrev).toEqual({ pln: 700_000, internet: 350_000 })
+    expect(unit('cbn').byCategory).toEqual({ pln: 720_000 })
+  })
+
   it('outlet nonaktif tidak diwajibkan mengisi', () => {
     expect(s.units.some((u) => u.unitId === 'jat')).toBe(false)
   })

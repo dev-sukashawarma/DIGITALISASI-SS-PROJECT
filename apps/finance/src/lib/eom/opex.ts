@@ -33,6 +33,7 @@ export interface OpexUnit {
   total: number
   totalPrev: number
   byCategory: Record<string, number>
+  byCategoryPrev: Record<string, number>
   /** Kategori yang terisi bulan lalu tetapi belum ada bulan ini. */
   missing: string[]
   /** Kategori baru bulan ini (tidak ada bulan lalu) — informasi saja. */
@@ -65,7 +66,7 @@ export function buildOpexSummary(current: OpexRowLite[], previous: OpexRowLite[]
   const ensure = (u: { id: string; name: string; group: OpexGroup }) => {
     let cur = units.get(u.id)
     if (!cur) {
-      cur = { unitId: u.id, unitName: u.name, group: u.group, total: 0, totalPrev: 0, byCategory: {}, missing: [], added: [], prevCats: new Set() }
+      cur = { unitId: u.id, unitName: u.name, group: u.group, total: 0, totalPrev: 0, byCategory: {}, byCategoryPrev: {}, missing: [], added: [], prevCats: new Set() }
       units.set(u.id, cur)
     }
     return cur
@@ -85,7 +86,9 @@ export function buildOpexSummary(current: OpexRowLite[], previous: OpexRowLite[]
     // Outlet yang sudah dinonaktifkan tidak diwajibkan mengisi bulan ini.
     if (u.id !== PUSAT_ID && outletById.get(u.id)?.is_active === false) continue
     const cur = ensure(u)
-    cur.totalPrev += Number(r.amount) || 0
+    const amt = Number(r.amount) || 0
+    cur.totalPrev += amt
+    cur.byCategoryPrev[r.category] = (cur.byCategoryPrev[r.category] ?? 0) + amt
     cur.prevCats.add(r.category)
   }
 

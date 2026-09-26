@@ -1,22 +1,31 @@
 // apps/finance/src/app/eom-closing/exportKasirExcel.ts
 import type { OutletCashData } from './exportKasirPdf'
+import type { ShiftVarianceLog, PettyCashCategoryItem, NonCashChannelItem } from './useEomKasirLive'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ]
 
+export interface ExportKasirExcelOptions {
+  month: number
+  year: number
+  picNote: string
+  outletsData: OutletCashData[]
+  shiftVariances?: ShiftVarianceLog[]
+  pettyCashCategories?: PettyCashCategoryItem[]
+  nonCashChannels?: NonCashChannelItem[]
+}
+
 export async function generatePosKasirExcel({
   month,
   year,
   picNote,
   outletsData,
-}: {
-  month: number
-  year: number
-  picNote: string
-  outletsData: OutletCashData[]
-}) {
+  shiftVariances: customShiftVariances,
+  pettyCashCategories: customPettyCash,
+  nonCashChannels: customNonCash,
+}: ExportKasirExcelOptions) {
   const ExcelJS = (await import('exceljs')).default || (await import('exceljs'))
 
   const workbook = new (ExcelJS as any).Workbook()
@@ -194,14 +203,26 @@ export async function generatePosKasirExcel({
     cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
   })
 
-  const shiftVariances = [
-    { no: 1, day: 5, ot: 'SUKA SHAWARMA EMPANG', shift: 'Shift 2 (Malam) - Dinda Safitri', sis: 3450000, fis: 3400000, sel: -50000, sebab: 'Salah hitung kembalian pecahan Rp 50.000 saat antrean padat', stat: 'LUNAS (Potong Kasbon Kasir)' },
-    { no: 2, day: 12, ot: 'SUKA SHAWARMA CIMANGGU', shift: 'Shift 1 (Siang) - Rizky Pratama', sis: 2890000, fis: 2915000, sel: 25000, sebab: 'Konsumen menolak uang kembalian receh pecahan kecil', stat: 'SELESAI (Disetor ke Kas Operasional)' },
-    { no: 3, day: 18, ot: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift 2 (Malam) - Ahmad Fauzi', sis: 4120000, fis: 4070000, sel: -50000, sebab: 'Transaksi QRIS ganda salah input manual pada sistem kasir', stat: 'LUNAS (Revisi Settlement Bank)' },
-    { no: 4, day: 24, ot: 'MITRA CILEUNGSI', shift: 'Shift 2 (Malam) - Siti Rahma', sis: 5210000, fis: 5160000, sel: -50000, sebab: 'Selisih penukaran modal uang kecil dengan pedagang sekitar', stat: 'LUNAS (Potong Kasbon Kasir)' },
-    { no: 5, day: 27, ot: 'MITRA CICURUG', shift: 'Shift 1 (Siang) - Budi Santoso', sis: 3100000, fis: 3120000, sel: 20000, sebab: 'Pembulatan kembalian uang belanja pada struk POS kasir', stat: 'SELESAI (Disetor ke Kas Operasional)' },
-    { no: 6, day: 29, ot: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift 2 (Malam) - Bayu Nugraha', sis: 3670000, fis: 3620000, sel: -50000, sebab: 'Kelalaian penyerahan struk & kembalian saat jam rush hour', stat: 'LUNAS (Potong Kasbon Kasir)' },
-  ]
+  const shiftVariances = customShiftVariances && customShiftVariances.length > 0
+    ? customShiftVariances.map((v) => ({
+        no: v.no,
+        day: v.day,
+        ot: v.outlet,
+        shift: v.shift,
+        sis: v.sistem,
+        fis: v.fisik,
+        sel: v.selisih,
+        sebab: v.penyebab,
+        stat: v.status,
+      }))
+    : [
+        { no: 1, day: 5, ot: 'SUKA SHAWARMA EMPANG', shift: 'Shift 2 (Malam) - Dinda Safitri', sis: 3450000, fis: 3400000, sel: -50000, sebab: 'Salah hitung kembalian pecahan Rp 50.000 saat antrean padat', stat: 'LUNAS (Potong Kasbon Kasir)' },
+        { no: 2, day: 12, ot: 'SUKA SHAWARMA CIMANGGU', shift: 'Shift 1 (Siang) - Rizky Pratama', sis: 2890000, fis: 2915000, sel: 25000, sebab: 'Konsumen menolak uang kembalian receh pecahan kecil', stat: 'SELESAI (Disetor ke Kas Operasional)' },
+        { no: 3, day: 18, ot: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift 2 (Malam) - Ahmad Fauzi', sis: 4120000, fis: 4070000, sel: -50000, sebab: 'Transaksi QRIS ganda salah input manual pada sistem kasir', stat: 'LUNAS (Revisi Settlement Bank)' },
+        { no: 4, day: 24, ot: 'MITRA CILEUNGSI', shift: 'Shift 2 (Malam) - Siti Rahma', sis: 5210000, fis: 5160000, sel: -50000, sebab: 'Selisih penukaran modal uang kecil dengan pedagang sekitar', stat: 'LUNAS (Potong Kasbon Kasir)' },
+        { no: 5, day: 27, ot: 'MITRA CICURUG', shift: 'Shift 1 (Siang) - Budi Santoso', sis: 3100000, fis: 3120000, sel: 20000, sebab: 'Pembulatan kembalian uang belanja pada struk POS kasir', stat: 'SELESAI (Disetor ke Kas Operasional)' },
+        { no: 6, day: 29, ot: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift 2 (Malam) - Bayu Nugraha', sis: 3670000, fis: 3620000, sel: -50000, sebab: 'Kelalaian penyerahan struk & kembalian saat jam rush hour', stat: 'LUNAS (Potong Kasbon Kasir)' },
+      ]
 
   shiftVariances.forEach((v) => {
     const shiftDate = new Date(Date.UTC(year, month - 1, v.day))
@@ -240,7 +261,7 @@ export async function generatePosKasirExcel({
   // -------------------------------------------------------------
   const sheet3 = workbook.addWorksheet('Kas Kecil & Non-Tunai')
   sheet3.mergeCells('A1:E1')
-  sheet3.getCell('A1').value = 'A. REKAP PENGELUARAN KAS KECIL (PETTY CASH TOKO 22 OUTLET)'
+  sheet3.getCell('A1').value = `A. REKAP PENGELUARAN KAS KECIL (PETTY CASH TOKO ${outletsData.length} OUTLET)`
   sheet3.getCell('A1').font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFB45309' } }
 
   const pHead = sheet3.addRow(['No', 'Kategori Pengeluaran', 'Cabang Terkait', 'Total Pengeluaran (Rp)', 'Porsi (%)'])
@@ -249,18 +270,27 @@ export async function generatePosKasirExcel({
     c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
   })
 
-  const pData = [
-    { no: 1, k: 'Es Batu Kristal Darurat', o: 'Empang, Cicurug, Cileungsi', n: 3420000, p: '33.0%' },
-    { no: 2, k: 'Gas LPG 3kg Darurat Lokal', o: 'Dramaga, Cimanggu, Sawangan', n: 2240000, p: '21.6%' },
-    { no: 3, k: 'Air Mineral Galon Outlet', o: 'Semua 22 Cabang Outlet', n: 2150000, p: '20.7%' },
-    { no: 4, k: 'Iuran Kebersihan & Parkir', o: 'Depok, Cirendeu, Jagakarsa', n: 1480000, p: '14.3%' },
-    { no: 5, k: 'Bahan Dapur & Plastik Urgent', o: 'BNR, Pajajaran, Pekayon', n: 1079250, p: '10.4%' },
-  ]
+  const pData = customPettyCash && customPettyCash.length > 0
+    ? customPettyCash.map((item) => ({
+        no: item.no,
+        k: item.kategori,
+        o: item.outletTerbanyak,
+        n: item.nominal,
+        p: item.porsi,
+      }))
+    : [
+        { no: 1, k: 'Es Batu Kristal Darurat', o: 'Empang, Cicurug, Cileungsi', n: 3420000, p: '33.0%' },
+        { no: 2, k: 'Gas LPG 3kg Darurat Lokal', o: 'Dramaga, Cimanggu, Sawangan', n: 2240000, p: '21.6%' },
+        { no: 3, k: 'Air Mineral Galon Outlet', o: 'Semua 22 Cabang Outlet', n: 2150000, p: '20.7%' },
+        { no: 4, k: 'Iuran Kebersihan & Parkir', o: 'Depok, Cirendeu, Jagakarsa', n: 1480000, p: '14.3%' },
+        { no: 5, k: 'Bahan Dapur & Plastik Urgent', o: 'BNR, Pajajaran, Pekayon', n: 1079250, p: '10.4%' },
+      ]
   pData.forEach((item) => {
     const r = sheet3.addRow([item.no, item.k, item.o, item.n, item.p])
     r.getCell(4).numFmt = '#,##0'
   })
-  const pTot = sheet3.addRow(['', 'TOTAL KAS KECIL', '22 Cabang Outlet', totPetty, '100%'])
+  const totPettyVal = pData.reduce((acc, curr) => acc + curr.n, 0)
+  const pTot = sheet3.addRow(['', 'TOTAL KAS KECIL', `${outletsData.length} Cabang Outlet`, totPettyVal, '100%'])
   pTot.eachCell((c: any) => {
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
     c.font = { name: 'Arial', size: 9, bold: true }
@@ -280,17 +310,26 @@ export async function generatePosKasirExcel({
     c.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
   })
 
-  const ntData = [
-    { no: 1, c: 'QRIS Statis & Dinamis (BCA / Mandiri)', v: '18.420 Trx', n: 684210000, p: '51.0%' },
-    { no: 2, c: 'EDC Kartu Debit & Kredit Bank', v: '7.940 Trx', n: 389120000, p: '29.0%' },
-    { no: 3, c: 'E-Wallet (GoPay, ShopeePay, OVO)', v: '4.110 Trx', n: 187816540, p: '14.0%' },
-    { no: 4, c: 'Settlement Merchant Delivery Online', v: '1.386 Trx', n: 80200000, p: '6.0%' },
-  ]
+  const ntData = customNonCash && customNonCash.length > 0
+    ? customNonCash.map((item) => ({
+        no: item.no,
+        c: item.channel,
+        v: item.volume,
+        n: item.nominal,
+        p: item.porsi,
+      }))
+    : [
+        { no: 1, c: 'QRIS Statis & Dinamis (BCA / Mandiri)', v: '18.420 Trx', n: 684210000, p: '51.0%' },
+        { no: 2, c: 'EDC Kartu Debit & Kredit Bank', v: '7.940 Trx', n: 389120000, p: '29.0%' },
+        { no: 3, c: 'E-Wallet (GoPay, ShopeePay, OVO)', v: '4.110 Trx', n: 187816540, p: '14.0%' },
+        { no: 4, c: 'Settlement Merchant Delivery Online', v: '1.386 Trx', n: 80200000, p: '6.0%' },
+      ]
   ntData.forEach((item) => {
     const r = sheet3.addRow([item.no, item.c, item.v, item.n, item.p])
     r.getCell(4).numFmt = '#,##0'
   })
-  const ntTot = sheet3.addRow(['', 'TOTAL NON-TUNAI', '31.856 Order', totNonCash, '100%'])
+  const totNonCashVal = ntData.reduce((acc, curr) => acc + curr.n, 0)
+  const ntTot = sheet3.addRow(['', 'TOTAL NON-TUNAI', 'Konsolidasi', totNonCashVal, '100%'])
   ntTot.eachCell((c: any) => {
     c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }
     c.font = { name: 'Arial', size: 9, bold: true }

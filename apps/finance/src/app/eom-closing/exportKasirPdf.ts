@@ -123,6 +123,31 @@ export interface ExportKasirPdfOptions {
   year: number
   picNote: string
   outletsData: OutletCashData[]
+  shiftVariances?: Array<{
+    no: number
+    day: number
+    outlet: string
+    shift: string
+    sistem: number
+    fisik: number
+    selisih: number
+    penyebab: string
+    status: string
+  }>
+  pettyCashCategories?: Array<{
+    no: number
+    kategori: string
+    outletTerbanyak: string
+    nominal: number
+    porsi: string
+  }>
+  nonCashChannels?: Array<{
+    no: number
+    channel: string
+    volume: string
+    nominal: number
+    porsi: string
+  }>
 }
 
 export async function generatePosKasirPdf({
@@ -130,7 +155,18 @@ export async function generatePosKasirPdf({
   year,
   picNote,
   outletsData,
+  shiftVariances,
+  pettyCashCategories,
+  nonCashChannels,
 }: ExportKasirPdfOptions) {
+  const variancesToUse =
+    shiftVariances && shiftVariances.length > 0 ? shiftVariances : CASHIER_SHIFT_VARIANCES
+  const pettyCategoriesToUse =
+    pettyCashCategories && pettyCashCategories.length > 0
+      ? pettyCashCategories
+      : PETTY_CASH_CATEGORIES
+  const nonCashChannelsToUse =
+    nonCashChannels && nonCashChannels.length > 0 ? nonCashChannels : NON_CASH_CHANNELS
   const { jsPDF } = await import('jspdf')
   const autoTableModule = await import('jspdf-autotable')
   const autoTable = (autoTableModule.default || autoTableModule) as unknown as (
@@ -374,7 +410,7 @@ export async function generatePosKasirPdf({
     'Status Penyelesaian',
   ]
 
-  const varianceBody = CASHIER_SHIFT_VARIANCES.map((v) => [
+  const varianceBody = variancesToUse.map((v) => [
     v.no,
     `${pad2(v.day)}/${pad2(month)}/${year}`,
     v.outlet,
@@ -432,7 +468,7 @@ export async function generatePosKasirPdf({
 
   // Tabel B1: Kas Kecil
   const pettyHead = ['No', 'Kategori Pengeluaran', 'Cabang Terbanyak', 'Nominal (Rp)', 'Porsi']
-  const pettyBody = PETTY_CASH_CATEGORIES.map((p) => [
+  const pettyBody = pettyCategoriesToUse.map((p) => [
     p.no,
     p.kategori,
     p.outletTerbanyak,
@@ -467,7 +503,7 @@ export async function generatePosKasirPdf({
 
   // Tabel B2: Non Tunai
   const nonCashHead = ['No', 'Metode Pembayaran', 'Volume Transaksi', 'Total (Rp)', 'Porsi']
-  const nonCashBody = NON_CASH_CHANNELS.map((n) => [
+  const nonCashBody = nonCashChannelsToUse.map((n) => [
     n.no,
     n.channel,
     n.volume,
@@ -557,7 +593,7 @@ export async function generatePosKasirPdf({
         const poPct = o.grossPos > 0 ? ((o.poAlloc / o.grossPos) * 100).toFixed(1) : '0'
 
         // Check if outlet has shift variance log
-        const outletVariance = CASHIER_SHIFT_VARIANCES.find(
+        const outletVariance = variancesToUse.find(
           (v) =>
             o.name.toUpperCase().includes(v.outlet.toUpperCase()) ||
             v.outlet.toUpperCase().includes(o.name.toUpperCase())
@@ -1186,6 +1222,17 @@ export interface SingleOutletPdfOptions {
   month: number
   year: number
   picNote?: string
+  shiftVariances?: Array<{
+    no: number
+    day: number
+    outlet: string
+    shift: string
+    sistem: number
+    fisik: number
+    selisih: number
+    penyebab: string
+    status: string
+  }>
 }
 
 export async function generateSingleOutletPdf({
@@ -1193,7 +1240,10 @@ export async function generateSingleOutletPdf({
   month,
   year,
   picNote,
+  shiftVariances,
 }: SingleOutletPdfOptions) {
+  const variancesToUse =
+    shiftVariances && shiftVariances.length > 0 ? shiftVariances : CASHIER_SHIFT_VARIANCES
   const { jsPDF } = await import('jspdf')
   const autoTableModule = await import('jspdf-autotable')
   const autoTable = (autoTableModule.default || autoTableModule) as unknown as (
@@ -1370,7 +1420,7 @@ export async function generateSingleOutletPdf({
   currentY = finalY + 6
 
   // 6. Catatan Pengawasan Shift & Temuan Lapangan
-  const outletVariance = CASHIER_SHIFT_VARIANCES.find(
+  const outletVariance = variancesToUse.find(
     (v) =>
       outlet.name.toUpperCase().includes(v.outlet.toUpperCase()) ||
       v.outlet.toUpperCase().includes(outlet.name.toUpperCase())

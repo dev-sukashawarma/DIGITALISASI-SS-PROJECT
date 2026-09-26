@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair } from 'jose'
 import type { JWTVerifyGetKey } from 'jose'
-import { verifySupabaseAccessToken, resolveUserId, supabaseJwtIssuer } from './jwt'
+import { verifySupabaseAccessToken, resolveUserId, getVerifiedUserId, supabaseJwtIssuer } from './jwt'
 
 const SECRET = 'super-secret-jwt-key-for-tests-only'
 const KID = 'test-kid-1'
@@ -156,5 +156,31 @@ describe('resolveUserId', () => {
     expect(await resolveUserId(client, undefined)).toBe('network-user-id')
     expect(getUser).toHaveBeenCalledTimes(1)
     warn.mockRestore()
+  })
+})
+
+describe('getVerifiedUserId', () => {
+  it('memakai SUPABASE_JWT_SECRET dari env, tanpa getUser()', async () => {
+    vi.stubEnv('SUPABASE_JWT_SECRET', SECRET)
+    const token = await makeHs256Token({ sub: 'user-dari-env' })
+    const { client, getUser } = mockSupabase({ access_token: token })
+    expect(await getVerifiedUserId(client)).toBe('user-dari-env')
+    expect(getUser).not.toHaveBeenCalled()
+    vi.unstubAllEnvs()
+  })
+
+  it('token tidak sah → null, TANPA getUser()', async () => {
+    vi.stubEnv('SUPABASE_JWT_SECRET', SECRET)
+    const token = await makeHs256Token({ secret: 'secret-yang-salah-sekali' })
+    const { client, getUser } = mockSupabase({ access_token: token }, 'tidak-boleh-dipakai')
+    expect(await getVerifiedUserId(client)).toBeNull()
+    expect(getUser).not.toHaveBeenCalled()
+    vi.unstubAllEnvs()
+  })
+
+  it('tanpa sesi → null', async () => {
+    const { client, getUser } = mockSupabase(null)
+    expect(await getVerifiedUserId(client)).toBeNull()
+    expect(getUser).not.toHaveBeenCalled()
   })
 })

@@ -23,7 +23,8 @@ import {
   Banknote
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { createSupabaseBrowserClient } from '@suka/auth'
+import Link from 'next/link'
+import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { PageHeader } from '@/components/ui'
 import { rupiah } from '@/lib/format'
 import { DIVISION_FULL_REPORTS, OUTLETS_19_DATA } from './divisionReportsData'
@@ -72,10 +73,10 @@ const DIVISIONS_CONFIG = [
     color: 'from-amber-500 to-orange-600',
     description: 'Rekap shift blind close, variance uang fisik, setoran bank 19 cabang, dan nota kas kecil laci kasir.',
     mockSummary: {
-      'Total Shift Terdata': '570 Shift',
-      'Total Setoran Bank': 'Rp 542.150.000',
-      'Selisih Kas (Variance)': 'Rp 0 (Matched)',
-      'Kas Kecil Kasir Terpakai': 'Rp 8.420.000',
+      'Total Shift Terdata': '679 Shift (31.856 Order)',
+      'Total Setoran Bank': 'Rp 1.687.243.068',
+      'Selisih Kas (Variance)': '+Rp 27.697.221 (Terekonsiliasi)',
+      'Total Kas Kecil Toko': 'Rp 10.369.250',
     }
   },
   {
@@ -86,11 +87,11 @@ const DIVISIONS_CONFIG = [
     icon: Package,
     picRole: 'SPV Kitchen / Gudang',
     color: 'from-blue-600 to-indigo-700',
-    description: 'Hasil opname fisik serentak 19 outlet + gudang, kerugian shrinkage (Rp), dan kerugian food waste (Rp).',
+    description: 'Hasil opname fisik serentak cabang outlet dan gudang pusat, serta kerugian waste dan selisih stok bahan baku pokok.',
     mockSummary: {
-      'Nilai Stok Fisik Akhir': 'Rp 148.600.000',
-      'Kerugian Waste (Bahan Rusak)': 'Rp 4.250.000',
-      'Selisih Stok (Shrinkage)': 'Rp 2.180.000',
+      'Nilai Stok Fisik Akhir': 'Rp 237.665.724',
+      'Kerugian Waste (Bahan Rusak)': 'Rp 21.845.000 (872 Laporan)',
+      'Selisih Stok (Shrinkage)': 'Rp 14.185.000',
       'Status Surat Jalan': '100% Selesai (0 Pending)',
     }
   },
@@ -104,10 +105,10 @@ const DIVISIONS_CONFIG = [
     color: 'from-cyan-600 to-teal-700',
     description: 'Matching 3-way PO-GRN-Invoice, tagihan supplier jatuh tempo (AP aging), dan deviasi harga bahan pokok.',
     mockSummary: {
-      'Total Pembelian (PO)': 'Rp 215.300.000',
-      'Invoice Lunas': 'Rp 160.000.000',
-      'Hutang Jatuh Tempo': 'Rp 55.300.000',
-      'Deviasi Harga Pokok': '+1.2% (Daging Ayam)',
+      'Total Belanja (81 PO)': 'Rp 645.092.000',
+      'Invoice Lunas (Paid)': 'Rp 562.450.000',
+      'Hutang Berjalan (AP)': 'Rp 82.642.000',
+      'Status Verifikasi 3-Way': '100% Cocok (0 Selisih)',
     }
   },
   {
@@ -120,10 +121,10 @@ const DIVISIONS_CONFIG = [
     color: 'from-emerald-600 to-green-700',
     description: 'Rekap absensi tuntas (sakit, izin, alpha), lembur tervalidasi, bonus omzet kru outlet, dan payroll final.',
     mockSummary: {
-      'Total Karyawan Aktif': '94 Kru & Staf',
-      'Tingkat Kehadiran': '98.4%',
-      'Bonus Omzet Kru': 'Rp 18.450.000',
-      'Total Beban Gaji (Payroll)': 'Rp 138.200.000',
+      'Total Personil Aktif': '165 Karyawan (81 Crew, 29 Leader, 25 HQ)',
+      'Tingkat Kehadiran': '98.8% (Disiplin)',
+      'Total Jam Lembur Riil': '1.072 Jam (Rp 11.9 Jt)',
+      'Total Beban Gaji (Payroll)': 'Rp 229.325.629',
     }
   },
   {
@@ -136,10 +137,10 @@ const DIVISIONS_CONFIG = [
     color: 'from-fuchsia-600 to-pink-700',
     description: 'Realisasi biaya iklan berbayar (Meta & TikTok Ads), honorarium endorsement/KOL, dan cetak materi promosi POSM.',
     mockSummary: {
-      'Ad Spend Meta & TikTok': 'Rp 14.500.000',
-      'Honorarium Influencer/KOL': 'Rp 7.000.000',
-      'Cetak POSM & Kemasan': 'Rp 4.200.000',
-      'Sales Uplift Aggregator': '+14.8% MoM',
+      'Ad Spend Meta & TikTok': 'Rp 15.573.359',
+      'Honorarium Influencer/KOL': 'Rp 18.163.909',
+      'Cetak POSM & Promo Outlet': 'Rp 7.014.000',
+      'Total Biaya Pemasaran': 'Rp 40.751.268',
     }
   },
   {
@@ -153,9 +154,9 @@ const DIVISIONS_CONFIG = [
     description: 'Rekonsiliasi rekening koran 100%, selisih pencairan online food (GoFood, Grab, Shopee, TikTok), dan OPEX kantor pusat.',
     mockSummary: {
       'Rekonsiliasi Bank': '100% Cocok (0 Selisih)',
-      'Gross Sales Aggregator': 'Rp 210.400.000',
-      'Net Cair ke Rekening': 'Rp 168.320.000 (Pot. 20%)',
-      'OPEX Kantor Pusat': 'Rp 38.450.000',
+      'Gross Sales Aggregator': 'Rp 485.600.000',
+      'Net Cair ke Rekening': 'Rp 388.480.000 (Pot. 20%)',
+      'OPEX Kantor Pusat': 'Rp 70.331.038',
     }
   },
 ]
@@ -367,6 +368,31 @@ export default function EomClosingHubPage() {
     } finally {
       setIsFinalizing(false)
     }
+  }
+
+  const { outletStaff, loading: authLoading } = useAuth()
+  const isDeveloper = outletStaff?.role?.toLowerCase() === 'developer'
+
+  if (!authLoading && outletStaff && !isDeveloper) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-4 text-amber-500">
+          <Lock className="w-8 h-8" />
+        </div>
+        <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-2">
+          Akses Terbatas: Tahap Development
+        </h2>
+        <p className="text-sm text-slate-500 max-w-md mb-6 leading-relaxed">
+          Modul <strong>EOM Closing HUB</strong> saat ini masih dalam tahap pengembangan aktif dan hanya dapat diakses oleh akun dengan role <span className="font-semibold text-amber-600 dark:text-amber-400">Developer</span>.
+        </p>
+        <Link
+          href="/dashboard"
+          className="px-5 py-2.5 rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-900 text-sm font-semibold hover:opacity-90 transition-all shadow-sm"
+        >
+          Kembali ke Dashboard
+        </Link>
+      </div>
+    )
   }
 
   return (

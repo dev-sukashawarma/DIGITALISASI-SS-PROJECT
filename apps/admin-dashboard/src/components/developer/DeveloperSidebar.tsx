@@ -9,7 +9,8 @@ import {
   Activity, 
   Key, 
   LayoutDashboard,
-  ShoppingCart
+  ShoppingCart,
+  FileCheck
 } from 'lucide-react'
 import { useAuth } from '@suka/auth'
 import { motion } from 'framer-motion'
@@ -18,6 +19,7 @@ const DEV_MENU = [
   { href: '/developer', label: 'Overview', icon: LayoutDashboard },
   { href: '/developer/users', label: 'Global Users', icon: Users },
   { href: '/developer/orders', label: 'Global Orders', icon: ShoppingCart },
+  { href: '/dashboard/owner/closing-hub', label: 'EOM Closing HUB', icon: FileCheck },
   { href: '/developer/system', label: 'System Health', icon: Activity },
   { href: '/developer/apikeys', label: 'API Keys', icon: Key },
 ]

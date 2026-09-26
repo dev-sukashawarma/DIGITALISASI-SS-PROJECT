@@ -2,12 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { hasAppAccess, accessibleApps } from './access'
 
 describe('access matrix', () => {
-  it('developer memiliki akses ke stok, admin-dashboard, HR, monitoring', () => {
+  it('developer memiliki akses ke stok, admin-dashboard, HR, monitoring, finance', () => {
     expect(hasAppAccess('developer', 'stok')).toBe(true)
     expect(hasAppAccess('developer', 'admin-dashboard')).toBe(true)
     expect(hasAppAccess('developer', 'HR')).toBe(true)
     expect(hasAppAccess('developer', 'monitoring')).toBe(true)
+    expect(hasAppAccess('developer', 'finance')).toBe(true)
     expect(accessibleApps('developer')).toContain('stok')
+    expect(accessibleApps('developer')).toContain('finance')
   })
 
   it('admin_hr memiliki akses ke absensi, admin-dashboard, HR, stok', () => {

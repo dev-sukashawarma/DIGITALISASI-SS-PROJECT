@@ -19,7 +19,9 @@ import {
   Truck,
   ClipboardList,
   FileSpreadsheet,
+  FileCheck,
   Trash2,
+
   TrendingUp,
   BookOpen,
   ArrowLeftRight,
@@ -270,6 +272,15 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
     {
       title: 'ANALISIS & LAPORAN',
       items: [
+        ...(outletStaff?.role?.toLowerCase() === 'developer'
+          ? [
+              {
+                label: 'EOM Stock Opname HUB',
+                href: '/stok/eom-closing',
+                icon: FileCheck,
+              },
+            ]
+          : []),
         ...(canViewHPP
           ? [
               {
@@ -279,6 +290,7 @@ export function AppSidebar({ onCloseMobile }: AppSidebarProps) {
               },
             ]
           : []),
+
         ...(canViewSales
           ? [
               {

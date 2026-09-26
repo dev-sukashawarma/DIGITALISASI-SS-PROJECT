@@ -16,7 +16,7 @@ export const ROLE_APP_ACCESS: Record<Role, AppName[]> = {
   admin_finance: ['finance', 'stok'],
   area_manager: ['manager', 'absensi', 'inventori', 'stok', 'distribusi', 'admin-dashboard', 'finance'],
   purchasing: ['admin-dashboard', 'finance', 'stok', 'distribusi'],
-  developer: ['admin-dashboard', 'HR', 'monitoring', 'stok', 'marcom'],
+  developer: ['admin-dashboard', 'HR', 'monitoring', 'stok', 'marcom', 'finance'],
   driver: ['absensi'],
 }
 

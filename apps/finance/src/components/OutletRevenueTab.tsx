@@ -8,7 +8,6 @@ import { Spinner, EmptyState } from '@suka/design-system'
 import { rupiah, formatNumber } from '@/lib/format'
 import { TrendingUp, ShoppingBag, PackageSearch, FileText, FileSpreadsheet, ChevronLeft, ChevronRight, Gift } from 'lucide-react'
 import NumberFlow from '@number-flow/react'
-import { exportToExcel, exportToPDF } from '@/lib/exportUtils'
 import { fetchAllRows } from '@/lib/fetchAllRows'
 import { TargetCombobox } from '@/components/TargetCombobox'
 import { isExcludedOutlet } from '@/lib/outletFilters'
@@ -259,6 +258,7 @@ export default function OutletRevenueTab() {
 
     try {
       const dataToExport = viewMode === 'ringkasan' ? revenueData : itemsData
+      const { exportToExcel, exportToPDF } = await import('@/lib/exportUtils')
       
       if (format === 'excel') {
         await exportToExcel(dataToExport, viewMode, startDate, endDate, outletName, channelName)

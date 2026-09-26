@@ -15,7 +15,7 @@ export const Sidebar = () => {
   const { role } = useRole()
   const { pendingCount } = useLeaveNotifications()
   const resolvedPortalUrl = resolvePortalUrl()
-  const { signOut } = useAuth()
+  const { outletStaff, signOut } = useAuth()
   const scrollRef = useRef<HTMLDivElement>(null)
   const activeItemRef = useRef<HTMLAnchorElement>(null)
 
@@ -24,7 +24,19 @@ export const Sidebar = () => {
     window.location.href = resolvedPortalUrl
   }
 
-  const groups = accessibleGroups(role)
+  const rawGroups = accessibleGroups(role)
+  const isDeveloper = outletStaff?.role?.toLowerCase() === 'developer'
+  const groups = rawGroups
+    .map((g) => ({
+      ...g,
+      items: g.items.filter((item) => {
+        if (item.href === '/dashboard/owner/closing-hub' && !isDeveloper) {
+          return false
+        }
+        return true
+      }),
+    }))
+    .filter((g) => g.items.length > 0)
   /** Apakah item ini — atau salah satu sub-menunya — sedang dibuka. */
   const itemOrChildActive = (item: (typeof groups)[number]['items'][number]) =>
     isItemActive(item.href, pathname) ||

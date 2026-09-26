@@ -65,10 +65,12 @@ export const NAV_GROUPS: NavGroup[] = [
     title: 'Kompensasi',
     icon: Banknote,
     items: [
+      { href: '/eom-closing', label: 'EOM Closing HUB', shortLabel: 'EOM Closing', icon: FileCheck },
       { href: '/payroll', label: 'Payroll & Slip Gaji', shortLabel: 'Payroll', icon: Banknote },
       { href: '/crew-bonus', label: 'Bonus & Insentif Penjualan', shortLabel: 'Bonus Insentif', icon: Sparkles },
     ],
   },
+
   {
     title: 'Performa & Disiplin',
     icon: Award,

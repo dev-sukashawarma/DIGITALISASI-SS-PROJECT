@@ -199,11 +199,21 @@ export default function Sidebar({
       icon: DollarSign,
       badge: null,
       children: [
+        ...(user.role?.toLowerCase() === 'developer'
+          ? [
+              {
+                name: 'EOM Closing Marketing',
+                href: '/dashboard/eom-closing',
+                badge: null,
+              },
+            ]
+          : []),
         {
           name: 'Matriks Budget Outlet',
           href: '/dashboard/budget',
           badge: null,
         },
+
         {
           name: 'OPEX & Pengeluaran',
           href: '/dashboard/budget/opex',

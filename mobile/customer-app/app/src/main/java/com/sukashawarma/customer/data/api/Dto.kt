@@ -183,7 +183,10 @@ data class VoucherDto(
     @SerialName("kalimat_syarat") val kalimatSyarat: String,
     val selesai: String? = null,
     val status: String,
-    val alasan: String? = null
+    val alasan: String? = null,
+    // Potongan kiri kartu. Default null supaya gateway lama tetap terbaca.
+    @SerialName("label_nilai") val labelNilai: String? = null,
+    @SerialName("label_sub") val labelSub: String? = null
 )
 
 @Serializable

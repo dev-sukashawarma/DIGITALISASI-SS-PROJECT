@@ -41,6 +41,7 @@ import com.sukashawarma.customer.data.api.VoucherDto
 import com.sukashawarma.customer.ui.components.ErrorState
 import com.sukashawarma.customer.ui.components.MemuatState
 import com.sukashawarma.customer.ui.theme.SukaBorder
+import com.sukashawarma.customer.ui.voucher.KartuVoucher
 import com.sukashawarma.customer.ui.theme.SukaBrown
 import com.sukashawarma.customer.ui.theme.SukaGreen
 import com.sukashawarma.customer.ui.theme.SukaInk
@@ -114,7 +115,7 @@ fun PemilihVoucherSheet(
                             items(h.data, key = { it.id }) { v ->
                                 KartuVoucher(
                                     voucher = v,
-                                    onPilih = {
+                                    onPakai = {
                                         onPilih(PilihanVoucher(id = v.id, nama = v.nama))
                                     }
                                 )
@@ -163,50 +164,6 @@ fun PemilihVoucherSheet(
                 ) {
                     Text("Pakai", fontWeight = FontWeight.Bold)
                 }
-            }
-        }
-    }
-}
-
-@Composable
-private fun KartuVoucher(voucher: VoucherDto, onPilih: () -> Unit) {
-    val bolehDipakai = voucher.status == "berlaku"
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .alpha(if (bolehDipakai) 1f else 0.5f)
-            .let { if (bolehDipakai) it.clickable(onClick = onPilih) else it },
-        shape = RoundedCornerShape(14.dp),
-        color = if (bolehDipakai) SukaGreen.copy(alpha = 0.06f) else MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, if (bolehDipakai) SukaGreen.copy(alpha = 0.4f) else SukaBorder)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                text = voucher.nama,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    color = SukaInk,
-                    fontSize = 14.sp
-                )
-            )
-            Text(
-                text = voucher.kalimatSyarat,
-                style = MaterialTheme.typography.bodySmall.copy(color = SukaMuted, fontSize = 12.sp)
-            )
-            if (!bolehDipakai && voucher.alasan != null) {
-                Spacer(modifier = Modifier.width(1.dp))
-                Text(
-                    text = voucher.alasan,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = SukaMuted,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 12.sp
-                    )
-                )
             }
         }
     }

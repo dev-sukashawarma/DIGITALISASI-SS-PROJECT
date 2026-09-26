@@ -17,7 +17,7 @@ import {
 
 import { toast } from 'sonner'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
-import { generatePosKasirPdf } from './exportKasirPdf'
+import { generatePosKasirPdf, generateSingleOutletPdf, type OutletCashData } from './exportKasirPdf'
 import { generatePosKasirExcel } from './exportKasirExcel'
 
 const MONTHS = [
@@ -668,6 +668,23 @@ export default function FinanceEomClosingPage() {
     }
   }
 
+  // Export Single Outlet Audit PDF
+  const handleExportSingleOutlet = async (outlet: OutletCashData) => {
+    toast.info(`Menyiapkan Lembar Audit PDF Cabang ${outlet.name}...`)
+    try {
+      await generateSingleOutletPdf({
+        outlet,
+        month,
+        year,
+        picNote: picNotes.kasir_outlet,
+      })
+      toast.success(`Lembar Audit PDF ${outlet.name} Berhasil Diunduh!`)
+    } catch (err) {
+      console.error(err)
+      toast.error(`Gagal membuat PDF untuk ${outlet.name}`)
+    }
+  }
+
   // Export Excel
   const handleExportExcel = async () => {
     toast.info(`Menyiapkan Workbook Excel (${tabConfig.codePrefix})...`)
@@ -1051,6 +1068,7 @@ export default function FinanceEomClosingPage() {
                     <th className="py-2.5 px-3 text-right">Realisasi Setor</th>
                     <th className="py-2.5 px-3 text-center">Selisih</th>
                     <th className="py-2.5 px-3 text-center">Status Audit</th>
+                    <th className="py-2.5 px-3 text-center w-24">Aksi PDF</th>
                   </>
                 ) : (
                   <>
@@ -1093,6 +1111,17 @@ export default function FinanceEomClosingPage() {
                         <td className="py-2 px-3 text-right text-emerald-700 font-bold">{formatRupiah(targetSetor)}</td>
                         <td className="py-2 px-3 text-center font-bold text-emerald-600">Rp 0</td>
                         <td className="py-2 px-3 text-center text-emerald-700 font-bold">100% MATCHED</td>
+                        <td className="py-2 px-3 text-center">
+                          <button
+                            type="button"
+                            onClick={() => handleExportSingleOutlet(o)}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold text-suka-orange hover:text-white bg-suka-orange/10 hover:bg-suka-orange border border-suka-orange/30 rounded-lg transition-colors shadow-xs"
+                            title={`Unduh Laporan Audit PDF ${o.name}`}
+                          >
+                            <Download size={11} />
+                            <span>PDF</span>
+                          </button>
+                        </td>
                       </>
                     ) : (
                       <>
@@ -1136,6 +1165,9 @@ export default function FinanceEomClosingPage() {
                     </td>
                     <td className="py-2.5 px-3 text-center text-emerald-800">
                       100% CLOSED
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-amber-900 font-bold">
+                      -
                     </td>
                   </>
                 ) : (

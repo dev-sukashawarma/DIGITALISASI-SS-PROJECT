@@ -1,7 +1,7 @@
 'use server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { canApprovePermintaan, isApproverRole } from '@/lib/stok/approver'
 import { assertOutletAccessible, getAccessibleOutletIds } from '@/lib/stok/outletAccess'
 import type { PermintaanWithItems, BuatPermintaanItemInput, ApproveItemInput } from '@/types/permintaan'
@@ -42,11 +42,11 @@ async function getAuthedClient() {
 }
 
 async function getCurrentUserId(supabase: Awaited<ReturnType<typeof getAuthedClient>>): Promise<string> {
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) {
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) {
     throw new Error('Unauthorized: No active user session found')
   }
-  return user.id
+  return userId
 }
 
 /**

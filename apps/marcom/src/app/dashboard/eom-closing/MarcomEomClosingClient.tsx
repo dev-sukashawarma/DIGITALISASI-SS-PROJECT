@@ -29,7 +29,7 @@ const formatRupiah = (val: number): string => {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(val)
+  }).format(val).replace(/\u00A0|\u202F/g, ' ')
 }
 
 // Program Pemasaran & Biaya Riil Suka Shawarma
@@ -366,7 +366,7 @@ export default function MarcomEomClosingClient() {
       doc.setTextColor(30, 41, 59)
       doc.text('No Dokumen:', infoX + 3, currentY + 3.5)
       doc.setFont('helvetica', 'normal')
-      doc.text(`BA/SS/MKT/${year}/09`, infoX + 22, currentY + 3.5)
+      doc.text(`BA/SS/MKT/${year}/${String(month).padStart(2, '0')}/001`, infoX + 22, currentY + 3.5)
       doc.setFont('helvetica', 'bold')
       doc.text('Periode:', infoX + 3, currentY + 8)
       doc.setFont('helvetica', 'normal')
@@ -407,7 +407,7 @@ export default function MarcomEomClosingClient() {
 
       currentY += 19
 
-      // Table 19 Outlets
+      // Table 22 Outlets
       const tableHead = [
         'No',
         'Nama Cabang Outlet',
@@ -433,13 +433,18 @@ export default function MarcomEomClosingClient() {
       const totGross = OUTLETS_MKT.reduce((a, b) => a + b.grossPos, 0)
       const totAlloc = OUTLETS_MKT.reduce((a, b) => a + b.alloc, 0)
 
+      const intCount = OUTLETS_MKT.filter((o) => o.type.toLowerCase().includes('internal')).length
+      const mitCount = OUTLETS_MKT.filter((o) => o.type.toLowerCase().includes('mitra')).length
+      const onlCount = OUTLETS_MKT.filter((o) => o.type.toLowerCase().includes('online')).length
+      const typeSummary = `${intCount} Int + ${mitCount} Mit${onlCount > 0 ? ` + ${onlCount} Onl` : ''}`
+
       tableBody.push([
         'TOTAL',
-        '19 CABANG (KONSOLIDASI)',
-        '12 Int + 7 Mit',
+        `${OUTLETS_MKT.length} CABANG (KONSOLIDASI)`,
+        typeSummary,
         formatRupiah(totGross),
         formatRupiah(totAlloc),
-        '19 Outlet Lengkap',
+        `${OUTLETS_MKT.length} Outlet Lengkap`,
         '+14.8% (Target)',
         '100% COMPLETED',
       ])
@@ -490,27 +495,83 @@ export default function MarcomEomClosingClient() {
       const signW = (pageWidth - margin * 2 - 20) / 3
       const signY = currentY + 18
 
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+      const pad2 = (n: number) => String(n).padStart(2, '0')
+      const dateStr = `${year}-${pad2(month)}-${pad2(lastDay)}`
+      const picTimestamp = `${dateStr}T23:45:00+07:00 (WIB)`
+      const syncTimestamp = `${dateStr}T23:58:00+07:00 (WIB)`
+
       doc.text('Disusun Oleh (PIC):', margin + 4, signY)
       doc.setFont('helvetica', 'bold')
       doc.text('Marcom Specialist', margin + 4, signY + 4)
       doc.setFont('helvetica', 'italic')
-      doc.text('[Digital Signature Verified]', margin + 4, signY + 14)
+      doc.text('[Digital Signature Verified]', margin + 4, signY + 12)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.setTextColor(148, 163, 184)
+      doc.text(`Waktu: ${picTimestamp}`, margin + 4, signY + 16)
 
       const c2 = margin + signW + 10
+      doc.setFontSize(7.5)
+      doc.setTextColor(71, 85, 105)
       doc.setFont('helvetica', 'normal')
       doc.text('Diverifikasi Oleh:', c2, signY)
       doc.setFont('helvetica', 'bold')
       doc.text('Marketing Lead', c2, signY + 4)
       doc.setFont('helvetica', 'italic')
-      doc.text('[EOM Closing HUB Synced]', c2, signY + 14)
+      doc.text('[EOM Closing HUB Synced]', c2, signY + 12)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.setTextColor(148, 163, 184)
+      doc.text(`Waktu: ${syncTimestamp}`, c2, signY + 16)
 
       const c3 = margin + signW * 2 + 20
+      doc.setFontSize(7.5)
+      doc.setTextColor(71, 85, 105)
       doc.setFont('helvetica', 'normal')
       doc.text('Disetujui Oleh:', c3, signY)
       doc.setFont('helvetica', 'bold')
       doc.text('Chief Marketing Officer / Owner', c3, signY + 4)
       doc.setFont('helvetica', 'italic')
-      doc.text('[Stempel Sah Konsolidasi]', c3, signY + 14)
+      doc.text('[Stempel Sah Konsolidasi]', c3, signY + 12)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      doc.setTextColor(22, 101, 52)
+      doc.text('[TERVERIFIKASI & DIKUNCI EOM CLOSING HUB]', c3, signY + 16)
+
+      // Dynamic Footer on all pages
+      const totalPages = doc.getNumberOfPages()
+      const printTimestamp =
+        new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        })
+          .format(new Date())
+          .replace(',', '') + ' WIB'
+
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setFontSize(6.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(148, 163, 184)
+        doc.text(
+          `Dokumen Resmi PT Suka Kuliner Nusantara • Sistem EOM Closing • Halaman ${i} dari ${totalPages} • Bersifat Rahasia`,
+          margin,
+          204
+        )
+        doc.text(
+          `Dicetak pada: ${printTimestamp} • Kode Audit: SS-MKT-2026-EOM`,
+          pageWidth - margin,
+          204,
+          { align: 'right' }
+        )
+      }
 
       doc.save(`Laporan_Marketing_${MONTHS[month - 1]}_${year}.pdf`)
       toast.success('Dokumen PDF Resmi Marketing Berhasil Diunduh!')
@@ -535,13 +596,13 @@ export default function MarcomEomClosingClient() {
       XLSX.utils.book_append_sheet(wb, ws1, 'Program Marketing')
 
       const ws2 = XLSX.utils.aoa_to_sheet([
-        ['ALOKASI PROMOSI 19 OUTLET JARINGAN'],
+        [`ALOKASI PROMOSI ${OUTLETS_MKT.length} OUTLET JARINGAN`],
         [`Periode: ${MONTHS[month - 1]} ${year}`],
         [],
         ['No', 'Nama Cabang Outlet', 'Tipe', 'Gross Omzet POS (Rp)', 'Alokasi Biaya (Rp)', 'Materi Promosi', 'Sales Uplift MoM'],
         ...OUTLETS_MKT.map((o) => [o.no, o.name, o.type, o.grossPos, o.alloc, o.media, o.uplift]),
       ])
-      XLSX.utils.book_append_sheet(wb, ws2, 'Alokasi 19 Outlet')
+      XLSX.utils.book_append_sheet(wb, ws2, `Alokasi ${OUTLETS_MKT.length} Outlet`)
 
       XLSX.writeFile(wb, `Laporan_Marketing_${MONTHS[month - 1]}_${year}.xlsx`)
       toast.success('File Excel Berhasil Diunduh!')
@@ -565,7 +626,7 @@ export default function MarcomEomClosingClient() {
               Verifikasi Berita Acara Promosi & Marketing
             </h1>
             <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
-              Realisasi anggaran iklan berbayar (Meta & TikTok Ads), fee kolaborasi KOL food vlogger, materi promosi cetak 19 outlet, dan perhitungan sales uplift sebelum diserahkan ke Admin Dashboard EOM Closing HUB.
+              Realisasi anggaran iklan berbayar (Meta & TikTok Ads), fee kolaborasi KOL food vlogger, materi promosi cetak 22 outlet, dan perhitungan sales uplift sebelum diserahkan ke Admin Dashboard EOM Closing HUB.
             </p>
           </div>
 
@@ -616,7 +677,7 @@ export default function MarcomEomClosingClient() {
             <p className="text-[11px] text-suka-gray-600 mt-0.5">
               {isVerified
                 ? 'Diverifikasi oleh Marketing Lead • Terhubung langsung ke EOM Closing HUB Admin Dashboard.'
-                : 'Periksa data penyerapan anggaran iklan dan materi POSM 19 outlet di bawah, lalu klik tombol verifikasi di sebelah kanan.'}
+                : 'Periksa data penyerapan anggaran iklan dan materi POSM 22 outlet di bawah, lalu klik tombol verifikasi di sebelah kanan.'}
             </p>
           </div>
         </div>
@@ -731,20 +792,20 @@ export default function MarcomEomClosingClient() {
         </div>
       </div>
 
-      {/* 5. Tabel Breakdown 19 Outlet Promosi */}
+      {/* 5. Tabel Breakdown 22 Outlet Promosi */}
       <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-suka-gray-200 bg-suka-cream/10 flex justify-between items-center">
           <div>
             <h3 className="text-sm font-black text-suka-brown flex items-center gap-2">
               <Store size={16} className="text-suka-orange" />
-              Lampiran I: Rekapitulasi Promosi & POSM Per Cabang Outlet (19 Cabang)
+              Lampiran I: Rekapitulasi Promosi & POSM Per Cabang Outlet (22 Cabang)
             </h3>
             <p className="text-[11px] text-suka-gray-500 mt-0.5">
-              Alokasi materi branding dan performa sales uplift pada 12 Cabang Internal dan 7 Cabang Mitra.
+              Alokasi materi branding dan performa sales uplift pada 11 Cabang Internal, 10 Cabang Mitra, dan 1 Online.
             </p>
           </div>
           <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            19/19 Cabang Terpasang
+            22/22 Cabang Terpasang
           </span>
         </div>
 
@@ -786,7 +847,7 @@ export default function MarcomEomClosingClient() {
               {/* Grand Total Row */}
               <tr className="bg-amber-100/80 font-black text-amber-950 border-t-2 border-amber-300">
                 <td colSpan={3} className="py-2.5 px-4 text-left">
-                  TOTAL KONSOLIDASI (19 OUTLET)
+                  TOTAL KONSOLIDASI (22 OUTLET)
                 </td>
                 <td className="py-2.5 px-3 text-right">
                   {formatRupiah(OUTLETS_MKT.reduce((a, b) => a + b.grossPos, 0))}
@@ -795,7 +856,7 @@ export default function MarcomEomClosingClient() {
                   {formatRupiah(OUTLETS_MKT.reduce((a, b) => a + b.alloc, 0))}
                 </td>
                 <td className="py-2.5 px-3 text-center">
-                  19 Outlet Lengkap
+                  22 Outlet Lengkap
                 </td>
                 <td className="py-2.5 px-3 text-center text-emerald-900">
                   +14.8% (Target)

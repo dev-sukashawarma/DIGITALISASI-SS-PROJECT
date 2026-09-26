@@ -17,6 +17,8 @@ import {
 
 import { toast } from 'sonner'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
+import { generatePosKasirPdf } from './exportKasirPdf'
+import { generatePosKasirExcel } from './exportKasirExcel'
 
 const MONTHS = [
   'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
@@ -327,7 +329,7 @@ export default function FinanceEomClosingPage() {
           key: 'kasir_outlet',
           codePrefix: 'BA/SS/KSR',
           title: 'BERITA ACARA REKAPITULASI PENJUALAN KASIR & FISIK KAS TOKO',
-          subtitle: 'Rekonsiliasi transaksi offline POS, pembayaran non-tunai, kas kecil outlet, dan setoran bank 19 cabang.',
+          subtitle: 'Rekonsiliasi transaksi offline POS, pembayaran non-tunai, kas kecil outlet, dan setoran bank 22 cabang.',
           picRole: 'SPV Kasir & Audit Outlet',
           kpis: [
             { label: 'Total Omzet POS (Semua Cabang)', value: 'Rp 1.697.612.318', highlight: true },
@@ -408,6 +410,17 @@ export default function FinanceEomClosingPage() {
   const handleExportPdf = async () => {
     toast.info(`Men-generate Dokumen PDF Resmi (${tabConfig.codePrefix})...`)
     try {
+      if (activeTab === 'kasir_outlet') {
+        await generatePosKasirPdf({
+          month,
+          year,
+          picNote: picNotes.kasir_outlet,
+          outletsData: OUTLETS_19,
+        })
+        toast.success('Dokumen PDF Resmi Berita Acara Kasir Berhasil Diunduh!')
+        return
+      }
+
       const { jsPDF } = await import('jspdf')
       const autoTable = (await import('jspdf-autotable')).default
       const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
@@ -439,7 +452,7 @@ export default function FinanceEomClosingPage() {
       doc.setTextColor(30, 41, 59)
       doc.text('No Dokumen:', infoX + 3, currentY + 3.5)
       doc.setFont('helvetica', 'normal')
-      doc.text(`${tabConfig.codePrefix}/${year}/09`, infoX + 22, currentY + 3.5)
+      doc.text(`${tabConfig.codePrefix}/${year}/${String(month).padStart(2, '0')}`, infoX + 22, currentY + 3.5)
       doc.setFont('helvetica', 'bold')
       doc.text('Periode:', infoX + 3, currentY + 8)
       doc.setFont('helvetica', 'normal')
@@ -474,7 +487,7 @@ export default function FinanceEomClosingPage() {
 
       currentY += 19
 
-      // Table 19 Outlets
+      // Table 22 Outlets
       const tableHead = [
         'No',
         'Nama Cabang Outlet',
@@ -505,10 +518,15 @@ export default function FinanceEomClosingPage() {
       const totPetty = OUTLETS_19.reduce((a, b) => a + b.pettyCash, 0)
       const totPo = OUTLETS_19.reduce((a, b) => a + b.poAlloc, 0)
 
+      const intCount = OUTLETS_19.filter((o) => o.type.toLowerCase().includes('internal')).length
+      const mitCount = OUTLETS_19.filter((o) => o.type.toLowerCase().includes('mitra')).length
+      const onlCount = OUTLETS_19.filter((o) => o.type.toLowerCase().includes('online')).length
+      const typeSummary = `${intCount} Int + ${mitCount} Mit${onlCount > 0 ? ` + ${onlCount} Onl` : ''}`
+
       tableBody.push([
         'TOTAL',
-        '19 CABANG (KONSOLIDASI)',
-        '12 Int + 7 Mit',
+        `${OUTLETS_19.length} CABANG (KONSOLIDASI)`,
+        typeSummary,
         formatRupiah(totGross),
         formatRupiah(totDeposit),
         formatRupiah(totPetty),
@@ -564,33 +582,232 @@ export default function FinanceEomClosingPage() {
       const signW = (pageWidth - margin * 2 - 20) / 3
       const signY = currentY + 18
 
+      const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate()
+      const pad2 = (n: number) => String(n).padStart(2, '0')
+      const dateStr = `${year}-${pad2(month)}-${pad2(lastDay)}`
+      const picTimestamp = `${dateStr}T23:45:00+07:00 (WIB)`
+      const syncTimestamp = `${dateStr}T23:58:00+07:00 (WIB)`
+
       doc.text('Disusun Oleh (PIC):', margin + 4, signY)
       doc.setFont('helvetica', 'bold')
       doc.text(tabConfig.picRole, margin + 4, signY + 4)
       doc.setFont('helvetica', 'italic')
-      doc.text('[Digital Signature Verified]', margin + 4, signY + 14)
+      doc.text('[Digital Signature Verified]', margin + 4, signY + 12)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.setTextColor(148, 163, 184)
+      doc.text(`Waktu: ${picTimestamp}`, margin + 4, signY + 16)
 
       const c2 = margin + signW + 10
+      doc.setFontSize(7.5)
+      doc.setTextColor(71, 85, 105)
       doc.setFont('helvetica', 'normal')
       doc.text('Diverifikasi Oleh:', c2, signY)
       doc.setFont('helvetica', 'bold')
       doc.text('Finance Controller / SPV', c2, signY + 4)
       doc.setFont('helvetica', 'italic')
-      doc.text('[EOM Closing HUB Synced]', c2, signY + 14)
+      doc.text('[EOM Closing HUB Synced]', c2, signY + 12)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(6.5)
+      doc.setTextColor(148, 163, 184)
+      doc.text(`Waktu: ${syncTimestamp}`, c2, signY + 16)
 
       const c3 = margin + signW * 2 + 20
+      doc.setFontSize(7.5)
+      doc.setTextColor(71, 85, 105)
       doc.setFont('helvetica', 'normal')
       doc.text('Disetujui Oleh:', c3, signY)
       doc.setFont('helvetica', 'bold')
       doc.text('Finance Director / Owner', c3, signY + 4)
       doc.setFont('helvetica', 'italic')
-      doc.text('[Stempel Sah Konsolidasi]', c3, signY + 14)
+      doc.text('[Stempel Sah Konsolidasi]', c3, signY + 12)
+      doc.setFont('helvetica', 'bold')
+      doc.setFontSize(6.5)
+      doc.setTextColor(22, 101, 52)
+      doc.text('[TERVERIFIKASI & DIKUNCI EOM CLOSING HUB]', c3, signY + 16)
+
+      // Dynamic Footer on all pages
+      const totalPages = doc.getNumberOfPages()
+      const printTimestamp =
+        new Intl.DateTimeFormat('id-ID', {
+          timeZone: 'Asia/Jakarta',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false,
+        })
+          .format(new Date())
+          .replace(',', '') + ' WIB'
+
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i)
+        doc.setFontSize(6.5)
+        doc.setFont('helvetica', 'normal')
+        doc.setTextColor(148, 163, 184)
+        doc.text(
+          `Dokumen Resmi PT Suka Kuliner Nusantara • Sistem EOM Closing • Halaman ${i} dari ${totalPages} • Bersifat Rahasia`,
+          margin,
+          204
+        )
+        doc.text(
+          `Dicetak pada: ${printTimestamp} • Kode Audit: SS-FIN-2026-EOM`,
+          pageWidth - margin,
+          204,
+          { align: 'right' }
+        )
+      }
 
       doc.save(`Laporan_Finance_${activeTab}_${MONTHS[month - 1]}_${year}.pdf`)
       toast.success('Dokumen PDF Resmi Berhasil Diunduh!')
     } catch (err) {
       console.error(err)
       toast.error('Gagal mencetak dokumen PDF')
+    }
+  }
+
+  // Export Excel
+  const handleExportExcel = async () => {
+    toast.info(`Menyiapkan Workbook Excel (${tabConfig.codePrefix})...`)
+    try {
+      if (activeTab === 'kasir_outlet') {
+        await generatePosKasirExcel({
+          month,
+          year,
+          picNote: picNotes.kasir_outlet,
+          outletsData: OUTLETS_19,
+        })
+        toast.success('Workbook Excel Berita Acara Kasir Berhasil Diunduh!')
+        return
+      }
+      const ExcelJS = (await import('exceljs')).default || (await import('exceljs'))
+      const workbook = new (ExcelJS as any).Workbook()
+      workbook.creator = 'PT Suka Kuliner Nusantara'
+      workbook.created = new Date()
+
+      const sheet = workbook.addWorksheet(`Rekap ${tabConfig.title.slice(0, 25)}`)
+      sheet.mergeCells('A1:I1')
+      sheet.getCell('A1').value = 'SUKA SHAWARMA INDONESIA — PT SUKA KULINER NUSANTARA'
+      sheet.getCell('A1').font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FF3B1D0D' } }
+
+      sheet.mergeCells('A2:I2')
+      sheet.getCell('A2').value = `BERITA ACARA ${tabConfig.title.toUpperCase()} — PERIODE ${MONTHS[month - 1].toUpperCase()} ${year}`
+      sheet.getCell('A2').font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF64748B' } }
+
+      sheet.mergeCells('A3:I3')
+      sheet.getCell('A3').value = `No. Dokumen: ${tabConfig.codePrefix}/${year}/${String(month).padStart(2, '0')}/001 | Status: VERIFIED & LOCKED (EOM CLOSING HUB)`
+      sheet.getCell('A3').font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF166534' } }
+
+      sheet.addRow([])
+      const headerRow = sheet.addRow([
+        'No',
+        'Nama Cabang Outlet',
+        'Tipe Cabang',
+        'Omzet POS (Rp)',
+        'Setoran Bank (Rp)',
+        'Kas Kecil (Rp)',
+        'Alokasi PO Bahan (Rp)',
+        'Selisih Kas',
+        'Status Closing',
+      ])
+      headerRow.eachCell((cell: any) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B1D0D' } }
+        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FFFFFFFF' } }
+        cell.alignment = { vertical: 'middle', horizontal: 'center' }
+      })
+
+      OUTLETS_19.forEach((o) => {
+        const row = sheet.addRow([
+          o.no,
+          o.name,
+          o.type,
+          o.grossPos,
+          o.bankDeposit,
+          o.pettyCash,
+          o.poAlloc,
+          0,
+          '100% CLOSED',
+        ])
+        row.getCell(4).numFmt = '#,##0'
+        row.getCell(5).numFmt = '#,##0'
+        row.getCell(6).numFmt = '#,##0'
+        row.getCell(7).numFmt = '#,##0'
+        row.getCell(8).numFmt = '#,##0'
+        row.getCell(1).alignment = { horizontal: 'center' }
+        row.getCell(3).alignment = { horizontal: 'center' }
+        row.getCell(8).alignment = { horizontal: 'center' }
+        row.getCell(9).alignment = { horizontal: 'center' }
+      })
+
+      const totGross = OUTLETS_19.reduce((a, b) => a + b.grossPos, 0)
+      const totDeposit = OUTLETS_19.reduce((a, b) => a + b.bankDeposit, 0)
+      const totPetty = OUTLETS_19.reduce((a, b) => a + b.pettyCash, 0)
+      const totPo = OUTLETS_19.reduce((a, b) => a + b.poAlloc, 0)
+
+      const intCount = OUTLETS_19.filter((o) => o.type.toLowerCase().includes('internal')).length
+      const mitCount = OUTLETS_19.filter((o) => o.type.toLowerCase().includes('mitra')).length
+      const onlCount = OUTLETS_19.filter((o) => o.type.toLowerCase().includes('online')).length
+      const typeSummary = `${intCount} Int + ${mitCount} Mit${onlCount > 0 ? ` + ${onlCount} Onl` : ''}`
+
+      const totalRow = sheet.addRow([
+        'TOTAL',
+        `${OUTLETS_19.length} CABANG (KONSOLIDASI)`,
+        typeSummary,
+        totGross,
+        totDeposit,
+        totPetty,
+        totPo,
+        0,
+        '100% CLOSED',
+      ])
+      totalRow.eachCell((cell: any) => {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }
+        cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF78350F' } }
+      })
+      totalRow.getCell(4).numFmt = '#,##0'
+      totalRow.getCell(5).numFmt = '#,##0'
+      totalRow.getCell(6).numFmt = '#,##0'
+      totalRow.getCell(7).numFmt = '#,##0'
+      totalRow.getCell(8).numFmt = '#,##0'
+
+      sheet.addRow([])
+      const noteRow = sheet.addRow(['CATATAN AUDIT PIC:', picNotes[activeTab] || 'Rekonsiliasi tuntas 100%.'])
+      noteRow.getCell(1).font = { name: 'Arial', size: 9, bold: true, color: { argb: 'FF3B1D0D' } }
+      noteRow.getCell(2).font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF475569' } }
+
+      sheet.columns = [
+        { width: 6 },
+        { width: 34 },
+        { width: 14 },
+        { width: 18 },
+        { width: 18 },
+        { width: 16 },
+        { width: 18 },
+        { width: 18 },
+        { width: 18 },
+      ]
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      const blob = new Blob([buffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      })
+      const filename = `Workbook_BA_${activeTab}_${MONTHS[month - 1]}_${year}.xlsx`
+      if (typeof window !== 'undefined') {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }
+      toast.success(`Workbook Excel untuk ${tabConfig.title} berhasil diunduh.`)
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Gagal mengunduh Excel: ' + (err.message || 'Error'))
     }
   }
 
@@ -635,7 +852,7 @@ export default function FinanceEomClosingPage() {
               Verifikasi Berita Acara Akhir Bulan
             </h1>
             <p className="text-xs sm:text-sm text-suka-gray-300 mt-1 max-w-2xl">
-              Verifikasi rekapitulasi operasional kasir 19 outlet, tagihan supplier pengadaan bahan, dan rekonsiliasi rekening koran bank sebelum diserahkan ke Admin Dashboard EOM Closing HUB.
+              Verifikasi rekapitulasi operasional kasir 22 outlet, tagihan supplier pengadaan bahan, dan rekonsiliasi rekening koran bank sebelum diserahkan ke Admin Dashboard EOM Closing HUB.
             </p>
           </div>
 
@@ -648,9 +865,7 @@ export default function FinanceEomClosingPage() {
               Cetak PDF Resmi
             </button>
             <button
-              onClick={() => {
-                toast.success(`Mengunduh Workbook Excel (.xlsx) untuk ${tabConfig.title}...`)
-              }}
+              onClick={handleExportExcel}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm"
             >
               <Download size={15} />
@@ -802,20 +1017,20 @@ export default function FinanceEomClosingPage() {
         ))}
       </div>
 
-      {/* 4. Tabel Breakdown 19 Outlet Lengkap */}
+      {/* 4. Tabel Breakdown 22 Outlet Lengkap */}
       <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
         <div className="p-5 border-b border-suka-gray-200 bg-suka-cream/10 flex justify-between items-center">
           <div>
             <h3 className="text-sm font-black text-suka-brown flex items-center gap-2">
               <Store size={16} className="text-suka-orange" />
-              Lampiran I: Rekapitulasi Data Per Cabang Outlet (19 Cabang)
+              Lampiran I: Rekapitulasi Data Per Cabang Outlet (22 Cabang)
             </h3>
             <p className="text-[11px] text-suka-gray-500 mt-0.5">
-              Breakdown lengkap 12 Cabang Internal (Pusat) dan 7 Cabang Mitra / Online.
+              Breakdown lengkap 11 Cabang Internal, 10 Cabang Mitra, dan 1 Online Marketplace.
             </p>
           </div>
           <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
-            19/19 Cabang Terdata
+            22/22 Cabang Terdata
           </span>
         </div>
 
@@ -823,67 +1038,270 @@ export default function FinanceEomClosingPage() {
           <table className="w-full text-xs border-collapse">
             <thead className="bg-slate-800 text-white">
               <tr>
-                <th className="py-2.5 px-3 text-center w-10">No</th>
-                <th className="py-2.5 px-4 text-left">Nama Cabang Outlet</th>
-                <th className="py-2.5 px-3 text-center">Tipe Cabang</th>
-                <th className="py-2.5 px-3 text-right">Omzet POS</th>
-                <th className="py-2.5 px-3 text-right">Setoran Bank</th>
-                <th className="py-2.5 px-3 text-right">Kas Kecil Laci</th>
-                <th className="py-2.5 px-3 text-right">Alokasi PO Bahan</th>
-                <th className="py-2.5 px-3 text-center">Selisih Kas</th>
-                <th className="py-2.5 px-3 text-center">Status Closing</th>
+                {activeTab === 'kasir_outlet' ? (
+                  <>
+                    <th className="py-2.5 px-3 text-center w-10">No</th>
+                    <th className="py-2.5 px-4 text-left">Nama Cabang Outlet</th>
+                    <th className="py-2.5 px-3 text-center">Tipe</th>
+                    <th className="py-2.5 px-3 text-right">Omzet POS</th>
+                    <th className="py-2.5 px-3 text-right">Non-Tunai (QRIS/EDC)</th>
+                    <th className="py-2.5 px-3 text-right">Kas Tunai</th>
+                    <th className="py-2.5 px-3 text-right">Kas Kecil</th>
+                    <th className="py-2.5 px-3 text-right">Target Setor</th>
+                    <th className="py-2.5 px-3 text-right">Realisasi Setor</th>
+                    <th className="py-2.5 px-3 text-center">Selisih</th>
+                    <th className="py-2.5 px-3 text-center">Status Audit</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="py-2.5 px-3 text-center w-10">No</th>
+                    <th className="py-2.5 px-4 text-left">Nama Cabang Outlet</th>
+                    <th className="py-2.5 px-3 text-center">Tipe Cabang</th>
+                    <th className="py-2.5 px-3 text-right">Omzet POS</th>
+                    <th className="py-2.5 px-3 text-right">Setoran Bank</th>
+                    <th className="py-2.5 px-3 text-right">Kas Kecil Laci</th>
+                    <th className="py-2.5 px-3 text-right">Alokasi PO Bahan</th>
+                    <th className="py-2.5 px-3 text-center">Selisih Kas</th>
+                    <th className="py-2.5 px-3 text-center">Status Closing</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-suka-gray-100 font-medium">
-              {OUTLETS_19.map((o, idx) => (
-                <tr key={o.no} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
-                  <td className="py-2 px-3 text-center text-suka-gray-400">{o.no}</td>
-                  <td className="py-2 px-4 font-bold text-suka-ink">{o.name}</td>
-                  <td className="py-2 px-3 text-center">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                      o.type === 'Internal'
-                        ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                        : 'bg-blue-50 text-blue-800 border border-blue-200'
-                    }`}>
-                      {o.type}
-                    </span>
-                  </td>
-                  <td className="py-2 px-3 text-right font-bold text-suka-ink">{formatRupiah(o.grossPos)}</td>
-                  <td className="py-2 px-3 text-right text-emerald-700 font-semibold">{formatRupiah(o.bankDeposit)}</td>
-                  <td className="py-2 px-3 text-right text-suka-gray-600">{formatRupiah(o.pettyCash)}</td>
-                  <td className="py-2 px-3 text-right text-suka-gray-700">{formatRupiah(o.poAlloc)}</td>
-                  <td className="py-2 px-3 text-center font-bold text-emerald-600">Rp 0</td>
-                  <td className="py-2 px-3 text-center text-emerald-700 font-bold">100% CLOSED</td>
-                </tr>
-              ))}
+              {OUTLETS_19.map((o, idx) => {
+                const targetSetor = o.cash - o.pettyCash
+                return (
+                  <tr key={o.no} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/60'}>
+                    <td className="py-2 px-3 text-center text-suka-gray-400">{o.no}</td>
+                    <td className="py-2 px-4 font-bold text-suka-ink">{o.name}</td>
+                    <td className="py-2 px-3 text-center">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                        o.type === 'Internal'
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : 'bg-blue-50 text-blue-800 border border-blue-200'
+                      }`}>
+                        {o.type}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-suka-ink">{formatRupiah(o.grossPos)}</td>
+                    {activeTab === 'kasir_outlet' ? (
+                      <>
+                        <td className="py-2 px-3 text-right text-slate-700">{formatRupiah(o.nonCash)}</td>
+                        <td className="py-2 px-3 text-right text-slate-700">{formatRupiah(o.cash)}</td>
+                        <td className="py-2 px-3 text-right text-suka-gray-600">{formatRupiah(o.pettyCash)}</td>
+                        <td className="py-2 px-3 text-right text-amber-800 font-semibold">{formatRupiah(targetSetor)}</td>
+                        <td className="py-2 px-3 text-right text-emerald-700 font-bold">{formatRupiah(targetSetor)}</td>
+                        <td className="py-2 px-3 text-center font-bold text-emerald-600">Rp 0</td>
+                        <td className="py-2 px-3 text-center text-emerald-700 font-bold">100% MATCHED</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="py-2 px-3 text-right text-emerald-700 font-semibold">{formatRupiah(o.bankDeposit)}</td>
+                        <td className="py-2 px-3 text-right text-suka-gray-600">{formatRupiah(o.pettyCash)}</td>
+                        <td className="py-2 px-3 text-right text-suka-gray-700">{formatRupiah(o.poAlloc)}</td>
+                        <td className="py-2 px-3 text-center font-bold text-emerald-600">Rp 0</td>
+                        <td className="py-2 px-3 text-center text-emerald-700 font-bold">100% CLOSED</td>
+                      </>
+                    )}
+                  </tr>
+                )
+              })}
               {/* Grand Total Row */}
               <tr className="bg-amber-100/80 font-black text-amber-950 border-t-2 border-amber-300">
                 <td colSpan={3} className="py-2.5 px-4 text-left">
-                  TOTAL KONSOLIDASI (19 OUTLET)
+                  TOTAL KONSOLIDASI (22 CABANG)
                 </td>
                 <td className="py-2.5 px-3 text-right">
                   {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.grossPos, 0))}
                 </td>
-                <td className="py-2.5 px-3 text-right text-emerald-800">
-                  {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.bankDeposit, 0))}
-                </td>
-                <td className="py-2.5 px-3 text-right">
-                  {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.pettyCash, 0))}
-                </td>
-                <td className="py-2.5 px-3 text-right">
-                  {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.poAlloc, 0))}
-                </td>
-                <td className="py-2.5 px-3 text-center text-emerald-800">
-                  Rp 0 (MATCHED)
-                </td>
-                <td className="py-2.5 px-3 text-center text-emerald-800">
-                  100% CLOSED
-                </td>
+                {activeTab === 'kasir_outlet' ? (
+                  <>
+                    <td className="py-2.5 px-3 text-right">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.nonCash, 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.cash, 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.pettyCash, 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-amber-900">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + (b.cash - b.pettyCash), 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-right text-emerald-800">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + (b.cash - b.pettyCash), 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-emerald-800">
+                      Rp 0 (MATCHED)
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-emerald-800">
+                      100% CLOSED
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="py-2.5 px-3 text-right text-emerald-800">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.bankDeposit, 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.pettyCash, 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-right">
+                      {formatRupiah(OUTLETS_19.reduce((a, b) => a + b.poAlloc, 0))}
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-emerald-800">
+                      Rp 0 (MATCHED)
+                    </td>
+                    <td className="py-2.5 px-3 text-center text-emerald-800">
+                      100% CLOSED
+                    </td>
+                  </>
+                )}
               </tr>
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* Ekstra Lampiran Khusus Kasir Outlet */}
+      {activeTab === 'kasir_outlet' && (
+        <div className="space-y-6">
+          {/* Lampiran II: Audit Selisih Shift Kasir */}
+          <div className="bg-white rounded-2xl border border-suka-gray-200 shadow-sm overflow-hidden">
+            <div className="p-5 border-b border-suka-gray-200 bg-slate-50 flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                  <Banknote size={16} className="text-amber-600" />
+                  Lampiran II: Log Audit & Penyelesaian Selisih Shift Kasir (Blind Close Variance)
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Rincian investigasi SPV Kasir atas selisih kas fisik vs sistem register POS dan status pertanggungjawaban kasir.
+                </p>
+              </div>
+              <span className="text-[11px] font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                6 Kasus Terekonsiliasi
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead className="bg-slate-700 text-white">
+                  <tr>
+                    <th className="py-2 px-3 text-center w-10">No</th>
+                    <th className="py-2 px-3 text-center">Tanggal</th>
+                    <th className="py-2 px-4 text-left">Cabang Outlet</th>
+                    <th className="py-2 px-4 text-left">Shift & Nama Kasir</th>
+                    <th className="py-2 px-3 text-right">Kas Sistem</th>
+                    <th className="py-2 px-3 text-right">Kas Fisik</th>
+                    <th className="py-2 px-3 text-right">Selisih</th>
+                    <th className="py-2 px-4 text-left">Hasil Investigasi SPV</th>
+                    <th className="py-2 px-3 text-center">Status Penyelesaian</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {[
+                    { no: 1, day: 5, ot: 'SUKA SHAWARMA EMPANG', shift: 'Shift 2 (Malam) - Dinda Safitri', sis: 3450000, fis: 3400000, sel: -50000, sebab: 'Salah hitung kembalian pecahan Rp 50.000 saat antrean padat', stat: 'LUNAS (Potong Kasbon Kasir)' },
+                    { no: 2, day: 12, ot: 'SUKA SHAWARMA CIMANGGU', shift: 'Shift 1 (Siang) - Rizky Pratama', sis: 2890000, fis: 2915000, sel: 25000, sebab: 'Konsumen menolak uang kembalian receh pecahan kecil', stat: 'SELESAI (Disetor ke Kas Operasional)' },
+                    { no: 3, day: 18, ot: 'SUKA SHAWARMA DEPOK SUKMAJAYA', shift: 'Shift 2 (Malam) - Ahmad Fauzi', sis: 4120000, fis: 4070000, sel: -50000, sebab: 'Transaksi QRIS ganda salah input manual pada sistem kasir', stat: 'LUNAS (Revisi Settlement Bank)' },
+                    { no: 4, day: 24, ot: 'MITRA CILEUNGSI', shift: 'Shift 2 (Malam) - Siti Rahma', sis: 5210000, fis: 5160000, sel: -50000, sebab: 'Selisih penukaran modal uang kecil dengan pedagang sekitar', stat: 'LUNAS (Potong Kasbon Kasir)' },
+                    { no: 5, day: 27, ot: 'MITRA CICURUG', shift: 'Shift 1 (Siang) - Budi Santoso', sis: 3100000, fis: 3120000, sel: 20000, sebab: 'Pembulatan kembalian uang belanja pada struk POS kasir', stat: 'SELESAI (Disetor ke Kas Operasional)' },
+                    { no: 6, day: 29, ot: 'SUKA SHAWARMA DRAMAGA', shift: 'Shift 2 (Malam) - Bayu Nugraha', sis: 3670000, fis: 3620000, sel: -50000, sebab: 'Kelalaian penyerahan struk & kembalian saat jam rush hour', stat: 'LUNAS (Potong Kasbon Kasir)' },
+                  ].map((v) => {
+                    const tglStr = `${String(v.day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`
+                    return (
+                    <tr key={v.no} className="hover:bg-slate-50/70">
+                      <td className="py-2 px-3 text-center text-slate-400">{v.no}</td>
+                      <td className="py-2 px-3 text-center text-slate-600 font-mono text-[11px]">{tglStr}</td>
+                      <td className="py-2 px-4 font-bold text-slate-800">{v.ot}</td>
+                      <td className="py-2 px-4 text-slate-700">{v.shift}</td>
+                      <td className="py-2 px-3 text-right">{formatRupiah(v.sis)}</td>
+                      <td className="py-2 px-3 text-right">{formatRupiah(v.fis)}</td>
+                      <td className={`py-2 px-3 text-right font-bold ${v.sel < 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+                        {v.sel > 0 ? `+${formatRupiah(v.sel)}` : formatRupiah(v.sel)}
+                      </td>
+                      <td className="py-2 px-4 text-slate-600 text-[11px]">{v.sebab}</td>
+                      <td className="py-2 px-3 text-center">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                          {v.stat}
+                        </span>
+                      </td>
+                    </tr>
+                  )})}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Lampiran III: Dua Mini Card Berdampingan */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Kiri: Kas Kecil */}
+            <div className="bg-white rounded-2xl border border-suka-gray-200 p-5 shadow-sm space-y-3">
+              <h4 className="text-xs font-black uppercase text-amber-900 tracking-wider flex items-center justify-between">
+                <span>Rincian Pengeluaran Kas Kecil Toko</span>
+                <span className="text-[11px] text-amber-700 font-bold">Total: Rp 10.369.250</span>
+              </h4>
+              <div className="divide-y divide-slate-100 text-xs">
+                {[
+                  { k: 'Es Batu Kristal Darurat', o: 'Empang, Cicurug, Cileungsi', n: 3420000, p: '33.0%' },
+                  { k: 'Gas LPG 3kg Darurat Lokal', o: 'Dramaga, Cimanggu, Sawangan', n: 2240000, p: '21.6%' },
+                  { k: 'Air Mineral Galon Outlet', o: 'Semua 22 Cabang Outlet', n: 2150000, p: '20.7%' },
+                  { k: 'Iuran Kebersihan & Parkir', o: 'Depok, Cirendeu, Jagakarsa', n: 1480000, p: '14.3%' },
+                  { k: 'Bahan Dapur & Plastik Urgent', o: 'BNR, Pajajaran, Pekayon', n: 1079250, p: '10.4%' },
+                ].map((item, i) => (
+                  <div key={i} className="py-2 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-800">{item.k}</div>
+                      <div className="text-[10px] text-slate-400">Cabang: {item.o}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-slate-900">{formatRupiah(item.n)}</div>
+                      <div className="text-[10px] text-slate-500">{item.p}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Kanan: Non Tunai Channels */}
+            <div className="bg-white rounded-2xl border border-suka-gray-200 p-5 shadow-sm space-y-3">
+              <h4 className="text-xs font-black uppercase text-blue-900 tracking-wider flex items-center justify-between">
+                <span>Saluran Pembayaran Non-Tunai</span>
+                <span className="text-[11px] text-blue-700 font-bold">Total: Rp 1.341.346.540</span>
+              </h4>
+              <div className="divide-y divide-slate-100 text-xs">
+                {[
+                  { c: 'QRIS Statis & Dinamis (BCA / Mandiri)', v: '18.420 Transaksi', n: 684210000, p: '51.0%' },
+                  { c: 'EDC Kartu Debit & Kredit Bank', v: '7.940 Transaksi', n: 389120000, p: '29.0%' },
+                  { c: 'E-Wallet (GoPay, ShopeePay, OVO)', v: '4.110 Transaksi', n: 187816540, p: '14.0%' },
+                  { c: 'Settlement Merchant Delivery Online', v: '1.386 Transaksi', n: 80200000, p: '6.0%' },
+                ].map((item, i) => (
+                  <div key={i} className="py-2 flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-slate-800">{item.c}</div>
+                      <div className="text-[10px] text-slate-400">{item.v}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="font-bold text-blue-900">{formatRupiah(item.n)}</div>
+                      <div className="text-[10px] text-slate-500">{item.p}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Pakta Integritas Box */}
+          <div className="bg-amber-50/70 rounded-2xl border border-amber-200 p-5 space-y-2">
+            <h4 className="text-xs font-black text-amber-900 flex items-center gap-2">
+              <ShieldCheck size={16} className="text-amber-700" />
+              KLAUSUL PAKTA INTEGRITAS RESMI DIVISI KASIR:
+            </h4>
+            <p className="text-xs text-amber-900/90 leading-relaxed">
+              Seluruh transaksi kas dan non-tunai (QRIS/EDC) pada 22 cabang outlet telah diverifikasi silang dengan log register POS, slip blind close per shift, serta mutasi rekening koran bank penampung resmi (BCA & Mandiri). Segala bentuk selisih fisik kas telah diselesaikan dan dipertanggungjawabkan sesuai SOP Keuangan PT Suka Kuliner Nusantara.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 5. Form Catatan Lapangan PIC */}
       <div className="bg-white rounded-2xl border border-suka-gray-200 p-6 shadow-sm space-y-3">

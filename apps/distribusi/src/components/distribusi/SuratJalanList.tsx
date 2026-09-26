@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { useSuratJalanList } from '@/hooks/useSuratJalanList'
@@ -68,14 +68,22 @@ const ITEMS_PER_PAGE = 12
 
 export function SuratJalanList() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const { outletStaff } = useAuth()
   
+  // URL Param Initializers
+  const urlTab = searchParams.get('tab') as StatusTab | null
+  const initialTab: StatusTab = urlTab && ['all', 'draft', 'dikirim', 'belum_verif', 'selisih', 'selesai'].includes(urlTab)
+    ? urlTab
+    : 'all'
+  const urlSearch = searchParams.get('search') || ''
+
   // States
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [customRange, setCustomRange] = useState<CustomDateRange>({ startDate: '', endDate: '' })
-  const [statusTab, setStatusTab] = useState<StatusTab>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [statusTab, setStatusTab] = useState<StatusTab>(initialTab)
+  const [searchQuery, setSearchQuery] = useState(urlSearch)
   const [selectedOutlet, setSelectedOutlet] = useState<string>('all')
   const [sortBy, setSortBy] = useState<SortOption>('newest')
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
@@ -505,14 +513,14 @@ export function SuratJalanList() {
           >
             <div className="flex justify-between items-center">
               <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'dikirim' ? 'text-white/90' : 'text-blue-700'}`}>
-                Transit
+                Transit / Terima
               </span>
               <Truck size={15} className={statusTab === 'dikirim' ? 'text-white' : 'text-blue-500'} />
             </div>
             <div className="mt-2">
               <p className={`text-2xl font-black font-display ${statusTab === 'dikirim' ? 'text-white' : 'text-blue-700'}`}>{sentCount}</p>
               <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'dikirim' ? 'text-white/80' : 'text-blue-600/70'}`}>
-                Dalam Perjalanan Kurir
+                Barang Masuk (Klik Terima)
               </p>
             </div>
           </button>
@@ -528,14 +536,14 @@ export function SuratJalanList() {
           >
             <div className="flex justify-between items-center">
               <span className={`text-[10px] font-black uppercase tracking-wider ${statusTab === 'belum_verif' ? 'text-white/90' : 'text-purple-700'}`}>
-                Perlu Verif
+                Verif Pusat
               </span>
               <Store size={15} className={statusTab === 'belum_verif' ? 'text-white' : 'text-purple-500'} />
             </div>
             <div className="mt-2">
               <p className={`text-2xl font-black font-display ${statusTab === 'belum_verif' ? 'text-white' : 'text-purple-700'}`}>{diterimaCount}</p>
               <p className={`text-[9px] font-bold mt-0.5 ${statusTab === 'belum_verif' ? 'text-white/80' : 'text-purple-600/70'}`}>
-                Tiba / Pengecekan Fisik
+                Diterima Outlet • Tunggu Pusat
               </p>
             </div>
           </button>
@@ -692,8 +700,8 @@ export function SuratJalanList() {
             {[
               { key: 'all', label: 'Semua', count: data.length },
               { key: 'draft', label: 'Draft', count: draftCount },
-              { key: 'dikirim', label: 'Dalam Transit', count: sentCount },
-              { key: 'belum_verif', label: 'Perlu Verif', count: diterimaCount },
+              { key: 'dikirim', label: 'Transit (Terima Barang)', count: sentCount },
+              { key: 'belum_verif', label: 'Verif Pusat', count: diterimaCount },
               { key: 'selisih', label: 'Ada Selisih', count: problemCount, alert: problemCount > 0 },
               { key: 'selesai', label: 'Selesai', count: selesaiCount },
             ].map((tab) => (
@@ -754,6 +762,20 @@ export function SuratJalanList() {
                   ? 'Tidak ditemukan dokumen yang sesuai dengan kriteria filter pencarian Anda.'
                   : 'Belum ada data Surat Jalan yang tercatat dalam sistem.'}
               </p>
+              {statusTab === 'belum_verif' && (
+                <div className="pt-2">
+                  <p className="inline-block text-[11px] font-bold text-amber-900 bg-amber-50 border border-amber-200/80 rounded-xl px-4 py-2">
+                    💡 Mencari kiriman barang yang baru tiba? Buka tab{' '}
+                    <button
+                      type="button"
+                      onClick={() => handleTabChange('dikirim')}
+                      className="underline font-black text-amber-900 hover:text-amber-700 cursor-pointer"
+                    >
+                      Transit (Terima Barang)
+                    </button>
+                  </p>
+                </div>
+              )}
             </div>
             {(searchQuery || selectedOutlet !== 'all' || statusTab !== 'all' || dateFilter !== 'all') && (
               <button
@@ -871,16 +893,24 @@ export function SuratJalanList() {
                       </div>
                     ) : (
                       <div className="grid grid-cols-4 gap-1.5">
-                        {/* Detail */}
+                        {/* Detail / Terima */}
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            router.push(`/distribusi/surat-jalan/${sj.id}`)
+                            if (!isPusat && (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap')) {
+                              router.push(`/distribusi/terima/${sj.id}`)
+                            } else {
+                              router.push(`/distribusi/surat-jalan/${sj.id}`)
+                            }
                           }}
                           className="py-2 bg-suka-orange hover:bg-orange-600 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center justify-center gap-1"
-                          title="Lihat Detail Surat Jalan"
+                          title={!isPusat && (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap') ? 'Verifikasi Terima Barang' : 'Lihat Detail Surat Jalan'}
                         >
-                          <Eye size={12} /> Detail
+                          {!isPusat && (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap') ? (
+                            <>📝 Terima</>
+                          ) : (
+                            <><Eye size={12} /> Detail</>
+                          )}
                         </button>
 
                         {/* PDF 3-Ply */}
@@ -987,11 +1017,21 @@ export function SuratJalanList() {
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <button
-                              onClick={() => router.push(`/distribusi/surat-jalan/${sj.id}`)}
+                              onClick={() => {
+                                if (!isPusat && (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap')) {
+                                  router.push(`/distribusi/terima/${sj.id}`)
+                                } else {
+                                  router.push(`/distribusi/surat-jalan/${sj.id}`)
+                                }
+                              }}
                               className="px-2.5 py-1.5 bg-suka-orange hover:bg-orange-600 text-white rounded-xl font-bold text-[9px] uppercase tracking-wider shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
-                              title="Lihat Detail"
+                              title={!isPusat && (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap') ? 'Verifikasi Terima Barang' : 'Lihat Detail'}
                             >
-                              <Eye size={12} /> Detail
+                              {!isPusat && (sj.status === 'dikirim' || sj.status === 'dikirim_lengkap') ? (
+                                <>📝 Terima</>
+                              ) : (
+                                <><Eye size={12} /> Detail</>
+                              )}
                             </button>
                             {sj.status === 'draft' && canCancelPO && (
                               <button

@@ -10,12 +10,13 @@ import { useAuth } from '@suka/auth'
 export function useFinanceRole() {
   const { outletStaff } = useAuth()
   const role = (outletStaff?.role as string) ?? null
-  const isChecker = role === 'owner' || role === 'admin'
-  const isFinance = role === 'owner' || role === 'admin' || role === 'admin_finance'
-  const isPurchasing = role === 'owner' || role === 'admin' || role === 'purchasing' || role === 'purchase'
-  const canManagePO = isPurchasing || role === 'admin_finance' || role === 'kitchen'
-  const canApprovePO = role === 'owner' || role === 'admin' || role === 'admin_finance'
-  const canVerifyPOReceipt = role === 'owner' || role === 'admin' || role === 'kitchen'
+  const isDeveloper = role === 'developer'
+  const isChecker = role === 'owner' || role === 'admin' || isDeveloper
+  const isFinance = role === 'owner' || role === 'admin' || role === 'admin_finance' || isDeveloper
+  const isPurchasing = role === 'owner' || role === 'admin' || role === 'purchasing' || role === 'purchase' || isDeveloper
+  const canManagePO = isPurchasing || role === 'admin_finance' || role === 'kitchen' || isDeveloper
+  const canApprovePO = role === 'owner' || role === 'admin' || role === 'admin_finance' || isDeveloper
+  const canVerifyPOReceipt = role === 'owner' || role === 'admin' || role === 'kitchen' || isDeveloper
 
   return { 
     role, 

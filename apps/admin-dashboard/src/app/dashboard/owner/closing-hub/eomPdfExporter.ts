@@ -8,12 +8,16 @@ const formatRupiah = (val: number): string => {
     style: 'currency',
     currency: 'IDR',
     maximumFractionDigits: 0,
-  }).format(val)
+  }).format(val).replace(/\u00A0|\u202F/g, ' ')
 }
 
+const MONTHS_MAP: Record<string, number> = {
+  Januari: 1, Februari: 2, Maret: 3, April: 4, Mei: 5, Juni: 6,
+  Juli: 7, Agustus: 8, September: 9, Oktober: 10, November: 11, Desember: 12,
+}
 
 /**
- * Ekspor Berita Acara Divisi + Breakdown 19 Outlet Lengkap ke Dokumen PDF Resmi
+ * Ekspor Berita Acara Divisi + Breakdown Outlet Lengkap ke Dokumen PDF Resmi
  */
 export function exportDivisionToPdf(divisionKey: string, monthName: string, yearNum: number) {
   const report = DIVISION_FULL_REPORTS[divisionKey]
@@ -22,7 +26,11 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     return
   }
 
-  const docNumber = `${report.codePrefix}/${yearNum}/${String(new Date().getMonth() + 1).padStart(2, '0')}`
+  const monthNum = MONTHS_MAP[monthName] || (new Date().getMonth() + 1)
+  const monthPad = String(monthNum).padStart(2, '0')
+  const lastDay = new Date(yearNum, monthNum, 0).getDate()
+  const cutoffIso = `${yearNum}-${monthPad}-${String(lastDay).padStart(2, '0')}`
+  const docNumber = `${report.codePrefix}/${yearNum}/${monthPad}/001`
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -210,10 +218,12 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
   doc.text(report.notesDefault, margin + 3, currentY + 9)
 
   // ══════════════════════════════════════════════════════════════
-  // HALAMAN 2: LAMPIRAN I - LAPORAN DETAIL PER-OUTLET (19 CABANG)
+  // HALAMAN 2: LAMPIRAN I - LAPORAN DETAIL PER-OUTLET
   // ══════════════════════════════════════════════════════════════
   doc.addPage('a4', 'landscape')
   currentY = 12
+
+  const totals = getOutletsSummaryTotals()
 
   // Header Lampiran
   doc.setFillColor(217, 83, 30) // Suka Orange
@@ -222,13 +232,13 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(59, 29, 13)
-  doc.text(`LAMPIRAN I: REKAPITULASI DETAIL PER CABANG OUTLET (19 CABANG)`, margin + 6, currentY + 4.5)
+  doc.text(`LAMPIRAN I: REKAPITULASI DETAIL PER CABANG OUTLET (${OUTLETS_19_DATA.length} CABANG)`, margin + 6, currentY + 4.5)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
   doc.setTextColor(100, 116, 139)
   doc.text(
-    `Divisi: ${report.title} | Periode: ${monthName} ${yearNum} | Seluruh 12 Cabang Internal dan 7 Cabang Mitra telah diverifikasi 100%`,
+    `Divisi: ${report.title} | Periode: ${monthName} ${yearNum} | Seluruh ${totals.internalOutletsCount} Cabang Internal dan ${totals.mitraOutletsCount} Cabang Mitra telah diverifikasi 100%`,
     margin + 6,
     currentY + 9
   )
@@ -284,8 +294,8 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     const totals = getOutletsSummaryTotals()
     outletBody.push([
       'TOTAL',
-      '19 CABANG (KONSOLIDASI)',
-      '12 Internal + 7 Mitra',
+      `${OUTLETS_19_DATA.length} CABANG (KONSOLIDASI)`,
+      `${totals.internalOutletsCount} Internal + ${totals.mitraOutletsCount} Mitra`,
       formatRupiah(totals.cash),
       formatRupiah(totals.nonCash),
       formatRupiah(totals.grossPos),
@@ -340,8 +350,8 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     const grandPct = ((grandLoss / totals.grossPos) * 100).toFixed(2) + '%'
     outletBody.push([
       'TOTAL',
-      '19 CABANG (KONSOLIDASI)',
-      '12 Internal + 7 Mitra',
+      `${OUTLETS_19_DATA.length} CABANG (KONSOLIDASI)`,
+      `${totals.internalOutletsCount} Internal + ${totals.mitraOutletsCount} Mitra`,
       formatRupiah(totals.stockAsset),
       formatRupiah(totals.wasteRp),
       formatRupiah(totals.shrinkageRp),
@@ -387,7 +397,7 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     const totalOT = OUTLETS_19_DATA.reduce((a, b) => a + b.overtimeHours, 0)
     outletBody.push([
       'TOTAL',
-      '19 CABANG (KONSOLIDASI)',
+      `${OUTLETS_19_DATA.length} CABANG (KONSOLIDASI)`,
       'Seluruh Jaringan Outlet',
       `${totals.crewCount} Staf & Kru`,
       '98.4%',
@@ -436,8 +446,8 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     const totalRatio = ((totals.poPurchasing / totals.grossPos) * 100).toFixed(1) + '%'
     outletBody.push([
       'TOTAL',
-      '19 CABANG (KONSOLIDASI)',
-      '12 Internal + 7 Mitra',
+      `${OUTLETS_19_DATA.length} CABANG (KONSOLIDASI)`,
+      `${totals.internalOutletsCount} Internal + ${totals.mitraOutletsCount} Mitra`,
       formatRupiah(totals.grossPos),
       formatRupiah(totals.poPurchasing),
       totalRatio,
@@ -481,11 +491,11 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     const totals = getOutletsSummaryTotals()
     outletBody.push([
       'TOTAL',
-      '19 CABANG (KONSOLIDASI)',
-      '12 Internal + 7 Mitra',
+      `${OUTLETS_19_DATA.length} CABANG (KONSOLIDASI)`,
+      `${totals.internalOutletsCount} Internal + ${totals.mitraOutletsCount} Mitra`,
       formatRupiah(totals.grossPos),
       formatRupiah(totals.mktAllocation),
-      '19 Outlet Terpasang',
+      `${OUTLETS_19_DATA.length} Outlet Terpasang`,
       '+14.8% (Target Tercapai)',
       'LENGKAP',
     ])
@@ -527,8 +537,8 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     const totals = getOutletsSummaryTotals()
     outletBody.push([
       'TOTAL',
-      '19 CABANG (KONSOLIDASI)',
-      '12 Internal + 7 Mitra',
+      `${OUTLETS_19_DATA.length} CABANG (KONSOLIDASI)`,
+      `${totals.internalOutletsCount} Internal + ${totals.mitraOutletsCount} Mitra`,
       formatRupiah(totals.grossPos),
       formatRupiah(totals.pettyCash),
       formatRupiah(totals.bankDeposit),
@@ -601,7 +611,7 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text('[Tanda Tangan Digital Terverifikasi]', margin + 6, signY + 22)
+  doc.text(`[Tervalidasi: ${cutoffIso}T23:45:00+07:00 (WIB)]`, margin + 6, signY + 22)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(30, 41, 59)
@@ -620,7 +630,7 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text('[Tervalidasi via EOM Closing HUB]', col2X, signY + 22)
+  doc.text(`[Diverifikasi: ${cutoffIso}T23:50:00+07:00 (WIB)]`, col2X, signY + 22)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(30, 41, 59)
@@ -639,13 +649,18 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text('[Stempel Sah Konsolidasi]', col3X, signY + 22)
+  doc.text(`[Disahkan: ${cutoffIso}T23:59:00+07:00 (WIB)]`, col3X, signY + 22)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(30, 41, 59)
   doc.text('( Finance Director / Owner )', col3X, signY + 28)
 
   // ── Footer Otomatis di Setiap Halaman ──
+  const printTimestamp = new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    timeZone: 'Asia/Jakarta',
+  }).format(new Date())
   const pageCount = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i)
@@ -653,7 +668,7 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(148, 163, 184)
     doc.text(
-      `Dokumen Elektronik Resmi Suka Shawarma EOM Closing HUB | Waktu Cetak: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${pageCount}`,
+      `Dokumen Elektronik Resmi Suka Shawarma EOM Closing HUB | Waktu Cetak: ${printTimestamp} WIB | Halaman ${i} dari ${pageCount}`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 5,
       { align: 'center' }
@@ -669,6 +684,12 @@ export function exportDivisionToPdf(divisionKey: string, monthName: string, year
  * Ekspor Dokumen Master Konsolidasi 3 Pilar & Profitabilitas 19 Outlet ke PDF
  */
 export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number) {
+  const masterTotals = getOutletsSummaryTotals()
+  const monthNum = MONTHS_MAP[monthName] || (new Date().getMonth() + 1)
+  const monthPad = String(monthNum).padStart(2, '0')
+  const lastDay = new Date(yearNum, monthNum, 0).getDate()
+  const cutoffIso = `${yearNum}-${monthPad}-${String(lastDay).padStart(2, '0')}`
+
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -696,7 +717,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 116, 139)
   doc.text('MASTER EXECUTIVE REPORT - LAPORAN KONSOLIDASI LABA RUGI F&B AKHIR BULAN', margin + 7, currentY + 10)
-  doc.text('Konsolidasi 3 Pilar Keuangan: Global Perusahaan, 12 Cabang Internal (Pusat), dan 7 Cabang Mitra', margin + 7, currentY + 14)
+  doc.text(`Konsolidasi 3 Pilar Keuangan: Global Perusahaan, ${masterTotals.internalOutletsCount} Cabang Internal (Pusat), dan ${masterTotals.mitraOutletsCount} Cabang Mitra`, margin + 7, currentY + 14)
 
   // Top Right Info
   const infoW = 85
@@ -710,7 +731,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   doc.setTextColor(30, 41, 59)
   doc.text('No. Laporan:', infoX + 3, currentY + 3.5)
   doc.setFont('helvetica', 'normal')
-  doc.text(`EOM/SS/MASTER/${yearNum}/${String(new Date().getMonth() + 1).padStart(2, '0')}`, infoX + 22, currentY + 3.5)
+  doc.text(`EOM/SS/MASTER/${yearNum}/${monthPad}/001`, infoX + 22, currentY + 3.5)
 
   doc.setFont('helvetica', 'bold')
   doc.text('Periode:', infoX + 3, currentY + 8)
@@ -736,7 +757,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
 
   // 4 Top Master KPI Cards
   const kpis = [
-    { label: 'GROSS SALES (19 CABANG)', val: 'Rp 620.500.000', highlight: false },
+    { label: `GROSS SALES (${OUTLETS_19_DATA.length} CABANG)`, val: 'Rp 620.500.000', highlight: false },
     { label: 'NET REVENUE (SETELAH DISKON)', val: 'Rp 572.000.000', highlight: false },
     { label: 'STORE CONTRIBUTION MARGIN', val: 'Rp 200.200.000 (35.0%)', highlight: true },
     { label: 'NET OPERATING PROFIT (EBITDA)', val: 'Rp 154.440.000 (27.0%)', highlight: true },
@@ -783,7 +804,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   currentY += 4.5
 
   // Tabel Laba Rugi 3 Pilar
-  const pnlHead = ['Komponen Keuangan Laba Rugi F&B', 'Konsolidasi Global (Total SS)', 'Outlet Internal (12 Cabang)', 'Outlet Mitra (7 Cabang)']
+  const pnlHead = ['Komponen Keuangan Laba Rugi F&B', 'Konsolidasi Global (Total SS)', `Outlet Internal (${masterTotals.internalOutletsCount} Cabang)`, `Outlet Mitra (${masterTotals.mitraOutletsCount} Cabang)`]
   const pnlData = [
     ['[+] Gross Sales (Omzet Kotor)', 'Rp 620.500.000', 'Rp 395.000.000', 'Rp 225.500.000'],
     ['[-] Diskon & Potongan Platform Aggregator', '(Rp 48.500.000)', '(Rp 30.800.000)', '(Rp 17.700.000)'],
@@ -841,7 +862,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   })
 
   // ══════════════════════════════════════════════════════════════
-  // HALAMAN 2: BREAKDOWN PROFITABILITAS 19 CABANG OUTLET
+  // HALAMAN 2: BREAKDOWN PROFITABILITAS OUTLET LENGKAP
   // ══════════════════════════════════════════════════════════════
   doc.addPage('a4', 'landscape')
   currentY = 12
@@ -853,7 +874,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
   doc.setTextColor(59, 29, 13)
-  doc.text('LAMPIRAN: BREAKDOWN PERFORMA & PROFITABILITAS 19 CABANG OUTLET', margin + 6, currentY + 4.5)
+  doc.text(`LAMPIRAN: BREAKDOWN PERFORMA & PROFITABILITAS ${OUTLETS_19_DATA.length} CABANG OUTLET`, margin + 6, currentY + 4.5)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(7.5)
@@ -914,8 +935,8 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
 
   outletPnlBody.push([
     'TOTAL',
-    '19 CABANG KONSOLIDASI',
-    '12 Int + 7 Mit',
+    `${OUTLETS_19_DATA.length} CABANG KONSOLIDASI`,
+    `${masterTotals.internalOutletsCount} Int + ${masterTotals.mitraOutletsCount} Mit`,
     formatRupiah(totalGross),
     formatRupiah(totalNet),
     formatRupiah(totalCogs),
@@ -998,7 +1019,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text('[Digital Audit Passed - Zero Variance]', margin + 6, signBoxY + 20)
+  doc.text(`[Digital Audit Passed | ${cutoffIso}T23:45:00+07:00 (WIB)]`, margin + 6, signBoxY + 20)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(30, 41, 59)
@@ -1016,7 +1037,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text('[Telah Melalui Rekonsiliasi Bank 100%]', c2X, signBoxY + 20)
+  doc.text(`[Rekonsiliasi Bank 100% | ${cutoffIso}T23:50:00+07:00 (WIB)]`, c2X, signBoxY + 20)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(30, 41, 59)
@@ -1034,13 +1055,18 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
   doc.setFont('helvetica', 'italic')
   doc.setFontSize(6.5)
   doc.setTextColor(148, 163, 184)
-  doc.text('[EOM CLOSING PERIODE RESMI DITUTUP]', c3X, signBoxY + 20)
+  doc.text(`[EOM CLOSING PERIODE RESMI DITUTUP | ${cutoffIso}T23:59:00+07:00 (WIB)]`, c3X, signBoxY + 20)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(30, 41, 59)
   doc.text('( Founder & Owner SS )', c3X, signBoxY + 25)
 
   // Page Numbers Footer
+  const printTimestamp = new Intl.DateTimeFormat('id-ID', {
+    dateStyle: 'medium',
+    timeStyle: 'medium',
+    timeZone: 'Asia/Jakarta',
+  }).format(new Date())
   const totalPages = (doc as any).internal.getNumberOfPages()
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i)
@@ -1048,7 +1074,7 @@ export function exportMasterConsolidatedToPdf(monthName: string, yearNum: number
     doc.setFont('helvetica', 'normal')
     doc.setTextColor(148, 163, 184)
     doc.text(
-      `Laporan Konsolidasi Master Suka Shawarma | Waktu Cetak: ${new Date().toLocaleString('id-ID')} | Halaman ${i} dari ${totalPages}`,
+      `Laporan Konsolidasi Master Suka Shawarma | Waktu Cetak: ${printTimestamp} WIB | Halaman ${i} dari ${totalPages}`,
       pageWidth / 2,
       doc.internal.pageSize.getHeight() - 5,
       { align: 'center' }

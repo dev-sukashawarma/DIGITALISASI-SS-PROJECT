@@ -3,12 +3,14 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer } from 'lucide-react'
+import { ArrowLeft, Camera, PackageCheck, ExternalLink, CheckCircle2, AlertTriangle, Clock, Ban, Truck, FileText, Printer, ShieldAlert } from 'lucide-react'
 import { usePODetail, useUpdatePOStatus, useUploadInvoice, getInvoiceUrl, getSignedInvoiceUrl, useUpdatePOPayment, type POStatus, type POWithItems } from '@/hooks/usePurchaseOrder'
 import { useFinanceRole } from '@/hooks/useFinanceRole'
 import { rupiah } from '@/lib/format'
 import { PageHeader } from '@/components/ui'
 import { VerifikasiTerimaModal } from './components/VerifikasiTerimaModal'
+import { FinalisasiPOModal } from './components/FinalisasiPOModal'
+import { BatalkanPOModal } from './components/BatalkanPOModal'
 import { generatePurchaseOrderPDF } from '@/utils/poPdfExporter'
 import { Spinner } from '@suka/design-system'
 import { toast } from 'sonner'
@@ -57,7 +59,7 @@ const NEXT_STATUS_LABEL: Partial<Record<POStatus, string>> = {
 
 export default function PODetailView({ id, initialData }: { id: string, initialData: POWithItems }) {
   const router = useRouter()
-  const { canVerifyPOReceipt } = useFinanceRole()
+  const { canVerifyPOReceipt, canManagePO } = useFinanceRole()
   const { data: po, isLoading, error } = usePODetail(id, initialData)
   const updateStatus = useUpdatePOStatus()
   const uploadInvoice = useUploadInvoice()
@@ -65,6 +67,8 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
   const fileRef = useRef<HTMLInputElement>(null)
   const [invoiceUrls, setInvoiceUrls] = useState<string[]>([])
   const [showVerifikasi, setShowVerifikasi] = useState(false)
+  const [showFinalisasi, setShowFinalisasi] = useState(false)
+  const [showBatalModal, setShowBatalModal] = useState(false)
   
   // Payment states
   const [isEditingPayment, setIsEditingPayment] = useState(false)
@@ -137,37 +141,115 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
           </div>
         </div>
 
-        <button
-          onClick={() => {
-            generatePurchaseOrderPDF({
-              id: po.id,
-              nomor_po: po.nomor_po,
-              supplier_nama: po.supplier_nama,
-              tanggal_po: po.tanggal_po,
-              status: po.status,
-              jatuh_tempo: po.jatuh_tempo,
-              catatan: po.catatan,
-              nama_dibuat_oleh: po.nama_dibuat_oleh,
-              nama_disetujui_oleh: po.nama_disetujui_oleh,
-              diverifikasi_at: po.diverifikasi_at,
-              supplier: po.supplier,
-              items: (po.items || []).map(it => ({
-                nama_item: it.nama_item || it.bahan_baku?.nama || it.item_description || 'Item',
-                satuan: it.satuan || it.bahan_baku?.satuan || 'pcs',
-                qty_pesan: Number(it.qty_pesan || 0),
-                harga_pesan: Number(it.harga_pesan || 0),
-                subtotal: Number(it.subtotal) || (Number(it.qty_pesan || 0) * Number(it.harga_pesan || 0)),
-                catatan: it.catatan
-              }))
-            })
-            toast.success(po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Draft PDF PO berhasil diunduh!' : 'PDF Purchase Order berhasil diunduh!')
-          }}
-          className="self-start sm:self-auto flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown font-bold text-xs shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
-        >
-          <Printer className="w-4 h-4 text-suka-orange" />
-          <span>{po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Unduh Draft PDF PO' : 'Cetak / Unduh PDF PO'}</span>
-        </button>
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto shrink-0">
+          {po.status === 'sebagian_diterima' && canManagePO && (
+            <button
+              onClick={() => setShowFinalisasi(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
+            >
+              <ShieldAlert className="w-4 h-4 text-amber-700" />
+              <span>Finalisasi / Tutup Sisa</span>
+            </button>
+          )}
+
+          {(po.status === 'dikirim_ke_supplier' || po.status === 'sebagian_diterima') && canVerifyPOReceipt && (
+            <button
+              onClick={() => setShowVerifikasi(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-suka-ink to-blue-900 text-white font-bold text-xs shadow-2xs hover:opacity-90 transition-all active:scale-95 cursor-pointer"
+            >
+              <PackageCheck className="w-4 h-4" />
+              <span>Terima Barang</span>
+            </button>
+          )}
+
+          {totalTerima === 0 && canManagePO && (po.status === 'draft' || po.status === 'menunggu_approval_finance' || po.status === 'dikirim_ke_supplier') && (
+            <button
+              onClick={() => setShowBatalModal(true)}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-2xl border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 font-bold text-xs shadow-2xs transition-all active:scale-95 cursor-pointer"
+            >
+              <Ban className="w-4 h-4 text-rose-600" />
+              <span>Batalkan PO</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => {
+              generatePurchaseOrderPDF({
+                id: po.id,
+                nomor_po: po.nomor_po,
+                supplier_nama: po.supplier_nama,
+                tanggal_po: po.tanggal_po,
+                status: po.status,
+                jatuh_tempo: po.jatuh_tempo,
+                catatan: po.catatan,
+                nama_dibuat_oleh: po.nama_dibuat_oleh,
+                nama_disetujui_oleh: po.nama_disetujui_oleh,
+                diverifikasi_at: po.diverifikasi_at,
+                supplier: po.supplier,
+                items: (po.items || []).map(it => ({
+                  nama_item: it.nama_item || it.bahan_baku?.nama || it.item_description || 'Item',
+                  satuan: it.satuan || it.bahan_baku?.satuan || 'pcs',
+                  qty_pesan: Number(it.qty_pesan || 0),
+                  harga_pesan: Number(it.harga_pesan || 0),
+                  subtotal: Number(it.subtotal) || (Number(it.qty_pesan || 0) * Number(it.harga_pesan || 0)),
+                  catatan: it.catatan
+                }))
+              })
+              toast.success(po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Draft PDF PO berhasil diunduh!' : 'PDF Purchase Order berhasil diunduh!')
+            }}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-white border border-suka-brown/15 hover:bg-suka-cream text-suka-brown font-bold text-xs shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
+          >
+            <Printer className="w-4 h-4 text-suka-orange" />
+            <span>{po.status === 'draft' || po.status === 'menunggu_approval_finance' ? 'Unduh Draft' : 'Cetak / Unduh PDF'}</span>
+          </button>
+        </div>
       </div>
+
+      {/* Status Alert Banners */}
+      {po.status === 'dibatalkan' && (
+        <div className="bg-rose-50/90 border border-rose-200/80 rounded-3xl p-5 shadow-2xs flex items-start gap-4 animate-fade-in">
+          <div className="w-10 h-10 rounded-2xl bg-rose-100 border border-rose-200 flex items-center justify-center shrink-0">
+            <Ban className="w-5 h-5 text-rose-600" />
+          </div>
+          <div className="space-y-1 flex-1">
+            <h3 className="text-sm font-bold text-rose-950">Purchase Order Ini Telah Dibatalkan</h3>
+            <p className="text-xs text-rose-700 leading-relaxed">
+              PO ini sudah berstatus non-aktif. Tidak ada penerimaan barang dan tidak ada penambahan stok ke gudang/kitchen.
+            </p>
+            {po.catatan && (
+              <div className="mt-2.5 p-3 bg-white/80 rounded-2xl border border-rose-100 text-xs text-rose-900 whitespace-pre-line font-medium">
+                {po.catatan}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {po.status === 'sebagian_diterima' && (
+        <div className="bg-amber-50/90 border border-amber-200/80 rounded-3xl p-4 sm:p-5 shadow-2xs flex items-start gap-4 animate-fade-in">
+          <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-200 flex items-center justify-center shrink-0">
+            <ShieldAlert className="w-5 h-5 text-amber-700" />
+          </div>
+          <div className="space-y-1 flex-1">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <h3 className="text-sm font-bold text-amber-950">Pengiriman Bertahap (Sebagian Diterima)</h3>
+              {canManagePO && (
+                <button
+                  onClick={() => setShowFinalisasi(true)}
+                  className="text-xs font-bold text-amber-900 bg-amber-200/70 hover:bg-amber-200 px-3 py-1 rounded-xl transition-all cursor-pointer"
+                >
+                  Tutup PO Tanpa Sisa →
+                </button>
+              )}
+            </div>
+            <p className="text-xs text-amber-800 leading-relaxed">
+              Masih ada sisa barang yang belum tiba. Jika supplier tidak mengirimkan sisanya, Anda dapat melakukan{' '}
+              <strong>Finalisasi / Tutup PO Sisa</strong> agar status PO selesai tanpa mencatat stok semu ke gudang.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Info Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -459,17 +541,45 @@ export default function PODetailView({ id, initialData }: { id: string, initialD
             </div>
           )
         )}
-        {po.status === 'draft' && (
+        {po.status === 'sebagian_diterima' && canManagePO && (
           <button
-            onClick={() => updateStatus.mutate({ id: po.id, status: 'dibatalkan' })}
-            disabled={updateStatus.isPending}
-            className="px-5 py-3 border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 rounded-2xl font-bold text-xs transition-all flex items-center gap-2 disabled:opacity-50 active:scale-95 shadow-2xs cursor-pointer"
+            onClick={() => setShowFinalisasi(true)}
+            className="px-5 py-3 border border-amber-300 text-amber-900 bg-amber-50/90 hover:bg-amber-100 rounded-2xl font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-2xs cursor-pointer"
           >
-            <Ban className="w-4 h-4" />
+            <ShieldAlert className="w-4 h-4 text-amber-700" />
+            <span>Finalisasi / Tutup PO Sisa</span>
+          </button>
+        )}
+        {totalTerima === 0 && canManagePO && (po.status === 'draft' || po.status === 'menunggu_approval_finance' || po.status === 'dikirim_ke_supplier') && (
+          <button
+            onClick={() => setShowBatalModal(true)}
+            className="px-5 py-3 border border-rose-200 text-rose-700 bg-white hover:bg-rose-50 rounded-2xl font-bold text-xs transition-all flex items-center gap-2 active:scale-95 shadow-2xs cursor-pointer"
+          >
+            <Ban className="w-4 h-4 text-rose-600" />
             <span>Batalkan PO</span>
           </button>
         )}
       </div>
+
+      {/* Modals */}
+      {showVerifikasi && (
+        <VerifikasiTerimaModal
+          po={po}
+          onClose={() => setShowVerifikasi(false)}
+        />
+      )}
+      {showFinalisasi && (
+        <FinalisasiPOModal
+          po={po}
+          onClose={() => setShowFinalisasi(false)}
+        />
+      )}
+      {showBatalModal && (
+        <BatalkanPOModal
+          po={po}
+          onClose={() => setShowBatalModal(false)}
+        />
+      )}
     </div>
   )
 }

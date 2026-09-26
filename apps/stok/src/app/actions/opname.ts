@@ -462,7 +462,7 @@ export async function finalizeOpnameClientAction(
         .map((s) => s.document_number || `SJ-${s.id.slice(0, 8).toUpperCase()}`)
         .join(', ')
       return {
-        error: `Tidak dapat memfinalisasi opname! Terdapat ${pendingSJ.length} Surat Jalan berstatus 'dikirim' (${sjDocs}) yang belum diverifikasi. Wajib verifikasi serah terima Surat Jalan di menu Distribusi terlebih dahulu agar stok tidak tercatat ganda!`,
+        error: `Tidak dapat memfinalisasi opname! Terdapat ${pendingSJ.length} Surat Jalan berstatus 'dikirim' (${sjDocs}) yang belum diterima. Silakan buka menu Distribusi -> tab TRANSIT lalu klik 'Terima Barang' terlebih dahulu agar stok tidak tercatat ganda!`,
       }
     }
 

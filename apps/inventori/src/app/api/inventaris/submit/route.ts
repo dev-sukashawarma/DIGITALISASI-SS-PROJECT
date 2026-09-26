@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { after, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 
 export const runtime = 'nodejs'
 
@@ -153,8 +153,8 @@ async function getCurrentSubmission(supabase: Awaited<ReturnType<typeof createSe
 
 export async function GET(request: Request) {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return errorResponse('Sesi login tidak ditemukan.', 401)
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return errorResponse('Sesi login tidak ditemukan.', 401)
 
   const outletId = new URL(request.url).searchParams.get('outlet_id')
   if (!outletId) return errorResponse('Outlet wajib dipilih.')
@@ -190,8 +190,8 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return errorResponse('Sesi login tidak ditemukan.', 401)
+  const userId = await getVerifiedUserId(supabase)
+  if (!userId) return errorResponse('Sesi login tidak ditemukan.', 401)
 
   const formData = await request.formData()
   const rawPayload = formData.get('payload')
@@ -271,7 +271,7 @@ export async function POST(request: Request) {
     const photo = photoByItemId.get(item.master_item_id)
     const existingPhotoPath = item.photo_path?.trim() || null
     if (!(photo instanceof File) || photo.size === 0) {
-      if (!existingPhotoPath || (!existingPhotoPaths.has(existingPhotoPath) && !isOwnedDraftPhotoPath(existingPhotoPath, user.id, payload.outlet_id))) {
+      if (!existingPhotoPath || (!existingPhotoPaths.has(existingPhotoPath) && !isOwnedDraftPhotoPath(existingPhotoPath, userId, payload.outlet_id))) {
         return errorResponse('Foto wajib diisi untuk setiap item.')
       }
     } else {
@@ -288,7 +288,7 @@ export async function POST(request: Request) {
       const photo = photoByItemId.get(item.master_item_id)
       let path = item.photo_path?.trim() || null
       if (!path && photo) {
-        path = await uploadPendingSubmissionPhoto(supabase, user.id, payload.outlet_id, item.master_item_id, photo)
+        path = await uploadPendingSubmissionPhoto(supabase, userId, payload.outlet_id, item.master_item_id, photo)
         fallbackUploadedPaths.push(path)
       }
       if (!path) throw new Error(`Foto ${item.master_item_id} belum tersedia.`)

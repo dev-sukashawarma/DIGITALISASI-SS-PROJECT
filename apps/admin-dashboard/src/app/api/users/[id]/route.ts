@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient, ServiceRoleMissingError } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 /** Ubah exception apa pun jadi respons JSON — jangan biarkan Next membalas HTML 500. */
 function errorResponse(err: unknown) {
@@ -18,13 +19,13 @@ function errorResponse(err: unknown) {
 async function verifyAdmin() {
   const supabaseAuth = await createClient()
 
-  const { data: { user } } = await supabaseAuth.auth.getUser()
-  if (!user) return null
+  const userId = await getVerifiedUserId(supabaseAuth)
+  if (!userId) return null
 
   const { data: profile } = await supabaseAuth
     .from('outlet_staff')
     .select('role')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (!profile || !['admin', 'owner', 'developer'].includes(profile.role)) return null

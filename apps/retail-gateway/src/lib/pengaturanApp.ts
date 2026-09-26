@@ -7,6 +7,8 @@ export type PengaturanApp = {
   versiMinimumAndroid: number
   urlSyarat: string | null
   urlPrivasi: string | null
+  /** Urutan kurasi admin untuk "Menu Terlaris" di Beranda. Kosong = APK pakai aturan lama. */
+  menuTerlarisIds: string[]
 }
 
 export const PENGATURAN_BAWAAN: PengaturanApp = {
@@ -16,11 +18,14 @@ export const PENGATURAN_BAWAAN: PengaturanApp = {
   versiMinimumAndroid: 1,
   urlSyarat: null,
   urlPrivasi: null,
+  menuTerlarisIds: [],
 }
 
 const angka = (v: unknown, cadangan: number) =>
   typeof v === 'number' && Number.isFinite(v) ? v : cadangan
 const teks = (v: unknown) => (typeof v === 'string' && v.trim() !== '' ? v : null)
+const daftarId = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x !== '') : []
 
 export function petakanPengaturan(baris: unknown): PengaturanApp {
   if (typeof baris !== 'object' || baris === null) return PENGATURAN_BAWAAN
@@ -32,6 +37,7 @@ export function petakanPengaturan(baris: unknown): PengaturanApp {
     versiMinimumAndroid: angka(r.versi_minimum_android, 1),
     urlSyarat: teks(r.url_syarat),
     urlPrivasi: teks(r.url_privasi),
+    menuTerlarisIds: daftarId(r.menu_terlaris_ids),
   }
 }
 
@@ -47,7 +53,7 @@ export async function ambilPengaturan(): Promise<PengaturanApp> {
   try {
     const { data, error } = await createServiceClient()
       .from('app_pengaturan')
-      .select('menit_pesan_terakhir, estimasi_siap, wa_cs, versi_minimum_android, url_syarat, url_privasi')
+      .select('menit_pesan_terakhir, estimasi_siap, wa_cs, versi_minimum_android, url_syarat, url_privasi, menu_terlaris_ids')
       .eq('id', 1)
       .maybeSingle()
     if (error) throw error

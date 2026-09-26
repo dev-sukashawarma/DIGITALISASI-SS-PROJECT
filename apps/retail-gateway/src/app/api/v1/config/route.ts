@@ -13,6 +13,7 @@ export async function GET() {
       versi_minimum_android: p.versiMinimumAndroid,
       url_syarat: p.urlSyarat,
       url_privasi: p.urlPrivasi,
+      menu_terlaris_ids: p.menuTerlarisIds,
     },
     { headers: { 'Cache-Control': 'public, max-age=60' } },
   )

@@ -2,7 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
-import { createSupabaseServerClient } from '@suka/auth'
+import { createSupabaseServerClient, getVerifiedUserId } from '@suka/auth'
 import { getDistribusiFactor } from '@/lib/format/compositeUnit'
 import { attributeFifo, labelFifo, type FifoWindowRow } from '@/lib/stok/vendorFifo'
 import { assertStaffCanAccessOutlet } from '@/lib/stok/outletAccess'
@@ -46,8 +46,8 @@ async function getAuthedClient() {
 
 async function requireManagementAuth(outletId?: string) {
   const authedClient = await getAuthedClient()
-  const { data: { user }, error: userError } = await authedClient.auth.getUser()
-  if (userError || !user) {
+  const userId = await getVerifiedUserId(authedClient)
+  if (!userId) {
     throw new Error('Unauthorized: Sesi login tidak ditemukan')
   }
 
@@ -55,7 +55,7 @@ async function requireManagementAuth(outletId?: string) {
   const { data: staff, error: staffError } = await serviceClient
     .from('outlet_staff')
     .select('id, role, status, name, outlet_id')
-    .eq('id', user.id)
+    .eq('id', userId)
     .maybeSingle()
 
   if (staffError) throw new Error(staffError.message)

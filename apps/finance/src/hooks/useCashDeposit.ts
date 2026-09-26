@@ -41,6 +41,8 @@ export function useCashDeposit() {
       outletId?: string | null
       note?: string | null
       proofFile?: File | null
+      /** Tanggal penjualan (YYYY-MM-DD) yang disetor — setoran biasanya H+1. */
+      salesDate?: string | null
     }) => {
       let proofUrl: string | null = null
       if (v.proofFile) {
@@ -55,6 +57,7 @@ export function useCashDeposit() {
         p_outlet: v.outletId ?? null,
         p_note: v.note ?? null,
         p_proof_url: proofUrl,
+        p_sales_date: v.salesDate || null,
       })
       if (error) throw error
       return data as string

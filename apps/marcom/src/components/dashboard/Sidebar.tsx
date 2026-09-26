@@ -74,7 +74,6 @@ export default function Sidebar({
     '/dashboard/endorsements': true,
     '/dashboard/budget': true,
     '/dashboard/content-planner': true,
-    '/dashboard/content-planner#rencana-konten': true,
     '/dashboard/menu': true,
   })
 
@@ -92,12 +91,8 @@ export default function Sidebar({
     if (query) {
       const params = new URLSearchParams(query)
       const targetTab = params.get('tab')
-      const targetScope = params.get('scope')
 
       if (pathname === path) {
-        if (targetScope) {
-          return searchParams.get('scope')?.toLowerCase() === targetScope.toLowerCase()
-        }
         if (targetTab === 'operations') {
           return currentTab === 'operations' || !currentTab
         }
@@ -114,7 +109,7 @@ export default function Sidebar({
       childHref === '/dashboard/endorsements'
     ) {
       if (childHref === '/dashboard/content-planner') {
-        return pathname === childHref && !currentTab && !searchParams.get('scope')
+        return pathname === childHref && !currentTab
       }
       return pathname === childHref && !currentTab
     }
@@ -237,18 +232,6 @@ export default function Sidebar({
           name: 'Rencana Konten',
           href: '/dashboard/content-planner',
           badge: null,
-          children: [
-            {
-              name: 'Official',
-              href: '/dashboard/content-planner?scope=official',
-              badge: null,
-            },
-            {
-              name: 'Outlet',
-              href: '/dashboard/content-planner?scope=outlet',
-              badge: null,
-            },
-          ],
         },
         {
           name: 'Metrik Data',

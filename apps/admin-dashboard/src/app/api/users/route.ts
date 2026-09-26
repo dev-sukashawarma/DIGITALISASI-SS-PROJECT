@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient, createServiceClient, ServiceRoleMissingError } from '@/lib/supabase/server'
+import { getVerifiedUserId } from '@suka/auth'
 
 export async function POST(request: Request) {
   try {
@@ -8,15 +9,15 @@ export async function POST(request: Request) {
     // jalan meski env service-role bermasalah, dan error-nya jelas di langkah yang benar.
     const supabaseAuth = await createClient()
 
-    const { data: { user } } = await supabaseAuth.auth.getUser()
-    if (!user) {
+    const userId = await getVerifiedUserId(supabaseAuth)
+    if (!userId) {
       return NextResponse.json({ error: 'Tidak terautentikasi' }, { status: 401 })
     }
 
     const { data: profile } = await supabaseAuth
       .from('outlet_staff')
       .select('role')
-      .eq('id', user.id)
+      .eq('id', userId)
       .maybeSingle()
 
     if (!profile || !['admin', 'owner', 'developer'].includes(profile.role)) {

@@ -21,11 +21,13 @@ type FormAngkaString = {
   urlPrivasi: string
 }
 
-export default function PengaturanAppView({ awal, log, staf, galat }: {
+export default function PengaturanAppView({ awal, log, staf, galat, sisipan }: {
   awal: Record<string, unknown> | null
   log: { id: number; aksi: string; sasaran_id: string | null; pada: string; oleh: string }[]
   staf: { id: string; name: string | null }[]
   galat: string[]
+  /** Bagian tambahan di bawah formulir, di atas riwayat (mis. Menu Terlaris). */
+  sisipan?: ReactNode
 }) {
   const [f, setF] = useState<FormAngkaString>({
     menitPesanTerakhir: String(awal?.menit_pesan_terakhir ?? 30),
@@ -108,6 +110,8 @@ export default function PengaturanAppView({ awal, log, staf, galat }: {
         {pesan && <p className={`text-sm ${pesan.ok ? 'text-emerald-700' : 'text-red-600'}`}>{pesan.teks}</p>}
         <button type="button" disabled={bekerja || gagalMuat} onClick={simpan} className="px-4 py-2 rounded-xl bg-amber-500 text-white font-bold text-sm cursor-pointer disabled:opacity-60">Simpan</button>
       </div>
+
+      {sisipan}
 
       <div className="space-y-2">
         <h2 className="font-bold text-slate-900">Riwayat perubahan</h2>

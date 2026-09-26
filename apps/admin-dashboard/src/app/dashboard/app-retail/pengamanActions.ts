@@ -5,6 +5,7 @@ import { requireRole } from '@/lib/authz'
 import { createServiceClient } from '@/lib/supabase/server'
 import { gabungDaftarHabis } from '@/lib/appRetail/menuHabis'
 import { periksaPengaturan, normalisasiWa, type InputPengaturan } from '@/lib/appRetail/pengaturanForm'
+import { periksaMenuTerlaris } from '@/lib/appRetail/menuTerlaris'
 
 /**
  * Semua aksi tahap 1: cek role DI SERVER -> service client -> log.
@@ -130,6 +131,33 @@ export async function simpanPengaturan(input: InputPengaturan) {
   if (error) throw new Error(error.message)
   if (!hasil?.length) throw new Error('Baris pengaturan (id=1) tidak ditemukan -- update tidak mengenai apa pun.')
   await catat(db, 'pengaturan_ubah', userId, null, { sebelum: lama, sesudah: baru })
+  segarkan()
+}
+
+export async function simpanMenuTerlaris(ids: string[]) {
+  const { userId } = await requireRole(PERAN)
+  const galat = periksaMenuTerlaris(ids)
+  if (galat) throw new Error(galat)
+  const db = createServiceClient()
+  // Id dari klien TIDAK dipercaya -- hanya menu yang benar-benar tayang di
+  // aplikasi yang boleh masuk; urutan kiriman admin dipertahankan.
+  let idsSah: string[] = []
+  if (ids.length > 0) {
+    const { data: menuRows, error: menuError } = await db
+      .from('menu_items').select('id').eq('tampil_di_app', true).in('id', ids)
+    if (menuError) throw new Error(menuError.message)
+    const tayang = new Set((menuRows ?? []).map((m) => m.id as string))
+    idsSah = ids.filter((id) => tayang.has(id))
+  }
+  const { data: lama } = await db.from('app_pengaturan').select('menu_terlaris_ids').eq('id', 1).maybeSingle()
+  const { data: hasil, error } = await db.from('app_pengaturan')
+    .update({ menu_terlaris_ids: idsSah, diubah_oleh: userId, diubah_pada: new Date().toISOString() })
+    .eq('id', 1).select('id')
+  if (error) throw new Error(error.message)
+  if (!hasil?.length) throw new Error('Baris pengaturan (id=1) tidak ditemukan -- update tidak mengenai apa pun.')
+  await catat(db, 'pengaturan_ubah', userId, null, {
+    menu_terlaris: { sebelum: lama?.menu_terlaris_ids ?? null, sesudah: idsSah },
+  })
   segarkan()
 }
 

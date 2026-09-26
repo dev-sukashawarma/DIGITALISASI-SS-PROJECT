@@ -1,6 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
-import { getOutletStaff } from '@suka/auth'
+import { getOutletStaff, getVerifiedUserId } from '@suka/auth'
 import { createServerComponentClient } from '@/lib/supabase-server'
 import { Providers } from './Providers'
 import { Sidebar } from '@/components/layout/Sidebar'
@@ -21,11 +21,11 @@ export default async function RootLayout({
   children: React.ReactNode
 }) {
   const supabase = await createServerComponentClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const userId = await getVerifiedUserId(supabase)
   let initialStaff = null
 
-  if (user) {
-    const { staff } = await getOutletStaff(supabase, user.id)
+  if (userId) {
+    const { staff } = await getOutletStaff(supabase, userId)
     initialStaff = staff
   }
 

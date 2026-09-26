@@ -27,7 +27,7 @@ import Link from 'next/link'
 import { createSupabaseBrowserClient, useAuth } from '@suka/auth'
 import { PageHeader } from '@/components/ui'
 import { rupiah } from '@/lib/format'
-import { DIVISION_FULL_REPORTS, OUTLETS_19_DATA } from './divisionReportsData'
+import { DIVISION_FULL_REPORTS, OUTLETS_19_DATA, getOutletsSummaryTotals } from './divisionReportsData'
 import { exportDivisionToExcel, exportMasterConsolidatedToExcel } from './eomExcelExporter'
 import { exportDivisionToPdf, exportMasterConsolidatedToPdf } from './eomPdfExporter'
 
@@ -71,7 +71,7 @@ const DIVISIONS_CONFIG = [
     icon: Store,
     picRole: 'Finance Admin / SPV Kasir',
     color: 'from-amber-500 to-orange-600',
-    description: 'Rekap shift blind close, variance uang fisik, setoran bank 19 cabang, dan nota kas kecil laci kasir.',
+    description: `Rekap shift blind close, variance uang fisik, setoran bank ${OUTLETS_19_DATA.length} cabang, dan nota kas kecil laci kasir.`,
     mockSummary: {
       'Total Shift Terdata': '679 Shift (31.856 Order)',
       'Total Setoran Bank': 'Rp 1.687.243.068',
@@ -213,7 +213,7 @@ export default function EomClosingHubPage() {
               status: 'verified',
               ringkasan_data: DIVISIONS_CONFIG[0].mockSummary,
               dokumen_url: null,
-              catatan: 'Seluruh setoran 19 outlet telah diverifikasi cocok dengan rekening penampung.',
+              catatan: `Seluruh setoran ${OUTLETS_19_DATA.length} outlet telah diverifikasi cocok dengan rekening penampung.`,
               nama_pic: 'Fajar Nugraha',
               role_pic: 'SPV Kasir & Finance',
               verified_at: new Date(year, month - 1, 1, 14, 20).toISOString(),
@@ -644,13 +644,13 @@ export default function EomClosingHubPage() {
                         toast.info(`Men-generate Dokumen PDF Resmi (${config.name})...`)
                         try {
                           exportDivisionToPdf(config.key, MONTHS[month - 1], year)
-                          toast.success(`Laporan PDF ${config.name} (19 Outlet) berhasil diunduh!`)
+                          toast.success(`Laporan PDF ${config.name} (${OUTLETS_19_DATA.length} Outlet) berhasil diunduh!`)
                         } catch (err) {
                           console.error(err)
                           toast.error('Gagal mengunduh PDF laporan')
                         }
                       }}
-                      title="Download Laporan Resmi PDF (Termasuk Lampiran 19 Outlet Lengkap)"
+                      title={`Download Laporan Resmi PDF (Termasuk Lampiran ${OUTLETS_19_DATA.length} Outlet Lengkap)`}
                       className="py-2 px-2.5 bg-white border border-suka-gray-200 hover:bg-red-50 text-red-700 hover:border-red-300 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
                     >
                       <Printer size={13} />
@@ -668,7 +668,7 @@ export default function EomClosingHubPage() {
                           toast.error('Gagal mengunduh file Excel')
                         }
                       }}
-                      title="Download Laporan Lengkap Excel (2 Sheet: BA + 19 Outlet)"
+                      title={`Download Laporan Lengkap Excel (2 Sheet: BA + ${OUTLETS_19_DATA.length} Outlet)`}
                       className="py-2 px-2.5 bg-white border border-suka-gray-200 hover:bg-emerald-50 text-emerald-700 hover:border-emerald-300 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
                     >
                       <Download size={13} />
@@ -762,7 +762,7 @@ export default function EomClosingHubPage() {
                 toast.info('Men-generate Dokumen PDF Konsolidasi Master...')
                 try {
                   exportMasterConsolidatedToPdf(MONTHS[month - 1], year)
-                  toast.success('Laporan Konsolidasi Master PDF (3 Pilar + 19 Outlet) berhasil diunduh!')
+                  toast.success(`Laporan Konsolidasi Master PDF (3 Pilar + ${OUTLETS_19_DATA.length} Outlet) berhasil diunduh!`)
                 } catch (err) {
                   console.error(err)
                   toast.error('Gagal mengunduh PDF Master')
@@ -866,7 +866,7 @@ export default function EomClosingHubPage() {
                       toast.info(`Men-generate Dokumen PDF Resmi (${activeModalDoc.config.name})...`)
                       try {
                         exportDivisionToPdf(activeModalDoc.config.key, MONTHS[month - 1], year)
-                        toast.success(`Dokumen PDF Resmi Berita Acara & 19 Outlet berhasil diunduh!`)
+                        toast.success(`Dokumen PDF Resmi Berita Acara & ${OUTLETS_19_DATA.length} Outlet berhasil diunduh!`)
                       } catch (err) {
                         console.error(err)
                         toast.error('Gagal mengunduh file PDF')
@@ -882,7 +882,7 @@ export default function EomClosingHubPage() {
                       toast.info(`Menyiapkan File Excel (${activeModalDoc.config.name})...`)
                       try {
                         exportDivisionToExcel(activeModalDoc.config.key, MONTHS[month - 1], year)
-                        toast.success(`Workbook Excel (2 Sheet + 19 Outlet) berhasil diunduh!`)
+                        toast.success(`Workbook Excel (2 Sheet + ${OUTLETS_19_DATA.length} Outlet) berhasil diunduh!`)
                       } catch (err) {
                         console.error(err)
                         toast.error('Gagal mengunduh file Excel')
@@ -1041,15 +1041,15 @@ export default function EomClosingHubPage() {
                   </div>
                 )}
 
-                {/* Lampiran I: Breakdown Detail Per Cabang Outlet (19 Cabang) */}
+                {/* Lampiran I: Breakdown Detail Per Cabang Outlet (${OUTLETS_19_DATA.length} Cabang) */}
                 <div className="space-y-2 pt-2">
                   <div className="flex justify-between items-center">
                     <h4 className="text-xs font-black uppercase text-suka-brown tracking-wider flex items-center gap-1.5">
                       <Store size={14} className="text-suka-orange" />
-                      Lampiran I: Rekapitulasi Detail Per Cabang Outlet (19 Cabang)
+                      Lampiran I: Rekapitulasi Detail Per Cabang Outlet ({OUTLETS_19_DATA.length} Cabang)
                     </h4>
                     <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                      19/19 Cabang Verified (100%)
+                      {OUTLETS_19_DATA.length}/{OUTLETS_19_DATA.length} Cabang Verified (100%)
                     </span>
                   </div>
 
@@ -1093,7 +1093,7 @@ export default function EomClosingHubPage() {
                         {/* Baris Total */}
                         <tr className="bg-amber-100/80 font-black text-amber-950 border-t-2 border-amber-300">
                           <td colSpan={3} className="py-2 px-3 text-left">
-                            TOTAL KONSOLIDASI (19 OUTLET)
+                            TOTAL KONSOLIDASI ({OUTLETS_19_DATA.length} OUTLET)
                           </td>
                           <td className="py-2 px-3 text-right">
                             {rupiah(OUTLETS_19_DATA.reduce((a, b) => a + b.grossPos, 0))}
@@ -1183,7 +1183,7 @@ export default function EomClosingHubPage() {
                       toast.info(`Men-generate Dokumen PDF Resmi (${activeModalDoc.config.name})...`)
                       try {
                         exportDivisionToPdf(activeModalDoc.config.key, MONTHS[month - 1], year)
-                        toast.success(`Dokumen PDF Resmi Berita Acara & 19 Outlet berhasil diunduh!`)
+                        toast.success(`Dokumen PDF Resmi Berita Acara & ${OUTLETS_19_DATA.length} Outlet berhasil diunduh!`)
                       } catch (err) {
                         console.error(err)
                         toast.error('Gagal mengunduh file PDF')
@@ -1230,11 +1230,12 @@ export default function EomClosingHubPage() {
 
 // Sub-komponen Tampilan Tabel Konsolidasi Laba Rugi 3 Pilar
 function ConsolidationTableView({ tab }: { tab: 'global' | 'internal' | 'external' }) {
+  const totals = useMemo(() => getOutletsSummaryTotals(), [])
   // Mock Data Proporsional Sesuai Skenario
   const data = useMemo(() => {
     if (tab === 'global') {
       return {
-        title: 'Konsolidasi Seluruh Jaringan (19 Outlet + Kantor Pusat)',
+        title: `Konsolidasi Seluruh Jaringan (${OUTLETS_19_DATA.length} Outlet + Kantor Pusat)`,
         grossSales: 620500000,
         discountsAndFee: 48500000,
         netRevenue: 572000000,
@@ -1245,7 +1246,7 @@ function ConsolidationTableView({ tab }: { tab: 'global' | 'internal' | 'externa
       }
     } else if (tab === 'internal') {
       return {
-        title: 'Konsolidasi Outlet Internal / Milik Pusat (12 Cabang)',
+        title: `Konsolidasi Outlet Internal / Milik Pusat (${totals.internalOutletsCount} Cabang)`,
         grossSales: 395000000,
         discountsAndFee: 30800000,
         netRevenue: 364200000,
@@ -1256,7 +1257,7 @@ function ConsolidationTableView({ tab }: { tab: 'global' | 'internal' | 'externa
       }
     } else {
       return {
-        title: 'Konsolidasi Outlet External / Mitra Kemitraan (7 Cabang)',
+        title: `Konsolidasi Outlet External / Mitra Kemitraan (${totals.mitraOutletsCount} Cabang)`,
         grossSales: 225500000,
         discountsAndFee: 17700000,
         netRevenue: 207800000,
@@ -1266,7 +1267,7 @@ function ConsolidationTableView({ tab }: { tab: 'global' | 'internal' | 'externa
         netProfit: 72730000, // Laba Bersih yang dibagi hasil ke mitra
       }
     }
-  }, [tab])
+  }, [tab, totals])
 
   const grossProfit = data.netRevenue - data.cogs
   const grossProfitMargin = ((grossProfit / data.netRevenue) * 100).toFixed(1)

@@ -242,6 +242,7 @@ export async function createInternalContent(
   const isAds = formData.get('isAds') === 'true' || formData.get('isAds') === 'on'
   const creator = (formData.get('creator') as string)?.trim() || null
   const outletIdStr = (formData.get('outletId') as string)?.trim() || null
+  const takeLocation = (formData.get('takeLocation') as string)?.trim() || null
   const postDateStr = formData.get('postDate') as string
   const postTime = (formData.get('postTime') as string)?.trim() || null
 
@@ -307,6 +308,7 @@ export async function createInternalContent(
           isAds,
           creator,
           outletId,
+          takeLocation,
           postUrl: platformUrls[plat],
           postDate,
           postTime,
@@ -356,6 +358,7 @@ export async function updateInternalContent(
   const isAds = formData.get('isAds') === 'true' || formData.get('isAds') === 'on'
   const creator = (formData.get('creator') as string)?.trim() || null
   const outletIdStr = (formData.get('outletId') as string)?.trim() || null
+  const takeLocation = (formData.get('takeLocation') as string)?.trim() || null
   const postUrl = (formData.get('postUrl') as string)?.trim() || null
   const postDateStr = formData.get('postDate') as string
   const postTime = (formData.get('postTime') as string)?.trim() || null
@@ -397,6 +400,7 @@ export async function updateInternalContent(
         isAds,
         creator,
         outletId,
+        takeLocation,
         postUrl,
         postDate,
         postTime,

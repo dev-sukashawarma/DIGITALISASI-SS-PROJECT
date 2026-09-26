@@ -43,6 +43,7 @@ export default async function ContentMetricsPage() {
     creator: item.creator,
     outletId: item.outletId ? item.outletId.toString() : null,
     outletName: item.outlet?.name || 'Official',
+    takeLocation: item.takeLocation || null,
     postUrl: item.postUrl,
     postDate: item.postDate.toISOString().split('T')[0],
     postTime: item.postTime || null,

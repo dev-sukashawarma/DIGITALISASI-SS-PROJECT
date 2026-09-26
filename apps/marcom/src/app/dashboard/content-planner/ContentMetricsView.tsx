@@ -68,6 +68,7 @@ export interface SerializedInternalContent {
   creator: string | null
   outletId: string | null
   outletName: string
+  takeLocation: string | null
   postUrl: string | null
   postDate: string
   postTime: string | null
@@ -549,7 +550,8 @@ export default function ContentMetricsView({
           item.pillar.toLowerCase().includes(search.toLowerCase()) ||
           (item.contentType && item.contentType.toLowerCase().includes(search.toLowerCase())) ||
           (item.creator && item.creator.toLowerCase().includes(search.toLowerCase())) ||
-          item.outletName.toLowerCase().includes(search.toLowerCase())
+          item.outletName.toLowerCase().includes(search.toLowerCase()) ||
+          (item.takeLocation && item.takeLocation.toLowerCase().includes(search.toLowerCase()))
 
         const matchesAds =
           adsFilter === 'ALL' ||
@@ -1570,6 +1572,15 @@ export default function ContentMetricsView({
                                   <span>{item.outletName}</span>
                                 </span>
                               )}
+                              {item.takeLocation && (
+                                <span
+                                  className="inline-flex items-center gap-1 text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200/70 px-2 py-0.5 rounded-md"
+                                  title={`Lokasi Take Konten: ${item.takeLocation}`}
+                                >
+                                  <Video className="w-3 h-3 text-teal-600" />
+                                  <span>Take: {item.takeLocation}</span>
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -2127,23 +2138,21 @@ export default function ContentMetricsView({
                 </div>
               </div>
 
-              {/* Marketing Goal */}
-              <div>
-                <label className="block text-xs font-bold text-[#1A1715] mb-1">Marketing Goal</label>
-                <select
-                  name="goal"
-                  value={createGoal}
-                  onChange={(e) => setCreateGoal(e.target.value)}
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                >
-                  {GOALS.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Pilar & Cabang */}
+              {/* Marketing Goal & Pilar Konten */}
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Marketing Goal</label>
+                  <select
+                    name="goal"
+                    value={createGoal}
+                    onChange={(e) => setCreateGoal(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                  >
+                    {GOALS.map((g) => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Pilar Konten</label>
                   <select
@@ -2157,16 +2166,36 @@ export default function ContentMetricsView({
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Cabang Outlet & Lokasi Take Konten */}
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
                   <select
                     name="outletId"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
                   >
                     <option value="ALL">Official</option>
                     {outlets.map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Lokasi Take Konten (Outlet)</label>
+                  <select
+                    name="takeLocation"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                  >
+                    <option value="">-- Pilih Lokasi Outlet --</option>
+                    <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Luar Outlet / Event">Luar Outlet / Event</option>
+                    <optgroup label="Cabang Outlet">
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.name}>{o.name}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
               </div>
@@ -2342,30 +2371,54 @@ export default function ContentMetricsView({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1">Pilar Konten</label>
+                <select
+                  name="pillar"
+                  defaultValue={editingContent.pillar}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                >
+                  {Object.entries(PILLARS).map(([key, val]) => (
+                    <option key={key} value={key}>{val.label}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Pilar Konten</label>
-                  <select
-                    name="pillar"
-                    defaultValue={editingContent.pillar}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  >
-                    {Object.entries(PILLARS).map(([key, val]) => (
-                      <option key={key} value={key}>{val.label}</option>
-                    ))}
-                  </select>
-                </div>
                 <div>
                   <label className="block text-xs font-bold text-[#1A1715] mb-1">Cabang Outlet</label>
                   <select
                     name="outletId"
                     defaultValue={editingContent.outletId || 'ALL'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
                   >
                     <option value="ALL">Official</option>
                     {outlets.map((o) => (
                       <option key={o.id} value={o.id}>{o.name}</option>
                     ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Lokasi Take Konten (Outlet)</label>
+                  <select
+                    name="takeLocation"
+                    defaultValue={editingContent.takeLocation || ''}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                  >
+                    <option value="">-- Pilih Lokasi Outlet --</option>
+                    <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Luar Outlet / Event">Luar Outlet / Event</option>
+                    {editingContent.takeLocation &&
+                      editingContent.takeLocation !== 'Studio / Kantor Pusat' &&
+                      editingContent.takeLocation !== 'Luar Outlet / Event' &&
+                      !outlets.some((o) => o.name === editingContent.takeLocation) && (
+                        <option value={editingContent.takeLocation}>{editingContent.takeLocation}</option>
+                    )}
+                    <optgroup label="Cabang Outlet">
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.name}>{o.name}</option>
+                      ))}
+                    </optgroup>
                   </select>
                 </div>
               </div>

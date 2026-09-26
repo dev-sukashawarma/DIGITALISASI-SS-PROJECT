@@ -183,6 +183,7 @@ export default function ContentPlannerView({
   const [createPostDate, setCreatePostDate] = useState(new Date().toISOString().split('T')[0])
   const [createPostTime, setCreatePostTime] = useState('11:00')
   const [createOutletId, setCreateOutletId] = useState('ALL')
+  const [createTakeLocation, setCreateTakeLocation] = useState('')
   const [createCreator, setCreateCreator] = useState('MARCOM')
   const [createPostUrl, setCreatePostUrl] = useState('')
   const [createIsAds, setCreateIsAds] = useState(false)
@@ -210,7 +211,8 @@ export default function ContentPlannerView({
           item.pillar.toLowerCase().includes(search.toLowerCase()) ||
           (item.contentType && item.contentType.toLowerCase().includes(search.toLowerCase())) ||
           (item.creator && item.creator.toLowerCase().includes(search.toLowerCase())) ||
-          item.outletName.toLowerCase().includes(search.toLowerCase())
+          item.outletName.toLowerCase().includes(search.toLowerCase()) ||
+          (item.takeLocation && item.takeLocation.toLowerCase().includes(search.toLowerCase()))
 
         const matchesAds =
           adsFilter === 'ALL' ||
@@ -498,6 +500,7 @@ export default function ContentPlannerView({
     setCreatePostDate(new Date().toISOString().split('T')[0])
     setCreatePostTime('11:00')
     setCreateOutletId(scope === 'OUTLET' ? (outlets[0]?.id || '') : 'ALL')
+    setCreateTakeLocation('')
     setCreateCreator('MARCOM')
     setCreatePostUrl('')
     setCreateIsAds(false)
@@ -1287,6 +1290,15 @@ export default function ContentPlannerView({
                                 <span>Official</span>
                               </span>
                             )}
+                            {item.takeLocation && (
+                              <span
+                                className="inline-flex items-center gap-1 text-xs font-semibold text-teal-800 bg-teal-50 border border-teal-200/70 px-2 py-0.5 rounded-md"
+                                title={`Lokasi Take Konten: ${item.takeLocation}`}
+                              >
+                                <Video className="w-3 h-3 text-teal-600" />
+                                <span>Take: {item.takeLocation}</span>
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -1769,7 +1781,7 @@ export default function ContentPlannerView({
                     name="outletId"
                     value={createOutletId}
                     onChange={(e) => setCreateOutletId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
                   >
                     <option value="ALL">Official</option>
                     {outlets.map((o) => (
@@ -1778,16 +1790,35 @@ export default function ContentPlannerView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">PIC Creator / Tim</label>
-                  <input
-                    type="text"
-                    name="creator"
-                    value={createCreator}
-                    onChange={(e) => setCreateCreator(e.target.value)}
-                    placeholder="MARCOM / Nama Talent"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  />
+                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Lokasi Take Konten (Outlet)</label>
+                  <select
+                    name="takeLocation"
+                    value={createTakeLocation}
+                    onChange={(e) => setCreateTakeLocation(e.target.value)}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                  >
+                    <option value="">-- Pilih Lokasi Outlet --</option>
+                    <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Luar Outlet / Event">Luar Outlet / Event</option>
+                    <optgroup label="Cabang Outlet">
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.name}>{o.name}</option>
+                      ))}
+                    </optgroup>
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1">PIC Creator / Tim</label>
+                <input
+                  type="text"
+                  name="creator"
+                  value={createCreator}
+                  onChange={(e) => setCreateCreator(e.target.value)}
+                  placeholder="MARCOM / Nama Talent"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                />
               </div>
 
 
@@ -1985,7 +2016,7 @@ export default function ContentPlannerView({
                   <select
                     name="outletId"
                     defaultValue={editingContent.outletId || 'ALL'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
                   >
                     <option value="ALL">Official</option>
                     {outlets.map((o) => (
@@ -1994,14 +2025,38 @@ export default function ContentPlannerView({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-[#1A1715] mb-1">PIC Creator</label>
-                  <input
-                    type="text"
-                    name="creator"
-                    defaultValue={editingContent.creator || 'MARCOM'}
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white"
-                  />
+                  <label className="block text-xs font-bold text-[#1A1715] mb-1">Lokasi Take Konten (Outlet)</label>
+                  <select
+                    name="takeLocation"
+                    defaultValue={editingContent.takeLocation || ''}
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                  >
+                    <option value="">-- Pilih Lokasi Outlet --</option>
+                    <option value="Studio / Kantor Pusat">Studio / Kantor Pusat</option>
+                    <option value="Luar Outlet / Event">Luar Outlet / Event</option>
+                    {editingContent.takeLocation &&
+                      editingContent.takeLocation !== 'Studio / Kantor Pusat' &&
+                      editingContent.takeLocation !== 'Luar Outlet / Event' &&
+                      !outlets.some((o) => o.name === editingContent.takeLocation) && (
+                        <option value={editingContent.takeLocation}>{editingContent.takeLocation}</option>
+                    )}
+                    <optgroup label="Cabang Outlet">
+                      {outlets.map((o) => (
+                        <option key={o.id} value={o.name}>{o.name}</option>
+                      ))}
+                    </optgroup>
+                  </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-[#1A1715] mb-1">PIC Creator</label>
+                <input
+                  type="text"
+                  name="creator"
+                  defaultValue={editingContent.creator || 'MARCOM'}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-[#EFE8DE] bg-[#FAF8F5] focus:bg-white text-stone-800"
+                />
               </div>
 
 

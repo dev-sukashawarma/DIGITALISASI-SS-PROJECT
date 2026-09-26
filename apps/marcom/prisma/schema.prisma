@@ -207,6 +207,7 @@ model InternalContent {
   isAds             Boolean  @default(false) @map("is_ads")
   creator           String?  @map("creator")
   outletId          BigInt?  @map("outlet_id")
+  takeLocation      String?  @map("take_location")
   postUrl           String?  @map("post_url")
   postDate          DateTime @map("post_date") @db.Date
   postTime          String?  @map("post_time")
@@ -230,6 +231,7 @@ model InternalContent {
   @@index([isAds], name: "idx_internal_content_ads")
   @@index([postDate], name: "idx_internal_content_date")
   @@index([outletId], name: "idx_internal_content_outlet")
+  @@index([takeLocation], name: "idx_internal_content_take_location")
   @@index([outletId, postDate], name: "idx_internal_content_outlet_date")
   @@index([platform, postDate], name: "idx_internal_content_platform_date")
   @@index([pillar, postDate], name: "idx_internal_content_pillar_date")

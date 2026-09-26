@@ -11,9 +11,11 @@ import type { PettyCashTransaction, DailyPettyCashSummary } from '@/components/o
 import type { AttendanceRecordExt } from '@/components/owner/AttendanceReportView'
 import { isTestOutlet, TEST_OUTLET_ID } from '@/lib/outletFilters'
 import { resolveCallerScope } from '@/lib/server/callerScope'
+import { bumpDayGenerations, daysGeneration } from '@/lib/server/dayGenerations'
 import { ambilRiwayatHpp, ambilVersiRiwayatHpp, buatPenerapRiwayat } from '@/lib/hpp/riwayatHpp'
 import {
   DAY_FETCH_CONCURRENCY,
+  codeFingerprint,
   eachDateInclusive,
   isDateStr,
   jakartaDate,
@@ -272,6 +274,7 @@ export async function revalidateOwnerDashboardCache(range?: { from: string; to: 
     : null
   if (dates && dates.length <= 400) {
     for (const d of dates) updateTag(ownerDashboardDayTag(d))
+    bumpDayGenerations(dates)
   } else {
     updateTag('owner-dashboard')
   }
@@ -294,6 +297,7 @@ export async function invalidateOwnerDashboardDays(dates: string[]) {
   const today = jakartaDate(new Date())
   const valid = Array.from(new Set(dates.filter((d) => isDateStr(d) && d < today))).slice(0, 31)
   for (const d of valid) updateTag(ownerDashboardDayTag(d))
+  bumpDayGenerations(valid)
 }
 
 /* ── Penggabungan dua potongan periode yang saling lepas (disjoint) ──────
@@ -422,6 +426,10 @@ async function fetchOwnerDashboardSummaryRaw(
   }
 }
 
+// Cache disimpan permanen (tahan redeploy): kunci ikut sidik jari kode
+// pengambil data, supaya perubahan kode otomatis membuat cache lama tak terpakai.
+const OWNER_CACHE_FINGERPRINT = codeFingerprint(fetchOwnerDashboardSummaryRaw, fetchEcommerceOwnerData)
+
 // ── Fast version: semua agregasi dikerjakan PostgreSQL via RPC + Smart Cache ────────────
 export async function getOwnerDashboardDataFast(
   filter: PeriodFilterValue,
@@ -466,7 +474,7 @@ export async function getOwnerDashboardDataFast(
     const { fromIso, toIso } = jakartaRangeIso(chunk.from, chunk.to)
     return unstable_cache(
       () => fetchOwnerDashboardSummaryRaw(supabase, fromIso, toIso, outletId, source),
-      ['owner-dashboard-chunk-v7', scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source],
+      ['owner-dashboard-chunk-v7', OWNER_CACHE_FINGERPRINT, scopeKey, hppVersion, chunk.from, chunk.to, outletId ?? 'all', source, daysGeneration(chunk.dates)],
       {
         revalidate: 3600,
         tags: ['owner-dashboard', ...chunk.dates.map(ownerDashboardDayTag)],

@@ -1,6 +1,11 @@
 // @ts-nocheck
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { revalidateTag } from 'next/cache'
+import { jakartaDate, ownerDashboardDayTag } from '@/lib/ownerDashboardCache'
+import { posReportDayTag, clearPosReportTodayMemo } from '@/lib/posReport/load'
+import { clearPrepared } from '@/lib/posReport/prepared'
+import { bumpDayGenerations } from '@/lib/server/dayGenerations'
 
 export async function POST(request: Request) {
   try {
@@ -158,6 +163,27 @@ export async function POST(request: Request) {
           if (ledgerError) console.error('Error deducting stock:', ledgerError)
         }
       }
+    }
+
+    // Penjualan SS Online untuk tanggal lampau baru saja masuk: buang cache hari
+    // tanggal-tanggal itu di Rangkuman Penjualan & Ringkasan Bisnis. Cache hari
+    // lampau berumur 24 jam dan tidak dipantau realtime untuk ecommerce_sales,
+    // jadi tanpa ini angka impor baru baru muncul besok.
+    try {
+      const dates = new Set<string>()
+      for (const s of salesToInsert) {
+        const d = new Date(s.order_date)
+        if (!Number.isNaN(d.getTime())) dates.add(jakartaDate(d))
+      }
+      for (const d of dates) {
+        revalidateTag(posReportDayTag(d), { expire: 0 })
+        revalidateTag(ownerDashboardDayTag(d), { expire: 0 })
+      }
+      bumpDayGenerations(Array.from(dates))
+      clearPrepared()
+      clearPosReportTodayMemo()
+    } catch (e) {
+      console.error('Gagal membuang cache laporan setelah impor:', e)
     }
 
     return NextResponse.json({ success: true, processed: newOrders.length })

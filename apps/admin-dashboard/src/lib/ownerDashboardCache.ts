@@ -146,3 +146,20 @@ export function orderDatesFromRealtime(payload: { new?: any; old?: any } | null 
   }
   return Array.from(out)
 }
+
+/**
+ * Sidik jari pendek dari kode/konstanta yang menentukan BENTUK data di cache.
+ * Dipakai sebagai bagian kunci cache yang disimpan permanen (tahan redeploy):
+ * begitu kode pengambil data berubah, sidik jarinya berubah dan cache lama
+ * otomatis tidak dipakai — tanpa bergantung pada developer ingat menaikkan
+ * nomor versi kunci. (FNV-1a 32-bit; cukup untuk membedakan versi kode.)
+ */
+export function codeFingerprint(...parts: Array<string | number | ((...args: any[]) => any)>): string {
+  let h = 0x811c9dc5
+  const text = parts.map((p) => (typeof p === 'function' ? p.toString() : String(p))).join('\u0001')
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193)
+  }
+  return (h >>> 0).toString(36)
+}

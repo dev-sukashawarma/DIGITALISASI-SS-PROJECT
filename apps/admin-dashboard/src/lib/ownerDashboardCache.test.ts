@@ -127,3 +127,14 @@ describe('isDateStr & jakartaRangeIso', () => {
     })
   })
 })
+
+describe('codeFingerprint', () => {
+  it('stabil untuk masukan sama, berubah bila kode berubah', async () => {
+    const { codeFingerprint } = await import('./ownerDashboardCache')
+    const f1 = (x: number) => x + 1
+    const f2 = (x: number) => x + 2
+    expect(codeFingerprint('a', f1, 1)).toBe(codeFingerprint('a', f1, 1))
+    expect(codeFingerprint('a', f1, 1)).not.toBe(codeFingerprint('a', f2, 1))
+    expect(codeFingerprint('a', 1)).not.toBe(codeFingerprint('b', 1))
+  })
+})

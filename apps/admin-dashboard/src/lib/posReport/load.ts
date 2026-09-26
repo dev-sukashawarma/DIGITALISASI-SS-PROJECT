@@ -18,16 +18,25 @@ import {
   DAY_FETCH_CONCURRENCY,
   eachDateInclusive,
   jakartaRangeIso,
+  codeFingerprint,
   mapWithConcurrency,
   splitRangeByToday,
 } from '@/lib/ownerDashboardCache'
-import { encodeDay, decodeDay } from './dayCodec'
+import { encodeDay, decodeDay, DAY_CODEC_VERSION } from './dayCodec'
 import { isTestOutlet } from '@/lib/outletFilters'
+import { dayGeneration } from '@/lib/server/dayGenerations'
 
 export const posReportDayTag = (date: string) => `pos-report-day:${date}`
 
 const PAGE_SIZE = 1000
-const TODAY_MEMO_TTL_MS = 10_000
+// Sama dengan jeda minimum refresh realtime (20 dtk): berapa pun tab yang
+// terbuka, data hari ini diambil dari database paling banyak 3x per menit.
+const TODAY_MEMO_TTL_MS = 20_000
+// Hari lampau hampir tak pernah berubah; kalau berubah, cache tanggal itu
+// dibuang lewat tag (realtime order lampau, tombol Segarkan Data, impor SS
+// Online). HPP tidak ikut disimpan — dihitung saat laporan diminta — jadi
+// perubahan HPP tidak menunggu cache ini kedaluwarsa.
+const PAST_DAY_TTL_S = 86_400
 const todayMemo = new Map<string, { at: number; promise: Promise<any> }>()
 
 export function clearPosReportTodayMemo() {
@@ -111,6 +120,11 @@ export async function fetchRangeRaw(supabase: any, fromIso: string, toIso: strin
   return { pos, ecommerce: ecommerce.map(mapEcommerceSale) }
 }
 
+// Cache hari disimpan permanen (tahan redeploy). Kunci ikut sidik jari kode
+// yang menentukan bentuk isinya, jadi perubahan select/pemetaan otomatis
+// membuat cache lama tak terpakai. Lihat codeFingerprint.
+const DAY_CACHE_FINGERPRINT = codeFingerprint(ORDER_SELECT, ECOMMERCE_SELECT, DAY_CODEC_VERSION, mapEcommerceSale, fetchRangeRaw)
+
 export function encodeRange(raw: { pos: any[]; ecommerce: any[] }) {
   return { pos: encodeDay(raw.pos), ecommerce: encodeDay(raw.ecommerce), fetchedAt: new Date().toISOString() }
 }
@@ -133,8 +147,10 @@ export async function loadPosReportOrders(
     const { fromIso, toIso } = jakartaRangeIso(date, date)
     return unstable_cache(
       async () => encodeRange(await fetchRangeRaw(supabase, fromIso, toIso)),
-      ['pos-report-day-v2', scopeKey, date],
-      { revalidate: 3600, tags: ['pos-report', posReportDayTag(date)] }
+      // dayGeneration: naik tiap cache tanggal ini dibuang, tersimpan di disk →
+      // pembuangan tetap berlaku sesudah restart/redeploy.
+      ['pos-report-day-v2', DAY_CACHE_FINGERPRINT, scopeKey, date, String(dayGeneration(date))],
+      { revalidate: PAST_DAY_TTL_S, tags: ['pos-report', posReportDayTag(date)] }
     )()
   }
 

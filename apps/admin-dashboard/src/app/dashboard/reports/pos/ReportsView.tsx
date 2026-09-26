@@ -54,13 +54,21 @@ const RANGE_LABELS: Record<DateRangeType, string> = {
 
 interface ReportsViewProps {
   initialOutlets: Outlet[]
+  /** Hasil getPosReport yang sudah disiapkan server untuk filter bawaan,
+   *  agar halaman tampil berisi tanpa menunggu permintaan kedua dari browser. */
+  initialReport?: Awaited<ReturnType<typeof getPosReport>> | null
+  /** JSON permintaan yang menghasilkan initialReport — dipakai hanya bila
+   *  permintaan pertama browser persis sama (mis. zona waktu browser berbeda). */
+  initialRequestKey?: string | null
 }
 
-export default function ReportsView({ initialOutlets: rawInitialOutlets }: ReportsViewProps) {
+export default function ReportsView({ initialOutlets: rawInitialOutlets, initialReport = null, initialRequestKey = null }: ReportsViewProps) {
   const initialOutlets = useMemo(() => rawInitialOutlets.filter(o => !isTestOutlet(o)), [rawInitialOutlets])
   // Hasil laporan dari server (lihat app/actions/posReport). Browser tidak lagi
   // menyimpan seluruh order mentah — hanya ringkasan + satu halaman tabel.
-  const [report, setReport] = useState<Awaited<ReturnType<typeof getPosReport>> | null>(null)
+  const [report, setReport] = useState<Awaited<ReturnType<typeof getPosReport>> | null>(initialReport)
+  // Permintaan pertama yang sama persis dengan data dari server tidak perlu dikirim ulang.
+  const skipInitialFetchRef = useRef<string | null>(initialReport ? initialRequestKey : null)
   const [reportError, setReportError] = useState<string | null>(null)
   const [outlets] = useState<Outlet[]>(initialOutlets)
   const [selectedOutlets, setSelectedOutlets] = useState<string[]>(
@@ -84,7 +92,7 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
   // Kerangka (skeleton) hanya saat belum ada data sama sekali; pembaruan
   // berikutnya (ganti halaman, cari, realtime) tidak mengosongkan layar.
   const loading = !report
-  const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toISOString())
+  const [lastUpdated, setLastUpdated] = useState<string>(() => initialReport?.fetchedAt ?? new Date().toISOString())
   const todayJakarta = useMemo(() => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date()), [])
 
   // Date Range State
@@ -241,7 +249,12 @@ export default function ReportsView({ initialOutlets: rawInitialOutlets }: Repor
     }
   }, [reportRequest])
 
-  useEffect(() => { fetchOrders() }, [fetchOrders])
+  useEffect(() => {
+    const skipKey = skipInitialFetchRef.current
+    skipInitialFetchRef.current = null
+    if (skipKey && reportRequest && JSON.stringify(reportRequest) === skipKey) return
+    fetchOrders()
+  }, [fetchOrders])
 
   // Realtime: dulu setiap order dari outlet MANA PUN membuat browser menarik
   // ulang seluruh rentang langsung dari Supabase (±24 MB "Bulan ini").

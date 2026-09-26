@@ -79,14 +79,38 @@ async function fetchMonthlySalesBonuses(
       supabase.rpc('get_monthly_rm_bonus', { p_month: month, p_year: year }),
     ])
 
-    // 1. Crew & Leader Bonuses
+    // 1. Crew & Leader Bonuses (mendukung akumulasi multi-outlet bagi crew backup)
     if (crewRes.data && Array.isArray(crewRes.data)) {
+      const crewAggMap = new Map<string, { total: number; details: string[] }>()
       crewRes.data.forEach((c: any) => {
         const amount = Number(c.total_bonus) || 0
         if (amount > 0) {
-          bonusMap.set(c.crew_id, {
-            bonus: amount,
-            note: `Sales Bonus: Rp ${amount.toLocaleString('id-ID')} (Pool: ${c.total_pcs_outlet} pcs / ${c.active_crew_count} kru)`,
+          const daysText = c.attendance_days > 0 ? `${c.attendance_days} hari` : `${c.active_crew_count} kru`
+          const outNameClean = (c.outlet_name || '').replace('SUKA SHAWARMA ', '').replace('MITRA SUKA ', 'MITRA ')
+          const itemText = `${outNameClean} (${daysText}: Rp ${amount.toLocaleString('id-ID')})`
+          const prev = crewAggMap.get(c.crew_id)
+          if (prev) {
+            prev.total += amount
+            prev.details.push(itemText)
+          } else {
+            crewAggMap.set(c.crew_id, {
+              total: amount,
+              details: [itemText],
+            })
+          }
+        }
+      })
+
+      crewAggMap.forEach((val, staffId) => {
+        if (val.details.length > 1) {
+          bonusMap.set(staffId, {
+            bonus: val.total,
+            note: `Sales Bonus Multi-Outlet: Rp ${val.total.toLocaleString('id-ID')} (${val.details.join(', ')})`,
+          })
+        } else {
+          bonusMap.set(staffId, {
+            bonus: val.total,
+            note: `Sales Bonus: Rp ${val.total.toLocaleString('id-ID')} (${val.details[0]})`,
           })
         }
       })

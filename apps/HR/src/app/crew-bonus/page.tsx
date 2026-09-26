@@ -363,7 +363,7 @@ export default function CrewBonusPage() {
             <p className="text-xs font-medium text-suka-ink">
               {activeTab === 'crew' && (
                 <>
-                  <span className="text-suka-orange font-bold">Pool Cabang (Pcs × Rp 100)</span> ÷ Jumlah Staf Cabang (Crew + Leader)
+                  <span className="text-suka-orange font-bold">Pool Cabang (Pcs × Rp 100)</span> × (Hari Hadir Kru ÷ Total Hari Hadir Cabang)
                 </>
               )}
               {activeTab === 'am' && (
@@ -469,67 +469,113 @@ export default function CrewBonusPage() {
                 <thead className="bg-suka-gray-50 border-b border-suka-gray-200 text-suka-gray-500 font-bold uppercase tracking-wider text-[11px]">
                   <tr>
                     <th className="px-5 py-3.5">Nama Staf</th>
-                    <th className="px-5 py-3.5">Role</th>
+                    <th className="px-5 py-3.5">Role / Sub-Role</th>
                     <th className="px-5 py-3.5">Outlet &amp; Pool Cabang</th>
+                    <th className="px-5 py-3.5 text-center">Kehadiran Aktual</th>
                     <th className="px-5 py-3.5 text-right">Bonus Diterima</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-suka-gray-100 text-suka-ink">
-                  {filteredCrew.map((row) => (
-                    <tr key={row.crew_id} className="hover:bg-suka-cream/40 transition-colors">
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                              row.role === 'leader'
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-orange-100 text-suka-orange'
-                            }`}
-                          >
-                            {row.crew_name.charAt(0).toUpperCase()}
+                  {filteredCrew.map((row) => {
+                    const hasAttendance = (row.attendance_days || 0) > 0
+                    const percentShare =
+                      hasAttendance && (row.total_attendance_days || 0) > 0
+                        ? Math.round(((row.attendance_days || 0) / (row.total_attendance_days || 1)) * 100)
+                        : null
+
+                    return (
+                      <tr key={`${row.crew_id}_${row.outlet_id}`} className="hover:bg-suka-cream/40 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-2.5">
+                            <div
+                              className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                row.role === 'leader'
+                                  ? 'bg-amber-100 text-amber-800'
+                                  : row.sub_role === 'crew_backup'
+                                  ? 'bg-purple-100 text-purple-700'
+                                  : 'bg-orange-100 text-suka-orange'
+                              }`}
+                            >
+                              {row.crew_name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <span className="font-bold text-suka-brown block">{row.crew_name}</span>
+                              {row.sub_role === 'crew_backup' && (
+                                <span className="inline-flex items-center text-[10px] text-purple-600 font-semibold">
+                                  Mobile Backup
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          <span className="font-bold text-suka-brown">{row.crew_name}</span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <span
-                          className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
-                            row.role === 'leader'
-                              ? 'bg-amber-50 text-amber-800 border-amber-200'
-                              : 'bg-suka-gray-100 text-suka-gray-600 border-suka-gray-200'
-                          }`}
-                        >
-                          {row.role}
-                        </span>
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <div className="space-y-1">
-                          <div className="font-bold text-suka-brown flex items-center gap-1.5">
-                            <Store className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
-                            <span>{cleanOutletName(row.outlet_name)}</span>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono">
-                            <span className="text-suka-gray-600 font-medium">
-                              {formatNumber(row.total_pcs_outlet)} pcs
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                              className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border ${
+                                row.role === 'leader'
+                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                  : 'bg-suka-gray-100 text-suka-gray-600 border-suka-gray-200'
+                              }`}
+                            >
+                              {row.role}
                             </span>
-                            <span className="text-suka-gray-300">•</span>
-                            <span className="text-suka-orange font-bold bg-orange-50 px-1.5 py-0.2 rounded border border-orange-100">
-                              Pool {formatRupiah(row.total_pcs_outlet * row.bonus_rate)}
-                            </span>
+                            {row.sub_role === 'crew_backup' && (
+                              <span className="inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200">
+                                Backup
+                              </span>
+                            )}
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700 text-sm">
-                        {formatRupiah(row.total_bonus)}
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="px-5 py-3.5">
+                          <div className="space-y-1">
+                            <div className="font-bold text-suka-brown flex items-center gap-1.5">
+                              <Store className="w-3.5 h-3.5 text-suka-gray-400 shrink-0" />
+                              <span>{cleanOutletName(row.outlet_name)}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-mono">
+                              <span className="text-suka-gray-600 font-medium">
+                                {formatNumber(row.total_pcs_outlet)} pcs
+                              </span>
+                              <span className="text-suka-gray-300">•</span>
+                              <span className="text-suka-orange font-bold bg-orange-50 px-1.5 py-0.2 rounded border border-orange-100">
+                                Pool {formatRupiah(row.total_pcs_outlet * row.bonus_rate)}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-center">
+                          {hasAttendance ? (
+                            <div className="inline-flex flex-col items-center">
+                              <span className="font-mono font-bold text-suka-brown text-xs">
+                                {row.attendance_days}{' '}
+                                <span className="text-suka-gray-400 font-normal">
+                                  / {row.total_attendance_days} hari
+                                </span>
+                              </span>
+                              {percentShare !== null && (
+                                <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded font-bold border border-emerald-100 mt-0.5">
+                                  {percentShare}% porsi
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-suka-gray-400 italic">
+                              Fallback (Rata {row.active_crew_count} kru)
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3.5 text-right font-mono tabular-nums font-black text-emerald-700 text-sm">
+                          {formatRupiah(row.total_bonus)}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
                 {/* Footer */}
                 <tfoot className="bg-suka-gray-50 border-t-2 border-suka-gray-200 text-suka-ink font-bold">
                   <tr>
-                    <td colSpan={2} className="px-5 py-3 text-xs">
-                      Total ({filteredCrew.length} staf kru &amp; leader)
+                    <td colSpan={3} className="px-5 py-3 text-xs">
+                      Total ({filteredCrew.length} entri kru &amp; leader)
                     </td>
                     <td className="px-5 py-3 text-right text-xs text-suka-gray-500">
                       Total Bonus Kru &amp; Leader:

@@ -7,9 +7,12 @@ export interface CrewBonusRow {
   crew_id: string
   crew_name: string
   role: string
+  sub_role?: string
   outlet_id: string
   outlet_name: string
   total_pcs_outlet: number
+  attendance_days?: number
+  total_attendance_days?: number
   active_crew_count: number
   bonus_rate: number
   total_bonus: number
@@ -111,9 +114,12 @@ export function useMonthlyCrewBonus({ month, year, outletId }: CrewBonusParams) 
         crew_id: r.crew_id,
         crew_name: r.crew_name || 'Tanpa Nama',
         role: r.role || 'crew',
+        sub_role: r.sub_role || 'crew_regular',
         outlet_id: r.outlet_id,
         outlet_name: r.outlet_name || 'Unknown Outlet',
         total_pcs_outlet: Number(r.total_pcs_outlet) || 0,
+        attendance_days: Number(r.attendance_days) || 0,
+        total_attendance_days: Number(r.total_attendance_days) || 0,
         active_crew_count: Number(r.active_crew_count) || 0,
         bonus_rate: Number(r.bonus_rate) || 100,
         total_bonus: Number(r.total_bonus) || 0,
